@@ -48,12 +48,12 @@ const data = {
     },
     {
       title: "Savings",
-      url: "/analytics",
+      url: "/savings",
       icon: IconListDetails,
     },
     {
       title: "Analytics",
-      url: "#",
+      url: "/analytics",
       icon: IconChartBar,
     },
     {
