@@ -2,6 +2,16 @@
 
 import { AppSidebar } from "@/components/app-sidebar"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
+import {
+  ChartCirclePacking,
+  ChartPolarBar,
+  ChartRadar,
+  ChartRadialBar,
+  ChartSankey,
+  ChartStream,
+  ChartSwarmPlot,
+  ChartTreeMap,
+} from "@/components/analytics-advanced-charts"
 import { ChartCategoryFlow } from "@/components/chart-category-flow"
 import { ChartExpensesPie } from "@/components/chart-expenses-pie"
 import { ChartSpendingFunnel } from "@/components/chart-spending-funnel"
@@ -38,6 +48,24 @@ export default function AnalyticsPage() {
               <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
                 <ChartSpendingFunnel />
                 <ChartExpensesPie />
+              </div>
+              <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
+                <ChartCirclePacking />
+                <ChartPolarBar />
+              </div>
+              <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
+                <ChartRadar />
+                <ChartRadialBar />
+              </div>
+              <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
+                <ChartTreeMap />
+                <ChartStream />
+              </div>
+              <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
+                <ChartSwarmPlot />
+              </div>
+              <div className="px-4 lg:px-6">
+                <ChartSankey />
               </div>
             </div>
           </div>
