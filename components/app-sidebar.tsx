@@ -48,7 +48,7 @@ const data = {
     },
     {
       title: "Savings",
-      url: "/savings",
+      url: "/analytics",
       icon: IconListDetails,
     },
     {
