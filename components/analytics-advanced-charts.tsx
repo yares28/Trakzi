@@ -27,62 +27,53 @@ const circlePackingData = {
   name: "FY25 Budget",
   children: [
     {
-      name: "Product",
+      name: "Essentials",
       children: [
-        { name: "Mobile", value: 210 },
-        { name: "Web", value: 180 },
-        { name: "Data Platform", value: 160 },
+        { name: "Housing", value: 1800 },
+        { name: "Utilities", value: 280 },
+        { name: "Groceries", value: 450 },
       ],
     },
     {
-      name: "Customer Experience",
+      name: "Lifestyle",
       children: [
-        { name: "Support", value: 140 },
-        { name: "Success", value: 130 },
-        { name: "Enablement", value: 90 },
+        { name: "Entertainment", value: 200 },
+        { name: "Dining", value: 154 },
+        { name: "Personal Care", value: 100 },
       ],
     },
     {
-      name: "Go-To-Market",
+      name: "Financial",
       children: [
-        { name: "Demand Gen", value: 170 },
-        { name: "Field Sales", value: 195 },
-        { name: "Channel", value: 120 },
+        { name: "Savings", value: 500 },
+        { name: "Insurance", value: 300 },
+        { name: "Healthcare", value: 120 },
       ],
     },
     {
-      name: "Future Bets",
+      name: "Transport",
       children: [
-        { name: "AI Lab", value: 150 },
-        { name: "Automation R&D", value: 135 },
-        { name: "Venture Fund", value: 100 },
-      ],
-    },
-    {
-      name: "Reserves",
-      children: [
-        { name: "Cash Buffer", value: 260 },
-        { name: "Debt Paydown", value: 180 },
+        { name: "Transportation", value: 350 },
       ],
     },
   ],
 }
 
 const polarBarData = [
-  { month: "Jan", Rent: 1180, Groceries: 520, Transport: 260, Savings: 620, Misc: 180 },
-  { month: "Feb", Rent: 1180, Groceries: 540, Transport: 240, Savings: 580, Misc: 210 },
-  { month: "Mar", Rent: 1180, Groceries: 510, Transport: 300, Savings: 650, Misc: 170 },
-  { month: "Apr", Rent: 1180, Groceries: 495, Transport: 280, Savings: 690, Misc: 160 },
-  { month: "May", Rent: 1180, Groceries: 470, Transport: 320, Savings: 720, Misc: 150 },
-  { month: "Jun", Rent: 1180, Groceries: 450, Transport: 310, Savings: 760, Misc: 140 },
+  { month: "Jan", Essentials: 1200, Lifestyle: 400, Transport: 200, Financial: 600, Utilities: 300 },
+  { month: "Feb", Essentials: 1200, Lifestyle: 450, Transport: 180, Financial: 550, Utilities: 320 },
+  { month: "Mar", Essentials: 1200, Lifestyle: 380, Transport: 220, Financial: 700, Utilities: 280 },
+  { month: "Apr", Essentials: 1200, Lifestyle: 420, Transport: 210, Financial: 650, Utilities: 290 },
+  { month: "May", Essentials: 1200, Lifestyle: 500, Transport: 240, Financial: 600, Utilities: 250 },
+  { month: "Jun", Essentials: 1200, Lifestyle: 480, Transport: 230, Financial: 750, Utilities: 260 },
 ]
 
 const radarData = [
-  { capability: "Automation", "Squad Atlas": 82, "Squad Nova": 74, "Squad Pulse": 68 },
-  { capability: "Customer Exp", "Squad Atlas": 76, "Squad Nova": 88, "Squad Pulse": 81 },
-  { capability: "Compliance", "Squad Atlas": 70, "Squad Nova": 64, "Squad Pulse": 86 },
-  { capability: "Cost Control", "Squad Atlas": 66, "Squad Nova": 72, "Squad Pulse": 60 },
-  { capability: "Scalability", "Squad Atlas": 90, "Squad Nova": 78, "Squad Pulse": 92 },
+  { capability: "Savings Rate", "This Year": 85, "Last Year": 70, "Target": 90 },
+  { capability: "Debt Mgmt", "This Year": 92, "Last Year": 80, "Target": 95 },
+  { capability: "Investments", "This Year": 78, "Last Year": 65, "Target": 85 },
+  { capability: "Budgeting", "This Year": 88, "Last Year": 75, "Target": 90 },
+  { capability: "Emergency Fund", "This Year": 95, "Last Year": 60, "Target": 100 },
 ]
 
 const sankeyData = {
@@ -115,103 +106,120 @@ const sankeyData = {
 const streamData = [
   {
     month: "Jan",
-    "North America": 32,
-    EMEA: 22,
-    APAC: 15,
-    LATAM: 10,
-    "SMB Deals": 18,
-    "Enterprise Deals": 24,
+    Salary: 4850,
+    Freelance: 1200,
+    Dividends: 150,
+    Interest: 50,
+    Other: 200,
+    Expenses: -3200,
   },
   {
     month: "Feb",
-    "North America": 35,
-    EMEA: 24,
-    APAC: 18,
-    LATAM: 12,
-    "SMB Deals": 20,
-    "Enterprise Deals": 26,
+    Salary: 5100,
+    Freelance: 1500,
+    Dividends: 150,
+    Interest: 55,
+    Other: 100,
+    Expenses: -3400,
   },
   {
     month: "Mar",
-    "North America": 38,
-    EMEA: 26,
-    APAC: 20,
-    LATAM: 14,
-    "SMB Deals": 23,
-    "Enterprise Deals": 28,
+    Salary: 4900,
+    Freelance: 800,
+    Dividends: 180,
+    Interest: 60,
+    Other: 300,
+    Expenses: -3100,
   },
   {
     month: "Apr",
-    "North America": 42,
-    EMEA: 28,
-    APAC: 22,
-    LATAM: 15,
-    "SMB Deals": 25,
-    "Enterprise Deals": 31,
+    Salary: 5300,
+    Freelance: 2000,
+    Dividends: 160,
+    Interest: 65,
+    Other: 150,
+    Expenses: -3600,
   },
   {
     month: "May",
-    "North America": 46,
-    EMEA: 30,
-    APAC: 25,
-    LATAM: 16,
-    "SMB Deals": 27,
-    "Enterprise Deals": 34,
+    Salary: 5150,
+    Freelance: 1800,
+    Dividends: 200,
+    Interest: 70,
+    Other: 250,
+    Expenses: -3300,
   },
   {
     month: "Jun",
-    "North America": 44,
-    EMEA: 29,
-    APAC: 26,
-    LATAM: 17,
-    "SMB Deals": 29,
-    "Enterprise Deals": 32,
+    Salary: 5400,
+    Freelance: 2200,
+    Dividends: 220,
+    Interest: 75,
+    Other: 400,
+    Expenses: -3800,
   },
 ]
 
 const swarmData = [
-  { id: "deal-1", group: "Inbound", price: 48, volume: 5 },
-  { id: "deal-2", group: "Inbound", price: 95, volume: 7 },
-  { id: "deal-3", group: "Inbound", price: 140, volume: 6 },
-  { id: "deal-4", group: "Inbound", price: 180, volume: 8 },
-  { id: "deal-5", group: "Channel", price: 225, volume: 9 },
-  { id: "deal-6", group: "Channel", price: 265, volume: 10 },
-  { id: "deal-7", group: "Channel", price: 320, volume: 11 },
-  { id: "deal-8", group: "Channel", price: 360, volume: 13 },
-  { id: "deal-9", group: "Enterprise", price: 410, volume: 15 },
-  { id: "deal-10", group: "Enterprise", price: 455, volume: 17 },
-  { id: "deal-11", group: "Enterprise", price: 480, volume: 19 },
-  { id: "deal-12", group: "Enterprise", price: 510, volume: 20 },
-  { id: "deal-13", group: "Inbound", price: 70, volume: 5 },
-  { id: "deal-14", group: "Channel", price: 295, volume: 9 },
-  { id: "deal-15", group: "Enterprise", price: 530, volume: 21 },
+  { id: "tx-1", group: "Essentials", price: 124, volume: 15 },
+  { id: "tx-2", group: "Essentials", price: 85, volume: 12 },
+  { id: "tx-3", group: "Essentials", price: 240, volume: 18 },
+  { id: "tx-4", group: "Essentials", price: 45, volume: 8 },
+  { id: "tx-5", group: "Lifestyle", price: 150, volume: 14 },
+  { id: "tx-6", group: "Lifestyle", price: 65, volume: 10 },
+  { id: "tx-7", group: "Lifestyle", price: 35, volume: 6 },
+  { id: "tx-8", group: "Lifestyle", price: 90, volume: 11 },
+  { id: "tx-9", group: "Transport", price: 45, volume: 9 },
+  { id: "tx-10", group: "Transport", price: 30, volume: 7 },
+  { id: "tx-11", group: "Transport", price: 60, volume: 10 },
+  { id: "tx-12", group: "Financial", price: 300, volume: 19 },
+  { id: "tx-13", group: "Financial", price: 150, volume: 16 },
+  { id: "tx-14", group: "Essentials", price: 180, volume: 17 },
+  { id: "tx-15", group: "Lifestyle", price: 120, volume: 13 },
+  { id: "tx-16", group: "Transport", price: 25, volume: 5 },
+  { id: "tx-17", group: "Essentials", price: 60, volume: 9 },
+  { id: "tx-18", group: "Lifestyle", price: 200, volume: 16 },
+  { id: "tx-19", group: "Financial", price: 450, volume: 20 },
+  { id: "tx-20", group: "Transport", price: 80, volume: 12 },
+  { id: "tx-21", group: "Essentials", price: 95, volume: 11 },
+  { id: "tx-22", group: "Lifestyle", price: 110, volume: 13 },
+  { id: "tx-23", group: "Transport", price: 55, volume: 8 },
+  { id: "tx-24", group: "Financial", price: 250, volume: 18 },
+  { id: "tx-25", group: "Essentials", price: 160, volume: 15 },
 ]
 
 const treemapData = {
-  name: "Portfolio",
+  name: "Net Worth",
   children: [
     {
-      name: "Recurring",
+      name: "Liquid Assets",
       children: [
-        { name: "Enterprise MRR", loc: 220 },
-        { name: "Growth MRR", loc: 180 },
-        { name: "SMB MRR", loc: 140 },
+        { name: "Savings Account", loc: 25000 },
+        { name: "Checking Account", loc: 8000 },
+        { name: "Cash", loc: 1500 },
       ],
     },
     {
-      name: "Services",
+      name: "Investments",
       children: [
-        { name: "Implementation", loc: 130 },
-        { name: "Advisory", loc: 110 },
-        { name: "Managed Ops", loc: 95 },
+        { name: "Stock Portfolio", loc: 45000 },
+        { name: "ETFs", loc: 30000 },
+        { name: "Crypto", loc: 5000 },
+        { name: "Bonds", loc: 10000 },
       ],
     },
     {
-      name: "Experiments",
+      name: "Retirement",
       children: [
-        { name: "Marketplace", loc: 85 },
-        { name: "Payments", loc: 70 },
-        { name: "Embedded Finance", loc: 60 },
+        { name: "401(k)", loc: 85000 },
+        { name: "Roth IRA", loc: 22000 },
+      ],
+    },
+    {
+      name: "Property",
+      children: [
+        { name: "Home Equity", loc: 120000 },
+        { name: "Vehicle", loc: 15000 },
       ],
     },
   ],
@@ -225,23 +233,26 @@ const radialBarData = [
   { name: "Government", uv: 18, pv: 900, fill: "#14b8a6" },
 ]
 
+import { useColorScheme } from "@/components/color-scheme-provider"
+
 export function ChartCirclePacking() {
+  const { getPalette } = useColorScheme()
   return (
     <Card>
       <CardHeader>
         <CardTitle>Budget Distribution</CardTitle>
-        <CardDescription>Visualizes how cash is split across teams</CardDescription>
+        <CardDescription>Visualizes how your budget is allocated across categories</CardDescription>
       </CardHeader>
       <CardContent className="h-[420px]">
         <ResponsiveCirclePacking
           data={circlePackingData}
           margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+          id="name"
           padding={4}
-          enableLabels
-          labelsFilter={(e) => e.node.depth === 2}
-          labelsSkipRadius={12}
-          colors={{ scheme: "spectral" }}
-          colorBy="id"
+          enableLabels={true}
+          labelsFilter={(e) => 2 === e.node.depth}
+          labelsSkipRadius={10}
+          colors={getPalette()}
         />
       </CardContent>
     </Card>
@@ -249,6 +260,7 @@ export function ChartCirclePacking() {
 }
 
 export function ChartPolarBar() {
+  const { getPalette } = useColorScheme()
   return (
     <Card>
       <CardHeader>
@@ -258,7 +270,7 @@ export function ChartPolarBar() {
       <CardContent className="h-[420px]">
         <ResponsivePolarBar
           data={polarBarData}
-          keys={["Rent", "Groceries", "Transport", "Savings", "Misc"]}
+          keys={["Essentials", "Lifestyle", "Transport", "Financial", "Utilities"]}
           indexBy="month"
           valueSteps={5}
           valueFormat=">-$.0f"
@@ -267,8 +279,9 @@ export function ChartPolarBar() {
           cornerRadius={2}
           borderWidth={1}
           arcLabelsSkipRadius={28}
-          radialAxis={{ angle: 180, tickSize: 5, tickPadding: 5, tickRotation: 0 }}
+          radialAxis={{ angle: 180, tickSize: 5, tickPadding: 5, tickRotation: 0, ticksPosition: 'after' }}
           circularAxisOuter={{ tickSize: 5, tickPadding: 15, tickRotation: 0 }}
+          colors={getPalette()}
           legends={[
             {
               anchor: "bottom",
@@ -286,16 +299,17 @@ export function ChartPolarBar() {
 }
 
 export function ChartRadar() {
+  const { getPalette } = useColorScheme()
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Capability Readiness</CardTitle>
-        <CardDescription>Compare delivery squads by strength area</CardDescription>
+        <CardTitle>Financial Health Score</CardTitle>
+        <CardDescription>Assessment of your financial wellness</CardDescription>
       </CardHeader>
       <CardContent className="h-[420px]">
         <ResponsiveRadar
           data={radarData}
-          keys={["Squad Atlas", "Squad Nova", "Squad Pulse"]}
+          keys={["This Year", "Last Year", "Target"]}
           indexBy="capability"
           margin={{ top: 70, right: 80, bottom: 40, left: 80 }}
           gridLabelOffset={36}
@@ -303,6 +317,7 @@ export function ChartRadar() {
           dotColor={{ theme: "background" }}
           dotBorderWidth={2}
           blendMode="multiply"
+          colors={getPalette()}
           legends={[
             {
               anchor: "top-left",
@@ -321,6 +336,7 @@ export function ChartRadar() {
 }
 
 export function ChartSankey() {
+  const { getPalette } = useColorScheme()
   return (
     <Card className="col-span-full">
       <CardHeader>
@@ -332,7 +348,7 @@ export function ChartSankey() {
           data={sankeyData}
           margin={{ top: 40, right: 160, bottom: 40, left: 50 }}
           align="justify"
-          colors={{ scheme: "category10" }}
+          colors={getPalette()}
           nodeOpacity={1}
           nodeHoverOthersOpacity={0.35}
           nodeThickness={18}
@@ -342,7 +358,6 @@ export function ChartSankey() {
           linkOpacity={0.5}
           linkHoverOthersOpacity={0.1}
           linkContract={3}
-          enableLinkGradient
           labelPosition="outside"
           labelOrientation="vertical"
           labelPadding={16}
@@ -367,39 +382,42 @@ export function ChartSankey() {
 }
 
 export function ChartStream() {
+  const { getPalette } = useColorScheme()
   return (
-    <Card>
+    <Card className="col-span-full">
       <CardHeader>
-        <CardTitle>Revenue Stream</CardTitle>
-        <CardDescription>Layered forecast by sales pod</CardDescription>
+        <CardTitle>Income Streams</CardTitle>
+        <CardDescription>Monthly income breakdown by source</CardDescription>
       </CardHeader>
       <CardContent className="h-[420px]">
         <ResponsiveStream
           data={streamData}
+          colors={getPalette()}
           keys={[
-            "North America",
-            "EMEA",
-            "APAC",
-            "LATAM",
-            "SMB Deals",
-            "Enterprise Deals",
+            "Salary",
+            "Freelance",
+            "Dividends",
+            "Interest",
+            "Other",
+            "Expenses",
           ]}
           margin={{ top: 50, right: 110, bottom: 50, left: 60 }}
-          enableGridX
+          enableGridX={true}
           enableGridY={false}
-          borderColor={{ theme: "background" }}
+          offsetType="none"
+          borderColor={{ theme: 'background' }}
           dotSize={8}
           dotBorderWidth={2}
-          dotBorderColor={{ from: "color", modifiers: [["darker", 0.7]] }}
+          dotBorderColor={{ from: 'color', modifiers: [['darker', 0.7]] }}
           legends={[
             {
-              anchor: "bottom-right",
-              direction: "column",
+              anchor: 'bottom-right',
+              direction: 'column',
               translateX: 100,
               itemWidth: 80,
               itemHeight: 20,
-              symbolShape: "circle",
-            },
+              symbolShape: 'circle'
+            }
           ]}
         />
       </CardContent>
@@ -408,24 +426,26 @@ export function ChartStream() {
 }
 
 export function ChartSwarmPlot() {
+  const { getPalette } = useColorScheme()
   return (
-    <Card>
+    <Card className="col-span-full">
       <CardHeader>
-        <CardTitle>Transaction Swarm</CardTitle>
-        <CardDescription>Ticket sizes clustered by customer groups</CardDescription>
+        <CardTitle>Transaction History</CardTitle>
+        <CardDescription>Recent transactions by category</CardDescription>
       </CardHeader>
       <CardContent className="h-[420px]">
         <ResponsiveSwarmPlot
           data={swarmData}
-          groups={["Inbound", "Channel", "Enterprise"]}
+          colors={getPalette()}
+          groups={["Essentials", "Lifestyle", "Transport", "Financial"]}
           value="price"
           valueScale={{ type: "linear", min: 0, max: 500, reverse: false }}
           size={{ key: "volume", values: [4, 20], sizes: [6, 20] }}
           forceStrength={4}
           simulationIterations={100}
           margin={{ top: 80, right: 100, bottom: 80, left: 100 }}
-          axisBottom={{ legend: "segment vs. deal size", legendOffset: 40 }}
-          axisLeft={{ legend: "deal size ($K)", legendOffset: -60 }}
+          axisBottom={{ legend: "category vs. amount", legendOffset: 40 }}
+          axisLeft={{ legend: "amount ($)", legendOffset: -60 }}
         />
       </CardContent>
     </Card>
@@ -433,15 +453,17 @@ export function ChartSwarmPlot() {
 }
 
 export function ChartTreeMap() {
+  const { getPalette } = useColorScheme()
   return (
-    <Card>
+    <Card className="col-span-full">
       <CardHeader>
-        <CardTitle>Asset Allocation</CardTitle>
-        <CardDescription>Treemap of portfolio holdings</CardDescription>
+        <CardTitle>Net Worth Allocation</CardTitle>
+        <CardDescription>Breakdown of your total assets</CardDescription>
       </CardHeader>
       <CardContent className="h-[420px]">
         <ResponsiveTreeMap
           data={treemapData}
+          colors={getPalette()}
           identity="name"
           value="loc"
           valueFormat=".02s"
@@ -462,6 +484,13 @@ export function ChartRadialBar({
 }: {
   isAnimationActive?: boolean
 }) {
+  const { getPalette } = useColorScheme()
+  const palette = getPalette()
+  const coloredData = radialBarData.map((item, index) => ({
+    ...item,
+    fill: palette[index % palette.length]
+  }))
+
   return (
     <Card>
       <CardHeader>
@@ -475,7 +504,7 @@ export function ChartRadialBar({
             outerRadius="100%"
             cx="30%"
             cy="75%"
-            data={radialBarData}
+            data={coloredData}
             startAngle={180}
             endAngle={0}
           >

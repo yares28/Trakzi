@@ -103,19 +103,19 @@ export function ChartCategoryFlow() {
   }, [])
 
   const isDark = resolvedTheme === "dark"
-  const textColor = isDark ? "#9ca3af" : "#6b7280"
+  const textColor = "#000000"
   const borderColor = isDark ? "#374151" : "#e5e7eb"
-  
+
   // Use custom palette for colored, custom dark palette for dark styling
   // For all palettes: darker colors = higher rank (lower rank number), lighter colors = lower rank (higher rank number)
   // Rank 1 (Housing) = darkest, Rank 7 (Healthcare) = lightest
   const palette = getPalette().filter(color => color !== "#c3c3c3")
   const numCategories = data.length
-  
+
   // Reverse palette so darkest colors are first (for highest ranks)
   const reversedPalette = [...palette].reverse()
   let colorConfig = reversedPalette.slice(0, numCategories)
-  
+
   // Cycle if needed
   while (colorConfig.length < numCategories) {
     colorConfig.push(...reversedPalette.slice(0, numCategories - colorConfig.length))
