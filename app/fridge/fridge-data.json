@@ -1,0 +1,345 @@
+{
+    "receipts": [
+        {
+            "id": "1",
+            "storeName": "FreshMart",
+            "date": "2024-11-18T10:30:00.000Z",
+            "totalAmount": 87.45,
+            "items": [
+                {
+                    "id": "1-1",
+                    "name": "Milk",
+                    "category": "Dairy",
+                    "price": 3.99,
+                    "quantity": 2
+                },
+                {
+                    "id": "1-2",
+                    "name": "Bread",
+                    "category": "Bakery",
+                    "price": 2.49,
+                    "quantity": 2
+                },
+                {
+                    "id": "1-3",
+                    "name": "Bananas",
+                    "category": "Produce",
+                    "price": 1.99,
+                    "quantity": 3
+                },
+                {
+                    "id": "1-4",
+                    "name": "Eggs",
+                    "category": "Dairy",
+                    "price": 4.99,
+                    "quantity": 2
+                },
+                {
+                    "id": "1-5",
+                    "name": "Chicken Breast",
+                    "category": "Meat",
+                    "price": 12.99,
+                    "quantity": 2
+                },
+                {
+                    "id": "1-6",
+                    "name": "Tomatoes",
+                    "category": "Produce",
+                    "price": 3.49,
+                    "quantity": 2
+                },
+                {
+                    "id": "1-7",
+                    "name": "Cheese",
+                    "category": "Dairy",
+                    "price": 5.99,
+                    "quantity": 1
+                },
+                {
+                    "id": "1-8",
+                    "name": "Orange Juice",
+                    "category": "Beverages",
+                    "price": 4.99,
+                    "quantity": 1
+                },
+                {
+                    "id": "1-9",
+                    "name": "Pasta",
+                    "category": "Pantry",
+                    "price": 1.99,
+                    "quantity": 3
+                },
+                {
+                    "id": "1-10",
+                    "name": "Olive Oil",
+                    "category": "Pantry",
+                    "price": 8.99,
+                    "quantity": 1
+                }
+            ]
+        },
+        {
+            "id": "2",
+            "storeName": "GroceryHub",
+            "date": "2024-11-15T14:20:00.000Z",
+            "totalAmount": 124.87,
+            "items": [
+                {
+                    "id": "2-1",
+                    "name": "Salmon",
+                    "category": "Seafood",
+                    "price": 15.99,
+                    "quantity": 2
+                },
+                {
+                    "id": "2-2",
+                    "name": "Broccoli",
+                    "category": "Produce",
+                    "price": 2.99,
+                    "quantity": 3
+                },
+                {
+                    "id": "2-3",
+                    "name": "Yogurt",
+                    "category": "Dairy",
+                    "price": 4.49,
+                    "quantity": 4
+                },
+                {
+                    "id": "2-4",
+                    "name": "Coffee",
+                    "category": "Beverages",
+                    "price": 12.99,
+                    "quantity": 1
+                },
+                {
+                    "id": "2-5",
+                    "name": "Ground Beef",
+                    "category": "Meat",
+                    "price": 8.99,
+                    "quantity": 3
+                },
+                {
+                    "id": "2-6",
+                    "name": "Apples",
+                    "category": "Produce",
+                    "price": 3.99,
+                    "quantity": 2
+                },
+                {
+                    "id": "2-7",
+                    "name": "Rice",
+                    "category": "Pantry",
+                    "price": 6.99,
+                    "quantity": 2
+                },
+                {
+                    "id": "2-8",
+                    "name": "Butter",
+                    "category": "Dairy",
+                    "price": 4.99,
+                    "quantity": 1
+                },
+                {
+                    "id": "2-9",
+                    "name": "Cereal",
+                    "category": "Breakfast",
+                    "price": 5.99,
+                    "quantity": 2
+                }
+            ]
+        },
+        {
+            "id": "3",
+            "storeName": "QuickStop",
+            "date": "2024-11-12T09:15:00.000Z",
+            "totalAmount": 45.32,
+            "items": [
+                {
+                    "id": "3-1",
+                    "name": "Chips",
+                    "category": "Snacks",
+                    "price": 3.99,
+                    "quantity": 3
+                },
+                {
+                    "id": "3-2",
+                    "name": "Soda",
+                    "category": "Beverages",
+                    "price": 5.99,
+                    "quantity": 2
+                },
+                {
+                    "id": "3-3",
+                    "name": "Ice Cream",
+                    "category": "Frozen",
+                    "price": 6.99,
+                    "quantity": 2
+                },
+                {
+                    "id": "3-4",
+                    "name": "Cookies",
+                    "category": "Snacks",
+                    "price": 4.49,
+                    "quantity": 2
+                },
+                {
+                    "id": "3-5",
+                    "name": "Lettuce",
+                    "category": "Produce",
+                    "price": 2.49,
+                    "quantity": 1
+                },
+                {
+                    "id": "3-6",
+                    "name": "Carrots",
+                    "category": "Produce",
+                    "price": 1.99,
+                    "quantity": 2
+                }
+            ]
+        },
+        {
+            "id": "4",
+            "storeName": "FreshMart",
+            "date": "2024-11-08T16:45:00.000Z",
+            "totalAmount": 156.78,
+            "items": [
+                {
+                    "id": "4-1",
+                    "name": "Turkey",
+                    "category": "Meat",
+                    "price": 18.99,
+                    "quantity": 2
+                },
+                {
+                    "id": "4-2",
+                    "name": "Potatoes",
+                    "category": "Produce",
+                    "price": 4.99,
+                    "quantity": 3
+                },
+                {
+                    "id": "4-3",
+                    "name": "Onions",
+                    "category": "Produce",
+                    "price": 2.99,
+                    "quantity": 2
+                },
+                {
+                    "id": "4-4",
+                    "name": "Spinach",
+                    "category": "Produce",
+                    "price": 3.49,
+                    "quantity": 2
+                },
+                {
+                    "id": "4-5",
+                    "name": "Steak",
+                    "category": "Meat",
+                    "price": 22.99,
+                    "quantity": 2
+                },
+                {
+                    "id": "4-6",
+                    "name": "Wine",
+                    "category": "Beverages",
+                    "price": 14.99,
+                    "quantity": 2
+                },
+                {
+                    "id": "4-7",
+                    "name": "Garlic",
+                    "category": "Produce",
+                    "price": 1.99,
+                    "quantity": 1
+                },
+                {
+                    "id": "4-8",
+                    "name": "Mushrooms",
+                    "category": "Produce",
+                    "price": 4.99,
+                    "quantity": 2
+                },
+                {
+                    "id": "4-9",
+                    "name": "Cream",
+                    "category": "Dairy",
+                    "price": 3.99,
+                    "quantity": 1
+                }
+            ]
+        },
+        {
+            "id": "5",
+            "storeName": "HealthyChoice",
+            "date": "2024-11-05T11:30:00.000Z",
+            "totalAmount": 92.15,
+            "items": [
+                {
+                    "id": "5-1",
+                    "name": "Quinoa",
+                    "category": "Pantry",
+                    "price": 7.99,
+                    "quantity": 2
+                },
+                {
+                    "id": "5-2",
+                    "name": "Avocado",
+                    "category": "Produce",
+                    "price": 2.99,
+                    "quantity": 4
+                },
+                {
+                    "id": "5-3",
+                    "name": "Almond Milk",
+                    "category": "Dairy",
+                    "price": 4.99,
+                    "quantity": 2
+                },
+                {
+                    "id": "5-4",
+                    "name": "Blueberries",
+                    "category": "Produce",
+                    "price": 5.99,
+                    "quantity": 3
+                },
+                {
+                    "id": "5-5",
+                    "name": "Tofu",
+                    "category": "Protein",
+                    "price": 3.99,
+                    "quantity": 2
+                },
+                {
+                    "id": "5-6",
+                    "name": "Kale",
+                    "category": "Produce",
+                    "price": 2.99,
+                    "quantity": 2
+                },
+                {
+                    "id": "5-7",
+                    "name": "Sweet Potatoes",
+                    "category": "Produce",
+                    "price": 3.99,
+                    "quantity": 2
+                },
+                {
+                    "id": "5-8",
+                    "name": "Hummus",
+                    "category": "Deli",
+                    "price": 4.99,
+                    "quantity": 2
+                },
+                {
+                    "id": "5-9",
+                    "name": "Whole Grain Bread",
+                    "category": "Bakery",
+                    "price": 3.99,
+                    "quantity": 1
+                }
+            ]
+        }
+    ]
+}
