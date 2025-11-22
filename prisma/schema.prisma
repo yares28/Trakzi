@@ -1,0 +1,83 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  name         String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  reports      Report[]
+  transactions Transaction[]
+  fridgeItems FridgeItem[]
+
+  @@map("users")
+}
+
+// Represents an uploaded file (PDF Statement or Receipt Image)
+model Report {
+  id           String        @id @default(cuid())
+  userId       String
+  type         String        // "BANK_STATEMENT" | "RECEIPT"
+  status       String        // "PROCESSING" | "REVIEW_REQUIRED" | "PROCESSED"
+  url          String        // Storage URL
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  
+  // Relations
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  fridgeItems  FridgeItem[]
+
+  @@map("reports")
+}
+
+// General Spending (Populates Dashboard & Analytics)
+model Transaction {
+  id          String   @id @default(cuid())
+  userId      String
+  reportId    String?
+  date        DateTime
+  amount      Float
+  description String
+  category    String   // e.g., "Housing", "Dining", "Transport"
+  isRecurring Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  report      Report?  @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  @@map("transactions")
+}
+
+// Fridge/Grocery Items (Populates Fridge Dashboard)
+model FridgeItem {
+  id           String   @id @default(cuid())
+  userId       String
+  reportId     String?
+  name         String   // e.g., "Milk"
+  category     String   // e.g., "Dairy"
+  price        Float
+  quantity     Int      @default(1)
+  purchaseDate DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  report       Report?  @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  @@map("fridge_items")
+}
