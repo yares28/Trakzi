@@ -80,8 +80,8 @@ export function ChartCategoryFlowFridge({ data }: { data: { id: string; data: { 
                         spacing={8}
                         colors={colorConfig}
                         blendMode="normal"
-                        startLabel="id"
-                        endLabel="id"
+                        startLabel={(serie) => serie.id}
+                        endLabel={(serie) => serie.id}
                         startLabelTextColor={textColor}
                         endLabelTextColor={textColor}
                         axisTop={{
