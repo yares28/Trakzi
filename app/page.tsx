@@ -17,8 +17,6 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar"
 
-import initialData from "./dashboard/transactions.json"
-
 interface Transaction {
   id: number
   header: string
@@ -30,7 +28,7 @@ interface Transaction {
 }
 
 export default function Page() {
-  const [transactions, setTransactions] = useState<Transaction[]>(initialData)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
 
   const handleAddTransaction = (transaction: Omit<Transaction, "id">) => {
@@ -62,18 +60,18 @@ export default function Page() {
               </div>
               <SectionCards />
               <div className="px-4 lg:px-6">
-                <ChartAreaInteractive />
+                <ChartAreaInteractive data={[]} />
               </div>
               <div className="px-4 lg:px-6">
-                <ChartCategoryFlow />
+                <ChartCategoryFlow data={[]} />
               </div>
               <div className="px-4 lg:px-6">
-                <ChartTransactionCalendar />
+                <ChartTransactionCalendar data={[]} />
               </div>
               {/* Funnel and Pie Charts Side by Side */}
               <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
-                <ChartSpendingFunnel />
-                <ChartExpensesPie />
+                <ChartSpendingFunnel data={[]} />
+                <ChartExpensesPie data={[]} />
               </div>
               <DataTable data={transactions} />
             </div>

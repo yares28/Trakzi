@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useMemo } from "react"
 import { ResponsiveCirclePacking } from "@nivo/circle-packing"
 import { ResponsivePolarBar } from "@nivo/polar-bar"
 import { ResponsiveRadar } from "@nivo/radar"
@@ -17,226 +18,66 @@ import {
 
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-
-const circlePackingData = {
-  name: "FY25 Budget",
-  children: [
-    {
-      name: "Essentials",
-      children: [
-        { name: "Housing", value: 1800 },
-        { name: "Utilities", value: 280 },
-        { name: "Groceries", value: 450 },
-      ],
-    },
-    {
-      name: "Lifestyle",
-      children: [
-        { name: "Entertainment", value: 200 },
-        { name: "Dining", value: 154 },
-        { name: "Personal Care", value: 100 },
-      ],
-    },
-    {
-      name: "Financial",
-      children: [
-        { name: "Savings", value: 500 },
-        { name: "Insurance", value: 300 },
-        { name: "Healthcare", value: 120 },
-      ],
-    },
-    {
-      name: "Transport",
-      children: [
-        { name: "Transportation", value: 350 },
-      ],
-    },
-  ],
-}
-
-const polarBarData = [
-  { month: "Jan", Essentials: 1200, Lifestyle: 400, Transport: 200, Financial: 600, Utilities: 300 },
-  { month: "Feb", Essentials: 1200, Lifestyle: 450, Transport: 180, Financial: 550, Utilities: 320 },
-  { month: "Mar", Essentials: 1200, Lifestyle: 380, Transport: 220, Financial: 700, Utilities: 280 },
-  { month: "Apr", Essentials: 1200, Lifestyle: 420, Transport: 210, Financial: 650, Utilities: 290 },
-  { month: "May", Essentials: 1200, Lifestyle: 500, Transport: 240, Financial: 600, Utilities: 250 },
-  { month: "Jun", Essentials: 1200, Lifestyle: 480, Transport: 230, Financial: 750, Utilities: 260 },
-]
-
-const radarData = [
-  { capability: "Savings Rate", "This Year": 85, "Last Year": 70, "Target": 90 },
-  { capability: "Debt Mgmt", "This Year": 92, "Last Year": 80, "Target": 95 },
-  { capability: "Investments", "This Year": 78, "Last Year": 65, "Target": 85 },
-  { capability: "Budgeting", "This Year": 88, "Last Year": 75, "Target": 90 },
-  { capability: "Emergency Fund", "This Year": 95, "Last Year": 60, "Target": 100 },
-]
-
-const sankeyData = {
-  nodes: [
-    { id: "Revenue" },
-    { id: "Subscriptions" },
-    { id: "Services" },
-    { id: "Marketplace" },
-    { id: "Product Delivery" },
-    { id: "Customer Success" },
-    { id: "Growth" },
-    { id: "Cash Reserve" },
-  ],
-  links: [
-    { source: "Revenue", target: "Subscriptions", value: 64 },
-    { source: "Revenue", target: "Services", value: 22 },
-    { source: "Revenue", target: "Marketplace", value: 14 },
-    { source: "Subscriptions", target: "Product Delivery", value: 34 },
-    { source: "Subscriptions", target: "Customer Success", value: 20 },
-    { source: "Services", target: "Customer Success", value: 10 },
-    { source: "Services", target: "Growth", value: 12 },
-    { source: "Marketplace", target: "Growth", value: 9 },
-    { source: "Marketplace", target: "Cash Reserve", value: 5 },
-    { source: "Customer Success", target: "Cash Reserve", value: 8 },
-    { source: "Product Delivery", target: "Cash Reserve", value: 6 },
-    { source: "Growth", target: "Cash Reserve", value: 4 },
-  ],
-}
-
-const streamData = [
-  {
-    month: "Jan",
-    Salary: 4850,
-    Freelance: 1200,
-    Dividends: 150,
-    Interest: 50,
-    Other: 200,
-    Expenses: -3200,
-  },
-  {
-    month: "Feb",
-    Salary: 5100,
-    Freelance: 1500,
-    Dividends: 150,
-    Interest: 55,
-    Other: 100,
-    Expenses: -3400,
-  },
-  {
-    month: "Mar",
-    Salary: 4900,
-    Freelance: 800,
-    Dividends: 180,
-    Interest: 60,
-    Other: 300,
-    Expenses: -3100,
-  },
-  {
-    month: "Apr",
-    Salary: 5300,
-    Freelance: 2000,
-    Dividends: 160,
-    Interest: 65,
-    Other: 150,
-    Expenses: -3600,
-  },
-  {
-    month: "May",
-    Salary: 5150,
-    Freelance: 1800,
-    Dividends: 200,
-    Interest: 70,
-    Other: 250,
-    Expenses: -3300,
-  },
-  {
-    month: "Jun",
-    Salary: 5400,
-    Freelance: 2200,
-    Dividends: 220,
-    Interest: 75,
-    Other: 400,
-    Expenses: -3800,
-  },
-]
-
-const swarmData = [
-  { id: "tx-1", group: "Essentials", price: 124, volume: 15 },
-  { id: "tx-2", group: "Essentials", price: 85, volume: 12 },
-  { id: "tx-3", group: "Essentials", price: 240, volume: 18 },
-  { id: "tx-4", group: "Essentials", price: 45, volume: 8 },
-  { id: "tx-5", group: "Lifestyle", price: 150, volume: 14 },
-  { id: "tx-6", group: "Lifestyle", price: 65, volume: 10 },
-  { id: "tx-7", group: "Lifestyle", price: 35, volume: 6 },
-  { id: "tx-8", group: "Lifestyle", price: 90, volume: 11 },
-  { id: "tx-9", group: "Transport", price: 45, volume: 9 },
-  { id: "tx-10", group: "Transport", price: 30, volume: 7 },
-  { id: "tx-11", group: "Transport", price: 60, volume: 10 },
-  { id: "tx-12", group: "Financial", price: 300, volume: 19 },
-  { id: "tx-13", group: "Financial", price: 150, volume: 16 },
-  { id: "tx-14", group: "Essentials", price: 180, volume: 17 },
-  { id: "tx-15", group: "Lifestyle", price: 120, volume: 13 },
-  { id: "tx-16", group: "Transport", price: 25, volume: 5 },
-  { id: "tx-17", group: "Essentials", price: 60, volume: 9 },
-  { id: "tx-18", group: "Lifestyle", price: 200, volume: 16 },
-  { id: "tx-19", group: "Financial", price: 450, volume: 20 },
-  { id: "tx-20", group: "Transport", price: 80, volume: 12 },
-  { id: "tx-21", group: "Essentials", price: 95, volume: 11 },
-  { id: "tx-22", group: "Lifestyle", price: 110, volume: 13 },
-  { id: "tx-23", group: "Transport", price: 55, volume: 8 },
-  { id: "tx-24", group: "Financial", price: 250, volume: 18 },
-  { id: "tx-25", group: "Essentials", price: 160, volume: 15 },
-]
-
-const treemapData = {
-  name: "Net Worth",
-  children: [
-    {
-      name: "Liquid Assets",
-      children: [
-        { name: "Savings Account", loc: 25000 },
-        { name: "Checking Account", loc: 8000 },
-        { name: "Cash", loc: 1500 },
-      ],
-    },
-    {
-      name: "Investments",
-      children: [
-        { name: "Stock Portfolio", loc: 45000 },
-        { name: "ETFs", loc: 30000 },
-        { name: "Crypto", loc: 5000 },
-        { name: "Bonds", loc: 10000 },
-      ],
-    },
-    {
-      name: "Retirement",
-      children: [
-        { name: "401(k)", loc: 85000 },
-        { name: "Roth IRA", loc: 22000 },
-      ],
-    },
-    {
-      name: "Property",
-      children: [
-        { name: "Home Equity", loc: 120000 },
-        { name: "Vehicle", loc: 15000 },
-      ],
-    },
-  ],
-}
-
-const radialBarData = [
-  { name: "Self-Serve", uv: 24, pv: 1200, fill: "#6366f1" },
-  { name: "Commercial", uv: 32, pv: 1800, fill: "#22c55e" },
-  { name: "Enterprise", uv: 44, pv: 2400, fill: "#0ea5e9" },
-  { name: "Strategic", uv: 58, pv: 2900, fill: "#f97316" },
-  { name: "Government", uv: 18, pv: 900, fill: "#14b8a6" },
-]
+import { IconInfoCircle } from "@tabler/icons-react"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 
 import { useColorScheme } from "@/components/color-scheme-provider"
 
-export function ChartCirclePacking() {
+interface ChartCirclePackingProps {
+  data?: {
+    name: string
+    children: Array<{
+      name: string
+      children: Array<{ name: string; value: number }>
+    }>
+  }
+}
+
+export function ChartCirclePacking({ data = { name: "", children: [] } }: ChartCirclePackingProps) {
   const { getPalette } = useColorScheme()
+  
+  // Check if data is empty
+  if (!data || !data.children || data.children.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Budget Distribution</CardTitle>
+          <CardDescription>Visualizes how your budget is allocated across categories</CardDescription>
+        </CardHeader>
+        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+          No data available
+        </CardContent>
+      </Card>
+    )
+  }
+  
   return (
     <Card>
       <CardHeader>
@@ -245,7 +86,7 @@ export function ChartCirclePacking() {
       </CardHeader>
       <CardContent className="h-[420px]">
         <ResponsiveCirclePacking
-          data={circlePackingData}
+          data={data}
           margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
           id="name"
           padding={4}
@@ -259,8 +100,27 @@ export function ChartCirclePacking() {
   )
 }
 
-export function ChartPolarBar() {
+interface ChartPolarBarProps {
+  data?: Array<Record<string, string | number>>
+}
+
+export function ChartPolarBar({ data = [] }: ChartPolarBarProps) {
   const { getPalette } = useColorScheme()
+  
+  if (!data || data.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Household Spend Mix</CardTitle>
+          <CardDescription>Track monthly expenses across key categories</CardDescription>
+        </CardHeader>
+        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+          No data available
+        </CardContent>
+      </Card>
+    )
+  }
+  
   return (
     <Card>
       <CardHeader>
@@ -269,7 +129,7 @@ export function ChartPolarBar() {
       </CardHeader>
       <CardContent className="h-[420px]">
         <ResponsivePolarBar
-          data={polarBarData}
+          data={data}
           keys={["Essentials", "Lifestyle", "Transport", "Financial", "Utilities"]}
           indexBy="month"
           valueSteps={5}
@@ -298,8 +158,27 @@ export function ChartPolarBar() {
   )
 }
 
-export function ChartRadar() {
+interface ChartRadarProps {
+  data?: Array<Record<string, string | number>>
+}
+
+export function ChartRadar({ data = [] }: ChartRadarProps) {
   const { getPalette } = useColorScheme()
+  
+  if (!data || data.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Financial Health Score</CardTitle>
+          <CardDescription>Assessment of your financial wellness</CardDescription>
+        </CardHeader>
+        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+          No data available
+        </CardContent>
+      </Card>
+    )
+  }
+  
   return (
     <Card>
       <CardHeader>
@@ -308,7 +187,7 @@ export function ChartRadar() {
       </CardHeader>
       <CardContent className="h-[420px]">
         <ResponsiveRadar
-          data={radarData}
+          data={data}
           keys={["This Year", "Last Year", "Target"]}
           indexBy="capability"
           margin={{ top: 70, right: 80, bottom: 40, left: 80 }}
@@ -335,8 +214,30 @@ export function ChartRadar() {
   )
 }
 
-export function ChartSankey() {
+interface ChartSankeyProps {
+  data?: {
+    nodes: Array<{ id: string }>
+    links: Array<{ source: string; target: string; value: number }>
+  }
+}
+
+export function ChartSankey({ data = { nodes: [], links: [] } }: ChartSankeyProps) {
   const { getPalette } = useColorScheme()
+  
+  if (!data || !data.nodes || data.nodes.length === 0 || !data.links || data.links.length === 0) {
+    return (
+      <Card className="col-span-full">
+        <CardHeader>
+          <CardTitle>Cash Flow Sankey</CardTitle>
+          <CardDescription>Follow revenue as it moves through the org</CardDescription>
+        </CardHeader>
+        <CardContent className="h-[500px] flex items-center justify-center text-muted-foreground">
+          No data available
+        </CardContent>
+      </Card>
+    )
+  }
+  
   return (
     <Card className="col-span-full">
       <CardHeader>
@@ -345,7 +246,7 @@ export function ChartSankey() {
       </CardHeader>
       <CardContent className="h-[500px]">
         <ResponsiveSankey
-          data={sankeyData}
+          data={data}
           margin={{ top: 40, right: 160, bottom: 40, left: 50 }}
           align="justify"
           colors={getPalette()}
@@ -381,8 +282,27 @@ export function ChartSankey() {
   )
 }
 
-export function ChartStream() {
+interface ChartStreamProps {
+  data?: Array<Record<string, string | number>>
+}
+
+export function ChartStream({ data = [] }: ChartStreamProps) {
   const { getPalette } = useColorScheme()
+  
+  if (!data || data.length === 0) {
+    return (
+      <Card className="col-span-full">
+        <CardHeader>
+          <CardTitle>Income Streams</CardTitle>
+          <CardDescription>Monthly income breakdown by source</CardDescription>
+        </CardHeader>
+        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+          No data available
+        </CardContent>
+      </Card>
+    )
+  }
+  
   return (
     <Card className="col-span-full">
       <CardHeader>
@@ -391,7 +311,7 @@ export function ChartStream() {
       </CardHeader>
       <CardContent className="h-[420px]">
         <ResponsiveStream
-          data={streamData}
+          data={data}
           colors={getPalette()}
           keys={[
             "Salary",
@@ -425,8 +345,27 @@ export function ChartStream() {
   )
 }
 
-export function ChartSwarmPlot() {
+interface ChartSwarmPlotProps {
+  data?: Array<{ id: string; group: string; price: number; volume: number }>
+}
+
+export function ChartSwarmPlot({ data = [] }: ChartSwarmPlotProps) {
   const { getPalette } = useColorScheme()
+  
+  if (!data || data.length === 0) {
+    return (
+      <Card className="col-span-full">
+        <CardHeader>
+          <CardTitle>Transaction History</CardTitle>
+          <CardDescription>Recent transactions by category</CardDescription>
+        </CardHeader>
+        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+          No data available
+        </CardContent>
+      </Card>
+    )
+  }
+  
   return (
     <Card className="col-span-full">
       <CardHeader>
@@ -435,7 +374,7 @@ export function ChartSwarmPlot() {
       </CardHeader>
       <CardContent className="h-[420px]">
         <ResponsiveSwarmPlot
-          data={swarmData}
+          data={data}
           colors={getPalette()}
           groups={["Essentials", "Lifestyle", "Transport", "Financial"]}
           value="price"
@@ -452,44 +391,294 @@ export function ChartSwarmPlot() {
   )
 }
 
-export function ChartTreeMap() {
+interface ChartTreeMapProps {
+  data?: {
+    name: string
+    children: Array<{
+      name: string
+      children: Array<{ name: string; loc: number }>
+    }>
+  }
+  transactions?: Array<{
+    id: number
+    date: string
+    description: string
+    amount: number
+    balance: number | null
+    category: string
+  }>
+}
+
+export function ChartTreeMap({ data = { name: "", children: [] }, transactions = [] }: ChartTreeMapProps) {
   const { getPalette } = useColorScheme()
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [selectedMonth, setSelectedMonth] = useState<string>("all")
+  const [isInfoOpen, setIsInfoOpen] = useState(false)
+  
+  const handleNodeClick = (node: { data?: { name?: string }; name?: string }) => {
+    // Get the category name from the node
+    const categoryName = node.data?.name || node.name
+    if (categoryName && categoryName !== "Expenses") {
+      setSelectedCategory(categoryName)
+      setSelectedMonth("all") // Reset filter when opening dialog
+      setIsDialogOpen(true)
+    }
+  }
+  
+  // Get all available months/years from category transactions
+  const availableMonths = useMemo(() => {
+    if (!selectedCategory || !transactions) return []
+    const monthSet = new Set<string>()
+    transactions
+      .filter(tx => tx.amount < 0 && (tx.category || "Other") === selectedCategory)
+      .forEach(tx => {
+        const date = new Date(tx.date)
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+        const monthLabel = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
+        monthSet.add(`${monthKey}|${monthLabel}`)
+      })
+    return Array.from(monthSet)
+      .map(m => {
+        const [key, label] = m.split('|')
+        return { key, label }
+      })
+      .sort((a, b) => b.key.localeCompare(a.key)) // Sort newest first
+  }, [selectedCategory, transactions])
+  
+  const categoryTransactions = useMemo(() => {
+    if (!selectedCategory || !transactions) return []
+    let filtered = transactions
+      .filter(tx => tx.amount < 0 && (tx.category || "Other") === selectedCategory)
+    
+    // Apply month filter if not "all"
+    if (selectedMonth !== "all") {
+      const [year, month] = selectedMonth.split('-')
+      filtered = filtered.filter(tx => {
+        const txDate = new Date(tx.date)
+        return txDate.getFullYear() === parseInt(year) && 
+               (txDate.getMonth() + 1) === parseInt(month)
+      })
+    }
+    
+    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }, [selectedCategory, transactions, selectedMonth])
+  
+  if (!data || !data.children || data.children.length === 0) {
+    return (
+      <Card className="col-span-full">
+        <CardHeader>
+          <CardTitle>Net Worth Allocation</CardTitle>
+          <CardDescription>Breakdown of your total assets</CardDescription>
+          <CardAction>
+            <Popover open={isInfoOpen} onOpenChange={setIsInfoOpen}>
+              <PopoverTrigger asChild>
+                <button 
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  onMouseEnter={() => setIsInfoOpen(true)}
+                  onMouseLeave={() => setIsInfoOpen(false)}
+                >
+                  <IconInfoCircle className="h-4 w-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent 
+                className="w-80" 
+                align="end"
+                onMouseEnter={() => setIsInfoOpen(true)}
+                onMouseLeave={() => setIsInfoOpen(false)}
+              >
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm">Net Worth Allocation</h4>
+                  <p className="text-sm text-muted-foreground">
+                    This treemap provides a visual breakdown of your expenses by category, where the size of each rectangle represents the spending amount.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    <strong>How it works:</strong> Larger rectangles indicate categories with higher spending. Click on any category rectangle to open a detailed view showing all transactions for that category, filtered by month.
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+          No data available
+        </CardContent>
+      </Card>
+    )
+  }
+  
   return (
-    <Card className="col-span-full">
-      <CardHeader>
-        <CardTitle>Net Worth Allocation</CardTitle>
-        <CardDescription>Breakdown of your total assets</CardDescription>
-      </CardHeader>
-      <CardContent className="h-[420px]">
-        <ResponsiveTreeMap
-          data={treemapData}
-          colors={getPalette()}
-          identity="name"
-          value="loc"
-          valueFormat=".02s"
-          margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
-          labelSkipSize={12}
-          labelTextColor={{ from: "color", modifiers: [["darker", 1.2]] }}
-          parentLabelPosition="left"
-          parentLabelTextColor={{ from: "color", modifiers: [["darker", 2]] }}
-          borderColor={{ from: "color", modifiers: [["darker", 0.1]] }}
-        />
-      </CardContent>
-    </Card>
+    <>
+      <Card className="col-span-full">
+        <CardHeader>
+          <CardTitle>Net Worth Allocation</CardTitle>
+          <CardDescription>Breakdown of your total assets - Click on a category to see transactions</CardDescription>
+          <CardAction>
+            <Popover open={isInfoOpen} onOpenChange={setIsInfoOpen}>
+              <PopoverTrigger asChild>
+                <button 
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  onMouseEnter={() => setIsInfoOpen(true)}
+                  onMouseLeave={() => setIsInfoOpen(false)}
+                >
+                  <IconInfoCircle className="h-4 w-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent 
+                className="w-80" 
+                align="end"
+                onMouseEnter={() => setIsInfoOpen(true)}
+                onMouseLeave={() => setIsInfoOpen(false)}
+              >
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm">Net Worth Allocation</h4>
+                  <p className="text-sm text-muted-foreground">
+                    This treemap provides a visual breakdown of your expenses by category, where the size of each rectangle represents the spending amount.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    <strong>How it works:</strong> Larger rectangles indicate categories with higher spending. Click on any category rectangle to open a detailed view showing all transactions for that category, filtered by month.
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="h-[420px]">
+          <ResponsiveTreeMap
+            data={data}
+            colors={getPalette()}
+            identity="name"
+            value="loc"
+            valueFormat=".02s"
+            margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
+            labelSkipSize={12}
+            labelTextColor={{ from: "color", modifiers: [["darker", 1.2]] }}
+            parentLabelPosition="left"
+            parentLabelTextColor={{ from: "color", modifiers: [["darker", 2]] }}
+            borderColor={{ from: "color", modifiers: [["darker", 0.1]] }}
+            onClick={handleNodeClick}
+            tooltip={({ node }) => (
+              <div style={{
+                background: 'white',
+                padding: '8px 12px',
+                borderRadius: '4px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                fontSize: '12px'
+              }}>
+                <strong>{node.formattedValue}</strong>
+                <div style={{ color: '#666', marginTop: '4px' }}>
+                  {node.data.name}
+                </div>
+                {transactions.length > 0 && (
+                  <div style={{ color: '#999', marginTop: '4px', fontSize: '11px' }}>
+                    Click to view transactions
+                  </div>
+                )}
+              </div>
+            )}
+          />
+        </CardContent>
+      </Card>
+      
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{selectedCategory} Transactions</DialogTitle>
+            <DialogDescription>
+              {categoryTransactions.length} transaction{categoryTransactions.length !== 1 ? 's' : ''} in this category
+              {selectedMonth !== "all" && ` (${availableMonths.find(m => m.key === selectedMonth)?.label || selectedMonth})`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2 pb-4 border-b">
+            <Label htmlFor="month-filter" className="text-sm font-medium whitespace-nowrap">
+              Filter by month:
+            </Label>
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger id="month-filter" className="w-[200px]">
+                <SelectValue placeholder="All months" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All months</SelectItem>
+                {availableMonths.map((month) => (
+                  <SelectItem key={month.key} value={month.key}>
+                    {month.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex-1 overflow-y-auto min-h-0">
+            {categoryTransactions.length > 0 ? (
+              <div className="space-y-2">
+                {categoryTransactions.map((tx) => (
+                  <Card key={tx.id} className="p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate" title={tx.description}>
+                          {tx.description}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(tx.date).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className={`font-semibold ${tx.amount < 0 ? 'text-red-500' : 'text-green-500'}`}>
+                          {tx.amount.toFixed(2)}€
+                        </p>
+                        {tx.balance !== null && (
+                          <p className="text-xs text-muted-foreground">
+                            Balance: {tx.balance.toFixed(2)}€
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No transactions found for this category
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setIsDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
-export function ChartRadialBar({
-  isAnimationActive = true,
-}: {
+interface ChartRadialBarProps {
+  data?: Array<{ name: string; uv: number; pv: number; fill?: string }>
   isAnimationActive?: boolean
-}) {
+}
+
+export function ChartRadialBar({
+  data: radialBarData = [],
+  isAnimationActive = true,
+}: ChartRadialBarProps) {
   const { getPalette } = useColorScheme()
   const palette = getPalette()
   const coloredData = radialBarData.map((item, index) => ({
     ...item,
-    fill: palette[index % palette.length]
+    fill: item.fill || palette[index % palette.length]
   }))
+
+  if (!radialBarData || radialBarData.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Customer Lifetime Value</CardTitle>
+          <CardDescription>Radial view by key segments</CardDescription>
+        </CardHeader>
+        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+          No data available
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card>

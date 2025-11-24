@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Folio2 Architecture Diagrams</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ 
+            startOnLoad: true, 
+            theme: 'base',
+            themeVariables: {
+                primaryColor: '#e1f5ff',
+                secondaryColor: '#ffebcc',
+                tertiaryColor: '#d4edda',
+                mainBkg: '#ffffff',
+                nodeBorder: '#333333'
+            },
+            flowchart: { curve: 'basis' }
+        });
+    </script>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            padding: 40px; 
+            background: #f0f2f5; 
+            color: #333;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        h1 { text-align: center; margin-bottom: 40px; color: #1a1a1a; }
+        .diagram-card {
+            background: white;
+            padding: 30px;
+            margin-bottom: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.1);
+        }
+        h2 { 
+            color: #2c3e50; 
+            border-bottom: 2px solid #eee; 
+            padding-bottom: 15px; 
+            margin-top: 0;
+        }
+        .mermaid { 
+            display: flex; 
+            justify-content: center; 
+            margin-top: 20px;
+            overflow-x: auto;
+        }
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Folio2 Architecture Diagrams</h1>
+    <div class="controls">
+        <p>💡 <strong>Tip:</strong> Use your browser's zoom (Ctrl + / Cmd +) to zoom in without losing quality.</p>
+        <p>🖨️ <strong>To Keep:</strong> Right-click > "Save As" to keep this file, or Print (Ctrl+P) > "Save as PDF".</p>
+    </div>
+
+    <div class="diagram-card">
+        <h2>1. System Architecture Overview</h2>
+        <div class="mermaid">
+graph TB
+    subgraph "Client Layer"
+        Browser[Web Browser]
+        UI[React UI Components]
+    end
+
+    subgraph "Frontend Layer - Next.js 16 App Router"
+        Pages["Pages
+        • Dashboard
+        • Analytics
+        • Fridge
+        • Reports
+        • Savings
+        • Login/Register"]
+        
+        Components["UI Components
+        • Charts (Nivo/Recharts)
+        • Data Tables
+        • Forms & Dialogs
+        • Sidebar Navigation"]
+        
+        State["State Management
+        • AuthProvider
+        • React Context
+        • Local State"]
+    end
+
+    subgraph "API Layer - Next.js API Routes"
+        FileUpload["POST /api/files/upload
+        General file storage"]
+        
+        StatementParse["POST /api/statements/parse
+        Parse & categorize transactions"]
+        
+        StatementImport["POST /api/statements/import
+        Import to database"]
+    end
+
+    subgraph "Backend Services Layer"
+        subgraph "Authentication"
+            Auth["lib/auth.ts
+            JWT User ID Extraction
+            Neon Data API Auth"]
+        end
+        
+        subgraph "File Processing"
+            FileStorage["lib/files/saveFileToNeon.ts
+            Store files as bytea"]
+            
+            PDFParser["lib/parsing/parsePdfToRows.ts
+            Extract transactions from PDF"]
+            
+            ExcelParser["lib/parsing/parseExcelToRows.ts
+            Parse Excel statements"]
+            
+            CSVParser["lib/parsing/parseCsvToRows.ts
+            Parse CSV files"]
+            
+            CSVFormatter["lib/parsing/rowsToCanonicalCsv.ts
+            Format to canonical CSV"]
+        end
+        
+        subgraph "AI Services"
+            AICateg["lib/ai/categoriseTransactions.ts
+            OpenAI GPT-4 Integration
+            Auto-categorize transactions"]
+        end
+        
+        subgraph "Database Client"
+            NeonClient["lib/neonClient.ts
+            Neon REST API Wrapper
+            SQL Query Execution"]
+        end
+    end
+
+    subgraph "External Services"
+        OpenAI["OpenAI API
+        gpt-4.1-mini
+        Transaction Categorization"]
+        
+        NeonDB["Neon Postgres
+        (Serverless)
+        REST API"]
+    end
+
+    subgraph "Database Layer - Neon Postgres"
+        Users["users
+        • id (uuid)
+        • email
+        • name
+        • created_at"]
+        
+        Categories["categories
+        • id (serial)
+        • user_id (FK)
+        • name
+        • color"]
+        
+        Statements["statements
+        • id (serial)
+        • user_id (FK)
+        • file_id (FK)
+        • bank_name
+        • account_name
+        • raw_format"]
+        
+        Transactions["transactions
+        • id (serial)
+        • user_id (FK)
+        • statement_id (FK)
+        • category_id (FK)
+        • tx_date
+        • description
+        • amount
+        • balance"]
+        
+        UserFiles["user_files
+        • id (uuid)
+        • user_id (FK)
+        • statement_id (FK)
+        • file_name
+        • data (bytea)
+        • checksum"]
+    end
+
+    %% Client to Frontend
+    Browser --> UI
+    UI --> Pages
+    Pages --> Components
+    Pages --> State
+
+    %% Frontend to API
+    Pages --> FileUpload
+    Pages --> StatementParse
+    Pages --> StatementImport
+
+    %% API to Backend Services
+    FileUpload --> Auth
+    FileUpload --> FileStorage
+    
+    StatementParse --> Auth
+    StatementParse --> FileStorage
+    StatementParse --> PDFParser
+    StatementParse --> ExcelParser
+    StatementParse --> CSVParser
+    StatementParse --> CSVFormatter
+    StatementParse --> AICateg
+    
+    StatementImport --> Auth
+    StatementImport --> NeonClient
+
+    %% Backend to Database Client
+    FileStorage --> NeonClient
+    
+    %% Database Client to External Services
+    NeonClient --> NeonDB
+    AICateg --> OpenAI
+
+    %% Database Relationships
+    NeonDB --> Users
+    NeonDB --> Categories
+    NeonDB --> Statements
+    NeonDB --> Transactions
+    NeonDB --> UserFiles
+    
+    Users -->|"1:N"| Categories
+    Users -->|"1:N"| Statements
+    Users -->|"1:N"| Transactions
+    Users -->|"1:N"| UserFiles
+    Statements -->|"1:N"| Transactions
+    Statements -->|"1:1"| UserFiles
+    Categories -->|"1:N"| Transactions
+
+    style Browser fill:#e1f5ff
+    style OpenAI fill:#ffebcc
+    style NeonDB fill:#ffebcc
+    style Pages fill:#d4edda
+    style Components fill:#d4edda
+    style State fill:#d4edda
+        </div>
+    </div>
+
+    <div class="diagram-card">
+        <h2>2. Bank Statement Processing Flow</h2>
+        <div class="mermaid">
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant ParseAPI as /api/statements/parse
+    participant Parser as File Parsers
+    participant AI as OpenAI Service
+    participant Storage as File Storage
+    participant DB as Neon Database
+
+    User->>Frontend: Upload bank statement (PDF/Excel/CSV)
+    Frontend->>ParseAPI: POST file + bankName
+    
+    ParseAPI->>Storage: Save file to user_files table
+    Storage->>DB: INSERT into user_files
+    DB-->>Storage: Return file_id
+    
+    ParseAPI->>Parser: Route to appropriate parser
+    
+    alt PDF File
+        Parser->>Parser: Extract text & parse transactions
+    else Excel File
+        Parser->>Parser: Read sheet & detect columns
+    else CSV File
+        Parser->>Parser: Parse with headers
+    end
+    
+    Parser-->>ParseAPI: Return TxRow[]
+    
+    ParseAPI->>AI: Send transactions for categorization
+    AI->>OpenAI: Call GPT-4.1-mini with categories
+    OpenAI-->>AI: Return categorized results
+    AI-->>ParseAPI: Return categories
+    
+    ParseAPI->>ParseAPI: Format to canonical CSV
+    ParseAPI-->>Frontend: Return CSV + X-File-Id header
+    
+    Frontend->>User: Display CSV for review/editing
+    
+    User->>Frontend: Confirm/Edit CSV
+    Frontend->>ParseAPI: POST /api/statements/import
+    ParseAPI->>DB: INSERT statement record
+    ParseAPI->>DB: BULK INSERT transactions
+    DB-->>Frontend: Return statementId + count
+    Frontend->>User: Show success confirmation
+        </div>
+    </div>
+
+    <div class="diagram-card">
+        <h2>3. User Authentication Flow</h2>
+        <div class="mermaid">
+sequenceDiagram
+    participant User
+    participant LoginPage as Login Page
+    participant AuthProvider
+    participant API as API Routes
+    participant Auth as lib/auth.ts
+    participant DB as Neon Database
+
+    User->>LoginPage: Enter credentials
+    LoginPage->>AuthProvider: login(email, password)
+    
+    Note over AuthProvider: Current: Mock implementation
+    Note over AuthProvider: Future: JWT validation
+    
+    AuthProvider->>Auth: getCurrentUserId()
+    Auth->>Auth: Extract user_id from JWT
+    Auth-->>AuthProvider: Return user_id
+    
+    opt Future Implementation
+        AuthProvider->>API: Validate credentials
+        API->>DB: Query users table
+        DB-->>API: Return user record
+        API-->>AuthProvider: Return JWT token
+    end
+    
+    AuthProvider->>AuthProvider: Store user in state
+    AuthProvider-->>LoginPage: Authentication success
+    LoginPage->>User: Redirect to Dashboard
+        </div>
+    </div>
+
+    <div class="diagram-card">
+        <h2>4. Dashboard Data Visualization Flow</h2>
+        <div class="mermaid">
+sequenceDiagram
+    participant User
+    participant Dashboard
+    participant Components as Chart Components
+    participant API as API Routes (Future)
+    participant DB as Neon Database
+    participant Data as Static JSON (Current)
+
+    User->>Dashboard: Navigate to Dashboard
+    
+    alt Current Implementation
+        Dashboard->>Data: Load from data.json
+        Data-->>Dashboard: Return static data
+    else Future Implementation
+        Dashboard->>API: GET /api/transactions
+        API->>DB: Query transactions with JOINs
+        DB-->>API: Return aggregated data
+        API-->>Dashboard: Return JSON response
+    end
+    
+    Dashboard->>Components: Pass data to charts
+    
+    Components->>Components: Render Nivo/Recharts visualizations
+    
+    Note over Components: Charts include:
+    Note over Components: • Area Charts (Trends)
+    Note over Components: • Pie Charts (Expenses)
+    Note over Components: • Sankey (Cash Flow)
+    Note over Components: • Swarm Plot (Transactions)
+    Note over Components: • TreeMap (Budget Distribution)
+    
+    Components-->>User: Display interactive visualizations
+        </div>
+    </div>
+</body>
+</html>

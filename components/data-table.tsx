@@ -99,12 +99,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
 
 export const schema = z.object({
   id: z.number(),
@@ -117,7 +111,7 @@ export const schema = z.object({
 })
 
 // Create a separate component for the drag handle
-function DragHandle({ id }: { id: number }) {
+function DragHandle({ id }: { id: UniqueIdentifier }) {
   const { attributes, listeners } = useSortable({
     id,
   })
@@ -136,7 +130,7 @@ function DragHandle({ id }: { id: number }) {
   )
 }
 
-const columns: ColumnDef<z.infer<typeof schema>>[] = [
+const defaultColumns: ColumnDef<z.infer<typeof schema>>[] = [
   {
     id: "drag",
     header: () => null,
@@ -279,9 +273,9 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   },
 ]
 
-function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
+function DraggableRow<TData>({ row }: { row: Row<TData> }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
-    id: row.original.id,
+    id: (row.original as any).id,
   })
 
   return (
@@ -304,10 +298,24 @@ function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
   )
 }
 
-export function DataTable({
+interface DataTableProps<TData, TValue> {
+  data: TData[]
+  columns?: ColumnDef<TData, TValue>[]
+}
+
+export function DataTable<TData, TValue>({
   data: initialData,
-}: {
-  data: z.infer<typeof schema>[]
+  columns = defaultColumns as unknown as ColumnDef<TData, TValue>[],
+  transactions,
+}: DataTableProps<TData, TValue> & {
+  transactions?: Array<{
+    id: number
+    date: string
+    description: string
+    amount: number
+    balance: number | null
+    category: string
+  }>
 }) {
   const [data, setData] = React.useState(() => initialData)
   const [rowSelection, setRowSelection] = React.useState({})
@@ -321,6 +329,10 @@ export function DataTable({
     pageIndex: 0,
     pageSize: 10,
   })
+  const [transactionPagination, setTransactionPagination] = React.useState({
+    pageIndex: 0,
+    pageSize: 20,
+  })
   const sortableId = React.useId()
   const sensors = useSensors(
     useSensor(MouseSensor, {}),
@@ -328,8 +340,13 @@ export function DataTable({
     useSensor(KeyboardSensor, {})
   )
 
+  // Update internal data when prop data changes
+  React.useEffect(() => {
+    setData(initialData)
+  }, [initialData])
+
   const dataIds = React.useMemo<UniqueIdentifier[]>(
-    () => data?.map(({ id }) => id) || [],
+    () => data?.map((item: any) => item.id) || [],
     [data]
   )
 
@@ -343,7 +360,7 @@ export function DataTable({
       columnFilters,
       pagination,
     },
-    getRowId: (row) => row.id.toString(),
+    getRowId: (row: any) => row.id?.toString(),
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
@@ -370,228 +387,207 @@ export function DataTable({
   }
 
   return (
-    <Tabs
-      defaultValue="outline"
-      className="w-full flex-col justify-start gap-6"
-    >
-      <div className="flex items-center justify-between px-4 lg:px-6">
-        <Label htmlFor="view-selector" className="sr-only">
-          View
-        </Label>
-        <Select defaultValue="outline">
-          <SelectTrigger
-            className="flex w-fit @4xl/main:hidden"
-            size="sm"
-            id="view-selector"
-          >
-            <SelectValue placeholder="Select a view" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="outline">Budget Categories</SelectItem>
-            <SelectItem value="past-performance">Savings History</SelectItem>
-            <SelectItem value="key-personnel">Financial Goals</SelectItem>
-            <SelectItem value="focus-documents">Investment Portfolio</SelectItem>
-          </SelectContent>
-        </Select>
-        <TabsList className="**:data-[slot=badge]:bg-muted-foreground/30 hidden **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:px-1 @4xl/main:flex">
-          <TabsTrigger value="outline">Budget Categories</TabsTrigger>
-          <TabsTrigger value="past-performance">
-            Savings History <Badge variant="secondary">3</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="key-personnel">
-            Financial Goals <Badge variant="secondary">2</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="focus-documents">Investment Portfolio</TabsTrigger>
-        </TabsList>
+    <div className="w-full flex-col justify-start gap-6">
+      <div className="flex items-center justify-between px-4 lg:px-6 mb-5">
         <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <IconLayoutColumns />
-                <span className="hidden lg:inline">Customize Columns</span>
-                <span className="lg:hidden">Columns</span>
-                <IconChevronDown />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              {table
-                .getAllColumns()
-                .filter(
-                  (column) =>
-                    typeof column.accessorFn !== "undefined" &&
-                    column.getCanHide()
-                )
-                .map((column) => {
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      className="capitalize"
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(value) =>
-                        column.toggleVisibility(!!value)
-                      }
-                    >
-                      {column.id}
-                    </DropdownMenuCheckboxItem>
-                  )
-                })}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <h2 className="text-lg font-semibold">Latest Transactions</h2>
+          {transactions && transactions.length > 0 && (
+            <Badge variant="secondary">{transactions.length}</Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
           <Button variant="outline" size="sm">
             <IconPlus />
             <span className="hidden lg:inline">Add Transaction</span>
           </Button>
         </div>
       </div>
-      <TabsContent
-        value="outline"
-        className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6"
-      >
-        <div className="overflow-hidden rounded-lg border">
-          <DndContext
-            collisionDetection={closestCenter}
-            modifiers={[restrictToVerticalAxis]}
-            onDragEnd={handleDragEnd}
-            sensors={sensors}
-            id={sortableId}
-          >
-            <Table>
-              <TableHeader className="bg-muted sticky top-0 z-10">
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => {
-                      return (
-                        <TableHead key={header.id} colSpan={header.colSpan}>
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                              )}
-                        </TableHead>
-                      )
-                    })}
-                  </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody className="**:data-[slot=table-cell]:first:w-8">
-                {table.getRowModel().rows?.length ? (
-                  <SortableContext
-                    items={dataIds}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    {table.getRowModel().rows.map((row) => (
-                      <DraggableRow key={row.id} row={row} />
-                    ))}
-                  </SortableContext>
-                ) : (
+      <div className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6">
+        {(() => {
+          console.log("[DataTable] Transactions prop:", transactions)
+          console.log("[DataTable] Transactions length:", transactions?.length)
+          console.log("[DataTable] Is array?", Array.isArray(transactions))
+          if (transactions && transactions.length > 0) {
+            console.log("[DataTable] First transaction:", transactions[0])
+          }
+          return null
+        })()}
+        {transactions && Array.isArray(transactions) && transactions.length > 0 ? (
+          <>
+            <div className="overflow-hidden rounded-lg border">
+              <Table>
+                <TableHeader className="bg-muted sticky top-0 z-10">
                   <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-24 text-center"
-                    >
-                      No results.
-                    </TableCell>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Category</TableHead>
+                    {transactions.some(tx => tx.balance !== null) && (
+                      <TableHead className="text-right">Balance</TableHead>
+                    )}
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </DndContext>
-        </div>
-        <div className="flex items-center justify-between px-4">
-          <div className="text-muted-foreground hidden flex-1 text-sm lg:flex">
-            {table.getFilteredSelectedRowModel().rows.length} of{" "}
-            {table.getFilteredRowModel().rows.length} row(s) selected.
+                </TableHeader>
+                <TableBody>
+                  {(() => {
+                    if (!transactions || transactions.length === 0) {
+                      console.warn("[DataTable] No transactions to display")
+                      return (
+                        <TableRow>
+                          <TableCell colSpan={5} className="h-24 text-center">
+                            No transactions found
+                          </TableCell>
+                        </TableRow>
+                      )
+                    }
+                    
+                    const pageSize = transactionPagination.pageSize
+                    const maxPages = 50 // 1000 transactions / 20 per page = 50 pages
+                    const maxItems = 1000 // Maximum 1000 transactions
+                    const limitedTransactions = transactions.slice(0, maxItems)
+                    const currentPage = transactionPagination.pageIndex
+                    const startIndex = currentPage * pageSize
+                    const endIndex = startIndex + pageSize
+                    const pageData = limitedTransactions.slice(startIndex, endIndex)
+                    const totalPages = Math.min(Math.ceil(limitedTransactions.length / pageSize), maxPages)
+                    
+                    console.log(`[DataTable] Rendering page ${currentPage + 1} of ${totalPages}, showing ${pageData.length} transactions`)
+                    
+                    if (pageData.length === 0) {
+                      return (
+                        <TableRow>
+                          <TableCell colSpan={5} className="h-24 text-center">
+                            No transactions on this page
+                          </TableCell>
+                        </TableRow>
+                      )
+                    }
+                    
+                    return pageData.map((tx) => (
+                      <TableRow key={tx.id}>
+                        <TableCell className="w-28 flex-shrink-0">
+                          {new Date(tx.date).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="min-w-[350px] max-w-[600px]">
+                          <div className="truncate" title={tx.description}>
+                            {tx.description}
+                          </div>
+                        </TableCell>
+                        <TableCell className={`text-right font-medium w-24 flex-shrink-0 ${tx.amount < 0 ? "text-red-500" : "text-green-500"}`}>
+                          {tx.amount.toFixed(2)}€
+                        </TableCell>
+                        <TableCell className="w-[140px] flex-shrink-0">
+                          <Badge variant="outline">{tx.category}</Badge>
+                        </TableCell>
+                        {transactions.some(t => t.balance !== null) && (
+                          <TableCell className="text-right w-32 flex-shrink-0">
+                            {tx.balance !== null ? `${tx.balance.toFixed(2)}€` : "-"}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))
+                  })()}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="flex items-center justify-between px-4">
+              {(() => {
+                const pageSize = transactionPagination.pageSize
+                const maxPages = 50 // 1000 transactions / 20 per page = 50 pages
+                const maxItems = 1000 // Maximum 1000 transactions
+                const limitedTransactions = transactions.slice(0, maxItems)
+                const currentPage = transactionPagination.pageIndex
+                const startIndex = currentPage * pageSize
+                const endIndex = startIndex + pageSize
+                const totalPages = Math.min(Math.ceil(limitedTransactions.length / pageSize), maxPages)
+                const showingStart = Math.min(startIndex + 1, limitedTransactions.length)
+                const showingEnd = Math.min(endIndex, limitedTransactions.length)
+                
+                return (
+                  <>
+                    <div className="text-muted-foreground hidden flex-1 text-sm lg:flex">
+                      Showing {showingStart} to {showingEnd} of {limitedTransactions.length} transaction(s)
+                      {transactions.length > maxItems && ` (showing first ${maxItems} of ${transactions.length} total)`}
+                    </div>
+                    <div className="flex w-full items-center gap-8 lg:w-fit">
+                      <div className="hidden items-center gap-2 lg:flex">
+                        <Label htmlFor="tx-rows-per-page" className="text-sm font-medium">
+                          Rows per page
+                        </Label>
+                        <Select
+                          value={`${pageSize}`}
+                          onValueChange={() => {}}
+                          disabled
+                        >
+                          <SelectTrigger size="sm" className="w-20" id="tx-rows-per-page">
+                            <SelectValue placeholder={pageSize} />
+                          </SelectTrigger>
+                          <SelectContent side="top">
+                            <SelectItem value={`${pageSize}`}>{pageSize}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex w-fit items-center justify-center text-sm font-medium">
+                        Page {currentPage + 1} of {totalPages}
+                      </div>
+                      <div className="ml-auto flex items-center gap-2 lg:ml-0">
+                        <Button
+                          variant="outline"
+                          className="hidden h-8 w-8 p-0 lg:flex"
+                          onClick={() => setTransactionPagination({ ...transactionPagination, pageIndex: 0 })}
+                          disabled={currentPage === 0}
+                        >
+                          <span className="sr-only">Go to first page</span>
+                          <IconChevronsLeft />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="size-8"
+                          size="icon"
+                          onClick={() => setTransactionPagination({ ...transactionPagination, pageIndex: Math.max(0, currentPage - 1) })}
+                          disabled={currentPage === 0}
+                        >
+                          <span className="sr-only">Go to previous page</span>
+                          <IconChevronLeft />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="size-8"
+                          size="icon"
+                          onClick={() => setTransactionPagination({ ...transactionPagination, pageIndex: Math.min(totalPages - 1, currentPage + 1) })}
+                          disabled={currentPage >= totalPages - 1}
+                        >
+                          <span className="sr-only">Go to next page</span>
+                          <IconChevronRight />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="hidden size-8 lg:flex"
+                          size="icon"
+                          onClick={() => setTransactionPagination({ ...transactionPagination, pageIndex: totalPages - 1 })}
+                          disabled={currentPage >= totalPages - 1}
+                        >
+                          <span className="sr-only">Go to last page</span>
+                          <IconChevronsRight />
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+          </>
+        ) : (
+          <div className="flex h-64 items-center justify-center rounded-lg border border-dashed">
+            <div className="text-center">
+              <p className="text-muted-foreground">No transactions found</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Import a bank statement to see your transactions here
+              </p>
+            </div>
           </div>
-          <div className="flex w-full items-center gap-8 lg:w-fit">
-            <div className="hidden items-center gap-2 lg:flex">
-              <Label htmlFor="rows-per-page" className="text-sm font-medium">
-                Rows per page
-              </Label>
-              <Select
-                value={`${table.getState().pagination.pageSize}`}
-                onValueChange={(value) => {
-                  table.setPageSize(Number(value))
-                }}
-              >
-                <SelectTrigger size="sm" className="w-20" id="rows-per-page">
-                  <SelectValue
-                    placeholder={table.getState().pagination.pageSize}
-                  />
-                </SelectTrigger>
-                <SelectContent side="top">
-                  {[10, 20, 30, 40, 50].map((pageSize) => (
-                    <SelectItem key={pageSize} value={`${pageSize}`}>
-                      {pageSize}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex w-fit items-center justify-center text-sm font-medium">
-              Page {table.getState().pagination.pageIndex + 1} of{" "}
-              {table.getPageCount()}
-            </div>
-            <div className="ml-auto flex items-center gap-2 lg:ml-0">
-              <Button
-                variant="outline"
-                className="hidden h-8 w-8 p-0 lg:flex"
-                onClick={() => table.setPageIndex(0)}
-                disabled={!table.getCanPreviousPage()}
-              >
-                <span className="sr-only">Go to first page</span>
-                <IconChevronsLeft />
-              </Button>
-              <Button
-                variant="outline"
-                className="size-8"
-                size="icon"
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
-              >
-                <span className="sr-only">Go to previous page</span>
-                <IconChevronLeft />
-              </Button>
-              <Button
-                variant="outline"
-                className="size-8"
-                size="icon"
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
-              >
-                <span className="sr-only">Go to next page</span>
-                <IconChevronRight />
-              </Button>
-              <Button
-                variant="outline"
-                className="hidden size-8 lg:flex"
-                size="icon"
-                onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-                disabled={!table.getCanNextPage()}
-              >
-                <span className="sr-only">Go to last page</span>
-                <IconChevronsRight />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </TabsContent>
-      <TabsContent
-        value="past-performance"
-        className="flex flex-col px-4 lg:px-6"
-      >
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
-      </TabsContent>
-      <TabsContent value="key-personnel" className="flex flex-col px-4 lg:px-6">
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
-      </TabsContent>
-      <TabsContent
-        value="focus-documents"
-        className="flex flex-col px-4 lg:px-6"
-      >
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
-      </TabsContent>
-    </Tabs>
+        )}
+      </div>
+    </div>
   )
 }
 

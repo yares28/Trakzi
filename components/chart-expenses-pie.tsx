@@ -6,50 +6,26 @@ import { ResponsivePie } from "@nivo/pie"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { IconInfoCircle } from "@tabler/icons-react"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 
-// Base data without colors - will be assigned dynamically
-const baseData = [
-  {
-    id: "Housing",
-    label: "Housing",
-    value: 1800,
-  },
-  {
-    id: "Groceries",
-    label: "Groceries",
-    value: 450,
-  },
-  {
-    id: "Transportation",
-    label: "Transportation",
-    value: 350,
-  },
-  {
-    id: "Utilities",
-    label: "Utilities",
-    value: 280,
-  },
-  {
-    id: "Entertainment",
-    label: "Entertainment",
-    value: 200,
-  },
-  {
-    id: "Dining",
-    label: "Dining",
-    value: 154,
-  },
-  {
-    id: "Healthcare",
-    label: "Healthcare",
-    value: 120,
-  },
-]
+interface ChartExpensesPieProps {
+  data?: Array<{
+    id: string
+    label: string
+    value: number
+  }>
+}
 
 // Dark colors that require white text
 const darkColors = ["#696969", "#464646", "#2F2F2F", "#252525"]
@@ -65,10 +41,11 @@ const getTextColor = (sliceColor: string, colorScheme?: string): string => {
   return darkColors.includes(sliceColor) ? "#ffffff" : "#000000"
 }
 
-export function ChartExpensesPie() {
+export function ChartExpensesPie({ data: baseData = [] }: ChartExpensesPieProps) {
   const { resolvedTheme } = useTheme()
   const { colorScheme, getPalette } = useColorScheme()
   const [mounted, setMounted] = useState(false)
+  const [isInfoOpen, setIsInfoOpen] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -89,7 +66,7 @@ export function ChartExpensesPie() {
       ...item,
       color: reversedPalette[index % reversedPalette.length]
     }))
-  }, [colorScheme, getPalette])
+  }, [baseData, colorScheme, getPalette])
   
   const data = dataWithColors
   
@@ -116,22 +93,102 @@ export function ChartExpensesPie() {
     )
   }
 
+  // Don't render chart if data is empty
+  if (!baseData || baseData.length === 0) {
+    return (
+      <Card className="@container/card">
+        <CardHeader>
+          <CardTitle>Expense Breakdown</CardTitle>
+          <CardDescription>
+            <span className="hidden @[540px]/card:block">
+              Distribution of your monthly expenses across categories
+            </span>
+            <span className="@[540px]/card:hidden">Monthly expense distribution</span>
+          </CardDescription>
+          <CardAction>
+            <Popover open={isInfoOpen} onOpenChange={setIsInfoOpen}>
+              <PopoverTrigger asChild>
+                <button 
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  onMouseEnter={() => setIsInfoOpen(true)}
+                  onMouseLeave={() => setIsInfoOpen(false)}
+                >
+                  <IconInfoCircle className="h-4 w-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent 
+                className="w-80" 
+                align="end"
+                onMouseEnter={() => setIsInfoOpen(true)}
+                onMouseLeave={() => setIsInfoOpen(false)}
+              >
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm">Expense Breakdown</h4>
+                  <p className="text-sm text-muted-foreground">
+                    This pie chart shows how your total expenses are distributed across different spending categories.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    <strong>How it works:</strong> Each slice represents a category, with the size proportional to the amount spent. Hover over slices to see exact amounts and percentages. Larger slices indicate categories where you spend more.
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+          <div className="h-[400px] w-full flex items-center justify-center text-muted-foreground">
+            No data available
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
-    <Card className="@container/card">
-      <CardHeader>
-        <CardTitle>Expense Breakdown</CardTitle>
-        <CardDescription>
-          <span className="hidden @[540px]/card:block">
-            Distribution of your monthly expenses across categories
-          </span>
-          <span className="@[540px]/card:hidden">Monthly expense distribution</span>
-        </CardDescription>
-      </CardHeader>
+      <Card className="@container/card">
+        <CardHeader>
+          <CardTitle>Expense Breakdown</CardTitle>
+          <CardDescription>
+            <span className="hidden @[540px]/card:block">
+              Distribution of your monthly expenses across categories
+            </span>
+            <span className="@[540px]/card:hidden">Monthly expense distribution</span>
+          </CardDescription>
+          <CardAction>
+            <Popover open={isInfoOpen} onOpenChange={setIsInfoOpen}>
+              <PopoverTrigger asChild>
+                <button 
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  onMouseEnter={() => setIsInfoOpen(true)}
+                  onMouseLeave={() => setIsInfoOpen(false)}
+                >
+                  <IconInfoCircle className="h-4 w-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent 
+                className="w-80" 
+                align="end"
+                onMouseEnter={() => setIsInfoOpen(true)}
+                onMouseLeave={() => setIsInfoOpen(false)}
+              >
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm">Expense Breakdown</h4>
+                  <p className="text-sm text-muted-foreground">
+                    This pie chart shows how your total expenses are distributed across different spending categories.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    <strong>How it works:</strong> Each slice represents a category, with the size proportional to the amount spent. Hover over slices to see exact amounts and percentages. Larger slices indicate categories where you spend more.
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </CardAction>
+        </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
         <div className="h-[400px] w-full" key={colorScheme}>
           <ResponsivePie
             data={data}
-            margin={{ top: 40, right: 80, bottom: 80, left: 80 }}
+            margin={{ top: 40, right: 80, bottom: 40, left: 80 }}
             innerRadius={0.5}
             padAngle={0.7}
             cornerRadius={3}
@@ -143,7 +200,7 @@ export function ChartExpensesPie() {
             arcLinkLabelsColor={{ from: "color" }}
             arcLabelsSkipAngle={20}
             arcLabelsTextColor={(d: { color: string }) => getTextColor(d.color, colorScheme)}
-            valueFormat={(value) => `$${value}`}
+            valueFormat={(value) => `$${value.toFixed(2)}`}
             colors={colorConfig}
             theme={{
               text: {
@@ -162,23 +219,6 @@ export function ChartExpensesPie() {
                 },
               },
             }}
-            legends={[
-              {
-                anchor: "bottom",
-                direction: "row",
-                justify: false,
-                translateX: 0,
-                translateY: 56,
-                itemsSpacing: 0,
-                itemWidth: 100,
-                itemHeight: 18,
-                itemTextColor: textColor,
-                itemDirection: "left-to-right",
-                itemOpacity: 1,
-                symbolSize: 18,
-                symbolShape: "circle",
-              },
-            ]}
           />
         </div>
       </CardContent>

@@ -2,8 +2,9 @@
 
 import * as React from "react"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
+import Image from "next/image"
+import { useTheme } from "next-themes"
 
-import { useIsMobile } from "@/hooks/use-mobile"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import {
   Card,
@@ -19,118 +20,30 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
+import { IconInfoCircle } from "@tabler/icons-react"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@/components/ui/toggle-group"
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 
 export const description = "An interactive area chart"
 
-// Generate realistic financial data with monthly income and cumulative expenses
-const generateChartData = () => {
-  const data = []
-  const monthlyIncome = 5000 // Income received once per month
-  const startDate = new Date("2024-04-01")
-  const endDate = new Date("2024-06-30")
-  
-  // Base expense patterns - realistic daily spending
-  const expensePatterns = {
-    // Rent payment on 1st of month
-    rent: 1800,
-    // Utilities on 5th of month
-    utilities: 150,
-    // Groceries - weekly pattern
-    groceries: [120, 95, 110, 105],
-    // Daily expenses (dining, transport, misc)
-    daily: [45, 60, 35, 80, 50, 70, 40],
-    // Weekend expenses (higher)
-    weekend: [120, 150, 90],
-  }
-  
-  let currentDate = new Date(startDate)
-  let groceryIndex = 0
-  let dailyIndex = 0
-  let daysSinceGrocery = 0
-  let cumulativeExpenses = 0 // Track cumulative expenses
-  let currentMonth = -1 // Track month changes
-  
-  while (currentDate <= endDate) {
-    const dateStr = currentDate.toISOString().split("T")[0]
-    const day = currentDate.getDate()
-    const month = currentDate.getMonth()
-    const dayOfWeek = currentDate.getDay() // 0 = Sunday, 6 = Saturday
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-    const isFirstOfMonth = day === 1
-    
-    // Reset cumulative expenses at the start of each month
-    if (month !== currentMonth) {
-      cumulativeExpenses = 0
-      currentMonth = month
-    }
-    
-    // Income: only on the 1st of each month
-    const income = isFirstOfMonth ? monthlyIncome : 0
-    
-    // Daily expense amount: realistic daily spending patterns
-    let dailyExpense = 0
-    
-    if (isFirstOfMonth) {
-      // Rent payment on 1st
-      dailyExpense = expensePatterns.rent
-      daysSinceGrocery = 0
-    } else if (day === 5) {
-      // Utilities on 5th
-      dailyExpense = expensePatterns.utilities
-      daysSinceGrocery++
-    } else if (daysSinceGrocery >= 6 && (dayOfWeek === 5 || dayOfWeek === 6)) {
-      // Grocery shopping roughly weekly (every 6-7 days, prefer weekends)
-      dailyExpense = expensePatterns.groceries[groceryIndex % expensePatterns.groceries.length]
-      groceryIndex++
-      daysSinceGrocery = 0
-    } else if (isWeekend) {
-      // Weekend spending (higher)
-      dailyExpense = expensePatterns.weekend[Math.floor(Math.random() * expensePatterns.weekend.length)]
-      daysSinceGrocery++
-    } else {
-      // Regular daily expenses
-      dailyExpense = expensePatterns.daily[dailyIndex % expensePatterns.daily.length]
-      dailyIndex++
-      daysSinceGrocery++
-    }
-    
-    // Add some natural variation (±20%)
-    const variation = 1 + (Math.random() * 0.4 - 0.2)
-    dailyExpense = Math.round(dailyExpense * variation)
-    
-    // Add to cumulative expenses (expenses pile up over time)
-    cumulativeExpenses += dailyExpense
-    
-    data.push({
-      date: dateStr,
-      desktop: income,
-      mobile: cumulativeExpenses, // Show cumulative expenses instead of daily
-    })
-    
-    // Move to next day
-    currentDate.setDate(currentDate.getDate() + 1)
-  }
-  
-  return data
+interface ChartAreaInteractiveProps {
+  data?: Array<{
+    date: string
+    desktop: number
+    mobile: number
+  }>
 }
 
-const chartData = generateChartData()
-
-export function ChartAreaInteractive() {
-  const isMobile = useIsMobile()
+export function ChartAreaInteractive({ data = [] }: ChartAreaInteractiveProps) {
   const { colorScheme, getPalette } = useColorScheme()
-  const [timeRange, setTimeRange] = React.useState("90d")
+  const { resolvedTheme } = useTheme()
+  const [isInfoOpen, setIsInfoOpen] = React.useState(false)
+  
+  // Determine which star image to use based on theme
+  const starImage = resolvedTheme === "dark" ? "/starW.png" : "/starB.png"
 
   // Color scheme: colored uses custom palette, dark uses custom palette
   // Darker = more expensive (bigger peso)
@@ -159,25 +72,67 @@ export function ChartAreaInteractive() {
     },
   } satisfies ChartConfig
 
-  React.useEffect(() => {
-    if (isMobile) {
-      setTimeRange("7d")
-    }
-  }, [isMobile])
+  const filteredData = data
 
-  const filteredData = chartData.filter((item) => {
-    const date = new Date(item.date)
-    const referenceDate = new Date("2024-06-30")
-    let daysToSubtract = 90
-    if (timeRange === "30d") {
-      daysToSubtract = 30
-    } else if (timeRange === "7d") {
-      daysToSubtract = 7
-    }
-    const startDate = new Date(referenceDate)
-    startDate.setDate(startDate.getDate() - daysToSubtract)
-    return date >= startDate
-  })
+  // Show empty state if no data
+  if (!data || data.length === 0 || filteredData.length === 0) {
+    return (
+      <Card className="@container/card">
+        <CardHeader>
+          <CardTitle>Income & Expenses Tracking</CardTitle>
+          <CardDescription>
+            <span className="hidden @[540px]/card:block">
+              Your cash flow for the last 3 months
+            </span>
+            <span className="@[540px]/card:hidden">Last 3 months</span>
+          </CardDescription>
+          <CardAction>
+            <div className="flex flex-col items-center gap-2">
+              <Popover open={isInfoOpen} onOpenChange={setIsInfoOpen}>
+                <PopoverTrigger asChild>
+                  <button 
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    onMouseEnter={() => setIsInfoOpen(true)}
+                    onMouseLeave={() => setIsInfoOpen(false)}
+                  >
+                    <IconInfoCircle className="h-4 w-4" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent 
+                  className="w-80" 
+                  align="end"
+                  onMouseEnter={() => setIsInfoOpen(true)}
+                  onMouseLeave={() => setIsInfoOpen(false)}
+                >
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-sm">Income & Expenses Tracking</h4>
+                    <p className="text-sm text-muted-foreground">
+                      This chart visualizes your cash flow over time. The income line shows daily income amounts, while the expense line shows cumulative expenses that accumulate over time.
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      <strong>How it works:</strong> Expenses add up as they occur. When income comes in, it reduces the accumulated expense total, showing how income offsets your spending.
+                    </p>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <Image 
+                src={starImage} 
+                alt="Star" 
+                width={16} 
+                height={16}
+                className="object-contain"
+              />
+            </div>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+          <div className="h-[250px] w-full flex items-center justify-center text-muted-foreground">
+            No data available
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card className="@container/card">
@@ -190,37 +145,42 @@ export function ChartAreaInteractive() {
           <span className="@[540px]/card:hidden">Last 3 months</span>
         </CardDescription>
         <CardAction>
-          <ToggleGroup
-            type="single"
-            value={timeRange}
-            onValueChange={setTimeRange}
-            variant="outline"
-            className="hidden *:data-[slot=toggle-group-item]:!px-4 @[767px]/card:flex"
-          >
-            <ToggleGroupItem value="90d">Last 3 months</ToggleGroupItem>
-            <ToggleGroupItem value="30d">Last 30 days</ToggleGroupItem>
-            <ToggleGroupItem value="7d">Last 7 days</ToggleGroupItem>
-          </ToggleGroup>
-          <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger
-              className="flex w-40 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate @[767px]/card:hidden"
-              size="sm"
-              aria-label="Select a value"
-            >
-              <SelectValue placeholder="Last 3 months" />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              <SelectItem value="90d" className="rounded-lg">
-                Last 3 months
-              </SelectItem>
-              <SelectItem value="30d" className="rounded-lg">
-                Last 30 days
-              </SelectItem>
-              <SelectItem value="7d" className="rounded-lg">
-                Last 7 days
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col items-center gap-2">
+            <Popover open={isInfoOpen} onOpenChange={setIsInfoOpen}>
+              <PopoverTrigger asChild>
+                <button 
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  onMouseEnter={() => setIsInfoOpen(true)}
+                  onMouseLeave={() => setIsInfoOpen(false)}
+                >
+                  <IconInfoCircle className="h-4 w-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent 
+                className="w-80" 
+                align="end"
+                onMouseEnter={() => setIsInfoOpen(true)}
+                onMouseLeave={() => setIsInfoOpen(false)}
+              >
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm">Income & Expenses Tracking</h4>
+                  <p className="text-sm text-muted-foreground">
+                    This chart visualizes your cash flow over time. The income line shows daily income amounts, while the expense line shows cumulative expenses that accumulate over time.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    <strong>How it works:</strong> Expenses add up as they occur. When income comes in, it reduces the accumulated expense total, showing how income offsets your spending.
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
+            <Image 
+              src={starImage} 
+              alt="Star" 
+              width={16} 
+              height={16}
+              className="object-contain"
+            />
+          </div>
         </CardAction>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">

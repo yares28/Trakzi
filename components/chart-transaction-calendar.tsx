@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveCalendar } from "@nivo/calendar"
@@ -20,32 +21,14 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-// Generate sample transaction activity data for multiple years
-const generateCalendarData = () => {
-  const data = []
-  const currentYear = new Date().getFullYear()
-  
-  // Generate data for last 3 years
-  for (let year = currentYear - 2; year <= currentYear; year++) {
-    const startDate = new Date(year, 0, 1)
-    const endDate = new Date(year, 11, 31)
-
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-      // Random transaction amounts (0-500)
-      const value = Math.random() > 0.3 ? Math.floor(Math.random() * 500) : 0
-      data.push({
-        day: d.toISOString().split("T")[0],
-        value: value,
-      })
-    }
-  }
-
-  return data
+interface ChartTransactionCalendarProps {
+  data?: Array<{
+    day: string
+    value: number
+  }>
 }
 
-const allData = generateCalendarData()
-
-export function ChartTransactionCalendar() {
+export function ChartTransactionCalendar({ data: allData = [] }: ChartTransactionCalendarProps) {
   const currentYear = new Date().getFullYear()
   const [selectedYear, setSelectedYear] = useState(currentYear.toString())
   const { resolvedTheme } = useTheme()
@@ -56,8 +39,19 @@ export function ChartTransactionCalendar() {
     setMounted(true)
   }, [])
 
-  // Generate list of available years
-  const availableYears = [currentYear - 2, currentYear - 1, currentYear]
+  // Generate list of available years from data, or use current year if no data
+  const availableYears = React.useMemo(() => {
+    const years = new Set<number>()
+    allData.forEach(item => {
+      const year = new Date(item.day).getFullYear()
+      years.add(year)
+    })
+    // If no data, default to current year
+    if (years.size === 0) {
+      years.add(currentYear)
+    }
+    return Array.from(years).sort((a, b) => b - a)
+  }, [allData, currentYear])
 
   // Filter data for selected year, excluding days with value 0
   // Days with value 0 will use emptyColor (#c3c3c3)

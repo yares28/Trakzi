@@ -1,0 +1,104 @@
+"use client"
+
+import * as React from "react"
+import { IconFilter, IconCheck } from "@tabler/icons-react"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
+export type DateFilterType = 
+  | "last7days"
+  | "last30days"
+  | "last3months"
+  | "last6months"
+  | "lastyear"
+  | string // For specific years like "2024", "2023", etc.
+
+interface DateFilterProps {
+  value: DateFilterType | null
+  onChange: (value: DateFilterType | null) => void
+  availableYears: number[]
+}
+
+export function DateFilter({ value, onChange, availableYears }: DateFilterProps) {
+  const getFilterLabel = (filter: DateFilterType | null): string => {
+    if (!filter) return "All Time"
+    switch (filter) {
+      case "last7days":
+        return "Last 7 Days"
+      case "last30days":
+        return "Last 30 Days"
+      case "last3months":
+        return "Last 3 Months"
+      case "last6months":
+        return "Last 6 Months"
+      case "lastyear":
+        return "Last Year"
+      default:
+        // It's a year string
+        return filter
+    }
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="icon">
+          <IconFilter className="size-[1.2rem]" />
+          <span className="sr-only">Filter by date</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuLabel>Time Period</DropdownMenuLabel>
+        <DropdownMenuItem onClick={() => onChange(null)}>
+          <span className="flex-1">All Time</span>
+          {value === null && <IconCheck className="size-4" />}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => onChange("last7days")}>
+          <span className="flex-1">Last 7 Days</span>
+          {value === "last7days" && <IconCheck className="size-4" />}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onChange("last30days")}>
+          <span className="flex-1">Last 30 Days</span>
+          {value === "last30days" && <IconCheck className="size-4" />}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onChange("last3months")}>
+          <span className="flex-1">Last 3 Months</span>
+          {value === "last3months" && <IconCheck className="size-4" />}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onChange("last6months")}>
+          <span className="flex-1">Last 6 Months</span>
+          {value === "last6months" && <IconCheck className="size-4" />}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onChange("lastyear")}>
+          <span className="flex-1">Last Year</span>
+          {value === "lastyear" && <IconCheck className="size-4" />}
+        </DropdownMenuItem>
+        {availableYears.length > 0 && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Specific Years</DropdownMenuLabel>
+            {availableYears.map((year) => (
+              <DropdownMenuItem
+                key={year}
+                onClick={() => onChange(year.toString())}
+              >
+                <span className="flex-1">{year}</span>
+                {value === year.toString() && <IconCheck className="size-4" />}
+              </DropdownMenuItem>
+            ))}
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+

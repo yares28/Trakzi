@@ -1,3 +1,6 @@
+"use client"
+
+import { useState, useEffect, useCallback } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import {
@@ -6,28 +9,50 @@ import {
 } from "@/components/ui/sidebar"
 import { ReportsDataTable } from "@/components/reports-data-table"
 
-import dashboardData from "../dashboard/data.json"
-import fridgeData from "../fridge/fridge-data.json"
-
 export default function ReportsPage() {
-    // Combine data from both sources
-    const incomeExpensesData = dashboardData.map((item) => ({
-        id: `ie-${item.id}`,
-        name: item.header,
-        type: "Income/Expenses",
-        date: new Date().toISOString(), // Using current date as placeholder
-        reviewer: item.reviewer,
-    }))
+    const [reports, setReports] = useState<any[]>([])
+    const [loading, setLoading] = useState(true)
 
-    const fridgeReceiptsData = fridgeData.receipts.map((receipt) => ({
-        id: `fr-${receipt.id}`,
-        name: receipt.storeName,
-        type: "Fridge/Receipts",
-        date: receipt.date,
-        reviewer: "N/A",
-    }))
+    const fetchReports = useCallback(async () => {
+        try {
+            setLoading(true)
+            const response = await fetch("/api/statements")
+            if (response.ok) {
+                const data = await response.json()
+                setReports(data)
+            } else {
+                console.error("Failed to fetch reports")
+            }
+        } catch (error) {
+            console.error("Error fetching reports:", error)
+        } finally {
+            setLoading(false)
+        }
+    }, [])
 
-    const combinedData = [...incomeExpensesData, ...fridgeReceiptsData]
+    useEffect(() => {
+        fetchReports()
+    }, [fetchReports])
+
+    const handleDelete = useCallback(async (statementId: string) => {
+        try {
+            console.log("[Reports Page] Deleting statement with ID:", statementId, typeof statementId);
+            const response = await fetch(`/api/statements/${statementId}`, {
+                method: "DELETE",
+            })
+            if (response.ok) {
+                // Refresh the list after deletion
+                fetchReports()
+            } else {
+                const errorData = await response.json().catch(() => ({}))
+                console.error("Failed to delete statement:", errorData.error || response.statusText)
+                alert(`Failed to delete statement: ${errorData.error || response.statusText}`)
+            }
+        } catch (error) {
+            console.error("Error deleting statement:", error)
+            alert(`Error deleting statement: ${error instanceof Error ? error.message : 'Unknown error'}`)
+        }
+    }, [fetchReports])
 
     return (
         <SidebarProvider
@@ -51,7 +76,11 @@ export default function ReportsPage() {
                                         View all imported documents from Income/Expenses and Fridge/Receipts
                                     </p>
                                 </div>
-                                <ReportsDataTable data={combinedData} />
+                                <ReportsDataTable 
+                                    data={reports} 
+                                    onDelete={handleDelete}
+                                    loading={loading}
+                                />
                             </div>
                         </div>
                     </div>

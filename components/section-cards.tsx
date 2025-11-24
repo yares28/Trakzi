@@ -10,28 +10,48 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-export function SectionCards() {
+interface SectionCardsProps {
+  totalIncome?: number
+  totalExpenses?: number
+  savingsRate?: number
+  netWorth?: number
+  incomeChange?: number
+  expensesChange?: number
+  savingsRateChange?: number
+  netWorthChange?: number
+}
+
+export function SectionCards({
+  totalIncome = 0,
+  totalExpenses = 0,
+  savingsRate = 0,
+  netWorth = 0,
+  incomeChange = 0,
+  expensesChange = 0,
+  savingsRateChange = 0,
+  netWorthChange = 0,
+}: SectionCardsProps) {
   return (
     <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
       <Card className="@container/card">
         <CardHeader>
           <CardDescription>Total Income</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            $5,430.00
+            ${totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </CardTitle>
           <CardAction>
             <Badge variant="outline">
-              <IconTrendingUp />
-              +8.2%
+              {incomeChange >= 0 ? <IconTrendingUp /> : <IconTrendingDown />}
+              {incomeChange >= 0 ? '+' : ''}{incomeChange.toFixed(1)}%
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Income growing this month <IconTrendingUp className="size-4" />
+            {incomeChange >= 0 ? 'Income growing' : 'Income decreased'} this month {incomeChange >= 0 ? <IconTrendingUp className="size-4" /> : <IconTrendingDown className="size-4" />}
           </div>
           <div className="text-muted-foreground">
-            Earnings for the last 6 months
+            Compared to last month
           </div>
         </CardFooter>
       </Card>
@@ -39,21 +59,21 @@ export function SectionCards() {
         <CardHeader>
           <CardDescription>Total Expenses</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            $3,234.00
+            ${totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </CardTitle>
           <CardAction>
             <Badge variant="outline">
-              <IconTrendingDown />
-              -15%
+              {expensesChange >= 0 ? <IconTrendingUp /> : <IconTrendingDown />}
+              {expensesChange >= 0 ? '+' : ''}{expensesChange.toFixed(1)}%
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Reduced spending this period <IconTrendingDown className="size-4" />
+            {expensesChange <= 0 ? 'Reduced spending' : 'Spending increased'} this period {expensesChange <= 0 ? <IconTrendingDown className="size-4" /> : <IconTrendingUp className="size-4" />}
           </div>
           <div className="text-muted-foreground">
-            Great progress on budgeting
+            {expensesChange <= 0 ? 'Great progress on budgeting' : 'Review your expenses'}
           </div>
         </CardFooter>
       </Card>
@@ -61,40 +81,40 @@ export function SectionCards() {
         <CardHeader>
           <CardDescription>Savings Rate</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            40.5%
+            {savingsRate.toFixed(1)}%
           </CardTitle>
           <CardAction>
             <Badge variant="outline">
-              <IconTrendingUp />
-              +5.3%
+              {savingsRateChange >= 0 ? <IconTrendingUp /> : <IconTrendingDown />}
+              {savingsRateChange >= 0 ? '+' : ''}{savingsRateChange.toFixed(1)}%
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Excellent savings discipline <IconTrendingUp className="size-4" />
+            {savingsRateChange >= 0 ? 'Savings rate improving' : 'Savings rate declining'} {savingsRateChange >= 0 ? <IconTrendingUp className="size-4" /> : <IconTrendingDown className="size-4" />}
           </div>
-          <div className="text-muted-foreground">Above 35% target</div>
+          <div className="text-muted-foreground">Compared to last month</div>
         </CardFooter>
       </Card>
       <Card className="@container/card">
         <CardHeader>
           <CardDescription>Net Worth</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            $45,678
+            ${netWorth.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
           </CardTitle>
           <CardAction>
             <Badge variant="outline">
-              <IconTrendingUp />
-              +12.5%
+              {netWorthChange >= 0 ? <IconTrendingUp /> : <IconTrendingDown />}
+              {netWorthChange >= 0 ? '+' : ''}{netWorthChange.toFixed(1)}%
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Steady wealth growth <IconTrendingUp className="size-4" />
+            {netWorthChange >= 0 ? 'Wealth growing' : 'Wealth decreased'} {netWorthChange >= 0 ? <IconTrendingUp className="size-4" /> : <IconTrendingDown className="size-4" />}
           </div>
-          <div className="text-muted-foreground">On track for financial goals</div>
+          <div className="text-muted-foreground">Compared to last month</div>
         </CardFooter>
       </Card>
     </div>
