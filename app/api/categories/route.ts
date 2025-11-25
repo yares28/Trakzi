@@ -27,7 +27,6 @@ const CATEGORY_LIST_QUERY = `
   LEFT JOIN transactions t ON t.category_id = c.id AND t.user_id = $1
   WHERE c.user_id = $1
   GROUP BY c.id
-  HAVING COUNT(t.id) > 0
   ORDER BY COALESCE(SUM(t.amount), 0) ASC
 `
 
@@ -76,10 +75,15 @@ export const GET = async () => {
           totalAmount: totalAmount,
         }
       })
-      // Filter out categories with 0 transactions (double-check, though HAVING should handle this)
-      .filter((cat) => cat.transactionCount > 0)
       // Sort by total amount ascending (most negative/highest expenses first, then income)
-      .sort((a, b) => a.totalAmount - b.totalAmount)
+      // Categories with 0 transactions will appear at the end
+      .sort((a, b) => {
+        // If one has transactions and the other doesn't, prioritize the one with transactions
+        if (a.transactionCount > 0 && b.transactionCount === 0) return -1
+        if (a.transactionCount === 0 && b.transactionCount > 0) return 1
+        // Otherwise sort by total amount
+        return a.totalAmount - b.totalAmount
+      })
 
     return NextResponse.json(payload)
   } catch (error) {
@@ -123,11 +127,26 @@ export const POST = async (req: NextRequest) => {
       color ||
       CATEGORY_COLORS[Math.floor(Math.random() * CATEGORY_COLORS.length)]
 
-    const [category] = await neonInsert("categories", {
+    const result = await neonInsert("categories", {
       user_id: userId,
       name: normalizedName,
       color: paletteColor,
-    })
+    }) as Array<{
+      id: number
+      user_id: string
+      name: string
+      color: string
+      created_at: string
+    }>
+
+    if (!result || result.length === 0) {
+      return NextResponse.json(
+        { error: "Failed to create category" },
+        { status: 500 }
+      )
+    }
+
+    const category = result[0]
 
     return NextResponse.json(
       {

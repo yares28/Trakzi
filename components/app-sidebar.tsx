@@ -8,15 +8,12 @@ import {
   IconDatabase,
   IconFileAi,
   IconFileDescription,
-  IconFileWord,
   IconFolder,
   IconHelp,
   IconInnerShadowTop,
   IconListDetails,
-  IconReport,
   IconSearch,
   IconSettings,
-  IconUsers,
 } from "@tabler/icons-react"
 import { useTheme } from "next-themes"
 
@@ -60,11 +57,6 @@ const data = {
       title: "Fridge",
       url: "/fridge",
       icon: IconCamera,
-    },
-    {
-      title: "Team",
-      url: "#",
-      icon: IconUsers,
     },
   ],
   navClouds: [
@@ -137,16 +129,6 @@ const data = {
       name: "Data Library",
       url: "/data-library",
       icon: IconDatabase,
-    },
-    {
-      name: "Reports",
-      url: "/reports",
-      icon: IconReport,
-    },
-    {
-      name: "Word Assistant",
-      url: "#",
-      icon: IconFileWord,
     },
   ],
 }

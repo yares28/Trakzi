@@ -183,7 +183,11 @@ function TransactionRow({
     return (
         <TableRow>
             <TableCell className="font-mono text-sm">
-                {new Date(transaction.date).toLocaleDateString()}
+                {new Date(transaction.date).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                })}
             </TableCell>
             <TableCell>{transaction.description}</TableCell>
             <TableCell>

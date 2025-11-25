@@ -543,7 +543,11 @@ export function DataTable<TData, TValue>({
                     return pageData.map((tx) => (
                       <TableRow key={tx.id}>
                         <TableCell className="w-28 flex-shrink-0">
-                          {new Date(tx.date).toLocaleDateString()}
+                          {new Date(tx.date).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}
                         </TableCell>
                         <TableCell className="min-w-[350px] max-w-[600px]">
                           <div className="truncate" title={tx.description}>

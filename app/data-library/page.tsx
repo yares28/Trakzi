@@ -17,6 +17,7 @@ import {
   IconEye,
   IconFolders,
   IconLoader2,
+  IconPlus,
   IconRefresh,
   IconShieldCheck,
   IconTrash,
@@ -30,6 +31,8 @@ import {
 } from "@/components/ui/sidebar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Card,
   CardContent,
@@ -47,6 +50,7 @@ import {
 } from "@/components/ui/select"
 import { CategorySelect } from "@/components/category-select"
 import { DataTable } from "@/components/data-table"
+import { DEFAULT_CATEGORIES } from "@/lib/categories"
 import {
   Table,
   TableBody,
@@ -72,6 +76,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { toast } from "sonner"
 
 type Transaction = {
   id: number
@@ -156,11 +161,10 @@ const formatBytes = (bytes: number) => {
 }
 
 const formatDateLabel = (input: string) =>
-  new Date(input).toLocaleString([], {
+  new Date(input).toLocaleDateString([], {
+    year: "numeric",
     month: "short",
     day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
   })
 
 const formatCurrency = (value: number) =>
@@ -196,6 +200,12 @@ export default function DataLibraryPage() {
   const [statementToDelete, setStatementToDelete] = useState<Statement | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
+  const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState("")
+  const [addCategoryLoading, setAddCategoryLoading] = useState(false)
+  const [deleteCategoryDialogOpen, setDeleteCategoryDialogOpen] = useState(false)
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
+  const [deleteCategoryLoading, setDeleteCategoryLoading] = useState(false)
 
   const totalTransactions = transactions.length
   const categorizedTransactions = transactions.filter(
@@ -289,6 +299,82 @@ export default function DataLibraryPage() {
   useEffect(() => {
     fetchLibraryData()
   }, [fetchLibraryData])
+
+  const handleAddCategory = async () => {
+    const trimmedName = newCategoryName.trim()
+    if (!trimmedName) {
+      toast.error("Please enter a category name")
+      return
+    }
+
+    try {
+      setAddCategoryLoading(true)
+      const response = await fetch("/api/categories", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: trimmedName }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || "Failed to add category")
+      }
+
+      const created = await response.json()
+      
+      // Refresh categories list
+      await fetchLibraryData()
+      
+      // Reset form
+      setNewCategoryName("")
+      setAddCategoryDialogOpen(false)
+      
+      toast.success(`Category "${created.name}" added`)
+    } catch (error) {
+      console.error("[Add Category] Error:", error)
+      const message = error instanceof Error ? error.message : "Failed to add category"
+      toast.error(message)
+    } finally {
+      setAddCategoryLoading(false)
+    }
+  }
+
+  const handleDeleteCategory = async () => {
+    if (!categoryToDelete) return
+
+    try {
+      setDeleteCategoryLoading(true)
+      const response = await fetch(`/api/categories/${categoryToDelete.id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || "Failed to delete category")
+      }
+
+      // Refresh categories list
+      await fetchLibraryData()
+      
+      // Reset state
+      setCategoryToDelete(null)
+      setDeleteCategoryDialogOpen(false)
+      
+      toast.success(`Category "${categoryToDelete.name}" deleted`)
+    } catch (error) {
+      console.error("[Delete Category] Error:", error)
+      const message = error instanceof Error ? error.message : "Failed to delete category"
+      toast.error(message)
+    } finally {
+      setDeleteCategoryLoading(false)
+    }
+  }
+
+  const isDefaultCategory = (categoryName: string): boolean => {
+    return DEFAULT_CATEGORIES.includes(categoryName)
+  }
 
   const uniqueCategoryOptions = useMemo(() => {
     const names = new Set<string>()
@@ -578,10 +664,19 @@ export default function DataLibraryPage() {
                           Full taxonomy pulled from Neon categories table.
                         </CardDescription>
                       </div>
-                      <Badge variant="outline" className="gap-1">
-                        <IconCategory className="size-3.5" />
-                        {categories.length} total
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="gap-1">
+                          <IconCategory className="size-3.5" />
+                          {categories.length} total
+                        </Badge>
+                        <Button
+                          size="sm"
+                          onClick={() => setAddCategoryDialogOpen(true)}
+                        >
+                          <IconPlus className="size-4 mr-1" />
+                          Add Category
+                        </Button>
+                      </div>
                     </CardHeader>
                     <CardContent className="overflow-x-auto">
                       <Table>
@@ -595,6 +690,7 @@ export default function DataLibraryPage() {
                               Transactions
                             </TableHead>
                             <TableHead className="text-right">Spend</TableHead>
+                            <TableHead className="text-right w-20">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -647,11 +743,27 @@ export default function DataLibraryPage() {
                                     )
                                   })()}
                                 </TableCell>
+                                <TableCell className="text-right">
+                                  {!isDefaultCategory(category.name) && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      onClick={() => {
+                                        setCategoryToDelete(category)
+                                        setDeleteCategoryDialogOpen(true)
+                                      }}
+                                    >
+                                      <IconTrash className="size-4" />
+                                      <span className="sr-only">Delete category</span>
+                                    </Button>
+                                  )}
+                                </TableCell>
                               </TableRow>
                             ))
                           ) : (
                             <TableRow>
-                              <TableCell colSpan={4} className="text-center">
+                              <TableCell colSpan={5} className="text-center">
                                 <p className="text-sm text-muted-foreground">
                                   No categories yet—tag transactions to build your taxonomy.
                                 </p>
@@ -839,6 +951,113 @@ export default function DataLibraryPage() {
                       disabled={deleteLoading}
                     >
                       {deleteLoading ? (
+                        <>
+                          <IconLoader2 className="mr-2 size-4 animate-spin" />
+                          Deleting…
+                        </>
+                      ) : (
+                        <>
+                          <IconTrash className="mr-2 size-4" />
+                          Delete
+                        </>
+                      )}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              <Dialog
+                open={addCategoryDialogOpen}
+                onOpenChange={setAddCategoryDialogOpen}
+              >
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New Category</DialogTitle>
+                    <DialogDescription>
+                      Create a new category for organizing your transactions.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="flex flex-col gap-4 py-4">
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="category-name">Category Name</Label>
+                      <Input
+                        id="category-name"
+                        placeholder="e.g., Entertainment, Travel, Healthcare"
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !addCategoryLoading) {
+                            e.preventDefault()
+                            handleAddCategory()
+                          }
+                        }}
+                        disabled={addCategoryLoading}
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setAddCategoryDialogOpen(false)
+                        setNewCategoryName("")
+                      }}
+                      disabled={addCategoryLoading}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleAddCategory}
+                      disabled={addCategoryLoading || !newCategoryName.trim()}
+                    >
+                      {addCategoryLoading ? (
+                        <>
+                          <IconLoader2 className="mr-2 size-4 animate-spin" />
+                          Adding...
+                        </>
+                      ) : (
+                        <>
+                          <IconPlus className="mr-2 size-4" />
+                          Add Category
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  </DialogContent>
+                </Dialog>
+
+              <AlertDialog
+                open={deleteCategoryDialogOpen}
+                onOpenChange={(open) => {
+                  setDeleteCategoryDialogOpen(open)
+                  if (!open) {
+                    setCategoryToDelete(null)
+                  }
+                }}
+              >
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete category?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently remove{" "}
+                      <span className="font-medium">
+                        {categoryToDelete?.name ?? "this category"}
+                      </span>
+                      . Transactions using this category will have their category set to null.
+                      This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={deleteCategoryLoading}>
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={handleDeleteCategory}
+                      disabled={deleteCategoryLoading}
+                    >
+                      {deleteCategoryLoading ? (
                         <>
                           <IconLoader2 className="mr-2 size-4 animate-spin" />
                           Deleting…

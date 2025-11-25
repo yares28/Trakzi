@@ -165,6 +165,13 @@ export const GET = async (request: Request) => {
         }>(query, params);
         
         console.log(`[Stats API] Found ${allUserTransactions.length} transactions for current period`);
+        if (allUserTransactions.length > 0) {
+            console.log(`[Stats API] Sample transaction:`, {
+                amount: allUserTransactions[0].amount,
+                amountType: typeof allUserTransactions[0].amount,
+                amountValue: allUserTransactions[0].amount
+            });
+        }
         
         // Get previous period transactions if we have a filter
         let previousTransactions: typeof allUserTransactions = [];
@@ -194,22 +201,51 @@ export const GET = async (request: Request) => {
             return !startDate || !endDate || (txDate >= startDate && txDate <= endDate);
         });
         
-        // Calculate totals
+        console.log(`[Stats API] Current transactions after filter: ${currentTransactions.length}`);
+        
+        // Helper function to safely convert to number
+        const toNumber = (value: any): number => {
+            if (value === null || value === undefined) return 0;
+            const num = typeof value === 'string' ? parseFloat(value) : Number(value);
+            return isNaN(num) ? 0 : num;
+        };
+        
+        // Calculate totals - ensure amounts are numbers
         const currentIncome = currentTransactions
-            .filter(tx => tx.amount > 0)
-            .reduce((sum, tx) => sum + tx.amount, 0);
+            .filter(tx => {
+                const amount = toNumber(tx.amount);
+                return amount > 0;
+            })
+            .reduce((sum, tx) => sum + toNumber(tx.amount), 0);
         
         const currentExpenses = Math.abs(currentTransactions
-            .filter(tx => tx.amount < 0)
-            .reduce((sum, tx) => sum + tx.amount, 0));
+            .filter(tx => {
+                const amount = toNumber(tx.amount);
+                return amount < 0;
+            })
+            .reduce((sum, tx) => sum + toNumber(tx.amount), 0));
         
         const previousIncome = previousTransactions
-            .filter(tx => tx.amount > 0)
-            .reduce((sum, tx) => sum + tx.amount, 0);
+            .filter(tx => {
+                const amount = toNumber(tx.amount);
+                return amount > 0;
+            })
+            .reduce((sum, tx) => sum + toNumber(tx.amount), 0);
         
         const previousExpenses = Math.abs(previousTransactions
-            .filter(tx => tx.amount < 0)
-            .reduce((sum, tx) => sum + tx.amount, 0));
+            .filter(tx => {
+                const amount = toNumber(tx.amount);
+                return amount < 0;
+            })
+            .reduce((sum, tx) => sum + toNumber(tx.amount), 0));
+        
+        console.log(`[Stats API] Calculated values:`, {
+            currentIncome,
+            currentExpenses,
+            previousIncome,
+            previousExpenses,
+            currentTransactionsCount: currentTransactions.length
+        });
         
         // Calculate savings rate
         const currentSavingsRate = currentIncome > 0 
@@ -223,12 +259,12 @@ export const GET = async (request: Request) => {
         // Calculate net worth (use latest transaction balance)
         // Transactions are already sorted by date desc, so first one is latest
         const netWorth = allUserTransactions.length > 0 && allUserTransactions[0].balance != null
-            ? allUserTransactions[0].balance 
+            ? toNumber(allUserTransactions[0].balance) 
             : 0;
         
         // Get previous period's net worth (latest transaction balance in previous period)
         const previousNetWorth = previousTransactions.length > 0 && previousTransactions[0].balance != null
-            ? previousTransactions[0].balance 
+            ? toNumber(previousTransactions[0].balance) 
             : 0;
         
         // Calculate percentage changes

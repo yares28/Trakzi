@@ -188,14 +188,14 @@ export async function parsePdfToRows(fileBuffer: Buffer): Promise<TxRow[]> {
                 // Handle both pipe-separated and space-separated tables
                 let parts: string[] = [];
                 if (line.includes('|')) {
-                    parts = line.split('|').map(p => p.trim()).filter(p => p.length > 0);
+                    parts = line.split('|').map((p: string) => p.trim()).filter((p: string) => p.length > 0);
                 } else {
                     // Space-separated: split on 2+ spaces, but be more flexible
                     // First try splitting on 3+ spaces (more reliable for tables)
-                    parts = line.split(/\s{3,}/).map(p => p.trim()).filter(p => p.length > 0);
+                    parts = line.split(/\s{3,}/).map((p: string) => p.trim()).filter((p: string) => p.length > 0);
                     // If that doesn't give us enough parts, try 2+ spaces
                     if (parts.length < 3) {
-                        parts = line.split(/\s{2,}/).map(p => p.trim()).filter(p => p.length > 0);
+                        parts = line.split(/\s{2,}/).map((p: string) => p.trim()).filter((p: string) => p.length > 0);
                     }
                 }
                 
@@ -214,7 +214,7 @@ export async function parsePdfToRows(fileBuffer: Buffer): Promise<TxRow[]> {
                         // Re-parse with date at start
                         const dateStr = dateMatch[0];
                         const restOfLine = line.slice(dateMatch.index! + dateMatch[0].length).trim();
-                        parts = [dateStr, ...restOfLine.split(/\s{2,}|\|/).map(p => p.trim()).filter(p => p.length > 0)];
+                        parts = [dateStr, ...restOfLine.split(/\s{2,}|\|/).map((p: string) => p.trim()).filter((p: string) => p.length > 0)];
                     }
                 }
                 

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { saveFileToNeon } from "@/lib/files/saveFileToNeon";
 // Import parsePdfToRows dynamically to avoid DOMMatrix error during module evaluation
 import { parseExcelToRows } from "@/lib/parsing/parseExcelToRows";
-import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows";
+import { parseCsvToRows, CsvDiagnostics } from "@/lib/parsing/parseCsvToRows";
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv";
 import { categoriseTransactions } from "@/lib/ai/categoriseTransactions";
 import { TxRow } from "@/lib/types/transactions";
@@ -40,6 +40,7 @@ export const POST = async (req: NextRequest) => {
         // 2) Parse rows depending on type
         const buffer = Buffer.from(await file.arrayBuffer());
         let rows: TxRow[] = [];
+        let csvDiagnostics: CsvDiagnostics | null = null;
 
         try {
             if (extension === "pdf") {
@@ -49,7 +50,9 @@ export const POST = async (req: NextRequest) => {
             } else if (extension === "xls" || extension === "xlsx") {
                 rows = parseExcelToRows(buffer);
             } else if (extension === "csv") {
-                rows = parseCsvToRows(buffer.toString("utf-8"));
+                const result = parseCsvToRows(buffer.toString("utf-8"), { returnDiagnostics: true });
+                rows = result.rows;
+                csvDiagnostics = result.diagnostics;
             } else {
                 // Unsupported for parsing → just store file
                 return NextResponse.json(
@@ -79,7 +82,16 @@ export const POST = async (req: NextRequest) => {
 
         if (rows.length === 0) {
             return NextResponse.json({ 
-                error: `Parse Error: No transactions found in the ${extension.toUpperCase()} file. Please check the file format.` 
+                error: `Parse Error: No transactions found in the ${extension.toUpperCase()} file. Please check the file format.`,
+                diagnostics: csvDiagnostics ? {
+                    delimiter: csvDiagnostics.delimiter,
+                    headerRowIndex: csvDiagnostics.headerRowIndex,
+                    availableColumns: csvDiagnostics.availableColumns,
+                    invalidDateSamples: csvDiagnostics.invalidDateSamples,
+                    filteredOutSamples: csvDiagnostics.filteredOutSamples,
+                    warnings: csvDiagnostics.warnings,
+                    sampleRawRows: csvDiagnostics.sampleRawRows
+                } : undefined
             }, { status: 400 });
         }
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import { ResponsiveCirclePacking } from "@nivo/circle-packing"
 import { ResponsivePolarBar } from "@nivo/polar-bar"
 import { ResponsiveRadar } from "@nivo/radar"
@@ -85,13 +85,25 @@ export function ChartCirclePacking({ data = { name: "", children: [] } }: ChartC
 }
 
 interface ChartPolarBarProps {
-  data?: Array<Record<string, string | number>>
+  data?: Array<Record<string, string | number>> | { data: Array<Record<string, string | number>>; keys: string[] }
+  keys?: string[]
 }
 
-export function ChartPolarBar({ data = [] }: ChartPolarBarProps) {
+export function ChartPolarBar({ data: dataProp = [], keys: keysProp }: ChartPolarBarProps) {
   const { getPalette } = useColorScheme()
   
-  if (!data || data.length === 0) {
+  // Handle both old format (array) and new format (object with data and keys)
+  const chartData = Array.isArray(dataProp) ? dataProp : dataProp.data || []
+  const chartKeys = keysProp || (Array.isArray(dataProp) ? [] : dataProp.keys) || []
+  
+  // If no keys provided and data is array, extract keys from first data item (excluding 'month')
+  const finalKeys = chartKeys.length > 0 
+    ? chartKeys 
+    : (chartData.length > 0 
+        ? Object.keys(chartData[0]).filter(key => key !== 'month')
+        : [])
+  
+  if (!chartData || chartData.length === 0 || finalKeys.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -113,8 +125,8 @@ export function ChartPolarBar({ data = [] }: ChartPolarBarProps) {
       </CardHeader>
       <CardContent className="h-[420px]">
         <ResponsivePolarBar
-          data={data}
-          keys={["Essentials", "Lifestyle", "Transport", "Financial", "Utilities"]}
+          data={chartData}
+          keys={finalKeys}
           indexBy="month"
           valueSteps={5}
           valueFormat=">-$.0f"
@@ -481,11 +493,10 @@ export function ChartTreeMap({ data = { name: "", children: [] } }: ChartTreeMap
             margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
             labelSkipSize={12}
             labelTextColor="#000000"
-            labelRotation={0}
             label={(node) => {
               // Hide labels if rectangle is 28×49 or smaller
               if (node.width <= 28 || node.height <= 49) {
-                return null
+                return ""
               }
               // If text has multiple words, show only the first word
               const name = node.data.name || ""
@@ -494,11 +505,10 @@ export function ChartTreeMap({ data = { name: "", children: [] } }: ChartTreeMap
             }}
             parentLabelPosition="left"
             parentLabelTextColor="#000000"
-            parentLabelRotation={0}
             parentLabel={(node) => {
               // Hide parent labels if rectangle is 28×49 or smaller
               if (node.width <= 28 || node.height <= 49) {
-                return null
+                return ""
               }
               // If text has multiple words, show only the first word
               const name = node.data.name || ""
@@ -530,25 +540,61 @@ export function ChartTreeMap({ data = { name: "", children: [] } }: ChartTreeMap
 interface ChartRadialBarProps {
   data?: Array<{ name: string; uv: number; pv: number; fill?: string }>
   isAnimationActive?: boolean
+  budgets?: Record<string, number>
+  onBudgetChange?: (category: string, budget: number) => void
 }
 
 export function ChartRadialBar({
   data: radialBarData = [],
   isAnimationActive = true,
+  budgets = {},
+  onBudgetChange,
 }: ChartRadialBarProps) {
   const { getPalette } = useColorScheme()
   const palette = getPalette()
-  const coloredData = radialBarData.map((item, index) => ({
-    ...item,
-    fill: item.fill || palette[index % palette.length]
-  }))
+  const [editingCategory, setEditingCategory] = React.useState<string | null>(null)
+  const [budgetInputs, setBudgetInputs] = React.useState<Record<string, string>>({})
+  const [localBudgets, setLocalBudgets] = React.useState<Record<string, number>>(budgets)
+
+  // Update local budgets when prop changes
+  React.useEffect(() => {
+    setLocalBudgets(budgets)
+  }, [budgets])
+
+  // Process data: uv = spent, pv = budget (or spent * 1.2 if no budget set)
+  const processedData = radialBarData.map((item, index) => {
+    const budget = localBudgets[item.name] || item.pv || item.uv * 1.2
+    const spent = item.uv
+    const exceeded = spent > budget
+    
+    return {
+      ...item,
+      name: item.name,
+      uv: Number(spent.toFixed(2)), // Spent amount (2 decimals)
+      pv: Number(budget.toFixed(2)), // Budget amount (2 decimals)
+      fill: exceeded ? '#ef4444' : (item.fill || palette[index % palette.length]), // Red if exceeded
+    }
+  })
+
+  const handleBudgetSave = (category: string) => {
+    const value = parseFloat(budgetInputs[category] || '0')
+    if (!isNaN(value) && value >= 0) {
+      const newBudgets = { ...localBudgets, [category]: value }
+      setLocalBudgets(newBudgets)
+      if (onBudgetChange) {
+        onBudgetChange(category, value)
+      }
+    }
+    setEditingCategory(null)
+    setBudgetInputs({})
+  }
 
   if (!radialBarData || radialBarData.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Customer Lifetime Value</CardTitle>
-          <CardDescription>Radial view by key segments</CardDescription>
+          <CardTitle>Category Budget</CardTitle>
+          <CardDescription>Track spending against your budget limits</CardDescription>
         </CardHeader>
         <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
           No data available
@@ -559,9 +605,78 @@ export function ChartRadialBar({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Customer Lifetime Value</CardTitle>
-        <CardDescription>Radial view by key segments</CardDescription>
+      <CardHeader className="relative">
+        <CardTitle>Category Budget</CardTitle>
+        <CardDescription>Track spending against your budget limits</CardDescription>
+        <div className="absolute top-4 right-4 flex flex-col gap-1.5 z-10">
+          {processedData.map((item) => {
+            const isEditing = editingCategory === item.name
+            const exceeded = item.uv > item.pv
+            const percentage = item.pv > 0 ? ((item.uv / item.pv) * 100).toFixed(1) : '0'
+            const budget = localBudgets[item.name] || item.pv
+            
+            return (
+              <div key={item.name} className="flex items-center gap-1.5 bg-background/80 backdrop-blur-sm p-1 rounded border">
+                {isEditing ? (
+                  <>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={budgetInputs[item.name] ?? budget.toFixed(2)}
+                      onChange={(e) => setBudgetInputs({ ...budgetInputs, [item.name]: e.target.value })}
+                      className="w-16 px-1.5 py-0.5 text-xs border rounded"
+                      placeholder="Budget"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleBudgetSave(item.name)
+                        if (e.key === 'Escape') {
+                          setEditingCategory(null)
+                          setBudgetInputs({})
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={() => handleBudgetSave(item.name)}
+                      className="px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                      title="Save"
+                    >
+                      ✓
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingCategory(null)
+                        setBudgetInputs({})
+                      }}
+                      className="px-1.5 py-0.5 text-xs bg-muted rounded hover:bg-muted/80"
+                      title="Cancel"
+                    >
+                      ✕
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => {
+                        setEditingCategory(item.name)
+                        setBudgetInputs({ [item.name]: budget.toFixed(2) })
+                      }}
+                      className={`px-1.5 py-0.5 text-xs rounded hover:bg-muted/80 ${
+                        exceeded ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400' : 'bg-muted'
+                      }`}
+                      title={`${item.name}: $${item.uv.toFixed(2)} / $${item.pv.toFixed(2)}`}
+                    >
+                      {item.name.substring(0, 4)}
+                    </button>
+                    <span className={`text-xs font-medium ${exceeded ? 'text-red-500' : 'text-muted-foreground'}`}>
+                      {percentage}%
+                    </span>
+                  </>
+                )}
+              </div>
+            )
+          })}
+        </div>
       </CardHeader>
       <CardContent className="h-[420px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -570,12 +685,31 @@ export function ChartRadialBar({
             outerRadius="100%"
             cx="30%"
             cy="75%"
-            data={coloredData}
+            data={processedData}
             startAngle={180}
             endAngle={0}
           >
             <RadialBar
-              label={{ fill: "#666", position: "insideStart" }}
+              label={(props: any) => {
+                // Handle different prop structures in Recharts
+                const payload = props.payload || props
+                if (!payload || payload.uv === undefined || payload.pv === undefined) {
+                  return null
+                }
+                const exceeded = payload.uv > payload.pv
+                return (
+                  <text
+                    x={props.x}
+                    y={props.y}
+                    fill={exceeded ? "#ef4444" : "#666"}
+                    textAnchor={props.textAnchor}
+                    fontSize="12"
+                    fontWeight={exceeded ? "bold" : "normal"}
+                  >
+                    {payload.uv.toFixed(2)}
+                  </text>
+                )
+              }}
               background
               dataKey="uv"
               isAnimationActive={isAnimationActive}
@@ -587,8 +721,37 @@ export function ChartRadialBar({
               layout="vertical"
               verticalAlign="middle"
               align="right"
+              formatter={(value: string, entry: any) => {
+                const payload = entry.payload || entry
+                if (!payload || payload.uv === undefined || payload.pv === undefined) {
+                  return value
+                }
+                const exceeded = payload.uv > payload.pv
+                return (
+                  <span style={{ color: exceeded ? '#ef4444' : '#666', fontWeight: exceeded ? 'bold' : 'normal' }}>
+                    {value}: ${payload.uv.toFixed(2)} / ${payload.pv.toFixed(2)}
+                  </span>
+                )
+              }}
             />
-            <Tooltip />
+            <Tooltip
+              formatter={(value: number, name: string, props: any) => {
+                const payload = props.payload || props
+                if (!payload || payload.uv === undefined || payload.pv === undefined) {
+                  return [`$${value.toFixed(2)}`, name]
+                }
+                const exceeded = payload.uv > payload.pv
+                return [
+                  <span key="spent" style={{ color: exceeded ? '#ef4444' : '#666' }}>
+                    Spent: ${value.toFixed(2)}
+                  </span>,
+                  <span key="budget">
+                    Budget: ${payload.pv.toFixed(2)}
+                  </span>,
+                  exceeded ? <span key="status" style={{ color: '#ef4444' }}>⚠ Exceeded</span> : null
+                ]
+              }}
+            />
           </RadialBarChart>
         </ResponsiveContainer>
       </CardContent>
