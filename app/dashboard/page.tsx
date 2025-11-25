@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useRef, useEffect, useMemo, useTransition, startTransition } from "react"
+import { useState, useCallback, useRef, useEffect, useMemo } from "react"
 import { flushSync } from "react-dom"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
@@ -47,10 +47,12 @@ import { toast } from "sonner"
 import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv"
 import { TxRow } from "@/lib/types/transactions"
-import { ColumnDef } from "@tanstack/react-table"
 import { CategorySelect } from "@/components/category-select"
+import { DEFAULT_CATEGORIES } from "@/lib/categories"
 import { Progress } from "@/components/ui/progress"
 import { memo } from "react"
+
+type ParsedRow = TxRow & { id: number }
 
 // Memoized table row component to prevent unnecessary re-renders
 const MemoizedTableRow = memo(function MemoizedTableRow({
@@ -62,7 +64,7 @@ const MemoizedTableRow = memo(function MemoizedTableRow({
   onCategoryChange,
   onDelete
 }: {
-  row: any
+  row: ParsedRow
   amount: number
   balance: number | null
   category: string
@@ -124,7 +126,7 @@ export default function Page() {
   const [importProgress, setImportProgress] = useState(0)
   const [parsingProgress, setParsingProgress] = useState(0)
   const [parsedCsv, setParsedCsv] = useState<string | null>(null)
-  const [parsedRows, setParsedRows] = useState<TxRow[]>([])
+  const [parsedRows, setParsedRows] = useState<ParsedRow[]>([])
   const [fileId, setFileId] = useState<string | null>(null)
   const [parseError, setParseError] = useState<string | null>(null)
   const [transactionCount, setTransactionCount] = useState<number>(0)
@@ -196,7 +198,6 @@ export default function Page() {
     const formatDate = (date: Date) => date.toISOString().split('T')[0]
     const threeMonthsAgoStr = formatDate(threeMonthsAgo)
     const sixMonthsAgoStr = formatDate(sixMonthsAgo)
-    const todayStr = formatDate(today)
 
     // Previous period transactions (3-6 months ago)
     const previousTransactions = filteredTransactions.filter(tx => {
@@ -296,7 +297,7 @@ export default function Page() {
           })
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error fetching transactions:", error)
       toast.error("Network Error", {
         description: "Failed to fetch transactions. Check your database connection.",
@@ -334,7 +335,7 @@ export default function Page() {
     if (parsedCsv) {
       const rows = parseCsvToRows(parsedCsv)
       // Add a unique ID to each row for the DataTable
-      const rowsWithId = rows.map((row, index) => ({
+      const rowsWithId: ParsedRow[] = rows.map((row, index) => ({
         ...row,
         id: index,
         // Ensure category is a string, not undefined
@@ -351,7 +352,7 @@ export default function Page() {
 
   // Debounce timer for CSV regeneration
   const csvRegenerationTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const latestParsedRowsRef = useRef(parsedRows)
+  const latestParsedRowsRef = useRef<ParsedRow[]>(parsedRows)
 
   // Keep ref in sync with parsedRows
   useEffect(() => {
@@ -362,7 +363,7 @@ export default function Page() {
     // Use flushSync to force immediate DOM update for instant UI feedback
     flushSync(() => {
       setParsedRows((prevRows) => {
-        const updatedRows = prevRows.map((row: any) => {
+        const updatedRows = prevRows.map((row) => {
           if (row.id === rowId) {
             return { ...row, category: newCategory }
           }
@@ -382,7 +383,11 @@ export default function Page() {
     csvRegenerationTimerRef.current = setTimeout(() => {
       // Update the CSV string so it's ready for import
       // Remove the 'id' field before converting back to CSV
-      const rowsForCsv = latestParsedRowsRef.current.map(({ id, ...rest }: any) => rest)
+      const rowsForCsv = latestParsedRowsRef.current.map((row) => {
+        const { id: _ignored, ...rest } = row
+        void _ignored
+        return rest as TxRow
+      })
       const newCsv = rowsToCanonicalCsv(rowsForCsv)
       setParsedCsv(newCsv)
     }, 300) // Wait 300ms after last change before regenerating CSV
@@ -391,7 +396,7 @@ export default function Page() {
   const handleDeleteRow = useCallback((rowId: number) => {
     flushSync(() => {
       setParsedRows((prevRows) => {
-        const updatedRows = prevRows.filter((row: any) => row.id !== rowId)
+        const updatedRows = prevRows.filter((row) => row.id !== rowId)
         // Update ref immediately
         latestParsedRowsRef.current = updatedRows
         // Update transaction count
@@ -406,52 +411,15 @@ export default function Page() {
     }
 
     csvRegenerationTimerRef.current = setTimeout(() => {
-      const rowsForCsv = latestParsedRowsRef.current.map(({ id, ...rest }: any) => rest)
+      const rowsForCsv = latestParsedRowsRef.current.map((row) => {
+        const { id: _ignored, ...rest } = row
+        void _ignored
+        return rest as TxRow
+      })
       const newCsv = rowsToCanonicalCsv(rowsForCsv)
       setParsedCsv(newCsv)
     }, 100) // Shorter delay for deletion
   }, [])
-
-  const importColumns: ColumnDef<any>[] = [
-    {
-      accessorKey: "date",
-      header: "Date",
-      cell: ({ row }) => <div className="w-28 flex-shrink-0">{row.original.date}</div>,
-    },
-    {
-      accessorKey: "description",
-      header: "Description",
-      cell: ({ row }) => (
-        <div className="min-w-[350px] max-w-[600px] truncate" title={row.original.description}>
-          {row.original.description}
-        </div>
-      ),
-    },
-    {
-      accessorKey: "amount",
-      header: () => <div className="text-right">Amount</div>,
-      cell: ({ row }) => {
-        const amount = parseFloat(row.original.amount)
-        return (
-          <div className={cn("text-right font-medium w-24 flex-shrink-0", amount < 0 ? "text-red-500" : "text-green-500")}>
-            {amount.toFixed(2)}
-          </div>
-        )
-      },
-    },
-    {
-      accessorKey: "category",
-      header: "Category",
-      cell: ({ row }) => (
-        <div className="w-[140px] flex-shrink-0">
-          <CategorySelect
-            value={row.original.category}
-            onValueChange={(value) => handleCategoryChange(row.original.id, value)}
-          />
-        </div>
-      ),
-    },
-  ]
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -504,9 +472,23 @@ export default function Page() {
         formData.append("file", file)
         formData.append("bankName", "Unknown")
 
-        // Get current categories to send to API
-        const { getCategories } = await import("@/lib/categories");
-        const currentCategories = getCategories();
+        // Get current categories to send to API (fallback to defaults)
+        let currentCategories = DEFAULT_CATEGORIES
+        try {
+          const categoriesResponse = await fetch("/api/categories")
+          if (categoriesResponse.ok) {
+            const payload = await categoriesResponse.json()
+            const categoriesArray: Array<{ name?: string }> = Array.isArray(payload) ? payload : []
+            const names = categoriesArray
+              .map((cat) => cat?.name)
+              .filter((name): name is string => typeof name === "string" && name.trim().length > 0)
+            if (names.length > 0) {
+              currentCategories = names
+            }
+          }
+        } catch (categoriesError) {
+          console.warn("[DASHBOARD] Failed to load categories from API. Using defaults.", categoriesError)
+        }
         
         // Stage 2: Uploading file (15-25%)
         setParsingProgress(20)
@@ -640,14 +622,11 @@ export default function Page() {
             duration: 10000,
           })
         }
-      } catch (error: any) {
-        if (parsingProgressInterval) {
-          clearInterval(parsingProgressInterval)
-          parsingProgressInterval = null
-        }
+      } catch (error) {
         setParsingProgress(0)
         console.error("Parse error:", error)
-        const errorMessage = error.message || "Failed to parse file. Please try again."
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to parse file. Please try again."
         setParseError(errorMessage)
 
         // Show more specific error messages
@@ -754,11 +733,14 @@ export default function Page() {
 
       // Refresh transactions after import (stats will be recalculated automatically)
       await fetchTransactions()
-    } catch (error: any) {
+    } catch (error) {
       clearInterval(progressInterval)
       console.error("Import error:", error)
       toast.error("Import Failed", {
-        description: error.message || "Failed to import transactions. Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to import transactions. Please try again.",
       })
       setImportProgress(0)
     } finally {
@@ -979,7 +961,7 @@ export default function Page() {
                         }
                       })
                     }))
-                    .filter(series => series.data.some(d => {
+                    .filter(series => series.data.some(() => {
                       // Check if the original value (before normalization) was > 0
                       const month = series.data.find(d => d.x === series.data.find(d => d.y > 0.1)?.x)?.x
                       if (!month) return false
@@ -1068,23 +1050,56 @@ export default function Page() {
               <div className="px-4 lg:px-6">
                 <ChartTreeMap 
                   data={useMemo(() => {
-                    const categoryMap = new Map<string, number>()
-                    transactions.filter(tx => tx.amount < 0).forEach(tx => {
-                      const category = tx.category || "Other"
-                      const current = categoryMap.get(category) || 0
-                      categoryMap.set(category, current + Math.abs(tx.amount))
-                    })
+                    const categoryMap = new Map<string, { total: number; subcategories: Map<string, number> }>()
+
+                    const getSubCategoryLabel = (description?: string) => {
+                      if (!description) return "Misc"
+                      // Use first meaningful chunk of the description as a subcategory label
+                      const delimiterSplit = description.split(/[-–|]/)[0] ?? description
+                      const trimmed = delimiterSplit.trim()
+                      return trimmed.length > 24 ? `${trimmed.slice(0, 21)}…` : (trimmed || "Misc")
+                    }
+
+                    transactions
+                      .filter(tx => tx.amount < 0)
+                      .forEach(tx => {
+                        const category = tx.category || "Other"
+                        const amount = Math.abs(tx.amount)
+                        if (!categoryMap.has(category)) {
+                          categoryMap.set(category, { total: 0, subcategories: new Map() })
+                        }
+                        const categoryEntry = categoryMap.get(category)!
+                        categoryEntry.total += amount
+
+                        const subCategory = getSubCategoryLabel(tx.description)
+                        categoryEntry.subcategories.set(subCategory, (categoryEntry.subcategories.get(subCategory) || 0) + amount)
+                      })
+
+                    const maxSubCategories = 5
+
                     return {
                       name: "Expenses",
                       children: Array.from(categoryMap.entries())
-                        .map(([name, loc]) => ({
-                          name,
-                          children: [{ name, loc }]
-                        }))
-                        .sort((a, b) => (b.children[0]?.loc || 0) - (a.children[0]?.loc || 0))
+                        .map(([name, { total, subcategories }]) => {
+                          const sortedSubs = Array.from(subcategories.entries()).sort((a, b) => b[1] - a[1])
+                          const topSubs = sortedSubs.slice(0, maxSubCategories)
+                          const remainingTotal = sortedSubs.slice(maxSubCategories).reduce((sum, [, value]) => sum + value, 0)
+                          const children = topSubs.map(([subName, loc]) => ({ name: subName, loc }))
+                          if (remainingTotal > 0) {
+                            children.push({ name: "Other", loc: remainingTotal })
+                          }
+                          return {
+                            name,
+                            children: children.length > 0 ? children : [{ name, loc: total }]
+                          }
+                        })
+                        .sort((a, b) => {
+                          const aTotal = a.children.reduce((sum, child) => sum + (child.loc || 0), 0)
+                          const bTotal = b.children.reduce((sum, child) => sum + (child.loc || 0), 0)
+                          return bTotal - aTotal
+                        })
                     }
                   }, [transactions])}
-                  transactions={transactions}
                 />
               </div>
               <DataTable 
@@ -1237,7 +1252,7 @@ export default function Page() {
                             <TableHead className="sticky top-0 z-20 bg-muted">Description</TableHead>
                             <TableHead className="sticky top-0 z-20 bg-muted text-right">Amount</TableHead>
                             <TableHead className="sticky top-0 z-20 bg-muted">Category</TableHead>
-                            {parsedRows.some((row: any) => row.balance !== null && row.balance !== undefined) && (
+        {parsedRows.some((row) => row.balance !== null && row.balance !== undefined) && (
                               <TableHead className="sticky top-0 z-20 bg-muted text-right">Balance</TableHead>
                             )}
                             <TableHead className="sticky top-0 z-20 bg-muted w-12"></TableHead>
@@ -1251,13 +1266,13 @@ export default function Page() {
                               </TableCell>
                             </TableRow>
                           ) : (
-                            parsedRows.map((row: any) => {
+                            parsedRows.map((row) => {
                               const amount = typeof row.amount === 'number' ? row.amount : parseFloat(row.amount) || 0
                               const balance = row.balance !== null && row.balance !== undefined 
                                 ? (typeof row.balance === 'number' ? row.balance : parseFloat(row.balance)) 
                                 : null
                               const category = row.category || 'Other'
-                              const hasBalance = parsedRows.some((r: any) => r.balance !== null && r.balance !== undefined)
+                              const hasBalance = parsedRows.some((r) => r.balance !== null && r.balance !== undefined)
                               
                               return (
                                 <MemoizedTableRow

@@ -1,7 +1,7 @@
 // app/api/statements/import/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Papa from "papaparse";
-import { neonInsert } from "@/lib/neonClient";
+import { neonInsert, neonQuery } from "@/lib/neonClient";
 import { getCurrentUserId } from "@/lib/auth";
 import { TxRow } from "@/lib/types/transactions";
 
@@ -58,10 +58,62 @@ export const POST = async (req: NextRequest) => {
 
     const statementId = statement.id as number;
 
-    // TODO: optionally map category names -> category_id by fetching/creating categories
-    // For now, we insert with null category_id and keep the category text in raw_csv_row.
+    // 3) Map category names to category_id by fetching/creating categories
+    const categoryNameToId = new Map<string, number | null>();
+    
+    // Extract unique category names from rows (excluding undefined/null/empty)
+    const uniqueCategoryNames = Array.from(
+        new Set(
+            rows
+                .map(r => r.category)
+                .filter((cat): cat is string => typeof cat === 'string' && cat.trim().length > 0)
+        )
+    );
 
-    // 3) Build transactions rows for Neon
+    if (uniqueCategoryNames.length > 0) {
+        // Fetch existing categories - use IN clause with placeholders
+        const placeholders = uniqueCategoryNames.map((_, i) => `$${i + 2}`).join(', ');
+        const existingCategoriesQuery = `
+            SELECT id, name 
+            FROM categories 
+            WHERE user_id = $1 AND name IN (${placeholders})
+        `;
+        const existingCategories = await neonQuery<{ id: number; name: string }>(
+            existingCategoriesQuery,
+            [userId, ...uniqueCategoryNames]
+        );
+
+        // Map existing categories
+        existingCategories.forEach(cat => {
+            categoryNameToId.set(cat.name, cat.id);
+        });
+
+        // Create missing categories
+        const missingCategories = uniqueCategoryNames.filter(
+            name => !categoryNameToId.has(name)
+        );
+
+        if (missingCategories.length > 0) {
+            const newCategoryRows = missingCategories.map(name => ({
+                user_id: userId,
+                name: name.trim(),
+                color: null
+            }));
+
+            const insertedCategories = await neonInsert<{ id: number; name: string }>(
+                "categories",
+                newCategoryRows,
+                { returnRepresentation: true }
+            );
+
+            // Map newly created categories
+            insertedCategories.forEach(cat => {
+                categoryNameToId.set(cat.name, cat.id);
+            });
+        }
+    }
+
+    // 4) Build transactions rows for Neon with proper category_id
     const txRows = rows.map((r) => ({
         user_id: userId,
         statement_id: statementId,
@@ -70,7 +122,9 @@ export const POST = async (req: NextRequest) => {
         amount: r.amount,
         balance: r.balance,
         currency: "EUR",
-        category_id: null,
+        category_id: r.category && categoryNameToId.has(r.category) 
+            ? categoryNameToId.get(r.category)! 
+            : null,
         raw_csv_row: JSON.stringify(r)
     }));
 

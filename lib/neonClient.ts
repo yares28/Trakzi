@@ -11,15 +11,6 @@ if (!CONNECTION_STRING) {
     console.warn("[Neon] DATABASE_URL or NEON_CONNECTION_STRING not set in .env.local");
     console.warn("[Neon] Using Neon requires a connection string like:");
     console.warn("[Neon] postgresql://user:password@host/database?sslmode=require");
-} else {
-    // Log connection info (mask password)
-    try {
-        const url = new URL(CONNECTION_STRING.replace(/^postgres(ql)?:\/\//, 'http://'));
-        const maskedConn = CONNECTION_STRING.replace(/:([^:@]+)@/, ':****@');
-        console.log(`[Neon] Using connection: ${maskedConn}`);
-    } catch {
-        console.log("[Neon] Connection string configured");
-    }
 }
 
 // Create Neon client instance

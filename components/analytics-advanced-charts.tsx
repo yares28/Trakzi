@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState } from "react"
 import { ResponsiveCirclePacking } from "@nivo/circle-packing"
 import { ResponsivePolarBar } from "@nivo/polar-bar"
 import { ResponsiveRadar } from "@nivo/radar"
@@ -15,6 +15,7 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts"
+import { useTheme } from "next-themes"
 
 import {
   Card,
@@ -30,23 +31,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
 
 import { useColorScheme } from "@/components/color-scheme-provider"
 
@@ -399,70 +383,14 @@ interface ChartTreeMapProps {
       children: Array<{ name: string; loc: number }>
     }>
   }
-  transactions?: Array<{
-    id: number
-    date: string
-    description: string
-    amount: number
-    balance: number | null
-    category: string
-  }>
 }
 
-export function ChartTreeMap({ data = { name: "", children: [] }, transactions = [] }: ChartTreeMapProps) {
+export function ChartTreeMap({ data = { name: "", children: [] } }: ChartTreeMapProps) {
   const { getPalette } = useColorScheme()
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [selectedMonth, setSelectedMonth] = useState<string>("all")
   const [isInfoOpen, setIsInfoOpen] = useState(false)
-  
-  const handleNodeClick = (node: { data?: { name?: string }; name?: string }) => {
-    // Get the category name from the node
-    const categoryName = node.data?.name || node.name
-    if (categoryName && categoryName !== "Expenses") {
-      setSelectedCategory(categoryName)
-      setSelectedMonth("all") // Reset filter when opening dialog
-      setIsDialogOpen(true)
-    }
-  }
-  
-  // Get all available months/years from category transactions
-  const availableMonths = useMemo(() => {
-    if (!selectedCategory || !transactions) return []
-    const monthSet = new Set<string>()
-    transactions
-      .filter(tx => tx.amount < 0 && (tx.category || "Other") === selectedCategory)
-      .forEach(tx => {
-        const date = new Date(tx.date)
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-        const monthLabel = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
-        monthSet.add(`${monthKey}|${monthLabel}`)
-      })
-    return Array.from(monthSet)
-      .map(m => {
-        const [key, label] = m.split('|')
-        return { key, label }
-      })
-      .sort((a, b) => b.key.localeCompare(a.key)) // Sort newest first
-  }, [selectedCategory, transactions])
-  
-  const categoryTransactions = useMemo(() => {
-    if (!selectedCategory || !transactions) return []
-    let filtered = transactions
-      .filter(tx => tx.amount < 0 && (tx.category || "Other") === selectedCategory)
-    
-    // Apply month filter if not "all"
-    if (selectedMonth !== "all") {
-      const [year, month] = selectedMonth.split('-')
-      filtered = filtered.filter(tx => {
-        const txDate = new Date(tx.date)
-        return txDate.getFullYear() === parseInt(year) && 
-               (txDate.getMonth() + 1) === parseInt(month)
-      })
-    }
-    
-    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }, [selectedCategory, transactions, selectedMonth])
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme === "dark"
+  const borderColor = isDark ? "#374151" : "#e5e7eb"
   
   if (!data || !data.children || data.children.length === 0) {
     return (
@@ -552,11 +480,32 @@ export function ChartTreeMap({ data = { name: "", children: [] }, transactions =
             valueFormat=".02s"
             margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
             labelSkipSize={12}
-            labelTextColor={{ from: "color", modifiers: [["darker", 1.2]] }}
+            labelTextColor="#000000"
+            labelRotation={0}
+            label={(node) => {
+              // Hide labels if rectangle is 28×49 or smaller
+              if (node.width <= 28 || node.height <= 49) {
+                return null
+              }
+              // If text has multiple words, show only the first word
+              const name = node.data.name || ""
+              const words = name.trim().split(/\s+/)
+              return words.length > 1 ? words[0] : name
+            }}
             parentLabelPosition="left"
-            parentLabelTextColor={{ from: "color", modifiers: [["darker", 2]] }}
+            parentLabelTextColor="#000000"
+            parentLabelRotation={0}
+            parentLabel={(node) => {
+              // Hide parent labels if rectangle is 28×49 or smaller
+              if (node.width <= 28 || node.height <= 49) {
+                return null
+              }
+              // If text has multiple words, show only the first word
+              const name = node.data.name || ""
+              const words = name.trim().split(/\s+/)
+              return words.length > 1 ? words[0] : name
+            }}
             borderColor={{ from: "color", modifiers: [["darker", 0.1]] }}
-            onClick={handleNodeClick}
             tooltip={({ node }) => (
               <div style={{
                 background: 'white',
@@ -569,83 +518,11 @@ export function ChartTreeMap({ data = { name: "", children: [] }, transactions =
                 <div style={{ color: '#666', marginTop: '4px' }}>
                   {node.data.name}
                 </div>
-                {transactions.length > 0 && (
-                  <div style={{ color: '#999', marginTop: '4px', fontSize: '11px' }}>
-                    Click to view transactions
-                  </div>
-                )}
               </div>
             )}
           />
         </CardContent>
       </Card>
-      
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>{selectedCategory} Transactions</DialogTitle>
-            <DialogDescription>
-              {categoryTransactions.length} transaction{categoryTransactions.length !== 1 ? 's' : ''} in this category
-              {selectedMonth !== "all" && ` (${availableMonths.find(m => m.key === selectedMonth)?.label || selectedMonth})`}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center gap-2 pb-4 border-b">
-            <Label htmlFor="month-filter" className="text-sm font-medium whitespace-nowrap">
-              Filter by month:
-            </Label>
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger id="month-filter" className="w-[200px]">
-                <SelectValue placeholder="All months" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All months</SelectItem>
-                {availableMonths.map((month) => (
-                  <SelectItem key={month.key} value={month.key}>
-                    {month.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex-1 overflow-y-auto min-h-0">
-            {categoryTransactions.length > 0 ? (
-              <div className="space-y-2">
-                {categoryTransactions.map((tx) => (
-                  <Card key={tx.id} className="p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate" title={tx.description}>
-                          {tx.description}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(tx.date).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className={`font-semibold ${tx.amount < 0 ? 'text-red-500' : 'text-green-500'}`}>
-                          {tx.amount.toFixed(2)}€
-                        </p>
-                        {tx.balance !== null && (
-                          <p className="text-xs text-muted-foreground">
-                            Balance: {tx.balance.toFixed(2)}€
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No transactions found for this category
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setIsDialogOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   )
 }

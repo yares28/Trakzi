@@ -63,72 +63,51 @@ export const PATCH = async (
             );
         }
 
-        // First, get the transaction to check ownership and get raw_csv_row
-        const getTxQuery = `
-            SELECT raw_csv_row 
-            FROM transactions 
-            WHERE id = $1 AND user_id = $2
+        // Optimized: Single query with explicit type casts to avoid parameter inference issues
+        // This reduces from 3 queries to 1 query
+        const updateQuery = `
+            WITH category_upsert AS (
+                INSERT INTO categories (user_id, name)
+                VALUES ($1::uuid, $2::text)
+                ON CONFLICT (user_id, name) DO NOTHING
+                RETURNING id
+            ),
+            category_id AS (
+                SELECT id::integer FROM category_upsert
+                UNION ALL
+                SELECT id::integer FROM categories 
+                WHERE user_id = $1::uuid AND name = $2::text 
+                AND NOT EXISTS (SELECT 1 FROM category_upsert)
+                LIMIT 1
+            )
+            UPDATE transactions 
+            SET 
+                category_id = (SELECT id FROM category_id LIMIT 1),
+                raw_csv_row = COALESCE(
+                    NULLIF(raw_csv_row, ''),
+                    '{}'
+                )::jsonb || jsonb_build_object('category', $2::text)
+            WHERE id = $3::integer AND user_id = $1::uuid
+            RETURNING id, (SELECT id FROM category_id LIMIT 1) as category_id
         `;
-        const transactions = await neonQuery<{ raw_csv_row: string | null }>(
-            getTxQuery,
-            [transactionId, userId]
+        
+        const result = await neonQuery<{ id: number; category_id: number }>(
+            updateQuery,
+            [userId, category, transactionId]
         );
 
-        if (transactions.length === 0) {
+        if (result.length === 0) {
             return NextResponse.json(
                 { error: "Transaction not found" },
                 { status: 404 }
             );
         }
 
-        // Find or create the category in the database
-        const findCategoryQuery = `
-            SELECT id 
-            FROM categories 
-            WHERE user_id = $1 AND name = $2
-        `;
-        const existingCategories = await neonQuery<{ id: number }>(
-            findCategoryQuery,
-            [userId, category]
-        );
-
-        let categoryId: number | null = null;
-
-        if (existingCategories.length > 0) {
-            categoryId = existingCategories[0].id;
-        } else {
-            // Create the category
-            const newCategories = await neonInsert("categories", {
-                user_id: userId,
-                name: category,
-            });
-            categoryId = newCategories[0].id as number;
-        }
-
-        // Update raw_csv_row to include the new category
-        let rawCsvRow = transactions[0].raw_csv_row;
-        if (rawCsvRow) {
-            try {
-                const parsed = JSON.parse(rawCsvRow);
-                parsed.category = category;
-                rawCsvRow = JSON.stringify(parsed);
-            } catch (e) {
-                // If parsing fails, create a new raw_csv_row
-                rawCsvRow = JSON.stringify({ category });
-            }
-        } else {
-            rawCsvRow = JSON.stringify({ category });
-        }
-
-        // Update the transaction
-        const updateQuery = `
-            UPDATE transactions 
-            SET category_id = $1, raw_csv_row = $2
-            WHERE id = $3 AND user_id = $4
-        `;
-        await neonQuery(updateQuery, [categoryId, rawCsvRow, transactionId, userId]);
-
-        return NextResponse.json({ success: true, category, categoryId });
+        return NextResponse.json({ 
+            success: true, 
+            category, 
+            categoryId: result[0].category_id 
+        });
     } catch (error: any) {
         console.error("[Update Transaction Category API] Error:", error);
         return NextResponse.json(

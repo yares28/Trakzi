@@ -1,0 +1,243 @@
+# Cursor Project Rules – Folio (github.com/yares28/Folio)
+
+You are the AI assistant working inside the **Folio** repository for `github.com/yares28`.
+
+Folio is a **full-stack TypeScript** app using:
+- Next.js (App Router, React)
+- Tailwind CSS
+- shadcn/ui for components
+- Neon Postgres (REST / Data API layer)
+- CSV-centric finance features: import bank data, categorise, show analytics
+
+Your priorities:
+1. Keep the project clean, typed, and consistent.
+2. Catch and prevent bugs (types, lint, tests, edge cases).
+3. Use **shadcn MCP** for UI work.
+4. Maintain an up-to-date **project diagram/organigram**.
+
+---
+
+## 1. General Behaviour
+
+- Assume **TypeScript + Next.js App Router** best practices.
+- Prefer **small, focused diffs**:
+  - Do not rewrite whole files unless explicitly requested.
+  - If a refactor is needed, outline the plan briefly first (in chat or comments).
+- Respect the existing conventions:
+  - Use the current ESLint + TS config.
+  - Follow patterns already used in `app/`, `lib/`, `components/`, `__tests__/`.
+- Do **not** introduce new frameworks or heavy deps without clearly:
+  - Explaining why they’re necessary.
+  - Offering a lighter alternative using existing stack.
+
+When proposing changes:
+- Briefly explain **what** and **why**.
+- Show complete, copy-pasteable code blocks.
+- Keep text explanations short unless the user asks for detail.
+
+---
+
+## 2. Preferred Project Context
+
+When reading context, prioritise these paths:
+
+1. `app/`          – Next.js routes, pages, route handlers.
+2. `lib/`          – shared utilities (Neon client, parsing, AI helpers, types).
+3. `components/`   – reusable UI.
+4. `hooks/`        – React hooks.
+5. `__tests__/`    – Jest tests for logic/components.
+6. `docs/`         – documentation and diagrams (see diagram rules below).
+
+Avoid reading large or irrelevant files (build output, lockfiles, static assets) unless strictly needed.
+
+---
+
+## 3. Error Finding & Code Quality
+
+Whenever you write or modify code:
+
+1. **Think about failure modes**
+   - Handle null/undefined, empty data, invalid input, missing env vars, network/API failures.
+   - Prefer explicit error handling (`try/catch`, early returns) over silent failures.
+   - Log or surface useful error messages; avoid swallowing errors.
+
+2. **Type Safety**
+   - Avoid `any` and `unknown` unless truly necessary; create proper types/interfaces.
+   - Centralise shared types in `lib/types` (or similar) rather than duplicating.
+   - Use exhaustive checks with unions and `switch` where helpful.
+
+3. **Static Checks**
+   - Assume the user will run:
+     - `npm run lint`
+     - `npm test`
+   - Write code that should pass TypeScript and ESLint as-is.
+   - Fix unused vars, unreachable code, and obvious style issues.
+
+4. **Security & Access Control**
+   - Never hard-code secrets or API keys.
+   - For anything involving Neon, auth or file uploads, think about:
+     - Input validation (dates, numbers, enums).
+     - SQL injection and unsafe string concatenation.
+     - Per-user access to data (respect `user_id` / privacy constraints).
+
+---
+
+## 4. Testing Rules (IMPORTANT)
+
+Folio is expected to have **Jest** tests. Whenever you add or modify non-trivial logic:
+
+1. **Location**
+   - Place tests in `__tests__/` mirroring the source path, or follow existing test placement.
+   - Example: `lib/parsing/parsePdfToRows.ts` → `__tests__/lib/parsing/parsePdfToRows.test.ts`.
+
+2. **When to add tests**
+   - New feature → add at least:
+     - 1 happy-path test.
+     - 1 edge-case/error test.
+   - Bugfix → add a regression test that fails before the fix and passes after.
+   - Refactor → keep existing tests passing; if behaviour changes intentionally, update tests and mention it.
+
+3. **How**
+   - For pure functions (parsers, transformers, AI result handlers):
+     - Test input → output clearly, including weird/empty inputs.
+   - For components:
+     - Use the existing React testing setup (React Testing Library if present).
+     - Test visible behaviour / user interaction, not implementation details.
+
+
+---
+
+## 5. Backend & Neon
+
+The backend is a **Next.js API layer** that talks to **Neon Postgres via REST/Data API**.
+
+When touching backend code:
+
+- Use neon mcp to understand the layout of the tables, names of the tables and list of items in them.
+- Use or extend shared helpers (e.g. `lib/neonClient.ts`) instead of raw `fetch` scattered everywhere.
+- Keep all Neon access typed and centralised where possible.
+- Validate input before sending to the DB:
+  - Check dates, numbers, required fields.
+  - Enforce per-user filters (`user_id = current user`) to preserve privacy.
+- Never add mock data, unless told to.
+- Handle Neon errors:
+  - If Neon returns non-200, capture the response text, log internally, and return a friendly error to the client.
+
+---
+
+## 6. Frontend, UI & **shadcn MCP**
+
+**Very important:**  
+Whenever the user asks for **UI elements, components, layouts or redesigns**, follow these rules:
+
+1. **Use shadcn + Tailwind**
+   - Prefer **shadcn/ui** components (Buttons, Cards, Dialogs, Tables, Forms, etc.).
+   - Style with Tailwind utility classes consistent with existing code.
+
+2. **Use shadcn MCP**
+   - When working inside Cursor and generating UI:
+     - Use the **shadcn MCP** integration to:
+       - Scaffold new shadcn components.
+       - Insert or update component code.
+       - Ensure imports and paths are correct.
+   - Do not reinvent basic UI patterns (buttons, modals, tables) manually if shadcn already provides them.
+
+3. **Consistency**
+   - Match the existing design language:
+     - Typographic scale.
+     - Spacing, border radius, shadows.
+   - Avoid introducing competing design systems or CSS frameworks.
+
+4. **Behaviour**
+   - Prefer accessible components:
+     - Proper roles, labels, keyboard navigation.
+   - For dialogs, menus, etc., use shadcn’s patterns rather than ad-hoc implementations.
+
+---
+
+## 7. Project Diagram / Organigram Maintenance
+
+The repo should always have an up-to-date **architecture diagram** representing the main structure and data flow.
+
+**Diagram file:**
+
+- Keep a diagram at: `docs/architecture.mmd` using **Mermaid** syntax.
+- Optionally also reference it in `docs/architecture.md`.
+
+**Rules:**
+
+1. On any **significant structural change**:
+   - New directories for major features.
+   - New backend modules or Neon tables.
+   - New external integrations (APIs, services).
+   → Update `docs/architecture.mmd` to reflect:
+     - Main frontend areas (pages/routes).
+     - Backend modules / API endpoints.
+     - Neon tables and key relations.
+     - Data flow: upload → parsing → AI → DB → graphs.
+
+2. When the user requests:
+   - “organigram”, “diagram”, “architecture diagram”, or something similar:
+     - Open / read `docs/architecture.mmd`.
+     - Update it to match the current project shape.
+     - Explain briefly what changed in the diagram.
+
+3. If `docs/architecture.mmd` does not exist:
+   - Create it with:
+     - A high-level system diagram (e.g., a Mermaid `flowchart` or `graph TD`).
+     - A short legend / description.
+
+4. Keep the diagram **high-level and readable**:
+   - Do not show every function; focus on modules, services, and tables.
+   - Keep node labels concise.
+
+---
+
+## 8. Performance & Efficiency
+
+- Minimise unnecessary re-renders:
+  - Avoid heavy computations in render; extract into hooks or helpers.
+  - Use `useMemo`/`useCallback` only when they clearly help, not by default.
+- Avoid heavy dependencies unless truly needed:
+  - If a library is large, propose a lightweight alternative.
+- For async operations (parse, AI, Neon calls):
+  - Use `async/await`.
+  - Show loading states in the UI where appropriate.
+  - Handle timeouts and errors gracefully.
+
+---
+
+## 9. How To Respond To Prompts (Workflow)
+
+When the user asks for something non-trivial:
+
+1. **Restate concisely** what they want (1–2 sentences).
+2. **If its the second or third time asking the same thing then find the edge case and ask yourself why your changes didn't work, find the actual error and fix it**
+3. **Identify impacted areas** (e.g., `app/api/...`, `lib/parsing/...`, `components/...`, `docs/architecture.mmd`).
+4. **Plan in 2–5 bullets** if the change is larger than a small bugfix.
+5. Implement in this order:
+   - (If applicable) add or adjust tests.
+   - Implement code changes.
+   - Update `docs/architecture.mmd` if the project structure changed.
+6. At the end, summarise:
+   - Files changed.
+   - Tests added/updated.
+   - Any follow-up steps 
+
+---
+
+## 10. Things To Avoid
+
+- Do **not**:
+  - Use `any` as a default solution to type errors.
+  - Remove tests without a clear reason.
+  - Change the global architecture (e.g., REST → GraphQL) unless explicitly asked.
+  - Introduce a new UI library instead of shadcn/ui without clear user approval.
+
+- If you are unsure about a requirement:
+  - State your assumption explicitly.
+  - Choose a safe, simple implementation and mark TODOs where needed.
+
+---
+alwaysApply: true
+---

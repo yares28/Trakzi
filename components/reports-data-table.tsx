@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useTransition } from "react"
 import {
     IconChevronDown,
     IconChevronLeft,
@@ -110,6 +111,7 @@ function TransactionRow({
     const [deleting, setDeleting] = React.useState(false);
     const [updatingCategory, setUpdatingCategory] = React.useState(false);
     const [currentCategory, setCurrentCategory] = React.useState(transaction.category);
+    const [isPending, startTransition] = useTransition();
 
     const handleDelete = async () => {
         setDeleting(true);
@@ -133,37 +135,49 @@ function TransactionRow({
         }
     };
 
-    const handleCategoryChange = async (newCategory: string) => {
+    const handleCategoryChange = (newCategory: string) => {
         if (newCategory === currentCategory) return;
 
-        setUpdatingCategory(true);
-        try {
-            const response = await fetch(`/api/transactions/${transaction.id}`, {
-                method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ category: newCategory }),
-            });
+        // Update state in a transition so it doesn't block the Select from closing
+        const previousCategory = currentCategory;
+        startTransition(() => {
+            setCurrentCategory(newCategory);
+            onCategoryChange(transaction.id, newCategory);
+        });
 
-            if (response.ok) {
-                setCurrentCategory(newCategory);
-                onCategoryChange(transaction.id, newCategory);
-            } else {
-                const errorData = await response.json().catch(() => ({}));
-                console.error("Failed to update category:", errorData.error || response.statusText);
-                alert(`Failed to update category: ${errorData.error || response.statusText}`);
-                // Revert to previous category on error
-                setCurrentCategory(transaction.category);
-            }
-        } catch (error) {
-            console.error("Error updating category:", error);
-            alert(`Error updating category: ${error instanceof Error ? error.message : 'Unknown error'}`);
-            // Revert to previous category on error
-            setCurrentCategory(transaction.category);
-        } finally {
-            setUpdatingCategory(false);
-        }
+        // Then update the database in the background (don't await)
+        setUpdatingCategory(true);
+        fetch(`/api/transactions/${transaction.id}`, {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ category: newCategory }),
+        })
+            .then(async (response) => {
+                if (!response.ok) {
+                    // Revert on error
+                    startTransition(() => {
+                        setCurrentCategory(previousCategory);
+                        onCategoryChange(transaction.id, previousCategory);
+                    });
+                    const errorData = await response.json().catch(() => ({}));
+                    console.error("Failed to update category:", errorData.error || response.statusText);
+                    alert(`Failed to update category: ${errorData.error || response.statusText}`);
+                }
+            })
+            .catch((error) => {
+                // Revert on error
+                startTransition(() => {
+                    setCurrentCategory(previousCategory);
+                    onCategoryChange(transaction.id, previousCategory);
+                });
+                console.error("Error updating category:", error);
+                alert(`Error updating category: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            })
+            .finally(() => {
+                setUpdatingCategory(false);
+            });
     };
 
     return (

@@ -17,7 +17,9 @@ This guide will help you set up Neon (serverless Postgres) for your Folio2 proje
 
 ## Step 2: Configure Environment Variables
 
-Create a `.env` file in the root of your project (if it doesn't exist) and add:
+**⚠️ IMPORTANT: Always use `.env.local` (not `.env`) to ensure your credentials are never committed to git!**
+
+Create a `.env.local` file in the root of your project (if it doesn't exist) and add:
 
 ```env
 # Neon Database Connection
@@ -26,9 +28,15 @@ DATABASE_URL="postgresql://user:password@ep-xxx-xxx.region.aws.neon.tech/dbname?
 
 # Direct connection URL for migrations (optional, same as DATABASE_URL if not using connection pooling)
 DIRECT_URL="postgresql://user:password@ep-xxx-xxx.region.aws.neon.tech/dbname?sslmode=require"
+
+# If using Neon REST API (optional)
+NEON_REST_URL="https://ep-xxx-xxx.apirest.region.aws.neon.tech/neondb/rest/v1"
+NEON_API_KEY="your-neon-api-key-here"
 ```
 
 Replace the connection string with your actual Neon connection string from Step 1.
+
+**Note:** The `.env.local` file is already in `.gitignore` and will never be committed to git.
 
 **Note:** If you're using Neon's connection pooling, you might have two different URLs:
 - `DATABASE_URL`: The pooled connection (for your application)
@@ -107,11 +115,47 @@ const transactions = await prisma.transaction.findMany({
 
 ## Troubleshooting
 
+### API Key or Connection String Revoked
+
+If you accidentally committed your Neon credentials to GitHub and they were revoked:
+
+1. **Get a new connection string:**
+   - Go to [Neon Console](https://console.neon.tech)
+   - Select your project
+   - Go to "Connection Details" or "Dashboard"
+   - Copy the new connection string (it will be different from the revoked one)
+
+2. **Get a new API key (if using REST API):**
+   - In Neon Console, go to "Project Settings" → "API Keys"
+   - Create a new API key
+   - Copy the new key
+
+3. **Update your `.env.local` file:**
+   - Open `.env.local` in your project root
+   - Replace `DATABASE_URL` with the new connection string
+   - Replace `NEON_API_KEY` with the new API key (if applicable)
+   - Save the file
+
+4. **Verify `.env.local` is not tracked by git:**
+   ```bash
+   git check-ignore .env.local
+   ```
+   This should output `.env.local` - if it doesn't, your `.gitignore` needs to be updated.
+
+5. **Restart your dev server:**
+   ```bash
+   npm run dev
+   ```
+
+6. **Remove old credentials from git history (if needed):**
+   If credentials were committed, consider using `git filter-branch` or BFG Repo-Cleaner to remove them from history, or rotate the credentials again after cleaning.
+
 ### Connection Issues
 
-- Make sure your `.env` file has the correct connection string
+- Make sure your `.env.local` file has the correct connection string
 - Verify that your Neon database is active (not paused)
 - Check that your IP is allowed (Neon allows all IPs by default)
+- Restart your dev server after updating environment variables
 
 ### Migration Issues
 
@@ -129,6 +173,9 @@ Now that your database is set up, you can:
 4. Build the AI integration for document processing
 
 See `backend_ai_integration_plan.md` for more details on the planned features.
+
+
+
 
 
 

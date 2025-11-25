@@ -33,6 +33,8 @@ import {
   IconLoader,
   IconPlus,
   IconTrendingUp,
+  IconSearch,
+  IconX,
 } from "@tabler/icons-react"
 import {
   ColumnDef,
@@ -333,6 +335,8 @@ export function DataTable<TData, TValue>({
     pageIndex: 0,
     pageSize: 20,
   })
+  const [searchTerm, setSearchTerm] = React.useState("")
+  const [selectedCategory, setSelectedCategory] = React.useState<string>("all")
   const sortableId = React.useId()
   const sensors = useSensors(
     useSensor(MouseSensor, {}),
@@ -344,6 +348,40 @@ export function DataTable<TData, TValue>({
   React.useEffect(() => {
     setData(initialData)
   }, [initialData])
+
+  // Get unique categories from transactions
+  const uniqueCategories = React.useMemo(() => {
+    if (!transactions || transactions.length === 0) return []
+    const categories = new Set(transactions.map(tx => tx.category).filter(Boolean))
+    return Array.from(categories).sort()
+  }, [transactions])
+
+  // Filter transactions based on search and category
+  const filteredTransactions = React.useMemo(() => {
+    if (!transactions || transactions.length === 0) return []
+    
+    let filtered = transactions
+
+    // Filter by category
+    if (selectedCategory && selectedCategory !== "all") {
+      filtered = filtered.filter(tx => tx.category === selectedCategory)
+    }
+
+    // Filter by search term (description)
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase().trim()
+      filtered = filtered.filter(tx => 
+        tx.description.toLowerCase().includes(searchLower)
+      )
+    }
+
+    return filtered
+  }, [transactions, selectedCategory, searchTerm])
+
+  // Reset pagination when filters change
+  React.useEffect(() => {
+    setTransactionPagination(prev => ({ ...prev, pageIndex: 0 }))
+  }, [selectedCategory, searchTerm])
 
   const dataIds = React.useMemo<UniqueIdentifier[]>(
     () => data?.map((item: any) => item.id) || [],
@@ -391,8 +429,12 @@ export function DataTable<TData, TValue>({
       <div className="flex items-center justify-between px-4 lg:px-6 mb-5">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-semibold">Latest Transactions</h2>
-          {transactions && transactions.length > 0 && (
-            <Badge variant="secondary">{transactions.length}</Badge>
+          {filteredTransactions && filteredTransactions.length > 0 && (
+            <Badge variant="secondary">
+              {filteredTransactions.length}
+              {transactions && transactions.length !== filteredTransactions.length && 
+                ` of ${transactions.length}`}
+            </Badge>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -402,6 +444,43 @@ export function DataTable<TData, TValue>({
           </Button>
         </div>
       </div>
+      
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3 px-4 lg:px-6 mb-5">
+        <div className="relative flex-1">
+          <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by description..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 pr-9"
+          />
+          {searchTerm && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+              onClick={() => setSearchTerm("")}
+            >
+              <IconX className="size-4" />
+            </Button>
+          )}
+        </div>
+        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="All categories" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All categories</SelectItem>
+            {uniqueCategories.map((category) => (
+              <SelectItem key={category} value={category}>
+                {category}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6">
         {(() => {
           console.log("[DataTable] Transactions prop:", transactions)
@@ -422,35 +501,34 @@ export function DataTable<TData, TValue>({
                     <TableHead>Description</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead>Category</TableHead>
-                    {transactions.some(tx => tx.balance !== null) && (
+                    {filteredTransactions.some(tx => tx.balance !== null) && (
                       <TableHead className="text-right">Balance</TableHead>
                     )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {(() => {
-                    if (!transactions || transactions.length === 0) {
-                      console.warn("[DataTable] No transactions to display")
+                    if (!filteredTransactions || filteredTransactions.length === 0) {
                       return (
                         <TableRow>
                           <TableCell colSpan={5} className="h-24 text-center">
-                            No transactions found
+                            {searchTerm || selectedCategory !== "all" 
+                              ? "No transactions match your filters"
+                              : "No transactions found"}
                           </TableCell>
                         </TableRow>
                       )
                     }
                     
                     const pageSize = transactionPagination.pageSize
-                    const maxPages = 50 // 1000 transactions / 20 per page = 50 pages
-                    const maxItems = 1000 // Maximum 1000 transactions
-                    const limitedTransactions = transactions.slice(0, maxItems)
+                    const maxPages = 500 // 10000 transactions / 20 per page = 500 pages
+                    const maxItems = 10000 // Maximum 10000 transactions
+                    const limitedTransactions = filteredTransactions.slice(0, maxItems)
                     const currentPage = transactionPagination.pageIndex
                     const startIndex = currentPage * pageSize
                     const endIndex = startIndex + pageSize
                     const pageData = limitedTransactions.slice(startIndex, endIndex)
                     const totalPages = Math.min(Math.ceil(limitedTransactions.length / pageSize), maxPages)
-                    
-                    console.log(`[DataTable] Rendering page ${currentPage + 1} of ${totalPages}, showing ${pageData.length} transactions`)
                     
                     if (pageData.length === 0) {
                       return (
@@ -478,7 +556,7 @@ export function DataTable<TData, TValue>({
                         <TableCell className="w-[140px] flex-shrink-0">
                           <Badge variant="outline">{tx.category}</Badge>
                         </TableCell>
-                        {transactions.some(t => t.balance !== null) && (
+                        {filteredTransactions.some(t => t.balance !== null) && (
                           <TableCell className="text-right w-32 flex-shrink-0">
                             {tx.balance !== null ? `${tx.balance.toFixed(2)}€` : "-"}
                           </TableCell>
@@ -492,9 +570,9 @@ export function DataTable<TData, TValue>({
             <div className="flex items-center justify-between px-4">
               {(() => {
                 const pageSize = transactionPagination.pageSize
-                const maxPages = 50 // 1000 transactions / 20 per page = 50 pages
-                const maxItems = 1000 // Maximum 1000 transactions
-                const limitedTransactions = transactions.slice(0, maxItems)
+                const maxPages = 500 // 10000 transactions / 20 per page = 500 pages
+                const maxItems = 10000 // Maximum 10000 transactions
+                const limitedTransactions = filteredTransactions.slice(0, maxItems)
                 const currentPage = transactionPagination.pageIndex
                 const startIndex = currentPage * pageSize
                 const endIndex = startIndex + pageSize

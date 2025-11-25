@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect, memo, useCallback, useMemo } from "react"
+import { useState, useEffect, memo, useCallback, useMemo, useRef } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { getCategories, addCategory } from "@/lib/categories"
+import { DEFAULT_CATEGORIES, DEFAULT_CATEGORY_GROUPS, type CategoryGroup } from "@/lib/categories"
 import { toast } from "sonner"
-import { Plus } from "lucide-react"
+import { ChevronDown, Plus } from "lucide-react"
 
 interface CategorySelectProps {
   value?: string
@@ -16,58 +16,184 @@ interface CategorySelectProps {
 }
 
 export const CategorySelect = memo(function CategorySelect({ value, onValueChange, onCategoryAdded }: CategorySelectProps) {
-  const [categories, setCategories] = useState<string[]>([])
+  const [, setCategories] = useState<string[]>(DEFAULT_CATEGORIES)
   const [newCategory, setNewCategory] = useState("")
   const [isAdding, setIsAdding] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [groupedOptions, setGroupedOptions] = useState<CategoryGroup[]>(DEFAULT_CATEGORY_GROUPS)
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(DEFAULT_CATEGORY_GROUPS.map((group) => [group.label, false])),
+  )
+  // Local state for instant UI updates (updated immediately, synced with prop)
+  const [localValue, setLocalValue] = useState<string | undefined>(value)
+  
+  // Sync local value with prop value
+  useEffect(() => {
+    setLocalValue(value)
+  }, [value])
+
+  const collator = useMemo(() => new Intl.Collator(undefined, { sensitivity: "base" }), [])
+
+  const buildGroupedCategories = useCallback(
+    (names: string[]): CategoryGroup[] => {
+      const normalized = names
+        .map((name) => name?.trim())
+        .filter((name): name is string => !!name && name.length > 0)
+
+      const uniqueByLowercase = Array.from(
+        normalized
+          .reduce((map, name) => {
+            map.set(name.toLowerCase(), name)
+            return map
+          }, new Map<string, string>())
+          .values(),
+      ).sort(collator.compare)
+
+      const defaultNameSet = new Set(DEFAULT_CATEGORIES.map((cat) => cat.toLowerCase()))
+
+      const baseGroups = DEFAULT_CATEGORY_GROUPS.map((group) => ({
+        label: group.label,
+        categories: group.categories,
+      }))
+
+      const customCategories = uniqueByLowercase.filter(
+        (name) => !defaultNameSet.has(name.toLowerCase()),
+      )
+
+      if (customCategories.length > 0) {
+        baseGroups.push({
+          label: "Custom Categories",
+          categories: customCategories,
+        })
+      }
+
+      return baseGroups
+    },
+    [collator],
+  )
+
+  const updateGroups = useCallback(
+    (names: string[]) => {
+      setGroupedOptions(buildGroupedCategories(names))
+    },
+    [buildGroupedCategories],
+  )
+
+  const loadCategories = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch("/api/categories")
+      if (!response.ok) {
+        throw new Error("Failed to load categories")
+      }
+      const payload = await response.json()
+      const categoriesArray: Array<{ name?: string }> = Array.isArray(payload) ? payload : []
+      const names = categoriesArray
+        .map((cat) => cat?.name)
+        .filter((name): name is string => typeof name === "string" && name.trim().length > 0)
+
+      const alphabetical = names.length > 0 ? [...names].sort(collator.compare) : DEFAULT_CATEGORIES
+      setCategories(alphabetical)
+      updateGroups(alphabetical)
+    } catch (error) {
+      console.error("[CategorySelect] Failed to load categories:", error)
+      setCategories(DEFAULT_CATEGORIES)
+      setGroupedOptions(DEFAULT_CATEGORY_GROUPS)
+      updateGroups(DEFAULT_CATEGORIES)
+      toast.error("Unable to load categories. Using defaults.")
+    } finally {
+      setIsLoading(false)
+    }
+  }, [collator, updateGroups])
 
   useEffect(() => {
-    setCategories(getCategories())
-  }, [])
+    setOpenGroups((prev) => {
+      const next = { ...prev }
+      groupedOptions.forEach((group) => {
+        if (!(group.label in next)) {
+          next[group.label] = false
+        }
+      })
+      return next
+    })
+  }, [groupedOptions])
 
-  // Refresh categories when a new one is added (listen to storage events)
+  // Open the group containing the current value so the Select can display it
   useEffect(() => {
-    const handleStorageChange = () => {
-      setCategories(getCategories())
+    if (value && !isLoading && groupedOptions.length > 0) {
+      setOpenGroups((prev) => {
+        const next = { ...prev }
+        // Find which group contains the current value
+        for (const group of groupedOptions) {
+          if (group.categories.some((cat) => cat.toLowerCase() === value.toLowerCase())) {
+            next[group.label] = true
+            break
+          }
+        }
+        return next
+      })
     }
-    
-    window.addEventListener('storage', handleStorageChange)
-    // Also listen to custom event for same-tab updates
-    window.addEventListener('categoriesUpdated', handleStorageChange)
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange)
-      window.removeEventListener('categoriesUpdated', handleStorageChange)
-    }
+  }, [value, groupedOptions, isLoading])
+
+  const toggleGroup = useCallback((label: string) => {
+    setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }))
   }, [])
 
-  const handleAddCategory = useCallback(() => {
-    if (!newCategory.trim()) {
+  useEffect(() => {
+    loadCategories()
+  }, [loadCategories])
+
+  const handleAddCategory = useCallback(async () => {
+    const trimmed = newCategory.trim()
+    if (!trimmed) {
       toast.error("Please enter a category name")
       return
     }
 
-    // Normalize to single word
-    const normalized = newCategory.trim().split(/\s+/)[0]
-    
-    if (!normalized || normalized.length === 0) {
-      toast.error("Please enter a valid category name")
-      return
-    }
+    const normalized = trimmed.replace(/\s+/g, " ")
 
-    const result = addCategory(normalized)
-    
-    if (result.success) {
-      setCategories(result.categories)
+    try {
+      setIsSubmitting(true)
+      const response = await fetch("/api/categories", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: normalized }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || "Failed to add category")
+      }
+
+      const created = await response.json()
+      const createdName = created?.name || normalized
+
+      setCategories((prev) => {
+        if (prev.includes(createdName)) {
+          updateGroups(prev)
+          return prev
+        }
+        const next = [...prev, createdName].sort(collator.compare)
+        updateGroups(next)
+        return next
+      })
+
       setNewCategory("")
       setIsAdding(false)
-      const newCat = result.categories[result.categories.length - 1]
-      onValueChange(newCat)
-      onCategoryAdded?.(newCat)
-      toast.success(result.message)
-    } else {
-      toast.error(result.message)
+      onValueChange(createdName)
+      onCategoryAdded?.(createdName)
+      toast.success(`Category "${createdName}" added`)
+    } catch (error) {
+      console.error("[CategorySelect] Failed to add category:", error)
+      const message = error instanceof Error ? error.message : "Failed to add category"
+      toast.error(message)
+    } finally {
+      setIsSubmitting(false)
     }
-  }, [newCategory, onValueChange, onCategoryAdded])
+  }, [newCategory, onValueChange, onCategoryAdded, collator, updateGroups])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -79,65 +205,157 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
     }
   }
 
-  // Memoize the value to prevent unnecessary re-renders
-  const selectValue = useMemo(() => value || undefined, [value])
+  // Find which group contains the selected value
+  const selectedValueGroup = useMemo(() => {
+    if (!value) return null
+    for (const group of groupedOptions) {
+      if (group.categories.some((cat) => cat.toLowerCase() === value.toLowerCase())) {
+        return group.label
+      }
+    }
+    return null
+  }, [value, groupedOptions])
+
+  // Normalize the value to match exactly with category names (case-insensitive lookup)
+  // Use localValue for instant updates
+  const selectValue = useMemo(() => {
+    const val = localValue
+    if (!val) return undefined
+    
+    // Find the exact category name that matches (case-insensitive)
+    for (const group of groupedOptions) {
+      const match = group.categories.find(
+        (cat) => cat.toLowerCase() === val.toLowerCase()
+      )
+      if (match) {
+        return match // Return the exact case from the categories list
+      }
+    }
+    
+    // If not found in groups, return the value as-is (might be a custom category)
+    return val
+  }, [localValue, groupedOptions])
   
+  // Wrapper to update local state immediately before calling parent callback
+  const handleValueChange = useCallback((newValue: string) => {
+    // Update local state immediately for instant UI feedback (Select closes immediately)
+    setLocalValue(newValue)
+    // Call parent callback asynchronously so it doesn't block the Select from closing
+    // Use setTimeout with 0 to schedule it in the next event loop tick
+    setTimeout(() => {
+      onValueChange(newValue)
+    }, 0)
+  }, [onValueChange])
+
   return (
-    <Select value={selectValue} onValueChange={onValueChange}>
+    <Select
+      value={selectValue}
+      onValueChange={handleValueChange}
+      disabled={isLoading || isSubmitting}
+    >
       <SelectTrigger className="w-[140px] h-8">
-        <SelectValue placeholder={value || "Select category"} />
+        <SelectValue placeholder="Select category" />
       </SelectTrigger>
       <SelectContent>
-        {categories.map((cat) => (
-          <SelectItem key={cat} value={cat}>
-            {cat}
-          </SelectItem>
-        ))}
-        <Separator className="my-1" />
-        {isAdding ? (
-          <div className="px-2 py-1.5 space-y-2">
-            <Input
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Enter category name"
-              className="h-8 text-sm"
-              autoFocus
-            />
-            <div className="flex gap-1">
-              <Button
-                size="sm"
-                variant="default"
-                className="h-7 flex-1 text-xs"
-                onClick={handleAddCategory}
-              >
-                Add
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 flex-1 text-xs"
-                onClick={() => {
-                  setIsAdding(false)
-                  setNewCategory("")
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
+        {isLoading ? (
+          <div className="px-2 py-2 text-xs text-muted-foreground">
+            Loading categories...
           </div>
         ) : (
-          <div className="px-2 py-1">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="w-full h-8 text-xs justify-start gap-2"
-              onClick={() => setIsAdding(true)}
-            >
-              <Plus className="h-3 w-3" />
-              Add custom category
-            </Button>
-          </div>
+          <>
+            {groupedOptions
+              ? groupedOptions.map((group) => {
+                  const isOpen = openGroups[group.label] ?? false
+                  const containsSelectedValue = selectedValueGroup === group.label
+                  
+                  return (
+                    <div key={group.label} className="py-1">
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                        onPointerDown={(event) => event.preventDefault()}
+                        onClick={() => toggleGroup(group.label)}
+                      >
+                        <span>{group.label}</span>
+                        <ChevronDown
+                          className={`h-3.5 w-3.5 transition-transform ${isOpen ? "rotate-0" : "-rotate-90"}`}
+                        />
+                      </button>
+                      {isOpen && (
+                        <div className="mt-1 space-y-0.5 pl-4">
+                          {group.categories.map((cat) => (
+                            <SelectItem key={cat} value={cat}>
+                              {cat}
+                            </SelectItem>
+                          ))}
+                        </div>
+                      )}
+                      {/* Always render the selected value's SelectItem, even if group is closed */}
+                      {!isOpen && containsSelectedValue && selectValue && (
+                        <SelectItem key={selectValue} value={selectValue} className="hidden">
+                          {selectValue}
+                        </SelectItem>
+                      )}
+                    </div>
+                  )
+                })
+              : null}
+            {/* Render selected value if it's not in any group (custom category) */}
+            {selectValue && selectedValueGroup === null && (
+              <SelectItem key={selectValue} value={selectValue} className="hidden">
+                {selectValue}
+              </SelectItem>
+            )}
+            <Separator className="my-1" />
+            {isAdding ? (
+              <div className="px-2 py-1.5 space-y-2">
+                <Input
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Enter category name"
+                  className="h-8 text-sm"
+                  autoFocus
+                  disabled={isSubmitting}
+                />
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="default"
+                    className="h-7 flex-1 text-xs"
+                    onClick={handleAddCategory}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Saving..." : "Add"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 flex-1 text-xs"
+                    onClick={() => {
+                      setIsAdding(false)
+                      setNewCategory("")
+                    }}
+                    disabled={isSubmitting}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="px-2 py-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="w-full h-8 text-xs justify-start gap-2"
+                  onClick={() => setIsAdding(true)}
+                >
+                  <Plus className="h-3 w-3" />
+                  Add custom category
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </SelectContent>
     </Select>

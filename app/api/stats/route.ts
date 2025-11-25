@@ -179,8 +179,18 @@ export const GET = async (request: Request) => {
         }
         
         // Filter transactions by date range (already filtered in query, but keep for consistency)
+        const normalizeDate = (value: string | Date) => {
+            if (value instanceof Date) {
+                return value.toISOString().split('T')[0];
+            }
+            if (typeof value === "string") {
+                return value.split('T')[0];
+            }
+            return new Date(value as any).toISOString().split('T')[0];
+        };
+
         const currentTransactions = allUserTransactions.filter(tx => {
-            const txDate = tx.tx_date.split('T')[0];
+            const txDate = normalizeDate(tx.tx_date);
             return !startDate || !endDate || (txDate >= startDate && txDate <= endDate);
         });
         
