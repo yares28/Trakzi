@@ -148,9 +148,8 @@ Example for 3 transactions:
     let validMappings = 0;
     for (const m of mapping) {
         // Handle both {index, category} and {i, cat} or other variations
-        const mAny = m as any;
-        const idx = m.index ?? mAny.i ?? mAny.id ?? mAny.transactionIndex;
-        const cat = m.category ?? mAny.cat ?? mAny.c ?? mAny.class;
+        const idx = m.index ?? m.i ?? m.id ?? m.transactionIndex;
+        const cat = m.category ?? m.cat ?? m.c ?? m.class;
         
         if (typeof idx === "number" && typeof cat === "string") {
             // Validate category is in our list

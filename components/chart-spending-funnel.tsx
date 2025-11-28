@@ -1,9 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveFunnel } from "@nivo/funnel"
+import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { toNumericValue } from "@/lib/utils"
 import {
   Card,
   CardAction,
@@ -12,12 +14,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { IconInfoCircle } from "@tabler/icons-react"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 
 interface ChartSpendingFunnelProps {
   data?: Array<{
@@ -25,6 +21,7 @@ interface ChartSpendingFunnelProps {
     value: number
     label: string
   }>
+  categoryControls?: ChartInfoPopoverCategoryControls
 }
 
 // Dark colors that require white text
@@ -41,11 +38,14 @@ const getTextColor = (sliceColor: string, colorScheme?: string): string => {
   return darkColors.includes(sliceColor) ? "#ffffff" : "#000000"
 }
 
-export function ChartSpendingFunnel({ data = [] }: ChartSpendingFunnelProps) {
+export function ChartSpendingFunnel({ data = [], categoryControls }: ChartSpendingFunnelProps) {
   const { resolvedTheme } = useTheme()
   const { colorScheme, getPalette } = useColorScheme()
   const [mounted, setMounted] = useState(false)
-  const [isInfoOpen, setIsInfoOpen] = useState(false)
+  const sanitizedData = useMemo(() => data.map(item => ({
+    ...item,
+    value: toNumericValue(item.value)
+  })), [data])
 
   useEffect(() => {
     setMounted(true)
@@ -74,41 +74,26 @@ export function ChartSpendingFunnel({ data = [] }: ChartSpendingFunnelProps) {
   }
   colorConfig = colorConfig.slice(0, numLayers)
 
+  const renderInfoTrigger = () => (
+    <ChartInfoPopover
+      title="Money Flow"
+      description="This funnel shows how income cascades through major expense categories before landing in savings."
+      details={[
+        "Each layer represents a top expense category. Wider bands mean that category consumed more of your paycheck.",
+        "The top 2 categories by spending are shown individually, with all remaining categories grouped into 'Others'.",
+      ]}
+      ignoredFootnote="Only the top 2 expense categories are shown individually. All other categories are aggregated into 'Others'."
+      categoryControls={categoryControls}
+    />
+  )
+
   if (!mounted) {
     return (
       <Card className="@container/card">
         <CardHeader>
           <CardTitle>Money Flow</CardTitle>
           <CardDescription>How your income flows to savings</CardDescription>
-          <CardAction>
-            <Popover open={isInfoOpen} onOpenChange={setIsInfoOpen}>
-              <PopoverTrigger asChild>
-                <button 
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  onMouseEnter={() => setIsInfoOpen(true)}
-                  onMouseLeave={() => setIsInfoOpen(false)}
-                >
-                  <IconInfoCircle className="h-4 w-4" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent 
-                className="w-80" 
-                align="end"
-                onMouseEnter={() => setIsInfoOpen(true)}
-                onMouseLeave={() => setIsInfoOpen(false)}
-              >
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-sm">Money Flow</h4>
-                  <p className="text-sm text-muted-foreground">
-                    This funnel chart visualizes how your income flows through your top expense categories to savings.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    <strong>How it works:</strong> Starting from the top (Income), each layer represents a major expense category. The width shows the amount. Only categories larger than your savings are shown. The bottom layer represents your savings - what remains after all expenses.
-                  </p>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </CardAction>
+          <CardAction>{renderInfoTrigger()}</CardAction>
         </CardHeader>
         <CardContent>
           <div className="h-[400px] w-full" />
@@ -118,7 +103,7 @@ export function ChartSpendingFunnel({ data = [] }: ChartSpendingFunnelProps) {
   }
 
   // Don't render chart if data is empty
-  if (!data || data.length === 0) {
+  if (!sanitizedData || sanitizedData.length === 0) {
     return (
       <Card className="@container/card">
         <CardHeader>
@@ -129,35 +114,7 @@ export function ChartSpendingFunnel({ data = [] }: ChartSpendingFunnelProps) {
             </span>
             <span className="@[540px]/card:hidden">Income to savings flow</span>
           </CardDescription>
-          <CardAction>
-            <Popover open={isInfoOpen} onOpenChange={setIsInfoOpen}>
-              <PopoverTrigger asChild>
-                <button 
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  onMouseEnter={() => setIsInfoOpen(true)}
-                  onMouseLeave={() => setIsInfoOpen(false)}
-                >
-                  <IconInfoCircle className="h-4 w-4" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent 
-                className="w-80" 
-                align="end"
-                onMouseEnter={() => setIsInfoOpen(true)}
-                onMouseLeave={() => setIsInfoOpen(false)}
-              >
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-sm">Money Flow</h4>
-                  <p className="text-sm text-muted-foreground">
-                    This funnel chart visualizes how your income flows through your top expense categories to savings.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    <strong>How it works:</strong> Starting from the top (Income), each layer represents a major expense category. The width shows the amount. Only categories larger than your savings are shown. The bottom layer represents your savings - what remains after all expenses.
-                  </p>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </CardAction>
+          <CardAction>{renderInfoTrigger()}</CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
           <div className="h-[400px] w-full flex items-center justify-center text-muted-foreground">
@@ -178,40 +135,12 @@ export function ChartSpendingFunnel({ data = [] }: ChartSpendingFunnelProps) {
           </span>
           <span className="@[540px]/card:hidden">Income to savings flow</span>
         </CardDescription>
-        <CardAction>
-          <Popover open={isInfoOpen} onOpenChange={setIsInfoOpen}>
-            <PopoverTrigger asChild>
-              <button 
-                className="text-muted-foreground hover:text-foreground transition-colors"
-                onMouseEnter={() => setIsInfoOpen(true)}
-                onMouseLeave={() => setIsInfoOpen(false)}
-              >
-                <IconInfoCircle className="h-4 w-4" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent 
-              className="w-80" 
-              align="end"
-              onMouseEnter={() => setIsInfoOpen(true)}
-              onMouseLeave={() => setIsInfoOpen(false)}
-            >
-              <div className="space-y-2">
-                <h4 className="font-semibold text-sm">Money Flow</h4>
-                <p className="text-sm text-muted-foreground">
-                  This funnel chart visualizes how your income flows through your top expense categories to savings.
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  <strong>How it works:</strong> Starting from the top (Income), each layer represents a major expense category. The width shows the amount. Only categories larger than your savings are shown. The bottom layer represents your savings - what remains after all expenses.
-                </p>
-              </div>
-            </PopoverContent>
-          </Popover>
-        </CardAction>
+        <CardAction>{renderInfoTrigger()}</CardAction>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
         <div className="h-[400px] w-full">
           <ResponsiveFunnel
-            data={data}
+          data={sanitizedData}
             margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
             valueFormat=">-$,.0f"
             colors={colorConfig}

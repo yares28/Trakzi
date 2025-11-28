@@ -120,3 +120,33 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  .chart-polar-bar svg {
+    overflow: visible;
+  }
+
+  .chart-polar-bar path[data-testid^="arc."] {
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: transform 200ms ease, opacity 200ms ease, filter 200ms ease;
+  }
+
+  .chart-polar-bar path[data-testid^="arc."]:hover {
+    transform: scale(1.05);
+    opacity: 0.92;
+    filter: saturate(1.05);
+  }
+
+  .chart-polar-bar svg:has(path[data-testid^="arc."]:hover)
+    path[data-testid^="arc."]:not(:hover) {
+    opacity: 0.35;
+    filter: blur(1px) saturate(0.6);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .chart-polar-bar path[data-testid^="arc."] {
+      transition: none;
+    }
+  }
+}

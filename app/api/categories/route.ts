@@ -127,26 +127,11 @@ export const POST = async (req: NextRequest) => {
       color ||
       CATEGORY_COLORS[Math.floor(Math.random() * CATEGORY_COLORS.length)]
 
-    const result = await neonInsert("categories", {
+    const [category] = await neonInsert("categories", {
       user_id: userId,
       name: normalizedName,
       color: paletteColor,
-    }) as Array<{
-      id: number
-      user_id: string
-      name: string
-      color: string
-      created_at: string
-    }>
-
-    if (!result || result.length === 0) {
-      return NextResponse.json(
-        { error: "Failed to create category" },
-        { status: 500 }
-      )
-    }
-
-    const category = result[0]
+    })
 
     return NextResponse.json(
       {

@@ -79,6 +79,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { CategorySelect } from "@/components/category-select"
+import { normalizeTransactions } from "@/lib/utils"
 
 export const reportSchema = z.object({
     id: z.string(),
@@ -360,7 +361,7 @@ const createColumns = (onDelete?: (statementId: string) => void): ColumnDef<z.in
                     const response = await fetch(`/api/statements/${statementId}/transactions`);
                     if (response.ok) {
                         const data = await response.json();
-                        setTransactions(data);
+                        setTransactions(normalizeTransactions(data));
                     } else {
                         console.error("Failed to fetch transactions");
                         setTransactions([]);

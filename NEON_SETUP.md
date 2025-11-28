@@ -44,7 +44,7 @@ Replace the connection string with your actual Neon connection string from Step 
 
 If you're not using connection pooling, you can set both to the same value.
 
-## Step 3: Generate Prisma Client
+## Step 3: Generate Prisma Client (optional – Prisma)
 
 Run the following command to generate the Prisma Client:
 
@@ -66,11 +66,9 @@ Or, if you prefer to use migrations:
 npm run db:migrate
 ```
 
-This will create all the tables defined in `prisma/schema.prisma`:
-- `users` - User accounts
-- `reports` - Uploaded files (PDFs/Images)
-- `transactions` - Financial transactions
-- `fridge_items` - Grocery items
+If you are using Prisma, this will create all the tables defined in `prisma/schema.prisma`.
+In this project, most of the production code now talks to Neon **directly via SQL** using
+the helpers in `lib/neonClient.ts` and API routes under `app/api/**`.
 
 ## Step 5: Verify Setup
 
@@ -82,9 +80,46 @@ npm run db:studio
 
 This will open a web interface at `http://localhost:5555` where you can browse your database tables.
 
-## Using the Database in Your Code
+## Using the Database in Your Code (Neon SQL + Prisma)
 
-Import the Prisma client in your application code:
+You have two options when talking to Neon from your code:
+
+- **Direct SQL via Neon** (what the analytics pages use)
+- **Prisma Client** (for features that still rely on `prisma/schema.prisma`)
+
+### Option 1 – Direct SQL via Neon (current analytics implementation)
+
+Most of the analytics, categories, transactions, and budgets features use
+the Neon helper functions in `lib/neonClient.ts`:
+
+```ts
+import { neonQuery, neonInsert } from "@/lib/neonClient"
+
+// Example: query transactions
+const rows = await neonQuery(
+  "SELECT * FROM transactions WHERE user_id = $1",
+  [userId]
+)
+```
+
+Category budgets for analytics are stored per user in the
+`public.category_budgets` table and accessed through the `/api/budgets` route.
+When you change a budget in the **Category Budget** or **Spending Activity Rings**
+cards on the analytics page:
+
+- The frontend calls `POST /api/budgets` with `{ categoryName, budget }`
+- The API resolves the `category_id` for that user and **upserts** into:
+  - `public.category_budgets (user_id, category_id, scope='analytics', budget)`
+- On page load, the analytics page calls `GET /api/budgets` to load
+  all saved budgets for the current user.
+
+This means budgets are now **per user and persisted in Neon**, not just in
+`localStorage`.
+
+### Option 2 – Prisma Client
+
+If you prefer to keep using Prisma in other parts of the app, you can still
+import the Prisma client in your application code:
 
 ```typescript
 import { prisma } from '@/lib/prisma'

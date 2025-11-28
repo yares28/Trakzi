@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -24,70 +24,165 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { toast } from "sonner"
 
-interface Transaction {
+interface Category {
   id: number
-  header: string
+  name: string
+  color: string | null
+}
+
+interface Statement {
+  id: string
+  name: string
   type: string
-  status: string
-  target: string
-  limit: string
-  reviewer: string
+  date: string
+  statementId: number
 }
 
 interface TransactionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onAddTransaction: (transaction: Omit<Transaction, "id">) => void
+  onSuccess?: () => void
 }
 
 export function TransactionDialog({
   open,
   onOpenChange,
-  onAddTransaction,
+  onSuccess,
 }: TransactionDialogProps) {
+  const [loading, setLoading] = useState(false)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [statements, setStatements] = useState<Statement[]>([])
   const [formData, setFormData] = useState({
-    header: "",
-    type: "Groceries",
-    status: "Done",
-    target: "",
-    limit: "",
-    reviewer: "Credit Card",
+    date: new Date().toISOString().split('T')[0], // Default to today
+    description: "",
+    amount: "",
+    category_id: "none",
+    statement_id: "none",
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Fetch categories and statements when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchCategories()
+      fetchStatements()
+    }
+  }, [open])
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch("/api/categories")
+      if (response.ok) {
+        const data = await response.json()
+        setCategories(data)
+      }
+    } catch (error) {
+      console.error("Error fetching categories:", error)
+    }
+  }
+
+  const fetchStatements = async () => {
+    try {
+      const response = await fetch("/api/statements")
+      if (response.ok) {
+        const data = await response.json()
+        setStatements(data)
+      }
+    } catch (error) {
+      console.error("Error fetching statements:", error)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    onAddTransaction(formData)
-    // Reset form
-    setFormData({
-      header: "",
-      type: "Groceries",
-      status: "Done",
-      target: "",
-      limit: "",
-      reviewer: "Credit Card",
-    })
-    onOpenChange(false)
+    setLoading(true)
+
+    try {
+      const payload: any = {
+        date: formData.date,
+        description: formData.description.trim(),
+        amount: Number(formData.amount),
+      }
+
+      // Add category_id if selected (not "none")
+      if (formData.category_id && formData.category_id !== "none") {
+        payload.category_id = Number(formData.category_id)
+      }
+
+      // Add statement_id if selected (not "none")
+      if (formData.statement_id && formData.statement_id !== "none") {
+        payload.statement_id = Number(formData.statement_id)
+      }
+
+      const response = await fetch("/api/transactions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to create transaction")
+      }
+
+      toast.success("Transaction added successfully")
+      
+      // Reset form
+      setFormData({
+        date: new Date().toISOString().split('T')[0],
+        description: "",
+        amount: "",
+        category_id: "none",
+        statement_id: "none",
+      })
+      
+      onOpenChange(false)
+      
+      // Call onSuccess callback to refresh transactions
+      if (onSuccess) {
+        onSuccess()
+      }
+    } catch (error: any) {
+      console.error("Error creating transaction:", error)
+      toast.error(error.message || "Failed to create transaction")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Create New Transaction</DialogTitle>
+          <DialogTitle>Add New Transaction</DialogTitle>
           <DialogDescription>
-            Add a new transaction to track your expenses and budget.
+            Create a new transaction. You can optionally link it to a report/statement.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <FieldGroup>
             <Field>
+              <FieldLabel htmlFor="date">Date</FieldLabel>
+              <Input
+                id="date"
+                type="date"
+                value={formData.date}
+                onChange={(e) =>
+                  setFormData({ ...formData, date: e.target.value })
+                }
+                required
+              />
+            </Field>
+            <Field>
               <FieldLabel htmlFor="description">Description</FieldLabel>
               <Input
                 id="description"
-                value={formData.header}
+                value={formData.description}
                 onChange={(e) =>
-                  setFormData({ ...formData, header: e.target.value })
+                  setFormData({ ...formData, description: e.target.value })
                 }
                 placeholder="e.g., Starbucks Coffee"
                 required
@@ -95,111 +190,82 @@ export function TransactionDialog({
             </Field>
             <div className="grid grid-cols-2 gap-4">
               <Field>
+                <FieldLabel htmlFor="amount">Amount</FieldLabel>
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  value={formData.amount}
+                  onChange={(e) =>
+                    setFormData({ ...formData, amount: e.target.value })
+                  }
+                  placeholder="0.00"
+                  required
+                />
+                <FieldDescription>Use negative for expenses, positive for income</FieldDescription>
+              </Field>
+              <Field>
                 <FieldLabel htmlFor="category">Category</FieldLabel>
                 <Select
-                  value={formData.type}
+                  value={formData.category_id}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, type: value })
+                    setFormData({ ...formData, category_id: value })
                   }
                 >
                   <SelectTrigger id="category">
-                    <SelectValue />
+                    <SelectValue placeholder="Select category (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Groceries">Groceries</SelectItem>
-                    <SelectItem value="Transportation">Transportation</SelectItem>
-                    <SelectItem value="Entertainment">Entertainment</SelectItem>
-                    <SelectItem value="Utilities">Utilities</SelectItem>
-                    <SelectItem value="Healthcare">Healthcare</SelectItem>
-                    <SelectItem value="Shopping">Shopping</SelectItem>
-                    <SelectItem value="Dining">Dining</SelectItem>
-                    <SelectItem value="Housing">Housing</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={String(category.id)}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="status">Status</FieldLabel>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, status: value })
-                  }
-                >
-                  <SelectTrigger id="status">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Done">Done</SelectItem>
-                    <SelectItem value="In Process">In Process</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Field>
-                <FieldLabel htmlFor="budget">Budget</FieldLabel>
-                <Input
-                  id="budget"
-                  type="number"
-                  value={formData.target}
-                  onChange={(e) =>
-                    setFormData({ ...formData, target: e.target.value })
-                  }
-                  placeholder="500"
-                  required
-                />
-                <FieldDescription>Monthly budget for this category</FieldDescription>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="spent">Amount Spent</FieldLabel>
-                <Input
-                  id="spent"
-                  type="number"
-                  value={formData.limit}
-                  onChange={(e) =>
-                    setFormData({ ...formData, limit: e.target.value })
-                  }
-                  placeholder="87"
-                  required
-                />
-                <FieldDescription>Amount spent on this transaction</FieldDescription>
               </Field>
             </div>
             <Field>
-              <FieldLabel htmlFor="payment">Payment Method</FieldLabel>
+              <FieldLabel htmlFor="statement">Link to Report/Statement</FieldLabel>
               <Select
-                value={formData.reviewer}
+                value={formData.statement_id}
                 onValueChange={(value) =>
-                  setFormData({ ...formData, reviewer: value })
+                  setFormData({ ...formData, statement_id: value })
                 }
               >
-                <SelectTrigger id="payment">
-                  <SelectValue />
+                <SelectTrigger id="statement">
+                  <SelectValue placeholder="None (individual transaction)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Credit Card">Credit Card</SelectItem>
-                  <SelectItem value="Debit Card">Debit Card</SelectItem>
-                  <SelectItem value="Cash">Cash</SelectItem>
-                  <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="none">None (individual transaction)</SelectItem>
+                  {statements.map((statement) => (
+                    <SelectItem key={statement.id} value={String(statement.statementId)}>
+                      {statement.name} ({statement.type})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              <FieldDescription>
+                Optionally link this transaction to an existing report/statement, or leave as individual transaction
+              </FieldDescription>
             </Field>
           </FieldGroup>
           <DialogFooter className="mt-6">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
               Cancel
             </Button>
-            <Button type="submit">Add Transaction</Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Adding..." : "Add Transaction"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   )
 }
-
-
-
-
-
-
-

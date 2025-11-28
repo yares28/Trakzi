@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveAreaBump } from "@nivo/bump"
+import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import {
   Card,
@@ -12,12 +13,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { IconInfoCircle } from "@tabler/icons-react"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 
 interface ChartCategoryFlowProps {
   data?: Array<{
@@ -27,13 +22,13 @@ interface ChartCategoryFlowProps {
       y: number
     }>
   }>
+  categoryControls?: ChartInfoPopoverCategoryControls
 }
 
-export function ChartCategoryFlow({ data = [] }: ChartCategoryFlowProps) {
+export function ChartCategoryFlow({ data = [], categoryControls }: ChartCategoryFlowProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const [mounted, setMounted] = useState(false)
-  const [isInfoOpen, setIsInfoOpen] = useState(false)
 
   useEffect(() => {
     // Client-side only rendering to avoid hydration mismatches
@@ -63,6 +58,18 @@ export function ChartCategoryFlow({ data = [] }: ChartCategoryFlowProps) {
   }
   colorConfig = colorConfig.slice(0, numCategories)
 
+  const renderInfoTrigger = () => (
+    <ChartInfoPopover
+      title="Spending Category Rankings"
+      description="This chart tracks how your spending categories rank relative to each other over time."
+      details={[
+        "Each colored area represents a spending category; the higher it sits, the larger its share that month.",
+        "How it works: we calculate each category's percentage of total spend per month so you can see priorities rise or fall.",
+      ]}
+      categoryControls={categoryControls}
+    />
+  )
+
   if (!mounted) {
     return (
       <Card className="@container/card">
@@ -74,35 +81,7 @@ export function ChartCategoryFlow({ data = [] }: ChartCategoryFlowProps) {
             </span>
             <span className="@[540px]/card:hidden">Category flow over 6 months</span>
           </CardDescription>
-          <CardAction>
-            <Popover open={isInfoOpen} onOpenChange={setIsInfoOpen}>
-              <PopoverTrigger asChild>
-                <button 
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  onMouseEnter={() => setIsInfoOpen(true)}
-                  onMouseLeave={() => setIsInfoOpen(false)}
-                >
-                  <IconInfoCircle className="h-4 w-4" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent 
-                className="w-80" 
-                align="end"
-                onMouseEnter={() => setIsInfoOpen(true)}
-                onMouseLeave={() => setIsInfoOpen(false)}
-              >
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-sm">Spending Category Rankings</h4>
-                  <p className="text-sm text-muted-foreground">
-                    This chart tracks how your spending categories rank relative to each other over time.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    <strong>How it works:</strong> Each colored area represents a spending category. The vertical position shows the ranking (higher = more spending). Watch how categories move up and down over months to see which spending priorities are growing or shrinking.
-                  </p>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </CardAction>
+          <CardAction>{renderInfoTrigger()}</CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
           <div className="h-[400px] w-full" />
@@ -123,35 +102,7 @@ export function ChartCategoryFlow({ data = [] }: ChartCategoryFlowProps) {
             </span>
             <span className="@[540px]/card:hidden">Category flow over 6 months</span>
           </CardDescription>
-          <CardAction>
-            <Popover open={isInfoOpen} onOpenChange={setIsInfoOpen}>
-              <PopoverTrigger asChild>
-                <button 
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  onMouseEnter={() => setIsInfoOpen(true)}
-                  onMouseLeave={() => setIsInfoOpen(false)}
-                >
-                  <IconInfoCircle className="h-4 w-4" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent 
-                className="w-80" 
-                align="end"
-                onMouseEnter={() => setIsInfoOpen(true)}
-                onMouseLeave={() => setIsInfoOpen(false)}
-              >
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-sm">Spending Category Rankings</h4>
-                  <p className="text-sm text-muted-foreground">
-                    This chart tracks how your spending categories rank relative to each other over time.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    <strong>How it works:</strong> Each colored area represents a spending category. The vertical position shows the ranking (higher = more spending). Watch how categories move up and down over months to see which spending priorities are growing or shrinking.
-                  </p>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </CardAction>
+          <CardAction>{renderInfoTrigger()}</CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
           <div className="h-[400px] w-full flex items-center justify-center text-muted-foreground">
@@ -172,35 +123,7 @@ export function ChartCategoryFlow({ data = [] }: ChartCategoryFlowProps) {
           </span>
           <span className="@[540px]/card:hidden">Category flow over 6 months</span>
         </CardDescription>
-        <CardAction>
-          <Popover open={isInfoOpen} onOpenChange={setIsInfoOpen}>
-            <PopoverTrigger asChild>
-              <button 
-                className="text-muted-foreground hover:text-foreground transition-colors"
-                onMouseEnter={() => setIsInfoOpen(true)}
-                onMouseLeave={() => setIsInfoOpen(false)}
-              >
-                <IconInfoCircle className="h-4 w-4" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent 
-              className="w-80" 
-              align="end"
-              onMouseEnter={() => setIsInfoOpen(true)}
-              onMouseLeave={() => setIsInfoOpen(false)}
-            >
-              <div className="space-y-2">
-                <h4 className="font-semibold text-sm">Spending Category Rankings</h4>
-                <p className="text-sm text-muted-foreground">
-                  This chart tracks how your spending categories rank relative to each other over time.
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  <strong>How it works:</strong> Each colored area represents a spending category. The vertical position shows the ranking (higher = more spending). Watch how categories move up and down over months to see which spending priorities are growing or shrinking.
-                </p>
-              </div>
-            </PopoverContent>
-          </Popover>
-        </CardAction>
+        <CardAction>{renderInfoTrigger()}</CardAction>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
         <div className="h-[400px] w-full">

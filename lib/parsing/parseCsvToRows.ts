@@ -273,22 +273,87 @@ function coerceNumber(value: any): number | null {
     let normalized = value.trim();
     if (normalized === "") return null;
 
-    normalized = normalized
-        .replace(/[\u2212\u2012\u2013\u2014]/g, "-") // normalize fancy minus
-        .replace(/\s/g, "");
-
-    const commaDecimal = /,\d{1,2}$/.test(normalized);
-    if (commaDecimal) {
-        normalized = normalized.replace(/\./g, "").replace(",", ".");
-    } else {
-        normalized = normalized.replace(/,/g, "");
+    // Extract and preserve the sign FIRST (before any processing)
+    let isNegative = false;
+    // Check for minus at the start or end (common in some formats)
+    if (normalized.startsWith('-') || normalized.startsWith('−') || normalized.startsWith('–') || normalized.startsWith('—')) {
+        isNegative = true;
+        normalized = normalized.replace(/^[-−–—]/, "");
+    } else if (normalized.endsWith('-') || normalized.endsWith('−') || normalized.endsWith('–') || normalized.endsWith('—')) {
+        isNegative = true;
+        normalized = normalized.replace(/[-−–—]$/, "");
+    }
+    // Also check for any fancy minus signs in the middle and normalize them
+    normalized = normalized.replace(/[\u2212\u2012\u2013\u2014]/g, "-");
+    // If there's a minus anywhere now, it's negative
+    if (normalized.includes('-')) {
+        isNegative = true;
+        normalized = normalized.replace(/-/g, "");
     }
 
-    normalized = normalized.replace(/[^0-9.-]/g, "");
+    // Remove currency symbols
+    normalized = normalized
+        .replace(/[€$£¥]/g, "") // Remove currency symbols
+        .replace(/\s/g, ""); // Remove whitespace
+
+    // Handle European number format: "1.234,56" or "912,00" -> "1234.56" or "912.00"
+    // Check if comma is used as decimal separator (European format)
+    const hasComma = normalized.includes(',');
+    const hasDot = normalized.includes('.');
+    
+    if (hasComma && hasDot) {
+        // Both present - determine which is decimal separator
+        const lastComma = normalized.lastIndexOf(',');
+        const lastDot = normalized.lastIndexOf('.');
+        if (lastComma > lastDot) {
+            // Comma is decimal: "1.234,56" -> "1234.56"
+            normalized = normalized.replace(/\./g, "").replace(",", ".");
+        } else {
+            // Dot is decimal: "1,234.56" -> "1234.56"
+            normalized = normalized.replace(/,/g, "");
+        }
+    } else if (hasComma) {
+        // Only comma - check if it's decimal separator (1-2 digits after comma)
+        const commaIndex = normalized.lastIndexOf(',');
+        const afterComma = normalized.slice(commaIndex + 1);
+        if (afterComma.length <= 2 && /^\d{1,2}$/.test(afterComma)) {
+            // European format: "912,00" -> "912.00"
+            normalized = normalized.replace(",", ".");
+        } else {
+            // Thousands separator: "1,234" -> "1234"
+            normalized = normalized.replace(/,/g, "");
+        }
+    } else if (hasDot) {
+        // Only dot - check if it's thousands separator or decimal
+        const dotCount = (normalized.match(/\./g) || []).length;
+        if (dotCount > 1) {
+            // Multiple dots = thousands separators: "1.234.567" -> "1234567"
+            normalized = normalized.replace(/\./g, "");
+        } else {
+            // Single dot - check if decimal (1-2 digits after) or thousands (3 digits after)
+            const dotIndex = normalized.lastIndexOf('.');
+            const afterDot = normalized.slice(dotIndex + 1);
+            if (afterDot.length === 3 && /^\d{3}$/.test(afterDot)) {
+                // Likely thousands: "1.234" -> "1234"
+                normalized = normalized.replace(/\./g, "");
+            }
+            // Otherwise keep as decimal separator
+        }
+    }
+
+    // Remove any remaining non-numeric characters except dot
+    normalized = normalized.replace(/[^0-9.]/g, "");
+    
+    // Handle multiple dots (shouldn't happen after above logic, but safety check)
     if ((normalized.match(/\./g) || []).length > 1) {
         const lastDot = normalized.lastIndexOf(".");
         normalized = normalized.replace(/\./g, "");
         normalized = `${normalized.slice(0, lastDot)}.${normalized.slice(lastDot)}`;
+    }
+
+    // Add minus sign at the beginning if negative
+    if (isNegative && normalized) {
+        normalized = "-" + normalized;
     }
 
     const parsed = Number(normalized);
@@ -343,7 +408,7 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
             skipEmptyLines: true,
             delimiter
         });
-        const mapped = mapArraysToObjects(rawParsed as Papa.ParseResult<any[]>);
+        const mapped = mapArraysToObjects(rawParsed);
         rowsData = mapped.rows;
         columns = mapped.columns;
     }
@@ -366,24 +431,50 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
         warnings: []
     };
 
-    const rows = rowsData.map((r, index) => {
-        const dateColumn = findDateColumn(r, columns);
-        let rawDate = "";
-        if (dateColumn) {
-            rawDate = String(r[dateColumn] ?? "");
+    // Helper function to find numeric columns (excluding dates)
+    function findNumericColumn(row: Record<string, any>, columns: string[], excludeColumns: string[] = []): string | null {
+        for (const col of columns) {
+            if (excludeColumns.includes(col)) continue;
+            const value = row[col];
+            if (value != null && value !== "") {
+                const strValue = String(value).trim();
+                // Check if it looks like a number (has digits and possibly comma/dot/currency)
+                if (/[\d,.\-€$£¥]/.test(strValue) && !looksLikeDate(strValue)) {
+                    // Try to parse it - if it's a valid number, this is likely an amount/balance
+                    const testNum = coerceNumber(strValue);
+                    if (testNum !== null && testNum !== 0) {
+                        return col;
+                    }
+                }
+            }
         }
+        return null;
+    }
 
-        if (!rawDate) {
-            for (const col of columns) {
+    const rows = rowsData.map((r, index) => {
+        // Find all date columns first (there might be multiple)
+        const dateColumns: string[] = [];
+        for (const colName of DATE_COLUMN_NAMES) {
+            if (r[colName] != null && String(r[colName]).trim() !== "") {
+                dateColumns.push(colName);
+            }
+        }
+        for (const col of columns) {
+            if (!dateColumns.includes(col)) {
                 const value = r[col];
                 if (value != null) {
                     const strValue = String(value).trim();
                     if (looksLikeDate(strValue)) {
-                        rawDate = String(value);
-                        break;
+                        dateColumns.push(col);
                     }
                 }
             }
+        }
+
+        // Use the first date column found
+        let rawDate = "";
+        if (dateColumns.length > 0) {
+            rawDate = String(r[dateColumns[0]] ?? "");
         }
 
         const normalizedDate = normalizeDate(rawDate);
@@ -391,14 +482,45 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
             diagnostics.invalidDateSamples.push({ index, value: rawDate });
         }
 
-        const descColumn = columns.find(col => DESCRIPTION_REGEX.test(col)) || "description";
-        const rawDescription = r[descColumn] ?? r.description ?? r.Description ?? r.DESCRIPTION ?? "";
+        // Find description column - exclude date columns
+        let descColumn = columns.find(col => !dateColumns.includes(col) && DESCRIPTION_REGEX.test(col));
+        if (!descColumn) {
+            // Try to find a column with text (not date, not number)
+            for (const col of columns) {
+                if (dateColumns.includes(col)) continue;
+                const value = r[col];
+                if (value != null) {
+                    const strValue = String(value).trim();
+                    if (strValue.length > 10 && !looksLikeDate(strValue) && !/^[\d,.\-€$£¥\s]+$/.test(strValue)) {
+                        descColumn = col;
+                        break;
+                    }
+                }
+            }
+        }
+        const rawDescription = descColumn ? (r[descColumn] ?? "") : (r.description ?? r.Description ?? r.DESCRIPTION ?? "");
 
-        const amountColumn = columns.find(col => AMOUNT_REGEX.test(col)) || "amount";
-        const rawAmount = r[amountColumn] ?? r.amount ?? r.Amount ?? r.AMOUNT ?? 0;
+        // Find amount column - exclude date columns and description column
+        let amountColumn = columns.find(col => !dateColumns.includes(col) && col !== descColumn && AMOUNT_REGEX.test(col));
+        if (!amountColumn) {
+            // Try to find numeric column (excluding dates and description)
+            const excludeCols = [...dateColumns, descColumn].filter(Boolean);
+            amountColumn = findNumericColumn(r, columns, excludeCols);
+        }
+        if (!amountColumn) {
+            // Fallback to named columns
+            amountColumn = "amount";
+        }
+        const rawAmount = amountColumn && r[amountColumn] != null ? r[amountColumn] : (r.amount ?? r.Amount ?? r.AMOUNT ?? 0);
 
-        const balanceColumn = columns.find(col => BALANCE_REGEX.test(col));
-        const rawBalance = balanceColumn ? r[balanceColumn] : (r.balance ?? r.Balance ?? r.BALANCE);
+        // Find balance column - exclude date columns, description, and amount columns
+        let balanceColumn = columns.find(col => !dateColumns.includes(col) && col !== descColumn && col !== amountColumn && BALANCE_REGEX.test(col));
+        if (!balanceColumn) {
+            // Try to find another numeric column
+            const excludeCols = [...dateColumns, descColumn, amountColumn].filter(Boolean);
+            balanceColumn = findNumericColumn(r, columns, excludeCols);
+        }
+        const rawBalance = balanceColumn && r[balanceColumn] != null ? r[balanceColumn] : (r.balance ?? r.Balance ?? r.BALANCE);
 
         const parsedAmount = coerceNumber(rawAmount);
         const parsedBalance = coerceNumber(rawBalance);

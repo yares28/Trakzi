@@ -6,8 +6,10 @@ import {
   useMemo,
   useState,
   useTransition,
+  useRef,
   type CSSProperties,
 } from "react"
+import { flushSync } from "react-dom"
 import {
   IconAlertTriangle,
   IconCategory,
@@ -21,6 +23,10 @@ import {
   IconRefresh,
   IconShieldCheck,
   IconTrash,
+  IconUpload,
+  IconFile,
+  IconCircleCheck,
+  IconAlertCircle,
 } from "@tabler/icons-react"
 
 import { AppSidebar } from "@/components/app-sidebar"
@@ -63,6 +69,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -76,7 +83,77 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
+import { normalizeTransactions, cn } from "@/lib/utils"
+import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
+import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv"
+import { TxRow } from "@/lib/types/transactions"
+import { memo } from "react"
+
+type ParsedRow = TxRow & { id: number }
+
+// Memoized table row component to prevent unnecessary re-renders
+const MemoizedTableRow = memo(function MemoizedTableRow({
+  row,
+  amount,
+  balance,
+  category,
+  hasBalance,
+  onCategoryChange,
+  onDelete
+}: {
+  row: ParsedRow
+  amount: number
+  balance: number | null
+  category: string
+  hasBalance: boolean
+  onCategoryChange: (value: string) => void
+  onDelete: () => void
+}) {
+  return (
+    <TableRow>
+      <TableCell className="w-28 flex-shrink-0">
+        {row.date}
+      </TableCell>
+      <TableCell className="min-w-[350px] max-w-[600px]">
+        <div className="truncate" title={row.description}>
+          {row.description}
+        </div>
+      </TableCell>
+      <TableCell className={cn("text-right font-medium w-24 flex-shrink-0", amount < 0 ? "text-red-500" : "text-green-500")}>
+        {amount.toFixed(2)}€
+      </TableCell>
+      <TableCell className="w-[140px] flex-shrink-0">
+        <CategorySelect
+          value={category}
+          onValueChange={onCategoryChange}
+        />
+      </TableCell>
+      {hasBalance && (
+        <TableCell className="text-right w-32 flex-shrink-0">
+          {balance !== null ? `${balance.toFixed(2)}€` : "-"}
+        </TableCell>
+      )}
+      <TableCell className="w-12 flex-shrink-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+          onClick={onDelete}
+        >
+          <IconTrash className="h-4 w-4" />
+          <span className="sr-only">Delete</span>
+        </Button>
+      </TableCell>
+    </TableRow>
+  )
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.category === nextProps.category &&
+    prevProps.row.id === nextProps.row.id
+  )
+})
 
 type Transaction = {
   id: number
@@ -207,6 +284,23 @@ export default function DataLibraryPage() {
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
   const [deleteCategoryLoading, setDeleteCategoryLoading] = useState(false)
 
+  // CSV drop-to-import state
+  const [isDragging, setIsDragging] = useState(false)
+  const [droppedFile, setDroppedFile] = useState<File | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isParsing, setIsParsing] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState(0)
+  const [parsingProgress, setParsingProgress] = useState(0)
+  const [parsedCsv, setParsedCsv] = useState<string | null>(null)
+  const [parsedRows, setParsedRows] = useState<ParsedRow[]>([])
+  const [fileId, setFileId] = useState<string | null>(null)
+  const [parseError, setParseError] = useState<string | null>(null)
+  const [transactionCount, setTransactionCount] = useState<number>(0)
+  const dragCounterRef = useRef(0)
+  const csvRegenerationTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const latestParsedRowsRef = useRef<ParsedRow[]>([])
+
   const totalTransactions = transactions.length
   const categorizedTransactions = transactions.filter(
     (tx) => tx.category && tx.category !== "Other"
@@ -280,7 +374,7 @@ export default function DataLibraryPage() {
           filesRes.json(),
         ])
 
-      setTransactions(txData)
+      setTransactions(normalizeTransactions(txData))
       setStats(statsData)
       setStatements(stmtData)
       setCategories(catData)
@@ -299,6 +393,386 @@ export default function DataLibraryPage() {
   useEffect(() => {
     fetchLibraryData()
   }, [fetchLibraryData])
+
+  // Parse CSV when it changes
+  useEffect(() => {
+    if (parsedCsv) {
+      const rows = parseCsvToRows(parsedCsv)
+      const rowsWithId: ParsedRow[] = rows.map((row, index) => ({
+        ...row,
+        id: index,
+        category: row.category || undefined
+      }))
+      setParsedRows(rowsWithId)
+    } else {
+      setParsedRows([])
+    }
+  }, [parsedCsv])
+
+  // Keep ref in sync with parsedRows
+  useEffect(() => {
+    latestParsedRowsRef.current = parsedRows
+  }, [parsedRows])
+
+  const handleCategoryChange = useCallback((rowId: number, newCategory: string) => {
+    flushSync(() => {
+      setParsedRows((prevRows) => {
+        const updatedRows = prevRows.map((row) => {
+          if (row.id === rowId) {
+            return { ...row, category: newCategory }
+          }
+          return row
+        })
+        latestParsedRowsRef.current = updatedRows
+        return updatedRows
+      })
+    })
+
+    if (csvRegenerationTimerRef.current) {
+      clearTimeout(csvRegenerationTimerRef.current)
+    }
+
+    csvRegenerationTimerRef.current = setTimeout(() => {
+      const rowsForCsv = latestParsedRowsRef.current.map((row) => {
+        const { id: _ignored, ...rest } = row
+        void _ignored
+        return rest as TxRow
+      })
+      const newCsv = rowsToCanonicalCsv(rowsForCsv)
+      setParsedCsv(newCsv)
+    }, 300)
+  }, [])
+
+  const handleDeleteRow = useCallback((rowId: number) => {
+    flushSync(() => {
+      setParsedRows((prevRows) => {
+        const updatedRows = prevRows.filter((row) => row.id !== rowId)
+        latestParsedRowsRef.current = updatedRows
+        setTransactionCount(updatedRows.length)
+        return updatedRows
+      })
+    })
+
+    if (csvRegenerationTimerRef.current) {
+      clearTimeout(csvRegenerationTimerRef.current)
+    }
+
+    csvRegenerationTimerRef.current = setTimeout(() => {
+      const rowsForCsv = latestParsedRowsRef.current.map((row) => {
+        const { id: _ignored, ...rest } = row
+        void _ignored
+        return rest as TxRow
+      })
+      const newCsv = rowsToCanonicalCsv(rowsForCsv)
+      setParsedCsv(newCsv)
+    }, 100)
+  }, [])
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current++
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true)
+    }
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current--
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false)
+    }
+  }, [])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+    dragCounterRef.current = 0
+
+    const files = Array.from(e.dataTransfer.files)
+    if (files && files.length > 0) {
+      const file = files[0]
+      setDroppedFile(file)
+      setIsDialogOpen(true)
+      setIsParsing(true)
+      setParsingProgress(0)
+      setParseError(null)
+      setParsedCsv(null)
+      setFileId(null)
+      setTransactionCount(0)
+
+      setParsingProgress(5)
+      
+      try {
+        const formData = new FormData()
+        formData.append("file", file)
+        formData.append("bankName", "Unknown")
+
+        let currentCategories = DEFAULT_CATEGORIES
+        try {
+          const categoriesResponse = await fetch("/api/categories")
+          if (categoriesResponse.ok) {
+            const payload = await categoriesResponse.json()
+            const categoriesArray: Array<{ name?: string }> = Array.isArray(payload) ? payload : []
+            const names = categoriesArray
+              .map((cat) => cat?.name)
+              .filter((name): name is string => typeof name === "string" && name.trim().length > 0)
+            if (names.length > 0) {
+              currentCategories = names
+            }
+          }
+        } catch (categoriesError) {
+          console.warn("[DATA-LIBRARY] Failed to load categories from API. Using defaults.", categoriesError)
+        }
+        
+        setParsingProgress(20)
+        
+        const response = await fetch("/api/statements/parse", {
+          method: "POST",
+          headers: {
+            "X-Custom-Categories": JSON.stringify(currentCategories),
+          },
+          body: formData,
+        })
+
+        const contentType = response.headers.get("content-type") || ""
+        const fileIdHeader = response.headers.get("X-File-Id")
+        const categorizationError = response.headers.get("X-Categorization-Error")
+        const categorizationWarning = response.headers.get("X-Categorization-Warning")
+
+        if (!response.ok) {
+          let errorMessage = `HTTP error! status: ${response.status}`
+          const responseText = await response.text()
+
+          try {
+            const errorData = JSON.parse(responseText)
+            errorMessage = errorData.error || errorMessage
+          } catch {
+            errorMessage = responseText || errorMessage
+          }
+
+          throw new Error(errorMessage)
+        }
+
+        let responseText = ""
+        
+        if (response.body) {
+          const reader = response.body.getReader()
+          const contentLength = response.headers.get("content-length")
+          const total = contentLength ? parseInt(contentLength, 10) : 0
+          let received = 0
+          const decoder = new TextDecoder()
+          const chunks: string[] = []
+
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            
+            const chunk = decoder.decode(value, { stream: true })
+            chunks.push(chunk)
+            received += value.length
+            
+            if (total > 0) {
+              const downloadProgress = (received / total) * 65
+              setParsingProgress(25 + downloadProgress)
+            } else {
+              const estimatedTotal = file.size * 1.2
+              const estimatedProgress = Math.min(25 + (received / estimatedTotal) * 65, 90)
+              setParsingProgress(estimatedProgress)
+            }
+          }
+
+          responseText = chunks.join("")
+        } else {
+          setParsingProgress(60)
+          responseText = await response.text()
+          setParsingProgress(90)
+        }
+
+        setParsingProgress(95)
+
+        if (contentType.includes("application/json")) {
+          try {
+            const data = JSON.parse(responseText)
+            if (!data.parseable) {
+              setParseError(data.message || "File format not supported for parsing")
+              setIsParsing(false)
+              setParsingProgress(0)
+              return
+            }
+          } catch {
+            throw new Error("Invalid response from server")
+          }
+        }
+
+        const csv = responseText
+        setParsingProgress(100)
+
+        const lines = csv.trim().split("\n")
+        const count = lines.length > 1 ? lines.length - 1 : 0
+
+        setParsedCsv(csv)
+        setFileId(fileIdHeader)
+        setTransactionCount(count)
+
+        if (categorizationWarning === "true" && categorizationError) {
+          const decodedError = decodeURIComponent(categorizationError)
+          console.warn("AI categorization failed:", decodedError)
+          toast.warning("Categorization Warning", {
+            description: `AI categorization failed. All transactions defaulted to "Other". Error: ${decodedError.substring(0, 100)}`,
+            duration: 10000,
+          })
+        }
+      } catch (error) {
+        setParsingProgress(0)
+        console.error("Parse error:", error)
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to parse file. Please try again."
+        setParseError(errorMessage)
+
+        if (errorMessage.includes("DEMO_USER_ID") || errorMessage.includes("Authentication")) {
+          toast.error("Configuration Error", {
+            description: "Please configure DEMO_USER_ID in your environment variables.",
+            duration: 10000,
+          })
+        } else if (errorMessage.includes("No transactions found")) {
+          toast.error("No Transactions Found", {
+            description: "The file was parsed but no transactions were detected. Please check the file format.",
+            duration: 8000,
+          })
+        } else if (errorMessage.includes("Failed to parse")) {
+          toast.error("Parse Error", {
+            description: errorMessage,
+            duration: 8000,
+          })
+        } else {
+          toast.error("Upload Error", {
+            description: errorMessage,
+            duration: 8000,
+          })
+        }
+        setParsingProgress(0)
+      } finally {
+        setIsParsing(false)
+      }
+    }
+  }, [])
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes"
+    const k = 1024
+    const sizes = ["Bytes", "KB", "MB", "GB"]
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i]
+  }
+
+  const handleConfirm = async () => {
+    if (!droppedFile || !parsedCsv || !fileId) {
+      toast.error("Missing data", {
+        description: "Please wait for the file to be parsed before confirming.",
+      })
+      return
+    }
+
+    setIsImporting(true)
+    setImportProgress(0)
+
+    const progressInterval = setInterval(() => {
+      setImportProgress((prev) => {
+        if (prev >= 90) return prev
+        return prev + 10
+      })
+    }, 200)
+
+    try {
+      const extension = droppedFile.name.split(".").pop()?.toLowerCase() ?? "other"
+      const rawFormat = extension === "pdf" ? "pdf" :
+        extension === "csv" ? "csv" :
+          (extension === "xls" || extension === "xlsx") ? "xlsx" : "other"
+
+      const response = await fetch("/api/statements/import", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          csv: parsedCsv,
+          statementMeta: {
+            bankName: "Unknown",
+            sourceFilename: droppedFile.name,
+            rawFormat: rawFormat as "pdf" | "csv" | "xlsx" | "xls" | "other",
+            fileId: fileId,
+          },
+        }),
+      })
+
+      clearInterval(progressInterval)
+      setImportProgress(95)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Failed to import" }))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      setImportProgress(100)
+
+      toast.success("File Imported Successfully", {
+        description: `${data.inserted} transactions imported from ${droppedFile.name}`,
+      })
+
+      setIsDialogOpen(false)
+      setDroppedFile(null)
+      setParsedCsv(null)
+      setFileId(null)
+      setTransactionCount(0)
+      setParseError(null)
+      setImportProgress(0)
+
+      await fetchLibraryData()
+    } catch (error) {
+      clearInterval(progressInterval)
+      console.error("Import error:", error)
+      toast.error("Import Failed", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to import transactions. Please try again.",
+      })
+      setImportProgress(0)
+    } finally {
+      setIsImporting(false)
+    }
+  }
+
+  const handleCancel = () => {
+    if (csvRegenerationTimerRef.current) {
+      clearTimeout(csvRegenerationTimerRef.current)
+      csvRegenerationTimerRef.current = null
+    }
+    setIsDialogOpen(false)
+    setDroppedFile(null)
+    setParsedCsv(null)
+    setFileId(null)
+    setTransactionCount(0)
+    setParseError(null)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (csvRegenerationTimerRef.current) {
+        clearTimeout(csvRegenerationTimerRef.current)
+      }
+    }
+  }, [])
 
   const handleAddCategory = async () => {
     const trimmedName = newCategoryName.trim()
@@ -403,7 +877,7 @@ export default function DataLibraryPage() {
       const response = await fetch(`/api/statements/${statementId}/transactions`)
       if (response.ok) {
         const data = await response.json()
-        setStatementTransactions(data)
+        setStatementTransactions(normalizeTransactions(data))
       } else {
         console.error("Failed to fetch statement transactions")
         setStatementTransactions([])
@@ -476,7 +950,46 @@ export default function DataLibraryPage() {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-1 flex-col">
+        <div
+          className="flex flex-1 flex-col relative"
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          {/* Dark overlay when dragging */}
+          {isDragging && (
+            <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm transition-opacity duration-300 pointer-events-none" />
+          )}
+
+          {/* Modern drop indicator with Card */}
+          {isDragging && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+              <Card className="w-full max-w-md mx-4 border-2 border-dashed border-primary/50 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-300">
+                <CardHeader className="text-center pb-4">
+                  <div className="flex justify-center mb-4">
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
+                      <div className="relative bg-primary/10 p-6 rounded-full border-2 border-primary/30">
+                        <IconUpload className="w-12 h-12 text-primary animate-bounce" />
+                      </div>
+                    </div>
+                  </div>
+                  <CardTitle className="text-2xl text-primary">Drop your file here</CardTitle>
+                  <CardDescription className="text-base mt-2">
+                    Release to upload your file
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                    <span>Ready to receive file</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           <div className="@container/main flex flex-1 flex-col gap-2">
             <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
               <section className="px-4 lg:px-6">
@@ -1075,6 +1588,223 @@ export default function DataLibraryPage() {
             </div>
           </div>
         </div>
+
+        {/* Modern Confirmation Dialog */}
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="sm:max-w-[95vw] lg:max-w-[1200px] w-full max-h-[90vh] flex flex-col p-0 gap-0">
+            <div className="px-6 pt-6 pb-4 flex-shrink-0">
+              <DialogHeader>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <IconCircleCheck className="w-5 h-5 text-primary" />
+                  </div>
+                  <DialogTitle className="text-xl">Confirm File Upload</DialogTitle>
+                </div>
+                <DialogDescription className="text-base">
+                  Review the file details below and confirm to proceed with the upload.
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+            <Separator className="flex-shrink-0" />
+            {droppedFile && (
+              <div className="px-6 py-4 space-y-4 overflow-y-auto flex-1 min-h-0">
+                <Card className="border-2">
+                  <CardContent className="pt-6">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0">
+                        <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                          <IconFile className="w-8 h-8 text-primary" />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground mb-1 break-words">
+                            {droppedFile.name}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="secondary" className="text-xs">
+                              {formatFileSize(droppedFile.size)}
+                            </Badge>
+                            {droppedFile.type && (
+                              <Badge variant="outline" className="text-xs">
+                                {droppedFile.type.split('/')[1]?.toUpperCase() || 'FILE'}
+                              </Badge>
+                            )}
+                            {transactionCount > 0 && (
+                              <Badge variant="default" className="text-xs">
+                                {transactionCount} transactions
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <Separator />
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <p className="text-muted-foreground text-xs mb-1">File Type</p>
+                            <p className="font-medium">{droppedFile.type || "Unknown"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs mb-1">File Size</p>
+                            <p className="font-medium">{formatFileSize(droppedFile.size)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Parsing Status */}
+                {isParsing && (
+                  <Card className="border-2 border-primary/20 bg-primary/5">
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <IconLoader2 className="w-5 h-5 text-primary animate-spin flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium">Parsing file...</p>
+                            <p className="text-xs text-muted-foreground">Extracting transactions and categorizing</p>
+                          </div>
+                          <span className="text-sm font-semibold text-primary flex-shrink-0">{Math.round(parsingProgress)}%</span>
+                        </div>
+                        <div className="w-full">
+                          <Progress value={parsingProgress} className="w-full h-3" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Parse Error */}
+                {parseError && !isParsing && (
+                  <Card className="border-2 border-destructive/20 bg-destructive/5">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start gap-3">
+                        <IconAlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-destructive">Parse Error</p>
+                          <p className="text-xs text-muted-foreground mt-1">{parseError}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Import Progress */}
+                {isImporting && (
+                  <Card className="border-2 border-primary/20 bg-primary/5">
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <IconLoader2 className="w-5 h-5 text-primary animate-spin flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium">Importing transactions...</p>
+                            <p className="text-xs text-muted-foreground">
+                              Please wait while we import {transactionCount} transactions into the database
+                            </p>
+                          </div>
+                          <span className="text-sm font-semibold text-primary flex-shrink-0">{Math.round(importProgress)}%</span>
+                        </div>
+                        <div className="w-full">
+                          <Progress value={importProgress} className="w-full h-3" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Parsed CSV Preview */}
+                {parsedCsv && !isParsing && !parseError && !isImporting && (
+                  <Card className="border-2 overflow-hidden flex flex-col min-h-0">
+                    <CardHeader className="flex-shrink-0 px-4 pt-4 pb-2">
+                      <CardTitle className="text-sm">Preview ({transactionCount} transactions)</CardTitle>
+                      <CardDescription className="text-xs">
+                        Review and edit categories before importing
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
+                      <div className="h-full max-h-[500px] overflow-auto relative">
+                        <Table>
+                          <TableHeader className="sticky top-0 z-20 bg-muted border-b">
+                            <TableRow>
+                              <TableHead className="sticky top-0 z-20 bg-muted">Date</TableHead>
+                              <TableHead className="sticky top-0 z-20 bg-muted">Description</TableHead>
+                              <TableHead className="sticky top-0 z-20 bg-muted text-right">Amount</TableHead>
+                              <TableHead className="sticky top-0 z-20 bg-muted">Category</TableHead>
+                              {parsedRows.some((row) => row.balance !== null && row.balance !== undefined) && (
+                                <TableHead className="sticky top-0 z-20 bg-muted text-right">Balance</TableHead>
+                              )}
+                              <TableHead className="sticky top-0 z-20 bg-muted w-12"></TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {parsedRows.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={6} className="h-24 text-center">
+                                  No transactions found
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              parsedRows.map((row) => {
+                                const amount = typeof row.amount === 'number' ? row.amount : parseFloat(row.amount) || 0
+                                const balance = row.balance !== null && row.balance !== undefined 
+                                  ? (typeof row.balance === 'number' ? row.balance : parseFloat(row.balance)) 
+                                  : null
+                                const category = row.category || 'Other'
+                                const hasBalance = parsedRows.some((r) => r.balance !== null && r.balance !== undefined)
+                                
+                                return (
+                                  <MemoizedTableRow
+                                    key={row.id ?? `${row.date}-${row.description}`}
+                                    row={row}
+                                    amount={amount}
+                                    balance={balance}
+                                    category={category}
+                                    hasBalance={hasBalance}
+                                    onCategoryChange={(value) => handleCategoryChange(row.id, value)}
+                                    onDelete={() => handleDeleteRow(row.id)}
+                                  />
+                                )
+                              })
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+            <Separator className="flex-shrink-0" />
+            <div className="px-6 py-4 flex-shrink-0">
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  variant="outline"
+                  onClick={handleCancel}
+                  disabled={isImporting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleConfirm}
+                  className="gap-2"
+                  disabled={isParsing || isImporting || !!parseError || !parsedCsv}
+                >
+                  {isImporting ? (
+                    <>
+                      <IconLoader2 className="w-4 h-4 animate-spin" />
+                      Importing...
+                    </>
+                  ) : (
+                    <>
+                      <IconUpload className="w-4 h-4" />
+                      Import to Database
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
       </SidebarInset>
     </SidebarProvider>
   )

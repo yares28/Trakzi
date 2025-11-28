@@ -7,7 +7,7 @@ import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { ChartCategoryFlow } from "@/components/chart-category-flow"
 import { ChartSpendingFunnel } from "@/components/chart-spending-funnel"
 import { ChartExpensesPie } from "@/components/chart-expenses-pie"
-import { ChartTreeMap } from "@/components/analytics-advanced-charts"
+import { ChartTreeMap } from "@/components/chart-treemap"
 import { DataTable } from "@/components/data-table"
 import { SectionCards } from "@/components/section-cards"
 import { SiteHeader } from "@/components/site-header"
@@ -41,7 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { cn } from "@/lib/utils"
+import { cn, normalizeTransactions } from "@/lib/utils"
 import { IconUpload, IconFile, IconCircleCheck, IconLoader2, IconAlertCircle, IconTrash } from "@tabler/icons-react"
 import { toast } from "sonner"
 import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
@@ -51,6 +51,7 @@ import { CategorySelect } from "@/components/category-select"
 import { DEFAULT_CATEGORIES } from "@/lib/categories"
 import { Progress } from "@/components/ui/progress"
 import { memo } from "react"
+import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
 
 type ParsedRow = TxRow & { id: number }
 
@@ -132,6 +133,11 @@ export default function Page() {
   const [transactionCount, setTransactionCount] = useState<number>(0)
   const dragCounterRef = useRef(0)
 
+  const normalizeCategoryName = useCallback((value?: string | null) => {
+    const trimmed = (value ?? "").trim()
+    return trimmed || "Other"
+  }, [])
+
   // Transactions state for charts
   const [transactions, setTransactions] = useState<Array<{
     id: number
@@ -141,9 +147,149 @@ export default function Page() {
     balance: number | null
     category: string
   }>>([])
-
   // Date filter state
   const [dateFilter, setDateFilter] = useState<string | null>(null)
+  const incomeExpenseVisibility = useChartCategoryVisibility({
+    chartId: "dashboard:income-expense",
+    storageScope: "dashboard",
+    normalizeCategory: normalizeCategoryName,
+  })
+  const categoryFlowVisibility = useChartCategoryVisibility({
+    chartId: "dashboard:category-flow",
+    storageScope: "dashboard",
+    normalizeCategory: normalizeCategoryName,
+  })
+  const spendingFunnelVisibility = useChartCategoryVisibility({
+    chartId: "dashboard:spending-funnel",
+    storageScope: "dashboard",
+    normalizeCategory: normalizeCategoryName,
+  })
+  const expensesPieVisibility = useChartCategoryVisibility({
+    chartId: "dashboard:expenses-pie",
+    storageScope: "dashboard",
+    normalizeCategory: normalizeCategoryName,
+  })
+  const treeMapVisibility = useChartCategoryVisibility({
+    chartId: "dashboard:treemap",
+    storageScope: "dashboard",
+    normalizeCategory: normalizeCategoryName,
+  })
+
+  // Use transactions for charts (same as transactions state)
+  const chartTransactions = transactions
+
+  // Build category controls for each chart
+  const incomeExpenseCategories = useMemo(() => {
+    const categories = new Set<string>()
+    chartTransactions.forEach(tx => {
+      categories.add(normalizeCategoryName(tx.category))
+    })
+    return Array.from(categories).sort((a, b) => a.localeCompare(b))
+  }, [chartTransactions])
+
+  const incomeExpenseControls = incomeExpenseVisibility.buildCategoryControls(incomeExpenseCategories, {
+    description: "Hide a category to remove its transactions from this cash-flow chart.",
+  })
+
+  const categoryFlowCategories = useMemo(() => {
+    const categories = new Set<string>()
+    chartTransactions.forEach(tx => {
+      if (tx.amount < 0) {
+        categories.add(normalizeCategoryName(tx.category))
+      }
+    })
+    return Array.from(categories).sort((a, b) => a.localeCompare(b))
+  }, [chartTransactions])
+
+  const categoryFlowControls = categoryFlowVisibility.buildCategoryControls(categoryFlowCategories, {
+    description: "Hide a spending category to remove it from the ranking stream.",
+  })
+
+  const spendingFunnelCategories = useMemo(() => {
+    const categories = new Set<string>()
+    chartTransactions.filter(tx => tx.amount < 0).forEach(tx => {
+      categories.add(normalizeCategoryName(tx.category))
+    })
+    return Array.from(categories).sort((a, b) => a.localeCompare(b))
+  }, [chartTransactions])
+
+  const spendingFunnelControls = spendingFunnelVisibility.buildCategoryControls(spendingFunnelCategories, {
+    description: "Hide a category to keep it out of this funnel view only.",
+  })
+
+  const expensesPieCategories = useMemo(() => {
+    const categories = new Set<string>()
+    chartTransactions.filter(tx => tx.amount < 0).forEach(tx => {
+      categories.add(normalizeCategoryName(tx.category))
+    })
+    return Array.from(categories).sort((a, b) => a.localeCompare(b))
+  }, [chartTransactions])
+
+  const expensesPieControls = expensesPieVisibility.buildCategoryControls(expensesPieCategories, {
+    description: "Choose which expense categories appear in this pie chart.",
+  })
+
+  const treeMapCategories = useMemo(() => {
+    const categories = new Set<string>()
+    chartTransactions.filter(tx => tx.amount < 0).forEach(tx => {
+      categories.add(normalizeCategoryName(tx.category))
+    })
+    return Array.from(categories).sort((a, b) => a.localeCompare(b))
+  }, [chartTransactions])
+
+  const treeMapControls = treeMapVisibility.buildCategoryControls(treeMapCategories, {
+    description: "Hide categories to remove them from this treemap view.",
+  })
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    try {
+      const stored = window.localStorage.getItem("analyticsHiddenCategories")
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (Array.isArray(parsed)) {
+          setHiddenCategories(parsed.map((category) => normalizeCategoryName(category)))
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  const persistHiddenCategories = (next: string[]) => {
+    if (typeof window === "undefined") return
+    if (!next.length) {
+      window.localStorage.removeItem("analyticsHiddenCategories")
+    } else {
+      window.localStorage.setItem("analyticsHiddenCategories", JSON.stringify(next))
+    }
+  }
+
+  const toggleHiddenCategory = useCallback((category: string) => {
+    const normalized = normalizeCategoryName(category)
+    setHiddenCategories((prev) => {
+      const exists = prev.includes(normalized)
+      const next = exists ? prev.filter((item) => item !== normalized) : [...prev, normalized]
+      persistHiddenCategories(next)
+      return next
+    })
+  }, [])
+
+  const clearHiddenCategories = useCallback(() => {
+    setHiddenCategories([])
+    persistHiddenCategories([])
+  }, [])
+
+  const categoryVisibilityOptions = useMemo(() => {
+    const names = new Set<string>()
+    DEFAULT_CATEGORIES.forEach((name) => {
+      if (name) names.add(normalizeCategoryName(name))
+    })
+    transactions.forEach((tx) => {
+      names.add(normalizeCategoryName(tx.category))
+    })
+    return Array.from(names).sort((a, b) => a.localeCompare(b))
+  }, [transactions])
 
   // Calculate stats directly from transactions data
   const stats = useMemo(() => {
@@ -272,7 +418,7 @@ export default function Page() {
         if (Array.isArray(data)) {
           console.log(`[Dashboard] Setting ${data.length} transactions`)
           console.log("[Dashboard] First transaction:", data[0])
-          setTransactions(data)
+          setTransactions(normalizeTransactions(data))
         } else {
           console.error("[Dashboard] Response is not an array:", data)
           if (data.error) {
@@ -836,9 +982,11 @@ export default function Page() {
                 netWorthChange={stats.netWorthChange}
               />
               <div className="px-4 lg:px-6">
-                <ChartAreaInteractive data={useMemo(() => {
+                <ChartAreaInteractive
+                  categoryControls={incomeExpenseControls}
+                  data={useMemo(() => {
                   // Filter out savings category
-                  const filteredTransactions = transactions.filter(tx => {
+                  const filteredTransactions = chartTransactions.filter(tx => {
                     const category = (tx.category || "").toLowerCase()
                     return category !== "savings"
                   })
@@ -898,11 +1046,12 @@ export default function Page() {
                   }))
 
                   return result
-                }, [transactions])} />
+                }, [chartTransactions])}
+                />
               </div>
               <div className="px-4 lg:px-6">
-                <ChartCategoryFlow data={useMemo(() => {
-                  if (!transactions || transactions.length === 0) {
+                <ChartCategoryFlow categoryControls={categoryFlowControls} data={useMemo(() => {
+                  if (!chartTransactions || chartTransactions.length === 0) {
                     return []
                   }
 
@@ -913,7 +1062,7 @@ export default function Page() {
                   // Categories to exclude (case-insensitive)
                   const excludedCategories = ['income', 'transfer income']
                   
-                  transactions.forEach(tx => {
+                  chartTransactions.forEach(tx => {
                     const category = tx.category || "Other"
                     // Filter out income and transfer income categories
                     if (excludedCategories.some(excluded => category.toLowerCase() === excluded.toLowerCase())) {
@@ -968,16 +1117,16 @@ export default function Page() {
                       const originalValue = categoryMap.get(series.id)?.get(month) || 0
                       return originalValue > 0
                     })) // Only include categories with at least one non-zero value
-                }, [transactions])} />
+                }, [chartTransactions])} />
               </div>
               {/* Funnel and Pie Charts Side by Side */}
               <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
-                <ChartSpendingFunnel data={useMemo(() => {
-                  const totalIncome = transactions.filter(tx => tx.amount > 0).reduce((sum, tx) => sum + tx.amount, 0)
+                <ChartSpendingFunnel categoryControls={spendingFunnelControls} data={useMemo(() => {
+                  const totalIncome = chartTransactions.filter(tx => tx.amount > 0).reduce((sum, tx) => sum + tx.amount, 0)
                   
                   // Group expenses by category
                   const categoryMap = new Map<string, number>()
-                  transactions.filter(tx => tx.amount < 0).forEach(tx => {
+                  chartTransactions.filter(tx => tx.amount < 0).forEach(tx => {
                     const category = tx.category || "Other"
                     const current = categoryMap.get(category) || 0
                     categoryMap.set(category, current + Math.abs(tx.amount))
@@ -987,56 +1136,63 @@ export default function Page() {
                   const totalExpenses = Array.from(categoryMap.values()).reduce((sum, amount) => sum + amount, 0)
                   const savings = totalIncome - totalExpenses
                   
-                  // Filter categories to only include those larger than savings
-                  // Sort categories by amount (descending) and filter
-                  const maxCategories = 5
+                  // Sort categories by amount (descending) to get spending order
                   const sortedCategories = Array.from(categoryMap.entries())
                     .map(([category, amount]) => ({ category, amount }))
                     .sort((a, b) => b.amount - a.amount)
-                    .filter(cat => cat.amount > savings) // Only show categories larger than savings
-                    .slice(0, maxCategories)
                   
-                  // Calculate remaining expenses (if we're not showing all categories)
-                  const shownExpenses = sortedCategories.reduce((sum, cat) => sum + cat.amount, 0)
+                  const top2Categories = sortedCategories.slice(0, 2)
+                  
+                  // Calculate remaining expenses (all categories beyond top 2)
+                  const shownExpenses = top2Categories.reduce((sum, cat) => sum + cat.amount, 0)
                   const remainingExpenses = totalExpenses - shownExpenses
                   
-                  // Build the funnel data: Income -> Top Categories -> (Other if needed) -> Savings
-                  const funnelData: Array<{ id: string; value: number; label: string }> = []
+                  // Build expense categories array
+                  const expenseCategories: Array<{ id: string; value: number; label: string }> = []
                   
-                  // Add Income
-                  if (totalIncome > 0) {
-                    funnelData.push({ id: "income", value: totalIncome, label: "Income" })
-                  }
-                  
-                  // Add top expense categories (only those larger than savings)
-                  sortedCategories.forEach(cat => {
-                    funnelData.push({
+                  // Add top 2 categories (highest spending)
+                  top2Categories.forEach(cat => {
+                    expenseCategories.push({
                       id: cat.category.toLowerCase().replace(/\s+/g, '-'),
                       value: cat.amount,
                       label: cat.category
                     })
                   })
                   
-                  // Add "Other" category if there are remaining expenses and it's larger than savings
-                  if (remainingExpenses > 0 && remainingExpenses > savings) {
-                    funnelData.push({
-                      id: "other",
+                  // Add "Others" category (remaining categories, which are less than top 2)
+                  if (remainingExpenses > 0) {
+                    expenseCategories.push({
+                      id: "others",
                       value: remainingExpenses,
-                      label: "Other"
+                      label: "Others"
                     })
                   }
                   
-                  // Add Savings
+                  // Sort expense categories by value (descending) to ensure proper order
+                  expenseCategories.sort((a, b) => b.value - a.value)
+                  
+                  // Build the funnel data in order: Income -> Categories (highest to lowest spending) -> Savings
+                  const funnelData: Array<{ id: string; value: number; label: string }> = []
+                  
+                  // Add Income first
+                  if (totalIncome > 0) {
+                    funnelData.push({ id: "income", value: totalIncome, label: "Income" })
+                  }
+                  
+                  // Add expense categories in descending order of spending
+                  funnelData.push(...expenseCategories)
+                  
+                  // Add Savings at the end
                   if (savings > 0) {
                     funnelData.push({ id: "savings", value: savings, label: "Savings" })
                   }
                   
                   return funnelData.filter(item => item.value > 0)
-                }, [transactions])} />
-                <ChartExpensesPie data={useMemo(() => {
+                }, [chartTransactions])} />
+                <ChartExpensesPie categoryControls={expensesPieControls} data={useMemo(() => {
                   // Group expenses by category
                   const categoryMap = new Map<string, number>()
-                  transactions.filter(tx => tx.amount < 0).forEach(tx => {
+                  chartTransactions.filter(tx => tx.amount < 0).forEach(tx => {
                     const category = tx.category || "Other"
                     const current = categoryMap.get(category) || 0
                     categoryMap.set(category, current + Math.abs(tx.amount))
@@ -1045,12 +1201,13 @@ export default function Page() {
                   return Array.from(categoryMap.entries())
                     .map(([id, value]) => ({ id, label: id, value }))
                     .sort((a, b) => b.value - a.value)
-                }, [transactions])} />
+                }, [chartTransactions])} />
               </div>
               <div className="px-4 lg:px-6">
                 <ChartTreeMap 
+                  categoryControls={treeMapControls}
                   data={useMemo(() => {
-                    const categoryMap = new Map<string, { total: number; subcategories: Map<string, number> }>()
+                    const categoryMap = new Map<string, { total: number; subcategories: Map<string, { amount: number; fullDescription: string }> }>()
 
                     const getSubCategoryLabel = (description?: string) => {
                       if (!description) return "Misc"
@@ -1060,7 +1217,7 @@ export default function Page() {
                       return trimmed.length > 24 ? `${trimmed.slice(0, 21)}…` : (trimmed || "Misc")
                     }
 
-                    transactions
+                    chartTransactions
                       .filter(tx => tx.amount < 0)
                       .forEach(tx => {
                         const category = tx.category || "Other"
@@ -1072,7 +1229,15 @@ export default function Page() {
                         categoryEntry.total += amount
 
                         const subCategory = getSubCategoryLabel(tx.description)
-                        categoryEntry.subcategories.set(subCategory, (categoryEntry.subcategories.get(subCategory) || 0) + amount)
+                        const existing = categoryEntry.subcategories.get(subCategory)
+                        if (existing) {
+                          existing.amount += amount
+                        } else {
+                          categoryEntry.subcategories.set(subCategory, { 
+                            amount, 
+                            fullDescription: tx.description || subCategory 
+                          })
+                        }
                       })
 
                     const maxSubCategories = 5
@@ -1081,16 +1246,20 @@ export default function Page() {
                       name: "Expenses",
                       children: Array.from(categoryMap.entries())
                         .map(([name, { total, subcategories }]) => {
-                          const sortedSubs = Array.from(subcategories.entries()).sort((a, b) => b[1] - a[1])
+                          const sortedSubs = Array.from(subcategories.entries()).sort((a, b) => b[1].amount - a[1].amount)
                           const topSubs = sortedSubs.slice(0, maxSubCategories)
-                          const remainingTotal = sortedSubs.slice(maxSubCategories).reduce((sum, [, value]) => sum + value, 0)
-                          const children = topSubs.map(([subName, loc]) => ({ name: subName, loc }))
+                          const remainingTotal = sortedSubs.slice(maxSubCategories).reduce((sum, [, value]) => sum + value.amount, 0)
+                          const children = topSubs.map(([subName, { amount: loc, fullDescription }]) => ({ 
+                            name: subName, 
+                            loc,
+                            fullDescription 
+                          }))
                           if (remainingTotal > 0) {
-                            children.push({ name: "Other", loc: remainingTotal })
+                            children.push({ name: "Other", loc: remainingTotal, fullDescription: "Other transactions" })
                           }
                           return {
                             name,
-                            children: children.length > 0 ? children : [{ name, loc: total }]
+                            children: children.length > 0 ? children : [{ name, loc: total, fullDescription: name }]
                           }
                         })
                         .sort((a, b) => {
@@ -1099,12 +1268,13 @@ export default function Page() {
                           return bTotal - aTotal
                         })
                     }
-                  }, [transactions])}
+                  }, [chartTransactions])}
                 />
               </div>
               <DataTable 
                 data={[]} 
                 transactions={transactions}
+                onTransactionAdded={fetchTransactions}
               />
             </div>
           </div>

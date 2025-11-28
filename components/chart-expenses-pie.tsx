@@ -3,7 +3,9 @@
 import { useState, useEffect, useMemo } from "react"
 import { useTheme } from "next-themes"
 import { ResponsivePie } from "@nivo/pie"
+import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { toNumericValue } from "@/lib/utils"
 import {
   Card,
   CardAction,
@@ -12,12 +14,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { IconInfoCircle } from "@tabler/icons-react"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 
 interface ChartExpensesPieProps {
   data?: Array<{
@@ -25,6 +21,7 @@ interface ChartExpensesPieProps {
     label: string
     value: number
   }>
+  categoryControls?: ChartInfoPopoverCategoryControls
 }
 
 // Dark colors that require white text
@@ -41,11 +38,14 @@ const getTextColor = (sliceColor: string, colorScheme?: string): string => {
   return darkColors.includes(sliceColor) ? "#ffffff" : "#000000"
 }
 
-export function ChartExpensesPie({ data: baseData = [] }: ChartExpensesPieProps) {
+export function ChartExpensesPie({ data: baseData = [], categoryControls }: ChartExpensesPieProps) {
   const { resolvedTheme } = useTheme()
   const { colorScheme, getPalette } = useColorScheme()
   const [mounted, setMounted] = useState(false)
-  const [isInfoOpen, setIsInfoOpen] = useState(false)
+  const sanitizedBaseData = useMemo(() => baseData.map(item => ({
+    ...item,
+    value: toNumericValue(item.value)
+  })), [baseData])
 
   useEffect(() => {
     setMounted(true)
@@ -54,12 +54,12 @@ export function ChartExpensesPie({ data: baseData = [] }: ChartExpensesPieProps)
   // Dynamically assign colors based on number of parts (max 7)
   // For all palettes: darker colors = larger amounts, lighter colors = smaller amounts
   const dataWithColors = useMemo(() => {
-    const numParts = Math.min(baseData.length, 7)
+    const numParts = Math.min(sanitizedBaseData.length, 7)
     const palette = getPalette().filter(color => color !== "#c3c3c3")
     
     // Sort by value descending (highest first) and assign colors
     // Darker colors go to higher values, lighter colors to lower values
-    const sorted = [...baseData].sort((a, b) => b.value - a.value)
+    const sorted = [...sanitizedBaseData].sort((a, b) => b.value - a.value)
     // Reverse palette so darkest colors are first (for highest values)
     const reversedPalette = [...palette].reverse().slice(0, numParts)
     return sorted.map((item, index) => ({
@@ -70,6 +70,11 @@ export function ChartExpensesPie({ data: baseData = [] }: ChartExpensesPieProps)
   
   const data = dataWithColors
   
+  // Calculate total for percentage calculations
+  const total = useMemo(() => {
+    return sanitizedBaseData.reduce((sum, item) => sum + item.value, 0)
+  }, [sanitizedBaseData])
+  
   const colorConfig = colorScheme === "colored" 
     ? { datum: "data.color" as const }
     : { datum: "data.color" as const } // Use assigned colors from darkDataWithColors
@@ -78,6 +83,49 @@ export function ChartExpensesPie({ data: baseData = [] }: ChartExpensesPieProps)
 
   const textColor = isDark ? "#9ca3af" : "#4b5563"
   const arcLinkLabelColor = isDark ? "#d1d5db" : "#374151"
+  
+  // Custom tooltip with percentage
+  const customTooltip = ({ datum }: { datum: { id: string; label: string; value: number; color: string } }) => {
+    const percentage = total > 0 ? ((datum.value / total) * 100).toFixed(1) : '0.0'
+    const tooltipBg = isDark ? '#1f2937' : '#ffffff'
+    const tooltipText = isDark ? '#f3f4f6' : '#000000'
+    const tooltipSecondary = isDark ? '#9ca3af' : '#666666'
+    const tooltipBorder = isDark ? '#374151' : '#e2e8f0'
+    
+    return (
+      <div style={{
+        background: tooltipBg,
+        padding: '8px 12px',
+        borderRadius: '8px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        border: `1px solid ${tooltipBorder}`,
+        fontSize: '12px',
+      }}>
+        <div style={{ fontWeight: 600, marginBottom: '4px', color: tooltipText }}>
+          {datum.label}
+        </div>
+        <div style={{ color: tooltipSecondary, marginBottom: '2px' }}>
+          ${datum.value.toFixed(2)}
+        </div>
+        <div style={{ color: tooltipSecondary }}>
+          {percentage}%
+        </div>
+      </div>
+    )
+  }
+
+  const renderInfoTrigger = () => (
+    <ChartInfoPopover
+      title="Expense Breakdown"
+      description="This pie chart shows how your total expenses are distributed across spending categories."
+      details={[
+        "Slices are sorted by spend so the largest categories stand out.",
+        "Income entries and zero-dollar adjustments are filtered out so only real expenses appear.",
+      ]}
+      ignoredFootnote="Only negative (expense) transactions are plotted. Positive cash flow is excluded from this view."
+      categoryControls={categoryControls}
+    />
+  )
 
   if (!mounted) {
     return (
@@ -85,6 +133,7 @@ export function ChartExpensesPie({ data: baseData = [] }: ChartExpensesPieProps)
         <CardHeader>
           <CardTitle>Expense Breakdown</CardTitle>
           <CardDescription>Your spending by category</CardDescription>
+          <CardAction>{renderInfoTrigger()}</CardAction>
         </CardHeader>
         <CardContent>
           <div className="h-[400px] w-full" />
@@ -94,7 +143,7 @@ export function ChartExpensesPie({ data: baseData = [] }: ChartExpensesPieProps)
   }
 
   // Don't render chart if data is empty
-  if (!baseData || baseData.length === 0) {
+  if (!sanitizedBaseData || sanitizedBaseData.length === 0) {
     return (
       <Card className="@container/card">
         <CardHeader>
@@ -105,35 +154,7 @@ export function ChartExpensesPie({ data: baseData = [] }: ChartExpensesPieProps)
             </span>
             <span className="@[540px]/card:hidden">Monthly expense distribution</span>
           </CardDescription>
-          <CardAction>
-            <Popover open={isInfoOpen} onOpenChange={setIsInfoOpen}>
-              <PopoverTrigger asChild>
-                <button 
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  onMouseEnter={() => setIsInfoOpen(true)}
-                  onMouseLeave={() => setIsInfoOpen(false)}
-                >
-                  <IconInfoCircle className="h-4 w-4" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent 
-                className="w-80" 
-                align="end"
-                onMouseEnter={() => setIsInfoOpen(true)}
-                onMouseLeave={() => setIsInfoOpen(false)}
-              >
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-sm">Expense Breakdown</h4>
-                  <p className="text-sm text-muted-foreground">
-                    This pie chart shows how your total expenses are distributed across different spending categories.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    <strong>How it works:</strong> Each slice represents a category, with the size proportional to the amount spent. Hover over slices to see exact amounts and percentages. Larger slices indicate categories where you spend more.
-                  </p>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </CardAction>
+          <CardAction>{renderInfoTrigger()}</CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
           <div className="h-[400px] w-full flex items-center justify-center text-muted-foreground">
@@ -154,35 +175,7 @@ export function ChartExpensesPie({ data: baseData = [] }: ChartExpensesPieProps)
             </span>
             <span className="@[540px]/card:hidden">Monthly expense distribution</span>
           </CardDescription>
-          <CardAction>
-            <Popover open={isInfoOpen} onOpenChange={setIsInfoOpen}>
-              <PopoverTrigger asChild>
-                <button 
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  onMouseEnter={() => setIsInfoOpen(true)}
-                  onMouseLeave={() => setIsInfoOpen(false)}
-                >
-                  <IconInfoCircle className="h-4 w-4" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent 
-                className="w-80" 
-                align="end"
-                onMouseEnter={() => setIsInfoOpen(true)}
-                onMouseLeave={() => setIsInfoOpen(false)}
-              >
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-sm">Expense Breakdown</h4>
-                  <p className="text-sm text-muted-foreground">
-                    This pie chart shows how your total expenses are distributed across different spending categories.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    <strong>How it works:</strong> Each slice represents a category, with the size proportional to the amount spent. Hover over slices to see exact amounts and percentages. Larger slices indicate categories where you spend more.
-                  </p>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </CardAction>
+        <CardAction>{renderInfoTrigger()}</CardAction>
         </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
         <div className="h-[400px] w-full" key={colorScheme}>
@@ -202,21 +195,11 @@ export function ChartExpensesPie({ data: baseData = [] }: ChartExpensesPieProps)
             arcLabelsTextColor={(d: { color: string }) => getTextColor(d.color, colorScheme)}
             valueFormat={(value) => `$${value.toFixed(2)}`}
             colors={colorConfig}
+            tooltip={customTooltip}
             theme={{
               text: {
                 fill: textColor,
                 fontSize: 12,
-              },
-              tooltip: {
-                container: {
-                  background: "#ffffff",
-                  color: "#000000",
-                  fontSize: 12,
-                  borderRadius: "8px",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                  padding: "8px 12px",
-                  border: "1px solid #e2e8f0",
-                },
               },
             }}
           />

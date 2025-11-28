@@ -228,3 +228,141 @@ export const GET = async (request: Request) => {
     }
 };
 
+export const POST = async (request: Request) => {
+    try {
+        const userId = await getCurrentUserId();
+        const body = await request.json();
+
+        // Validate required fields
+        const { date, description, amount, category_id, statement_id } = body;
+
+        if (!date || !description || amount === undefined || amount === null) {
+            return NextResponse.json(
+                { error: "Date, description, and amount are required" },
+                { status: 400 }
+            );
+        }
+
+        // Validate amount is a number
+        const amountNum = Number(amount);
+        if (isNaN(amountNum)) {
+            return NextResponse.json(
+                { error: "Amount must be a valid number" },
+                { status: 400 }
+            );
+        }
+
+        // Validate date format (should be YYYY-MM-DD)
+        const dateStr = typeof date === 'string' ? date : new Date(date).toISOString().split('T')[0];
+
+        // If category_id is provided, verify it exists and belongs to the user
+        let categoryId: number | null = null;
+        if (category_id) {
+            const categoryIdNum = Number(category_id);
+            if (!isNaN(categoryIdNum)) {
+                const categoryCheck = await neonQuery<{ id: number }>(
+                    `SELECT id FROM categories WHERE id = $1 AND user_id = $2`,
+                    [categoryIdNum, userId]
+                );
+                if (categoryCheck.length === 0) {
+                    return NextResponse.json(
+                        { error: "Invalid category" },
+                        { status: 400 }
+                    );
+                }
+                categoryId = categoryIdNum;
+            }
+        }
+
+        // If statement_id is provided, verify it exists and belongs to the user
+        let statementId: number | null = null;
+        if (statement_id) {
+            const statementIdNum = Number(statement_id);
+            if (!isNaN(statementIdNum)) {
+                const statementCheck = await neonQuery<{ id: number }>(
+                    `SELECT id FROM statements WHERE id = $1 AND user_id = $2`,
+                    [statementIdNum, userId]
+                );
+                if (statementCheck.length === 0) {
+                    return NextResponse.json(
+                        { error: "Invalid statement/report" },
+                        { status: 400 }
+                    );
+                }
+                statementId = statementIdNum;
+            }
+        }
+
+        // Insert the transaction
+        const insertQuery = `
+            INSERT INTO transactions (user_id, statement_id, tx_date, description, amount, category_id, currency)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING id, tx_date, description, amount, balance, category_id, statement_id, created_at
+        `;
+
+        const result = await neonQuery<{
+            id: number;
+            tx_date: Date | string;
+            description: string;
+            amount: number;
+            balance: number | null;
+            category_id: number | null;
+            statement_id: number | null;
+            created_at: Date | string;
+        }>(insertQuery, [
+            userId,
+            statementId,
+            dateStr,
+            description.trim(),
+            amountNum,
+            categoryId,
+            'EUR'
+        ]);
+
+        if (result.length === 0) {
+            return NextResponse.json(
+                { error: "Failed to create transaction" },
+                { status: 500 }
+            );
+        }
+
+        const transaction = result[0];
+
+        // Get category name if category_id exists
+        let categoryName = "Other";
+        if (transaction.category_id) {
+            const categoryResult = await neonQuery<{ name: string }>(
+                `SELECT name FROM categories WHERE id = $1`,
+                [transaction.category_id]
+            );
+            if (categoryResult.length > 0) {
+                categoryName = categoryResult[0].name;
+            }
+        }
+
+        // Format the response
+        const dateFormatted = transaction.tx_date instanceof Date
+            ? transaction.tx_date.toISOString().split('T')[0]
+            : typeof transaction.tx_date === 'string'
+            ? transaction.tx_date.split('T')[0]
+            : new Date(transaction.tx_date as any).toISOString().split('T')[0];
+
+        return NextResponse.json({
+            id: transaction.id,
+            date: dateFormatted,
+            description: transaction.description,
+            amount: Number(transaction.amount),
+            balance: transaction.balance ? Number(transaction.balance) : null,
+            category: categoryName,
+            statement_id: transaction.statement_id
+        }, { status: 201 });
+
+    } catch (error: any) {
+        console.error("[Transactions API] POST error:", error);
+        return NextResponse.json(
+            { error: error.message || "Failed to create transaction" },
+            { status: 500 }
+        );
+    }
+};
+

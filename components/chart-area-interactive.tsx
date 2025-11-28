@@ -1,10 +1,10 @@
 "use client"
 
-import * as React from "react"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 import Image from "next/image"
 import { useTheme } from "next-themes"
 
+import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import {
   Card,
@@ -20,12 +20,6 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import { IconInfoCircle } from "@tabler/icons-react"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 
 export const description = "An interactive area chart"
 
@@ -35,12 +29,12 @@ interface ChartAreaInteractiveProps {
     desktop: number
     mobile: number
   }>
+  categoryControls?: ChartInfoPopoverCategoryControls
 }
 
-export function ChartAreaInteractive({ data = [] }: ChartAreaInteractiveProps) {
+export function ChartAreaInteractive({ data = [], categoryControls }: ChartAreaInteractiveProps) {
   const { colorScheme, getPalette } = useColorScheme()
   const { resolvedTheme } = useTheme()
-  const [isInfoOpen, setIsInfoOpen] = React.useState(false)
   
   // Determine which star image to use based on theme
   const starImage = resolvedTheme === "dark" ? "/starW.png" : "/starB.png"
@@ -74,6 +68,31 @@ export function ChartAreaInteractive({ data = [] }: ChartAreaInteractiveProps) {
 
   const filteredData = data
 
+  const renderInfoAction = () => (
+    <div className="flex flex-col items-center gap-2">
+      <ChartInfoPopover
+        title="Income & Expenses Tracking"
+        description="This chart visualizes your cash flow over time."
+        details={[
+          "The income line shows daily deposits, while the expense line accumulates your negative transactions.",
+          "How it works: expenses stack up as they happen. Incoming cash reduces the cumulative expense line so you can see how quickly income offsets spending.",
+          ...(categoryControls
+            ? ["Use the toggles below to hide categories across every analytics chart."]
+            : []),
+        ]}
+        ignoredFootnote="Positive transactions feed the Income series and negative transactions feed Expenses automatically."
+        categoryControls={categoryControls}
+      />
+      <Image
+        src={starImage}
+        alt="Star"
+        width={16}
+        height={16}
+        className="object-contain"
+      />
+    </div>
+  )
+
   // Show empty state if no data
   if (!data || data.length === 0 || filteredData.length === 0) {
     return (
@@ -86,44 +105,7 @@ export function ChartAreaInteractive({ data = [] }: ChartAreaInteractiveProps) {
             </span>
             <span className="@[540px]/card:hidden">Last 3 months</span>
           </CardDescription>
-          <CardAction>
-            <div className="flex flex-col items-center gap-2">
-              <Popover open={isInfoOpen} onOpenChange={setIsInfoOpen}>
-                <PopoverTrigger asChild>
-                  <button 
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                    onMouseEnter={() => setIsInfoOpen(true)}
-                    onMouseLeave={() => setIsInfoOpen(false)}
-                  >
-                    <IconInfoCircle className="h-4 w-4" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent 
-                  className="w-80" 
-                  align="end"
-                  onMouseEnter={() => setIsInfoOpen(true)}
-                  onMouseLeave={() => setIsInfoOpen(false)}
-                >
-                  <div className="space-y-2">
-                    <h4 className="font-semibold text-sm">Income & Expenses Tracking</h4>
-                    <p className="text-sm text-muted-foreground">
-                      This chart visualizes your cash flow over time. The income line shows daily income amounts, while the expense line shows cumulative expenses that accumulate over time.
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      <strong>How it works:</strong> Expenses add up as they occur. When income comes in, it reduces the accumulated expense total, showing how income offsets your spending.
-                    </p>
-                  </div>
-                </PopoverContent>
-              </Popover>
-              <Image 
-                src={starImage} 
-                alt="Star" 
-                width={16} 
-                height={16}
-                className="object-contain"
-              />
-            </div>
-          </CardAction>
+          <CardAction>{renderInfoAction()}</CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
           <div className="h-[250px] w-full flex items-center justify-center text-muted-foreground">
@@ -144,44 +126,7 @@ export function ChartAreaInteractive({ data = [] }: ChartAreaInteractiveProps) {
           </span>
           <span className="@[540px]/card:hidden">Last 3 months</span>
         </CardDescription>
-        <CardAction>
-          <div className="flex flex-col items-center gap-2">
-            <Popover open={isInfoOpen} onOpenChange={setIsInfoOpen}>
-              <PopoverTrigger asChild>
-                <button 
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  onMouseEnter={() => setIsInfoOpen(true)}
-                  onMouseLeave={() => setIsInfoOpen(false)}
-                >
-                  <IconInfoCircle className="h-4 w-4" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent 
-                className="w-80" 
-                align="end"
-                onMouseEnter={() => setIsInfoOpen(true)}
-                onMouseLeave={() => setIsInfoOpen(false)}
-              >
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-sm">Income & Expenses Tracking</h4>
-                  <p className="text-sm text-muted-foreground">
-                    This chart visualizes your cash flow over time. The income line shows daily income amounts, while the expense line shows cumulative expenses that accumulate over time.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    <strong>How it works:</strong> Expenses add up as they occur. When income comes in, it reduces the accumulated expense total, showing how income offsets your spending.
-                  </p>
-                </div>
-              </PopoverContent>
-            </Popover>
-            <Image 
-              src={starImage} 
-              alt="Star" 
-              width={16} 
-              height={16}
-              className="object-contain"
-            />
-          </div>
-        </CardAction>
+        <CardAction>{renderInfoAction()}</CardAction>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
         <ChartContainer

@@ -1,31 +1,389 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo, memo, useRef } from "react"
+import { flushSync } from "react-dom"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
-import {
-  ChartCirclePacking,
-  ChartPolarBar,
-  ChartRadar,
-  ChartRadialBar,
-  ChartSankey,
-  ChartStream,
-  ChartSwarmPlot,
-} from "@/components/analytics-advanced-charts"
+import { ChartInfoPopover } from "@/components/chart-info-popover"
+import { ChartCirclePacking } from "@/components/chart-circle-packing"
+import { ChartPolarBar } from "@/components/chart-polar-bar"
+import { ChartRadar } from "@/components/chart-radar"
+import { ChartSankey } from "@/components/chart-sankey"
+import { ChartSpendingStreamgraph } from "@/components/chart-spending-streamgraph"
+import { ChartSwarmPlot } from "@/components/chart-swarm-plot"
 import { ChartCategoryFlow } from "@/components/chart-category-flow"
 import { ChartExpensesPie } from "@/components/chart-expenses-pie"
 import { ChartSpendingFunnel } from "@/components/chart-spending-funnel"
+import { ChartTreeMap } from "@/components/chart-treemap"
+import { ChartTransactionCalendar } from "@/components/chart-transaction-calendar"
+import { ChartDayOfWeekSpending } from "@/components/chart-day-of-week-spending"
+import { ChartBarCategory } from "@/components/chart-bar-category"
 import { SectionCards } from "@/components/section-cards"
 import { SiteHeader } from "@/components/site-header"
 import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Progress } from "@/components/ui/progress"
+import { CategorySelect } from "@/components/category-select"
 import { toast } from "sonner"
+import { normalizeTransactions, cn } from "@/lib/utils"
+import { useTheme } from "next-themes"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { useColorScheme } from "@/components/color-scheme-provider"
+import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
+import { IconUpload, IconFile, IconCircleCheck, IconLoader2, IconAlertCircle, IconTrash } from "@tabler/icons-react"
+import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
+import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv"
+import { TxRow } from "@/lib/types/transactions"
+import { DEFAULT_CATEGORIES } from "@/lib/categories"
+
+type ParsedRow = TxRow & { id: number }
+
+// Memoized table row component to prevent unnecessary re-renders
+const MemoizedTableRow = memo(function MemoizedTableRow({
+  row,
+  amount,
+  balance,
+  category,
+  hasBalance,
+  onCategoryChange,
+  onDelete
+}: {
+  row: ParsedRow
+  amount: number
+  balance: number | null
+  category: string
+  hasBalance: boolean
+  onCategoryChange: (value: string) => void
+  onDelete: () => void
+}) {
+  return (
+    <TableRow>
+      <TableCell className="w-28 flex-shrink-0">
+        {row.date}
+      </TableCell>
+      <TableCell className="min-w-[350px] max-w-[600px]">
+        <div className="truncate" title={row.description}>
+          {row.description}
+        </div>
+      </TableCell>
+      <TableCell className={cn("text-right font-medium w-24 flex-shrink-0", amount < 0 ? "text-red-500" : "text-green-500")}>
+        {amount.toFixed(2)}€
+      </TableCell>
+      <TableCell className="w-[140px] flex-shrink-0">
+        <CategorySelect
+          value={category}
+          onValueChange={onCategoryChange}
+        />
+      </TableCell>
+      {hasBalance && (
+        <TableCell className="text-right w-32 flex-shrink-0">
+          {balance !== null ? `${balance.toFixed(2)}€` : "-"}
+        </TableCell>
+      )}
+      <TableCell className="w-12 flex-shrink-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+          onClick={onDelete}
+        >
+          <IconTrash className="h-4 w-4" />
+          <span className="sr-only">Delete</span>
+        </Button>
+      </TableCell>
+    </TableRow>
+  )
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.category === nextProps.category &&
+    prevProps.row.id === nextProps.row.id
+  )
+})
+
+// Local ring types compatible with the original react-activity-rings API,
+// extended with our own Neon-specific fields.
+type ActivityRingsDatum = {
+  value: number
+  label?: string
+  color?: string
+  backgroundColor?: string
+  category?: string
+  spent?: number
+}
+
+type ActivityRingsData = ActivityRingsDatum[]
+
+type ActivityRingsConfig = {
+  width: number
+  height: number
+  radius?: number
+  ringSize?: number
+}
+
+interface SpendingActivityRingsProps {
+  data: ActivityRingsData
+  config: ActivityRingsConfig
+  theme: "light" | "dark"
+  ringLimits?: Record<string, number>
+  getDefaultLimit?: () => number
+}
+
+// Custom concentric rings renderer so we control tooltips from Neon data
+function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaultLimit }: SpendingActivityRingsProps) {
+  const rings = Array.isArray(data) ? data : []
+  if (!rings.length) return null
+
+  const [hoveredRing, setHoveredRing] = useState<number | null>(null)
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
+  const [isAnimating, setIsAnimating] = useState(true)
+
+  // Reset animation state when data changes
+  useEffect(() => {
+    setIsAnimating(true)
+    const timer = setTimeout(() => setIsAnimating(false), 800)
+    return () => clearTimeout(timer)
+  }, [data])
+
+  const width = config.width
+  const height = config.height
+  const centerX = width / 2
+  const centerY = height / 2
+  const ringSize = config.ringSize ?? 12
+  const gap = 4
+  const baseRadius = config.radius ?? 32
+
+  const trackBase = theme === "light" ? "#e5e7eb" : "#374151"
+  const maxIndex = rings.length - 1
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>, index: number) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    setTooltipPosition({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    })
+    setHoveredRing(index)
+  }
+
+  const handleMouseLeave = () => {
+    setHoveredRing(null)
+    setTooltipPosition(null)
+  }
+
+  return (
+    <div className="relative">
+      <svg
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label="Spending activity rings"
+        onMouseLeave={handleMouseLeave}
+        className={isAnimating ? "animate-in fade-in-0 zoom-in-95 duration-500" : ""}
+      >
+        {rings.map((item, index) => {
+          // Outermost ring corresponds to first item
+          const ringIndexFromOutside = index
+          const radius =
+            baseRadius + (maxIndex - ringIndexFromOutside) * (ringSize + gap)
+          const circumference = 2 * Math.PI * radius
+          const clampedValue = Math.max(0, Math.min(1, item.value ?? 0))
+          const dashOffset = circumference * (1 - clampedValue)
+
+          const strokeColor = item.color || "#6b7280"
+          const trackColor =
+            item.backgroundColor || `${trackBase}${theme === "light" ? "ff" : "cc"}`
+
+          // Get category and spent from item data (used in tooltip)
+          const _category = (item as { category?: string }).category ?? "Category"
+          const _spent = typeof (item as { spent?: number }).spent === "number" 
+            ? (item as { spent?: number }).spent! 
+            : 0
+
+          return (
+            <g key={item.category ?? item.label ?? index}>
+              {/* Track */}
+              <circle
+                cx={centerX}
+                cy={centerY}
+                r={radius}
+                fill="none"
+                stroke={trackColor}
+                strokeWidth={ringSize}
+                strokeLinecap="round"
+              />
+              {/* Progress arc */}
+              <circle
+                cx={centerX}
+                cy={centerY}
+                r={radius}
+                fill="none"
+                stroke={strokeColor}
+                strokeWidth={ringSize}
+                strokeDasharray={circumference}
+                strokeDashoffset={isAnimating ? circumference : dashOffset}
+                strokeLinecap="round"
+                transform={`rotate(-90 ${centerX} ${centerY})`}
+                onMouseMove={(e) => {
+                  const svg = e.currentTarget.ownerSVGElement
+                  if (svg) {
+                    handleMouseMove(e as unknown as React.MouseEvent<SVGSVGElement>, index)
+                  }
+                }}
+                style={{ 
+                  cursor: "pointer",
+                  transition: "stroke-width 0.2s ease-in-out, opacity 0.2s ease-in-out, stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
+                  strokeWidth: hoveredRing === index ? ringSize + 2 : ringSize,
+                  opacity: hoveredRing === null || hoveredRing === index ? 1 : 0.6,
+                }}
+              />
+            </g>
+          )
+        })}
+      </svg>
+      {hoveredRing !== null && tooltipPosition && (
+        <div
+          className="border-border/50 bg-background grid min-w-[8rem] items-start gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs shadow-xl pointer-events-none absolute z-50 animate-in fade-in-0 zoom-in-95 duration-200"
+          style={{
+            left: `${tooltipPosition.x + 10}px`,
+            top: `${tooltipPosition.y - 10}px`,
+            transform: "translate(-50%, -100%)",
+            width: "max-content",
+          }}
+        >
+          {(() => {
+            const item = rings[hoveredRing]
+            const category = (item as { category?: string }).category ?? "Category"
+            const spent = typeof (item as { spent?: number }).spent === "number" 
+              ? (item as { spent?: number }).spent! 
+              : 0
+            
+            // Calculate budget from ringLimits or default
+            const storedLimit = ringLimits[category]
+            const budget = typeof storedLimit === "number" && storedLimit > 0
+              ? storedLimit
+              : (getDefaultLimit ? getDefaultLimit() : null)
+            
+            const pct = budget && budget > 0 ? ((spent / budget) * 100).toFixed(1) : '0'
+            const exceeded = budget ? spent > budget : false
+
+            return (
+              <>
+                <div className="font-medium">{category}</div>
+                <div className="grid gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="shrink-0 h-2.5 w-2.5 rounded-[2px] border border-current"
+                      style={{ backgroundColor: item.color || "#6b7280", borderColor: item.color || "#6b7280" }}
+                    />
+                    <div className="flex justify-between items-center leading-none gap-4">
+                      <span className="text-muted-foreground">Used:</span>
+                      <span className="text-foreground font-mono font-medium tabular-nums">{pct}%</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="shrink-0 h-2.5 w-2.5 rounded-[2px] border border-current"
+                      style={{ backgroundColor: item.color || "#6b7280", borderColor: item.color || "#6b7280" }}
+                    />
+                    <div className="flex justify-between items-center leading-none gap-4">
+                      <span className="text-muted-foreground">Spent:</span>
+                      <span className="text-foreground font-mono font-medium tabular-nums" style={{ color: exceeded ? '#ef4444' : undefined }}>
+                        ${spent.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                  {budget && (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <div className="shrink-0 h-2.5 w-2.5 rounded-[2px] border border-current"
+                          style={{ backgroundColor: item.color || "#6b7280", borderColor: item.color || "#6b7280" }}
+                        />
+                        <div className="flex justify-between items-center leading-none gap-4">
+                          <span className="text-muted-foreground">Budget:</span>
+                          <span className="text-foreground font-mono font-medium tabular-nums">${Math.floor(budget)}</span>
+                        </div>
+                      </div>
+                      {exceeded && (
+                        <div className="flex items-center gap-2">
+                          <div className="shrink-0 h-2.5 w-2.5 rounded-[2px] border border-current"
+                            style={{ backgroundColor: item.color || "#6b7280", borderColor: item.color || "#6b7280" }}
+                          />
+                          <div className="flex justify-between items-center leading-none gap-4">
+                            <span className="text-muted-foreground">Status:</span>
+                            <span className="text-foreground font-mono font-medium tabular-nums" style={{ color: '#ef4444' }}>⚠ Exceeded</span>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </>
+            )
+          })()}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function AnalyticsPage() {
+  const { resolvedTheme } = useTheme()
+  const { getPalette } = useColorScheme()
+  const palette = getPalette()
+  const normalizeCategoryName = useCallback((value?: string | null) => {
+    const trimmed = (value ?? "").trim()
+    return trimmed || "Other"
+  }, [])
+
+  // CSV drop-to-import state
+  const [isDragging, setIsDragging] = useState(false)
+  const [droppedFile, setDroppedFile] = useState<File | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isParsing, setIsParsing] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState(0)
+  const [parsingProgress, setParsingProgress] = useState(0)
+  const [parsedCsv, setParsedCsv] = useState<string | null>(null)
+  const [parsedRows, setParsedRows] = useState<ParsedRow[]>([])
+  const [fileId, setFileId] = useState<string | null>(null)
+  const [parseError, setParseError] = useState<string | null>(null)
+  const [transactionCount, setTransactionCount] = useState<number>(0)
+  const dragCounterRef = useRef(0)
+  const csvRegenerationTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const latestParsedRowsRef = useRef<ParsedRow[]>([])
+
   // Transactions state
-  const [transactions, setTransactions] = useState<Array<{
+  const [rawTransactions, setRawTransactions] = useState<Array<{
     id: number
     date: string
     description: string
@@ -37,8 +395,154 @@ export default function AnalyticsPage() {
   // Date filter state
   const [dateFilter, setDateFilter] = useState<string | null>(null)
   
-  // Budget update state to trigger re-render
-  const [budgetUpdateKey, setBudgetUpdateKey] = useState(0)
+  const [ringCategories, setRingCategories] = useState<string[]>([])
+  const [allExpenseCategories, setAllExpenseCategories] = useState<string[]>([])
+  // Independent limits used ONLY for Spending Activity Rings card
+  const [ringLimits, setRingLimits] = useState<Record<string, number>>({})
+  const [ringCategoryPopoverIndex, setRingCategoryPopoverIndex] = useState<number | null>(null)
+  const [ringCategoryPopoverValue, setRingCategoryPopoverValue] = useState<string | null>(null)
+  const [ringLimitPopoverValue, setRingLimitPopoverValue] = useState<string>("")
+
+  const incomeExpenseVisibility = useChartCategoryVisibility({
+    chartId: "analytics:income-expense",
+    storageScope: "analytics",
+    normalizeCategory: normalizeCategoryName,
+  })
+  const incomeExpenseTopVisibility = useChartCategoryVisibility({
+    chartId: "analytics:income-expense-top",
+    storageScope: "analytics",
+    normalizeCategory: normalizeCategoryName,
+  })
+  const categoryFlowVisibility = useChartCategoryVisibility({
+    chartId: "analytics:category-flow",
+    storageScope: "analytics",
+    normalizeCategory: normalizeCategoryName,
+  })
+  const spendingFunnelVisibility = useChartCategoryVisibility({
+    chartId: "analytics:spending-funnel",
+    storageScope: "analytics",
+    normalizeCategory: normalizeCategoryName,
+  })
+  const expensesPieVisibility = useChartCategoryVisibility({
+    chartId: "analytics:expenses-pie",
+    storageScope: "analytics",
+    normalizeCategory: normalizeCategoryName,
+  })
+  const circlePackingVisibility = useChartCategoryVisibility({
+    chartId: "analytics:circle-packing",
+    storageScope: "analytics",
+    normalizeCategory: normalizeCategoryName,
+  })
+  const polarBarVisibility = useChartCategoryVisibility({
+    chartId: "analytics:polar-bar",
+    storageScope: "analytics",
+    normalizeCategory: normalizeCategoryName,
+  })
+  const streamgraphVisibility = useChartCategoryVisibility({
+    chartId: "analytics:streamgraph",
+    storageScope: "analytics",
+    normalizeCategory: normalizeCategoryName,
+  })
+  const treeMapVisibility = useChartCategoryVisibility({
+    chartId: "analytics:treemap",
+    storageScope: "analytics",
+    normalizeCategory: normalizeCategoryName,
+  })
+  const sankeyVisibility = useChartCategoryVisibility({
+    chartId: "analytics:sankey",
+    storageScope: "analytics",
+    normalizeCategory: normalizeCategoryName,
+  })
+  const dayOfWeekSpendingVisibility = useChartCategoryVisibility({
+    chartId: "analytics:day-of-week-spending",
+    storageScope: "analytics",
+    normalizeCategory: normalizeCategoryName,
+  })
+
+  // Memoized Popover content component with local state for responsive input
+  const RingPopoverContent = memo(function RingPopoverContent({
+    initialCategory,
+    initialLimit,
+    allCategories,
+    onSave,
+    onCancel,
+  }: {
+    initialCategory: string
+    initialLimit: number
+    allCategories: string[]
+    onSave: (category: string, limit: string) => void
+    onCancel: () => void
+  }) {
+    const [localCategory, setLocalCategory] = useState(initialCategory)
+    const [localLimit, setLocalLimit] = useState(initialLimit.toString())
+
+    // Sync with props when they change (when popover opens)
+    useEffect(() => {
+      setLocalCategory(initialCategory)
+      setLocalLimit(initialLimit.toString())
+    }, [initialCategory, initialLimit])
+
+    return (
+      <div className="space-y-3">
+        <div className="text-xs font-medium text-muted-foreground">
+          Select category for this ring
+        </div>
+        <select
+          className="w-full rounded-md border bg-background px-2 py-1 text-sm"
+          value={localCategory}
+          onChange={(e) => setLocalCategory(e.target.value)}
+        >
+          {allCategories.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
+        </select>
+        <div className="space-y-1 pt-1">
+          <div className="text-xs font-medium text-muted-foreground">
+            Limit for this category
+          </div>
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            className="w-full rounded-md border bg-background px-2 py-1 text-sm"
+            value={localLimit}
+            onChange={(e) => {
+              const value = e.target.value.replace(/[^\d]/g, '')
+              setLocalLimit(value)
+            }}
+          />
+        </div>
+        <div className="flex justify-end gap-2 pt-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onCancel}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => onSave(localCategory, localLimit)}
+          >
+            Save
+          </Button>
+        </div>
+      </div>
+    )
+  })
+
+  const getDefaultRingLimit = (filter: string | null): number => {
+    // All time (no filter), specific year (e.g. "2024"), or last year use a higher default
+    const isYearLike =
+      !filter ||
+      filter === "lastyear" ||
+      (/^\d{4}$/.test(filter))
+
+    return isYearLike ? 5000 : 2000
+  }
+
 
   // Fetch transactions from Neon database
   const fetchTransactions = useCallback(async () => {
@@ -53,7 +557,14 @@ export default function AnalyticsPage() {
       if (response.ok) {
         if (Array.isArray(data)) {
           console.log(`[Analytics] Setting ${data.length} transactions`)
-          setTransactions(data)
+          setRawTransactions(normalizeTransactions(data) as Array<{
+            id: number
+            date: string
+            description: string
+            amount: number
+            balance: number | null
+            category: string
+          }>)
         } else {
           console.error("[Analytics] Response is not an array:", data)
           if (data.error) {
@@ -91,6 +602,386 @@ export default function AnalyticsPage() {
     fetchTransactions()
   }, [fetchTransactions])
 
+  // Parse CSV when it changes
+  useEffect(() => {
+    if (parsedCsv) {
+      const rows = parseCsvToRows(parsedCsv)
+      const rowsWithId: ParsedRow[] = rows.map((row, index) => ({
+        ...row,
+        id: index,
+        category: row.category || undefined
+      }))
+      setParsedRows(rowsWithId)
+    } else {
+      setParsedRows([])
+    }
+  }, [parsedCsv])
+
+  // Keep ref in sync with parsedRows
+  useEffect(() => {
+    latestParsedRowsRef.current = parsedRows
+  }, [parsedRows])
+
+  const handleCategoryChange = useCallback((rowId: number, newCategory: string) => {
+    flushSync(() => {
+      setParsedRows((prevRows) => {
+        const updatedRows = prevRows.map((row) => {
+          if (row.id === rowId) {
+            return { ...row, category: newCategory }
+          }
+          return row
+        })
+        latestParsedRowsRef.current = updatedRows
+        return updatedRows
+      })
+    })
+
+    if (csvRegenerationTimerRef.current) {
+      clearTimeout(csvRegenerationTimerRef.current)
+    }
+
+    csvRegenerationTimerRef.current = setTimeout(() => {
+      const rowsForCsv = latestParsedRowsRef.current.map((row) => {
+        const { id: _ignored, ...rest } = row
+        void _ignored
+        return rest as TxRow
+      })
+      const newCsv = rowsToCanonicalCsv(rowsForCsv)
+      setParsedCsv(newCsv)
+    }, 300)
+  }, [])
+
+  const handleDeleteRow = useCallback((rowId: number) => {
+    flushSync(() => {
+      setParsedRows((prevRows) => {
+        const updatedRows = prevRows.filter((row) => row.id !== rowId)
+        latestParsedRowsRef.current = updatedRows
+        setTransactionCount(updatedRows.length)
+        return updatedRows
+      })
+    })
+
+    if (csvRegenerationTimerRef.current) {
+      clearTimeout(csvRegenerationTimerRef.current)
+    }
+
+    csvRegenerationTimerRef.current = setTimeout(() => {
+      const rowsForCsv = latestParsedRowsRef.current.map((row) => {
+        const { id: _ignored, ...rest } = row
+        void _ignored
+        return rest as TxRow
+      })
+      const newCsv = rowsToCanonicalCsv(rowsForCsv)
+      setParsedCsv(newCsv)
+    }, 100)
+  }, [])
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current++
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true)
+    }
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current--
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false)
+    }
+  }, [])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+    dragCounterRef.current = 0
+
+    const files = Array.from(e.dataTransfer.files)
+    if (files && files.length > 0) {
+      const file = files[0]
+      setDroppedFile(file)
+      setIsDialogOpen(true)
+      setIsParsing(true)
+      setParsingProgress(0)
+      setParseError(null)
+      setParsedCsv(null)
+      setFileId(null)
+      setTransactionCount(0)
+
+      setParsingProgress(5)
+      
+      try {
+        const formData = new FormData()
+        formData.append("file", file)
+        formData.append("bankName", "Unknown")
+
+        let currentCategories = DEFAULT_CATEGORIES
+        try {
+          const categoriesResponse = await fetch("/api/categories")
+          if (categoriesResponse.ok) {
+            const payload = await categoriesResponse.json()
+            const categoriesArray: Array<{ name?: string }> = Array.isArray(payload) ? payload : []
+            const names = categoriesArray
+              .map((cat) => cat?.name)
+              .filter((name): name is string => typeof name === "string" && name.trim().length > 0)
+            if (names.length > 0) {
+              currentCategories = names
+            }
+          }
+        } catch (categoriesError) {
+          console.warn("[ANALYTICS] Failed to load categories from API. Using defaults.", categoriesError)
+        }
+        
+        setParsingProgress(20)
+        
+        const response = await fetch("/api/statements/parse", {
+          method: "POST",
+          headers: {
+            "X-Custom-Categories": JSON.stringify(currentCategories),
+          },
+          body: formData,
+        })
+
+        const contentType = response.headers.get("content-type") || ""
+        const fileIdHeader = response.headers.get("X-File-Id")
+        const categorizationError = response.headers.get("X-Categorization-Error")
+        const categorizationWarning = response.headers.get("X-Categorization-Warning")
+
+        if (!response.ok) {
+          let errorMessage = `HTTP error! status: ${response.status}`
+          const responseText = await response.text()
+
+          try {
+            const errorData = JSON.parse(responseText)
+            errorMessage = errorData.error || errorMessage
+          } catch {
+            errorMessage = responseText || errorMessage
+          }
+
+          throw new Error(errorMessage)
+        }
+
+        let responseText = ""
+        
+        if (response.body) {
+          const reader = response.body.getReader()
+          const contentLength = response.headers.get("content-length")
+          const total = contentLength ? parseInt(contentLength, 10) : 0
+          let received = 0
+          const decoder = new TextDecoder()
+          const chunks: string[] = []
+
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            
+            const chunk = decoder.decode(value, { stream: true })
+            chunks.push(chunk)
+            received += value.length
+            
+            if (total > 0) {
+              const downloadProgress = (received / total) * 65
+              setParsingProgress(25 + downloadProgress)
+            } else {
+              const estimatedTotal = file.size * 1.2
+              const estimatedProgress = Math.min(25 + (received / estimatedTotal) * 65, 90)
+              setParsingProgress(estimatedProgress)
+            }
+          }
+
+          responseText = chunks.join("")
+        } else {
+          setParsingProgress(60)
+          responseText = await response.text()
+          setParsingProgress(90)
+        }
+
+        setParsingProgress(95)
+
+        if (contentType.includes("application/json")) {
+          try {
+            const data = JSON.parse(responseText)
+            if (!data.parseable) {
+              setParseError(data.message || "File format not supported for parsing")
+              setIsParsing(false)
+              setParsingProgress(0)
+              return
+            }
+          } catch {
+            throw new Error("Invalid response from server")
+          }
+        }
+
+        const csv = responseText
+        setParsingProgress(100)
+
+        const lines = csv.trim().split("\n")
+        const count = lines.length > 1 ? lines.length - 1 : 0
+
+        setParsedCsv(csv)
+        setFileId(fileIdHeader)
+        setTransactionCount(count)
+
+        if (categorizationWarning === "true" && categorizationError) {
+          const decodedError = decodeURIComponent(categorizationError)
+          console.warn("AI categorization failed:", decodedError)
+          toast.warning("Categorization Warning", {
+            description: `AI categorization failed. All transactions defaulted to "Other". Error: ${decodedError.substring(0, 100)}`,
+            duration: 10000,
+          })
+        }
+      } catch (error) {
+        setParsingProgress(0)
+        console.error("Parse error:", error)
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to parse file. Please try again."
+        setParseError(errorMessage)
+
+        if (errorMessage.includes("DEMO_USER_ID") || errorMessage.includes("Authentication")) {
+          toast.error("Configuration Error", {
+            description: "Please configure DEMO_USER_ID in your environment variables.",
+            duration: 10000,
+          })
+        } else if (errorMessage.includes("No transactions found")) {
+          toast.error("No Transactions Found", {
+            description: "The file was parsed but no transactions were detected. Please check the file format.",
+            duration: 8000,
+          })
+        } else if (errorMessage.includes("Failed to parse")) {
+          toast.error("Parse Error", {
+            description: errorMessage,
+            duration: 8000,
+          })
+        } else {
+          toast.error("Upload Error", {
+            description: errorMessage,
+            duration: 8000,
+          })
+        }
+        setParsingProgress(0)
+      } finally {
+        setIsParsing(false)
+      }
+    }
+  }, [])
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes"
+    const k = 1024
+    const sizes = ["Bytes", "KB", "MB", "GB"]
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i]
+  }
+
+  const handleConfirm = async () => {
+    if (!droppedFile || !parsedCsv || !fileId) {
+      toast.error("Missing data", {
+        description: "Please wait for the file to be parsed before confirming.",
+      })
+      return
+    }
+
+    setIsImporting(true)
+    setImportProgress(0)
+
+    const progressInterval = setInterval(() => {
+      setImportProgress((prev) => {
+        if (prev >= 90) return prev
+        return prev + 10
+      })
+    }, 200)
+
+    try {
+      const extension = droppedFile.name.split(".").pop()?.toLowerCase() ?? "other"
+      const rawFormat = extension === "pdf" ? "pdf" :
+        extension === "csv" ? "csv" :
+          (extension === "xls" || extension === "xlsx") ? "xlsx" : "other"
+
+      const response = await fetch("/api/statements/import", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          csv: parsedCsv,
+          statementMeta: {
+            bankName: "Unknown",
+            sourceFilename: droppedFile.name,
+            rawFormat: rawFormat as "pdf" | "csv" | "xlsx" | "xls" | "other",
+            fileId: fileId,
+          },
+        }),
+      })
+
+      clearInterval(progressInterval)
+      setImportProgress(95)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Failed to import" }))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      setImportProgress(100)
+
+      toast.success("File Imported Successfully", {
+        description: `${data.inserted} transactions imported from ${droppedFile.name}`,
+      })
+
+      setIsDialogOpen(false)
+      setDroppedFile(null)
+      setParsedCsv(null)
+      setFileId(null)
+      setTransactionCount(0)
+      setParseError(null)
+      setImportProgress(0)
+
+      await fetchTransactions()
+    } catch (error) {
+      clearInterval(progressInterval)
+      console.error("Import error:", error)
+      toast.error("Import Failed", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to import transactions. Please try again.",
+      })
+      setImportProgress(0)
+    } finally {
+      setIsImporting(false)
+    }
+  }
+
+  const handleCancel = () => {
+    if (csvRegenerationTimerRef.current) {
+      clearTimeout(csvRegenerationTimerRef.current)
+      csvRegenerationTimerRef.current = null
+    }
+    setIsDialogOpen(false)
+    setDroppedFile(null)
+    setParsedCsv(null)
+    setFileId(null)
+    setTransactionCount(0)
+    setParseError(null)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (csvRegenerationTimerRef.current) {
+        clearTimeout(csvRegenerationTimerRef.current)
+      }
+    }
+  }, [])
+
   // Listen for date filter changes from SiteHeader
   useEffect(() => {
     const handleFilterChange = (event: CustomEvent) => {
@@ -110,20 +1001,63 @@ export default function AnalyticsPage() {
     }
   }, [])
   
-  // Listen for budget updates
+  // Load per-category limits for Spending Activity Rings from database based on current filter
   useEffect(() => {
-    const handleBudgetUpdate = () => {
-      setBudgetUpdateKey(prev => prev + 1)
+    let cancelled = false
+
+    const loadRingLimits = async () => {
+      try {
+        // Load from database with current filter
+        const url = dateFilter 
+          ? `/api/budgets?filter=${encodeURIComponent(dateFilter)}`
+          : "/api/budgets"
+        const res = await fetch(url)
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled && data && typeof data === "object") {
+          // Use database budgets as the source of truth for ring limits
+          setRingLimits(data as Record<string, number>)
+        }
+      } catch (error) {
+        console.error("[Analytics] Failed to load ring limits:", error)
+        // If database fails, start with empty budgets
+        if (!cancelled) {
+          setRingLimits({})
+        }
+      }
     }
-    window.addEventListener("budgetUpdated", handleBudgetUpdate)
+
+    loadRingLimits()
     return () => {
-      window.removeEventListener("budgetUpdated", handleBudgetUpdate)
+      cancelled = true
     }
-  }, [])
+  }, [dateFilter]) // Reload when filter changes
+
+  // Derive available expense categories from Neon transactions for the activity rings
+  useEffect(() => {
+    if (!rawTransactions || rawTransactions.length === 0) {
+      setAllExpenseCategories([])
+      return
+    }
+
+    const categorySet = new Set<string>()
+    rawTransactions
+      .filter((tx) => tx.amount < 0)
+      .forEach((tx) => {
+        const rawCategory = (tx.category || "Other").trim()
+        const category = rawCategory || "Other"
+        categorySet.add(category)
+      })
+
+    const derived = Array.from(categorySet).sort((a, b) =>
+      a.localeCompare(b)
+    )
+    setAllExpenseCategories(derived)
+  }, [rawTransactions])
 
   // Calculate stats directly from transactions data (like dashboard)
   const stats = useMemo(() => {
-    if (!transactions || transactions.length === 0) {
+    if (!rawTransactions || rawTransactions.length === 0) {
       return {
         totalIncome: 0,
         totalExpenses: 0,
@@ -132,38 +1066,34 @@ export default function AnalyticsPage() {
         incomeChange: 0,
         expensesChange: 0,
         savingsRateChange: 0,
-        netWorthChange: 0
+        netWorthChange: 0,
       }
     }
 
-    // Filter out savings category from expenses (as per previous requirement)
-    const filteredTransactions = transactions.filter(tx => {
+    const visibleTransactions = rawTransactions.filter(tx => {
       const category = (tx.category || "").toLowerCase()
       return category !== "savings"
     })
 
-    // Calculate current period stats (all transactions when no filter, or filtered)
-    const currentIncome = filteredTransactions
-      .filter(tx => Number(tx.amount) > 0)
-      .reduce((sum, tx) => sum + Number(tx.amount), 0)
+    const currentIncome = visibleTransactions
+      .filter(tx => tx.amount > 0)
+      .reduce((sum, tx) => sum + tx.amount, 0)
 
-    const currentExpenses = Math.abs(filteredTransactions
-      .filter(tx => Number(tx.amount) < 0)
-      .reduce((sum, tx) => sum + Number(tx.amount), 0))
-
-    const currentSavingsRate = currentIncome > 0 
-      ? ((currentIncome - currentExpenses) / currentIncome) * 100 
-      : 0
-
-    // Get net worth from latest transaction balance
-    const sortedByDate = [...transactions].sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
+    const currentExpenses = Math.abs(
+      visibleTransactions
+        .filter(tx => tx.amount < 0)
+        .reduce((sum, tx) => sum + tx.amount, 0),
     )
-    const netWorth = sortedByDate.length > 0 && sortedByDate[0].balance !== null
-      ? sortedByDate[0].balance 
-      : 0
 
-    // Calculate previous period for comparison (last 3 months vs previous 3 months)
+    const currentSavingsRate =
+      currentIncome > 0 ? ((currentIncome - currentExpenses) / currentIncome) * 100 : 0
+
+    const sortedByDate = [...rawTransactions].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    )
+    const netWorth =
+      sortedByDate.length > 0 && sortedByDate[0].balance !== null ? sortedByDate[0].balance : 0
+
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const threeMonthsAgo = new Date(today)
@@ -171,64 +1101,869 @@ export default function AnalyticsPage() {
     const sixMonthsAgo = new Date(threeMonthsAgo)
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 3)
 
-    const formatDate = (date: Date) => date.toISOString().split('T')[0]
+    const formatDate = (date: Date) => date.toISOString().split("T")[0]
     const threeMonthsAgoStr = formatDate(threeMonthsAgo)
     const sixMonthsAgoStr = formatDate(sixMonthsAgo)
 
-    // Previous period transactions (3-6 months ago)
-    const previousTransactions = filteredTransactions.filter(tx => {
-      const txDate = tx.date.split('T')[0]
+    const previousTransactions = visibleTransactions.filter(tx => {
+      const txDate = tx.date.split("T")[0]
       return txDate >= sixMonthsAgoStr && txDate < threeMonthsAgoStr
     })
 
     const previousIncome = previousTransactions
-      .filter(tx => Number(tx.amount) > 0)
-      .reduce((sum, tx) => sum + Number(tx.amount), 0)
+      .filter(tx => tx.amount > 0)
+      .reduce((sum, tx) => sum + tx.amount, 0)
 
-    const previousExpenses = Math.abs(previousTransactions
-      .filter(tx => Number(tx.amount) < 0)
-      .reduce((sum, tx) => sum + Number(tx.amount), 0))
-
-    const previousSavingsRate = previousIncome > 0 
-      ? ((previousIncome - previousExpenses) / previousIncome) * 100 
-      : 0
-
-    // Get previous period net worth
-    const previousSorted = previousTransactions.sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
+    const previousExpenses = Math.abs(
+      previousTransactions
+        .filter(tx => tx.amount < 0)
+        .reduce((sum, tx) => sum + tx.amount, 0),
     )
-    const previousNetWorth = previousSorted.length > 0 && previousSorted[0].balance !== null
-      ? previousSorted[0].balance 
-      : 0
 
-    // Calculate percentage changes
-    const incomeChange = previousIncome > 0 
-      ? ((currentIncome - previousIncome) / previousIncome) * 100 
-      : (currentIncome > 0 ? 100 : 0)
+    const previousSavingsRate =
+      previousIncome > 0 ? ((previousIncome - previousExpenses) / previousIncome) * 100 : 0
 
-    const expensesChange = previousExpenses > 0 
-      ? ((currentExpenses - previousExpenses) / previousExpenses) * 100 
-      : (currentExpenses > 0 ? 100 : 0)
+    const previousSorted = previousTransactions.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    )
+    const previousNetWorth =
+      previousSorted.length > 0 && previousSorted[0].balance !== null
+        ? previousSorted[0].balance
+        : 0
 
-    const savingsRateChange = previousSavingsRate !== 0 
-      ? currentSavingsRate - previousSavingsRate 
-      : (currentSavingsRate > 0 ? 100 : 0)
+    const incomeChange =
+      previousIncome > 0
+        ? ((currentIncome - previousIncome) / previousIncome) * 100
+        : currentIncome > 0
+          ? 100
+          : 0
 
-    const netWorthChange = previousNetWorth > 0 
-      ? ((netWorth - previousNetWorth) / previousNetWorth) * 100 
-      : (netWorth > 0 ? 100 : 0)
+    const expensesChange =
+      previousExpenses > 0
+        ? ((currentExpenses - previousExpenses) / previousExpenses) * 100
+        : currentExpenses > 0
+          ? 100
+          : 0
+
+    const savingsRateChange =
+      previousSavingsRate !== 0
+        ? currentSavingsRate - previousSavingsRate
+        : currentSavingsRate > 0
+          ? 100
+          : 0
+
+    const netWorthChange =
+      previousNetWorth > 0
+        ? ((netWorth - previousNetWorth) / previousNetWorth) * 100
+        : netWorth > 0
+          ? 100
+          : 0
 
     return {
       totalIncome: currentIncome,
       totalExpenses: currentExpenses,
       savingsRate: currentSavingsRate,
       netWorth: netWorth,
-      incomeChange: incomeChange,
-      expensesChange: expensesChange,
-      savingsRateChange: savingsRateChange,
-      netWorthChange: netWorthChange
+      incomeChange,
+      expensesChange,
+      savingsRateChange,
+      netWorthChange,
     }
-  }, [transactions])
+  }, [rawTransactions])
+
+  const activityData: ActivityRingsData = useMemo(() => {
+    if (!rawTransactions || rawTransactions.length === 0) {
+      return []
+    }
+
+    // Use real Neon categories from expenses
+    const categoryTotals = new Map<string, number>()
+    rawTransactions
+      .filter((tx) => tx.amount < 0)
+      .forEach((tx) => {
+        const rawCategory = (tx.category || "Other").trim()
+        const category = rawCategory || "Other"
+        const current = categoryTotals.get(category) || 0
+        const amount = Math.abs(Number(tx.amount)) || 0
+        categoryTotals.set(category, current + amount)
+      })
+
+    const totalExpenses = Array.from(categoryTotals.values()).reduce(
+      (sum, value) => sum + value,
+      0
+    )
+
+    if (totalExpenses <= 0) {
+      return []
+    }
+
+    // Top spending categories by default
+    const defaultTopCategories = Array.from(categoryTotals.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([category]) => category)
+
+    const categoriesToUse =
+      ringCategories && ringCategories.length > 0
+        ? ringCategories
+        : defaultTopCategories.slice(0, 5)
+
+    // Build [category, amount] pairs for the chosen categories
+    const selectedCategories = categoriesToUse
+      .map((category) => {
+        const amount = categoryTotals.get(category) || 0
+        return [category, amount] as [string, number]
+      })
+      .filter(([, amount]) => amount > 0)
+
+    return selectedCategories.map(([category, amount], index) => {
+      const storedLimit = ringLimits[category]
+      const effectiveLimit =
+        typeof storedLimit === "number" && storedLimit > 0
+          ? storedLimit
+          : getDefaultRingLimit(dateFilter)
+
+      const ratioToLimit =
+        effectiveLimit && effectiveLimit > 0
+          ? Math.min(amount / effectiveLimit, 1)
+          : null
+
+      const value = ratioToLimit !== null ? ratioToLimit : 0
+
+      const color =
+        (Array.isArray(palette) && palette.length > 0
+          ? palette[index % palette.length]
+          : undefined) || "#a1a1aa"
+
+      const exceeded = ratioToLimit !== null && amount > effectiveLimit
+      const pct = ratioToLimit !== null ? (ratioToLimit * 100).toFixed(1) : '0'
+      
+      return {
+        // Label is used by the ActivityRings tooltip on hover
+        label:
+          ratioToLimit !== null
+            ? `Category: ${category}\nUsed: ${pct}%\nSpent: $${amount.toFixed(2)}\nBudget: $${effectiveLimit.toFixed(2)}${exceeded ? '\n⚠ Exceeded' : ''}`
+            : `Category: ${category}\nSpent: $${amount.toFixed(2)}\nNo budget set`,
+        // Store the raw category name separately for our own legend
+        // (extra fields are ignored by the library)
+        category,
+        spent: amount,
+        value,
+        color,
+      }
+    })
+  }, [rawTransactions, palette, ringCategories, ringLimits])
+
+  const incomeExpenseChart = useMemo(() => {
+    if (!rawTransactions || rawTransactions.length === 0) {
+      return { data: [] as Array<{ date: string; desktop: number; mobile: number }>, categories: [] as string[] }
+    }
+
+    const categorySet = new Set<string>()
+    rawTransactions.forEach((tx) => {
+      categorySet.add(normalizeCategoryName(tx.category))
+    })
+
+    const filteredSource =
+      incomeExpenseVisibility.hiddenCategorySet.size === 0
+        ? rawTransactions
+        : rawTransactions.filter((tx) => {
+            const category = normalizeCategoryName(tx.category)
+            return !incomeExpenseVisibility.hiddenCategorySet.has(category)
+          })
+
+    const grouped = filteredSource.reduce((acc, tx) => {
+      const date = tx.date.split("T")[0]
+      if (!acc[date]) {
+        acc[date] = { date, desktop: 0, mobile: 0 }
+      }
+      if (tx.amount > 0) {
+        acc[date].desktop += tx.amount
+      } else {
+        acc[date].mobile += Math.abs(tx.amount)
+      }
+      return acc
+    }, {} as Record<string, { date: string; desktop: number; mobile: number }>)
+
+    return {
+      data: Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date)),
+      categories: Array.from(categorySet),
+    }
+  }, [rawTransactions, incomeExpenseVisibility.hiddenCategorySet])
+
+  const incomeExpenseControls = incomeExpenseVisibility.buildCategoryControls(
+    incomeExpenseChart.categories,
+    {
+      description: "Hide a category to remove its transactions from this cash-flow chart.",
+    }
+  )
+
+  // Build categories for the top chart (same as incomeExpenseChart but independent visibility)
+  const incomeExpenseTopCategories = useMemo(() => {
+    const categorySet = new Set<string>()
+    rawTransactions.forEach((tx) => {
+      categorySet.add(normalizeCategoryName(tx.category))
+    })
+    return Array.from(categorySet)
+  }, [rawTransactions, normalizeCategoryName])
+
+  const incomeExpenseTopControls = incomeExpenseTopVisibility.buildCategoryControls(
+    incomeExpenseTopCategories,
+    {
+      description: "Hide a category to remove its transactions from this cash-flow chart.",
+    }
+  )
+
+  const categoryFlowChart = useMemo(() => {
+    if (!rawTransactions || rawTransactions.length === 0) {
+      return { data: [] as Array<{ id: string; data: Array<{ x: string; y: number }> }>, categories: [] as string[] }
+    }
+
+    const categoryMap = new Map<string, Map<string, number>>()
+    const allTimePeriods = new Set<string>()
+    const categorySet = new Set<string>()
+
+    // Determine time granularity based on date filter
+    const getTimeKey = (date: Date): string => {
+      if (!dateFilter) {
+        // All time: use months
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+      }
+      
+      switch (dateFilter) {
+        case "last7days":
+        case "last30days":
+          // For short periods, use weeks
+          const weekStart = new Date(date)
+          weekStart.setDate(date.getDate() - date.getDay()) // Start of week (Sunday)
+          return `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, "0")}-${String(weekStart.getDate()).padStart(2, "0")}`
+        case "last3months":
+        case "last6months":
+        case "lastyear":
+          // For medium periods, use months
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+        default:
+          // For specific years or other filters, use months
+          if (/^\d{4}$/.test(dateFilter)) {
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+          }
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+      }
+    }
+
+    rawTransactions.forEach((tx) => {
+      if (tx.amount >= 0) return
+      const rawCategory = (tx.category || "Other").trim()
+      const category = normalizeCategoryName(rawCategory)
+      categorySet.add(category)
+      if (categoryFlowVisibility.hiddenCategorySet.has(category)) return
+
+      const date = new Date(tx.date)
+      if (Number.isNaN(date.getTime())) return
+      const timeKey = getTimeKey(date)
+      allTimePeriods.add(timeKey)
+      if (!categoryMap.has(category)) {
+        categoryMap.set(category, new Map())
+      }
+      const timeMap = categoryMap.get(category)!
+      const current = timeMap.get(timeKey) || 0
+      timeMap.set(timeKey, current + Math.abs(tx.amount))
+    })
+
+    if (!categoryMap.size) {
+      return { data: [], categories: Array.from(categorySet) }
+    }
+
+    const sortedTimePeriods = Array.from(allTimePeriods).sort((a, b) => a.localeCompare(b))
+    const periodTotals = new Map<string, number>()
+    sortedTimePeriods.forEach((period) => {
+      let total = 0
+      categoryMap.forEach((periods) => {
+        total += periods.get(period) || 0
+      })
+      periodTotals.set(period, total)
+    })
+
+    const data = Array.from(categoryMap.entries())
+      .map(([category, periods]) => ({
+        id: category,
+        data: sortedTimePeriods.map((period) => {
+          const value = periods.get(period) || 0
+          const total = periodTotals.get(period) || 1
+          const percentage = total > 0 ? (value / total) * 100 : 0
+          return { x: period, y: Math.max(percentage, 0.1) }
+        }),
+      }))
+      .filter((series) => {
+        return series.data.some((point) => point.y > 0.1)
+      })
+
+    return {
+      data,
+      categories: Array.from(categorySet),
+    }
+  }, [rawTransactions, categoryFlowVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
+
+  const categoryFlowControls = categoryFlowVisibility.buildCategoryControls(
+    categoryFlowChart.categories,
+    {
+      description: "Hide a spending category to remove it from the ranking stream.",
+    }
+  )
+
+  const treeMapCategories = useMemo(() => {
+    const categories = new Set<string>()
+    rawTransactions.filter(tx => tx.amount < 0).forEach(tx => {
+      categories.add(normalizeCategoryName(tx.category))
+    })
+    return Array.from(categories).sort((a, b) => a.localeCompare(b))
+  }, [rawTransactions, normalizeCategoryName])
+
+  const treeMapControls = treeMapVisibility.buildCategoryControls(treeMapCategories, {
+    description: "Hide categories to remove them from this treemap view.",
+  })
+
+  const spendingFunnelChart = useMemo(() => {
+    if (!rawTransactions || rawTransactions.length === 0) {
+      return { data: [] as Array<{ id: string; value: number; label: string }>, categories: [] as string[] }
+    }
+
+    const categorySet = new Set<string>()
+    rawTransactions.forEach((tx) => {
+      if (tx.amount < 0) {
+        categorySet.add(normalizeCategoryName(tx.category))
+      }
+    })
+
+    const filteredSource =
+      spendingFunnelVisibility.hiddenCategorySet.size === 0
+        ? rawTransactions
+        : rawTransactions.filter((tx) => {
+            const category = normalizeCategoryName(tx.category)
+            return !spendingFunnelVisibility.hiddenCategorySet.has(category)
+          })
+
+    if (!filteredSource.length) {
+      return { data: [], categories: Array.from(categorySet) }
+    }
+
+    const totalIncome = filteredSource
+      .filter((tx) => tx.amount > 0)
+      .reduce((sum, tx) => sum + Number(tx.amount), 0)
+
+    const categoryMap = new Map<string, number>()
+    filteredSource
+      .filter((tx) => tx.amount < 0)
+      .forEach((tx) => {
+        const category = normalizeCategoryName(tx.category)
+        const current = categoryMap.get(category) || 0
+        const amount = Math.abs(Number(tx.amount)) || 0
+        categoryMap.set(category, current + amount)
+      })
+
+    if (categoryMap.size === 0) {
+      return { data: [], categories: Array.from(categorySet) }
+    }
+
+    const totalExpenses = Array.from(categoryMap.values()).reduce((sum, amount) => sum + Number(amount), 0)
+    const savings = totalIncome - totalExpenses
+
+    // Sort categories by amount (descending) to get spending order
+    const sortedCategories = Array.from(categoryMap.entries())
+      .map(([category, amount]) => ({ category, amount: Number(amount) }))
+      .sort((a, b) => b.amount - a.amount)
+
+    const top2Categories = sortedCategories.slice(0, 2)
+
+    // Calculate remaining expenses (all categories beyond top 2)
+    const shownExpenses = top2Categories.reduce((sum, cat) => sum + cat.amount, 0)
+    const remainingExpenses = totalExpenses - shownExpenses
+
+    // Build expense categories array
+    const expenseCategories: Array<{ id: string; value: number; label: string }> = []
+
+    // Add top 2 categories (highest spending)
+    top2Categories.forEach((cat) => {
+      expenseCategories.push({
+        id: cat.category.toLowerCase().replace(/\s+/g, "-"),
+        value: cat.amount,
+        label: cat.category,
+      })
+    })
+
+    // Add "Others" category (remaining categories, which are less than top 2)
+    if (remainingExpenses > 0) {
+      expenseCategories.push({
+        id: "others",
+        value: remainingExpenses,
+        label: "Others",
+      })
+    }
+
+    // Sort expense categories by value (descending) to ensure proper order
+    expenseCategories.sort((a, b) => b.value - a.value)
+
+    // Build the funnel data in order: Income -> Categories (highest to lowest spending) -> Savings
+    const funnelData: Array<{ id: string; value: number; label: string }> = []
+
+    // Add Income first
+    if (totalIncome > 0) {
+      funnelData.push({ id: "income", value: totalIncome, label: "Income" })
+    }
+
+    // Add expense categories in descending order of spending
+    funnelData.push(...expenseCategories)
+
+    // Add Savings at the end
+    if (savings > 0) {
+      funnelData.push({
+        id: "savings",
+        value: savings,
+        label: "Savings",
+      })
+    }
+
+    return {
+      data: funnelData,
+      categories: Array.from(categorySet),
+    }
+  }, [rawTransactions, spendingFunnelVisibility.hiddenCategorySet, normalizeCategoryName])
+
+  const spendingFunnelControls = spendingFunnelVisibility.buildCategoryControls(
+    spendingFunnelChart.categories,
+    {
+      description: "Hide a category to keep it out of this funnel view only.",
+    }
+  )
+
+  const expensesPieData = useMemo(() => {
+    if (!rawTransactions || rawTransactions.length === 0) {
+      return { slices: [] as Array<{ id: string; label: string; value: number }>, categories: [] as string[] }
+    }
+
+    const categorySet = new Set<string>()
+    rawTransactions.forEach((tx) => {
+      if (tx.amount < 0) {
+        categorySet.add(normalizeCategoryName(tx.category))
+      }
+    })
+
+    const filteredSource =
+      expensesPieVisibility.hiddenCategorySet.size === 0
+        ? rawTransactions
+        : rawTransactions.filter((tx) => {
+            const category = normalizeCategoryName(tx.category)
+            return !expensesPieVisibility.hiddenCategorySet.has(category)
+          })
+
+    const categoryMap = new Map<string, number>()
+    filteredSource
+      .filter((tx) => tx.amount < 0)
+      .forEach((tx) => {
+        const category = normalizeCategoryName(tx.category)
+        const current = categoryMap.get(category) || 0
+        categoryMap.set(category, current + Math.abs(tx.amount))
+      })
+
+    const slices = Array.from(categoryMap.entries())
+      .map(([id, value]) => ({ id, label: id, value }))
+      .sort((a, b) => b.value - a.value)
+
+    return { slices, categories: Array.from(categorySet) }
+  }, [rawTransactions, expensesPieVisibility.hiddenCategorySet, normalizeCategoryName])
+
+  const expensesPieControls = expensesPieVisibility.buildCategoryControls(expensesPieData.categories, {
+    description: "Choose which expense categories appear in this pie chart.",
+  })
+
+  const circlePackingData = useMemo(() => {
+    if (!rawTransactions || rawTransactions.length === 0) {
+      return { tree: { name: "", children: [] as Array<{ name: string; value: number }> }, categories: [] as string[] }
+    }
+
+    const categoryMap = new Map<string, number>()
+    const categorySet = new Set<string>()
+
+    rawTransactions
+      .filter((tx) => {
+        const amount = Number(tx.amount) || 0
+        return amount < 0
+      })
+      .forEach((tx) => {
+        const rawCategory = (tx.category || "Other").trim()
+        const category = normalizeCategoryName(rawCategory)
+        categorySet.add(category)
+        if (circlePackingVisibility.hiddenCategorySet.has(category)) return
+
+        const current = categoryMap.get(category) || 0
+        const amount = Math.abs(Number(tx.amount)) || 0
+        categoryMap.set(category, current + amount)
+      })
+
+    const children = Array.from(categoryMap.entries())
+      .map(([name, value]) => ({
+        name,
+        value: Number(value) || 0,
+      }))
+      .filter((item) => item.value > 0)
+      .sort((a, b) => b.value - a.value)
+
+    return {
+      tree: {
+        name: "Expenses",
+        children,
+      },
+      categories: Array.from(categorySet),
+    }
+  }, [rawTransactions, circlePackingVisibility.hiddenCategorySet, normalizeCategoryName])
+
+  const circlePackingControls = circlePackingVisibility.buildCategoryControls(
+    circlePackingData.categories,
+    {
+      description: "Toggle categories to hide their bubbles in this packing chart.",
+    }
+  )
+
+  const polarBarData = useMemo(() => {
+    if (!rawTransactions || rawTransactions.length === 0) {
+      return { data: [] as Array<Record<string, string | number>>, keys: [] as string[], categories: [] as string[] }
+    }
+
+    // Determine time granularity based on date filter
+    const getTimeKey = (date: Date): string => {
+      if (!dateFilter) {
+        // All time: use months
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+      }
+      
+      switch (dateFilter) {
+        case "last7days":
+          // Daily grouping for 7 days
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+        case "last30days":
+          // Weekly grouping for 30 days
+          const weekStart = new Date(date)
+          weekStart.setDate(date.getDate() - date.getDay()) // Start of week (Sunday)
+          return `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, "0")}-${String(weekStart.getDate()).padStart(2, "0")}`
+        case "last3months":
+        case "last6months":
+          // Monthly grouping for 3 and 6 months
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+        case "lastyear":
+          // Monthly grouping for last year
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+        default:
+          // For specific years or other filters, use months
+          if (/^\d{4}$/.test(dateFilter)) {
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+          }
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+      }
+    }
+
+    const categoryTotals = new Map<string, number>()
+    const categorySet = new Set<string>()
+
+    rawTransactions
+      .filter((tx) => {
+        const amount = Number(tx.amount) || 0
+        return amount < 0
+      })
+      .forEach((tx) => {
+        const rawCategory = (tx.category || "Other").trim()
+        const category = normalizeCategoryName(rawCategory)
+        categorySet.add(category)
+        if (polarBarVisibility.hiddenCategorySet.has(category)) return
+        const current = categoryTotals.get(category) || 0
+        const amount = Math.abs(Number(tx.amount)) || 0
+        categoryTotals.set(category, current + amount)
+      })
+
+    if (!categoryTotals.size) {
+      return { data: [], keys: [], categories: Array.from(categorySet) }
+    }
+
+    const topCategories = Array.from(categoryTotals.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([category]) => category)
+
+    if (!topCategories.length) {
+      return { data: [], keys: [], categories: Array.from(categorySet) }
+    }
+
+    const timePeriodMap = new Map<string, Record<string, number>>()
+
+    rawTransactions
+      .filter((tx) => {
+        const amount = Number(tx.amount) || 0
+        return amount < 0
+      })
+      .forEach((tx) => {
+        const rawCategory = (tx.category || "Other").trim()
+        const category = normalizeCategoryName(rawCategory)
+        categorySet.add(category)
+        if (polarBarVisibility.hiddenCategorySet.has(category)) return
+
+        const date = new Date(tx.date)
+        if (isNaN(date.getTime())) return
+        const timeKey = getTimeKey(date)
+
+        if (!timePeriodMap.has(timeKey)) {
+          const initialData: Record<string, number> = {}
+          topCategories.forEach((cat) => {
+            initialData[cat] = 0
+          })
+          timePeriodMap.set(timeKey, initialData)
+        }
+
+        if (topCategories.includes(category)) {
+          const periodData = timePeriodMap.get(timeKey)!
+          periodData[category] = (periodData[category] || 0) + Math.abs(Number(tx.amount)) || 0
+        }
+      })
+
+    const data = Array.from(timePeriodMap.entries())
+      .map(([period, values]) => ({
+        month: period, // Keep 'month' key for compatibility with chart component
+        ...values,
+      }))
+      .sort((a, b) => (a.month as string).localeCompare(b.month as string))
+
+    return {
+      data,
+      keys: topCategories,
+      categories: Array.from(categorySet),
+    }
+  }, [rawTransactions, polarBarVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
+
+  const polarBarControls = polarBarVisibility.buildCategoryControls(polarBarData.categories, {
+    description: "Hide categories to declutter this polar bar view.",
+  })
+
+  const spendingStreamData = useMemo(() => {
+    if (!rawTransactions || rawTransactions.length === 0) {
+      return { data: [] as Array<Record<string, string | number>>, keys: [] as string[], categories: [] as string[] }
+    }
+
+    const normalizeCategory = (value: string | undefined | null) => {
+      const cleaned = (value ?? "").trim()
+      if (!cleaned) return "Other"
+      return cleaned
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+        .join(" ")
+    }
+
+    const monthMap = new Map<string, Map<string, number>>()
+    const categoryTotals = new Map<string, number>()
+    const categorySet = new Set<string>()
+
+    rawTransactions
+      .filter((tx) => tx.amount < 0)
+      .forEach((tx) => {
+        const date = new Date(tx.date)
+        if (isNaN(date.getTime())) return
+
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+        const rawCategory = normalizeCategory(tx.category)
+        categorySet.add(rawCategory)
+        if (streamgraphVisibility.hiddenCategorySet.has(rawCategory)) return
+        const amount = Math.abs(Number(tx.amount)) || 0
+
+        if (!monthMap.has(monthKey)) {
+          monthMap.set(monthKey, new Map())
+        }
+        const monthData = monthMap.get(monthKey)!
+        monthData.set(rawCategory, (monthData.get(rawCategory) || 0) + amount)
+
+        categoryTotals.set(rawCategory, (categoryTotals.get(rawCategory) || 0) + amount)
+      })
+
+    if (!monthMap.size || !categoryTotals.size) {
+      return { data: [], keys: [], categories: Array.from(categorySet) }
+    }
+
+    const sortedCategories = Array.from(categoryTotals.entries()).sort((a, b) => b[1] - a[1])
+    const topCategories = sortedCategories.slice(0, 6).map(([category]) => category)
+    const includeOther = sortedCategories.length > topCategories.length
+    const keys = includeOther ? [...topCategories, "Other"] : topCategories
+
+    const months = Array.from(monthMap.keys()).sort((a, b) => a.localeCompare(b))
+    const data = months.map((month) => {
+      const entry: Record<string, string | number> = { month }
+      const monthData = monthMap.get(month)!
+      let otherTotal = 0
+
+      monthData.forEach((value, category) => {
+        if (topCategories.includes(category)) {
+          entry[category] = Number(value.toFixed(2))
+        } else {
+          otherTotal += value
+        }
+      })
+
+      if (includeOther) {
+        entry["Other"] = Number(otherTotal.toFixed(2))
+      }
+
+      keys.forEach((key) => {
+        if (entry[key] === undefined) {
+          entry[key] = 0
+        }
+      })
+
+      return entry
+    })
+
+    return { data, keys, categories: Array.from(categorySet) }
+  }, [rawTransactions, streamgraphVisibility.hiddenCategorySet])
+
+  const streamgraphControls = streamgraphVisibility.buildCategoryControls(spendingStreamData.categories, {
+    description: "Select which categories flow through this streamgraph.",
+  })
+
+
+  const sankeyData = useMemo(() => {
+    if (!rawTransactions || rawTransactions.length === 0) {
+      return { graph: { nodes: [], links: [] as Array<{ source: string; target: string; value: number }> }, categories: [] as string[] }
+    }
+
+    const categorySet = new Set<string>()
+    rawTransactions.forEach((tx) => {
+      categorySet.add(normalizeCategoryName(tx.category))
+    })
+
+    const filteredSource =
+      sankeyVisibility.hiddenCategorySet.size === 0
+        ? rawTransactions
+        : rawTransactions.filter((tx) => {
+            const category = normalizeCategoryName(tx.category)
+            return !sankeyVisibility.hiddenCategorySet.has(category)
+          })
+
+    if (!filteredSource.length) {
+      return { graph: { nodes: [], links: [] }, categories: Array.from(categorySet) }
+    }
+
+    const rootNode = { id: "root:total-income", label: "Total Income" }
+    const inflowTotals = new Map<string, number>()
+    const outflowTotals = new Map<string, number>()
+
+    filteredSource.forEach((tx) => {
+      const amount = Number(tx.amount) || 0
+      if (amount === 0) return
+
+      const categoryName = tx.category?.trim() || "Other"
+      if (amount > 0) {
+        inflowTotals.set(categoryName, (inflowTotals.get(categoryName) || 0) + amount)
+      } else {
+        outflowTotals.set(categoryName, (outflowTotals.get(categoryName) || 0) + Math.abs(amount))
+      }
+    })
+
+    const totalIncome = Array.from(inflowTotals.values()).reduce((sum, value) => sum + value, 0)
+    const totalExpenses = Array.from(outflowTotals.values()).reduce((sum, value) => sum + value, 0)
+
+    if (totalIncome === 0 && totalExpenses === 0) {
+      return { graph: { nodes: [], links: [] }, categories: Array.from(categorySet) }
+    }
+
+    const limitEntries = (sourceMap: Map<string, number>, limit: number, otherLabel: string) => {
+      const entries = Array.from(sourceMap.entries())
+        .filter(([, value]) => value > 0)
+        .sort((a, b) => b[1] - a[1])
+
+      if (entries.length <= limit) {
+        return entries
+      }
+
+      const slicePoint = Math.max(limit - 1, 1)
+      const topEntries = entries.slice(0, slicePoint)
+      const remainderTotal = entries.slice(slicePoint).reduce((sum, [, value]) => sum + value, 0)
+
+      if (remainderTotal > 0) {
+        topEntries.push([otherLabel, remainderTotal])
+      }
+
+      return topEntries
+    }
+
+    const inflowEntries = limitEntries(inflowTotals, 4, "Other Income")
+    const outflowEntries = limitEntries(outflowTotals, 8, "Other Expenses")
+    const surplusValue = totalIncome - totalExpenses
+    const surplusNode =
+      surplusValue >= 0 ? { id: "node:net-profit", label: "Net Profit" } : { id: "node:net-deficit", label: "Net Deficit" }
+
+    const nodeMap = new Map<string, { id: string; label?: string }>()
+    const ensureNode = (id: string, label?: string) => {
+      if (!nodeMap.has(id)) {
+        nodeMap.set(id, { id, label })
+      }
+    }
+
+    ensureNode(rootNode.id, rootNode.label)
+
+    const inflowLinks = inflowEntries.map(([label, value]) => {
+      const nodeId = `inflow:${label}`
+      ensureNode(nodeId, label)
+      return {
+        source: nodeId,
+        target: rootNode.id,
+        value,
+      }
+    })
+
+    const outflowLinks = outflowEntries.map(([label, value]) => {
+      const nodeId = `outflow:${label}`
+      ensureNode(nodeId, label)
+      return {
+        source: rootNode.id,
+        target: nodeId,
+        value,
+      }
+    })
+
+    if (surplusValue !== 0) {
+      ensureNode(surplusNode.id, surplusNode.label)
+      outflowLinks.push({
+        source: rootNode.id,
+        target: surplusNode.id,
+        value: Math.abs(surplusValue),
+      })
+    }
+
+    const links = [...inflowLinks, ...outflowLinks].filter((link) => link.value > 0)
+
+    if (links.length === 0) {
+      return { graph: { nodes: [], links: [] }, categories: Array.from(categorySet) }
+    }
+
+    const nodes = Array.from(nodeMap.values())
+
+    return {
+      graph: { nodes, links },
+      categories: Array.from(categorySet),
+    }
+  }, [rawTransactions, sankeyVisibility.hiddenCategorySet, normalizeCategoryName])
+
+  const sankeyControls = sankeyVisibility.buildCategoryControls(sankeyData.categories, {
+    description: "Hide sources to remove them from the cash-flow Sankey.",
+  })
+
+  const activityConfig: ActivityRingsConfig = useMemo(
+    () => ({
+      width: 360,
+      height: 360,
+      radius: 70,
+      ringSize: 18,
+    }),
+    []
+  )
+
+  const activityTheme = resolvedTheme === "light" ? "light" : "dark"
+
   return (
     <SidebarProvider
       style={
@@ -241,7 +1976,46 @@ export default function AnalyticsPage() {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-1 flex-col">
+        <div
+          className="flex flex-1 flex-col relative"
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          {/* Dark overlay when dragging */}
+          {isDragging && (
+            <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm transition-opacity duration-300 pointer-events-none" />
+          )}
+
+          {/* Modern drop indicator with Card */}
+          {isDragging && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+              <Card className="w-full max-w-md mx-4 border-2 border-dashed border-primary/50 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-300">
+                <CardHeader className="text-center pb-4">
+                  <div className="flex justify-center mb-4">
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
+                      <div className="relative bg-primary/10 p-6 rounded-full border-2 border-primary/30">
+                        <IconUpload className="w-12 h-12 text-primary animate-bounce" />
+                      </div>
+                    </div>
+                  </div>
+                  <CardTitle className="text-2xl text-primary">Drop your file here</CardTitle>
+                  <CardDescription className="text-base mt-2">
+                    Release to upload your file
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                    <span>Ready to receive file</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           <div className="@container/main flex flex-1 flex-col gap-2">
             <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
               <SectionCards
@@ -255,557 +2029,783 @@ export default function AnalyticsPage() {
                 netWorthChange={stats.netWorthChange}
               />
               <div className="px-4 lg:px-6">
-                <ChartAreaInteractive data={useMemo(() => {
-                  const grouped = transactions.reduce((acc, tx) => {
-                    const date = tx.date.split('T')[0]
-                    if (!acc[date]) {
-                      acc[date] = { date, desktop: 0, mobile: 0 }
-                    }
-                    const amount = Number(tx.amount) || 0
-                    if (amount > 0) {
-                      acc[date].desktop += amount
-                    } else {
-                      acc[date].mobile += Math.abs(amount)
-                    }
-                    return acc
-                  }, {} as Record<string, { date: string; desktop: number; mobile: number }>)
-                  return Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date))
-                }, [transactions])} />
+                <ChartAreaInteractive
+                  categoryControls={incomeExpenseTopControls}
+                  data={useMemo(() => {
+                    // Filter out savings category
+                    const filteredTransactions = rawTransactions.filter(tx => {
+                      const category = (tx.category || "").toLowerCase()
+                      return category !== "savings"
+                    })
+
+                    // Apply visibility filters
+                    const filteredSource =
+                      incomeExpenseTopVisibility.hiddenCategorySet.size === 0
+                        ? filteredTransactions
+                        : filteredTransactions.filter((tx) => {
+                            const category = normalizeCategoryName(tx.category)
+                            return !incomeExpenseTopVisibility.hiddenCategorySet.has(category)
+                          })
+
+                    // Group transactions by date first
+                    const transactionsByDate = new Map<string, Array<{ amount: number }>>()
+                    filteredSource.forEach(tx => {
+                      const date = tx.date.split('T')[0]
+                      if (!transactionsByDate.has(date)) {
+                        transactionsByDate.set(date, [])
+                      }
+                      transactionsByDate.get(date)!.push({ amount: tx.amount })
+                    })
+
+                    // Sort dates chronologically
+                    const sortedDates = Array.from(transactionsByDate.keys()).sort((a, b) => a.localeCompare(b))
+
+                    // Calculate income by date (keep as is - daily income)
+                    const incomeByDate = new Map<string, number>()
+                    sortedDates.forEach(date => {
+                      const dayTransactions = transactionsByDate.get(date)!
+                      const dayIncome = dayTransactions
+                        .filter(tx => tx.amount > 0)
+                        .reduce((sum, tx) => sum + tx.amount, 0)
+                      if (dayIncome > 0) {
+                        incomeByDate.set(date, dayIncome)
+                      }
+                    })
+
+                    // Calculate cumulative expenses (accumulate over time, reduced by income)
+                    let cumulativeExpenses = 0
+                    const cumulativeExpensesByDate = new Map<string, number>()
+                    
+                    sortedDates.forEach(date => {
+                      const dayTransactions = transactionsByDate.get(date)!
+                      
+                      // Process all transactions for this day
+                      dayTransactions.forEach(tx => {
+                        if (tx.amount < 0) {
+                          // Add expense to cumulative total
+                          cumulativeExpenses += Math.abs(tx.amount)
+                        } else if (tx.amount > 0) {
+                          // Reduce cumulative expenses by income amount
+                          cumulativeExpenses = Math.max(0, cumulativeExpenses - tx.amount)
+                        }
+                      })
+                      
+                      // Store the cumulative value at the end of this date
+                      cumulativeExpensesByDate.set(date, cumulativeExpenses)
+                    })
+
+                    // Combine income and cumulative expenses by date
+                    const result = sortedDates.map(date => ({
+                      date,
+                      desktop: incomeByDate.get(date) || 0,
+                      mobile: cumulativeExpensesByDate.get(date) || 0
+                    }))
+
+                    return result
+                  }, [rawTransactions, incomeExpenseTopVisibility.hiddenCategorySet, normalizeCategoryName])}
+                />
               </div>
               <div className="px-4 lg:px-6">
-                <ChartCategoryFlow data={useMemo(() => {
-                  if (!transactions || transactions.length === 0) return []
-                  const categoryMap = new Map<string, Map<string, number>>()
-                  const allMonths = new Set<string>()
-                  // Only process expenses (negative amounts)
-                  transactions.filter(tx => Number(tx.amount) < 0).forEach(tx => {
-                    const category = tx.category || "Other"
-                    const date = new Date(tx.date)
-                    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-                    allMonths.add(monthKey)
-                    if (!categoryMap.has(category)) {
-                      categoryMap.set(category, new Map())
-                    }
-                    const monthMap = categoryMap.get(category)!
-                    const current = monthMap.get(monthKey) || 0
-                    monthMap.set(monthKey, current + Math.abs(Number(tx.amount)))
-                  })
-                  const sortedMonths = Array.from(allMonths).sort((a, b) => a.localeCompare(b))
-                  const monthTotals = new Map<string, number>()
-                  sortedMonths.forEach(month => {
-                    let total = 0
-                    categoryMap.forEach((months) => {
-                      total += months.get(month) || 0
-                    })
-                    monthTotals.set(month, total)
-                  })
-                  return Array.from(categoryMap.entries())
-                    .map(([category, months]) => ({
-                      id: category,
-                      data: sortedMonths.map(month => {
-                        const value = months.get(month) || 0
-                        const total = monthTotals.get(month) || 1
-                        const percentage = total > 0 ? (value / total) * 100 : 0
-                        return { x: month, y: Math.max(percentage, 0.1) }
-                      })
-                    }))
-                    .filter(series => series.data.some(d => {
-                      const month = series.data.find(d => d.y > 0.1)?.x
-                      if (!month) return false
-                      const originalValue = categoryMap.get(series.id)?.get(month) || 0
-                      return originalValue > 0
-                    }))
-                }, [transactions])} />
+                <ChartAreaInteractive
+                  categoryControls={incomeExpenseControls}
+                  data={incomeExpenseChart.data}
+                />
               </div>
-              <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
-                <ChartSpendingFunnel data={useMemo(() => {
-                  if (!transactions || transactions.length === 0) {
-                    return []
-                  }
-                  
-                  const totalIncome = transactions
-                    .filter(tx => tx.amount > 0)
-                    .reduce((sum, tx) => sum + Number(tx.amount), 0)
-                  
-                  // Group expenses by category
-                  const categoryMap = new Map<string, number>()
-                  transactions
-                    .filter(tx => tx.amount < 0)
-                    .forEach(tx => {
-                      const category = tx.category || "Other"
-                      const current = categoryMap.get(category) || 0
-                      const amount = Math.abs(Number(tx.amount)) || 0
-                      categoryMap.set(category, current + amount)
-                    })
-                  
-                  // Calculate total expenses and savings first
-                  const totalExpenses = Array.from(categoryMap.values())
-                    .reduce((sum, amount) => sum + Number(amount), 0)
-                  const savings = totalIncome - totalExpenses
-                  
-                  // Filter categories to only include those larger than savings
-                  // Sort categories by amount (descending) and filter
-                  const maxCategories = 5
-                  const sortedCategories = Array.from(categoryMap.entries())
-                    .map(([category, amount]) => ({ category, amount: Number(amount) }))
-                    .sort((a, b) => b.amount - a.amount)
-                    .filter(cat => cat.amount > savings) // Only show categories larger than savings
-                    .slice(0, maxCategories)
-                  
-                  // Calculate remaining expenses (if we're not showing all categories)
-                  const shownExpenses = sortedCategories.reduce((sum, cat) => sum + cat.amount, 0)
-                  const remainingExpenses = totalExpenses - shownExpenses
-                  
-                  // Build the funnel data: Income -> Top Categories -> (Other if needed) -> Savings
-                  const funnelData: Array<{ id: string; value: number; label: string }> = []
-                  
-                  // Add Income
-                  if (totalIncome > 0) {
-                    funnelData.push({ id: "income", value: totalIncome, label: "Income" })
-                  }
-                  
-                  // Add top expense categories (only those larger than savings)
-                  sortedCategories.forEach(cat => {
-                    funnelData.push({
-                      id: cat.category.toLowerCase().replace(/\s+/g, '-'),
-                      value: cat.amount,
-                      label: cat.category
-                    })
-                  })
-                  
-                  // Add "Other" category if there are remaining expenses and it's larger than savings
-                  if (remainingExpenses > 0 && remainingExpenses > savings) {
-                    funnelData.push({
-                      id: "other",
-                      value: remainingExpenses,
-                      label: "Other"
-                    })
-                  }
-                  
-                  // Add Savings (always last)
-                  if (savings > 0) {
-                    funnelData.push({ id: "savings", value: savings, label: "Savings" })
-                  }
-                  
-                  return funnelData.filter(item => item.value > 0)
-                }, [transactions])} />
-                <ChartExpensesPie data={useMemo(() => {
-                  const categoryMap = new Map<string, number>()
-                  transactions.filter(tx => Number(tx.amount) < 0).forEach(tx => {
-                    const category = tx.category || "Other"
-                    const current = categoryMap.get(category) || 0
-                    categoryMap.set(category, current + Math.abs(Number(tx.amount)))
-                  })
-                  return Array.from(categoryMap.entries())
-                    .map(([id, value]) => ({ id, label: id, value: Number(value) }))
-                    .sort((a, b) => b.value - a.value)
-                }, [transactions])} />
+              <div className="px-4 lg:px-6">
+                <ChartCategoryFlow
+                  categoryControls={categoryFlowControls}
+                  data={categoryFlowChart.data}
+                />
               </div>
-              <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
-                <ChartCirclePacking data={useMemo(() => {
-                  if (!transactions || transactions.length === 0) {
-                    return { name: "Expenses", children: [] }
-                  }
-                  
-                  // Categories to exclude
-                  const excludedCategories = ["Income", "Transfers", "Transfer", "income", "transfers", "transfer"]
-                  
-                  // Group transactions by category (only expenses, excluding Income and Transfers)
-                  // Use a Map with normalized keys to handle case-insensitive duplicates
-                  const categoryMap = new Map<string, { displayName: string; total: number }>()
-                  
-                  transactions
-                    .filter(tx => {
-                      const amount = Number(tx.amount) || 0
-                      if (amount >= 0) return false // Only expenses
-                      const category = (tx.category || "Other").trim()
-                      // Case-insensitive exclusion check
-                      const isExcluded = excludedCategories.some(ex => 
-                        ex.toLowerCase() === category.toLowerCase()
-                      )
-                      return !isExcluded
-                    })
-                    .forEach(tx => {
-                      // Normalize category: trim and lowercase for key, but preserve original for display
-                      const category = (tx.category || "Other").trim()
-                      // Use a more aggressive normalization: lowercase and remove extra spaces
-                      const normalizedKey = category.toLowerCase().replace(/\s+/g, ' ').trim()
-                      const existing = categoryMap.get(normalizedKey)
-                      const amount = Math.abs(Number(tx.amount)) || 0
-                      
-                      if (existing) {
-                        existing.total += amount
-                        // Keep the most common capitalization (first non-empty one, or longest)
-                        if (category.length > existing.displayName.length || 
-                            (category.length === existing.displayName.length && category < existing.displayName)) {
-                          existing.displayName = category
-                        }
-                      } else {
-                        categoryMap.set(normalizedKey, {
-                          displayName: category,
-                          total: amount
-                        })
-                      }
-                    })
-                  
-                  // Build hierarchical structure for the chart
-                  // Ensure ALL node names are unique across the entire tree
-                  const categoryEntries = Array.from(categoryMap.values())
-                    .filter(item => item.total > 0)
-                    .sort((a, b) => b.total - a.total)
-                  
-                  // Track used names to ensure absolute uniqueness
-                  const usedNames = new Set<string>()
-                  usedNames.add("Expenses") // Reserve root name
-                  
-                  return {
-                    name: "Expenses",
-                    children: categoryEntries.map((item, index) => {
-                      // Generate unique parent name
-                      let parentName = item.displayName
-                      let parentCounter = 0
-                      while (usedNames.has(parentName)) {
-                        parentCounter++
-                        parentName = `${item.displayName}-${index}-${parentCounter}`
-                      }
-                      usedNames.add(parentName)
-                      
-                      // Generate unique child name (must be different from parent)
-                      let childName = `${item.displayName}-val-${index}`
-                      let childCounter = 0
-                      while (usedNames.has(childName)) {
-                        childCounter++
-                        childName = `${item.displayName}-val-${index}-${childCounter}`
-                      }
-                      usedNames.add(childName)
-                      
-                      return {
-                        name: parentName,
-                        children: [{ name: childName, value: item.total }]
-                      }
-                    })
-                  }
-                }, [transactions])} />
-                <ChartPolarBar data={useMemo(() => {
-                  if (!transactions || transactions.length === 0) return []
-                  
-                  // Categories to exclude
-                  const excludedCategories = ["Income", "Transfers", "Transfer", "income", "transfers", "transfer"]
-                  
-                  // Get all unique categories from expenses, excluding Income and Transfers
-                  const categoryTotals = new Map<string, number>()
-                  transactions
-                    .filter(tx => {
-                      const amount = Number(tx.amount) || 0
-                      if (amount >= 0) return false // Only expenses
-                      const category = (tx.category || "Other").trim()
-                      return !excludedCategories.includes(category)
-                    })
-                    .forEach(tx => {
-                      const category = tx.category || "Other"
-                      const current = categoryTotals.get(category) || 0
-                      const amount = Math.abs(Number(tx.amount)) || 0
-                      categoryTotals.set(category, current + amount)
-                    })
-                  
-                  // Get top 5 categories by total amount (or all if less than 5)
-                  const topCategories = Array.from(categoryTotals.entries())
-                    .filter(([category]) => !excludedCategories.includes(category))
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 5)
-                    .map(([category]) => category)
-                  
-                  if (topCategories.length === 0) return []
-                  
-                  const monthMap = new Map<string, Record<string, number>>()
-                  
-                  // Initialize all months with all categories
-                  transactions
-                    .filter(tx => {
-                      const amount = Number(tx.amount) || 0
-                      if (amount >= 0) return false // Only expenses
-                      const category = (tx.category || "Other").trim()
-                      return !excludedCategories.includes(category)
-                    })
-                    .forEach(tx => {
-                      try {
-                        const date = new Date(tx.date)
-                        if (isNaN(date.getTime())) return
-                        
-                        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-                        
-                        if (!monthMap.has(monthKey)) {
-                          const initialData: Record<string, number> = {}
-                          topCategories.forEach(cat => {
-                            initialData[cat] = 0
-                          })
-                          monthMap.set(monthKey, initialData)
-                        }
-                      } catch (error) {
-                        // Skip invalid dates
-                      }
-                    })
-                  
-                  // Process expenses and group by month and category (excluding Income and Transfers)
-                  transactions
-                    .filter(tx => {
-                      const amount = Number(tx.amount) || 0
-                      if (amount >= 0) return false // Only expenses
-                      const category = (tx.category || "Other").trim()
-                      return !excludedCategories.includes(category)
-                    })
-                    .forEach(tx => {
-                      try {
-                        const date = new Date(tx.date)
-                        if (isNaN(date.getTime())) return
-                        
-                        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-                        const category = tx.category || "Other"
-                        
-                        if (topCategories.includes(category) && monthMap.has(monthKey)) {
-                          const monthData = monthMap.get(monthKey)!
-                          const amount = Math.abs(Number(tx.amount)) || 0
-                          monthData[category] = (monthData[category] || 0) + amount
-                        }
-                      } catch (error) {
-                        console.warn("[Analytics] Error processing transaction:", tx, error)
-                      }
-                    })
-                  
-                  const result = Array.from(monthMap.entries())
-                    .map(([month, data]) => {
-                      const row: Record<string, string | number> = { month }
-                      topCategories.forEach(cat => {
-                        row[cat] = Number(data[cat]) || 0
-                      })
-                      return row
-                    })
-                    .sort((a, b) => (a.month as string).localeCompare(b.month as string))
-                  
-                  console.log("[Analytics] ChartPolarBar categories:", topCategories)
-                  console.log("[Analytics] ChartPolarBar data:", result)
-                  return result
-                }, [transactions])} 
-                keys={useMemo(() => {
-                  if (!transactions || transactions.length === 0) return []
-                  const excludedCategories = ["Income", "Transfers", "Transfer", "income", "transfers", "transfer"]
-                  const categoryTotals = new Map<string, number>()
-                  transactions
-                    .filter(tx => {
-                      const amount = Number(tx.amount) || 0
-                      if (amount >= 0) return false // Only expenses
-                      const category = (tx.category || "Other").trim()
-                      return !excludedCategories.includes(category)
-                    })
-                    .forEach(tx => {
-                      const category = tx.category || "Other"
-                      const current = categoryTotals.get(category) || 0
-                      const amount = Math.abs(Number(tx.amount)) || 0
-                      categoryTotals.set(category, current + amount)
-                    })
-                  return Array.from(categoryTotals.entries())
-                    .filter(([category]) => !excludedCategories.includes(category))
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 5)
-                    .map(([category]) => category)
-                }, [transactions])} />
-              </div>
-              <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
-                <ChartRadar data={useMemo(() => {
-                  const currentYear = new Date().getFullYear()
-                  const lastYear = currentYear - 1
-                  const currentYearTxs = transactions.filter(tx => new Date(tx.date).getFullYear() === currentYear)
-                  const lastYearTxs = transactions.filter(tx => new Date(tx.date).getFullYear() === lastYear)
-                  
-                    const calculateScore = (txs: typeof transactions, type: 'income' | 'expenses' | 'savings') => {
-                    if (type === 'income') {
-                      const income = txs.filter(tx => Number(tx.amount) > 0).reduce((sum, tx) => sum + Number(tx.amount), 0)
-                      return Math.min(100, (income / 10000) * 100)
-                    } else if (type === 'expenses') {
-                      const expenses = txs.filter(tx => Number(tx.amount) < 0).reduce((sum, tx) => sum + Math.abs(Number(tx.amount)), 0)
-                      return Math.min(100, (expenses / 5000) * 100)
-                    } else {
-                      const income = txs.filter(tx => Number(tx.amount) > 0).reduce((sum, tx) => sum + Number(tx.amount), 0)
-                      const expenses = txs.filter(tx => Number(tx.amount) < 0).reduce((sum, tx) => sum + Math.abs(Number(tx.amount)), 0)
-                      const savings = income - expenses
-                      return Math.min(100, Math.max(0, (savings / income) * 100))
-                    }
-                  }
-                  
-                  return [
-                    { capability: "Income", "This Year": calculateScore(currentYearTxs, 'income'), "Last Year": calculateScore(lastYearTxs, 'income'), "Target": 80 },
-                    { capability: "Expenses", "This Year": calculateScore(currentYearTxs, 'expenses'), "Last Year": calculateScore(lastYearTxs, 'expenses'), "Target": 60 },
-                    { capability: "Savings", "This Year": calculateScore(currentYearTxs, 'savings'), "Last Year": calculateScore(lastYearTxs, 'savings'), "Target": 30 },
-                    { capability: "Growth", "This Year": 70, "Last Year": 65, "Target": 85 },
-                    { capability: "Stability", "This Year": 75, "Last Year": 70, "Target": 90 }
-                  ]
-                }, [transactions])} />
-                <ChartRadialBar 
+              <div className="px-4 lg:px-6">
+                <ChartTreeMap 
+                  categoryControls={treeMapControls}
                   data={useMemo(() => {
-                    if (!transactions || transactions.length === 0) return []
-                    
-                    // Categories to exclude
-                    const excludedCategories = ["Income", "Transfers", "Transfer", "income", "transfers", "transfer"]
-                    
-                    const categoryMap = new Map<string, number>()
-                    transactions
-                      .filter(tx => {
-                        const amount = Number(tx.amount) || 0
-                        if (amount >= 0) return false // Only expenses
-                        const category = (tx.category || "Other").trim()
-                        return !excludedCategories.includes(category)
-                      })
+                    // Apply visibility filters
+                    const filteredSource =
+                      treeMapVisibility.hiddenCategorySet.size === 0
+                        ? rawTransactions
+                        : rawTransactions.filter((tx) => {
+                            const category = normalizeCategoryName(tx.category)
+                            return !treeMapVisibility.hiddenCategorySet.has(category)
+                          })
+
+                    const categoryMap = new Map<string, { total: number; subcategories: Map<string, { amount: number; fullDescription: string }> }>()
+
+                    const getSubCategoryLabel = (description?: string) => {
+                      if (!description) return "Misc"
+                      // Use first meaningful chunk of the description as a subcategory label
+                      const delimiterSplit = description.split(/[-–|]/)[0] ?? description
+                      const trimmed = delimiterSplit.trim()
+                      return trimmed.length > 24 ? `${trimmed.slice(0, 21)}…` : (trimmed || "Misc")
+                    }
+
+                    filteredSource
+                      .filter(tx => tx.amount < 0)
                       .forEach(tx => {
                         const category = tx.category || "Other"
-                        const current = categoryMap.get(category) || 0
-                        const amount = Math.abs(Number(tx.amount)) || 0
-                        categoryMap.set(category, current + amount)
+                        const amount = Math.abs(tx.amount)
+                        if (!categoryMap.has(category)) {
+                          categoryMap.set(category, { total: 0, subcategories: new Map() })
+                        }
+                        const categoryEntry = categoryMap.get(category)!
+                        categoryEntry.total += amount
+
+                        const subCategory = getSubCategoryLabel(tx.description)
+                        const existing = categoryEntry.subcategories.get(subCategory)
+                        if (existing) {
+                          existing.amount += amount
+                        } else {
+                          categoryEntry.subcategories.set(subCategory, { 
+                            amount, 
+                            fullDescription: tx.description || subCategory 
+                          })
+                        }
                       })
-                    
-                    // Get top 5 categories only
-                    return Array.from(categoryMap.entries())
-                      .sort((a, b) => b[1] - a[1])
-                      .slice(0, 5)
-                      .map(([name, value]) => ({
-                        name,
-                        uv: Number(value.toFixed(2)), // Spent (2 decimals)
-                        pv: Number((value * 1.2).toFixed(2)) // Default budget (2 decimals)
-                      }))
-                  }, [transactions])}
-                  budgets={useMemo(() => {
-                    // Load budgets from localStorage
-                    if (typeof window === 'undefined') return {}
-                    const stored = localStorage.getItem('categoryBudgets')
-                    return stored ? JSON.parse(stored) : {}
-                  }, [budgetUpdateKey])}
-                  onBudgetChange={(category, budget) => {
-                    // Save budget to localStorage
-                    if (typeof window === 'undefined') return
-                    const current = JSON.parse(localStorage.getItem('categoryBudgets') || '{}')
-                    current[category] = budget
-                    localStorage.setItem('categoryBudgets', JSON.stringify(current))
-                    // Force re-render by updating a state (we'll use a simple approach)
-                    window.dispatchEvent(new Event('budgetUpdated'))
-                  }}
+
+                    const maxSubCategories = 5
+
+                    return {
+                      name: "Expenses",
+                      children: Array.from(categoryMap.entries())
+                        .map(([name, { total, subcategories }]) => {
+                          const sortedSubs = Array.from(subcategories.entries()).sort((a, b) => b[1].amount - a[1].amount)
+                          const topSubs = sortedSubs.slice(0, maxSubCategories)
+                          const remainingTotal = sortedSubs.slice(maxSubCategories).reduce((sum, [, value]) => sum + value.amount, 0)
+                          const children = topSubs.map(([subName, { amount: loc, fullDescription }]) => ({ 
+                            name: subName, 
+                            loc,
+                            fullDescription 
+                          }))
+                          if (remainingTotal > 0) {
+                            children.push({ name: "Other", loc: remainingTotal, fullDescription: "Other transactions" })
+                          }
+                          return {
+                            name,
+                            children: children.length > 0 ? children : [{ name, loc: total, fullDescription: name }]
+                          }
+                        })
+                        .sort((a, b) => {
+                          const aTotal = a.children.reduce((sum, child) => sum + (child.loc || 0), 0)
+                          const bTotal = b.children.reduce((sum, child) => sum + (child.loc || 0), 0)
+                          return bTotal - aTotal
+                        })
+                    }
+                  }, [rawTransactions, treeMapVisibility.hiddenCategorySet, normalizeCategoryName])}
                 />
               </div>
               <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
-                <ChartStream data={useMemo(() => {
-                  const monthMap = new Map<string, Record<string, number>>()
-                  transactions.forEach(tx => {
-                    const date = new Date(tx.date)
-                    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-                    if (!monthMap.has(monthKey)) {
-                      monthMap.set(monthKey, { Salary: 0, Freelance: 0, Dividends: 0, Interest: 0, Other: 0, Expenses: 0 })
-                    }
-                    const monthData = monthMap.get(monthKey)!
-                    const amount = Number(tx.amount) || 0
-                    if (amount > 0) {
-                      // Categorize income
-                      const category = tx.category?.toLowerCase() || ""
-                      if (category.includes("salary") || category.includes("work")) {
-                        monthData.Salary += amount
-                      } else if (category.includes("freelance") || category.includes("gig")) {
-                        monthData.Freelance += amount
-                      } else if (category.includes("dividend") || category.includes("investment")) {
-                        monthData.Dividends += amount
-                      } else if (category.includes("interest")) {
-                        monthData.Interest += amount
-                      } else {
-                        monthData.Other += amount
-                      }
-                    } else {
-                      monthData.Expenses += Math.abs(amount)
-                    }
-                  })
-                  return Array.from(monthMap.entries())
-                    .map(([month, data]) => ({ month, ...data }))
-                    .sort((a, b) => a.month.localeCompare(b.month))
-                }, [transactions])} />
+                <ChartSpendingFunnel
+                  categoryControls={spendingFunnelControls}
+                  data={spendingFunnelChart.data}
+                />
+                <ChartExpensesPie
+                  categoryControls={expensesPieControls}
+                  data={expensesPieData.slices}
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
+                <ChartCirclePacking
+                  categoryControls={circlePackingControls}
+                  data={circlePackingData.tree}
+                />
+                <ChartPolarBar
+                  categoryControls={polarBarControls}
+                  data={polarBarData.data}
+                  keys={polarBarData.keys}
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
+                <ChartRadar />
+                <Card>
+                  <CardHeader className="relative flex flex-row items-start justify-between gap-2">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="mb-0">Spending Activity Rings</CardTitle>
+                        <ChartInfoPopover
+                          title="Spending Activity Rings"
+                          description="Top spending categories from your Neon transactions"
+                          details={[
+                            "Each ring shows how much a category has consumed relative to its budget.",
+                            "Budgets come from your saved limits or a default amount for the selected date filter.",
+                          ]}
+                        />
+                      </div>
+                      <CardDescription>
+                        Top spending categories from your Neon transactions
+                      </CardDescription>
+                    </div>
+                    {activityData.length > 0 && (
+                      <div className="absolute top-2 right-4 flex flex-col gap-1 z-10 w-[140px]">
+                        <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground text-right">
+                          Limits
+                        </span>
+                        <div className="flex flex-col gap-1">
+                          {activityData.map((item, idx) => {
+                            const category: string =
+                              (item as { category?: string }).category ??
+                              (item.label ?? "Other")
+                            const storedLimit = ringLimits[category]
+                            const limit =
+                              typeof storedLimit === "number" &&
+                              storedLimit > 0
+                                ? storedLimit
+                                : getDefaultRingLimit(dateFilter)
+                            const percent = (item.value * 100).toFixed(1)
+                            const spent =
+                              typeof (item as { spent?: number }).spent ===
+                              "number"
+                                ? (item as { spent?: number }).spent!
+                                : null
+                            return (
+                              <Popover
+                                key={`${category}-${idx}`}
+                                open={ringCategoryPopoverIndex === idx}
+                                onOpenChange={(open) => {
+                                  if (
+                                    open &&
+                                    allExpenseCategories &&
+                                    allExpenseCategories.length
+                                  ) {
+                                    const currentCategory =
+                                      (category as string) ||
+                                      allExpenseCategories[0]
+                                    setRingCategoryPopoverIndex(idx)
+                                    setRingCategoryPopoverValue(
+                                      currentCategory
+                                    )
+                                    const currentLimitRaw =
+                                      ringLimits[currentCategory]
+                                    const currentLimit =
+                                      typeof currentLimitRaw === "number" &&
+                                      currentLimitRaw > 0
+                                        ? currentLimitRaw
+                                        : getDefaultRingLimit(dateFilter)
+                                    setRingLimitPopoverValue(
+                                      currentLimit.toString()
+                                    )
+                                  } else {
+                                    setRingCategoryPopoverIndex(null)
+                                    setRingCategoryPopoverValue(null)
+                                    setRingLimitPopoverValue("")
+                                  }
+                                }}
+                              >
+                                <PopoverTrigger asChild>
+                                  <div className="flex items-center gap-1 bg-background/80 backdrop-blur-sm p-1 rounded border cursor-pointer">
+                                    <button
+                                      type="button"
+                                      className="px-1.5 py-0.5 text-[0.7rem] rounded w-full flex items-center justify-between gap-1.5 hover:bg-muted/80 bg-muted"
+                                      title={
+                                        limit
+                                          ? `${category} – ${percent}% of limit (${item.value} of 1.0)`
+                                          : `${category} – no limit set`
+                                      }
+                                    >
+                                      <span className="max-w-[170px] whitespace-normal">
+                                        {category}
+                                      </span>
+                                      <span className="text-[0.65rem] font-medium text-muted-foreground flex-shrink-0 text-right">
+                                        {spent !== null
+                                          ? `$${spent.toFixed(2)}`
+                                          : `${percent}%`}
+                                      </span>
+                                    </button>
+                                  </div>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-56" align="end">
+                                  <RingPopoverContent
+                                    initialCategory={ringCategoryPopoverValue ?? (category as string)}
+                                    initialLimit={
+                                      ringLimitPopoverValue
+                                        ? parseFloat(ringLimitPopoverValue) || limit
+                                        : limit
+                                    }
+                                    allCategories={allExpenseCategories}
+                                    onSave={async (savedCategory, savedLimit) => {
+                                      if (!savedCategory) {
+                                        setRingCategoryPopoverIndex(null)
+                                        setRingCategoryPopoverValue(null)
+                                        setRingLimitPopoverValue("")
+                                        return
+                                      }
+                                      setRingCategories((prev) => {
+                                        const base =
+                                          prev && prev.length
+                                            ? [...prev]
+                                            : activityData.map(
+                                                (ringItem) => {
+                                                  const ringCategory =
+                                                    (ringItem as {
+                                                      category?: string
+                                                    }).category ??
+                                                    ringItem.label
+                                                  return ringCategory as string
+                                                }
+                                              )
+                                        base[ringCategoryPopoverIndex ?? idx] = savedCategory
+                                        return base
+                                      })
+                                      if (savedLimit) {
+                                        const limitValue = parseFloat(savedLimit)
+                                        if (!isNaN(limitValue) && limitValue >= 0) {
+                                          setRingLimits((prev) => {
+                                            const updated = {
+                                              ...prev,
+                                              [savedCategory]: limitValue,
+                                            }
+                                            if (typeof window !== "undefined") {
+                                              localStorage.setItem(
+                                                "activityRingLimits",
+                                                JSON.stringify(updated)
+                                              )
+                                            }
+                                            return updated
+                                          })
+                                          
+                                          // Save to database with current filter
+                                          try {
+                                            const res = await fetch("/api/budgets", {
+                                              method: "POST",
+                                              headers: {
+                                                "Content-Type": "application/json",
+                                              },
+                                              body: JSON.stringify({
+                                                categoryName: savedCategory,
+                                                budget: limitValue,
+                                                filter: dateFilter, // Include current filter
+                                              }),
+                                            })
+                                            
+                                            if (!res.ok) {
+                                              console.error(
+                                                "[Analytics] Failed to save ring limit:",
+                                                await res.text()
+                                              )
+                                            }
+                                          } catch (error) {
+                                            console.error("[Analytics] Error saving ring limit:", error)
+                                          }
+                                        }
+                                      }
+                                      setRingCategoryPopoverIndex(null)
+                                      setRingCategoryPopoverValue(null)
+                                      setRingLimitPopoverValue("")
+                                    }}
+                                    onCancel={() => {
+                                      setRingCategoryPopoverIndex(null)
+                                      setRingCategoryPopoverValue(null)
+                                      setRingLimitPopoverValue("")
+                                    }}
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </CardHeader>
+                  <CardContent className="h-[420px] flex flex-col items-center justify-between">
+                    {activityData.length === 0 ? (
+                      <span className="text-sm text-muted-foreground">
+                        No expense categories available yet.
+                      </span>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-center pt-4">
+                          <SpendingActivityRings
+                            key={`rings-${dateFilter}-${ringCategories?.join(',') || ''}`}
+                            data={activityData}
+                            config={activityConfig}
+                            theme={activityTheme as "light" | "dark"}
+                            ringLimits={ringLimits}
+                            getDefaultLimit={() => getDefaultRingLimit(dateFilter)}
+                          />
+                        </div>
+                        <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
+                          {activityData.map((item) => {
+                            const category =
+                              (item as { category?: string }).category ??
+                              item.label
+                            return (
+                            <div
+                              key={category}
+                              className="flex items-center gap-1.5"
+                            >
+                              <span
+                                className="h-2 w-2 rounded-full"
+                                style={{
+                                  backgroundColor:
+                                    (item as { color?: string }).color ||
+                                    "#a1a1aa",
+                                }}
+                              />
+                              <span className="font-medium">
+                                {category}
+                              </span>
+                              <span className="text-[0.7rem]">
+                                {(item.value * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                            )
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="px-4 lg:px-6">
+                <ChartSpendingStreamgraph
+                  categoryControls={streamgraphControls}
+                  data={spendingStreamData.data}
+                  keys={spendingStreamData.keys}
+                />
               </div>
               <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
                 <ChartSwarmPlot data={useMemo(() => {
-                  const categoryGroups: Record<string, string[]> = {
-                    "Essentials": ["Utilities", "Insurance", "Taxes"],
-                    "Lifestyle": ["Shopping", "Travel", "Entertainment"],
-                    "Transport": ["Transport", "Car", "Fuel"],
-                    "Financial": ["Transfers", "Fees", "Banking"]
+                  if (!rawTransactions || rawTransactions.length === 0) {
+                    return []
                   }
-                  return transactions
-                    .filter(tx => Number(tx.amount) < 0)
-                    .slice(0, 100)
-                    .map((tx, idx) => {
-                      const category = tx.category || "Other"
-                      const group = Object.entries(categoryGroups).find(([_, cats]) => 
-                        cats.some(c => category.toLowerCase().includes(c.toLowerCase()))
-                      )?.[0] || "Essentials"
+
+                  const CATEGORY_GROUPS: Record<string, string[]> = {
+                    Essentials: [
+                      "Groceries",
+                      "Rent",
+                      "Mortgage",
+                      "Utilities",
+                      "Insurance",
+                      "Taxes",
+                      "Healthcare",
+                      "Health",
+                      "Medical",
+                    ],
+                    Lifestyle: [
+                      "Shopping",
+                      "Travel",
+                      "Entertainment",
+                      "Restaurants",
+                      "Bars",
+                      "Subscriptions",
+                      "Services",
+                      "Education",
+                      "Personal",
+                      "Leisure",
+                    ],
+                    Transport: [
+                      "Transport",
+                      "Transportation",
+                      "Fuel",
+                      "Gas",
+                      "Car",
+                      "Ride",
+                      "Transit",
+                      "Commute",
+                    ],
+                    Financial: [
+                      "Transfers",
+                      "Transfer",
+                      "Fees",
+                      "Banking",
+                      "Savings",
+                      "Investments",
+                      "Loan",
+                      "Debt",
+                      "Mortgage",
+                    ],
+                  }
+
+                  const CATEGORY_DEFAULT_GROUP = "Essentials"
+
+                  const resolveGroup = (categoryName: string): string => {
+                    const normalized = categoryName.toLowerCase()
+                    for (const [group, categories] of Object.entries(CATEGORY_GROUPS)) {
+                      if (
+                        categories.some((cat) => normalized.includes(cat.toLowerCase()))
+                      ) {
+                        return group
+                      }
+                    }
+                    return CATEGORY_DEFAULT_GROUP
+                  }
+
+                  const computeVolume = (amount: number): number => {
+                    const min = 4
+                    const max = 20
+                    if (!Number.isFinite(amount) || amount <= 0) {
+                      return min
+                    }
+                    const scaled = Math.round(amount / 50)
+                    return Math.max(min, Math.min(max, scaled))
+                  }
+
+                  return rawTransactions
+                    .filter((tx) => tx.amount < 0) // Only expenses
+                    .map((tx, index) => {
+                      const normalizedAmount = Math.abs(tx.amount)
+                      const rawCategory = tx.category || "Other"
+                      const group = resolveGroup(rawCategory)
+
                       return {
-                        id: `tx-${tx.id}`,
+                        id: tx.id ? `tx-${tx.id}` : `tx-${index}`,
                         group,
-                        price: Math.abs(Number(tx.amount)),
-                        volume: 1
+                        price: normalizedAmount,
+                        volume: computeVolume(normalizedAmount),
+                        category: rawCategory,
+                        color: null,
+                        date: tx.date.split('T')[0],
+                        description: tx.description,
                       }
                     })
-                }, [transactions])} />
+                }, [rawTransactions])} />
               </div>
               <div className="px-4 lg:px-6">
-                <ChartSankey data={useMemo(() => {
-                  if (!transactions || transactions.length === 0) {
-                    return { nodes: [{ id: "Income" }], links: [] }
-                  }
-                  
-                  // Calculate total income from positive amounts
-                  const totalIncome = transactions
-                    .filter(tx => tx.amount > 0)
-                    .reduce((sum, tx) => sum + Number(tx.amount), 0)
-                  
-                  // Calculate expenses by category from negative amounts
-                  const categoryMap = new Map<string, number>()
-                  transactions
-                    .filter(tx => tx.amount < 0)
-                    .forEach(tx => {
-                      const category = tx.category || "Other"
-                      const current = categoryMap.get(category) || 0
-                      const amount = Math.abs(Number(tx.amount))
-                      categoryMap.set(category, current + amount)
-                    })
-                  
-                  // Calculate total expenses
-                  const totalExpenses = Array.from(categoryMap.values())
-                    .reduce((sum, value) => sum + value, 0)
-                  
-                  // Calculate savings (income - expenses)
-                  const savings = totalIncome - totalExpenses
-                  
-                  // Build nodes: Income, Expense Categories, and Savings
-                  const nodes = [
-                    { id: "Income" },
-                    ...Array.from(categoryMap.keys()).map(cat => ({ id: cat })),
-                    ...(savings > 0 ? [{ id: "Savings" }] : [])
-                  ]
-                  
-                  // Build links: Income -> Categories, and Income -> Savings
-                  const links = [
-                    // Income to expense categories
-                    ...Array.from(categoryMap.entries()).map(([target, value]) => ({
-                      source: "Income",
-                      target,
-                      value: Number(value)
-                    })),
-                    // Income to savings (if positive)
-                    ...(savings > 0 ? [{
-                      source: "Income",
-                      target: "Savings",
-                      value: Number(savings)
-                    }] : [])
-                  ]
-                  
-                  return { nodes, links }
-                }, [transactions])} />
+                <ChartSankey
+                  categoryControls={sankeyControls}
+                  data={sankeyData.graph}
+                />
+              </div>
+              <div className="px-4 lg:px-6">
+                <ChartTransactionCalendar />
+              </div>
+              <div className="px-4 lg:px-6">
+                <ChartDayOfWeekSpending 
+                  data={rawTransactions}
+                  categoryControls={dayOfWeekSpendingVisibility.buildCategoryControls(
+                    Array.from(new Set(rawTransactions
+                      .filter(tx => Number(tx.amount) < 0)
+                      .map(tx => normalizeCategoryName(tx.category))
+                    )).sort()
+                  )}
+                />
+              </div>
+              <div className="px-4 lg:px-6">
+                <ChartBarCategory 
+                  data={rawTransactions}
+                  dateFilter={dateFilter}
+                />
               </div>
             </div>
           </div>
         </div>
+
+        {/* Modern Confirmation Dialog */}
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="sm:max-w-[95vw] lg:max-w-[1200px] w-full max-h-[90vh] flex flex-col p-0 gap-0">
+            <div className="px-6 pt-6 pb-4 flex-shrink-0">
+              <DialogHeader>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <IconCircleCheck className="w-5 h-5 text-primary" />
+                  </div>
+                  <DialogTitle className="text-xl">Confirm File Upload</DialogTitle>
+                </div>
+                <DialogDescription className="text-base">
+                  Review the file details below and confirm to proceed with the upload.
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+            <Separator className="flex-shrink-0" />
+            {droppedFile && (
+              <div className="px-6 py-4 space-y-4 overflow-y-auto flex-1 min-h-0">
+                <Card className="border-2">
+                  <CardContent className="pt-6">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0">
+                        <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                          <IconFile className="w-8 h-8 text-primary" />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground mb-1 break-words">
+                            {droppedFile.name}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="secondary" className="text-xs">
+                              {formatFileSize(droppedFile.size)}
+                            </Badge>
+                            {droppedFile.type && (
+                              <Badge variant="outline" className="text-xs">
+                                {droppedFile.type.split('/')[1]?.toUpperCase() || 'FILE'}
+                              </Badge>
+                            )}
+                            {transactionCount > 0 && (
+                              <Badge variant="default" className="text-xs">
+                                {transactionCount} transactions
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <Separator />
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <p className="text-muted-foreground text-xs mb-1">File Type</p>
+                            <p className="font-medium">{droppedFile.type || "Unknown"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs mb-1">File Size</p>
+                            <p className="font-medium">{formatFileSize(droppedFile.size)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Parsing Status */}
+                {isParsing && (
+                  <Card className="border-2 border-primary/20 bg-primary/5">
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <IconLoader2 className="w-5 h-5 text-primary animate-spin flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium">Parsing file...</p>
+                            <p className="text-xs text-muted-foreground">Extracting transactions and categorizing</p>
+                          </div>
+                          <span className="text-sm font-semibold text-primary flex-shrink-0">{Math.round(parsingProgress)}%</span>
+                        </div>
+                        <div className="w-full">
+                          <Progress value={parsingProgress} className="w-full h-3" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Parse Error */}
+                {parseError && !isParsing && (
+                  <Card className="border-2 border-destructive/20 bg-destructive/5">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start gap-3">
+                        <IconAlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-destructive">Parse Error</p>
+                          <p className="text-xs text-muted-foreground mt-1">{parseError}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Import Progress */}
+                {isImporting && (
+                  <Card className="border-2 border-primary/20 bg-primary/5">
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <IconLoader2 className="w-5 h-5 text-primary animate-spin flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium">Importing transactions...</p>
+                            <p className="text-xs text-muted-foreground">
+                              Please wait while we import {transactionCount} transactions into the database
+                            </p>
+                          </div>
+                          <span className="text-sm font-semibold text-primary flex-shrink-0">{Math.round(importProgress)}%</span>
+                        </div>
+                        <div className="w-full">
+                          <Progress value={importProgress} className="w-full h-3" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Parsed CSV Preview */}
+                {parsedCsv && !isParsing && !parseError && !isImporting && (
+                  <Card className="border-2 overflow-hidden flex flex-col min-h-0">
+                    <CardHeader className="flex-shrink-0 px-4 pt-4 pb-2">
+                      <CardTitle className="text-sm">Preview ({transactionCount} transactions)</CardTitle>
+                      <CardDescription className="text-xs">
+                        Review and edit categories before importing
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
+                      <div className="h-full max-h-[500px] overflow-auto relative">
+                        <Table>
+                          <TableHeader className="sticky top-0 z-20 bg-muted border-b">
+                            <TableRow>
+                              <TableHead className="sticky top-0 z-20 bg-muted">Date</TableHead>
+                              <TableHead className="sticky top-0 z-20 bg-muted">Description</TableHead>
+                              <TableHead className="sticky top-0 z-20 bg-muted text-right">Amount</TableHead>
+                              <TableHead className="sticky top-0 z-20 bg-muted">Category</TableHead>
+                              {parsedRows.some((row) => row.balance !== null && row.balance !== undefined) && (
+                                <TableHead className="sticky top-0 z-20 bg-muted text-right">Balance</TableHead>
+                              )}
+                              <TableHead className="sticky top-0 z-20 bg-muted w-12"></TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {parsedRows.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={6} className="h-24 text-center">
+                                  No transactions found
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              parsedRows.map((row) => {
+                                const amount = typeof row.amount === 'number' ? row.amount : parseFloat(row.amount) || 0
+                                const balance = row.balance !== null && row.balance !== undefined 
+                                  ? (typeof row.balance === 'number' ? row.balance : parseFloat(row.balance)) 
+                                  : null
+                                const category = row.category || 'Other'
+                                const hasBalance = parsedRows.some((r) => r.balance !== null && r.balance !== undefined)
+                                
+                                return (
+                                  <MemoizedTableRow
+                                    key={row.id ?? `${row.date}-${row.description}`}
+                                    row={row}
+                                    amount={amount}
+                                    balance={balance}
+                                    category={category}
+                                    hasBalance={hasBalance}
+                                    onCategoryChange={(value) => handleCategoryChange(row.id, value)}
+                                    onDelete={() => handleDeleteRow(row.id)}
+                                  />
+                                )
+                              })
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+            <Separator className="flex-shrink-0" />
+            <div className="px-6 py-4 flex-shrink-0">
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  variant="outline"
+                  onClick={handleCancel}
+                  disabled={isImporting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleConfirm}
+                  className="gap-2"
+                  disabled={isParsing || isImporting || !!parseError || !parsedCsv}
+                >
+                  {isImporting ? (
+                    <>
+                      <IconLoader2 className="w-4 h-4 animate-spin" />
+                      Importing...
+                    </>
+                  ) : (
+                    <>
+                      <IconUpload className="w-4 h-4" />
+                      Import to Database
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
       </SidebarInset>
     </SidebarProvider>
   )

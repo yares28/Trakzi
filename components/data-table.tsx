@@ -56,6 +56,7 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { useIsMobile } from "@/hooks/use-mobile"
+import { TransactionDialog } from "@/components/transaction-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -309,6 +310,7 @@ export function DataTable<TData, TValue>({
   data: initialData,
   columns = defaultColumns as unknown as ColumnDef<TData, TValue>[],
   transactions,
+  onTransactionAdded,
 }: DataTableProps<TData, TValue> & {
   transactions?: Array<{
     id: number
@@ -318,6 +320,7 @@ export function DataTable<TData, TValue>({
     balance: number | null
     category: string
   }>
+  onTransactionAdded?: () => void
 }) {
   const [data, setData] = React.useState(() => initialData)
   const [rowSelection, setRowSelection] = React.useState({})
@@ -337,6 +340,7 @@ export function DataTable<TData, TValue>({
   })
   const [searchTerm, setSearchTerm] = React.useState("")
   const [selectedCategory, setSelectedCategory] = React.useState<string>("all")
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const sortableId = React.useId()
   const sensors = useSensors(
     useSensor(MouseSensor, {}),
@@ -438,7 +442,11 @@ export function DataTable<TData, TValue>({
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setIsDialogOpen(true)}
+          >
             <IconPlus />
             <span className="hidden lg:inline">Add Transaction</span>
           </Button>
@@ -669,6 +677,15 @@ export function DataTable<TData, TValue>({
           </div>
         )}
       </div>
+      <TransactionDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        onSuccess={() => {
+          if (onTransactionAdded) {
+            onTransactionAdded()
+          }
+        }}
+      />
     </div>
   )
 }

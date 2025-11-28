@@ -10,6 +10,7 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar"
 import { toast } from "sonner"
+import { normalizeTransactions } from "@/lib/utils"
 
 export default function Page() {
   // Transactions state
@@ -38,7 +39,7 @@ export default function Page() {
       if (response.ok) {
         if (Array.isArray(data)) {
           console.log(`[Savings] Setting ${data.length} transactions`)
-          setTransactions(data)
+          setTransactions(normalizeTransactions(data))
         } else {
           console.error("[Savings] Response is not an array:", data)
           if (data.error) {
