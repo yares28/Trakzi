@@ -1,7 +1,22 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo, memo, useRef } from "react"
-import { flushSync } from "react-dom"
+import { useState, useEffect, useCallback, useMemo, memo, useRef, startTransition } from "react"
+import {
+  DndContext,
+  closestCenter,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core"
+import {
+  SortableContext,
+  useSortable,
+  arrayMove,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
@@ -17,9 +32,13 @@ import { ChartSpendingFunnel } from "@/components/chart-spending-funnel"
 import { ChartTreeMap } from "@/components/chart-treemap"
 import { ChartTransactionCalendar } from "@/components/chart-transaction-calendar"
 import { ChartDayOfWeekSpending } from "@/components/chart-day-of-week-spending"
-import { ChartBarCategory } from "@/components/chart-bar-category"
+import { ChartAllMonthsCategorySpending } from "@/components/chart-all-months-category-spending"
+import { ChartCategoryBubble } from "@/components/chart-category-bubble"
+import { ChartSingleMonthCategorySpending } from "@/components/chart-single-month-category-spending"
+import { ChartDayOfWeekCategory } from "@/components/chart-day-of-week-category"
 import { SectionCards } from "@/components/section-cards"
 import { SiteHeader } from "@/components/site-header"
+import { SortableAnalyticsChart } from "@/components/SortableAnalyticsChart"
 import {
   SidebarInset,
   SidebarProvider,
@@ -62,7 +81,7 @@ import {
 } from "@/components/ui/popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
-import { IconUpload, IconFile, IconCircleCheck, IconLoader2, IconAlertCircle, IconTrash } from "@tabler/icons-react"
+import { IconUpload, IconFile, IconCircleCheck, IconLoader2, IconAlertCircle, IconTrash, IconMaximize, IconMinimize } from "@tabler/icons-react"
 import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv"
 import { TxRow } from "@/lib/types/transactions"
@@ -227,8 +246,8 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
 
           // Get category and spent from item data (used in tooltip)
           const _category = (item as { category?: string }).category ?? "Category"
-          const _spent = typeof (item as { spent?: number }).spent === "number" 
-            ? (item as { spent?: number }).spent! 
+          const _spent = typeof (item as { spent?: number }).spent === "number"
+            ? (item as { spent?: number }).spent!
             : 0
 
           return (
@@ -261,7 +280,7 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
                     handleMouseMove(e as unknown as React.MouseEvent<SVGSVGElement>, index)
                   }
                 }}
-                style={{ 
+                style={{
                   cursor: "pointer",
                   transition: "stroke-width 0.2s ease-in-out, opacity 0.2s ease-in-out, stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
                   strokeWidth: hoveredRing === index ? ringSize + 2 : ringSize,
@@ -285,16 +304,16 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
           {(() => {
             const item = rings[hoveredRing]
             const category = (item as { category?: string }).category ?? "Category"
-            const spent = typeof (item as { spent?: number }).spent === "number" 
-              ? (item as { spent?: number }).spent! 
+            const spent = typeof (item as { spent?: number }).spent === "number"
+              ? (item as { spent?: number }).spent!
               : 0
-            
+
             // Calculate budget from ringLimits or default
             const storedLimit = ringLimits[category]
             const budget = typeof storedLimit === "number" && storedLimit > 0
               ? storedLimit
               : (getDefaultLimit ? getDefaultLimit() : null)
-            
+
             const pct = budget && budget > 0 ? ((spent / budget) * 100).toFixed(1) : '0'
             const exceeded = budget ? spent > budget : false
 
@@ -382,6 +401,62 @@ export default function AnalyticsPage() {
   const csvRegenerationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const latestParsedRowsRef = useRef<ParsedRow[]>([])
 
+  // Draggable ordering for all analytics charts
+  const [analyticsChartOrder, setAnalyticsChartOrder] = useState<string[]>([
+    "incomeExpensesTracking1",
+    "incomeExpensesTracking2",
+    "spendingCategoryRankings",
+    "netWorthAllocation",
+    "moneyFlow",
+    "expenseBreakdown",
+    "categoryBubbleMap",
+    "householdSpendMix",
+    "financialHealthScore",
+    "spendingActivityRings",
+    "spendingStreamgraph",
+    "transactionHistory",
+    "dayOfWeekSpending",
+    "allMonthsCategorySpending",
+    "singleMonthCategorySpending",
+    "dayOfWeekCategory",
+    "budgetDistribution",
+  ])
+  // Track expansion per chart so each card controls its own expanded state
+  const [expandedCharts, setExpandedCharts] = useState<Record<string, boolean>>({})
+
+  const dndSensors = useSensors(
+    useSensor(MouseSensor, {
+      activationConstraint: { distance: 3 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 100, tolerance: 4 },
+    }),
+  )
+
+  const handleAnalyticsChartsDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event
+      if (!over || active.id === over.id) return
+
+      // Update state immediately - React will batch this update
+      // The transform preservation in SortableAnalyticsChart will prevent snap-back
+      setAnalyticsChartOrder((items) => {
+        const oldIndex = items.indexOf(active.id as string)
+        const newIndex = items.indexOf(over.id as string)
+        if (oldIndex === -1 || newIndex === -1) return items
+        return arrayMove(items, oldIndex, newIndex)
+      })
+    },
+    [],
+  )
+
+  const handleToggleChartExpand = useCallback((id: string) => {
+    setExpandedCharts((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }))
+  }, [])
+
   // Transactions state
   const [rawTransactions, setRawTransactions] = useState<Array<{
     id: number
@@ -394,7 +469,7 @@ export default function AnalyticsPage() {
 
   // Date filter state
   const [dateFilter, setDateFilter] = useState<string | null>(null)
-  
+
   const [ringCategories, setRingCategories] = useState<string[]>([])
   const [allExpenseCategories, setAllExpenseCategories] = useState<string[]>([])
   // Independent limits used ONLY for Spending Activity Rings card
@@ -455,6 +530,11 @@ export default function AnalyticsPage() {
   })
   const dayOfWeekSpendingVisibility = useChartCategoryVisibility({
     chartId: "analytics:day-of-week-spending",
+    storageScope: "analytics",
+    normalizeCategory: normalizeCategoryName,
+  })
+  const monthOfYearSpendingVisibility = useChartCategoryVisibility({
+    chartId: "analytics:month-of-year-spending",
     storageScope: "analytics",
     normalizeCategory: normalizeCategoryName,
   })
@@ -547,13 +627,13 @@ export default function AnalyticsPage() {
   // Fetch transactions from Neon database
   const fetchTransactions = useCallback(async () => {
     try {
-      const url = dateFilter 
+      const url = dateFilter
         ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
         : "/api/transactions"
       console.log("[Analytics] Fetching transactions from:", url)
       const response = await fetch(url)
       const data = await response.json()
-      
+
       if (response.ok) {
         if (Array.isArray(data)) {
           console.log(`[Analytics] Setting ${data.length} transactions`)
@@ -718,7 +798,7 @@ export default function AnalyticsPage() {
       setTransactionCount(0)
 
       setParsingProgress(5)
-      
+
       try {
         const formData = new FormData()
         formData.append("file", file)
@@ -740,9 +820,9 @@ export default function AnalyticsPage() {
         } catch (categoriesError) {
           console.warn("[ANALYTICS] Failed to load categories from API. Using defaults.", categoriesError)
         }
-        
+
         setParsingProgress(20)
-        
+
         const response = await fetch("/api/statements/parse", {
           method: "POST",
           headers: {
@@ -771,7 +851,7 @@ export default function AnalyticsPage() {
         }
 
         let responseText = ""
-        
+
         if (response.body) {
           const reader = response.body.getReader()
           const contentLength = response.headers.get("content-length")
@@ -783,11 +863,11 @@ export default function AnalyticsPage() {
           while (true) {
             const { done, value } = await reader.read()
             if (done) break
-            
+
             const chunk = decoder.decode(value, { stream: true })
             chunks.push(chunk)
             received += value.length
-            
+
             if (total > 0) {
               const downloadProgress = (received / total) * 65
               setParsingProgress(25 + downloadProgress)
@@ -989,7 +1069,7 @@ export default function AnalyticsPage() {
     }
 
     window.addEventListener("dateFilterChanged", handleFilterChange as EventListener)
-    
+
     // Load initial filter from localStorage
     const savedFilter = localStorage.getItem("dateFilter")
     if (savedFilter) {
@@ -1000,7 +1080,7 @@ export default function AnalyticsPage() {
       window.removeEventListener("dateFilterChanged", handleFilterChange as EventListener)
     }
   }, [])
-  
+
   // Load per-category limits for Spending Activity Rings from database based on current filter
   useEffect(() => {
     let cancelled = false
@@ -1008,7 +1088,7 @@ export default function AnalyticsPage() {
     const loadRingLimits = async () => {
       try {
         // Load from database with current filter
-        const url = dateFilter 
+        const url = dateFilter
           ? `/api/budgets?filter=${encodeURIComponent(dateFilter)}`
           : "/api/budgets"
         const res = await fetch(url)
@@ -1070,17 +1150,12 @@ export default function AnalyticsPage() {
       }
     }
 
-    const visibleTransactions = rawTransactions.filter(tx => {
-      const category = (tx.category || "").toLowerCase()
-      return category !== "savings"
-    })
-
-    const currentIncome = visibleTransactions
+    const currentIncome = rawTransactions
       .filter(tx => tx.amount > 0)
       .reduce((sum, tx) => sum + tx.amount, 0)
 
     const currentExpenses = Math.abs(
-      visibleTransactions
+      rawTransactions
         .filter(tx => tx.amount < 0)
         .reduce((sum, tx) => sum + tx.amount, 0),
     )
@@ -1105,7 +1180,7 @@ export default function AnalyticsPage() {
     const threeMonthsAgoStr = formatDate(threeMonthsAgo)
     const sixMonthsAgoStr = formatDate(sixMonthsAgo)
 
-    const previousTransactions = visibleTransactions.filter(tx => {
+    const previousTransactions = rawTransactions.filter(tx => {
       const txDate = tx.date.split("T")[0]
       return txDate >= sixMonthsAgoStr && txDate < threeMonthsAgoStr
     })
@@ -1236,7 +1311,7 @@ export default function AnalyticsPage() {
 
       const exceeded = ratioToLimit !== null && amount > effectiveLimit
       const pct = ratioToLimit !== null ? (ratioToLimit * 100).toFixed(1) : '0'
-      
+
       return {
         // Label is used by the ActivityRings tooltip on hover
         label:
@@ -1267,9 +1342,9 @@ export default function AnalyticsPage() {
       incomeExpenseVisibility.hiddenCategorySet.size === 0
         ? rawTransactions
         : rawTransactions.filter((tx) => {
-            const category = normalizeCategoryName(tx.category)
-            return !incomeExpenseVisibility.hiddenCategorySet.has(category)
-          })
+          const category = normalizeCategoryName(tx.category)
+          return !incomeExpenseVisibility.hiddenCategorySet.has(category)
+        })
 
     const grouped = filteredSource.reduce((acc, tx) => {
       const date = tx.date.split("T")[0]
@@ -1328,7 +1403,7 @@ export default function AnalyticsPage() {
         // All time: use months
         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
       }
-      
+
       switch (dateFilter) {
         case "last7days":
         case "last30days":
@@ -1438,9 +1513,9 @@ export default function AnalyticsPage() {
       spendingFunnelVisibility.hiddenCategorySet.size === 0
         ? rawTransactions
         : rawTransactions.filter((tx) => {
-            const category = normalizeCategoryName(tx.category)
-            return !spendingFunnelVisibility.hiddenCategorySet.has(category)
-          })
+          const category = normalizeCategoryName(tx.category)
+          return !spendingFunnelVisibility.hiddenCategorySet.has(category)
+        })
 
     if (!filteredSource.length) {
       return { data: [], categories: Array.from(categorySet) }
@@ -1551,9 +1626,9 @@ export default function AnalyticsPage() {
       expensesPieVisibility.hiddenCategorySet.size === 0
         ? rawTransactions
         : rawTransactions.filter((tx) => {
-            const category = normalizeCategoryName(tx.category)
-            return !expensesPieVisibility.hiddenCategorySet.has(category)
-          })
+          const category = normalizeCategoryName(tx.category)
+          return !expensesPieVisibility.hiddenCategorySet.has(category)
+        })
 
     const categoryMap = new Map<string, number>()
     filteredSource
@@ -1634,7 +1709,7 @@ export default function AnalyticsPage() {
         // All time: use months
         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
       }
-      
+
       switch (dateFilter) {
         case "last7days":
           // Daily grouping for 7 days
@@ -1839,9 +1914,9 @@ export default function AnalyticsPage() {
       sankeyVisibility.hiddenCategorySet.size === 0
         ? rawTransactions
         : rawTransactions.filter((tx) => {
-            const category = normalizeCategoryName(tx.category)
-            return !sankeyVisibility.hiddenCategorySet.has(category)
-          })
+          const category = normalizeCategoryName(tx.category)
+          return !sankeyVisibility.hiddenCategorySet.has(category)
+        })
 
     if (!filteredSource.length) {
       return { graph: { nodes: [], links: [] }, categories: Array.from(categorySet) }
@@ -2028,564 +2103,900 @@ export default function AnalyticsPage() {
                 savingsRateChange={stats.savingsRateChange}
                 netWorthChange={stats.netWorthChange}
               />
-              <div className="px-4 lg:px-6">
-                <ChartAreaInteractive
-                  categoryControls={incomeExpenseTopControls}
-                  data={useMemo(() => {
-                    // Filter out savings category
-                    const filteredTransactions = rawTransactions.filter(tx => {
-                      const category = (tx.category || "").toLowerCase()
-                      return category !== "savings"
-                    })
 
-                    // Apply visibility filters
-                    const filteredSource =
-                      incomeExpenseTopVisibility.hiddenCategorySet.size === 0
-                        ? filteredTransactions
-                        : filteredTransactions.filter((tx) => {
-                            const category = normalizeCategoryName(tx.category)
-                            return !incomeExpenseTopVisibility.hiddenCategorySet.has(category)
-                          })
+              {/* Draggable analytics chart section */}
+              <DndContext
+                sensors={dndSensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleAnalyticsChartsDragEnd}
+              >
+                <SortableContext items={analyticsChartOrder} strategy={rectSortingStrategy}>
+                  <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
+                    {analyticsChartOrder.map((chartId) => {
+                      // Determine if chart should be full width (transactionHistory is always full width, or if expanded)
+                      const isFullWidth =
+                        chartId === "transactionHistory" || 
+                        chartId === "netWorthAllocation" ||
+                        chartId === "spendingStreamgraph" ||
+                        chartId === "incomeExpensesTracking1" ||
+                        chartId === "incomeExpensesTracking2" ||
+                        chartId === "spendingCategoryRankings" ||
+                        expandedCharts[chartId]
+                      const colSpanClass = isFullWidth
+                        ? "col-span-1 @3xl/main:col-span-2"
+                        : "col-span-1"
 
-                    // Group transactions by date first
-                    const transactionsByDate = new Map<string, Array<{ amount: number }>>()
-                    filteredSource.forEach(tx => {
-                      const date = tx.date.split('T')[0]
-                      if (!transactionsByDate.has(date)) {
-                        transactionsByDate.set(date, [])
-                      }
-                      transactionsByDate.get(date)!.push({ amount: tx.amount })
-                    })
+                      if (chartId === "transactionHistory") {
+                        return (
+                          <SortableAnalyticsChart
+                            key={chartId}
+                            id={chartId}
+                            className={colSpanClass}
+                          >
+                            <ChartSwarmPlot
+                              data={useMemo(() => {
+                                if (!rawTransactions || rawTransactions.length === 0) {
+                                  return []
+                                }
 
-                    // Sort dates chronologically
-                    const sortedDates = Array.from(transactionsByDate.keys()).sort((a, b) => a.localeCompare(b))
+                                const CATEGORY_GROUPS: Record<string, string[]> = {
+                                  Essentials: [
+                                    "Groceries",
+                                    "Rent",
+                                    "Mortgage",
+                                    "Utilities",
+                                    "Insurance",
+                                    "Taxes",
+                                    "Healthcare",
+                                    "Health",
+                                    "Medical",
+                                  ],
+                                  Lifestyle: [
+                                    "Shopping",
+                                    "Travel",
+                                    "Entertainment",
+                                    "Restaurants",
+                                    "Bars",
+                                    "Subscriptions",
+                                    "Services",
+                                    "Education",
+                                    "Personal",
+                                    "Leisure",
+                                  ],
+                                  Transport: [
+                                    "Transport",
+                                    "Transportation",
+                                    "Fuel",
+                                    "Gas",
+                                    "Car",
+                                    "Ride",
+                                    "Transit",
+                                    "Commute",
+                                  ],
+                                  Financial: [
+                                    "Transfers",
+                                    "Transfer",
+                                    "Fees",
+                                    "Banking",
+                                    "Savings",
+                                    "Investments",
+                                    "Loan",
+                                    "Debt",
+                                    "Mortgage",
+                                  ],
+                                }
 
-                    // Calculate income by date (keep as is - daily income)
-                    const incomeByDate = new Map<string, number>()
-                    sortedDates.forEach(date => {
-                      const dayTransactions = transactionsByDate.get(date)!
-                      const dayIncome = dayTransactions
-                        .filter(tx => tx.amount > 0)
-                        .reduce((sum, tx) => sum + tx.amount, 0)
-                      if (dayIncome > 0) {
-                        incomeByDate.set(date, dayIncome)
-                      }
-                    })
+                                const CATEGORY_DEFAULT_GROUP = "Essentials"
 
-                    // Calculate cumulative expenses (accumulate over time, reduced by income)
-                    let cumulativeExpenses = 0
-                    const cumulativeExpensesByDate = new Map<string, number>()
-                    
-                    sortedDates.forEach(date => {
-                      const dayTransactions = transactionsByDate.get(date)!
-                      
-                      // Process all transactions for this day
-                      dayTransactions.forEach(tx => {
-                        if (tx.amount < 0) {
-                          // Add expense to cumulative total
-                          cumulativeExpenses += Math.abs(tx.amount)
-                        } else if (tx.amount > 0) {
-                          // Reduce cumulative expenses by income amount
-                          cumulativeExpenses = Math.max(0, cumulativeExpenses - tx.amount)
-                        }
-                      })
-                      
-                      // Store the cumulative value at the end of this date
-                      cumulativeExpensesByDate.set(date, cumulativeExpenses)
-                    })
-
-                    // Combine income and cumulative expenses by date
-                    const result = sortedDates.map(date => ({
-                      date,
-                      desktop: incomeByDate.get(date) || 0,
-                      mobile: cumulativeExpensesByDate.get(date) || 0
-                    }))
-
-                    return result
-                  }, [rawTransactions, incomeExpenseTopVisibility.hiddenCategorySet, normalizeCategoryName])}
-                />
-              </div>
-              <div className="px-4 lg:px-6">
-                <ChartAreaInteractive
-                  categoryControls={incomeExpenseControls}
-                  data={incomeExpenseChart.data}
-                />
-              </div>
-              <div className="px-4 lg:px-6">
-                <ChartCategoryFlow
-                  categoryControls={categoryFlowControls}
-                  data={categoryFlowChart.data}
-                />
-              </div>
-              <div className="px-4 lg:px-6">
-                <ChartTreeMap 
-                  categoryControls={treeMapControls}
-                  data={useMemo(() => {
-                    // Apply visibility filters
-                    const filteredSource =
-                      treeMapVisibility.hiddenCategorySet.size === 0
-                        ? rawTransactions
-                        : rawTransactions.filter((tx) => {
-                            const category = normalizeCategoryName(tx.category)
-                            return !treeMapVisibility.hiddenCategorySet.has(category)
-                          })
-
-                    const categoryMap = new Map<string, { total: number; subcategories: Map<string, { amount: number; fullDescription: string }> }>()
-
-                    const getSubCategoryLabel = (description?: string) => {
-                      if (!description) return "Misc"
-                      // Use first meaningful chunk of the description as a subcategory label
-                      const delimiterSplit = description.split(/[-–|]/)[0] ?? description
-                      const trimmed = delimiterSplit.trim()
-                      return trimmed.length > 24 ? `${trimmed.slice(0, 21)}…` : (trimmed || "Misc")
-                    }
-
-                    filteredSource
-                      .filter(tx => tx.amount < 0)
-                      .forEach(tx => {
-                        const category = tx.category || "Other"
-                        const amount = Math.abs(tx.amount)
-                        if (!categoryMap.has(category)) {
-                          categoryMap.set(category, { total: 0, subcategories: new Map() })
-                        }
-                        const categoryEntry = categoryMap.get(category)!
-                        categoryEntry.total += amount
-
-                        const subCategory = getSubCategoryLabel(tx.description)
-                        const existing = categoryEntry.subcategories.get(subCategory)
-                        if (existing) {
-                          existing.amount += amount
-                        } else {
-                          categoryEntry.subcategories.set(subCategory, { 
-                            amount, 
-                            fullDescription: tx.description || subCategory 
-                          })
-                        }
-                      })
-
-                    const maxSubCategories = 5
-
-                    return {
-                      name: "Expenses",
-                      children: Array.from(categoryMap.entries())
-                        .map(([name, { total, subcategories }]) => {
-                          const sortedSubs = Array.from(subcategories.entries()).sort((a, b) => b[1].amount - a[1].amount)
-                          const topSubs = sortedSubs.slice(0, maxSubCategories)
-                          const remainingTotal = sortedSubs.slice(maxSubCategories).reduce((sum, [, value]) => sum + value.amount, 0)
-                          const children = topSubs.map(([subName, { amount: loc, fullDescription }]) => ({ 
-                            name: subName, 
-                            loc,
-                            fullDescription 
-                          }))
-                          if (remainingTotal > 0) {
-                            children.push({ name: "Other", loc: remainingTotal, fullDescription: "Other transactions" })
-                          }
-                          return {
-                            name,
-                            children: children.length > 0 ? children : [{ name, loc: total, fullDescription: name }]
-                          }
-                        })
-                        .sort((a, b) => {
-                          const aTotal = a.children.reduce((sum, child) => sum + (child.loc || 0), 0)
-                          const bTotal = b.children.reduce((sum, child) => sum + (child.loc || 0), 0)
-                          return bTotal - aTotal
-                        })
-                    }
-                  }, [rawTransactions, treeMapVisibility.hiddenCategorySet, normalizeCategoryName])}
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
-                <ChartSpendingFunnel
-                  categoryControls={spendingFunnelControls}
-                  data={spendingFunnelChart.data}
-                />
-                <ChartExpensesPie
-                  categoryControls={expensesPieControls}
-                  data={expensesPieData.slices}
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
-                <ChartCirclePacking
-                  categoryControls={circlePackingControls}
-                  data={circlePackingData.tree}
-                />
-                <ChartPolarBar
-                  categoryControls={polarBarControls}
-                  data={polarBarData.data}
-                  keys={polarBarData.keys}
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
-                <ChartRadar />
-                <Card>
-                  <CardHeader className="relative flex flex-row items-start justify-between gap-2">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="mb-0">Spending Activity Rings</CardTitle>
-                        <ChartInfoPopover
-                          title="Spending Activity Rings"
-                          description="Top spending categories from your Neon transactions"
-                          details={[
-                            "Each ring shows how much a category has consumed relative to its budget.",
-                            "Budgets come from your saved limits or a default amount for the selected date filter.",
-                          ]}
-                        />
-                      </div>
-                      <CardDescription>
-                        Top spending categories from your Neon transactions
-                      </CardDescription>
-                    </div>
-                    {activityData.length > 0 && (
-                      <div className="absolute top-2 right-4 flex flex-col gap-1 z-10 w-[140px]">
-                        <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground text-right">
-                          Limits
-                        </span>
-                        <div className="flex flex-col gap-1">
-                          {activityData.map((item, idx) => {
-                            const category: string =
-                              (item as { category?: string }).category ??
-                              (item.label ?? "Other")
-                            const storedLimit = ringLimits[category]
-                            const limit =
-                              typeof storedLimit === "number" &&
-                              storedLimit > 0
-                                ? storedLimit
-                                : getDefaultRingLimit(dateFilter)
-                            const percent = (item.value * 100).toFixed(1)
-                            const spent =
-                              typeof (item as { spent?: number }).spent ===
-                              "number"
-                                ? (item as { spent?: number }).spent!
-                                : null
-                            return (
-                              <Popover
-                                key={`${category}-${idx}`}
-                                open={ringCategoryPopoverIndex === idx}
-                                onOpenChange={(open) => {
-                                  if (
-                                    open &&
-                                    allExpenseCategories &&
-                                    allExpenseCategories.length
-                                  ) {
-                                    const currentCategory =
-                                      (category as string) ||
-                                      allExpenseCategories[0]
-                                    setRingCategoryPopoverIndex(idx)
-                                    setRingCategoryPopoverValue(
-                                      currentCategory
-                                    )
-                                    const currentLimitRaw =
-                                      ringLimits[currentCategory]
-                                    const currentLimit =
-                                      typeof currentLimitRaw === "number" &&
-                                      currentLimitRaw > 0
-                                        ? currentLimitRaw
-                                        : getDefaultRingLimit(dateFilter)
-                                    setRingLimitPopoverValue(
-                                      currentLimit.toString()
-                                    )
-                                  } else {
-                                    setRingCategoryPopoverIndex(null)
-                                    setRingCategoryPopoverValue(null)
-                                    setRingLimitPopoverValue("")
-                                  }
-                                }}
-                              >
-                                <PopoverTrigger asChild>
-                                  <div className="flex items-center gap-1 bg-background/80 backdrop-blur-sm p-1 rounded border cursor-pointer">
-                                    <button
-                                      type="button"
-                                      className="px-1.5 py-0.5 text-[0.7rem] rounded w-full flex items-center justify-between gap-1.5 hover:bg-muted/80 bg-muted"
-                                      title={
-                                        limit
-                                          ? `${category} – ${percent}% of limit (${item.value} of 1.0)`
-                                          : `${category} – no limit set`
-                                      }
-                                    >
-                                      <span className="max-w-[170px] whitespace-normal">
-                                        {category}
-                                      </span>
-                                      <span className="text-[0.65rem] font-medium text-muted-foreground flex-shrink-0 text-right">
-                                        {spent !== null
-                                          ? `$${spent.toFixed(2)}`
-                                          : `${percent}%`}
-                                      </span>
-                                    </button>
-                                  </div>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-56" align="end">
-                                  <RingPopoverContent
-                                    initialCategory={ringCategoryPopoverValue ?? (category as string)}
-                                    initialLimit={
-                                      ringLimitPopoverValue
-                                        ? parseFloat(ringLimitPopoverValue) || limit
-                                        : limit
+                                const resolveGroup = (categoryName: string): string => {
+                                  const normalized = categoryName.toLowerCase()
+                                  for (const [group, categories] of Object.entries(CATEGORY_GROUPS)) {
+                                    if (
+                                      categories.some((cat) =>
+                                        normalized.includes(cat.toLowerCase()),
+                                      )
+                                    ) {
+                                      return group
                                     }
-                                    allCategories={allExpenseCategories}
-                                    onSave={async (savedCategory, savedLimit) => {
-                                      if (!savedCategory) {
-                                        setRingCategoryPopoverIndex(null)
-                                        setRingCategoryPopoverValue(null)
-                                        setRingLimitPopoverValue("")
-                                        return
-                                      }
-                                      setRingCategories((prev) => {
-                                        const base =
-                                          prev && prev.length
-                                            ? [...prev]
-                                            : activityData.map(
-                                                (ringItem) => {
-                                                  const ringCategory =
-                                                    (ringItem as {
-                                                      category?: string
-                                                    }).category ??
-                                                    ringItem.label
-                                                  return ringCategory as string
-                                                }
-                                              )
-                                        base[ringCategoryPopoverIndex ?? idx] = savedCategory
-                                        return base
+                                  }
+                                  return CATEGORY_DEFAULT_GROUP
+                                }
+
+                                const computeVolume = (amount: number): number => {
+                                  const min = 4
+                                  const max = 20
+                                  if (!Number.isFinite(amount) || amount <= 0) {
+                                    return min
+                                  }
+                                  const scaled = Math.round(amount / 50)
+                                  return Math.max(min, Math.min(max, scaled))
+                                }
+
+                                return rawTransactions
+                                  .filter((tx) => tx.amount < 0) // Only expenses
+                                  .map((tx, index) => {
+                                    const normalizedAmount = Math.abs(tx.amount)
+                                    const rawCategory = tx.category || "Other"
+                                    const group = resolveGroup(rawCategory)
+
+                                    return {
+                                      id: tx.id ? `tx-${tx.id}` : `tx-${index}`,
+                                      group,
+                                      price: normalizedAmount,
+                                      volume: computeVolume(normalizedAmount),
+                                      category: rawCategory,
+                                      color: null,
+                                      date: tx.date.split("T")[0],
+                                      description: tx.description,
+                                    }
+                                  })
+                              }, [rawTransactions])}
+                            />
+                          </SortableAnalyticsChart>
+                        )
+                      }
+
+                      if (chartId === "dayOfWeekSpending") {
+                        return (
+                          <SortableAnalyticsChart
+                            key={chartId}
+                            id={chartId}
+                            className={colSpanClass}
+                          >
+                            <ChartDayOfWeekSpending
+                              data={rawTransactions}
+                              categoryControls={dayOfWeekSpendingVisibility.buildCategoryControls(
+                                Array.from(
+                                  new Set(
+                                    rawTransactions
+                                      .filter((tx) => Number(tx.amount) < 0)
+                                      .map((tx) => normalizeCategoryName(tx.category)),
+                                  ),
+                                ).sort(),
+                              )}
+                              isExpanded={!!expandedCharts["dayOfWeekSpending"]}
+                              onToggleExpand={() => handleToggleChartExpand("dayOfWeekSpending")}
+                            />
+                          </SortableAnalyticsChart>
+                        )
+                      }
+
+                      if (chartId === "allMonthsCategorySpending") {
+                        return (
+                          <SortableAnalyticsChart
+                            key={chartId}
+                            id={chartId}
+                            className={colSpanClass}
+                          >
+                            <ChartAllMonthsCategorySpending
+                              data={rawTransactions}
+                              categoryControls={useMemo(() => {
+                                const categories = Array.from(
+                                  new Set(
+                                    rawTransactions
+                                      .filter((tx) => Number(tx.amount) < 0)
+                                      .map((tx) => normalizeCategoryName(tx.category)),
+                                  ),
+                                ).sort()
+                                return monthOfYearSpendingVisibility.buildCategoryControls(
+                                  categories,
+                                )
+                              }, [
+                                rawTransactions,
+                                monthOfYearSpendingVisibility,
+                                normalizeCategoryName,
+                              ])}
+                              isExpanded={!!expandedCharts["allMonthsCategorySpending"]}
+                              onToggleExpand={() =>
+                                handleToggleChartExpand("allMonthsCategorySpending")
+                              }
+                            />
+                          </SortableAnalyticsChart>
+                        )
+                      }
+
+                      if (chartId === "incomeExpensesTracking1") {
+                        return (
+                          <SortableAnalyticsChart
+                            key={chartId}
+                            id={chartId}
+                            className={colSpanClass}
+                          >
+                            <ChartAreaInteractive
+                              categoryControls={incomeExpenseTopControls}
+                              data={useMemo(() => {
+                                const filteredSource =
+                                  incomeExpenseTopVisibility.hiddenCategorySet.size === 0
+                                    ? rawTransactions
+                                    : rawTransactions.filter((tx) => {
+                                      const category = normalizeCategoryName(tx.category)
+                                      return !incomeExpenseTopVisibility.hiddenCategorySet.has(category)
+                                    })
+                                const transactionsByDate = new Map<string, Array<{ amount: number }>>()
+                                filteredSource.forEach(tx => {
+                                  const date = tx.date.split('T')[0]
+                                  if (!transactionsByDate.has(date)) {
+                                    transactionsByDate.set(date, [])
+                                  }
+                                  transactionsByDate.get(date)!.push({ amount: tx.amount })
+                                })
+                                const sortedDates = Array.from(transactionsByDate.keys()).sort((a, b) => a.localeCompare(b))
+                                const incomeByDate = new Map<string, number>()
+                                sortedDates.forEach(date => {
+                                  const dayTransactions = transactionsByDate.get(date)!
+                                  const dayIncome = dayTransactions
+                                    .filter(tx => tx.amount > 0)
+                                    .reduce((sum, tx) => sum + tx.amount, 0)
+                                  if (dayIncome > 0) {
+                                    incomeByDate.set(date, dayIncome)
+                                  }
+                                })
+                                let cumulativeExpenses = 0
+                                const cumulativeExpensesByDate = new Map<string, number>()
+                                sortedDates.forEach(date => {
+                                  const dayTransactions = transactionsByDate.get(date)!
+                                  dayTransactions.forEach(tx => {
+                                    if (tx.amount < 0) {
+                                      cumulativeExpenses += Math.abs(tx.amount)
+                                    } else if (tx.amount > 0) {
+                                      cumulativeExpenses = Math.max(0, cumulativeExpenses - tx.amount)
+                                    }
+                                  })
+                                  cumulativeExpensesByDate.set(date, cumulativeExpenses)
+                                })
+                                return sortedDates.map(date => ({
+                                  date,
+                                  desktop: incomeByDate.get(date) || 0,
+                                  mobile: cumulativeExpensesByDate.get(date) || 0
+                                }))
+                              }, [rawTransactions, incomeExpenseTopVisibility.hiddenCategorySet, normalizeCategoryName])}
+                              isExpanded={!!expandedCharts["incomeExpensesTracking1"]}
+                              onToggleExpand={() => handleToggleChartExpand("incomeExpensesTracking1")}
+                            />
+                          </SortableAnalyticsChart>
+                        )
+                      }
+
+                      if (chartId === "incomeExpensesTracking2") {
+                        return (
+                          <SortableAnalyticsChart
+                            key={chartId}
+                            id={chartId}
+                            className={colSpanClass}
+                          >
+                            <ChartAreaInteractive
+                              categoryControls={incomeExpenseControls}
+                              data={incomeExpenseChart.data}
+                              isExpanded={!!expandedCharts["incomeExpensesTracking2"]}
+                              onToggleExpand={() => handleToggleChartExpand("incomeExpensesTracking2")}
+                            />
+                          </SortableAnalyticsChart>
+                        )
+                      }
+
+                      if (chartId === "spendingCategoryRankings") {
+                        return (
+                          <SortableAnalyticsChart
+                            key={chartId}
+                            id={chartId}
+                            className={colSpanClass}
+                          >
+                            <ChartCategoryFlow
+                              categoryControls={categoryFlowControls}
+                              data={categoryFlowChart.data}
+                              isExpanded={!!expandedCharts["spendingCategoryRankings"]}
+                              onToggleExpand={() => handleToggleChartExpand("spendingCategoryRankings")}
+                            />
+                          </SortableAnalyticsChart>
+                        )
+                      }
+
+                      if (chartId === "netWorthAllocation") {
+                        return (
+                          <SortableAnalyticsChart
+                            key={chartId}
+                            id={chartId}
+                            className={colSpanClass}
+                          >
+                            <ChartTreeMap
+                              categoryControls={treeMapControls}
+                              data={useMemo(() => {
+                                const filteredSource =
+                                  treeMapVisibility.hiddenCategorySet.size === 0
+                                    ? rawTransactions
+                                    : rawTransactions.filter((tx) => {
+                                      const category = normalizeCategoryName(tx.category)
+                                      return !treeMapVisibility.hiddenCategorySet.has(category)
+                                    })
+                                const categoryMap = new Map<string, { total: number; subcategories: Map<string, { amount: number; fullDescription: string }> }>()
+                                const getSubCategoryLabel = (description?: string) => {
+                                  if (!description) return "Misc"
+                                  const delimiterSplit = description.split(/[-–|]/)[0] ?? description
+                                  const trimmed = delimiterSplit.trim()
+                                  return trimmed.length > 24 ? `${trimmed.slice(0, 21)}…` : (trimmed || "Misc")
+                                }
+                                filteredSource
+                                  .filter(tx => tx.amount < 0)
+                                  .forEach(tx => {
+                                    const category = tx.category || "Other"
+                                    const amount = Math.abs(tx.amount)
+                                    if (!categoryMap.has(category)) {
+                                      categoryMap.set(category, { total: 0, subcategories: new Map() })
+                                    }
+                                    const categoryEntry = categoryMap.get(category)!
+                                    categoryEntry.total += amount
+                                    const subCategory = getSubCategoryLabel(tx.description)
+                                    const existing = categoryEntry.subcategories.get(subCategory)
+                                    if (existing) {
+                                      existing.amount += amount
+                                    } else {
+                                      categoryEntry.subcategories.set(subCategory, {
+                                        amount,
+                                        fullDescription: tx.description || subCategory
                                       })
-                                      if (savedLimit) {
-                                        const limitValue = parseFloat(savedLimit)
-                                        if (!isNaN(limitValue) && limitValue >= 0) {
-                                          setRingLimits((prev) => {
-                                            const updated = {
-                                              ...prev,
-                                              [savedCategory]: limitValue,
-                                            }
-                                            if (typeof window !== "undefined") {
-                                              localStorage.setItem(
-                                                "activityRingLimits",
-                                                JSON.stringify(updated)
-                                              )
-                                            }
-                                            return updated
-                                          })
-                                          
-                                          // Save to database with current filter
-                                          try {
-                                            const res = await fetch("/api/budgets", {
-                                              method: "POST",
-                                              headers: {
-                                                "Content-Type": "application/json",
-                                              },
-                                              body: JSON.stringify({
-                                                categoryName: savedCategory,
-                                                budget: limitValue,
-                                                filter: dateFilter, // Include current filter
-                                              }),
-                                            })
-                                            
-                                            if (!res.ok) {
-                                              console.error(
-                                                "[Analytics] Failed to save ring limit:",
-                                                await res.text()
-                                              )
-                                            }
-                                          } catch (error) {
-                                            console.error("[Analytics] Error saving ring limit:", error)
-                                          }
-                                        }
+                                    }
+                                  })
+                                const maxSubCategories = 5
+                                return {
+                                  name: "Expenses",
+                                  children: Array.from(categoryMap.entries())
+                                    .map(([name, { total, subcategories }]) => {
+                                      const sortedSubs = Array.from(subcategories.entries()).sort((a, b) => b[1].amount - a[1].amount)
+                                      const topSubs = sortedSubs.slice(0, maxSubCategories)
+                                      const remainingTotal = sortedSubs.slice(maxSubCategories).reduce((sum, [, value]) => sum + value.amount, 0)
+                                      const children = topSubs.map(([subName, { amount: loc, fullDescription }]) => ({
+                                        name: subName,
+                                        loc,
+                                        fullDescription
+                                      }))
+                                      if (remainingTotal > 0) {
+                                        children.push({ name: "Other", loc: remainingTotal, fullDescription: "Other transactions" })
                                       }
-                                      setRingCategoryPopoverIndex(null)
-                                      setRingCategoryPopoverValue(null)
-                                      setRingLimitPopoverValue("")
-                                    }}
-                                    onCancel={() => {
-                                      setRingCategoryPopoverIndex(null)
-                                      setRingCategoryPopoverValue(null)
-                                      setRingLimitPopoverValue("")
-                                    }}
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </CardHeader>
-                  <CardContent className="h-[420px] flex flex-col items-center justify-between">
-                    {activityData.length === 0 ? (
-                      <span className="text-sm text-muted-foreground">
-                        No expense categories available yet.
-                      </span>
-                    ) : (
-                      <>
-                        <div className="flex items-center justify-center pt-4">
-                          <SpendingActivityRings
-                            key={`rings-${dateFilter}-${ringCategories?.join(',') || ''}`}
-                            data={activityData}
-                            config={activityConfig}
-                            theme={activityTheme as "light" | "dark"}
-                            ringLimits={ringLimits}
-                            getDefaultLimit={() => getDefaultRingLimit(dateFilter)}
-                          />
-                        </div>
-                        <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
-                          {activityData.map((item) => {
-                            const category =
-                              (item as { category?: string }).category ??
-                              item.label
-                            return (
-                            <div
-                              key={category}
-                              className="flex items-center gap-1.5"
-                            >
-                              <span
-                                className="h-2 w-2 rounded-full"
-                                style={{
-                                  backgroundColor:
-                                    (item as { color?: string }).color ||
-                                    "#a1a1aa",
-                                }}
-                              />
-                              <span className="font-medium">
-                                {category}
-                              </span>
-                              <span className="text-[0.7rem]">
-                                {(item.value * 100).toFixed(0)}%
-                              </span>
-                            </div>
-                            )
-                          })}
-                        </div>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-              <div className="px-4 lg:px-6">
-                <ChartSpendingStreamgraph
-                  categoryControls={streamgraphControls}
-                  data={spendingStreamData.data}
-                  keys={spendingStreamData.keys}
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
-                <ChartSwarmPlot data={useMemo(() => {
-                  if (!rawTransactions || rawTransactions.length === 0) {
-                    return []
-                  }
-
-                  const CATEGORY_GROUPS: Record<string, string[]> = {
-                    Essentials: [
-                      "Groceries",
-                      "Rent",
-                      "Mortgage",
-                      "Utilities",
-                      "Insurance",
-                      "Taxes",
-                      "Healthcare",
-                      "Health",
-                      "Medical",
-                    ],
-                    Lifestyle: [
-                      "Shopping",
-                      "Travel",
-                      "Entertainment",
-                      "Restaurants",
-                      "Bars",
-                      "Subscriptions",
-                      "Services",
-                      "Education",
-                      "Personal",
-                      "Leisure",
-                    ],
-                    Transport: [
-                      "Transport",
-                      "Transportation",
-                      "Fuel",
-                      "Gas",
-                      "Car",
-                      "Ride",
-                      "Transit",
-                      "Commute",
-                    ],
-                    Financial: [
-                      "Transfers",
-                      "Transfer",
-                      "Fees",
-                      "Banking",
-                      "Savings",
-                      "Investments",
-                      "Loan",
-                      "Debt",
-                      "Mortgage",
-                    ],
-                  }
-
-                  const CATEGORY_DEFAULT_GROUP = "Essentials"
-
-                  const resolveGroup = (categoryName: string): string => {
-                    const normalized = categoryName.toLowerCase()
-                    for (const [group, categories] of Object.entries(CATEGORY_GROUPS)) {
-                      if (
-                        categories.some((cat) => normalized.includes(cat.toLowerCase()))
-                      ) {
-                        return group
+                                      return {
+                                        name,
+                                        children: children.length > 0 ? children : [{ name, loc: total, fullDescription: name }]
+                                      }
+                                    })
+                                    .sort((a, b) => {
+                                      const aTotal = a.children.reduce((sum, child) => sum + (child.loc || 0), 0)
+                                      const bTotal = b.children.reduce((sum, child) => sum + (child.loc || 0), 0)
+                                      return bTotal - aTotal
+                                    })
+                                }
+                              }, [rawTransactions, treeMapVisibility.hiddenCategorySet, normalizeCategoryName])}
+                              isExpanded={!!expandedCharts["netWorthAllocation"]}
+                              onToggleExpand={() => handleToggleChartExpand("netWorthAllocation")}
+                            />
+                          </SortableAnalyticsChart>
+                        )
                       }
-                    }
-                    return CATEGORY_DEFAULT_GROUP
-                  }
 
-                  const computeVolume = (amount: number): number => {
-                    const min = 4
-                    const max = 20
-                    if (!Number.isFinite(amount) || amount <= 0) {
-                      return min
-                    }
-                    const scaled = Math.round(amount / 50)
-                    return Math.max(min, Math.min(max, scaled))
-                  }
-
-                  return rawTransactions
-                    .filter((tx) => tx.amount < 0) // Only expenses
-                    .map((tx, index) => {
-                      const normalizedAmount = Math.abs(tx.amount)
-                      const rawCategory = tx.category || "Other"
-                      const group = resolveGroup(rawCategory)
-
-                      return {
-                        id: tx.id ? `tx-${tx.id}` : `tx-${index}`,
-                        group,
-                        price: normalizedAmount,
-                        volume: computeVolume(normalizedAmount),
-                        category: rawCategory,
-                        color: null,
-                        date: tx.date.split('T')[0],
-                        description: tx.description,
+                      if (chartId === "moneyFlow") {
+                        return (
+                          <SortableAnalyticsChart
+                            key={chartId}
+                            id={chartId}
+                            className={colSpanClass}
+                          >
+                            <ChartSpendingFunnel
+                              categoryControls={spendingFunnelControls}
+                              data={spendingFunnelChart.data}
+                              isExpanded={!!expandedCharts["moneyFlow"]}
+                              onToggleExpand={() => handleToggleChartExpand("moneyFlow")}
+                            />
+                          </SortableAnalyticsChart>
+                        )
                       }
-                    })
-                }, [rawTransactions])} />
-              </div>
-              <div className="px-4 lg:px-6">
-                <ChartSankey
-                  categoryControls={sankeyControls}
-                  data={sankeyData.graph}
-                />
-              </div>
-              <div className="px-4 lg:px-6">
-                <ChartTransactionCalendar />
-              </div>
-              <div className="px-4 lg:px-6">
-                <ChartDayOfWeekSpending 
-                  data={rawTransactions}
-                  categoryControls={dayOfWeekSpendingVisibility.buildCategoryControls(
-                    Array.from(new Set(rawTransactions
-                      .filter(tx => Number(tx.amount) < 0)
-                      .map(tx => normalizeCategoryName(tx.category))
-                    )).sort()
-                  )}
-                />
-              </div>
-              <div className="px-4 lg:px-6">
-                <ChartBarCategory 
-                  data={rawTransactions}
-                  dateFilter={dateFilter}
-                />
-              </div>
+
+                      if (chartId === "expenseBreakdown") {
+                        return (
+                          <SortableAnalyticsChart
+                            key={chartId}
+                            id={chartId}
+                            className={colSpanClass}
+                          >
+                            <ChartExpensesPie
+                              categoryControls={expensesPieControls}
+                              data={expensesPieData.slices}
+                              isExpanded={!!expandedCharts["expenseBreakdown"]}
+                              onToggleExpand={() => handleToggleChartExpand("expenseBreakdown")}
+                            />
+                          </SortableAnalyticsChart>
+                        )
+                      }
+
+                      if (chartId === "categoryBubbleMap") {
+                        return (
+                          <SortableAnalyticsChart
+                            key={chartId}
+                            id={chartId}
+                            className={colSpanClass}
+                          >
+                            <ChartCategoryBubble
+                              data={rawTransactions}
+                              isExpanded={!!expandedCharts["categoryBubbleMap"]}
+                              onToggleExpand={() => handleToggleChartExpand("categoryBubbleMap")}
+                            />
+                          </SortableAnalyticsChart>
+                        )
+                      }
+
+                      if (chartId === "householdSpendMix") {
+                        return (
+                          <SortableAnalyticsChart
+                            key={chartId}
+                            id={chartId}
+                            className={colSpanClass}
+                          >
+                            <ChartPolarBar
+                              categoryControls={polarBarControls}
+                              data={polarBarData.data}
+                              keys={polarBarData.keys}
+                              isExpanded={!!expandedCharts["householdSpendMix"]}
+                              onToggleExpand={() => handleToggleChartExpand("householdSpendMix")}
+                            />
+                          </SortableAnalyticsChart>
+                        )
+                      }
+
+                      if (chartId === "financialHealthScore") {
+                        return (
+                          <SortableAnalyticsChart
+                            key={chartId}
+                            id={chartId}
+                            className={colSpanClass}
+                          >
+                            <ChartRadar
+                              isExpanded={!!expandedCharts["financialHealthScore"]}
+                              onToggleExpand={() => handleToggleChartExpand("financialHealthScore")}
+                            />
+                          </SortableAnalyticsChart>
+                        )
+                      }
+
+                      if (chartId === "spendingActivityRings") {
+                        return (
+                          <SortableAnalyticsChart
+                            key={chartId}
+                            id={chartId}
+                            className={colSpanClass}
+                          >
+                            <Card>
+                              <CardHeader className="relative flex flex-row items-start justify-between gap-2">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <CardTitle className="mb-0">Spending Activity Rings</CardTitle>
+                                    <ChartInfoPopover
+                                      title="Spending Activity Rings"
+                                      description="Top spending categories from your Neon transactions"
+                                      details={[
+                                        "Each ring shows how much a category has consumed relative to its budget.",
+                                        "Budgets come from your saved limits or a default amount for the selected date filter.",
+                                      ]}
+                                    />
+                                  </div>
+                                  <CardDescription>
+                                    Top spending categories from your Neon transactions
+                                  </CardDescription>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {activityData.length > 0 && (
+                                    <div className="flex flex-col gap-1 z-10 w-[140px]">
+                                      <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground text-right">
+                                        Limits
+                                      </span>
+                                      <div className="flex flex-col gap-1">
+                                        {activityData.map((item, idx) => {
+                                          const category: string =
+                                            (item as { category?: string }).category ??
+                                            (item.label ?? "Other")
+                                          const storedLimit = ringLimits[category]
+                                          const limit =
+                                            typeof storedLimit === "number" &&
+                                              storedLimit > 0
+                                              ? storedLimit
+                                              : getDefaultRingLimit(dateFilter)
+                                          const percent = (item.value * 100).toFixed(1)
+                                          const spent =
+                                            typeof (item as { spent?: number }).spent ===
+                                              "number"
+                                              ? (item as { spent?: number }).spent!
+                                              : null
+                                          return (
+                                            <Popover
+                                              key={`${category}-${idx}`}
+                                              open={ringCategoryPopoverIndex === idx}
+                                              onOpenChange={(open) => {
+                                                if (
+                                                  open &&
+                                                  allExpenseCategories &&
+                                                  allExpenseCategories.length
+                                                ) {
+                                                  const currentCategory =
+                                                    (category as string) ||
+                                                    allExpenseCategories[0]
+                                                  setRingCategoryPopoverIndex(idx)
+                                                  setRingCategoryPopoverValue(
+                                                    currentCategory
+                                                  )
+                                                  const currentLimitRaw =
+                                                    ringLimits[currentCategory]
+                                                  const currentLimit =
+                                                    typeof currentLimitRaw === "number" &&
+                                                      currentLimitRaw > 0
+                                                      ? currentLimitRaw
+                                                      : getDefaultRingLimit(dateFilter)
+                                                  setRingLimitPopoverValue(
+                                                    currentLimit.toString()
+                                                  )
+                                                } else {
+                                                  setRingCategoryPopoverIndex(null)
+                                                  setRingCategoryPopoverValue(null)
+                                                  setRingLimitPopoverValue("")
+                                                }
+                                              }}
+                                            >
+                                              <PopoverTrigger asChild>
+                                                <div className="flex items-center gap-1 bg-background/80 backdrop-blur-sm p-1 rounded border cursor-pointer">
+                                                  <button
+                                                    type="button"
+                                                    className="px-1.5 py-0.5 text-[0.7rem] rounded w-full flex items-center justify-between gap-1.5 hover:bg-muted/80 bg-muted"
+                                                    title={
+                                                      limit
+                                                        ? `${category} – ${percent}% of limit (${item.value} of 1.0)`
+                                                        : `${category} – no limit set`
+                                                    }
+                                                  >
+                                                    <span className="max-w-[170px] whitespace-normal">
+                                                      {category}
+                                                    </span>
+                                                    <span className="text-[0.65rem] font-medium text-muted-foreground flex-shrink-0 text-right">
+                                                      {spent !== null
+                                                        ? `$${spent.toFixed(2)}`
+                                                        : `${percent}%`}
+                                                    </span>
+                                                  </button>
+                                                </div>
+                                              </PopoverTrigger>
+                                              <PopoverContent className="w-56" align="end">
+                                                <RingPopoverContent
+                                                  initialCategory={ringCategoryPopoverValue ?? (category as string)}
+                                                  initialLimit={
+                                                    ringLimitPopoverValue
+                                                      ? parseFloat(ringLimitPopoverValue) || limit
+                                                      : limit
+                                                  }
+                                                  allCategories={allExpenseCategories}
+                                                  onSave={async (savedCategory, savedLimit) => {
+                                                    if (!savedCategory) {
+                                                      setRingCategoryPopoverIndex(null)
+                                                      setRingCategoryPopoverValue(null)
+                                                      setRingLimitPopoverValue("")
+                                                      return
+                                                    }
+                                                    setRingCategories((prev) => {
+                                                      const base =
+                                                        prev && prev.length
+                                                          ? [...prev]
+                                                          : activityData.map(
+                                                            (ringItem) => {
+                                                              const ringCategory =
+                                                                (ringItem as {
+                                                                  category?: string
+                                                                }).category ??
+                                                                ringItem.label
+                                                              return ringCategory as string
+                                                            }
+                                                          )
+                                                      base[ringCategoryPopoverIndex ?? idx] = savedCategory
+                                                      return base
+                                                    })
+                                                    if (savedLimit) {
+                                                      const limitValue = parseFloat(savedLimit)
+                                                      if (!isNaN(limitValue) && limitValue >= 0) {
+                                                        setRingLimits((prev) => {
+                                                          const updated = {
+                                                            ...prev,
+                                                            [savedCategory]: limitValue,
+                                                          }
+                                                          if (typeof window !== "undefined") {
+                                                            localStorage.setItem(
+                                                              "activityRingLimits",
+                                                              JSON.stringify(updated)
+                                                            )
+                                                          }
+                                                          return updated
+                                                        })
+
+                                                        // Save to database with current filter
+                                                        try {
+                                                          const res = await fetch("/api/budgets", {
+                                                            method: "POST",
+                                                            headers: {
+                                                              "Content-Type": "application/json",
+                                                            },
+                                                            body: JSON.stringify({
+                                                              categoryName: savedCategory,
+                                                              budget: limitValue,
+                                                              filter: dateFilter, // Include current filter
+                                                            }),
+                                                          })
+
+                                                          if (!res.ok) {
+                                                            console.error(
+                                                              "[Analytics] Failed to save ring limit:",
+                                                              await res.text()
+                                                            )
+                                                          }
+                                                        } catch (error) {
+                                                          console.error("[Analytics] Error saving ring limit:", error)
+                                                        }
+                                                      }
+                                                    }
+                                                    setRingCategoryPopoverIndex(null)
+                                                    setRingCategoryPopoverValue(null)
+                                                    setRingLimitPopoverValue("")
+                                                  }}
+                                                  onCancel={() => {
+                                                    setRingCategoryPopoverIndex(null)
+                                                    setRingCategoryPopoverValue(null)
+                                                    setRingLimitPopoverValue("")
+                                                  }}
+                                                />
+                                              </PopoverContent>
+                                            </Popover>
+                                          )
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon-sm"
+                                    className="ml-auto"
+                                    onClick={() => handleToggleChartExpand("spendingActivityRings")}
+                                    aria-label={expandedCharts["spendingActivityRings"] ? "Shrink chart" : "Expand chart"}
+                                  >
+                                    {expandedCharts["spendingActivityRings"] ? (
+                                      <IconMinimize className="h-4 w-4" />
+                                    ) : (
+                                      <IconMaximize className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </CardHeader>
+                              <CardContent className="h-[420px] flex flex-col items-center justify-between">
+                                {activityData.length === 0 ? (
+                                  <span className="text-sm text-muted-foreground">
+                                    No expense categories available yet.
+                                  </span>
+                                ) : (
+                                  <>
+                                    <div className="flex items-center justify-center pt-4">
+                                      <SpendingActivityRings
+                                        key={`rings-${dateFilter}-${ringCategories?.join(',') || ''}`}
+                                        data={activityData}
+                                        config={activityConfig}
+                                        theme={activityTheme as "light" | "dark"}
+                                        ringLimits={ringLimits}
+                                        getDefaultLimit={() => getDefaultRingLimit(dateFilter)}
+                                      />
+                                    </div>
+                                    <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
+                                      {activityData.map((item) => {
+                                        const category =
+                                          (item as { category?: string }).category ??
+                                          item.label
+                                        return (
+                                          <div
+                                            key={category}
+                                            className="flex items-center gap-1.5"
+                                          >
+                                            <span
+                                              className="h-2 w-2 rounded-full"
+                                              style={{
+                                                backgroundColor:
+                                                  (item as { color?: string }).color ||
+                                                  "#a1a1aa",
+                                              }}
+                                            />
+                                            <span className="font-medium">
+                                              {category}
+                                            </span>
+                                            <span className="text-[0.7rem]">
+                                              {(item.value * 100).toFixed(0)}%
+                                            </span>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  </>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </SortableAnalyticsChart>
+                        )
+                      }
+
+                      if (chartId === "spendingStreamgraph") {
+                        return (
+                          <SortableAnalyticsChart
+                            key={chartId}
+                            id={chartId}
+                            className={colSpanClass}
+                          >
+                            <ChartSpendingStreamgraph
+                              categoryControls={streamgraphControls}
+                              data={spendingStreamData.data}
+                              keys={spendingStreamData.keys}
+                              isExpanded={!!expandedCharts["spendingStreamgraph"]}
+                              onToggleExpand={() => handleToggleChartExpand("spendingStreamgraph")}
+                            />
+                          </SortableAnalyticsChart>
+                        )
+                      }
+
+                      if (chartId === "singleMonthCategorySpending") {
+                        return (
+                          <SortableAnalyticsChart
+                            key={chartId}
+                            id={chartId}
+                            className={colSpanClass}
+                          >
+                            <ChartSingleMonthCategorySpending
+                              dateFilter={dateFilter}
+                              isExpanded={!!expandedCharts["singleMonthCategorySpending"]}
+                              onToggleExpand={() => handleToggleChartExpand("singleMonthCategorySpending")}
+                            />
+                          </SortableAnalyticsChart>
+                        )
+                      }
+
+                      if (chartId === "dayOfWeekCategory") {
+                        return (
+                          <SortableAnalyticsChart
+                            key={chartId}
+                            id={chartId}
+                            className={colSpanClass}
+                          >
+                            <ChartDayOfWeekCategory
+                              dateFilter={dateFilter}
+                              isExpanded={!!expandedCharts["dayOfWeekCategory"]}
+                              onToggleExpand={() => handleToggleChartExpand("dayOfWeekCategory")}
+                            />
+                          </SortableAnalyticsChart>
+                        )
+                      }
+
+                      if (chartId === "budgetDistribution") {
+                        return (
+                          <SortableAnalyticsChart
+                            key={chartId}
+                            id={chartId}
+                            className={colSpanClass}
+                          >
+                            <ChartCirclePacking
+                              categoryControls={circlePackingControls}
+                              data={circlePackingData.tree}
+                              isExpanded={!!expandedCharts["budgetDistribution"]}
+                              onToggleExpand={() => handleToggleChartExpand("budgetDistribution")}
+                            />
+                          </SortableAnalyticsChart>
+                        )
+                      }
+
+                      if (chartId === "transactionHistory") {
+                        return (
+                          <SortableAnalyticsChart
+                            key={chartId}
+                            id={chartId}
+                            className={colSpanClass}
+                          >
+                            <ChartSwarmPlot
+                              data={useMemo(() => {
+                                if (!rawTransactions || rawTransactions.length === 0) {
+                                  return []
+                                }
+                                const CATEGORY_GROUPS: Record<string, string[]> = {
+                                  Essentials: [
+                                    "Groceries",
+                                    "Rent",
+                                    "Mortgage",
+                                    "Utilities",
+                                    "Insurance",
+                                    "Taxes",
+                                    "Healthcare",
+                                    "Health",
+                                    "Medical",
+                                  ],
+                                  Lifestyle: [
+                                    "Shopping",
+                                    "Travel",
+                                    "Entertainment",
+                                    "Restaurants",
+                                    "Bars",
+                                    "Subscriptions",
+                                    "Services",
+                                    "Education",
+                                    "Personal",
+                                    "Leisure",
+                                  ],
+                                  Transport: [
+                                    "Transport",
+                                    "Transportation",
+                                    "Fuel",
+                                    "Gas",
+                                    "Car",
+                                    "Ride",
+                                    "Transit",
+                                    "Commute",
+                                  ],
+                                  Financial: [
+                                    "Transfers",
+                                    "Transfer",
+                                    "Fees",
+                                    "Banking",
+                                    "Savings",
+                                    "Investments",
+                                    "Loan",
+                                    "Debt",
+                                    "Mortgage",
+                                  ],
+                                }
+                                const CATEGORY_DEFAULT_GROUP = "Essentials"
+                                const resolveGroup = (categoryName: string): string => {
+                                  const normalized = categoryName.toLowerCase()
+                                  for (const [group, categories] of Object.entries(CATEGORY_GROUPS)) {
+                                    if (
+                                      categories.some((cat) =>
+                                        normalized.includes(cat.toLowerCase()),
+                                      )
+                                    ) {
+                                      return group
+                                    }
+                                  }
+                                  return CATEGORY_DEFAULT_GROUP
+                                }
+                                const computeVolume = (amount: number): number => {
+                                  const min = 4
+                                  const max = 20
+                                  if (!Number.isFinite(amount) || amount <= 0) {
+                                    return min
+                                  }
+                                  const scaled = Math.round(amount / 50)
+                                  return Math.max(min, Math.min(max, scaled))
+                                }
+                                return rawTransactions
+                                  .filter((tx) => tx.amount < 0)
+                                  .map((tx, index) => {
+                                    const normalizedAmount = Math.abs(tx.amount)
+                                    const rawCategory = tx.category || "Other"
+                                    const group = resolveGroup(rawCategory)
+                                    return {
+                                      id: tx.id ? `tx-${tx.id}` : `tx-${index}`,
+                                      group,
+                                      price: normalizedAmount,
+                                      volume: computeVolume(normalizedAmount),
+                                      category: rawCategory,
+                                      color: null,
+                                      date: tx.date.split("T")[0],
+                                      description: tx.description,
+                                    }
+                                  })
+                              }, [rawTransactions])}
+                              isExpanded={!!expandedCharts["transactionHistory"]}
+                              onToggleExpand={() => handleToggleChartExpand("transactionHistory")}
+                            />
+                          </SortableAnalyticsChart>
+                        )
+                      }
+
+                      return null
+                    })}
+                  </div>
+                </SortableContext>
+              </DndContext>
             </div>
           </div>
         </div>
@@ -2747,12 +3158,12 @@ export default function AnalyticsPage() {
                             ) : (
                               parsedRows.map((row) => {
                                 const amount = typeof row.amount === 'number' ? row.amount : parseFloat(row.amount) || 0
-                                const balance = row.balance !== null && row.balance !== undefined 
-                                  ? (typeof row.balance === 'number' ? row.balance : parseFloat(row.balance)) 
+                                const balance = row.balance !== null && row.balance !== undefined
+                                  ? (typeof row.balance === 'number' ? row.balance : parseFloat(row.balance))
                                   : null
                                 const category = row.category || 'Other'
                                 const hasBalance = parsedRows.some((r) => r.balance !== null && r.balance !== undefined)
-                                
+
                                 return (
                                   <MemoizedTableRow
                                     key={row.id ?? `${row.date}-${row.description}`}

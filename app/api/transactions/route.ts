@@ -8,48 +8,56 @@ function getDateRange(filter: string | null): { startDate: string | null; endDat
         return { startDate: null, endDate: null };
     }
 
+    // Use UTC methods to avoid timezone issues
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    
+    const formatDate = (date: Date): string => {
+        const year = date.getUTCFullYear();
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
     
     switch (filter) {
         case "last7days": {
             const startDate = new Date(today);
-            startDate.setDate(startDate.getDate() - 7);
+            startDate.setUTCDate(startDate.getUTCDate() - 7);
             return {
-                startDate: startDate.toISOString().split('T')[0],
-                endDate: today.toISOString().split('T')[0]
+                startDate: formatDate(startDate),
+                endDate: formatDate(today)
             };
         }
         case "last30days": {
             const startDate = new Date(today);
-            startDate.setDate(startDate.getDate() - 30);
+            startDate.setUTCDate(startDate.getUTCDate() - 30);
             return {
-                startDate: startDate.toISOString().split('T')[0],
-                endDate: today.toISOString().split('T')[0]
+                startDate: formatDate(startDate),
+                endDate: formatDate(today)
             };
         }
         case "last3months": {
             const startDate = new Date(today);
-            startDate.setMonth(startDate.getMonth() - 3);
+            startDate.setUTCMonth(startDate.getUTCMonth() - 3);
             return {
-                startDate: startDate.toISOString().split('T')[0],
-                endDate: today.toISOString().split('T')[0]
+                startDate: formatDate(startDate),
+                endDate: formatDate(today)
             };
         }
         case "last6months": {
             const startDate = new Date(today);
-            startDate.setMonth(startDate.getMonth() - 6);
+            startDate.setUTCMonth(startDate.getUTCMonth() - 6);
             return {
-                startDate: startDate.toISOString().split('T')[0],
-                endDate: today.toISOString().split('T')[0]
+                startDate: formatDate(startDate),
+                endDate: formatDate(today)
             };
         }
         case "lastyear": {
             const startDate = new Date(today);
-            startDate.setFullYear(startDate.getFullYear() - 1);
+            startDate.setUTCFullYear(startDate.getUTCFullYear() - 1);
             return {
-                startDate: startDate.toISOString().split('T')[0],
-                endDate: today.toISOString().split('T')[0]
+                startDate: formatDate(startDate),
+                endDate: formatDate(today)
             };
         }
         default: {
@@ -112,6 +120,7 @@ export const GET = async (request: Request) => {
         
         console.log("[Transactions API] Query:", query);
         console.log("[Transactions API] Params:", params);
+        console.log("[Transactions API] Date range:", { startDate, endDate });
         
         // Fetch user transactions ordered by date
         // Convert tx_date (date) to ISO string format
@@ -189,16 +198,56 @@ export const GET = async (request: Request) => {
                 }
             }
             
-            // Convert date to ISO string format
+            // Convert date to ISO string format (YYYY-MM-DD)
+            // Critical: Extract date string directly to avoid ANY timezone conversion
             let dateStr: string;
-            if (tx.tx_date instanceof Date) {
-                dateStr = tx.tx_date.toISOString().split('T')[0];
-            } else if (typeof tx.tx_date === 'string') {
-                // If it's already a string, use it directly (might be YYYY-MM-DD)
-                dateStr = tx.tx_date.split('T')[0];
+            if (typeof tx.tx_date === 'string') {
+                // If it's already a string, extract just the date part (YYYY-MM-DD)
+                dateStr = tx.tx_date.split('T')[0].split(' ')[0];
+            } else if (tx.tx_date instanceof Date) {
+                // For Date objects, use UTC methods to prevent timezone shifts
+                // This is critical - local timezone methods can shift dates by a day
+                const year = tx.tx_date.getUTCFullYear();
+                const month = String(tx.tx_date.getUTCMonth() + 1).padStart(2, '0');
+                const day = String(tx.tx_date.getUTCDate()).padStart(2, '0');
+                dateStr = `${year}-${month}-${day}`;
             } else {
-                // Fallback: try to parse
-                dateStr = new Date(tx.tx_date as any).toISOString().split('T')[0];
+                // Fallback: try multiple strategies
+                const dateValue = tx.tx_date as any;
+                if (typeof dateValue === 'string') {
+                    dateStr = dateValue.split('T')[0].split(' ')[0];
+                } else if (dateValue && typeof dateValue.toString === 'function') {
+                    // Try toString first (might give us the raw value)
+                    const str = dateValue.toString();
+                    const dateMatch = str.match(/^(\d{4}-\d{2}-\d{2})/);
+                    if (dateMatch) {
+                        dateStr = dateMatch[1];
+                    } else {
+                        // Last resort: create Date and use UTC
+                        const date = new Date(dateValue);
+                        const year = date.getUTCFullYear();
+                        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+                        const day = String(date.getUTCDate()).padStart(2, '0');
+                        dateStr = `${year}-${month}-${day}`;
+                    }
+                } else {
+                    // Final fallback
+                    const date = new Date(dateValue);
+                    const year = date.getUTCFullYear();
+                    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+                    const day = String(date.getUTCDate()).padStart(2, '0');
+                    dateStr = `${year}-${month}-${day}`;
+                }
+            }
+            
+            // Debug log for January 1st dates to catch any conversion issues
+            if (dateStr && (dateStr.startsWith('2025-01-01') || dateStr.startsWith('2024-01-01'))) {
+                console.log(`[Transactions API] Jan 1 date conversion:`, {
+                    original: tx.tx_date,
+                    originalType: typeof tx.tx_date,
+                    converted: dateStr,
+                    isDate: tx.tx_date instanceof Date
+                });
             }
             
             return {
@@ -213,6 +262,32 @@ export const GET = async (request: Request) => {
         
         console.log("[Transactions API] Returning transactions:", transactionsWithCategory.length);
         console.log("[Transactions API] First transaction sample:", transactionsWithCategory[0]);
+        
+        // Debug: Check for January 1st transactions
+        const jan1Transactions = transactionsWithCategory.filter(tx => {
+          return tx.date.startsWith('2025-01-01') || tx.date.startsWith('2024-01-01');
+        });
+        if (jan1Transactions.length > 0) {
+          console.log(`[Transactions API] Found ${jan1Transactions.length} January 1st transactions:`, jan1Transactions.map(tx => ({
+            date: tx.date,
+            amount: tx.amount,
+            category: tx.category
+          })));
+        } else {
+          console.warn("[Transactions API] No January 1st transactions found in response");
+        }
+        
+        // Debug: Check for Transport category
+        const transportTransactions = transactionsWithCategory.filter(tx => {
+          const cat = (tx.category || '').toLowerCase();
+          return cat.includes('transport');
+        });
+        if (transportTransactions.length > 0) {
+          console.log(`[Transactions API] Found ${transportTransactions.length} Transport transactions:`, transportTransactions.length);
+        } else {
+          console.warn("[Transactions API] No Transport category transactions found in response");
+        }
+        
         return NextResponse.json(transactionsWithCategory, {
             headers: {
                 'Content-Type': 'application/json',

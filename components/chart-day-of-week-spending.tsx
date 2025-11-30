@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/card"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
+import { Button } from "@/components/ui/button"
+import { Maximize2Icon, Minimize2Icon } from "lucide-react"
 
 interface ChartDayOfWeekSpendingProps {
   data?: Array<{
@@ -24,17 +26,21 @@ interface ChartDayOfWeekSpendingProps {
     category: string
   }>
   categoryControls?: ChartInfoPopoverCategoryControls
+  isExpanded?: boolean
+  onToggleExpand?: () => void
 }
 
 // Week starts on Monday (ISO 8601 standard)
 const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 const dayNamesShort = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-export function ChartDayOfWeekSpending({ data = [], categoryControls: propCategoryControls }: ChartDayOfWeekSpendingProps) {
+export function ChartDayOfWeekSpending({ data = [], categoryControls: propCategoryControls, isExpanded = false, onToggleExpand }: ChartDayOfWeekSpendingProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const palette = getPalette().filter(color => color !== "#c3c3c3")
   const svgRef = useRef<SVGSVGElement>(null)
+  // Small card size: always full width within its grid column
+  const cardWidthClass = "w-full"
   
   const normalizeCategoryName = useCallback((value?: string | null) => {
     const trimmed = (value ?? "").trim()
@@ -138,9 +144,19 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
 
   // Get visible categories (for rendering)
   const categories = useMemo(() => {
-    const categorySet = new Set<string>()
-    processedData.forEach(d => categorySet.add(d.category))
-    return Array.from(categorySet).sort()
+    // Compute total amount per category across all days
+    const totals = new Map<string, number>()
+    processedData.forEach((d) => {
+      const currentTotal = totals.get(d.category) ?? 0
+      totals.set(d.category, currentTotal + d.amount)
+    })
+
+    // Only include categories that have a non-zero total so we don't
+    // render legend entries or bar groups for categories that are 0
+    return Array.from(totals.entries())
+      .filter(([, total]) => total > 0)
+      .map(([category]) => category)
+      .sort()
   }, [processedData])
 
   // Build category controls - always build internally to ensure they stay in sync with hiddenCategories
@@ -594,13 +610,31 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
 
   if (!data || data.length === 0) {
     return (
-      <Card>
+      <Card className={cardWidthClass}>
         <CardHeader>
           <div>
             <CardTitle>Day of Week Spending by Category</CardTitle>
             <CardDescription>See which categories you spend the most on each day</CardDescription>
           </div>
-          <CardAction>{renderInfoTrigger()}</CardAction>
+          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            {renderInfoTrigger()}
+            {onToggleExpand && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                className="ml-auto"
+                onClick={onToggleExpand}
+                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
+              >
+                {isExpanded ? (
+                  <Minimize2Icon className="h-4 w-4" />
+                ) : (
+                  <Maximize2Icon className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+          </CardAction>
         </CardHeader>
         <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
           No data available
@@ -610,13 +644,31 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
   }
 
   return (
-    <Card>
+    <Card className={cardWidthClass}>
       <CardHeader>
         <div>
           <CardTitle>Day of Week Spending by Category</CardTitle>
           <CardDescription>See which categories you spend the most on each day</CardDescription>
         </div>
-        <CardAction>{renderInfoTrigger()}</CardAction>
+        <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+          {renderInfoTrigger()}
+          {onToggleExpand && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              className="ml-auto"
+              onClick={onToggleExpand}
+              aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
+            >
+              {isExpanded ? (
+                <Minimize2Icon className="h-4 w-4" />
+              ) : (
+                <Maximize2Icon className="h-4 w-4" />
+              )}
+            </Button>
+          )}
+        </CardAction>
       </CardHeader>
       <CardContent className="h-[420px] p-0 flex flex-col">
         <div className="w-full flex-1 min-h-0">

@@ -111,18 +111,12 @@ export default function Page() {
       }
     }
 
-    // Filter out savings category from expenses (as per previous requirement)
-    const filteredTransactions = transactions.filter(tx => {
-      const category = (tx.category || "").toLowerCase()
-      return category !== "savings"
-    })
-
     // Calculate current period stats (all transactions when no filter, or filtered)
-    const currentIncome = filteredTransactions
+    const currentIncome = transactions
       .filter(tx => tx.amount > 0)
       .reduce((sum, tx) => sum + tx.amount, 0)
 
-    const currentExpenses = Math.abs(filteredTransactions
+    const currentExpenses = Math.abs(transactions
       .filter(tx => tx.amount < 0)
       .reduce((sum, tx) => sum + tx.amount, 0))
 
@@ -151,7 +145,7 @@ export default function Page() {
     const sixMonthsAgoStr = formatDate(sixMonthsAgo)
 
     // Previous period transactions (3-6 months ago)
-    const previousTransactions = filteredTransactions.filter(tx => {
+    const previousTransactions = transactions.filter(tx => {
       const txDate = tx.date.split('T')[0]
       return txDate >= sixMonthsAgoStr && txDate < threeMonthsAgoStr
     })

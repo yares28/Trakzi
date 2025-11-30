@@ -14,6 +14,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Maximize2Icon, Minimize2Icon } from "lucide-react"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { toNumericValue } from "@/lib/utils"
 
@@ -26,6 +28,8 @@ interface ChartSpendingStreamgraphProps {
   data?: Array<Record<string, string | number>>
   keys?: string[]
   categoryControls?: ChartInfoPopoverCategoryControls
+  isExpanded?: boolean
+  onToggleExpand?: () => void
 }
 
 const FALLBACK_COLORS = ["#7dd3fc", "#c084fc", "#f472b6", "#f97316", "#34d399", "#f87171", "#fb7185"]
@@ -55,7 +59,7 @@ const monthFormatter = (monthKey: string) => {
   return `${parsedYear}-${normalizedMonth}`
 }
 
-export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControls }: ChartSpendingStreamgraphProps) {
+export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControls, isExpanded = false, onToggleExpand }: ChartSpendingStreamgraphProps) {
   const { getPalette } = useColorScheme()
   const svgRef = useRef<SVGSVGElement | null>(null)
   const [tooltip, setTooltip] = useState<{ label: string; total: number; color: string } | null>(null)
@@ -222,7 +226,25 @@ export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControl
             <CardTitle>Category Streamgraph</CardTitle>
             <CardDescription>Monthly spending stacked by category</CardDescription>
           </div>
-          <CardAction>{renderInfoTrigger()}</CardAction>
+          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            {renderInfoTrigger()}
+            {onToggleExpand && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                className="ml-auto"
+                onClick={onToggleExpand}
+                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
+              >
+                {isExpanded ? (
+                  <Minimize2Icon className="h-4 w-4" />
+                ) : (
+                  <Maximize2Icon className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+          </CardAction>
         </CardHeader>
         <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
           No data available
@@ -240,7 +262,25 @@ export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControl
           <CardTitle>Category Streamgraph</CardTitle>
           <CardDescription>Stacked monthly expenses inspired by D3 streamgraphs</CardDescription>
         </div>
-        <CardAction>{renderInfoTrigger()}</CardAction>
+        <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+          {renderInfoTrigger()}
+          {onToggleExpand && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              className="ml-auto"
+              onClick={onToggleExpand}
+              aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
+            >
+              {isExpanded ? (
+                <Minimize2Icon className="h-4 w-4" />
+              ) : (
+                <Maximize2Icon className="h-4 w-4" />
+              )}
+            </Button>
+          )}
+        </CardAction>
       </CardHeader>
       <CardContent className="h-[420px]">
         <div className="relative flex h-full flex-col gap-4">

@@ -73,6 +73,10 @@ This document lists all charts used in the application, their locations, and the
     - Card Name: "Spending Activity Rings"
     - Description: Top spending categories from your Neon transactions
 
+> Removed chart: **ChartBarCategory** (`components/chart-bar-category.tsx`)  
+> - Card Name: "Spending by Day of Week"  
+> - Reason: Card no longer part of the analytics page
+
 ## Savings Page (`app/savings/page.tsx`)
 
 1. **ChartSavingsAccumulation** (`components/chart-savings-accumulation.tsx`)

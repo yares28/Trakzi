@@ -11,6 +11,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Maximize2Icon, Minimize2Icon } from "lucide-react"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { toNumericValue } from "@/lib/utils"
 
@@ -34,9 +36,11 @@ const sanitizeCirclePackingNode = (node?: CirclePackingNode | null): CirclePacki
 interface ChartCirclePackingProps {
   data?: CirclePackingNode
   categoryControls?: ChartInfoPopoverCategoryControls
+  isExpanded?: boolean
+  onToggleExpand?: () => void
 }
 
-export function ChartCirclePacking({ data = { name: "", children: [] }, categoryControls }: ChartCirclePackingProps) {
+export function ChartCirclePacking({ data = { name: "", children: [] }, categoryControls, isExpanded = false, onToggleExpand }: ChartCirclePackingProps) {
   const { getPalette } = useColorScheme()
   const sanitizedData = useMemo(() => sanitizeCirclePackingNode(data), [data])
   const renderInfoTrigger = () => (
@@ -61,7 +65,25 @@ export function ChartCirclePacking({ data = { name: "", children: [] }, category
             <CardTitle>Budget Distribution</CardTitle>
             <CardDescription>Visualizes how your budget is allocated across categories</CardDescription>
           </div>
-          <CardAction>{renderInfoTrigger()}</CardAction>
+          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            {renderInfoTrigger()}
+            {onToggleExpand && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                className="ml-auto"
+                onClick={onToggleExpand}
+                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
+              >
+                {isExpanded ? (
+                  <Minimize2Icon className="h-4 w-4" />
+                ) : (
+                  <Maximize2Icon className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+          </CardAction>
         </CardHeader>
         <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
           No data available
@@ -77,7 +99,25 @@ export function ChartCirclePacking({ data = { name: "", children: [] }, category
           <CardTitle>Budget Distribution</CardTitle>
           <CardDescription>Visualizes how your budget is allocated across categories</CardDescription>
         </div>
-        <CardAction>{renderInfoTrigger()}</CardAction>
+        <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+          {renderInfoTrigger()}
+          {onToggleExpand && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              className="ml-auto"
+              onClick={onToggleExpand}
+              aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
+            >
+              {isExpanded ? (
+                <Minimize2Icon className="h-4 w-4" />
+              ) : (
+                <Maximize2Icon className="h-4 w-4" />
+              )}
+            </Button>
+          )}
+        </CardAction>
       </CardHeader>
       <CardContent className="h-[420px]">
         <ResponsiveCirclePacking

@@ -14,6 +14,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Maximize2Icon, Minimize2Icon } from "lucide-react"
 
 interface ChartSpendingFunnelProps {
   data?: Array<{
@@ -22,6 +24,8 @@ interface ChartSpendingFunnelProps {
     label: string
   }>
   categoryControls?: ChartInfoPopoverCategoryControls
+  isExpanded?: boolean
+  onToggleExpand?: () => void
 }
 
 // Dark colors that require white text
@@ -38,7 +42,7 @@ const getTextColor = (sliceColor: string, colorScheme?: string): string => {
   return darkColors.includes(sliceColor) ? "#ffffff" : "#000000"
 }
 
-export function ChartSpendingFunnel({ data = [], categoryControls }: ChartSpendingFunnelProps) {
+export function ChartSpendingFunnel({ data = [], categoryControls, isExpanded = false, onToggleExpand }: ChartSpendingFunnelProps) {
   const { resolvedTheme } = useTheme()
   const { colorScheme, getPalette } = useColorScheme()
   const [mounted, setMounted] = useState(false)
@@ -93,7 +97,25 @@ export function ChartSpendingFunnel({ data = [], categoryControls }: ChartSpendi
         <CardHeader>
           <CardTitle>Money Flow</CardTitle>
           <CardDescription>How your income flows to savings</CardDescription>
-          <CardAction>{renderInfoTrigger()}</CardAction>
+          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            {renderInfoTrigger()}
+            {onToggleExpand && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                className="ml-auto"
+                onClick={onToggleExpand}
+                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
+              >
+                {isExpanded ? (
+                  <Minimize2Icon className="h-4 w-4" />
+                ) : (
+                  <Maximize2Icon className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+          </CardAction>
         </CardHeader>
         <CardContent>
           <div className="h-[400px] w-full" />
@@ -114,7 +136,25 @@ export function ChartSpendingFunnel({ data = [], categoryControls }: ChartSpendi
             </span>
             <span className="@[540px]/card:hidden">Income to savings flow</span>
           </CardDescription>
-          <CardAction>{renderInfoTrigger()}</CardAction>
+          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            {renderInfoTrigger()}
+            {onToggleExpand && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                className="ml-auto"
+                onClick={onToggleExpand}
+                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
+              >
+                {isExpanded ? (
+                  <Minimize2Icon className="h-4 w-4" />
+                ) : (
+                  <Maximize2Icon className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
           <div className="h-[400px] w-full flex items-center justify-center text-muted-foreground">
@@ -135,7 +175,25 @@ export function ChartSpendingFunnel({ data = [], categoryControls }: ChartSpendi
           </span>
           <span className="@[540px]/card:hidden">Income to savings flow</span>
         </CardDescription>
-        <CardAction>{renderInfoTrigger()}</CardAction>
+        <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+          {renderInfoTrigger()}
+          {onToggleExpand && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              className="ml-auto"
+              onClick={onToggleExpand}
+              aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
+            >
+              {isExpanded ? (
+                <Minimize2Icon className="h-4 w-4" />
+              ) : (
+                <Maximize2Icon className="h-4 w-4" />
+              )}
+            </Button>
+          )}
+        </CardAction>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
         <div className="h-[400px] w-full">

@@ -160,12 +160,13 @@ export async function GET() {
       categoryYearMap.get(category)!.set(row.year, amount)
     })
 
-    const topCategories = Array.from(categoryTotals.entries())
+    // Return all categories sorted by total expense (for toggling)
+    // Frontend will default to showing top 7
+    const allCategories = Array.from(categoryTotals.entries())
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
       .map(([category]) => category)
 
-    topCategories.forEach(category => {
+    allCategories.forEach(category => {
       const row: FinancialRadarDatum = { capability: category }
       selectedYears.forEach(year => {
         const yearValue = categoryYearMap.get(category)?.get(year) || 0

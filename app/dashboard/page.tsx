@@ -306,18 +306,12 @@ export default function Page() {
       }
     }
 
-    // Filter out savings category from expenses (as per previous requirement)
-    const filteredTransactions = transactions.filter(tx => {
-      const category = (tx.category || "").toLowerCase()
-      return category !== "savings"
-    })
-
     // Calculate current period stats (all transactions when no filter, or filtered)
-    const currentIncome = filteredTransactions
+    const currentIncome = transactions
       .filter(tx => tx.amount > 0)
       .reduce((sum, tx) => sum + tx.amount, 0)
 
-    const currentExpenses = Math.abs(filteredTransactions
+    const currentExpenses = Math.abs(transactions
       .filter(tx => tx.amount < 0)
       .reduce((sum, tx) => sum + tx.amount, 0))
 
@@ -346,7 +340,7 @@ export default function Page() {
     const sixMonthsAgoStr = formatDate(sixMonthsAgo)
 
     // Previous period transactions (3-6 months ago)
-    const previousTransactions = filteredTransactions.filter(tx => {
+    const previousTransactions = transactions.filter(tx => {
       const txDate = tx.date.split('T')[0]
       return txDate >= sixMonthsAgoStr && txDate < threeMonthsAgoStr
     })
@@ -985,15 +979,9 @@ export default function Page() {
                 <ChartAreaInteractive
                   categoryControls={incomeExpenseControls}
                   data={useMemo(() => {
-                  // Filter out savings category
-                  const filteredTransactions = chartTransactions.filter(tx => {
-                    const category = (tx.category || "").toLowerCase()
-                    return category !== "savings"
-                  })
-
                   // Group transactions by date first
                   const transactionsByDate = new Map<string, Array<{ amount: number }>>()
-                  filteredTransactions.forEach(tx => {
+                  chartTransactions.forEach(tx => {
                     const date = tx.date.split('T')[0]
                     if (!transactionsByDate.has(date)) {
                       transactionsByDate.set(date, [])
@@ -1059,13 +1047,11 @@ export default function Page() {
                   const categoryMap = new Map<string, Map<string, number>>()
                   const allMonths = new Set<string>()
                   
-                  // Categories to exclude (case-insensitive)
-                  const excludedCategories = ['income', 'transfer income']
-                  
                   chartTransactions.forEach(tx => {
                     const category = tx.category || "Other"
-                    // Filter out income and transfer income categories
-                    if (excludedCategories.some(excluded => category.toLowerCase() === excluded.toLowerCase())) {
+                    // Apply visibility filters
+                    const normalizedCategory = normalizeCategoryName(category)
+                    if (categoryFlowVisibility.hiddenCategorySet.has(normalizedCategory)) {
                       return
                     }
                     const date = new Date(tx.date)

@@ -21,6 +21,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Button } from "@/components/ui/button"
+import { Maximize2Icon, Minimize2Icon } from "lucide-react"
 import { toNumericValue } from "@/lib/utils"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
 
@@ -39,11 +41,13 @@ type EnhancedChartDatum = ChartSwarmPlotDatum & { categoryLabel: string }
 
 interface ChartSwarmPlotProps {
   data?: ChartSwarmPlotDatum[]
+  isExpanded?: boolean
+  onToggleExpand?: () => void
 }
 
 // Removed MAX_VISIBLE_GROUPS limit - now shows all categories
 
-export function ChartSwarmPlot({ data }: ChartSwarmPlotProps) {
+export function ChartSwarmPlot({ data, isExpanded = false, onToggleExpand }: ChartSwarmPlotProps) {
   const { getPalette } = useColorScheme()
   const [remoteData, setRemoteData] = useState<ChartSwarmPlotDatum[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -346,7 +350,25 @@ const selectionSummary =
             <CardTitle>Transaction History</CardTitle>
             <CardDescription>Recent transactions by category</CardDescription>
           </div>
-          <CardAction>{renderInfoTrigger()}</CardAction>
+          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            {renderInfoTrigger()}
+            {onToggleExpand && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                className="ml-auto"
+                onClick={onToggleExpand}
+                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
+              >
+                {isExpanded ? (
+                  <Minimize2Icon className="h-4 w-4" />
+                ) : (
+                  <Maximize2Icon className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+          </CardAction>
         </CardHeader>
         <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
           {error}
@@ -363,7 +385,25 @@ const selectionSummary =
             <CardTitle>Transaction History</CardTitle>
             <CardDescription>Recent transactions by category</CardDescription>
           </div>
-          <CardAction>{renderInfoTrigger()}</CardAction>
+          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            {renderInfoTrigger()}
+            {onToggleExpand && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                className="ml-auto"
+                onClick={onToggleExpand}
+                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
+              >
+                {isExpanded ? (
+                  <Minimize2Icon className="h-4 w-4" />
+                ) : (
+                  <Maximize2Icon className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+          </CardAction>
         </CardHeader>
         <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
           Loading transactions...
@@ -380,7 +420,25 @@ const selectionSummary =
             <CardTitle>Transaction History</CardTitle>
             <CardDescription>Recent transactions by category</CardDescription>
           </div>
-          <CardAction>{renderInfoTrigger()}</CardAction>
+          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            {renderInfoTrigger()}
+            {onToggleExpand && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                className="ml-auto"
+                onClick={onToggleExpand}
+                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
+              >
+                {isExpanded ? (
+                  <Minimize2Icon className="h-4 w-4" />
+                ) : (
+                  <Maximize2Icon className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+          </CardAction>
         </CardHeader>
         <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
           No data available
@@ -456,6 +514,22 @@ const selectionSummary =
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
+          )}
+          {onToggleExpand && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              className="ml-auto"
+              onClick={onToggleExpand}
+              aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
+            >
+              {isExpanded ? (
+                <Minimize2Icon className="h-4 w-4" />
+              ) : (
+                <Maximize2Icon className="h-4 w-4" />
+              )}
+            </Button>
           )}
         </CardAction>
       </CardHeader>
