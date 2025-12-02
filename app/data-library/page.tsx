@@ -279,6 +279,7 @@ export default function DataLibraryPage() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
   const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState("")
+  const [newCategoryTier, setNewCategoryTier] = useState<"Essentials" | "Mandatory" | "Wants">("Wants")
   const [addCategoryLoading, setAddCategoryLoading] = useState(false)
   const [deleteCategoryDialogOpen, setDeleteCategoryDialogOpen] = useState(false)
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
@@ -300,6 +301,21 @@ export default function DataLibraryPage() {
   const dragCounterRef = useRef(0)
   const csvRegenerationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const latestParsedRowsRef = useRef<ParsedRow[]>([])
+
+  const CATEGORY_TIER_STORAGE_KEY = "needsWantsCategoryTier"
+
+  const saveCategoryTier = (categoryName: string, tier: "Essentials" | "Mandatory" | "Wants") => {
+    if (typeof window === "undefined") return
+    try {
+      const key = categoryName.trim().toLowerCase()
+      const raw = window.localStorage.getItem(CATEGORY_TIER_STORAGE_KEY)
+      const map: Record<string, "Essentials" | "Mandatory" | "Wants"> = raw ? JSON.parse(raw) : {}
+      map[key] = tier
+      window.localStorage.setItem(CATEGORY_TIER_STORAGE_KEY, JSON.stringify(map))
+    } catch {
+      // ignore storage errors
+    }
+  }
 
   const totalTransactions = transactions.length
   const categorizedTransactions = transactions.filter(
@@ -803,7 +819,11 @@ export default function DataLibraryPage() {
       
       // Reset form
       setNewCategoryName("")
+      setNewCategoryTier("Wants")
       setAddCategoryDialogOpen(false)
+      
+      // Persist the chosen tier locally for Needs vs Wants classification
+      saveCategoryTier(created.name ?? trimmedName, newCategoryTier)
       
       toast.success(`Category "${created.name}" added`)
     } catch (error) {
@@ -1507,6 +1527,28 @@ export default function DataLibraryPage() {
                         disabled={addCategoryLoading}
                         autoFocus
                       />
+                    </div>
+                    <div className="flex flex-col gap-2 text-sm">
+                      <Label>Needs vs Wants grouping</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Choose how this category should be treated in the Needs vs Wants chart.
+                      </p>
+                      <Select
+                        value={newCategoryTier}
+                        onValueChange={(value) =>
+                          setNewCategoryTier(value as "Essentials" | "Mandatory" | "Wants")
+                        }
+                        disabled={addCategoryLoading}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select spending type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Essentials">Essentials (needs)</SelectItem>
+                          <SelectItem value="Mandatory">Mandatory obligations</SelectItem>
+                          <SelectItem value="Wants">Wants / discretionary</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="flex justify-end gap-2">

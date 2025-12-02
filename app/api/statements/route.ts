@@ -50,7 +50,13 @@ export const GET = async () => {
             fileId: stmt.file_id,
         }));
 
-        return NextResponse.json(reports);
+        // Add caching headers - statements change infrequently
+        // Cache for 2 minutes, revalidate in background
+        return NextResponse.json(reports, {
+            headers: {
+                'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
+            },
+        });
     } catch (error: any) {
         console.error("[Statements API] Error:", error);
         return NextResponse.json(

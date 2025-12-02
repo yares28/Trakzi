@@ -13,9 +13,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Maximize2Icon, Minimize2Icon } from "lucide-react"
-
 interface ChartCategoryFlowProps {
   data?: Array<{
     id: string
@@ -25,11 +22,9 @@ interface ChartCategoryFlowProps {
     }>
   }>
   categoryControls?: ChartInfoPopoverCategoryControls
-  isExpanded?: boolean
-  onToggleExpand?: () => void
 }
 
-export function ChartCategoryFlow({ data = [], categoryControls, isExpanded = false, onToggleExpand }: ChartCategoryFlowProps) {
+export function ChartCategoryFlow({ data = [], categoryControls }: ChartCategoryFlowProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const [mounted, setMounted] = useState(false)
@@ -87,26 +82,10 @@ export function ChartCategoryFlow({ data = [], categoryControls, isExpanded = fa
           </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
-            {onToggleExpand && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                className="ml-auto"
-                onClick={onToggleExpand}
-                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-              >
-                {isExpanded ? (
-                  <Minimize2Icon className="h-4 w-4" />
-                ) : (
-                  <Maximize2Icon className="h-4 w-4" />
-                )}
-              </Button>
-            )}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-          <div className="h-[400px] w-full" />
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
+          <div className="h-full w-full min-h-[250px]" />
         </CardContent>
       </Card>
     )
@@ -126,26 +105,10 @@ export function ChartCategoryFlow({ data = [], categoryControls, isExpanded = fa
           </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
-            {onToggleExpand && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                className="ml-auto"
-                onClick={onToggleExpand}
-                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-              >
-                {isExpanded ? (
-                  <Minimize2Icon className="h-4 w-4" />
-                ) : (
-                  <Maximize2Icon className="h-4 w-4" />
-                )}
-              </Button>
-            )}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-          <div className="h-[400px] w-full flex items-center justify-center text-muted-foreground">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
+          <div className="h-full w-full min-h-[250px] flex items-center justify-center text-muted-foreground">
             No data available
           </div>
         </CardContent>
@@ -165,96 +128,80 @@ export function ChartCategoryFlow({ data = [], categoryControls, isExpanded = fa
         </CardDescription>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoTrigger()}
-          {onToggleExpand && (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              className="ml-auto"
-              onClick={onToggleExpand}
-              aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-            >
-              {isExpanded ? (
-                <Minimize2Icon className="h-4 w-4" />
-              ) : (
-                <Maximize2Icon className="h-4 w-4" />
-              )}
-            </Button>
-          )}
         </CardAction>
       </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-        <div className="h-[400px] w-full">
-          <ResponsiveAreaBump
-            data={data}
-            margin={{ top: 40, right: 120, bottom: 40, left: 140 }}
-            spacing={12}
-            colors={colorConfig}
-            blendMode="normal"
-            startLabel={(serie) => serie.id}
-            endLabel={(serie) => serie.id}
-            startLabelTextColor={textColor}
-            endLabelTextColor={textColor}
-            startLabelPadding={12}
-            endLabelPadding={12}
-            interpolation="smooth"
-            axisTop={{
-              tickSize: 5,
-              tickPadding: 5,
-              tickRotation: 0,
-              legend: "",
-              legendPosition: "middle",
-              legendOffset: -36,
-            }}
-            axisBottom={{
-              tickSize: 5,
-              tickPadding: 5,
-              tickRotation: 0,
-              legend: "",
-              legendPosition: "middle",
-              legendOffset: 32,
-            }}
-            theme={{
-              text: {
-                fill: textColor,
-                fontSize: 12,
-                fontFamily: 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
-              },
-              axis: {
-                domain: {
-                  line: {
-                    stroke: borderColor,
-                    strokeWidth: 1,
-                  },
-                },
-                ticks: {
-                  line: {
-                    stroke: borderColor,
-                    strokeWidth: 1,
-                  },
-                },
-              },
-              grid: {
-                line: {
-                  stroke: borderColor,
-                  strokeWidth: 0.5,
-                },
-              },
-              tooltip: {
-                container: {
-                  background: "#ffffff",
-                  color: "#000000",
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
+          <div className="h-full w-full min-h-[250px]">
+            <ResponsiveAreaBump
+              data={data}
+              margin={{ top: 40, right: 120, bottom: 40, left: 140 }}
+              spacing={12}
+              colors={colorConfig}
+              blendMode="normal"
+              startLabel={(serie) => serie.id}
+              endLabel={(serie) => serie.id}
+              startLabelTextColor={textColor}
+              endLabelTextColor={textColor}
+              startLabelPadding={12}
+              endLabelPadding={12}
+              interpolation="smooth"
+              axisTop={{
+                tickSize: 5,
+                tickPadding: 5,
+                tickRotation: 0,
+                legend: "",
+                legendPosition: "middle",
+                legendOffset: -36,
+              }}
+              axisBottom={{
+                tickSize: 5,
+                tickPadding: 5,
+                tickRotation: 0,
+                legend: "",
+                legendPosition: "middle",
+                legendOffset: 32,
+              }}
+              theme={{
+                text: {
+                  fill: textColor,
                   fontSize: 12,
-                  borderRadius: "8px",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                  padding: "8px 12px",
-                  border: "1px solid #e2e8f0",
+                  fontFamily: 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
                 },
-              },
-            }}
-          />
-        </div>
-      </CardContent>
+                axis: {
+                  domain: {
+                    line: {
+                      stroke: borderColor,
+                      strokeWidth: 1,
+                    },
+                  },
+                  ticks: {
+                    line: {
+                      stroke: borderColor,
+                      strokeWidth: 1,
+                    },
+                  },
+                },
+                grid: {
+                  line: {
+                    stroke: borderColor,
+                    strokeWidth: 0.5,
+                  },
+                },
+                tooltip: {
+                  container: {
+                    background: "#ffffff",
+                    color: "#000000",
+                    fontSize: 12,
+                    borderRadius: "8px",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                    padding: "8px 12px",
+                    border: "1px solid #e2e8f0",
+                  },
+                },
+              }}
+            />
+          </div>
+        </CardContent>
     </Card>
   )
 }

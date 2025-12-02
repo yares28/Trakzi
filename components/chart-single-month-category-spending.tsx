@@ -6,6 +6,7 @@ import ReactECharts from "echarts-for-react"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { deduplicatedFetch } from "@/lib/request-deduplication"
 import {
   Card,
   CardAction,
@@ -14,8 +15,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Maximize2Icon, Minimize2Icon } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -26,8 +25,6 @@ import {
 
 interface ChartSingleMonthCategorySpendingProps {
   dateFilter?: string | null
-  isExpanded?: boolean
-  onToggleExpand?: () => void
 }
 
 type MonthData = {
@@ -51,7 +48,7 @@ const MONTH_NAMES = [
   "December",
 ]
 
-export function ChartSingleMonthCategorySpending({ dateFilter, isExpanded = false, onToggleExpand }: ChartSingleMonthCategorySpendingProps) {
+export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMonthCategorySpendingProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const [mounted, setMounted] = React.useState(false)
@@ -59,9 +56,25 @@ export function ChartSingleMonthCategorySpending({ dateFilter, isExpanded = fals
   const [availableMonths, setAvailableMonths] = React.useState<number[]>([])
   const [selectedMonth, setSelectedMonth] = React.useState<number | null>(null)
   const [loading, setLoading] = React.useState(true)
+  const chartRef = React.useRef<any>(null)
+  const containerRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
     setMounted(true)
+    return () => {
+      // Cleanup on unmount - handle React Strict Mode double-mounting
+      if (chartRef.current) {
+        try {
+          const instance = chartRef.current.getEchartsInstance()
+          if (instance && !instance.isDisposed()) {
+            instance.dispose()
+          }
+        } catch (e) {
+          // Ignore disposal errors (common in React Strict Mode)
+        }
+        chartRef.current = null
+      }
+    }
   }, [])
 
   // Fetch available months first (without selected month) when dateFilter changes
@@ -73,12 +86,9 @@ export function ChartSingleMonthCategorySpending({ dateFilter, isExpanded = fals
           params.append("filter", dateFilter)
         }
         
-        const response = await fetch(`/api/analytics/monthly-category-duplicate?${params.toString()}`)
-        if (!response.ok) {
-          throw new Error("Failed to fetch available months")
-        }
-        
-        const result = await response.json()
+        const result = await deduplicatedFetch<{ data: Array<{ category: string; month: number; total: number }>; availableMonths: number[] }>(
+          `/api/analytics/monthly-category-duplicate?${params.toString()}`
+        )
         const months = result.availableMonths || []
         setAvailableMonths(months)
         
@@ -124,12 +134,9 @@ export function ChartSingleMonthCategorySpending({ dateFilter, isExpanded = fals
         }
         params.append("month", selectedMonth.toString())
         
-        const response = await fetch(`/api/analytics/monthly-category-duplicate?${params.toString()}`)
-        if (!response.ok) {
-          throw new Error("Failed to fetch data")
-        }
-        
-        const result = await response.json()
+        const result = await deduplicatedFetch<{ data: Array<{ category: string; month: number; total: number }>; availableMonths: number[] }>(
+          `/api/analytics/monthly-category-duplicate?${params.toString()}`
+        )
         setData(result.data || [])
       } catch (error) {
         console.error("Error fetching month category data:", error)
@@ -249,7 +256,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter, isExpanded = fals
 
   if (!mounted) {
     return (
-      <Card>
+      <Card className="@container/card">
         <CardHeader>
           <div>
             <CardTitle>Single Month Category Spending</CardTitle>
@@ -257,25 +264,9 @@ export function ChartSingleMonthCategorySpending({ dateFilter, isExpanded = fals
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
-            {onToggleExpand && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                className="ml-auto"
-                onClick={onToggleExpand}
-                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-              >
-                {isExpanded ? (
-                  <Minimize2Icon className="h-4 w-4" />
-                ) : (
-                  <Maximize2Icon className="h-4 w-4" />
-                )}
-              </Button>
-            )}
           </CardAction>
         </CardHeader>
-        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
           Loading chart...
         </CardContent>
       </Card>
@@ -284,7 +275,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter, isExpanded = fals
 
   if (loading) {
     return (
-      <Card>
+      <Card className="@container/card">
         <CardHeader>
           <div>
             <CardTitle>Single Month Category Spending</CardTitle>
@@ -292,25 +283,9 @@ export function ChartSingleMonthCategorySpending({ dateFilter, isExpanded = fals
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
-            {onToggleExpand && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                className="ml-auto"
-                onClick={onToggleExpand}
-                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-              >
-                {isExpanded ? (
-                  <Minimize2Icon className="h-4 w-4" />
-                ) : (
-                  <Maximize2Icon className="h-4 w-4" />
-                )}
-              </Button>
-            )}
           </CardAction>
         </CardHeader>
-        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
           Loading data...
         </CardContent>
       </Card>
@@ -319,7 +294,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter, isExpanded = fals
 
   if (!availableMonths.length || selectedMonth === null) {
     return (
-      <Card>
+      <Card className="@container/card">
         <CardHeader>
           <div>
             <CardTitle>Single Month Category Spending</CardTitle>
@@ -327,25 +302,9 @@ export function ChartSingleMonthCategorySpending({ dateFilter, isExpanded = fals
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
-            {onToggleExpand && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                className="ml-auto"
-                onClick={onToggleExpand}
-                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-              >
-                {isExpanded ? (
-                  <Minimize2Icon className="h-4 w-4" />
-                ) : (
-                  <Maximize2Icon className="h-4 w-4" />
-                )}
-              </Button>
-            )}
           </CardAction>
         </CardHeader>
-        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
         </CardContent>
       </Card>
@@ -353,7 +312,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter, isExpanded = fals
   }
 
   return (
-    <Card>
+    <Card className="@container/card">
       <CardHeader>
         <div>
           <CardTitle>Single Month Category Spending</CardTitle>
@@ -380,25 +339,9 @@ export function ChartSingleMonthCategorySpending({ dateFilter, isExpanded = fals
               ))}
             </SelectContent>
           </Select>
-          {onToggleExpand && (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              className="ml-auto"
-              onClick={onToggleExpand}
-              aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-            >
-              {isExpanded ? (
-                <Minimize2Icon className="h-4 w-4" />
-              ) : (
-                <Maximize2Icon className="h-4 w-4" />
-              )}
-            </Button>
-          )}
         </CardAction>
       </CardHeader>
-      <CardContent className="h-[420px]">
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
         {option && data.length > 0 ? (
           <div className="h-full w-full flex flex-col">
             <div className="mb-2 text-sm font-medium text-foreground text-center">
@@ -407,12 +350,16 @@ export function ChartSingleMonthCategorySpending({ dateFilter, isExpanded = fals
                 maximumFractionDigits: 2,
               })}
             </div>
-            <div className="flex-1 min-h-0">
-              <ReactECharts
-                option={option}
-                style={{ height: "100%", width: "100%" }}
-                opts={{ renderer: "svg" }}
-              />
+            <div ref={containerRef} className="flex-1 min-h-0" style={{ minHeight: 0, minWidth: 0 }}>
+              {option && (
+                <ReactECharts
+                  ref={chartRef}
+                  option={option}
+                  style={{ height: "100%", width: "100%" }}
+                  opts={{ renderer: "svg" }}
+                  notMerge={true}
+                />
+              )}
             </div>
           </div>
         ) : (

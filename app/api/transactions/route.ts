@@ -96,7 +96,9 @@ export const GET = async (request: Request) => {
         // Get date range based on filter
         const { startDate, endDate } = getDateRange(filter);
         
-        // Build query with optional date filtering and LEFT JOIN to get category name
+        // Optimized query using covering index for better performance
+        // The covering index includes user_id, tx_date DESC, amount, balance, category_id, description
+        // This allows the query to use index-only scans
         let query = `SELECT 
                         t.id, 
                         t.tx_date, 
@@ -116,7 +118,8 @@ export const GET = async (request: Request) => {
             params.push(startDate, endDate);
         }
         
-        query += ` ORDER BY t.tx_date DESC`;
+        // Use index-friendly ordering (matches idx_transactions_user_date_desc_covering)
+        query += ` ORDER BY t.tx_date DESC, t.id DESC`;
         
         console.log("[Transactions API] Query:", query);
         console.log("[Transactions API] Params:", params);
@@ -288,10 +291,13 @@ export const GET = async (request: Request) => {
           console.warn("[Transactions API] No Transport category transactions found in response");
         }
         
+        // Add caching headers for better performance
+        // Cache for 30 seconds, revalidate in background
         return NextResponse.json(transactionsWithCategory, {
             headers: {
                 'Content-Type': 'application/json',
-            }
+                'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+            },
         });
     } catch (error: any) {
         console.error("[Transactions API] Error:", error);

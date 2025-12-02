@@ -69,12 +69,94 @@ export const GET = async (request: NextRequest) => {
     const { searchParams } = request.nextUrl;
     const filter = searchParams.get("filter");
     const month = searchParams.get("month"); // 1-12 (January = 1, February = 2, etc.)
+    const months = searchParams.get("months"); // Comma-separated list of months for batch requests (e.g., "1,2,3")
     
     const { startDate, endDate } = getDateRange(filter);
 
     // Always return all 12 months (1-12) for the selector, regardless of date filter
     // This allows users to select any month, even if there's no data in the filtered range
     const availableMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+    // Handle batch requests (multiple months at once)
+    if (months) {
+      const monthList = months.split(',').map(m => parseInt(m.trim(), 10)).filter(m => !isNaN(m) && m >= 1 && m <= 12);
+      
+      if (monthList.length > 0) {
+        // Batch query: fetch all requested months in a single query
+        // Use IN clause instead of ANY for better compatibility
+        const monthPlaceholders = monthList.map((_, i) => `$${i + 2}`).join(', ');
+        let batchQuery = `
+          SELECT 
+            COALESCE(c.name, 'Other') AS category,
+            EXTRACT(MONTH FROM t.tx_date)::int AS month,
+            SUM(ABS(t.amount)) AS total
+          FROM transactions t
+          LEFT JOIN categories c ON t.category_id = c.id
+          WHERE t.user_id = $1
+            AND t.amount < 0
+            AND EXTRACT(MONTH FROM t.tx_date)::int IN (${monthPlaceholders})
+        `;
+        
+        const batchParams: any[] = [userId, ...monthList];
+        
+        if (startDate && endDate) {
+          const dateParamStart = 2 + monthList.length;
+          batchQuery += ` AND t.tx_date >= $${dateParamStart} AND t.tx_date <= $${dateParamStart + 1}`;
+          batchParams.push(startDate, endDate);
+        }
+        
+        batchQuery += `
+          GROUP BY COALESCE(c.name, 'Other'), EXTRACT(MONTH FROM t.tx_date)::int
+          ORDER BY month, total DESC
+        `;
+        
+        console.log("[Monthly Category Duplicate API] Batch query:", batchQuery);
+        console.log("[Monthly Category Duplicate API] Batch params:", batchParams);
+        
+        const batchRows = await neonQuery<{
+          category: string | null;
+          month: number;
+          total: number | string | null;
+        }>(batchQuery, batchParams);
+        
+        // Group results by month
+        const resultsByMonth = new Map<number, Array<{ category: string; total: number }>>();
+        monthList.forEach(m => resultsByMonth.set(m, []));
+        
+        batchRows.forEach((row) => {
+          const category = (row.category || "Other").trim() || "Other";
+          const total = typeof row.total === "string" ? parseFloat(row.total) || 0 : row.total || 0;
+          const monthNum = row.month;
+          
+          if (resultsByMonth.has(monthNum)) {
+            const existing = resultsByMonth.get(monthNum)!;
+            const existingIndex = existing.findIndex(item => item.category === category);
+            if (existingIndex >= 0) {
+              existing[existingIndex].total += total;
+            } else {
+              existing.push({ category, total });
+            }
+          }
+        });
+        
+        // Format results for each month
+        const batchResults: Record<number, Array<{ category: string; month: number; total: number }>> = {};
+        resultsByMonth.forEach((data, monthNum) => {
+          batchResults[monthNum] = data
+            .map(item => ({ category: item.category, month: monthNum, total: item.total }))
+            .sort((a, b) => b.total - a.total);
+        });
+        
+        return NextResponse.json({
+          data: batchResults,
+          availableMonths,
+        }, {
+          headers: {
+            'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+          },
+        });
+      }
+    }
 
     // Now fetch category data - if month is selected, filter to that month; otherwise use date filter
     // Group by month number only (1-12), not year-month
@@ -176,6 +258,10 @@ export const GET = async (request: NextRequest) => {
     return NextResponse.json({
       data: formatted,
       availableMonths,
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+      },
     });
   } catch (error: any) {
     console.error("[Monthly Category Duplicate API] Error:", error);

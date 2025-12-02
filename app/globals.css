@@ -122,6 +122,155 @@
 }
 
 @layer components {
+  /* GridStack container - ensure proper width calculation */
+  .grid-stack {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+  
+  /* Ensure GridStack items and charts don't have scrollbars */
+  .grid-stack-item:not(.overflow-visible) {
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* For trends page - Add spacing between cards using transform/positioning */
+  .grid-stack-item.overflow-visible {
+    overflow: hidden !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+  }
+  
+  /* GridStack's default resize handles - let them show naturally */
+  
+  .grid-stack-item-content {
+    height: 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+    padding-left: 8px !important;
+    padding-right: 21px !important;
+    box-sizing: border-box !important;
+  }
+  
+  .grid-stack-item-content [data-slot="card"] {
+    height: 100% !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    position: relative !important;
+  }
+  
+  .grid-stack-item-content [data-slot="card-content"] {
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
+  /* Allow overflow-visible to override when explicitly set on cards */
+  .grid-stack-item-content [data-slot="card"].overflow-visible {
+    overflow: visible !important;
+  }
+  
+  /* Remove padding for trends page grid items to match card size exactly */
+  .grid-stack-item-content.overflow-visible {
+    overflow: hidden !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  
+  /* For trends page - Create spacing by reducing card size within grid-stack-item */
+  /* This creates 16px gaps between cards (8px margin on each side) */
+  .grid-stack-item.overflow-visible .grid-stack-item-content.overflow-visible {
+    padding: 0 !important;
+    margin: 8px !important;
+    height: calc(100% - 16px) !important;
+    width: calc(100% - 16px) !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Ensure card fills the reduced content area */
+  .grid-stack-item.overflow-visible .grid-stack-item-content.overflow-visible [data-slot="card"] {
+    height: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    flex-shrink: 0 !important;
+    flex-grow: 1 !important;
+    position: relative !important;
+  }
+  
+  /* Position resize handle inside the card in the bottom-right corner */
+  /* Account for the 8px margin on grid-stack-item-content to position it inside the card */
+  .grid-stack-item.overflow-visible .ui-resizable-handle.ui-resizable-se {
+    position: absolute !important;
+    right: 8px !important;
+    bottom: 8px !important;
+    width: 20px !important;
+    height: 20px !important;
+    z-index: 100 !important;
+  }
+  
+  /* Hide all other resize handles */
+  .grid-stack-item.overflow-visible .ui-resizable-handle:not(.ui-resizable-se) {
+    display: none !important;
+  }
+  
+  /* Analytics page: Position resize handle in bottom-right corner for all cards */
+  .grid-stack-item .ui-resizable-handle.ui-resizable-se {
+    position: absolute !important;
+    right: 8px !important;
+    bottom: 8px !important;
+    width: 20px !important;
+    height: 20px !important;
+    z-index: 100 !important;
+    user-select: none !important;
+  }
+  
+  /* Analytics page: Hide all other resize handles */
+  .grid-stack-item .ui-resizable-handle:not(.ui-resizable-se) {
+    display: none !important;
+  }
+  
+  /* Ensure grid-stack-item-content doesn't add any spacing and stretches to fill */
+  .grid-stack-item.overflow-visible > .grid-stack-item-content.overflow-visible {
+    display: flex !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    flex-direction: column !important;
+  }
+  
+  /* Make sure grid-stack-item itself has no transforms or positioning that affects size */
+  .grid-stack-item.overflow-visible[style] {
+    box-sizing: border-box !important;
+  }
+  
+  /* Force grid-stack-item to match its calculated size exactly */
+  .grid-stack-item.overflow-visible[style*="width"],
+  .grid-stack-item.overflow-visible[style*="height"] {
+    box-sizing: border-box !important;
+  }
+  
   .chart-polar-bar svg {
     overflow: visible;
   }

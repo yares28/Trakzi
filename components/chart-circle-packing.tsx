@@ -11,8 +11,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Maximize2Icon, Minimize2Icon } from "lucide-react"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { toNumericValue } from "@/lib/utils"
 
@@ -36,11 +34,9 @@ const sanitizeCirclePackingNode = (node?: CirclePackingNode | null): CirclePacki
 interface ChartCirclePackingProps {
   data?: CirclePackingNode
   categoryControls?: ChartInfoPopoverCategoryControls
-  isExpanded?: boolean
-  onToggleExpand?: () => void
 }
 
-export function ChartCirclePacking({ data = { name: "", children: [] }, categoryControls, isExpanded = false, onToggleExpand }: ChartCirclePackingProps) {
+export function ChartCirclePacking({ data = { name: "", children: [] }, categoryControls }: ChartCirclePackingProps) {
   const { getPalette } = useColorScheme()
   const sanitizedData = useMemo(() => sanitizeCirclePackingNode(data), [data])
   const renderInfoTrigger = () => (
@@ -59,7 +55,7 @@ export function ChartCirclePacking({ data = { name: "", children: [] }, category
   // Check if data is empty
   if (!sanitizedData || !sanitizedData.children || sanitizedData.children.length === 0) {
     return (
-      <Card>
+      <Card className="@container/card">
         <CardHeader>
           <div>
             <CardTitle>Budget Distribution</CardTitle>
@@ -67,25 +63,9 @@ export function ChartCirclePacking({ data = { name: "", children: [] }, category
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
-            {onToggleExpand && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                className="ml-auto"
-                onClick={onToggleExpand}
-                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-              >
-                {isExpanded ? (
-                  <Minimize2Icon className="h-4 w-4" />
-                ) : (
-                  <Maximize2Icon className="h-4 w-4" />
-                )}
-              </Button>
-            )}
           </CardAction>
         </CardHeader>
-        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
         </CardContent>
       </Card>
@@ -101,25 +81,9 @@ export function ChartCirclePacking({ data = { name: "", children: [] }, category
         </div>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoTrigger()}
-          {onToggleExpand && (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              className="ml-auto"
-              onClick={onToggleExpand}
-              aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-            >
-              {isExpanded ? (
-                <Minimize2Icon className="h-4 w-4" />
-              ) : (
-                <Maximize2Icon className="h-4 w-4" />
-              )}
-            </Button>
-          )}
         </CardAction>
       </CardHeader>
-      <CardContent className="h-[420px]">
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
         <ResponsiveCirclePacking
           data={sanitizedData}
           margin={{ top: 20, right: 20, bottom: 20, left: 20 }}

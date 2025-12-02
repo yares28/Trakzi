@@ -143,65 +143,47 @@ export const GET = async (request: Request) => {
         
         console.log("[Stats API] Date range:", { startDate, endDate, previousStartDate, previousEndDate });
         
-        // Build query with optional date filtering
-        let query = `SELECT amount, tx_date, balance FROM transactions WHERE user_id = $1`;
-        const params: any[] = [userId];
+        // Optimized query using SQL aggregations instead of fetching all rows
+        // This is much faster as it does calculations in the database
+        let currentPeriodQuery: string;
+        const currentParams: any[] = [userId];
         
         if (startDate && endDate) {
-            query += ` AND tx_date >= $2 AND tx_date <= $3`;
-            params.push(startDate, endDate);
+            currentPeriodQuery = `
+                SELECT 
+                    COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as total_income,
+                    COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as total_expenses,
+                    (SELECT balance FROM transactions 
+                     WHERE user_id = $1 AND tx_date >= $2 AND tx_date <= $3
+                     ORDER BY tx_date DESC, id DESC LIMIT 1) as latest_balance
+                FROM transactions 
+                WHERE user_id = $1 AND tx_date >= $2 AND tx_date <= $3
+            `;
+            currentParams.push(startDate, endDate);
+        } else {
+            currentPeriodQuery = `
+                SELECT 
+                    COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as total_income,
+                    COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as total_expenses,
+                    (SELECT balance FROM transactions 
+                     WHERE user_id = $1
+                     ORDER BY tx_date DESC, id DESC LIMIT 1) as latest_balance
+                FROM transactions 
+                WHERE user_id = $1
+            `;
         }
         
-        query += ` ORDER BY tx_date DESC`;
+        console.log("[Stats API] Optimized query:", currentPeriodQuery);
+        console.log("[Stats API] Params:", currentParams);
         
-        console.log("[Stats API] Query:", query);
-        console.log("[Stats API] Params:", params);
+        // Fetch aggregated stats for current period
+        const currentStats = await neonQuery<{
+            total_income: number | string;
+            total_expenses: number | string;
+            latest_balance: number | string | null;
+        }>(currentPeriodQuery, currentParams);
         
-        // Fetch user transactions ordered by date
-        const allUserTransactions = await neonQuery<{
-            amount: number;
-            tx_date: string;
-            balance: number | null;
-        }>(query, params);
-        
-        console.log(`[Stats API] Found ${allUserTransactions.length} transactions for current period`);
-        if (allUserTransactions.length > 0) {
-            console.log(`[Stats API] Sample transaction:`, {
-                amount: allUserTransactions[0].amount,
-                amountType: typeof allUserTransactions[0].amount,
-                amountValue: allUserTransactions[0].amount
-            });
-        }
-        
-        // Get previous period transactions if we have a filter
-        let previousTransactions: typeof allUserTransactions = [];
-        if (previousStartDate && previousEndDate) {
-            let prevQuery = `SELECT amount, tx_date, balance FROM transactions WHERE user_id = $1 AND tx_date >= $2 AND tx_date <= $3 ORDER BY tx_date DESC`;
-            previousTransactions = await neonQuery<{
-                amount: number;
-                tx_date: string;
-                balance: number | null;
-            }>(prevQuery, [userId, previousStartDate, previousEndDate]);
-            console.log(`[Stats API] Found ${previousTransactions.length} transactions for previous period`);
-        }
-        
-        // Filter transactions by date range (already filtered in query, but keep for consistency)
-        const normalizeDate = (value: string | Date) => {
-            if (value instanceof Date) {
-                return value.toISOString().split('T')[0];
-            }
-            if (typeof value === "string") {
-                return value.split('T')[0];
-            }
-            return new Date(value as any).toISOString().split('T')[0];
-        };
-
-        const currentTransactions = allUserTransactions.filter(tx => {
-            const txDate = normalizeDate(tx.tx_date);
-            return !startDate || !endDate || (txDate >= startDate && txDate <= endDate);
-        });
-        
-        console.log(`[Stats API] Current transactions after filter: ${currentTransactions.length}`);
+        const currentResult = currentStats[0] || { total_income: 0, total_expenses: 0, latest_balance: null };
         
         // Helper function to safely convert to number
         const toNumber = (value: any): number => {
@@ -210,41 +192,56 @@ export const GET = async (request: Request) => {
             return isNaN(num) ? 0 : num;
         };
         
-        // Calculate totals - ensure amounts are numbers
-        const currentIncome = currentTransactions
-            .filter(tx => {
-                const amount = toNumber(tx.amount);
-                return amount > 0;
-            })
-            .reduce((sum, tx) => sum + toNumber(tx.amount), 0);
+        const currentIncome = toNumber(currentResult.total_income);
+        const currentExpenses = toNumber(currentResult.total_expenses);
+        const netWorth = toNumber(currentResult.latest_balance);
         
-        const currentExpenses = Math.abs(currentTransactions
-            .filter(tx => {
-                const amount = toNumber(tx.amount);
-                return amount < 0;
-            })
-            .reduce((sum, tx) => sum + toNumber(tx.amount), 0));
+        console.log(`[Stats API] Current period stats:`, {
+            currentIncome,
+            currentExpenses,
+            netWorth
+        });
         
-        const previousIncome = previousTransactions
-            .filter(tx => {
-                const amount = toNumber(tx.amount);
-                return amount > 0;
-            })
-            .reduce((sum, tx) => sum + toNumber(tx.amount), 0);
+        // Get previous period stats if we have a filter
+        let previousIncome = 0;
+        let previousExpenses = 0;
+        let previousNetWorth = 0;
         
-        const previousExpenses = Math.abs(previousTransactions
-            .filter(tx => {
-                const amount = toNumber(tx.amount);
-                return amount < 0;
-            })
-            .reduce((sum, tx) => sum + toNumber(tx.amount), 0));
+        if (previousStartDate && previousEndDate) {
+            const previousPeriodQuery = `
+                SELECT 
+                    COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as total_income,
+                    COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as total_expenses,
+                    (SELECT balance FROM transactions 
+                     WHERE user_id = $1 AND tx_date >= $2 AND tx_date <= $3
+                     ORDER BY tx_date DESC, id DESC LIMIT 1) as latest_balance
+                FROM transactions 
+                WHERE user_id = $1 AND tx_date >= $2 AND tx_date <= $3
+            `;
+            
+            const previousStats = await neonQuery<{
+                total_income: number | string;
+                total_expenses: number | string;
+                latest_balance: number | string | null;
+            }>(previousPeriodQuery, [userId, previousStartDate, previousEndDate]);
+            
+            const previousResult = previousStats[0] || { total_income: 0, total_expenses: 0, latest_balance: null };
+            previousIncome = toNumber(previousResult.total_income);
+            previousExpenses = toNumber(previousResult.total_expenses);
+            previousNetWorth = toNumber(previousResult.latest_balance);
+            
+            console.log(`[Stats API] Previous period stats:`, {
+                previousIncome,
+                previousExpenses,
+                previousNetWorth
+            });
+        }
         
         console.log(`[Stats API] Calculated values:`, {
             currentIncome,
             currentExpenses,
             previousIncome,
-            previousExpenses,
-            currentTransactionsCount: currentTransactions.length
+            previousExpenses
         });
         
         // Calculate savings rate
@@ -256,16 +253,7 @@ export const GET = async (request: Request) => {
             ? ((previousIncome - previousExpenses) / previousIncome) * 100 
             : 0;
         
-        // Calculate net worth (use latest transaction balance)
-        // Transactions are already sorted by date desc, so first one is latest
-        const netWorth = allUserTransactions.length > 0 && allUserTransactions[0].balance != null
-            ? toNumber(allUserTransactions[0].balance) 
-            : 0;
-        
-        // Get previous period's net worth (latest transaction balance in previous period)
-        const previousNetWorth = previousTransactions.length > 0 && previousTransactions[0].balance != null
-            ? toNumber(previousTransactions[0].balance) 
-            : 0;
+        // Net worth already calculated in optimized query above
         
         // Calculate percentage changes
         const incomeChange = previousIncome > 0 
@@ -297,7 +285,13 @@ export const GET = async (request: Request) => {
         
         console.log("[Stats API] Calculated stats:", result);
         
-        return NextResponse.json(result);
+        // Add caching headers for better performance
+        // Cache for 30 seconds, revalidate in background
+        return NextResponse.json(result, {
+            headers: {
+                'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+            },
+        });
     } catch (error: any) {
         console.error("Stats API error:", error);
         console.error("Stats API error stack:", error.stack);

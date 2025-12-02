@@ -975,6 +975,9 @@ export default function Page() {
                 savingsRateChange={stats.savingsRateChange}
                 netWorthChange={stats.netWorthChange}
               />
+              {/* Charts removed - keeping only SectionCards and DataTable */}
+              {false && (
+              <>
               <div className="px-4 lg:px-6">
                 <ChartAreaInteractive
                   categoryControls={incomeExpenseControls}
@@ -1257,6 +1260,8 @@ export default function Page() {
                   }, [chartTransactions])}
                 />
               </div>
+              </>
+              )}
               <DataTable 
                 data={[]} 
                 transactions={transactions}

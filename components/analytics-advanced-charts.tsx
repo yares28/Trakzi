@@ -68,7 +68,7 @@ export function ChartCirclePacking({ data = { name: "", children: [] } }: ChartC
           <CardTitle>Budget Distribution</CardTitle>
           <CardDescription>Visualizes how your budget is allocated across categories</CardDescription>
         </CardHeader>
-        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+        <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
         </CardContent>
       </Card>
@@ -81,7 +81,7 @@ export function ChartCirclePacking({ data = { name: "", children: [] } }: ChartC
         <CardTitle>Budget Distribution</CardTitle>
         <CardDescription>Visualizes how your budget is allocated across categories</CardDescription>
       </CardHeader>
-      <CardContent className="h-[420px]">
+      <CardContent className="h-[250px]">
         <ResponsiveCirclePacking
           data={sanitizedData}
           margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
@@ -170,7 +170,7 @@ export function ChartPolarBar({ data: dataProp = [], keys: keysProp }: ChartPola
           <CardTitle>Household Spend Mix</CardTitle>
           <CardDescription>Track monthly expenses across key categories</CardDescription>
         </CardHeader>
-        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+        <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
         </CardContent>
       </Card>
@@ -183,7 +183,7 @@ export function ChartPolarBar({ data: dataProp = [], keys: keysProp }: ChartPola
         <CardTitle>Household Spend Mix</CardTitle>
         <CardDescription>Track monthly expenses across key categories</CardDescription>
       </CardHeader>
-      <CardContent className="chart-polar-bar h-[420px]">
+      <CardContent className="chart-polar-bar h-[250px]">
         <ResponsivePolarBar
           data={sanitizedChartData}
           keys={finalKeys}
@@ -241,7 +241,7 @@ export function ChartRadar({ data = [] }: ChartRadarProps) {
           <CardTitle>Financial Health Score</CardTitle>
           <CardDescription>Assessment of your financial wellness</CardDescription>
         </CardHeader>
-        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+        <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
         </CardContent>
       </Card>
@@ -254,7 +254,7 @@ export function ChartRadar({ data = [] }: ChartRadarProps) {
         <CardTitle>Financial Health Score</CardTitle>
         <CardDescription>Assessment of your financial wellness</CardDescription>
       </CardHeader>
-      <CardContent className="h-[420px]">
+      <CardContent className="h-[250px]">
         <ResponsiveRadar
           data={sanitizedData}
           keys={["This Year", "Last Year", "Target"]}
@@ -308,7 +308,7 @@ export function ChartSankey({ data = { nodes: [], links: [] } }: ChartSankeyProp
           <CardTitle>Cash Flow Sankey</CardTitle>
           <CardDescription>Follow revenue as it moves through the org</CardDescription>
         </CardHeader>
-        <CardContent className="h-[500px] flex items-center justify-center text-muted-foreground">
+        <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
         </CardContent>
       </Card>
@@ -321,7 +321,7 @@ export function ChartSankey({ data = { nodes: [], links: [] } }: ChartSankeyProp
         <CardTitle>Cash Flow Sankey</CardTitle>
         <CardDescription>Follow revenue as it moves through the org</CardDescription>
       </CardHeader>
-      <CardContent className="h-[500px]">
+      <CardContent className="h-[250px]">
         <ResponsiveSankey
           data={sanitizedData}
           margin={{ top: 40, right: 160, bottom: 40, left: 50 }}
@@ -383,7 +383,7 @@ export function ChartStream({ data = [] }: ChartStreamProps) {
           <CardTitle>Income Streams</CardTitle>
           <CardDescription>Monthly income breakdown by source</CardDescription>
         </CardHeader>
-        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+        <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
         </CardContent>
       </Card>
@@ -396,7 +396,7 @@ export function ChartStream({ data = [] }: ChartStreamProps) {
         <CardTitle>Income Streams</CardTitle>
         <CardDescription>Monthly income breakdown by source</CardDescription>
       </CardHeader>
-      <CardContent className="h-[420px]">
+      <CardContent className="h-[250px]">
         <ResponsiveStream
           data={sanitizedData}
           colors={getPalette()}
@@ -454,7 +454,7 @@ export function ChartSwarmPlot({ data = [] }: ChartSwarmPlotProps) {
           <CardTitle>Transaction History</CardTitle>
           <CardDescription>Recent transactions by category</CardDescription>
         </CardHeader>
-        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+        <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
         </CardContent>
       </Card>
@@ -467,7 +467,7 @@ export function ChartSwarmPlot({ data = [] }: ChartSwarmPlotProps) {
         <CardTitle>Transaction History</CardTitle>
         <CardDescription>Recent transactions by category</CardDescription>
       </CardHeader>
-      <CardContent className="h-[420px]">
+      <CardContent className="h-[250px]">
         <ResponsiveSwarmPlot
           data={sanitizedData}
           colors={getPalette()}
@@ -550,7 +550,7 @@ export function ChartTreeMap({ data = { name: "", children: [] } }: ChartTreeMap
             </Popover>
           </CardAction>
         </CardHeader>
-        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+        <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
         </CardContent>
       </Card>
@@ -593,7 +593,7 @@ export function ChartTreeMap({ data = { name: "", children: [] } }: ChartTreeMap
             </Popover>
           </CardAction>
         </CardHeader>
-        <CardContent className="h-[420px]">
+        <CardContent className="h-[250px]">
           <ResponsiveTreeMap
             data={sanitizedData}
             colors={getPalette()}
@@ -672,6 +672,7 @@ export function ChartRadialBar({
   const [budgetInputs, setBudgetInputs] = React.useState<Record<string, string>>({})
   const [localBudgets, setLocalBudgets] = React.useState<Record<string, number>>(budgets)
   const [dateFilter, setDateFilter] = React.useState<string | null>(null)
+  const [mounted, setMounted] = React.useState(false)
 
   // Update local budgets when prop changes
   React.useEffect(() => {
@@ -698,6 +699,11 @@ export function ChartRadialBar({
     return () => {
       window.removeEventListener("dateFilterChanged", handleFilterChange as EventListener)
     }
+  }, [])
+
+  // Mount check for ResponsiveContainer
+  React.useEffect(() => {
+    setMounted(true)
   }, [])
 
   const getDefaultBudget = React.useCallback(
@@ -760,7 +766,7 @@ export function ChartRadialBar({
           <CardTitle>Category Budget</CardTitle>
           <CardDescription>Track spending against your budget limits</CardDescription>
         </CardHeader>
-        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+        <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
         </CardContent>
       </Card>
@@ -887,9 +893,10 @@ export function ChartRadialBar({
           })}
         </div>
       </CardHeader>
-      <CardContent className="h-[420px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <RadialBarChart
+      <CardContent className="h-[250px]">
+        {mounted && (
+          <ResponsiveContainer width="100%" height="100%" minHeight={250}>
+            <RadialBarChart
             innerRadius="15%"
             outerRadius="100%"
             cx="50%"
@@ -968,6 +975,7 @@ export function ChartRadialBar({
             />
           </RadialBarChart>
         </ResponsiveContainer>
+        )}
       </CardContent>
     </Card>
   )

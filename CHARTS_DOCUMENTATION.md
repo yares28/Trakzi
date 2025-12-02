@@ -42,40 +42,45 @@ This document lists all charts used in the application, their locations, and the
    - Card Name: "Expense Breakdown"
    - Description: Distribution of your monthly expenses across categories
 
-5. **ChartCirclePacking** (`components/chart-circle-packing.tsx`)
-   - Card Name: "Budget Distribution"
-   - Description: Visualizes how your budget is allocated across categories
-
-6. **ChartPolarBar** (`components/chart-polar-bar.tsx`)
+5. **ChartPolarBar** (`components/chart-polar-bar.tsx`)
    - Card Name: "Household Spend Mix"
    - Description: Track monthly expenses across key categories
 
-7. **ChartRadar** (`components/chart-radar.tsx`)
+6. **ChartRadar** (`components/chart-radar.tsx`)
    - Card Name: "Financial Health Score"
    - Description: Assessment of your financial wellness
 
-8. **ChartSwarmPlot** (`components/chart-swarm-plot.tsx`)
+7. **ChartSwarmPlot** (`components/chart-swarm-plot.tsx`)
    - Card Name: "Transaction History"
    - Description: Recent transactions by category
 
-9. **ChartSankey** (`components/chart-sankey.tsx`)
+8. **ChartSankey** (`components/chart-sankey.tsx`)
     - Card Name: "Cash Flow Sankey"
     - Description: Follow revenue as it moves through the org
 
-10. **ChartTransactionCalendar** (`components/chart-transaction-calendar.tsx`)
+9. **ChartTransactionCalendar** (`components/chart-transaction-calendar.tsx`)
     - Card Name: "Daily Transaction Activity"
     - Description: Your spending patterns throughout the year - darker means more transactions
     - Technology: ECharts calendar heatmap
     - Features: Year selector dropdown with "YTD" option (last 365 days) and specific year selection
     - Data Source: Fetches from `/api/transactions/daily`
 
-11. **SpendingActivityRings** (Custom component in `app/analytics/page.tsx`)
+10. **SpendingActivityRings** (Custom component in `app/analytics/page.tsx`)
     - Card Name: "Spending Activity Rings"
     - Description: Top spending categories from your Neon transactions
 
 > Removed chart: **ChartBarCategory** (`components/chart-bar-category.tsx`)  
 > - Card Name: "Spending by Day of Week"  
 > - Reason: Card no longer part of the analytics page
+
+## Hidden Charts
+
+These charts are kept in the codebase but are not currently displayed on any page:
+
+1. **ChartCirclePacking** (`components/chart-circle-packing.tsx`)
+   - Card Name: "Budget Distribution"
+   - Description: Visualizes how your budget is allocated across categories
+   - Status: Hidden (code preserved, not rendered in analytics page)
 
 ## Savings Page (`app/savings/page.tsx`)
 

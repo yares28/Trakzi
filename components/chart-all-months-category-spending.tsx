@@ -12,9 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { useColorScheme } from "@/components/color-scheme-provider"
-import { Button } from "@/components/ui/button"
-import { Maximize2Icon, Minimize2Icon } from "lucide-react"
-
+import { deduplicatedFetch } from "@/lib/request-deduplication"
 interface ChartAllMonthsCategorySpendingProps {
   data?: Array<{
     id: number
@@ -25,8 +23,6 @@ interface ChartAllMonthsCategorySpendingProps {
     category: string
   }>
   categoryControls?: ChartInfoPopoverCategoryControls
-  isExpanded?: boolean
-  onToggleExpand?: () => void
 }
 
 const monthNames = [
@@ -46,7 +42,7 @@ const monthNames = [
 
 const monthNamesShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
-export function ChartAllMonthsCategorySpending({ data = [], categoryControls: propCategoryControls, isExpanded = false, onToggleExpand }: ChartAllMonthsCategorySpendingProps) {
+export function ChartAllMonthsCategorySpending({ data = [], categoryControls: propCategoryControls }: ChartAllMonthsCategorySpendingProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const palette = getPalette().filter((color) => color !== "#c3c3c3")
@@ -74,29 +70,32 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
   useEffect(() => {
     const fetchActualTotals = async () => {
       try {
-        // Calculate totals for all 12 months by fetching each month in parallel
+        // Calculate totals for all 12 months using batch API call
         const totals = new Map<number, number>()
         monthNames.forEach((_, monthIndex) => {
           totals.set(monthIndex, 0)
         })
 
-        // Fetch totals for all 12 months in parallel (no date filter to get all-time totals)
-        const monthPromises = Array.from({ length: 12 }, async (_, i) => {
-          try {
-            const response = await fetch(`/api/analytics/monthly-category-duplicate?month=${i + 1}`)
-            if (!response.ok) {
-              console.warn(`[All Months Category Spending] Failed to fetch month ${i + 1}`)
-              return
-            }
-            const result = await response.json()
-            const monthTotal = (result.data || []).reduce((sum: number, item: { total: number }) => sum + (item.total || 0), 0)
-            totals.set(i, monthTotal)
-          } catch (err) {
-            console.warn(`[All Months Category Spending] Error fetching month ${i + 1}:`, err)
+        // Use batch API to fetch all 12 months in a single request
+        const allMonths = Array.from({ length: 12 }, (_, i) => i + 1).join(',')
+        try {
+          const result = await deduplicatedFetch<{ data: Record<number, Array<{ category: string; month: number; total: number }>>; availableMonths: number[] }>(
+            `/api/analytics/monthly-category-duplicate?months=${allMonths}`
+          )
+          
+          // Result is now an object with month numbers as keys
+          if (result.data && typeof result.data === 'object') {
+            Object.entries(result.data).forEach(([monthStr, monthData]: [string, any]) => {
+              const monthNum = parseInt(monthStr, 10) - 1 // Convert 1-12 to 0-11
+              if (!isNaN(monthNum) && Array.isArray(monthData)) {
+                const monthTotal = monthData.reduce((sum: number, item: { total: number }) => sum + (item.total || 0), 0)
+                totals.set(monthNum, monthTotal)
+              }
+            })
           }
-        })
-
-        await Promise.all(monthPromises)
+        } catch (err) {
+          console.warn(`[All Months Category Spending] Error fetching batch months:`, err)
+        }
         
         console.log(`[All Months Category Spending] Fetched actual month totals from database:`, {
           januaryTotal: totals.get(0)?.toFixed(2) || "0.00",
@@ -786,7 +785,7 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
 
   if (!data || data.length === 0) {
     return (
-      <Card className={cardWidthClass}>
+      <Card className="@container/card">
         <CardHeader>
           <div>
             <CardTitle>All Months Category Spending</CardTitle>
@@ -794,25 +793,9 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
-            {onToggleExpand && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                className="ml-auto"
-                onClick={onToggleExpand}
-                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-              >
-                {isExpanded ? (
-                  <Minimize2Icon className="h-4 w-4" />
-                ) : (
-                  <Maximize2Icon className="h-4 w-4" />
-                )}
-              </Button>
-            )}
           </CardAction>
         </CardHeader>
-        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
         </CardContent>
       </Card>
@@ -820,7 +803,7 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
   }
 
   return (
-    <Card className={cardWidthClass}>
+    <Card className="@container/card">
       <CardHeader>
         <div>
           <CardTitle>All Months Category Spending</CardTitle>
@@ -828,25 +811,9 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
         </div>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoTrigger()}
-          {onToggleExpand && (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              className="ml-auto"
-              onClick={onToggleExpand}
-              aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-            >
-              {isExpanded ? (
-                <Minimize2Icon className="h-4 w-4" />
-              ) : (
-                <Maximize2Icon className="h-4 w-4" />
-              )}
-            </Button>
-          )}
         </CardAction>
       </CardHeader>
-      <CardContent className="h-[420px] p-0 flex flex-col">
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex flex-col">
         <div className="w-full flex-1 min-h-0">
           <svg
             ref={svgRef}

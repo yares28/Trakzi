@@ -11,8 +11,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Maximize2Icon, Minimize2Icon } from "lucide-react"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { toNumericValue } from "@/lib/utils"
 
@@ -25,11 +23,9 @@ interface ChartTreeMapProps {
     }>
   }
   categoryControls?: ChartInfoPopoverCategoryControls
-  isExpanded?: boolean
-  onToggleExpand?: () => void
 }
 
-export function ChartTreeMap({ data = { name: "", children: [] }, categoryControls, isExpanded = false, onToggleExpand }: ChartTreeMapProps) {
+export function ChartTreeMap({ data = { name: "", children: [] }, categoryControls }: ChartTreeMapProps) {
   const { getPalette } = useColorScheme()
   const sanitizedData = useMemo(() => {
     if (!data || !data.children) return { name: "", children: [] }
@@ -62,31 +58,15 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
   
   if (!sanitizedData || !sanitizedData.children || sanitizedData.children.length === 0) {
     return (
-      <Card className="col-span-full">
+      <Card className="@container/card col-span-full">
         <CardHeader>
           <CardTitle>Net Worth Allocation</CardTitle>
           <CardDescription>Breakdown of your total assets</CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
-            {onToggleExpand && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                className="ml-auto"
-                onClick={onToggleExpand}
-                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-              >
-                {isExpanded ? (
-                  <Minimize2Icon className="h-4 w-4" />
-                ) : (
-                  <Maximize2Icon className="h-4 w-4" />
-                )}
-              </Button>
-            )}
           </CardAction>
         </CardHeader>
-        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
         </CardContent>
       </Card>
@@ -100,25 +80,9 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
         <CardDescription>Breakdown of your total assets - Click on a category to see transactions</CardDescription>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoTrigger()}
-          {onToggleExpand && (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              className="ml-auto"
-              onClick={onToggleExpand}
-              aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-            >
-              {isExpanded ? (
-                <Minimize2Icon className="h-4 w-4" />
-              ) : (
-                <Maximize2Icon className="h-4 w-4" />
-              )}
-            </Button>
-          )}
         </CardAction>
       </CardHeader>
-      <CardContent className="h-[420px]">
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
         <ResponsiveTreeMap
           data={sanitizedData}
           colors={getPalette()}

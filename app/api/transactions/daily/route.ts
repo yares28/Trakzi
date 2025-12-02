@@ -120,7 +120,13 @@ export const GET = async (request: NextRequest) => {
 
         console.log(`[Daily Transactions API] Returning ${formattedData.length} days of data`);
 
-        return NextResponse.json(formattedData);
+        // Add caching headers for better performance
+        // Cache for 1 minute, revalidate in background
+        return NextResponse.json(formattedData, {
+            headers: {
+                'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+            },
+        });
     } catch (error: any) {
         console.error("[Daily Transactions API] Error:", error);
         return NextResponse.json(

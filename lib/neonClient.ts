@@ -1,20 +1,45 @@
 // lib/neonClient.ts
-// Using @neondatabase/serverless for direct PostgreSQL connections
+// Using @neondatabase/serverless for direct PostgreSQL connections with connection pooling
 // This handles authentication automatically via the connection string
 
 import { neon } from '@neondatabase/serverless';
 
+// Note: Connection pooling is handled via the pooled connection string
+// The -pooler suffix in the connection string enables Neon's built-in connection pooling
+
 // Get connection string from environment
+// For connection pooling, use the pooled connection string (adds -pooler to hostname)
+// Example: postgresql://user:pass@ep-xxx-pooler.region.aws.neon.tech/dbname
 const CONNECTION_STRING = process.env.DATABASE_URL || process.env.NEON_CONNECTION_STRING;
 
-if (!CONNECTION_STRING) {
+// Auto-detect and convert to pooled connection string if not already pooled
+function getPooledConnectionString(connString: string | undefined): string | null {
+    if (!connString) return null;
+    
+    // If already contains -pooler, return as is
+    if (connString.includes('-pooler')) {
+        return connString;
+    }
+    
+    // Convert regular connection string to pooled version
+    // Replace ep-xxx.region.aws.neon.tech with ep-xxx-pooler.region.aws.neon.tech
+    return connString.replace(
+        /@([^@]+)\.([^.]+\.aws\.neon\.tech)/,
+        '@$1-pooler.$2'
+    );
+}
+
+const POOLED_CONNECTION_STRING = getPooledConnectionString(CONNECTION_STRING);
+
+if (!POOLED_CONNECTION_STRING) {
     console.warn("[Neon] DATABASE_URL or NEON_CONNECTION_STRING not set in .env.local");
     console.warn("[Neon] Using Neon requires a connection string like:");
     console.warn("[Neon] postgresql://user:password@host/database?sslmode=require");
+    console.warn("[Neon] For best performance, use the pooled connection string (adds -pooler to hostname)");
 }
 
-// Create Neon client instance
-const sql = CONNECTION_STRING ? neon(CONNECTION_STRING) : null;
+// Create Neon client instance with pooled connection
+const sql = POOLED_CONNECTION_STRING ? neon(POOLED_CONNECTION_STRING) : null;
 
 type NeonOptions = {
     returnRepresentation?: boolean;

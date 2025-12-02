@@ -104,7 +104,7 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls 
 
   if (!sanitizedData.nodes.length || !sanitizedData.links.length) {
     return (
-      <Card className="col-span-full">
+      <Card className="@container/card col-span-full">
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <CardTitle>Cash Flow Sankey</CardTitle>
@@ -112,7 +112,7 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls 
           </div>
           <CardAction>{renderInfoTrigger()}</CardAction>
         </CardHeader>
-        <CardContent className="h-[500px] flex items-center justify-center text-muted-foreground">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
         </CardContent>
       </Card>
@@ -128,7 +128,7 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls 
         </div>
         <CardAction>{renderInfoTrigger()}</CardAction>
       </CardHeader>
-      <CardContent className="h-[540px] pb-6">
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] pb-6">
         <ResponsiveSankey
           data={sanitizedData}
           margin={{ top: 40, right: 160, bottom: 90, left: 100 }}

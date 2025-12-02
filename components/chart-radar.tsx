@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { ChevronDownIcon, Maximize2Icon, Minimize2Icon } from "lucide-react"
+import { ChevronDownIcon } from "lucide-react"
 import { ResponsiveRadar } from "@nivo/radar"
 import { useTheme } from "next-themes"
 
@@ -25,6 +25,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { toNumericValue } from "@/lib/utils"
+import { deduplicatedFetch } from "@/lib/request-deduplication"
 
 const LIGHT_CATEGORY_TEXT = "oklch(0.556 0 0)"
 const DARK_CATEGORY_TEXT = "oklch(0.708 0 0)"
@@ -45,11 +46,9 @@ type FinancialHealthResponse = {
 
 interface ChartRadarProps {
   categoryControls?: ChartInfoPopoverCategoryControls
-  isExpanded?: boolean
-  onToggleExpand?: () => void
 }
 
-export function ChartRadar({ categoryControls, isExpanded = false, onToggleExpand }: ChartRadarProps) {
+export function ChartRadar({ categoryControls }: ChartRadarProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const [chartData, setChartData] = useState<RadarDatum[]>([])
@@ -68,14 +67,10 @@ export function ChartRadar({ categoryControls, isExpanded = false, onToggleExpan
       setIsLoading(true)
       setError(null)
       try {
-        const response = await fetch("/api/financial-health", {
-          cache: "no-store",
-          signal: controller.signal,
-        })
-        if (!response.ok) {
-          throw new Error("Failed to load financial data")
-        }
-        const payload: FinancialHealthResponse = await response.json()
+        const payload: FinancialHealthResponse = await deduplicatedFetch<FinancialHealthResponse>(
+          "/api/financial-health",
+          { cache: "no-store", signal: controller.signal }
+        )
         if (!payload || !Array.isArray(payload.data)) {
           throw new Error("Unexpected response shape")
         }
@@ -88,7 +83,10 @@ export function ChartRadar({ categoryControls, isExpanded = false, onToggleExpan
           )
         }
       } catch (err) {
+        // Don't log or set error if request was aborted (component unmounted)
         if (controller.signal.aborted) return
+        // Don't log AbortError - it's expected when component unmounts
+        if (err instanceof Error && err.name === 'AbortError') return
         console.error("[ChartRadar] Failed to load Neon data:", err)
         setError(err instanceof Error ? err.message : "Failed to load data")
         setChartData([])
@@ -297,7 +295,7 @@ export function ChartRadar({ categoryControls, isExpanded = false, onToggleExpan
   )
 
   const renderStatusCard = (message: string) => (
-    <Card>
+    <Card className="@container/card">
       <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <CardTitle>Financial Health Score</CardTitle>
@@ -305,25 +303,9 @@ export function ChartRadar({ categoryControls, isExpanded = false, onToggleExpan
         </div>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoTrigger()}
-          {onToggleExpand && (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              className="ml-auto"
-              onClick={onToggleExpand}
-              aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-            >
-              {isExpanded ? (
-                <Minimize2Icon className="h-4 w-4" />
-              ) : (
-                <Maximize2Icon className="h-4 w-4" />
-              )}
-            </Button>
-          )}
         </CardAction>
       </CardHeader>
-      <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
         {message}
       </CardContent>
     </Card>
@@ -342,7 +324,7 @@ export function ChartRadar({ categoryControls, isExpanded = false, onToggleExpan
   }
 
   return (
-    <Card>
+    <Card className="@container/card">
       <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <CardTitle>Financial Health Score</CardTitle>
@@ -409,25 +391,9 @@ export function ChartRadar({ categoryControls, isExpanded = false, onToggleExpan
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {onToggleExpand && (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              className="ml-auto"
-              onClick={onToggleExpand}
-              aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-            >
-              {isExpanded ? (
-                <Minimize2Icon className="h-4 w-4" />
-              ) : (
-                <Maximize2Icon className="h-4 w-4" />
-              )}
-            </Button>
-          )}
         </CardAction>
       </CardHeader>
-      <CardContent className="h-[420px]">
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
         <ResponsiveRadar
           key={`radar-${filteredData.map(d => String(d.capability)).sort().join('-')}`}
           data={filteredData}

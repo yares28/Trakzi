@@ -55,7 +55,7 @@ export function ChartCategoryFlowFridge({ data }: { data: { id: string; data: { 
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-                    <div className="h-[400px] w-full" />
+                    <div className="h-[250px] w-full" />
                 </CardContent>
             </Card>
         )
@@ -73,7 +73,7 @@ export function ChartCategoryFlowFridge({ data }: { data: { id: string; data: { 
                 </CardDescription>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-                <div className="h-[400px] w-full">
+                <div className="h-[250px] w-full">
                     <ResponsiveAreaBump
                         data={data}
                         margin={{ top: 40, right: 120, bottom: 40, left: 120 }}

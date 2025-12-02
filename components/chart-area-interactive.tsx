@@ -20,9 +20,6 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import { Button } from "@/components/ui/button"
-import { Maximize2Icon, Minimize2Icon } from "lucide-react"
-
 export const description = "An interactive area chart"
 
 interface ChartAreaInteractiveProps {
@@ -32,11 +29,9 @@ interface ChartAreaInteractiveProps {
     mobile: number
   }>
   categoryControls?: ChartInfoPopoverCategoryControls
-  isExpanded?: boolean
-  onToggleExpand?: () => void
 }
 
-export function ChartAreaInteractive({ data = [], categoryControls, isExpanded = false, onToggleExpand }: ChartAreaInteractiveProps) {
+export function ChartAreaInteractive({ data = [], categoryControls }: ChartAreaInteractiveProps) {
   const { colorScheme, getPalette } = useColorScheme()
   const { resolvedTheme } = useTheme()
   
@@ -111,22 +106,6 @@ export function ChartAreaInteractive({ data = [], categoryControls, isExpanded =
           </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoAction()}
-            {onToggleExpand && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                className="ml-auto"
-                onClick={onToggleExpand}
-                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-              >
-                {isExpanded ? (
-                  <Minimize2Icon className="h-4 w-4" />
-                ) : (
-                  <Maximize2Icon className="h-4 w-4" />
-                )}
-              </Button>
-            )}
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
@@ -150,28 +129,12 @@ export function ChartAreaInteractive({ data = [], categoryControls, isExpanded =
         </CardDescription>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoAction()}
-          {onToggleExpand && (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              className="ml-auto"
-              onClick={onToggleExpand}
-              aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-            >
-              {isExpanded ? (
-                <Minimize2Icon className="h-4 w-4" />
-              ) : (
-                <Maximize2Icon className="h-4 w-4" />
-              )}
-            </Button>
-          )}
         </CardAction>
       </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 min-w-0 overflow-hidden">
         <ChartContainer
           config={chartConfig}
-          className="aspect-auto h-[250px] w-full"
+          className="aspect-auto h-[250px] w-full min-w-0"
         >
           <AreaChart data={filteredData}>
             <defs>

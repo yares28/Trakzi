@@ -14,9 +14,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Maximize2Icon, Minimize2Icon } from "lucide-react"
-
 interface ChartSpendingFunnelProps {
   data?: Array<{
     id: string
@@ -24,8 +21,7 @@ interface ChartSpendingFunnelProps {
     label: string
   }>
   categoryControls?: ChartInfoPopoverCategoryControls
-  isExpanded?: boolean
-  onToggleExpand?: () => void
+  maxExpenseCategories?: number
 }
 
 // Dark colors that require white text
@@ -42,7 +38,7 @@ const getTextColor = (sliceColor: string, colorScheme?: string): string => {
   return darkColors.includes(sliceColor) ? "#ffffff" : "#000000"
 }
 
-export function ChartSpendingFunnel({ data = [], categoryControls, isExpanded = false, onToggleExpand }: ChartSpendingFunnelProps) {
+export function ChartSpendingFunnel({ data = [], categoryControls, maxExpenseCategories = 2 }: ChartSpendingFunnelProps) {
   const { resolvedTheme } = useTheme()
   const { colorScheme, getPalette } = useColorScheme()
   const [mounted, setMounted] = useState(false)
@@ -84,9 +80,9 @@ export function ChartSpendingFunnel({ data = [], categoryControls, isExpanded = 
       description="This funnel shows how income cascades through major expense categories before landing in savings."
       details={[
         "Each layer represents a top expense category. Wider bands mean that category consumed more of your paycheck.",
-        "The top 2 categories by spending are shown individually, with all remaining categories grouped into 'Others'.",
+        `The top ${maxExpenseCategories} categories by spending are shown individually, with all remaining categories grouped into 'Others'.`,
       ]}
-      ignoredFootnote="Only the top 2 expense categories are shown individually. All other categories are aggregated into 'Others'."
+      ignoredFootnote={`Only the top ${maxExpenseCategories} expense categories are shown individually. All other categories are aggregated into 'Others'.`}
       categoryControls={categoryControls}
     />
   )
@@ -99,26 +95,10 @@ export function ChartSpendingFunnel({ data = [], categoryControls, isExpanded = 
           <CardDescription>How your income flows to savings</CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
-            {onToggleExpand && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                className="ml-auto"
-                onClick={onToggleExpand}
-                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-              >
-                {isExpanded ? (
-                  <Minimize2Icon className="h-4 w-4" />
-                ) : (
-                  <Maximize2Icon className="h-4 w-4" />
-                )}
-              </Button>
-            )}
           </CardAction>
         </CardHeader>
-        <CardContent>
-          <div className="h-[400px] w-full" />
+        <CardContent className="flex-1 min-h-0">
+          <div className="h-full w-full min-h-[250px]" />
         </CardContent>
       </Card>
     )
@@ -138,26 +118,10 @@ export function ChartSpendingFunnel({ data = [], categoryControls, isExpanded = 
           </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
-            {onToggleExpand && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                className="ml-auto"
-                onClick={onToggleExpand}
-                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-              >
-                {isExpanded ? (
-                  <Minimize2Icon className="h-4 w-4" />
-                ) : (
-                  <Maximize2Icon className="h-4 w-4" />
-                )}
-              </Button>
-            )}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-          <div className="h-[400px] w-full flex items-center justify-center text-muted-foreground">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
+          <div className="h-full w-full min-h-[250px] flex items-center justify-center text-muted-foreground">
             No data available
           </div>
         </CardContent>
@@ -177,26 +141,10 @@ export function ChartSpendingFunnel({ data = [], categoryControls, isExpanded = 
         </CardDescription>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoTrigger()}
-          {onToggleExpand && (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              className="ml-auto"
-              onClick={onToggleExpand}
-              aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-            >
-              {isExpanded ? (
-                <Minimize2Icon className="h-4 w-4" />
-              ) : (
-                <Maximize2Icon className="h-4 w-4" />
-              )}
-            </Button>
-          )}
         </CardAction>
       </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-        <div className="h-[400px] w-full">
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
+        <div className="h-full w-full min-h-[250px]">
           <ResponsiveFunnel
           data={sanitizedData}
             margin={{ top: 20, right: 20, bottom: 20, left: 20 }}

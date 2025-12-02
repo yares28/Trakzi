@@ -9,6 +9,23 @@ import { DEFAULT_CATEGORIES, DEFAULT_CATEGORY_GROUPS, type CategoryGroup } from 
 import { toast } from "sonner"
 import { ChevronDown, Plus } from "lucide-react"
 
+type SpendingTier = "Essentials" | "Mandatory" | "Wants"
+
+const CATEGORY_TIER_STORAGE_KEY = "needsWantsCategoryTier"
+
+function saveCategoryTier(categoryName: string, tier: SpendingTier) {
+  if (typeof window === "undefined") return
+  try {
+    const key = categoryName.trim().toLowerCase()
+    const raw = window.localStorage.getItem(CATEGORY_TIER_STORAGE_KEY)
+    const map: Record<string, SpendingTier> = raw ? JSON.parse(raw) : {}
+    map[key] = tier
+    window.localStorage.setItem(CATEGORY_TIER_STORAGE_KEY, JSON.stringify(map))
+  } catch {
+    // best-effort only; ignore storage errors
+  }
+}
+
 interface CategorySelectProps {
   value?: string
   onValueChange: (value: string) => void
@@ -18,6 +35,7 @@ interface CategorySelectProps {
 export const CategorySelect = memo(function CategorySelect({ value, onValueChange, onCategoryAdded }: CategorySelectProps) {
   const [, setCategories] = useState<string[]>(DEFAULT_CATEGORIES)
   const [newCategory, setNewCategory] = useState("")
+  const [newCategoryTier, setNewCategoryTier] = useState<SpendingTier>("Wants")
   const [isAdding, setIsAdding] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -182,9 +200,12 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
       })
 
       setNewCategory("")
+      setNewCategoryTier("Wants")
       setIsAdding(false)
       onValueChange(createdName)
       onCategoryAdded?.(createdName)
+      // Persist the chosen tier locally for Needs vs Wants classification
+      saveCategoryTier(createdName, newCategoryTier)
       toast.success(`Category "${createdName}" added`)
     } catch (error) {
       console.error("[CategorySelect] Failed to add category:", error)
@@ -193,7 +214,7 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
     } finally {
       setIsSubmitting(false)
     }
-  }, [newCategory, onValueChange, onCategoryAdded, collator, updateGroups])
+  }, [newCategory, newCategoryTier, onValueChange, onCategoryAdded, collator, updateGroups])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -318,6 +339,23 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
                   autoFocus
                   disabled={isSubmitting}
                 />
+                <div className="flex items-center justify-between gap-2 text-[0.7rem] text-muted-foreground">
+                  <span className="whitespace-nowrap">Treat as:</span>
+                  <Select
+                    value={newCategoryTier}
+                    onValueChange={(value) => setNewCategoryTier(value as SpendingTier)}
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger className="h-7 w-[150px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Essentials">Essentials (needs)</SelectItem>
+                      <SelectItem value="Mandatory">Mandatory</SelectItem>
+                      <SelectItem value="Wants">Wants</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="flex gap-1">
                   <Button
                     size="sm"

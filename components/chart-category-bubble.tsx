@@ -15,9 +15,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Maximize2Icon, Minimize2Icon } from "lucide-react"
-
 type Transaction = {
   id: number
   date: string
@@ -36,14 +33,14 @@ type SeriesDatum = {
 
 interface ChartCategoryBubbleProps {
   data?: Transaction[]
-  isExpanded?: boolean
-  onToggleExpand?: () => void
 }
 
-export function ChartCategoryBubble({ data = [], isExpanded = false, onToggleExpand }: ChartCategoryBubbleProps) {
+export function ChartCategoryBubble({ data = [] }: ChartCategoryBubbleProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const [mounted, setMounted] = React.useState(false)
+  const chartRef = React.useRef<any>(null)
+  const containerRef = React.useRef<HTMLDivElement>(null)
 
   const renderInfoTrigger = () => (
     <ChartInfoPopover
@@ -59,6 +56,20 @@ export function ChartCategoryBubble({ data = [], isExpanded = false, onToggleExp
 
   React.useEffect(() => {
     setMounted(true)
+    return () => {
+      // Cleanup on unmount - handle React Strict Mode double-mounting
+      if (chartRef.current) {
+        try {
+          const instance = chartRef.current.getEchartsInstance()
+          if (instance && !instance.isDisposed()) {
+            instance.dispose()
+          }
+        } catch (e) {
+          // Ignore disposal errors (common in React Strict Mode)
+        }
+        chartRef.current = null
+      }
+    }
   }, [])
 
   const palette = React.useMemo(() => {
@@ -328,7 +339,7 @@ export function ChartCategoryBubble({ data = [], isExpanded = false, onToggleExp
 
   if (!mounted) {
     return (
-      <Card>
+      <Card className="@container/card">
         <CardHeader>
           <div>
             <CardTitle>Category Bubble Map</CardTitle>
@@ -336,25 +347,9 @@ export function ChartCategoryBubble({ data = [], isExpanded = false, onToggleExp
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
-            {onToggleExpand && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                className="ml-auto"
-                onClick={onToggleExpand}
-                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-              >
-                {isExpanded ? (
-                  <Minimize2Icon className="h-4 w-4" />
-                ) : (
-                  <Maximize2Icon className="h-4 w-4" />
-                )}
-              </Button>
-            )}
           </CardAction>
         </CardHeader>
-        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
           Loading bubble chart...
         </CardContent>
       </Card>
@@ -363,7 +358,7 @@ export function ChartCategoryBubble({ data = [], isExpanded = false, onToggleExp
 
   if (!option || !seriesData.length) {
     return (
-      <Card>
+      <Card className="@container/card">
         <CardHeader>
           <div>
             <CardTitle>Category Bubble Map</CardTitle>
@@ -371,25 +366,9 @@ export function ChartCategoryBubble({ data = [], isExpanded = false, onToggleExp
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
-            {onToggleExpand && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                className="ml-auto"
-                onClick={onToggleExpand}
-                aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-              >
-                {isExpanded ? (
-                  <Minimize2Icon className="h-4 w-4" />
-                ) : (
-                  <Maximize2Icon className="h-4 w-4" />
-                )}
-              </Button>
-            )}
           </CardAction>
         </CardHeader>
-        <CardContent className="h-[420px] flex items-center justify-center text-muted-foreground">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
         </CardContent>
       </Card>
@@ -405,27 +384,17 @@ export function ChartCategoryBubble({ data = [], isExpanded = false, onToggleExp
         </div>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoTrigger()}
-          {onToggleExpand && (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              className="ml-auto"
-              onClick={onToggleExpand}
-              aria-label={isExpanded ? "Shrink chart" : "Expand chart"}
-            >
-              {isExpanded ? (
-                <Minimize2Icon className="h-4 w-4" />
-              ) : (
-                <Maximize2Icon className="h-4 w-4" />
-              )}
-            </Button>
-          )}
         </CardAction>
       </CardHeader>
-      <CardContent className="h-[420px]">
-        <div className="h-full w-full">
-          <ReactECharts option={option} style={{ height: "100%", width: "100%" }} opts={{ renderer: "svg" }} />
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+        <div ref={containerRef} className="h-full w-full" style={{ minHeight: 0, minWidth: 0 }}>
+          <ReactECharts
+            ref={chartRef}
+            option={option}
+            style={{ height: "100%", width: "100%" }}
+            opts={{ renderer: "svg" }}
+            notMerge={true}
+          />
         </div>
       </CardContent>
     </Card>

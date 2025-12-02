@@ -57,7 +57,13 @@ export const GET = async () => {
       accountName: file.account_name,
     }))
 
-    return NextResponse.json(payload)
+    // Add caching headers - files change infrequently
+    // Cache for 2 minutes, revalidate in background
+    return NextResponse.json(payload, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
+      },
+    })
   } catch (error) {
     console.error("[Files API] Error:", error)
     return NextResponse.json({ error: "Failed to load files" }, { status: 500 })

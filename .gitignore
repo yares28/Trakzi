@@ -168,3 +168,6 @@ secrets/
 *.backup
 *.old
 *.orig
+
+# clerk configuration (can include secrets)
+/.clerk/

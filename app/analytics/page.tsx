@@ -1,22 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, memo, useRef, startTransition } from "react"
-import {
-  DndContext,
-  closestCenter,
-  MouseSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core"
-import {
-  SortableContext,
-  useSortable,
-  arrayMove,
-  rectSortingStrategy,
-} from "@dnd-kit/sortable"
-import { CSS } from "@dnd-kit/utilities"
+import { GridStack } from "gridstack"
+import "gridstack/dist/gridstack.min.css"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
@@ -28,6 +14,7 @@ import { ChartSpendingStreamgraph } from "@/components/chart-spending-streamgrap
 import { ChartSwarmPlot } from "@/components/chart-swarm-plot"
 import { ChartCategoryFlow } from "@/components/chart-category-flow"
 import { ChartExpensesPie } from "@/components/chart-expenses-pie"
+import { ChartNeedsWantsPie } from "@/components/chart-needs-wants-pie"
 import { ChartSpendingFunnel } from "@/components/chart-spending-funnel"
 import { ChartTreeMap } from "@/components/chart-treemap"
 import { ChartTransactionCalendar } from "@/components/chart-transaction-calendar"
@@ -38,7 +25,8 @@ import { ChartSingleMonthCategorySpending } from "@/components/chart-single-mont
 import { ChartDayOfWeekCategory } from "@/components/chart-day-of-week-category"
 import { SectionCards } from "@/components/section-cards"
 import { SiteHeader } from "@/components/site-header"
-import { SortableAnalyticsChart } from "@/components/SortableAnalyticsChart"
+import { deduplicatedFetch } from "@/lib/request-deduplication"
+import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import {
   SidebarInset,
   SidebarProvider,
@@ -81,7 +69,7 @@ import {
 } from "@/components/ui/popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
-import { IconUpload, IconFile, IconCircleCheck, IconLoader2, IconAlertCircle, IconTrash, IconMaximize, IconMinimize } from "@tabler/icons-react"
+import { IconUpload, IconFile, IconCircleCheck, IconLoader2, IconAlertCircle, IconTrash } from "@tabler/icons-react"
 import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv"
 import { TxRow } from "@/lib/types/transactions"
@@ -187,6 +175,8 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
   const [hoveredRing, setHoveredRing] = useState<number | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
   const [isAnimating, setIsAnimating] = useState(true)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerSize, setContainerSize] = useState({ width: config.width, height: config.height })
 
   // Reset animation state when data changes
   useEffect(() => {
@@ -195,13 +185,57 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
     return () => clearTimeout(timer)
   }, [data])
 
-  const width = config.width
-  const height = config.height
+  // Observe container size changes
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const updateSize = () => {
+      const rect = container.getBoundingClientRect()
+      // Use the smaller dimension to keep the chart square, with some padding
+      // Account for padding and margins
+      const padding = 40
+      const availableWidth = rect.width - padding
+      const availableHeight = rect.height - padding
+      const size = Math.min(availableWidth, availableHeight)
+      const minSize = 200 // Minimum size
+      const maxSize = 800 // Increased maximum size
+      const clampedSize = Math.max(minSize, Math.min(maxSize, size))
+      
+      // Only update if size actually changed to avoid unnecessary re-renders
+      setContainerSize(prev => {
+        if (Math.abs(prev.width - clampedSize) > 1) {
+          return { width: clampedSize, height: clampedSize }
+        }
+        return prev
+      })
+    }
+
+    // Initial size with a small delay to ensure layout is complete
+    const timeoutId = setTimeout(updateSize, 0)
+
+    // Observe resize
+    const resizeObserver = new ResizeObserver(() => {
+      // Use requestAnimationFrame to ensure layout is complete
+      requestAnimationFrame(updateSize)
+    })
+    resizeObserver.observe(container)
+
+    return () => {
+      clearTimeout(timeoutId)
+      resizeObserver.disconnect()
+    }
+  }, [])
+
+  const width = containerSize.width
+  const height = containerSize.height
   const centerX = width / 2
   const centerY = height / 2
-  const ringSize = config.ringSize ?? 12
-  const gap = 4
-  const baseRadius = config.radius ?? 32
+  // Scale ring size and radius proportionally to container size
+  const sizeScale = width / config.width
+  const ringSize = (config.ringSize ?? 12) * sizeScale
+  const gap = 4 * sizeScale
+  const baseRadius = (config.radius ?? 32) * sizeScale
 
   const trackBase = theme === "light" ? "#e5e7eb" : "#374151"
   const maxIndex = rings.length - 1
@@ -221,7 +255,7 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
   }
 
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative w-full h-full flex items-center justify-center" style={{ minHeight: '200px', minWidth: '200px' }}>
       <svg
         width={width}
         height={height}
@@ -230,6 +264,7 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
         aria-label="Spending activity rings"
         onMouseLeave={handleMouseLeave}
         className={isAnimating ? "animate-in fade-in-0 zoom-in-95 duration-500" : ""}
+        style={{ maxWidth: '100%', maxHeight: '100%' }}
       >
         {rings.map((item, index) => {
           // Outermost ring corresponds to first item
@@ -401,61 +436,526 @@ export default function AnalyticsPage() {
   const csvRegenerationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const latestParsedRowsRef = useRef<ParsedRow[]>([])
 
-  // Draggable ordering for all analytics charts
-  const [analyticsChartOrder, setAnalyticsChartOrder] = useState<string[]>([
-    "incomeExpensesTracking1",
-    "incomeExpensesTracking2",
-    "spendingCategoryRankings",
-    "netWorthAllocation",
-    "moneyFlow",
-    "expenseBreakdown",
-    "categoryBubbleMap",
-    "householdSpendMix",
-    "financialHealthScore",
-    "spendingActivityRings",
-    "spendingStreamgraph",
-    "transactionHistory",
-    "dayOfWeekSpending",
-    "allMonthsCategorySpending",
-    "singleMonthCategorySpending",
-    "dayOfWeekCategory",
-    "budgetDistribution",
-  ])
-  // Track expansion per chart so each card controls its own expanded state
-  const [expandedCharts, setExpandedCharts] = useState<Record<string, boolean>>({})
+  // GridStack ref and instance
+  const gridRef = useRef<HTMLDivElement>(null)
+  const gridStackRef = useRef<GridStack | null>(null)
 
-  const dndSensors = useSensors(
-    useSensor(MouseSensor, {
-      activationConstraint: { distance: 3 },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 100, tolerance: 4 },
-    }),
+  // Chart order for rendering
+  const analyticsChartOrder = useMemo(
+    () => [
+      "incomeExpensesTracking1",
+      "incomeExpensesTracking2",
+      "spendingCategoryRankings",
+      "netWorthAllocation",
+      "moneyFlow",
+      "needsWantsBreakdown",
+      "expenseBreakdown",
+      "categoryBubbleMap",
+      "householdSpendMix",
+      "financialHealthScore",
+      "spendingActivityRings",
+      "spendingStreamgraph",
+      "transactionHistory",
+      "dailyTransactionActivity",
+      "dayOfWeekSpending",
+      "allMonthsCategorySpending",
+      "singleMonthCategorySpending",
+      "dayOfWeekCategory",
+      // "budgetDistribution", // Hidden chart - kept in code but not displayed
+    ],
+    [],
   )
 
-  const handleAnalyticsChartsDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      const { active, over } = event
-      if (!over || active.id === over.id) return
+  // Default chart sizes and positions - these are the initial sizes for new users
+  // Update these values to match your current chart layout
+  // Note: GridStack uses grid units (not pixels)
+  // w = width in grid units (6 or 12 columns), h = height in grid units (4-20)
+  // x = x position in grid units (0-11), y = y position in grid units (stacks vertically)
+  const DEFAULT_CHART_SIZES: Record<string, { w: number; h: number; x?: number; y?: number }> = {
+    "incomeExpensesTracking1": { w: 12, h: 6, x: 0, y: 0 },
+    "incomeExpensesTracking2": { w: 12, h: 6, x: 0, y: 6 },
+    "spendingCategoryRankings": { w: 12, h: 8, x: 0, y: 12 },
+    "netWorthAllocation": { w: 12, h: 10, x: 0, y: 20 },
+    "moneyFlow": { w: 6, h: 10, x: 0, y: 30 },
+    "needsWantsBreakdown": { w: 6, h: 10, x: 6, y: 20 },
+    "expenseBreakdown": { w: 6, h: 10, x: 6, y: 30 },
+    "categoryBubbleMap": { w: 6, h: 10, x: 6, y: 40 },
+    "householdSpendMix": { w: 6, h: 10, x: 0, y: 40 },
+    "financialHealthScore": { w: 6, h: 10, x: 6, y: 30 },
+    "spendingActivityRings": { w: 6, h: 10, x: 0, y: 50 },
+    "spendingStreamgraph": { w: 12, h: 9, x: 0, y: 60 },
+    "transactionHistory": { w: 12, h: 9, x: 0, y: 69 },
+    "dailyTransactionActivity": { w: 12, h: 7, x: 0, y: 78 },
+    "dayOfWeekSpending": { w: 6, h: 8, x: 6, y: 86 },
+    "allMonthsCategorySpending": { w: 6, h: 8, x: 0, y: 94 },
+    "singleMonthCategorySpending": { w: 6, h: 8, x: 6, y: 102 },
+    "dayOfWeekCategory": { w: 6, h: 8, x: 0, y: 102 },
+    "budgetDistribution": { w: 6, h: 10, x: 0, y: 101 },
+  }
 
-      // Update state immediately - React will batch this update
-      // The transform preservation in SortableAnalyticsChart will prevent snap-back
-      setAnalyticsChartOrder((items) => {
-        const oldIndex = items.indexOf(active.id as string)
-        const newIndex = items.indexOf(over.id as string)
-        if (oldIndex === -1 || newIndex === -1) return items
-        return arrayMove(items, oldIndex, newIndex)
+  // Define allowed sizes: small (6x6) and large (12x6)
+  const allowedSizes = [
+    { w: 6, h: 6 },  // Small
+    { w: 12, h: 6 }  // Large
+  ]
+
+  // Snap to nearest allowed size (snap width, keep height as-is)
+  const snapToAllowedSize = (w: number, h: number) => {
+    // Snap width to nearest allowed size (6 or 12)
+    // Keep height as-is (user can resize vertically freely)
+    const widthDistanceToSmall = Math.abs(w - 6)
+    const widthDistanceToLarge = Math.abs(w - 12)
+    
+    const snappedWidth = widthDistanceToSmall <= widthDistanceToLarge ? 6 : 12
+    
+    // Clamp height to valid range
+    const clampedHeight = Math.max(4, Math.min(20, h))
+    
+    return { w: snappedWidth, h: clampedHeight }
+  }
+
+  // localStorage key for chart sizes and positions
+  const CHART_SIZES_STORAGE_KEY = 'analytics-chart-sizes'
+  const CHART_SIZES_VERSION_KEY = 'analytics-chart-sizes-version'
+  
+  // Version hash of default sizes - increment this when defaults change to force update
+  const DEFAULT_SIZES_VERSION = '7'
+
+  // Load saved chart sizes and positions from localStorage
+  const loadChartSizes = useCallback((): Record<string, { w: number; h: number; x?: number; y?: number }> => {
+    if (typeof window === 'undefined') return {}
+    try {
+      const saved = localStorage.getItem(CHART_SIZES_STORAGE_KEY)
+      const savedSizes = saved ? JSON.parse(saved) : {}
+      const savedVersion = localStorage.getItem(CHART_SIZES_VERSION_KEY)
+      
+      // Check if version changed or if we need to update sizes
+      const needsUpdate = savedVersion !== DEFAULT_SIZES_VERSION
+      
+      // Start with defaults, then merge in saved positions (x, y) if they exist
+      // This preserves user's manual positioning while applying new default sizes
+      const result: Record<string, { w: number; h: number; x?: number; y?: number }> = {}
+      let hasChanges = false
+      
+      Object.keys(DEFAULT_CHART_SIZES).forEach(chartId => {
+        const defaultSize = DEFAULT_CHART_SIZES[chartId]
+        const savedSize = savedSizes[chartId]
+        
+        // If version changed, always use new defaults for w and h
+        // Otherwise, use saved size if it exists, otherwise use default
+        const finalSize = needsUpdate || !savedSize
+          ? {
+              w: defaultSize.w,
+              h: defaultSize.h,
+              x: savedSize?.x ?? defaultSize.x,
+              y: savedSize?.y ?? defaultSize.y
+            }
+          : {
+              w: savedSize.w,
+              h: savedSize.h,
+              x: savedSize.x ?? defaultSize.x,
+              y: savedSize.y ?? defaultSize.y
+            }
+        
+        result[chartId] = finalSize
+        
+        // Check if this chart's size changed
+        if (needsUpdate && (!savedSize || savedSize.w !== defaultSize.w || savedSize.h !== defaultSize.h)) {
+          hasChanges = true
+        }
       })
+      
+      // Save updated sizes if version changed or if we detected changes
+      if (needsUpdate || hasChanges) {
+        localStorage.setItem(CHART_SIZES_STORAGE_KEY, JSON.stringify(result))
+        localStorage.setItem(CHART_SIZES_VERSION_KEY, DEFAULT_SIZES_VERSION)
+      }
+      
+      return result
+    } catch (error) {
+      console.error('Failed to load chart sizes from localStorage:', error)
+    }
+    return {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [DEFAULT_SIZES_VERSION])
+
+  // Save chart sizes and positions to localStorage AND React state
+  const saveChartSizes = useCallback(
+    (sizes: Record<string, { w: number; h: number; x?: number; y?: number }>) => {
+      // Update in-memory state so components like Money Flow can react immediately
+      setSavedChartSizes(sizes)
+
+      if (typeof window === "undefined") return
+      try {
+        localStorage.setItem(CHART_SIZES_STORAGE_KEY, JSON.stringify(sizes))
+        localStorage.setItem(CHART_SIZES_VERSION_KEY, DEFAULT_SIZES_VERSION)
+      } catch (error) {
+        console.error("Failed to save chart sizes to localStorage:", error)
+      }
     },
     [],
   )
 
-  const handleToggleChartExpand = useCallback((id: string) => {
-    setExpandedCharts((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }))
-  }, [])
+  // Load saved sizes on mount - use state to avoid hydration mismatch
+  const [savedChartSizes, setSavedChartSizes] = useState<Record<string, { w: number; h: number; x?: number; y?: number }>>({})
+  
+  // Load saved sizes after mount (client-side only)
+  useEffect(() => {
+    const loaded = loadChartSizes()
+    setSavedChartSizes(loaded)
+  }, [loadChartSizes])
+
+  // Initialize GridStack - wait for items to be rendered
+  useEffect(() => {
+    if (!gridRef.current) return
+
+    // Define initialization function
+    const initializeGridStack = () => {
+      if (!gridRef.current) return
+      const items = gridRef.current.querySelectorAll('.grid-stack-item')
+      if (items.length === 0) return
+
+      // Initialize GridStack with empty grid first (don't let it auto-read attributes)
+      gridStackRef.current = GridStack.init({
+        column: 12,
+        cellHeight: 70,
+        margin: 0,  // No margin - cards fill entire grid-stack-item
+        minRow: 1,
+        float: false,  // Don't float items, use strict grid
+        resizable: {
+          handles: 'se', // Only bottom-right resize handle (matching trends page style)
+        },
+        draggable: {
+          handle: ".grid-stack-item-content"
+        },
+        // Constrain to allowed sizes
+        disableOneColumnMode: true,
+        // Don't set global min/max - let per-item constraints handle it
+        // Per-item min/max will be set when loading widgets
+      }, gridRef.current)
+      
+      // Now explicitly load all items with correct sizes from data attributes or saved sizes
+      if (gridStackRef.current && items.length > 0) {
+        // First pass: collect all widget data with saved positions
+        const widgetData = Array.from(items).map((item) => {
+          const el = item as HTMLElement
+          // Get chartId from data attribute
+          const chartId = el.getAttribute('data-chart-id') || ''
+          
+          // Try to load saved size and position first, then fall back to data attribute, then default
+          let w = 12
+          let h = 6
+          let x = 0
+          let y = 0
+          
+          if (chartId && savedChartSizes[chartId]) {
+            // Use saved size and position, but ensure width is exactly 6 or 12
+            const saved = savedChartSizes[chartId]
+            const snapped = snapToAllowedSize(saved.w, saved.h)
+            w = snapped.w
+            h = saved.h
+            // Use saved position if available
+            if (typeof saved.x === 'number') x = saved.x
+            if (typeof saved.y === 'number') y = saved.y
+          } else {
+            // Use default size and position from DEFAULT_CHART_SIZES if available
+            const defaultSize = DEFAULT_CHART_SIZES[chartId]
+            if (defaultSize) {
+              const snapped = snapToAllowedSize(defaultSize.w, defaultSize.h)
+              w = snapped.w
+              h = defaultSize.h
+              if (typeof defaultSize.x === 'number') x = defaultSize.x
+              if (typeof defaultSize.y === 'number') y = defaultSize.y
+            } else {
+              // Fallback: Read from data attribute
+              w = parseInt(el.getAttribute('data-gs-w') || '12', 10)
+              h = parseInt(el.getAttribute('data-gs-h') || '6', 10)
+              x = parseInt(el.getAttribute('data-gs-x') || '0', 10)
+              y = parseInt(el.getAttribute('data-gs-y') || '0', 10)
+              // Snap width to exactly 6 or 12
+              const snapped = snapToAllowedSize(w, h)
+              w = snapped.w
+            }
+          }
+          
+          // Get chart-specific constraints from config
+          const sizeConfig = getChartCardSize(chartId as ChartId)
+          
+          // Ensure height is within chart-specific valid range
+          h = Math.max(sizeConfig.minH, Math.min(sizeConfig.maxH, h))
+          // Ensure width is within chart-specific valid range
+          w = Math.max(sizeConfig.minW, Math.min(sizeConfig.maxW, w))
+          
+          return { el, w, h, x, y, chartId, minW: sizeConfig.minW, maxW: sizeConfig.maxW, minH: sizeConfig.minH, maxH: sizeConfig.maxH }
+        })
+        
+        // Second pass: use saved positions, default positions, or stack vertically for new items
+        let currentY = 0
+        const widgets = widgetData.map((data) => {
+          // If position was saved, use it; otherwise use default position or stack vertically
+          let finalY = data.y
+          let finalX = data.x
+          
+          if (!savedChartSizes[data.chartId]) {
+            // No saved position, check for default position
+            const defaultSize = DEFAULT_CHART_SIZES[data.chartId]
+            if (defaultSize) {
+              if (typeof defaultSize.x === 'number') finalX = defaultSize.x
+              if (typeof defaultSize.y === 'number') finalY = defaultSize.y
+            } else {
+              // No default position either, stack vertically
+              finalY = currentY
+              currentY += data.h
+            }
+          } else {
+            // Use saved position (already set in data.y and data.x)
+            finalY = data.y
+            finalX = data.x
+          }
+          
+          const widget = {
+            el: data.el,
+            w: data.w,
+            h: data.h,
+            x: finalX,  // Use saved x position, default position, or 0
+            y: finalY,
+            minW: data.minW || 6,
+            maxW: data.maxW || 12,
+            minH: data.minH || 4,
+            maxH: data.maxH || 20,
+            chartId: data.chartId, // Store chartId for constraint enforcement
+          }
+          // Store chartId on the element for later reference
+          if (data.chartId) {
+            data.el.setAttribute('data-chart-id', data.chartId)
+          }
+          return widget
+        })
+        
+        // Clear any existing items first, then load with correct sizes
+        gridStackRef.current.removeAll(false)
+        gridStackRef.current.load(widgets)
+        
+        // After loading, set constraints directly on GridStack nodes
+        // GridStack needs constraints set on the node object itself, not just the widget
+        setTimeout(() => {
+          if (gridStackRef.current) {
+            gridStackRef.current.engine.nodes.forEach((node) => {
+              if (node.el) {
+                const chartId = node.el.getAttribute('data-chart-id')
+                if (chartId) {
+                  const sizeConfig = getChartCardSize(chartId as ChartId)
+                  
+                  // Set constraints directly on the node (this is what GridStack uses)
+                  node.minW = sizeConfig.minW
+                  node.maxW = sizeConfig.maxW
+                  node.minH = sizeConfig.minH
+                  node.maxH = sizeConfig.maxH
+                  
+                  // Also set on the DOM element for persistence
+                  node.el.setAttribute('gs-min-w', sizeConfig.minW.toString())
+                  node.el.setAttribute('gs-max-w', sizeConfig.maxW.toString())
+                  node.el.setAttribute('gs-min-h', sizeConfig.minH.toString())
+                  node.el.setAttribute('gs-max-h', sizeConfig.maxH.toString())
+                  
+                  // Clamp current size to constraints
+                  const clampedW = Math.max(sizeConfig.minW, Math.min(sizeConfig.maxW, node.w || 6))
+                  const clampedH = Math.max(sizeConfig.minH, Math.min(sizeConfig.maxH, node.h || 6))
+                  
+                  // Update if size needs to be clamped
+                  if (node.w !== clampedW || node.h !== clampedH) {
+                    gridStackRef.current!.update(node.el, {
+                      w: clampedW,
+                      h: clampedH,
+                    }, false)
+                  }
+                }
+              }
+            })
+          }
+        }, 100)
+        
+        // Force a layout update to ensure sizes are applied
+        gridStackRef.current.compact()
+        
+        // Enforce constraints during resize (not just after)
+        gridStackRef.current.on('resize', (event, items) => {
+          if (items && items.length > 0 && gridStackRef.current) {
+            const item = items[0]
+            const chartId = item.el?.getAttribute('data-chart-id')
+            if (chartId && item.el) {
+              // Get the node to access its constraints
+              const node = gridStackRef.current.engine.nodes.find(n => n.el === item.el)
+              if (node) {
+                // Use node's constraints (which we set after loading)
+                const minH = node.minH ?? 4
+                const maxH = node.maxH ?? 20
+                const minW = node.minW ?? 6
+                const maxW = node.maxW ?? 12
+                
+                const clampedW = Math.max(minW, Math.min(maxW, item.w || 6))
+                const clampedH = Math.max(minH, Math.min(maxH, item.h || 6))
+                
+                // If size exceeds constraints, clamp it immediately
+                if (item.w !== clampedW || item.h !== clampedH) {
+                  gridStackRef.current.update(item.el, {
+                    w: clampedW,
+                    h: clampedH,
+                  }, false)
+                }
+              }
+            }
+          }
+        })
+        
+        // Handle vertical resize (GridStack handles this)
+        gridStackRef.current.on('resizestop', (event, items) => {
+          if (items && items.length > 0 && gridStackRef.current) {
+            const item = items[0]
+            const chartId = item.el?.getAttribute('data-chart-id')
+            if (chartId && item.el) {
+              // Get the node to access its constraints
+              const node = gridStackRef.current.engine.nodes.find(n => n.el === item.el)
+              if (node) {
+                // Use node's constraints (which we set after loading)
+                const minH = node.minH ?? 4
+                const maxH = node.maxH ?? 20
+                const minW = node.minW ?? 6
+                const maxW = node.maxW ?? 12
+                
+                const clampedW = Math.max(minW, Math.min(maxW, item.w || 6))
+                const clampedH = Math.max(minH, Math.min(maxH, item.h || 6))
+                
+                // If size was clamped, update the GridStack item
+                if (item.w !== clampedW || item.h !== clampedH) {
+                  gridStackRef.current.update(item.el, {
+                    w: clampedW,
+                    h: clampedH,
+                  }, false)
+                }
+                
+                const newSizes = { ...savedChartSizes }
+                newSizes[chartId] = { 
+                  w: clampedW, 
+                  h: clampedH,
+                  x: item.x || 0,
+                  y: item.y || 0
+                }
+                saveChartSizes(newSizes)
+              }
+            }
+          }
+        })
+        
+        // Also save on change event (for drag operations that might affect layout)
+        gridStackRef.current.on('change', (event, items) => {
+          if (items && items.length > 0) {
+            const newSizes = { ...savedChartSizes }
+            items.forEach((item) => {
+              const chartId = item.el?.getAttribute('data-chart-id')
+              if (chartId && item.w && item.h) {
+                // Get chart-specific constraints
+                const sizeConfig = getChartCardSize(chartId as ChartId)
+                // Ensure width is snapped to 6 or 12, then clamp to chart constraints
+                const snapped = snapToAllowedSize(item.w, item.h)
+                const clampedW = Math.max(sizeConfig.minW, Math.min(sizeConfig.maxW, snapped.w))
+                const clampedH = Math.max(sizeConfig.minH, Math.min(sizeConfig.maxH, snapped.h))
+                newSizes[chartId] = { 
+                  w: clampedW, 
+                  h: clampedH,
+                  x: item.x || 0,
+                  y: item.y || 0
+                }
+              }
+            })
+            if (Object.keys(newSizes).length > 0) {
+              saveChartSizes(newSizes)
+            }
+          }
+        })
+        
+        // Save on drag stop to preserve positions
+        gridStackRef.current.on('dragstop', (event, items) => {
+          if (items && items.length > 0) {
+            const newSizes = { ...savedChartSizes }
+            items.forEach((item) => {
+              const chartId = item.el?.getAttribute('data-chart-id')
+              if (chartId && item.w && item.h) {
+                const snapped = snapToAllowedSize(item.w, item.h)
+                newSizes[chartId] = { 
+                  w: snapped.w, 
+                  h: snapped.h,
+                  x: item.x || 0,
+                  y: item.y || 0
+                }
+              }
+            })
+            if (Object.keys(newSizes).length > 0) {
+              saveChartSizes(newSizes)
+            }
+          }
+        })
+      }
+    };
+
+    // Use requestAnimationFrame to ensure DOM is fully rendered and layout is calculated
+    let rafId: number | null = null
+    const timer = setTimeout(() => {
+      if (!gridRef.current) return
+
+      rafId = requestAnimationFrame(() => {
+        if (!gridRef.current) return
+
+        // Destroy existing instance if it exists
+        if (gridStackRef.current) {
+          gridStackRef.current.destroy(false)
+          gridStackRef.current = null
+        }
+
+        // Check if items exist in DOM
+        const items = gridRef.current!.querySelectorAll('.grid-stack-item')
+        if (items.length === 0) {
+          // Items not ready yet, try again
+          return
+        }
+
+        // Ensure container has width calculated before initializing GridStack
+        const containerWidth = gridRef.current!.offsetWidth
+        if (containerWidth === 0) {
+          // Container width not calculated yet, try again with another frame
+          rafId = requestAnimationFrame(() => {
+            if (!gridRef.current || gridRef.current.offsetWidth === 0) return
+            initializeGridStack()
+          })
+          return
+        }
+        
+        // Force recalculation to ensure symmetrical spacing
+        if (gridRef.current) {
+          const computedStyle = window.getComputedStyle(gridRef.current)
+          const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0
+          const paddingRight = parseFloat(computedStyle.paddingRight) || 0
+          // Ensure padding is symmetrical
+          if (paddingLeft !== paddingRight && paddingLeft > 0) {
+            gridRef.current.style.paddingRight = computedStyle.paddingLeft
+          }
+        }
+
+        initializeGridStack()
+      })
+    }, 100)
+
+    return () => {
+      clearTimeout(timer)
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
+      }
+      if (gridStackRef.current) {
+        gridStackRef.current.destroy(false)
+        gridStackRef.current = null
+      }
+    }
+  }, [analyticsChartOrder, snapToAllowedSize, savedChartSizes, saveChartSizes])
 
   // Transactions state
   const [rawTransactions, setRawTransactions] = useState<Array<{
@@ -500,6 +1000,11 @@ export default function AnalyticsPage() {
   })
   const expensesPieVisibility = useChartCategoryVisibility({
     chartId: "analytics:expenses-pie",
+    storageScope: "analytics",
+    normalizeCategory: normalizeCategoryName,
+  })
+  const needsWantsVisibility = useChartCategoryVisibility({
+    chartId: "analytics:needs-wants-pie",
     storageScope: "analytics",
     normalizeCategory: normalizeCategoryName,
   })
@@ -624,63 +1129,109 @@ export default function AnalyticsPage() {
   }
 
 
-  // Fetch transactions from Neon database
-  const fetchTransactions = useCallback(async () => {
+  // Fetch ALL analytics data in parallel for maximum performance
+  const fetchAllAnalyticsData = useCallback(async () => {
     try {
-      const url = dateFilter
-        ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
-        : "/api/transactions"
-      console.log("[Analytics] Fetching transactions from:", url)
-      const response = await fetch(url)
-      const data = await response.json()
+      const startTime = performance.now()
+      console.log("[Analytics] Starting parallel data fetch...")
+      
+      // Fetch ALL data in parallel - this is the key optimization
+      const [
+        transactionsData,
+        budgetsData,
+        categoriesData,
+        financialHealthData,
+        transactionHistoryData,
+        monthlyCategoryBatch,
+        dailyTransactionsData,
+        dayOfWeekCategoryData,
+      ] = await Promise.all([
+        // 1. Transactions
+        deduplicatedFetch<any[]>(
+          dateFilter
+            ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
+            : "/api/transactions"
+        ).catch(err => {
+          console.error("[Analytics] Transactions fetch error:", err)
+          return []
+        }),
 
-      if (response.ok) {
-        if (Array.isArray(data)) {
-          console.log(`[Analytics] Setting ${data.length} transactions`)
-          setRawTransactions(normalizeTransactions(data) as Array<{
-            id: number
-            date: string
-            description: string
-            amount: number
-            balance: number | null
-            category: string
-          }>)
-        } else {
-          console.error("[Analytics] Response is not an array:", data)
-          if (data.error) {
-            toast.error("API Error", {
-              description: data.error,
-              duration: 10000,
-            })
-          }
-        }
-      } else {
-        console.error("Failed to fetch transactions: HTTP", response.status, data)
-        if (response.status === 401) {
-          toast.error("Authentication Error", {
-            description: "Please configure DEMO_USER_ID in .env.local",
-            duration: 10000,
-          })
-        } else {
-          toast.error("API Error", {
-            description: data.error || `HTTP ${response.status}`,
-            duration: 8000,
-          })
-        }
+        // 2. Budgets
+        fetch(
+          dateFilter
+            ? `/api/budgets?filter=${encodeURIComponent(dateFilter)}`
+            : "/api/budgets"
+        )
+          .then(res => res.ok ? res.json() : {})
+          .catch(() => ({})),
+
+        // 3. Categories
+        fetch("/api/categories")
+          .then(res => res.ok ? res.json() : [])
+          .catch(() => []),
+
+        // 4. Financial Health
+        deduplicatedFetch<{ data: any[]; years: any[] }>(
+          "/api/financial-health"
+        ).catch(() => ({ data: [], years: [] })),
+
+        // 5. Transaction History (for swarm plot)
+        deduplicatedFetch<any[]>(
+          "/api/charts/transaction-history"
+        ).catch(() => []),
+
+        // 6. Monthly Category (batch for all 12 months)
+        deduplicatedFetch<{ data: Record<number, Array<{ category: string; month: number; total: number }>>; availableMonths: number[] }>(
+          `/api/analytics/monthly-category-duplicate?months=1,2,3,4,5,6,7,8,9,10,11,12${dateFilter ? `&filter=${encodeURIComponent(dateFilter)}` : ''}`
+        ).catch(() => ({ data: {}, availableMonths: [] })),
+
+        // 7. Daily Transactions
+        deduplicatedFetch<Array<{ day: string; value: number }>>(
+          dateFilter
+            ? `/api/transactions/daily?filter=${encodeURIComponent(dateFilter)}`
+            : "/api/transactions/daily"
+        ).catch(() => []),
+
+        // 8. Day of Week Category
+        deduplicatedFetch<{ data: Array<{ category: string; dayOfWeek: number; total: number }>; availableDays: number[] }>(
+          `/api/analytics/day-of-week-category${dateFilter ? `?filter=${encodeURIComponent(dateFilter)}` : ''}`
+        ).catch(() => ({ data: [], availableDays: [] })),
+      ])
+
+      const endTime = performance.now()
+      console.log(`[Analytics] All data fetched in ${(endTime - startTime).toFixed(2)}ms`)
+
+      // Set transactions
+      if (Array.isArray(transactionsData)) {
+        console.log(`[Analytics] Setting ${transactionsData.length} transactions`)
+        setRawTransactions(normalizeTransactions(transactionsData) as Array<{
+          id: number
+          date: string
+          description: string
+          amount: number
+          balance: number | null
+          category: string
+        }>)
       }
+
+      // Set budgets
+      if (budgetsData && typeof budgetsData === "object") {
+        setRingLimits(budgetsData as Record<string, number>)
+      }
+
     } catch (error) {
-      console.error("Error fetching transactions:", error)
+      console.error("Error fetching analytics data:", error)
       toast.error("Network Error", {
-        description: "Failed to fetch transactions. Check your database connection.",
+        description: "Failed to fetch analytics data. Check your database connection.",
         duration: 8000,
       })
     }
   }, [dateFilter])
 
-  // Fetch transactions on mount and when filter changes
+  // Fetch all data on mount and when filter changes
   useEffect(() => {
-    fetchTransactions()
-  }, [fetchTransactions])
+    fetchAllAnalyticsData()
+  }, [fetchAllAnalyticsData])
 
   // Parse CSV when it changes
   useEffect(() => {
@@ -1081,37 +1632,8 @@ export default function AnalyticsPage() {
     }
   }, [])
 
-  // Load per-category limits for Spending Activity Rings from database based on current filter
-  useEffect(() => {
-    let cancelled = false
-
-    const loadRingLimits = async () => {
-      try {
-        // Load from database with current filter
-        const url = dateFilter
-          ? `/api/budgets?filter=${encodeURIComponent(dateFilter)}`
-          : "/api/budgets"
-        const res = await fetch(url)
-        if (!res.ok) return
-        const data = await res.json()
-        if (!cancelled && data && typeof data === "object") {
-          // Use database budgets as the source of truth for ring limits
-          setRingLimits(data as Record<string, number>)
-        }
-      } catch (error) {
-        console.error("[Analytics] Failed to load ring limits:", error)
-        // If database fails, start with empty budgets
-        if (!cancelled) {
-          setRingLimits({})
-        }
-      }
-    }
-
-    loadRingLimits()
-    return () => {
-      cancelled = true
-    }
-  }, [dateFilter]) // Reload when filter changes
+  // Budgets are now loaded in fetchAllAnalyticsData() in parallel with other data
+  // This useEffect is removed to avoid duplicate fetching
 
   // Derive available expense categories from Neon transactions for the activity rings
   useEffect(() => {
@@ -1497,6 +2019,14 @@ export default function AnalyticsPage() {
     description: "Hide categories to remove them from this treemap view.",
   })
 
+  // Money Flow: derive how many expense categories to show from chart height.
+  // Use the chart's configured minH as the baseline, so every +2 grid units of height adds 1 more category.
+  const moneyFlowSizeConfig = getChartCardSize("moneyFlow" as ChartId)
+  const baseMoneyFlowHeight = moneyFlowSizeConfig.minH
+  const moneyFlowHeight = savedChartSizes["moneyFlow"]?.h ?? baseMoneyFlowHeight
+  const moneyFlowExtraSteps = Math.max(0, Math.floor((moneyFlowHeight - baseMoneyFlowHeight) / 2))
+  const moneyFlowMaxExpenseCategories = 2 + moneyFlowExtraSteps
+
   const spendingFunnelChart = useMemo(() => {
     if (!rawTransactions || rawTransactions.length === 0) {
       return { data: [] as Array<{ id: string; value: number; label: string }>, categories: [] as string[] }
@@ -1547,17 +2077,19 @@ export default function AnalyticsPage() {
       .map(([category, amount]) => ({ category, amount: Number(amount) }))
       .sort((a, b) => b.amount - a.amount)
 
-    const top2Categories = sortedCategories.slice(0, 2)
+    // Determine how many top categories to show individually based on chart height
+    const maxExpenseCategories = Math.max(1, moneyFlowMaxExpenseCategories)
+    const topCategories = sortedCategories.slice(0, maxExpenseCategories)
 
-    // Calculate remaining expenses (all categories beyond top 2)
-    const shownExpenses = top2Categories.reduce((sum, cat) => sum + cat.amount, 0)
+    // Calculate remaining expenses (all categories beyond the top N)
+    const shownExpenses = topCategories.reduce((sum, cat) => sum + cat.amount, 0)
     const remainingExpenses = totalExpenses - shownExpenses
 
     // Build expense categories array
     const expenseCategories: Array<{ id: string; value: number; label: string }> = []
 
-    // Add top 2 categories (highest spending)
-    top2Categories.forEach((cat) => {
+    // Add top N categories (highest spending)
+    topCategories.forEach((cat) => {
       expenseCategories.push({
         id: cat.category.toLowerCase().replace(/\s+/g, "-"),
         value: cat.amount,
@@ -1565,7 +2097,7 @@ export default function AnalyticsPage() {
       })
     })
 
-    // Add "Others" category (remaining categories, which are less than top 2)
+    // Add "Others" category (remaining categories, which are less significant)
     if (remainingExpenses > 0) {
       expenseCategories.push({
         id: "others",
@@ -1601,7 +2133,7 @@ export default function AnalyticsPage() {
       data: funnelData,
       categories: Array.from(categorySet),
     }
-  }, [rawTransactions, spendingFunnelVisibility.hiddenCategorySet, normalizeCategoryName])
+  }, [rawTransactions, spendingFunnelVisibility.hiddenCategorySet, normalizeCategoryName, moneyFlowMaxExpenseCategories])
 
   const spendingFunnelControls = spendingFunnelVisibility.buildCategoryControls(
     spendingFunnelChart.categories,
@@ -1648,6 +2180,134 @@ export default function AnalyticsPage() {
 
   const expensesPieControls = expensesPieVisibility.buildCategoryControls(expensesPieData.categories, {
     description: "Choose which expense categories appear in this pie chart.",
+  })
+
+  type SpendingTier = "Essentials" | "Mandatory" | "Wants"
+
+  const needsWantsPieData = useMemo(() => {
+    if (!rawTransactions || rawTransactions.length === 0) {
+      return {
+        slices: [] as Array<{ id: string; label: string; value: number }>,
+        categories: [] as string[],
+      }
+    }
+
+    const categorySet = new Set<string>()
+    rawTransactions.forEach((tx) => {
+      if (tx.amount < 0) {
+        categorySet.add(normalizeCategoryName(tx.category))
+      }
+    })
+
+    const filteredSource =
+      needsWantsVisibility.hiddenCategorySet.size === 0
+        ? rawTransactions
+        : rawTransactions.filter((tx) => {
+            const category = normalizeCategoryName(tx.category)
+            return !needsWantsVisibility.hiddenCategorySet.has(category)
+          })
+
+    const totals: Record<SpendingTier, number> = {
+      Essentials: 0,
+      Mandatory: 0,
+      Wants: 0,
+    }
+
+    const classifySpendingTier = (normalizedCategory: string): SpendingTier => {
+      if (typeof window !== "undefined") {
+        try {
+          const key = normalizedCategory.trim().toLowerCase()
+          const raw = window.localStorage.getItem("needsWantsCategoryTier")
+          if (raw) {
+            const map = JSON.parse(raw) as Record<string, SpendingTier>
+            const override = map[key]
+            if (override) {
+              return override
+            }
+          }
+        } catch {
+          // ignore storage errors and fall back to keyword rules
+        }
+      }
+
+      const lower = normalizedCategory.toLowerCase()
+
+      const essentialKeywords = [
+        "grocery",
+        "groceries",
+        "supermarket",
+        "rent",
+        "mortgage",
+        "utility",
+        "utilities",
+        "electric",
+        "water",
+        "gas",
+        "fuel",
+        "transport",
+        "transit",
+        "bus",
+        "train",
+        "subway",
+        "health",
+        "pharmacy",
+      ]
+
+      const mandatoryKeywords = ["insurance", "tax", "fee", "loan", "debt"]
+
+      const wantsKeywords = [
+        "shopping",
+        "entertainment",
+        "travel",
+        "vacation",
+        "subscription",
+        "subscriptions",
+        "restaurant",
+        "restaurants",
+        "dining",
+        "bar",
+        "coffee",
+        "services",
+        "education",
+      ]
+
+      if (essentialKeywords.some((k) => lower.includes(k))) {
+        return "Essentials"
+      }
+      if (mandatoryKeywords.some((k) => lower.includes(k))) {
+        return "Mandatory"
+      }
+      if (wantsKeywords.some((k) => lower.includes(k))) {
+        return "Wants"
+      }
+      return "Wants"
+    }
+
+    filteredSource
+      .filter((tx) => tx.amount < 0)
+      .forEach((tx) => {
+        const normalized = normalizeCategoryName(tx.category)
+        const tier = classifySpendingTier(normalized)
+        const amount = Math.abs(Number(tx.amount) || 0)
+        totals[tier] += amount
+      })
+
+    const slices = (["Essentials", "Mandatory", "Wants"] as SpendingTier[])
+      .map((tier) => ({
+        id: tier,
+        label: tier,
+        value: totals[tier],
+      }))
+      .filter((slice) => slice.value > 0)
+
+    return {
+      slices,
+      categories: Array.from(categorySet),
+    }
+  }, [rawTransactions, needsWantsVisibility.hiddenCategorySet, normalizeCategoryName])
+
+  const needsWantsControls = needsWantsVisibility.buildCategoryControls(needsWantsPieData.categories, {
+    description: "Hide a category to exclude it from the Needs vs Wants grouping.",
   })
 
   const circlePackingData = useMemo(() => {
@@ -2051,8 +2711,8 @@ export default function AnalyticsPage() {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
-        <div
-          className="flex flex-1 flex-col relative"
+        <main
+          className="flex-1 space-y-4 p-4 pt-0 lg:p-6 lg:pt-2"
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
@@ -2103,36 +2763,27 @@ export default function AnalyticsPage() {
                 savingsRateChange={stats.savingsRateChange}
                 netWorthChange={stats.netWorthChange}
               />
-
-              {/* Draggable analytics chart section */}
-              <DndContext
-                sensors={dndSensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleAnalyticsChartsDragEnd}
-              >
-                <SortableContext items={analyticsChartOrder} strategy={rectSortingStrategy}>
-                  <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
-                    {analyticsChartOrder.map((chartId) => {
-                      // Determine if chart should be full width (transactionHistory is always full width, or if expanded)
-                      const isFullWidth =
-                        chartId === "transactionHistory" || 
-                        chartId === "netWorthAllocation" ||
-                        chartId === "spendingStreamgraph" ||
-                        chartId === "incomeExpensesTracking1" ||
-                        chartId === "incomeExpensesTracking2" ||
-                        chartId === "spendingCategoryRankings" ||
-                        expandedCharts[chartId]
-                      const colSpanClass = isFullWidth
-                        ? "col-span-1 @3xl/main:col-span-2"
-                        : "col-span-1"
+              
+              {/* GridStack analytics chart section */}
+              <div className="w-full mb-4">
+                <div ref={gridRef} className="grid-stack w-full px-4 lg:px-6">
+                      {analyticsChartOrder.map((chartId, index) => {
+                      // Determine default size and position for a chart
+                      const getDefaultSize = (id: string) => {
+                        return DEFAULT_CHART_SIZES[id] || { w: 12, h: 6, x: 0, y: 0 }  // Fallback to large if not found
+                      }
+                      const defaultSize = getDefaultSize(chartId)
+                      // Get min/max size constraints from config
+                      const sizeConfig = getChartCardSize(chartId as ChartId)
+                      // Use defaultSize for initial render to avoid hydration mismatch
+                      // Saved sizes will be applied by GridStack after mount via load() method
+                      const initialW = defaultSize.w
+                      const initialH = defaultSize.h
 
                       if (chartId === "transactionHistory") {
                         return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
+                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartSwarmPlot
                               data={useMemo(() => {
                                 if (!rawTransactions || rawTransactions.length === 0) {
@@ -2231,77 +2882,77 @@ export default function AnalyticsPage() {
                                     }
                                   })
                               }, [rawTransactions])}
-                            />
-                          </SortableAnalyticsChart>
+                              />
+                            </div>
+                          </div>
                         )
                       }
 
                       if (chartId === "dayOfWeekSpending") {
                         return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartDayOfWeekSpending
-                              data={rawTransactions}
-                              categoryControls={dayOfWeekSpendingVisibility.buildCategoryControls(
-                                Array.from(
-                                  new Set(
-                                    rawTransactions
-                                      .filter((tx) => Number(tx.amount) < 0)
-                                      .map((tx) => normalizeCategoryName(tx.category)),
-                                  ),
-                                ).sort(),
-                              )}
-                              isExpanded={!!expandedCharts["dayOfWeekSpending"]}
-                              onToggleExpand={() => handleToggleChartExpand("dayOfWeekSpending")}
-                            />
-                          </SortableAnalyticsChart>
+                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                              <ChartDayOfWeekSpending
+                                data={rawTransactions}
+                                categoryControls={dayOfWeekSpendingVisibility.buildCategoryControls(
+                                  Array.from(
+                                    new Set(
+                                      rawTransactions
+                                        .filter((tx) => Number(tx.amount) < 0)
+                                        .map((tx) => normalizeCategoryName(tx.category)),
+                                    ),
+                                  ).sort(),
+                                )}
+                              />
+                            </div>
+                          </div>
                         )
                       }
 
                       if (chartId === "allMonthsCategorySpending") {
                         return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartAllMonthsCategorySpending
-                              data={rawTransactions}
-                              categoryControls={useMemo(() => {
-                                const categories = Array.from(
-                                  new Set(
-                                    rawTransactions
-                                      .filter((tx) => Number(tx.amount) < 0)
-                                      .map((tx) => normalizeCategoryName(tx.category)),
-                                  ),
-                                ).sort()
-                                return monthOfYearSpendingVisibility.buildCategoryControls(
-                                  categories,
-                                )
-                              }, [
-                                rawTransactions,
-                                monthOfYearSpendingVisibility,
-                                normalizeCategoryName,
-                              ])}
-                              isExpanded={!!expandedCharts["allMonthsCategorySpending"]}
-                              onToggleExpand={() =>
-                                handleToggleChartExpand("allMonthsCategorySpending")
-                              }
-                            />
-                          </SortableAnalyticsChart>
+                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                              <ChartAllMonthsCategorySpending
+                                data={rawTransactions}
+                                categoryControls={useMemo(() => {
+                                  const categories = Array.from(
+                                    new Set(
+                                      rawTransactions
+                                        .filter((tx) => Number(tx.amount) < 0)
+                                        .map((tx) => normalizeCategoryName(tx.category)),
+                                    ),
+                                  ).sort()
+                                  return monthOfYearSpendingVisibility.buildCategoryControls(
+                                    categories,
+                                  )
+                                }, [
+                                  rawTransactions,
+                                  monthOfYearSpendingVisibility,
+                                  normalizeCategoryName,
+                                ])}
+                              />
+                            </div>
+                          </div>
                         )
                       }
 
                       if (chartId === "incomeExpensesTracking1") {
                         return (
-                          <SortableAnalyticsChart
+                          <div
                             key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
+                            className="grid-stack-item overflow-visible"
+                            data-chart-id={chartId}
+                            data-gs-w={initialW}
+                            data-gs-h={initialH}
+                            data-gs-x={defaultSize.x ?? 0}
+                            data-gs-y={defaultSize.y ?? 0}
+                            data-gs-min-w={sizeConfig.minW}
+                            data-gs-max-w={sizeConfig.maxW}
+                            data-gs-min-h={sizeConfig.minH}
+                            data-gs-max-h={sizeConfig.maxH}
                           >
+                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartAreaInteractive
                               categoryControls={incomeExpenseTopControls}
                               data={useMemo(() => {
@@ -2350,54 +3001,54 @@ export default function AnalyticsPage() {
                                   mobile: cumulativeExpensesByDate.get(date) || 0
                                 }))
                               }, [rawTransactions, incomeExpenseTopVisibility.hiddenCategorySet, normalizeCategoryName])}
-                              isExpanded={!!expandedCharts["incomeExpensesTracking1"]}
-                              onToggleExpand={() => handleToggleChartExpand("incomeExpensesTracking1")}
                             />
-                          </SortableAnalyticsChart>
+                            </div>
+                          </div>
                         )
                       }
 
                       if (chartId === "incomeExpensesTracking2") {
                         return (
-                          <SortableAnalyticsChart
+                          <div
                             key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
+                            className="grid-stack-item overflow-visible"
+                            data-chart-id={chartId}
+                            data-gs-w={initialW}
+                            data-gs-h={initialH}
+                            data-gs-x={defaultSize.x ?? 0}
+                            data-gs-y={defaultSize.y ?? 0}
+                            data-gs-min-w={sizeConfig.minW}
+                            data-gs-max-w={sizeConfig.maxW}
+                            data-gs-min-h={sizeConfig.minH}
+                            data-gs-max-h={sizeConfig.maxH}
                           >
+                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartAreaInteractive
                               categoryControls={incomeExpenseControls}
                               data={incomeExpenseChart.data}
-                              isExpanded={!!expandedCharts["incomeExpensesTracking2"]}
-                              onToggleExpand={() => handleToggleChartExpand("incomeExpensesTracking2")}
                             />
-                          </SortableAnalyticsChart>
+                            </div>
+                          </div>
                         )
                       }
 
                       if (chartId === "spendingCategoryRankings") {
                         return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
+                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartCategoryFlow
                               categoryControls={categoryFlowControls}
                               data={categoryFlowChart.data}
-                              isExpanded={!!expandedCharts["spendingCategoryRankings"]}
-                              onToggleExpand={() => handleToggleChartExpand("spendingCategoryRankings")}
                             />
-                          </SortableAnalyticsChart>
+                            </div>
+                          </div>
                         )
                       }
 
                       if (chartId === "netWorthAllocation") {
                         return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
+                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartTreeMap
                               categoryControls={treeMapControls}
                               data={useMemo(() => {
@@ -2464,106 +3115,116 @@ export default function AnalyticsPage() {
                                     })
                                 }
                               }, [rawTransactions, treeMapVisibility.hiddenCategorySet, normalizeCategoryName])}
-                              isExpanded={!!expandedCharts["netWorthAllocation"]}
-                              onToggleExpand={() => handleToggleChartExpand("netWorthAllocation")}
                             />
-                          </SortableAnalyticsChart>
+                            </div>
+                          </div>
                         )
                       }
 
                       if (chartId === "moneyFlow") {
                         return (
-                          <SortableAnalyticsChart
+                          <div
                             key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
+                            className="grid-stack-item overflow-visible"
+                            data-chart-id={chartId}
+                            data-gs-w={initialW}
+                            data-gs-h={initialH}
+                            data-gs-min-w={sizeConfig.minW}
+                            data-gs-max-w={sizeConfig.maxW}
+                            data-gs-min-h={sizeConfig.minH}
+                            data-gs-max-h={sizeConfig.maxH}
                           >
+                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartSpendingFunnel
                               categoryControls={spendingFunnelControls}
                               data={spendingFunnelChart.data}
-                              isExpanded={!!expandedCharts["moneyFlow"]}
-                              onToggleExpand={() => handleToggleChartExpand("moneyFlow")}
+                              maxExpenseCategories={moneyFlowMaxExpenseCategories}
                             />
-                          </SortableAnalyticsChart>
+                            </div>
+                          </div>
                         )
                       }
 
                       if (chartId === "expenseBreakdown") {
                         return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
+                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartExpensesPie
                               categoryControls={expensesPieControls}
                               data={expensesPieData.slices}
-                              isExpanded={!!expandedCharts["expenseBreakdown"]}
-                              onToggleExpand={() => handleToggleChartExpand("expenseBreakdown")}
                             />
-                          </SortableAnalyticsChart>
+                            </div>
+                          </div>
+                        )
+                      }
+
+                      if (chartId === "needsWantsBreakdown") {
+                        return (
+                          <div
+                            key={chartId}
+                            className="grid-stack-item overflow-visible"
+                            data-chart-id={chartId}
+                            data-gs-w={initialW}
+                            data-gs-h={initialH}
+                            data-gs-min-w={sizeConfig.minW}
+                            data-gs-max-w={sizeConfig.maxW}
+                            data-gs-min-h={sizeConfig.minH}
+                            data-gs-max-h={sizeConfig.maxH}
+                          >
+                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                              <ChartNeedsWantsPie
+                                categoryControls={needsWantsControls}
+                                data={needsWantsPieData.slices}
+                              />
+                            </div>
+                          </div>
                         )
                       }
 
                       if (chartId === "categoryBubbleMap") {
                         return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
+                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartCategoryBubble
                               data={rawTransactions}
-                              isExpanded={!!expandedCharts["categoryBubbleMap"]}
-                              onToggleExpand={() => handleToggleChartExpand("categoryBubbleMap")}
                             />
-                          </SortableAnalyticsChart>
+                            </div>
+                          </div>
                         )
                       }
 
                       if (chartId === "householdSpendMix") {
                         return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
+                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartPolarBar
                               categoryControls={polarBarControls}
                               data={polarBarData.data}
                               keys={polarBarData.keys}
-                              isExpanded={!!expandedCharts["householdSpendMix"]}
-                              onToggleExpand={() => handleToggleChartExpand("householdSpendMix")}
                             />
-                          </SortableAnalyticsChart>
+                            </div>
+                          </div>
                         )
                       }
 
                       if (chartId === "financialHealthScore") {
                         return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
+                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartRadar
-                              isExpanded={!!expandedCharts["financialHealthScore"]}
-                              onToggleExpand={() => handleToggleChartExpand("financialHealthScore")}
                             />
-                          </SortableAnalyticsChart>
+                            </div>
+                          </div>
                         )
                       }
 
                       if (chartId === "spendingActivityRings") {
                         return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <Card>
-                              <CardHeader className="relative flex flex-row items-start justify-between gap-2">
-                                <div className="space-y-1">
+                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                            <Card className="h-full flex flex-col">
+                              <CardHeader className="relative flex flex-row items-start justify-between gap-2 flex-1 min-h-[420px] pb-6">
+                                <div className="space-y-1 z-10">
                                   <div className="flex items-center gap-2">
                                     <CardTitle className="mb-0">Spending Activity Rings</CardTitle>
                                     <ChartInfoPopover
@@ -2579,7 +3240,7 @@ export default function AnalyticsPage() {
                                     Top spending categories from your Neon transactions
                                   </CardDescription>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 z-10">
                                   {activityData.length > 0 && (
                                     <div className="flex flex-col gap-1 z-10 w-[140px]">
                                       <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground text-right">
@@ -2750,149 +3411,119 @@ export default function AnalyticsPage() {
                                       </div>
                                     </div>
                                   )}
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon-sm"
-                                    className="ml-auto"
-                                    onClick={() => handleToggleChartExpand("spendingActivityRings")}
-                                    aria-label={expandedCharts["spendingActivityRings"] ? "Shrink chart" : "Expand chart"}
-                                  >
-                                    {expandedCharts["spendingActivityRings"] ? (
-                                      <IconMinimize className="h-4 w-4" />
-                                    ) : (
-                                      <IconMaximize className="h-4 w-4" />
-                                    )}
-                                  </Button>
+                                </div>
+                                {/* Chart overlay layer */}
+                                <div className="absolute inset-0 flex flex-col items-center justify-between pt-20 pb-4">
+                                  {activityData.length === 0 ? (
+                                    <span className="text-sm text-muted-foreground">
+                                      No expense categories available yet.
+                                    </span>
+                                  ) : (
+                                    <>
+                                      <div className="flex items-center justify-center w-full flex-1 min-h-0">
+                                        <SpendingActivityRings
+                                          key={`rings-${dateFilter}-${ringCategories?.join(',') || ''}`}
+                                          data={activityData}
+                                          config={activityConfig}
+                                          theme={activityTheme as "light" | "dark"}
+                                          ringLimits={ringLimits}
+                                          getDefaultLimit={() => getDefaultRingLimit(dateFilter)}
+                                        />
+                                      </div>
+                                      <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
+                                        {activityData.map((item) => {
+                                          const category =
+                                            (item as { category?: string }).category ??
+                                            item.label
+                                          return (
+                                            <div
+                                              key={category}
+                                              className="flex items-center gap-1.5"
+                                            >
+                                              <span
+                                                className="h-2 w-2 rounded-full"
+                                                style={{
+                                                  backgroundColor:
+                                                    (item as { color?: string }).color ||
+                                                    "#a1a1aa",
+                                                }}
+                                              />
+                                              <span className="font-medium">
+                                                {category}
+                                              </span>
+                                              <span className="text-[0.7rem]">
+                                                {(item.value * 100).toFixed(0)}%
+                                              </span>
+                                            </div>
+                                          )
+                                        })}
+                                      </div>
+                                    </>
+                                  )}
                                 </div>
                               </CardHeader>
-                              <CardContent className="h-[420px] flex flex-col items-center justify-between">
-                                {activityData.length === 0 ? (
-                                  <span className="text-sm text-muted-foreground">
-                                    No expense categories available yet.
-                                  </span>
-                                ) : (
-                                  <>
-                                    <div className="flex items-center justify-center pt-4">
-                                      <SpendingActivityRings
-                                        key={`rings-${dateFilter}-${ringCategories?.join(',') || ''}`}
-                                        data={activityData}
-                                        config={activityConfig}
-                                        theme={activityTheme as "light" | "dark"}
-                                        ringLimits={ringLimits}
-                                        getDefaultLimit={() => getDefaultRingLimit(dateFilter)}
-                                      />
-                                    </div>
-                                    <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
-                                      {activityData.map((item) => {
-                                        const category =
-                                          (item as { category?: string }).category ??
-                                          item.label
-                                        return (
-                                          <div
-                                            key={category}
-                                            className="flex items-center gap-1.5"
-                                          >
-                                            <span
-                                              className="h-2 w-2 rounded-full"
-                                              style={{
-                                                backgroundColor:
-                                                  (item as { color?: string }).color ||
-                                                  "#a1a1aa",
-                                              }}
-                                            />
-                                            <span className="font-medium">
-                                              {category}
-                                            </span>
-                                            <span className="text-[0.7rem]">
-                                              {(item.value * 100).toFixed(0)}%
-                                            </span>
-                                          </div>
-                                        )
-                                      })}
-                                    </div>
-                                  </>
-                                )}
-                              </CardContent>
                             </Card>
-                          </SortableAnalyticsChart>
+                            </div>
+                          </div>
                         )
                       }
 
                       if (chartId === "spendingStreamgraph") {
                         return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
+                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartSpendingStreamgraph
                               categoryControls={streamgraphControls}
                               data={spendingStreamData.data}
                               keys={spendingStreamData.keys}
-                              isExpanded={!!expandedCharts["spendingStreamgraph"]}
-                              onToggleExpand={() => handleToggleChartExpand("spendingStreamgraph")}
                             />
-                          </SortableAnalyticsChart>
+                            </div>
+                          </div>
                         )
                       }
 
                       if (chartId === "singleMonthCategorySpending") {
                         return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
+                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartSingleMonthCategorySpending
                               dateFilter={dateFilter}
-                              isExpanded={!!expandedCharts["singleMonthCategorySpending"]}
-                              onToggleExpand={() => handleToggleChartExpand("singleMonthCategorySpending")}
                             />
-                          </SortableAnalyticsChart>
+                            </div>
+                          </div>
                         )
                       }
 
                       if (chartId === "dayOfWeekCategory") {
                         return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
+                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartDayOfWeekCategory
                               dateFilter={dateFilter}
-                              isExpanded={!!expandedCharts["dayOfWeekCategory"]}
-                              onToggleExpand={() => handleToggleChartExpand("dayOfWeekCategory")}
                             />
-                          </SortableAnalyticsChart>
+                            </div>
+                          </div>
                         )
                       }
 
-                      if (chartId === "budgetDistribution") {
-                        return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartCirclePacking
-                              categoryControls={circlePackingControls}
-                              data={circlePackingData.tree}
-                              isExpanded={!!expandedCharts["budgetDistribution"]}
-                              onToggleExpand={() => handleToggleChartExpand("budgetDistribution")}
-                            />
-                          </SortableAnalyticsChart>
-                        )
-                      }
+                      // Hidden chart - kept in code but not displayed
+                      // if (chartId === "budgetDistribution") {
+                      //   return (
+                      //     <div key={chartId} className="grid-stack-item" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                      //       <div className="grid-stack-item-content h-full w-full overflow-hidden">
+                      //       <ChartCirclePacking
+                      //         categoryControls={circlePackingControls}
+                      //         data={circlePackingData.tree}
+                      //       />
+                      //       </div>
+                      //     </div>
+                      //   )
+                      // }
 
                       if (chartId === "transactionHistory") {
                         return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
+                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartSwarmPlot
                               data={useMemo(() => {
                                 if (!rawTransactions || rawTransactions.length === 0) {
@@ -2985,21 +3616,29 @@ export default function AnalyticsPage() {
                                     }
                                   })
                               }, [rawTransactions])}
-                              isExpanded={!!expandedCharts["transactionHistory"]}
-                              onToggleExpand={() => handleToggleChartExpand("transactionHistory")}
                             />
-                          </SortableAnalyticsChart>
+                            </div>
+                          </div>
+                        )
+                      }
+
+                      if (chartId === "dailyTransactionActivity") {
+                        return (
+                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                              <ChartTransactionCalendar />
+                            </div>
+                          </div>
                         )
                       }
 
                       return null
                     })}
-                  </div>
-                </SortableContext>
-              </DndContext>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </main>
 
         {/* Modern Confirmation Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

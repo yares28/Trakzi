@@ -6,6 +6,7 @@ import { useTheme } from "next-themes"
 import ReactECharts from "echarts-for-react"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { deduplicatedFetch } from "@/lib/request-deduplication"
 import {
   Card,
   CardAction,
@@ -110,6 +111,8 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
   const [allData, setAllData] = useState<Array<{ day: string; value: number }>>(propData || [])
   const [isLoading, setIsLoading] = useState(!propData)
   const [dateFilter, setDateFilter] = useState<string | null>(null)
+  const chartRef = React.useRef<any>(null)
+  const containerRef = React.useRef<HTMLDivElement>(null)
 
   // Check if YTD is selected
   const isYTD = selectedYear === "YTD"
@@ -153,11 +156,7 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
         const url = dateFilter
           ? `/api/transactions/daily?filter=${encodeURIComponent(dateFilter)}`
           : "/api/transactions/daily"
-        const response = await fetch(url)
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`)
-        }
-        const data = await response.json()
+        const data = await deduplicatedFetch<Array<{ day: string; value: number }>>(url)
         if (Array.isArray(data)) {
           setAllData(data)
         } else {
@@ -177,6 +176,20 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
 
   useEffect(() => {
     setMounted(true)
+    return () => {
+      // Cleanup on unmount - handle React Strict Mode double-mounting
+      if (chartRef.current) {
+        try {
+          const instance = chartRef.current.getEchartsInstance()
+          if (instance && !instance.isDisposed()) {
+            instance.dispose()
+          }
+        } catch (e) {
+          // Ignore disposal errors (common in React Strict Mode)
+        }
+        chartRef.current = null
+      }
+    }
   }, [])
 
   // Generate list of available years from data, or use current year if no data
@@ -347,7 +360,7 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-          <div className="h-[200px] w-full" />
+          <div className="h-[250px] w-full" />
         </CardContent>
       </Card>
     )
@@ -396,11 +409,13 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
         </CardAction>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-        <div className="h-[200px] w-full">
+        <div ref={containerRef} className="h-[250px] w-full" style={{ minHeight: 0, minWidth: 0 }}>
           <ReactECharts
+            ref={chartRef}
             option={option}
             style={{ height: '100%', width: '100%' }}
             opts={{ renderer: 'svg' }}
+            notMerge={true}
           />
         </div>
         {/* Color Legend */}

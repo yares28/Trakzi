@@ -85,7 +85,13 @@ export const GET = async () => {
         return a.totalAmount - b.totalAmount
       })
 
-    return NextResponse.json(payload)
+    // Add caching headers - categories change infrequently
+    // Cache for 5 minutes, revalidate in background
+    return NextResponse.json(payload, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+      },
+    })
   } catch (error) {
     console.error("[Categories API] Error:", error)
     return NextResponse.json(

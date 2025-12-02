@@ -54,6 +54,11 @@ const data = {
       icon: IconChartBar,
     },
     {
+      title: "Trends",
+      url: "/trends",
+      icon: IconChartBar,
+    },
+    {
       title: "Fridge",
       url: "/fridge",
       icon: IconCamera,
