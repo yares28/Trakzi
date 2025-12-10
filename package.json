@@ -92,12 +92,13 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
-    "eslint": "^9.16.0",
-    "eslint-config-next": "^15.5.7",
     "@tailwindcss/postcss": "^4.1.9",
     "@types/node": "^22",
+    "@types/papaparse": "^5.5.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "eslint": "^9.16.0",
+    "eslint-config-next": "^15.5.7",
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",
     "tw-animate-css": "1.3.3",
