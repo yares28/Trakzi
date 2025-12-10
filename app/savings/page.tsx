@@ -39,14 +39,7 @@ export default function Page() {
       if (response.ok) {
         if (Array.isArray(data)) {
           console.log(`[Savings] Setting ${data.length} transactions`)
-          setTransactions(normalizeTransactions(data) as Array<{
-            id: number
-            date: string
-            description: string
-            amount: number
-            balance: number | null
-            category: string
-          }>)
+          setTransactions(normalizeTransactions(data))
         } else {
           console.error("[Savings] Response is not an array:", data)
           if (data.error) {

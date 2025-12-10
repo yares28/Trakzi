@@ -133,14 +133,11 @@ export const POST = async (req: NextRequest) => {
       color ||
       CATEGORY_COLORS[Math.floor(Math.random() * CATEGORY_COLORS.length)]
 
-    const [category] = await neonInsert<{ user_id: string; name: string; color: string; id?: number }>(
-      "categories",
-      {
-        user_id: userId,
-        name: normalizedName,
-        color: paletteColor,
-      }
-    ) as Array<{ id: number; user_id: string; name: string; color: string }>
+    const [category] = await neonInsert("categories", {
+      user_id: userId,
+      name: normalizedName,
+      color: paletteColor,
+    })
 
     return NextResponse.json(
       {

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { saveFileToNeon } from "@/lib/files/saveFileToNeon";
 // Import parsePdfToRows dynamically to avoid DOMMatrix error during module evaluation
 import { parseExcelToRows } from "@/lib/parsing/parseExcelToRows";
-import { parseCsvToRows, CsvDiagnostics } from "@/lib/parsing/parseCsvToRows";
+import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows";
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv";
 import { categoriseTransactions } from "@/lib/ai/categoriseTransactions";
 import { TxRow } from "@/lib/types/transactions";
@@ -29,10 +29,10 @@ export const POST = async (req: NextRequest) => {
             });
         } catch (err: any) {
             console.error("Error saving file:", err);
-            if (err.message?.includes("Unauthorized") || err.message?.includes("user auth")) {
+            if (err.message?.includes("DEMO_USER_ID") || err.message?.includes("user auth")) {
                 return NextResponse.json({ 
-                    error: "Authentication required. Please sign in to upload statements." 
-                }, { status: 401 });
+                    error: "Authentication not configured. Please set DEMO_USER_ID in your environment variables." 
+                }, { status: 500 });
             }
             throw new Error(`Failed to save file: ${err.message}`);
         }
@@ -40,7 +40,6 @@ export const POST = async (req: NextRequest) => {
         // 2) Parse rows depending on type
         const buffer = Buffer.from(await file.arrayBuffer());
         let rows: TxRow[] = [];
-        let csvDiagnostics: CsvDiagnostics | null = null;
 
         try {
             if (extension === "pdf") {
@@ -50,9 +49,7 @@ export const POST = async (req: NextRequest) => {
             } else if (extension === "xls" || extension === "xlsx") {
                 rows = parseExcelToRows(buffer);
             } else if (extension === "csv") {
-                const result = parseCsvToRows(buffer.toString("utf-8"), { returnDiagnostics: true });
-                rows = result.rows;
-                csvDiagnostics = result.diagnostics;
+                rows = parseCsvToRows(buffer.toString("utf-8"));
             } else {
                 // Unsupported for parsing → just store file
                 return NextResponse.json(
@@ -82,16 +79,7 @@ export const POST = async (req: NextRequest) => {
 
         if (rows.length === 0) {
             return NextResponse.json({ 
-                error: `Parse Error: No transactions found in the ${extension.toUpperCase()} file. Please check the file format.`,
-                diagnostics: csvDiagnostics ? {
-                    delimiter: csvDiagnostics.delimiter,
-                    headerRowIndex: csvDiagnostics.headerRowIndex,
-                    availableColumns: csvDiagnostics.availableColumns,
-                    invalidDateSamples: csvDiagnostics.invalidDateSamples,
-                    filteredOutSamples: csvDiagnostics.filteredOutSamples,
-                    warnings: csvDiagnostics.warnings,
-                    sampleRawRows: csvDiagnostics.sampleRawRows
-                } : undefined
+                error: `Parse Error: No transactions found in the ${extension.toUpperCase()} file. Please check the file format.` 
             }, { status: 400 });
         }
 
@@ -126,7 +114,7 @@ export const POST = async (req: NextRequest) => {
 
         const headers: Record<string, string> = {
             "Content-Type": "text/csv",
-            "X-File-Id": String(savedFile.id)
+            "X-File-Id": savedFile.id
         };
 
         // Add warning header if categorization failed

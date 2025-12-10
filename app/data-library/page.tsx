@@ -390,7 +390,7 @@ export default function DataLibraryPage() {
           filesRes.json(),
         ])
 
-      setTransactions(normalizeTransactions(txData) as Transaction[])
+      setTransactions(normalizeTransactions(txData))
       setStats(statsData)
       setStatements(stmtData)
       setCategories(catData)
@@ -897,7 +897,7 @@ export default function DataLibraryPage() {
       const response = await fetch(`/api/statements/${statementId}/transactions`)
       if (response.ok) {
         const data = await response.json()
-        setStatementTransactions(normalizeTransactions(data) as Transaction[])
+        setStatementTransactions(normalizeTransactions(data))
       } else {
         console.error("Failed to fetch statement transactions")
         setStatementTransactions([])
