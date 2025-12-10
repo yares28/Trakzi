@@ -966,49 +966,53 @@ export function ChartRadialBar({
       <CardContent className="h-[250px]">
         {mounted && (
           <div ref={containerRef} className="relative h-full w-full">
-            <ResponsiveContainer width="100%" height="100%" minHeight={250} children={
-              <RadialBarChart
-                innerRadius="15%"
-                outerRadius="100%"
-                cx="50%"
-                cy="50%"
-                data={processedData}
-                startAngle={180}
-                endAngle={-180}
-                onMouseMove={(data: any, index: number, e: any) => {
-                  if (data && data.activePayload && data.activePayload[0]) {
-                    const payload = data.activePayload[0].payload
-                    const name = data.activePayload[0].name || payload.name || ""
-                    const spent = toNumericValue(payload.uv)
-                    const budget = toNumericValue(payload.pv)
-                    const exceeded = spent > budget
-                    const pct = budget > 0 ? ((spent / budget) * 100).toFixed(1) : '0'
-                    const color = payload.fill || palette[0] || "#8884d8"
-                    
-                    if (containerRef.current && e) {
-                      const rect = containerRef.current.getBoundingClientRect()
-                      setTooltipPosition({
-                        x: e.clientX - rect.left,
-                        y: e.clientY - rect.top,
-                      })
-                      setTooltip({
-                        category: name,
-                        spent,
-                        budget,
-                        percentage: pct,
-                        exceeded,
-                        color,
-                      })
+            {React.createElement(
+              ResponsiveContainer,
+              { width: "100%", height: "100%", minHeight: 250 },
+              React.createElement(
+                RadialBarChart,
+                {
+                  innerRadius: "15%",
+                  outerRadius: "100%",
+                  cx: "50%",
+                  cy: "50%",
+                  data: processedData,
+                  startAngle: 180,
+                  endAngle: -180,
+                  onMouseMove: ((data: any, index: number, e: any) => {
+                    if (data && data.activePayload && data.activePayload[0]) {
+                      const payload = data.activePayload[0].payload
+                      const name = data.activePayload[0].name || payload.name || ""
+                      const spent = toNumericValue(payload.uv)
+                      const budget = toNumericValue(payload.pv)
+                      const exceeded = spent > budget
+                      const pct = budget > 0 ? ((spent / budget) * 100).toFixed(1) : '0'
+                      const color = payload.fill || palette[0] || "#8884d8"
+                      
+                      if (containerRef.current && e) {
+                        const rect = containerRef.current.getBoundingClientRect()
+                        setTooltipPosition({
+                          x: e.clientX - rect.left,
+                          y: e.clientY - rect.top,
+                        })
+                        setTooltip({
+                          category: name,
+                          spent,
+                          budget,
+                          percentage: pct,
+                          exceeded,
+                          color,
+                        })
+                      }
                     }
-                  }
-                } as any}
-                onMouseLeave={() => {
-                  setTooltip(null)
-                  setTooltipPosition(null)
-                }}
-              >
-                <RadialBar
-                  label={(props: {
+                  }) as any,
+                  onMouseLeave: () => {
+                    setTooltip(null)
+                    setTooltipPosition(null)
+                  },
+                },
+                React.createElement(RadialBar, {
+                  label: (props: {
                     x: number
                     y: number
                     textAnchor?: string
@@ -1017,41 +1021,41 @@ export function ChartRadialBar({
                     const uv = toNumericValue(props.payload?.uv)
                     const pv = toNumericValue(props.payload?.pv)
                     const exceeded = uv > pv
-                    return (
-                      <text
-                        x={props.x}
-                        y={props.y}
-                        fill={exceeded ? "#ef4444" : "#666"}
-                        textAnchor={props.textAnchor as "start" | "end" | "inherit" | "middle" | undefined}
-                        fontSize="12"
-                        fontWeight={exceeded ? "bold" : "normal"}
-                      >
-                        {uv.toFixed(2)}
-                      </text>
+                    return React.createElement(
+                      "text",
+                      {
+                        x: props.x,
+                        y: props.y,
+                        fill: exceeded ? "#ef4444" : "#666",
+                        textAnchor: props.textAnchor as "start" | "end" | "inherit" | "middle" | undefined,
+                        fontSize: "12",
+                        fontWeight: exceeded ? "bold" : "normal",
+                      },
+                      uv.toFixed(2)
                     )
-                  }}
-                  background
-                  dataKey="value"
-                  isAnimationActive={isAnimationActive}
-                />
-                <Legend
-                  iconSize={10}
-                  layout="horizontal"
-                  verticalAlign="bottom"
-                  align="center"
-                  wrapperStyle={{ paddingTop: 16 }}
-                  formatter={(value: string) => {
+                  },
+                  background: true,
+                  dataKey: "value",
+                  isAnimationActive: isAnimationActive,
+                }),
+                React.createElement(Legend, {
+                  iconSize: 10,
+                  layout: "horizontal",
+                  verticalAlign: "bottom",
+                  align: "center",
+                  wrapperStyle: { paddingTop: 16 },
+                  formatter: (value: string) => {
                     const legendTextColor =
                       resolvedTheme === "dark" ? "#ffffff" : "#000000"
-                    return (
-                      <span style={{ color: legendTextColor, fontSize: 12 }}>
-                        {value}
-                      </span>
+                    return React.createElement(
+                      "span",
+                      { style: { color: legendTextColor, fontSize: 12 } },
+                      value
                     )
-                  }}
-                />
-              </RadialBarChart>
-            } as React.ReactElement />
+                  },
+                })
+              )
+            )}
             {tooltip && tooltipPosition && (
             <div
               className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
