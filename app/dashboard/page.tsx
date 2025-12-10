@@ -427,6 +427,7 @@ export default function Page() {
   const [fileId, setFileId] = useState<string | null>(null)
   const [parseError, setParseError] = useState<string | null>(null)
   const [transactionCount, setTransactionCount] = useState<number>(0)
+  const [hiddenCategories, setHiddenCategories] = useState<string[]>([])
   const dragCounterRef = useRef(0)
 
   const normalizeCategoryName = useCallback((value?: string | null) => {
