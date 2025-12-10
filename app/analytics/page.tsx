@@ -774,7 +774,7 @@ export default function AnalyticsPage() {
                     gridStackRef.current!.update(node.el, {
                       w: clampedW,
                       h: clampedH,
-                    }, false)
+                    })
                   }
                 }
               }
@@ -807,7 +807,7 @@ export default function AnalyticsPage() {
                   gridStackRef.current.update(item.el, {
                     w: clampedW,
                     h: clampedH,
-                  }, false)
+                  })
                 }
               }
             }
@@ -837,7 +837,7 @@ export default function AnalyticsPage() {
                   gridStackRef.current.update(item.el, {
                     w: clampedW,
                     h: clampedH,
-                  }, false)
+                  })
                 }
                 
                 const newSizes = { ...savedChartSizes }
