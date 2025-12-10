@@ -5,6 +5,7 @@ import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useTheme } from "next-themes"
 import {
     Card,
     CardAction,
@@ -36,7 +37,10 @@ export const description = "An interactive area chart"
 export function ChartAreaInteractiveFridge({ data }: { data: { date: string; desktop: number; mobile: number }[] }) {
     const isMobile = useIsMobile()
     const { colorScheme, getPalette } = useColorScheme()
+    const { resolvedTheme } = useTheme()
     const [timeRange, setTimeRange] = React.useState("90d")
+    const isDark = resolvedTheme === "dark"
+    const gridStrokeColor = isDark ? "#e5e7eb" : "#e5e7eb"
 
     // Color scheme: colored uses custom palette, dark uses custom palette
     // Darker = more expensive (bigger peso)
@@ -145,7 +149,7 @@ export function ChartAreaInteractiveFridge({ data }: { data: { date: string; des
                                 />
                             </linearGradient>
                         </defs>
-                        <CartesianGrid vertical={false} />
+                        <CartesianGrid vertical={false} stroke={gridStrokeColor} strokeDasharray="3 3" opacity={0.3} />
                         <XAxis
                             dataKey="date"
                             tickLine={false}

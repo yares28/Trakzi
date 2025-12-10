@@ -78,6 +78,14 @@ export function SiteHeader() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
               <DropdownMenuItem
+                onClick={() => setColorScheme("sunset")}
+              >
+                <span className="flex-1">Sunset</span>
+                {colorScheme === "sunset" && (
+                  <IconCheck className="size-4" />
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem
                 onClick={() => setColorScheme("dark")}
               >
                 <span className="flex-1">Dark</span>

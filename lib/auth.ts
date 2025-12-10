@@ -1,12 +1,47 @@
 // lib/auth.ts
-export async function getCurrentUserId(): Promise<string> {
-    // TODO: Implement proper Neon JWT authentication
-    // For MVP, this extracts user ID from Neon's auth context
-    // In production, use Neon's auth.user_id() SQL function with JWT tokens
+import { auth } from '@clerk/nextjs/server'
+import { ensureUserExists } from './user-sync'
 
-    const demoUserId = process.env.DEMO_USER_ID;
-    if (!demoUserId) {
-        throw new Error("No user auth implemented. Set DEMO_USER_ID or integrate Neon JWT auth.");
+/**
+ * Get the current authenticated user's ID from Clerk
+ * Also ensures the user exists in the database
+ * @returns The database user ID (synced with Clerk)
+ * @throws Error if user is not authenticated
+ */
+export async function getCurrentUserId(): Promise<string> {
+    const { userId } = await auth()
+    
+    if (!userId) {
+        throw new Error("Unauthorized - Please sign in to access this resource")
     }
-    return demoUserId;
+    
+    // Ensure user exists in database and return the synced user ID
+    try {
+        return await ensureUserExists()
+    } catch (syncError: any) {
+        // If sync fails, log but still return Clerk userId
+        // This allows the app to work even if database sync has issues
+        console.warn('[Auth] User sync failed, using Clerk userId:', syncError.message)
+        return userId
+    }
+}
+
+/**
+ * Get the current authenticated user's ID, or return null if not authenticated
+ * Useful for optional authentication scenarios
+ */
+export async function getCurrentUserIdOrNull(): Promise<string | null> {
+    try {
+        const { userId } = await auth()
+        if (!userId) return null
+        
+        // Try to sync, but don't fail if it doesn't work
+        try {
+            return await ensureUserExists()
+        } catch {
+            return userId
+        }
+    } catch {
+        return null
+    }
 }

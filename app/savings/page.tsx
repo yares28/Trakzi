@@ -124,13 +124,8 @@ export default function Page() {
       ? ((currentIncome - currentExpenses) / currentIncome) * 100 
       : 0
 
-    // Get net worth from latest transaction balance
-    const sortedByDate = [...transactions].sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    )
-    const netWorth = sortedByDate.length > 0 && sortedByDate[0].balance !== null
-      ? sortedByDate[0].balance 
-      : 0
+    // Net worth is calculated as income minus expenses
+    const netWorth = currentIncome - currentExpenses
 
     // Calculate previous period for comparison (last 3 months vs previous 3 months)
     const now = new Date()
@@ -162,13 +157,8 @@ export default function Page() {
       ? ((previousIncome - previousExpenses) / previousIncome) * 100 
       : 0
 
-    // Get previous period net worth
-    const previousSorted = previousTransactions.sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    )
-    const previousNetWorth = previousSorted.length > 0 && previousSorted[0].balance !== null
-      ? previousSorted[0].balance 
-      : 0
+    // Previous net worth is also calculated as income minus expenses
+    const previousNetWorth = previousIncome - previousExpenses
 
     // Calculate percentage changes
     const incomeChange = previousIncome > 0 

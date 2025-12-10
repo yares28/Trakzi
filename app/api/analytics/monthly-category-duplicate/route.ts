@@ -57,11 +57,10 @@ export const GET = async (request: NextRequest) => {
     let userId: string;
     try {
       userId = await getCurrentUserId();
-      console.log("[Monthly Category Duplicate API] User ID:", userId);
     } catch (authError: any) {
       console.error("[Monthly Category Duplicate API] Auth error:", authError.message);
       return NextResponse.json(
-        { error: "Authentication required. Set DEMO_USER_ID in .env.local" },
+        { error: "Authentication required. Please sign in to access analytics." },
         { status: 401 },
       );
     }
@@ -110,8 +109,6 @@ export const GET = async (request: NextRequest) => {
           ORDER BY month, total DESC
         `;
         
-        console.log("[Monthly Category Duplicate API] Batch query:", batchQuery);
-        console.log("[Monthly Category Duplicate API] Batch params:", batchParams);
         
         const batchRows = await neonQuery<{
           category: string | null;
@@ -211,8 +208,6 @@ export const GET = async (request: NextRequest) => {
       `;
     }
 
-    console.log("[Monthly Category Duplicate API] Query:", query);
-    console.log("[Monthly Category Duplicate API] Params:", params);
     
     const rows = await neonQuery<{
       category: string | null;
@@ -220,10 +215,6 @@ export const GET = async (request: NextRequest) => {
       total: number | string | null;
     }>(query, params);
 
-    console.log(`[Monthly Category Duplicate API] Found ${rows.length} rows from database`);
-    if (rows.length > 0) {
-      console.log("[Monthly Category Duplicate API] Sample row:", rows[0]);
-    }
 
     // Format data - SQL already groups by category and month
     // When a specific month is selected:
@@ -241,7 +232,6 @@ export const GET = async (request: NextRequest) => {
     });
     
     const totalSum = Array.from(categoryTotals.values()).reduce((sum, val) => sum + val, 0);
-    console.log(`[Monthly Category Duplicate API] Total sum of all categories: ${totalSum.toFixed(2)}`);
 
     // Convert to array and sort by total
     const formatted = Array.from(categoryTotals.entries())
@@ -252,8 +242,6 @@ export const GET = async (request: NextRequest) => {
       }))
       .sort((a, b) => b.total - a.total);
 
-    console.log(`[Monthly Category Duplicate API] Returning ${formatted.length} category entries`);
-    console.log(`[Monthly Category Duplicate API] Available months:`, availableMonths);
 
     return NextResponse.json({
       data: formatted,

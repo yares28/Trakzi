@@ -6,14 +6,17 @@ import { ResponsivePie } from "@nivo/pie"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { toNumericValue } from "@/lib/utils"
+import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card"
+import { ChartFavoriteButton } from "@/components/chart-favorite-button"
+import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 interface ChartExpensesPieProps {
   data?: Array<{
     id: string
@@ -21,6 +24,7 @@ interface ChartExpensesPieProps {
     value: number
   }>
   categoryControls?: ChartInfoPopoverCategoryControls
+  isLoading?: boolean
 }
 
 // Dark colors that require white text
@@ -37,7 +41,7 @@ const getTextColor = (sliceColor: string, colorScheme?: string): string => {
   return darkColors.includes(sliceColor) ? "#ffffff" : "#000000"
 }
 
-export function ChartExpensesPie({ data: baseData = [], categoryControls }: ChartExpensesPieProps) {
+export function ChartExpensesPie({ data: baseData = [], categoryControls, isLoading = false }: ChartExpensesPieProps) {
   const { resolvedTheme } = useTheme()
   const { colorScheme, getPalette } = useColorScheme()
   const [mounted, setMounted] = useState(false)
@@ -83,55 +87,52 @@ export function ChartExpensesPie({ data: baseData = [], categoryControls }: Char
   const textColor = isDark ? "#9ca3af" : "#4b5563"
   const arcLinkLabelColor = isDark ? "#d1d5db" : "#374151"
   
-  // Custom tooltip with percentage
-  const customTooltip = ({ datum }: { datum: { id: string; label: string; value: number; color: string } }) => {
-    const percentage = total > 0 ? ((datum.value / total) * 100).toFixed(1) : '0.0'
-    const tooltipBg = isDark ? '#1f2937' : '#ffffff'
-    const tooltipText = isDark ? '#f3f4f6' : '#000000'
-    const tooltipSecondary = isDark ? '#9ca3af' : '#666666'
-    const tooltipBorder = isDark ? '#374151' : '#e2e8f0'
-    
-    return (
-      <div style={{
-        background: tooltipBg,
-        padding: '8px 12px',
-        borderRadius: '8px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-        border: `1px solid ${tooltipBorder}`,
-        fontSize: '12px',
-      }}>
-        <div style={{ fontWeight: 600, marginBottom: '4px', color: tooltipText }}>
-          {datum.label}
-        </div>
-        <div style={{ color: tooltipSecondary, marginBottom: '2px' }}>
-          ${datum.value.toFixed(2)}
-        </div>
-        <div style={{ color: tooltipSecondary }}>
-          {percentage}%
-        </div>
-      </div>
-    )
-  }
+  // Format currency value
+  const valueFormatter = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  })
 
   const renderInfoTrigger = () => (
-    <ChartInfoPopover
-      title="Expense Breakdown"
-      description="This pie chart shows how your total expenses are distributed across spending categories."
-      details={[
-        "Slices are sorted by spend so the largest categories stand out.",
-        "Income entries and zero-dollar adjustments are filtered out so only real expenses appear.",
-      ]}
-      ignoredFootnote="Only negative (expense) transactions are plotted. Positive cash flow is excluded from this view."
-      categoryControls={categoryControls}
-    />
+    <div className="flex flex-col items-center gap-2">
+      <ChartInfoPopover
+        title="Expense Breakdown"
+        description="This pie chart shows how your total expenses are distributed across spending categories."
+        details={[
+          "Slices are sorted by spend so the largest categories stand out.",
+          "Income entries and zero-dollar adjustments are filtered out so only real expenses appear.",
+        ]}
+        ignoredFootnote="Only negative (expense) transactions are plotted. Positive cash flow is excluded from this view."
+        categoryControls={categoryControls}
+      />
+      <ChartAiInsightButton
+        chartId="expenseBreakdown"
+        chartTitle="Expense Breakdown"
+        chartDescription="This pie chart shows how your total expenses are distributed across spending categories."
+        chartData={{
+          totalExpenses: total,
+          categories: data.map(d => ({ name: d.label, amount: d.value })),
+          topCategory: data[0]?.label,
+          topCategoryAmount: data[0]?.value
+        }}
+        size="sm"
+      />
+    </div>
   )
 
   if (!mounted) {
     return (
       <Card className="@container/card">
         <CardHeader>
-          <CardTitle>Expense Breakdown</CardTitle>
-          <CardDescription>Your spending by category</CardDescription>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="expenseBreakdown"
+              chartTitle="Expense Breakdown"
+              size="md"
+            />
+            <CardTitle>Expense Breakdown</CardTitle>
+          </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
           </CardAction>
@@ -148,20 +149,21 @@ export function ChartExpensesPie({ data: baseData = [], categoryControls }: Char
     return (
       <Card className="@container/card">
         <CardHeader>
-          <CardTitle>Expense Breakdown</CardTitle>
-          <CardDescription>
-            <span className="hidden @[540px]/card:block">
-              Distribution of your monthly expenses across categories
-            </span>
-            <span className="@[540px]/card:hidden">Monthly expense distribution</span>
-          </CardDescription>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="expenseBreakdown"
+              chartTitle="Expense Breakdown"
+              size="md"
+            />
+            <CardTitle>Expense Breakdown</CardTitle>
+          </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
-          <div className="h-full w-full min-h-[250px] flex items-center justify-center text-muted-foreground">
-            No data available
+          <div className="h-full w-full min-h-[250px]">
+            <ChartLoadingState isLoading={isLoading} />
           </div>
         </CardContent>
       </Card>
@@ -171,13 +173,14 @@ export function ChartExpensesPie({ data: baseData = [], categoryControls }: Char
   return (
       <Card className="@container/card">
         <CardHeader>
-          <CardTitle>Expense Breakdown</CardTitle>
-          <CardDescription>
-            <span className="hidden @[540px]/card:block">
-              Distribution of your monthly expenses across categories
-            </span>
-            <span className="@[540px]/card:hidden">Monthly expense distribution</span>
-          </CardDescription>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="expenseBreakdown"
+              chartTitle="Expense Breakdown"
+              size="md"
+            />
+            <CardTitle>Expense Breakdown</CardTitle>
+          </div>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoTrigger()}
         </CardAction>
@@ -200,7 +203,29 @@ export function ChartExpensesPie({ data: baseData = [], categoryControls }: Char
             arcLabelsTextColor={(d: { color: string }) => getTextColor(d.color, colorScheme)}
             valueFormat={(value) => `$${value.toFixed(2)}`}
             colors={colorConfig}
-            tooltip={customTooltip}
+            tooltip={({ datum }) => {
+              const percentage = total > 0 ? (Number(datum.value) / total) * 100 : 0
+
+              return (
+                <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full border border-border/50"
+                      style={{ backgroundColor: datum.color as string, borderColor: datum.color as string }}
+                    />
+                    <span className="font-medium text-foreground whitespace-nowrap">
+                      {datum.label as string}
+                    </span>
+                  </div>
+                  <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
+                    {valueFormatter.format(Number(datum.value))}
+                  </div>
+                  <div className="mt-0.5 text-[0.7rem] text-foreground/80">
+                    {percentage.toFixed(1)}%
+                  </div>
+                </div>
+              )
+            }}
             theme={{
               text: {
                 fill: textColor,

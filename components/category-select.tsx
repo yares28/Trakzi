@@ -305,7 +305,7 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
                       {isOpen && (
                         <div className="mt-1 space-y-0.5 pl-4">
                           {group.categories.map((cat) => (
-                            <SelectItem key={cat} value={cat}>
+                            <SelectItem key={`${group.label}-${cat}`} value={cat}>
                               {cat}
                             </SelectItem>
                           ))}
@@ -313,7 +313,7 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
                       )}
                       {/* Always render the selected value's SelectItem, even if group is closed */}
                       {!isOpen && containsSelectedValue && selectValue && (
-                        <SelectItem key={selectValue} value={selectValue} className="hidden">
+                        <SelectItem key={`${group.label}-${selectValue}-hidden`} value={selectValue} className="hidden">
                           {selectValue}
                         </SelectItem>
                       )}
@@ -323,7 +323,7 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
               : null}
             {/* Render selected value if it's not in any group (custom category) */}
             {selectValue && selectedValueGroup === null && (
-              <SelectItem key={selectValue} value={selectValue} className="hidden">
+              <SelectItem key={`custom-${selectValue}`} value={selectValue} className="hidden">
                 {selectValue}
               </SelectItem>
             )}

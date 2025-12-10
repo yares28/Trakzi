@@ -57,11 +57,10 @@ export const GET = async (request: NextRequest) => {
         let userId: string;
         try {
             userId = await getCurrentUserId();
-            console.log("[Daily Transactions API] User ID:", userId);
         } catch (authError: any) {
             console.error("[Daily Transactions API] Auth error:", authError.message);
             return NextResponse.json(
-                { error: "Authentication required. Set DEMO_USER_ID in .env.local" },
+                { error: "Authentication required. Please sign in to access transactions." },
                 { status: 401 }
             );
         }
@@ -116,9 +115,10 @@ export const GET = async (request: NextRequest) => {
                 day,
                 value: Math.round(value * 100) / 100 // Round to 2 decimal places
             };
-        });
+        }).filter(item => item.value > 0); // Filter out any zero values
 
-        console.log(`[Daily Transactions API] Returning ${formattedData.length} days of data`);
+        if (formattedData.length === 0) {
+        }
 
         // Add caching headers for better performance
         // Cache for 1 minute, revalidate in background

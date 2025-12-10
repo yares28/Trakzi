@@ -24,7 +24,7 @@ export function ChartCategoryFlowFridge({ data }: { data: { id: string; data: { 
 
     const isDark = resolvedTheme === "dark"
     const textColor = "#000000"
-    const borderColor = isDark ? "#374151" : "#e5e7eb"
+    const borderColor = isDark ? "#e5e7eb" : "#e5e7eb"
 
     // Use custom palette for colored, custom dark palette for dark styling
     // For all palettes: darker colors = higher rank (lower rank number), lighter colors = lower rank (higher rank number)

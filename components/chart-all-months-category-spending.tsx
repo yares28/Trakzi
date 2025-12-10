@@ -3,14 +3,15 @@
 import { useMemo, useEffect, useRef, useCallback, useState } from "react"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
+import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 interface ChartAllMonthsCategorySpendingProps {
@@ -45,9 +46,15 @@ const monthNamesShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug",
 export function ChartAllMonthsCategorySpending({ data = [], categoryControls: propCategoryControls }: ChartAllMonthsCategorySpendingProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
-  const palette = getPalette().filter((color) => color !== "#c3c3c3")
+  const palette = useMemo(
+    () => getPalette().filter((color) => color !== "#c3c3c3"),
+    [getPalette, resolvedTheme],
+  )
   const svgRef = useRef<SVGSVGElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const [actualMonthTotals, setActualMonthTotals] = useState<Map<number, number>>(new Map())
+  const [tooltip, setTooltip] = useState<{ month: string; category: string; amount: number; isTotal: boolean; breakdown?: Array<{ category: string; amount: number }>; color?: string } | null>(null)
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
   // Small card size: always full width within its grid column
   const cardWidthClass = "w-full"
 
@@ -96,14 +103,6 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
         } catch (err) {
           console.warn(`[All Months Category Spending] Error fetching batch months:`, err)
         }
-        
-        console.log(`[All Months Category Spending] Fetched actual month totals from database:`, {
-          januaryTotal: totals.get(0)?.toFixed(2) || "0.00",
-          allMonths: Array.from(totals.entries()).map(([month, total]) => ({
-            month: monthNamesShort[month],
-            total: total.toFixed(2)
-          }))
-        })
         
         setActualMonthTotals(totals)
       } catch (error) {
@@ -190,11 +189,6 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
       }
     })
     
-    console.log(`[All Months Category Spending] Total January spending: $${januaryTotal.toFixed(2)}`)
-    console.log(`[All Months Category Spending] Total transactions processed: ${data.length}`)
-    console.log(`[All Months Category Spending] Hidden categories:`, Array.from(hiddenCategorySet))
-    console.log(`[All Months Category Spending] January by year:`, Array.from(monthYearMap.entries()))
-    
     // Debug: Check for January 1st transactions
     const jan1Transactions = data.filter(tx => {
       const amount = Number(tx.amount) || 0
@@ -204,14 +198,6 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
       }
       return false
     })
-    if (jan1Transactions.length > 0) {
-      console.log(`[All Months Category Spending] Found ${jan1Transactions.length} January 1st transactions:`, jan1Transactions.map(tx => ({
-        date: tx.date,
-        amount: tx.amount,
-        category: tx.category
-      })))
-    }
-    
     // Log month totals for debugging
     const monthTotals = new Map<number, number>()
     grouped.forEach((categoryMap, monthIndex) => {
@@ -223,11 +209,6 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
         monthTotals.set(monthIndex, total)
       }
     })
-    console.log(`[All Months Category Spending] Month totals:`, Array.from(monthTotals.entries()).map(([month, total]) => ({
-      month: monthNamesShort[month],
-      total: total.toFixed(2)
-    })))
-
     const flatData: Array<{ month: number; monthName: string; category: string; amount: number }> = []
     grouped.forEach((categoryMap, monthIndex) => {
       categoryMap.forEach((amount, category) => {
@@ -262,7 +243,6 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
       }
     })
     const categories = Array.from(categorySet).sort()
-    console.log(`[All Months Category Spending] All categories found:`, categories)
     return categories
   }, [data, normalizeCategoryName])
 
@@ -294,24 +274,32 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
   }, [categories, palette])
 
   const renderInfoTrigger = () => (
-    <ChartInfoPopover
-      title="All Months Category Spending"
-      description="See which categories you spend the most on each month of the year (all 12 months shown)."
-      details={[
-        "This chart shows your spending broken down by category for each month of the year.",
-        "All 12 months (January through December) are displayed side-by-side.",
-        "Each month has multiple bars, one for each spending category.",
-        "Only expense transactions (negative amounts) are included.",
-        "The chart respects your selected time period filter.",
-      ]}
-      categoryControls={categoryControls}
-    />
+    <div className="flex flex-col items-center gap-2">
+      <ChartInfoPopover
+        title="All Months Category Spending"
+        description="See which categories you spend the most on each month of the year (all 12 months shown)."
+        details={[
+          "This chart shows your spending broken down by category for each month of the year.",
+          "All 12 months (January through December) are displayed side-by-side.",
+          "Each month has multiple bars, one for each spending category.",
+          "Only expense transactions (negative amounts) are included.",
+          "The chart respects your selected time period filter.",
+        ]}
+        categoryControls={categoryControls}
+      />
+      <ChartAiInsightButton
+        chartId="allMonthsCategorySpending"
+        chartTitle="All Months Category Spending"
+        chartDescription="See which categories you spend the most on each month of the year (all 12 months shown)."
+        size="sm"
+      />
+    </div>
   )
 
   const isDark = resolvedTheme === "dark"
   const textColor = isDark ? "#9ca3af" : "#6b7280"
-  const borderColor = isDark ? "#374151" : "#e5e7eb"
-  const gridColor = isDark ? "#374151" : "#e5e7eb"
+  const borderColor = isDark ? "#e5e7eb" : "#e5e7eb"
+  const gridColor = isDark ? "#e5e7eb" : "#e5e7eb"
   const axisColor = borderColor
 
   // Render D3-style grouped bar chart
@@ -319,8 +307,16 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
     if (!svgRef.current || processedData.length === 0) return
 
     const svg = svgRef.current
+    const handleSvgMouseLeave = () => {
+      setTooltip(null)
+      setTooltipPosition(null)
+    }
+    svg.addEventListener("mouseleave", handleSvgMouseLeave)
     
-    const renderChart = () => {
+    let lastWidth: number | null = null
+    let lastHeight: number | null = null
+
+    const renderChart = (forcedWidth?: number, forcedHeight?: number) => {
       svg.innerHTML = ""
 
       const marginTop = 20
@@ -330,8 +326,8 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
 
       const container = svg.parentElement
       const containerRect = container?.getBoundingClientRect()
-      const width = containerRect?.width || svg.clientWidth || 800
-      const height = containerRect?.height || svg.clientHeight || 400
+      const width = forcedWidth ?? containerRect?.width ?? svg.clientWidth ?? 800
+      const height = forcedHeight ?? containerRect?.height ?? svg.clientHeight ?? 400
 
       svg.setAttribute("width", width.toString())
       svg.setAttribute("height", height.toString())
@@ -398,16 +394,6 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
         const visibleTotal = monthTotals.get(monthIndex) || 0
         const actualTotal = actualMonthTotals.get(monthIndex) || 0
         
-        // Debug logging for January
-        if (monthIndex === 0 && (visibleTotal > 0 || actualTotal > 0)) {
-          console.log(`[All Months Category Spending] January totals:`, {
-            visibleTotal: visibleTotal.toFixed(2),
-            actualTotal: actualTotal.toFixed(2),
-            difference: (actualTotal - visibleTotal).toFixed(2),
-            breakdownCount: monthCategoryBreakdown.get(monthIndex)?.length || 0
-          })
-        }
-        
         if (visibleTotal > 0 || actualTotal > 0) {
           const totalBar = document.createElementNS("http://www.w3.org/2000/svg", "rect")
           // Use visible total for bar height (visual representation)
@@ -436,11 +422,6 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
           const breakdown = monthCategoryBreakdown.get(monthIndex) || []
           totalBar.setAttribute("data-breakdown", JSON.stringify(breakdown))
           
-          // Debug: Log the attribute value being set
-          if (monthIndex === 0) {
-            console.log(`[All Months Category Spending] Setting data-total-amount for January: ${actualTotal.toString()}`)
-          }
-
           monthGroup.appendChild(totalBar)
 
           setTimeout(() => {
@@ -606,23 +587,6 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
       }
       svg.insertBefore(gridGroup, svg.firstChild)
 
-      // Add tooltip functionality (tooltip is declared outside renderChart)
-      const createTooltip = () => {
-        if (tooltip) return tooltip
-        tooltip = document.createElement("div")
-        tooltip.style.position = "absolute"
-        tooltip.style.pointerEvents = "none"
-        tooltip.style.backgroundColor = isDark ? "#1f2937" : "#ffffff"
-        tooltip.style.border = `1px solid ${gridColor}`
-        tooltip.style.borderRadius = "6px"
-        tooltip.style.padding = "8px"
-        tooltip.style.fontSize = "12px"
-        tooltip.style.color = textColor
-        tooltip.style.display = "none"
-        tooltip.style.zIndex = "1000"
-        document.body.appendChild(tooltip)
-      }
-
       const showTooltip = (
         event: MouseEvent,
         month: string,
@@ -630,71 +594,27 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
         amount: number,
         isTotal: boolean,
         breakdown?: Array<{ category: string; amount: number }>,
+        color?: string,
       ) => {
-        if (!tooltip) createTooltip()
-        if (!tooltip) return
-
-        if (isTotal && breakdown) {
-          const visibleTotal = breakdown.reduce((sum, item) => sum + item.amount, 0)
-          const hasHiddenCategories = Math.abs(amount - visibleTotal) > 0.01 // Account for floating point precision
-          const hiddenAmount = amount - visibleTotal
-
-          const breakdownHtml = breakdown
-            .sort((a, b) => b.amount - a.amount)
-            .map(
-              (item) => `
-            <div style="display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px;">
-              <span style="color: ${textColor};">${item.category}:</span>
-              <span style="font-weight: 600;">$${item.amount.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}</span>
-            </div>
-          `,
-            )
-            .join("")
-
-          const hiddenCategoriesNote = hasHiddenCategories
-            ? `
-          <div style="border-top: 1px solid ${gridColor}; padding-top: 6px; margin-top: 4px; margin-bottom: 6px;">
-            <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: ${textColor}; font-style: italic;">
-              <span>Hidden categories:</span>
-              <span>$${hiddenAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </div>
-          </div>
-          `
-            : ""
-
-          tooltip.innerHTML = `
-          <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px;">${month} - Total</div>
-          <div style="border-top: 1px solid ${gridColor}; padding-top: 6px; margin-bottom: 6px;">
-            ${breakdownHtml}
-          </div>
-          ${hiddenCategoriesNote}
-          <div style="border-top: 1px solid ${gridColor}; padding-top: 6px; margin-top: 4px;">
-            <div style="display: flex; justify-content: space-between; gap: 12px; font-weight: 700; font-size: 13px;">
-              <span>Total:</span>
-              <span>$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </div>
-          </div>
-        `
-        } else {
-          tooltip.innerHTML = `
-          <div style="font-weight: 600; margin-bottom: 4px;">${month}</div>
-          <div style="margin-bottom: 2px;"><strong>${category}:</strong></div>
-          <div>$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-        `
-        }
-
-        tooltip.style.display = "block"
-        tooltip.style.left = `${event.pageX + 10}px`
-        tooltip.style.top = `${event.pageY + 10}px`
+        if (!containerRef.current) return
+        const rect = containerRef.current.getBoundingClientRect()
+        setTooltipPosition({
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+        })
+        setTooltip({
+          month,
+          category,
+          amount,
+          isTotal,
+          breakdown,
+          color,
+        })
       }
 
       const hideTooltip = () => {
-        if (tooltip) {
-          tooltip.style.display = "none"
-        }
+        setTooltip(null)
+        setTooltipPosition(null)
       }
 
       // Add event listeners to bars
@@ -747,28 +667,47 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
               // Ignore parse errors
             }
             showTooltip(e as unknown as MouseEvent, month, "", totalAmount, true, breakdown)
-          } else {
-            const category = target.getAttribute("data-category") || ""
-            const amount = parseFloat(target.getAttribute("data-amount") || "0")
-            showTooltip(e as unknown as MouseEvent, month, category, amount, false)
-          }
-        })
+        } else {
+          const category = target.getAttribute("data-category") || ""
+          const amount = parseFloat(target.getAttribute("data-amount") || "0")
+          const color = target.getAttribute("fill") || undefined
+          showTooltip(e as unknown as MouseEvent, month, category, amount, false, undefined, color)
+        }
       })
+    })
     } // End of renderChart function
 
-    // Declare tooltip outside renderChart so it persists across renders
-    let tooltip: HTMLDivElement | null = null
-
-    // Initial render
-    renderChart()
+    // Initial render with current container size
+    const initialContainer = svg.parentElement
+    const initialRect = initialContainer?.getBoundingClientRect()
+    const initialWidth = initialRect?.width
+    const initialHeight = initialRect?.height
+    if (typeof initialWidth === "number" && typeof initialHeight === "number") {
+      lastWidth = initialWidth
+      lastHeight = initialHeight
+      renderChart(initialWidth, initialHeight)
+    } else {
+      renderChart()
+    }
 
     // Set up ResizeObserver to handle container size changes
     const container = svg.parentElement
     let resizeObserver: ResizeObserver | null = null
 
     if (container && typeof ResizeObserver !== "undefined") {
-      resizeObserver = new ResizeObserver(() => {
-        renderChart()
+      resizeObserver = new ResizeObserver((entries) => {
+        const entry = entries[0]
+        if (!entry) return
+        const { width, height } = entry.contentRect
+
+        // Only re-render the chart if the size actually changed.
+        if (lastWidth === width && lastHeight === height) {
+          return
+        }
+
+        lastWidth = width
+        lastHeight = height
+        renderChart(width, height)
       })
       resizeObserver.observe(container)
     }
@@ -777,19 +716,21 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
       if (resizeObserver && container) {
         resizeObserver.unobserve(container)
       }
-      if (tooltip && document.body.contains(tooltip)) {
-        document.body.removeChild(tooltip)
-      }
+      svg.removeEventListener("mouseleave", handleSvgMouseLeave)
     }
-  }, [processedData, categories, categoryColors, isDark, textColor, gridColor, axisColor, hiddenCategorySet, actualMonthTotals])
+  }, [processedData, categories, categoryColors, isDark, textColor, gridColor, axisColor, actualMonthTotals])
 
   if (!data || data.length === 0) {
     return (
       <Card className="@container/card">
         <CardHeader>
-          <div>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="allMonthsCategorySpending"
+              chartTitle="All Months Category Spending"
+              size="md"
+            />
             <CardTitle>All Months Category Spending</CardTitle>
-            <CardDescription>See which categories you spend the most on each month (all 12 months shown)</CardDescription>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
@@ -805,16 +746,20 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
   return (
     <Card className="@container/card">
       <CardHeader>
-        <div>
+        <div className="flex items-center gap-2">
+          <ChartFavoriteButton
+            chartId="allMonthsCategorySpending"
+            chartTitle="All Months Category Spending"
+            size="md"
+          />
           <CardTitle>All Months Category Spending</CardTitle>
-          <CardDescription>See which categories you spend the most on each month (all 12 months shown)</CardDescription>
         </div>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoTrigger()}
         </CardAction>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex flex-col">
-        <div className="w-full flex-1 min-h-0">
+        <div ref={containerRef} className="relative w-full flex-1 min-h-0">
           <svg
             ref={svgRef}
             width="100%"
@@ -822,6 +767,55 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
             preserveAspectRatio="none"
             style={{ display: "block" }}
           />
+          {tooltip && tooltipPosition && (
+            <div
+              className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+              style={{
+                left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
+                top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
+              }}
+            >
+              {tooltip.isTotal && tooltip.breakdown ? (
+                <>
+                  <div className="font-medium mb-2 text-foreground">{tooltip.month} - Total</div>
+                  <div className="border-t border-border/60 pt-1.5 mb-1.5">
+                    {tooltip.breakdown
+                      .sort((a, b) => b.amount - a.amount)
+                      .map((item, idx) => (
+                        <div key={idx} className="flex justify-between gap-3 mb-1">
+                          <span className="text-foreground/80">{item.category}:</span>
+                          <span className="font-semibold text-foreground">
+                            ${item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                  <div className="border-t border-border/60 pt-1.5 mt-1">
+                    <div className="flex justify-between gap-3 font-bold text-foreground">
+                      <span>Total:</span>
+                      <span>${tooltip.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 mb-1">
+                    {tooltip.color && (
+                      <span
+                        className="h-2.5 w-2.5 rounded-full border border-border/50"
+                        style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
+                      />
+                    )}
+                    <span className="font-medium text-foreground">{tooltip.month}</span>
+                  </div>
+                  <div className="text-foreground/80 mb-0.5">{tooltip.category}:</div>
+                  <div className="font-mono text-[0.7rem] text-foreground/80">
+                    ${tooltip.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
         {categories.length > 0 && (
           <div className="px-4 pb-4 pt-2 flex flex-wrap items-center justify-center gap-3 text-xs">

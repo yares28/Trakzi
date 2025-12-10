@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { CategorySelect } from "@/components/category-select"
 import { toast } from "sonner"
 
 interface Category {
@@ -54,11 +55,13 @@ export function TransactionDialog({
   const [loading, setLoading] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [statements, setStatements] = useState<Statement[]>([])
+  const [categoryName, setCategoryName] = useState<string>("")
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0], // Default to today
     description: "",
     amount: "",
     category_id: "none",
+    category_name: "", // For CategorySelect component
     statement_id: "none",
   })
 
@@ -67,6 +70,16 @@ export function TransactionDialog({
     if (open) {
       fetchCategories()
       fetchStatements()
+      // Reset form when dialog opens
+      setFormData({
+        date: new Date().toISOString().split('T')[0],
+        description: "",
+        amount: "",
+        category_id: "none",
+        category_name: "",
+        statement_id: "none",
+      })
+      setCategoryName("")
     }
   }, [open])
 
@@ -99,15 +112,50 @@ export function TransactionDialog({
     setLoading(true)
 
     try {
+      // If category name is provided, look up or create the category first
+      let categoryIdToUse: number | null = null
+      if (formData.category_name && formData.category_name.trim()) {
+        const categoryName = formData.category_name.trim()
+        // Find existing category by name
+        const existingCategory = categories.find(
+          (cat) => cat.name.toLowerCase() === categoryName.toLowerCase()
+        )
+        if (existingCategory) {
+          categoryIdToUse = existingCategory.id
+        } else {
+          // Create new category
+          try {
+            const categoryResponse = await fetch("/api/categories", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ name: categoryName }),
+            })
+            if (categoryResponse.ok) {
+              const newCategory = await categoryResponse.json()
+              categoryIdToUse = newCategory.id
+              // Refresh categories list
+              await fetchCategories()
+            }
+          } catch (error) {
+            console.error("Error creating category:", error)
+            // Continue without category if creation fails
+          }
+        }
+      } else if (formData.category_id && formData.category_id !== "none") {
+        categoryIdToUse = Number(formData.category_id)
+      }
+
       const payload: any = {
         date: formData.date,
         description: formData.description.trim(),
         amount: Number(formData.amount),
       }
 
-      // Add category_id if selected (not "none")
-      if (formData.category_id && formData.category_id !== "none") {
-        payload.category_id = Number(formData.category_id)
+      // Add category_id if we have one
+      if (categoryIdToUse) {
+        payload.category_id = categoryIdToUse
       }
 
       // Add statement_id if selected (not "none")
@@ -136,15 +184,24 @@ export function TransactionDialog({
         description: "",
         amount: "",
         category_id: "none",
+        category_name: "",
         statement_id: "none",
       })
+      setCategoryName("")
       
+      // Close dialog first
       onOpenChange(false)
       
-      // Call onSuccess callback to refresh transactions
+      // Call onSuccess callback (for any cleanup or other handlers)
       if (onSuccess) {
         onSuccess()
       }
+      
+      // Refresh the page after a short delay to ensure transaction is committed
+      // This is the simplest and most reliable way to show the new transaction
+      setTimeout(() => {
+        window.location.reload()
+      }, 300)
     } catch (error: any) {
       console.error("Error creating transaction:", error)
       toast.error(error.message || "Failed to create transaction")
@@ -206,24 +263,20 @@ export function TransactionDialog({
               </Field>
               <Field>
                 <FieldLabel htmlFor="category">Category</FieldLabel>
-                <Select
-                  value={formData.category_id}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, category_id: value })
-                  }
-                >
-                  <SelectTrigger id="category">
-                    <SelectValue placeholder="Select category (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={String(category.id)}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <CategorySelect
+                  value={categoryName}
+                  onValueChange={(value) => {
+                    setCategoryName(value)
+                    setFormData({ ...formData, category_name: value })
+                  }}
+                  onCategoryAdded={(newCategory) => {
+                    // Refresh categories list when a new one is added
+                    fetchCategories()
+                    setCategoryName(newCategory)
+                    setFormData({ ...formData, category_name: newCategory })
+                  }}
+                />
+                <FieldDescription>Select an existing category or create a new one</FieldDescription>
               </Field>
             </div>
             <Field>

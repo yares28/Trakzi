@@ -135,13 +135,8 @@ export const GET = async (request: Request) => {
         const { searchParams } = new URL(request.url);
         const filter = searchParams.get("filter");
         
-        console.log("[Stats API] Filter:", filter);
-        console.log("[Stats API] User ID:", userId);
-        
         // Get date ranges based on filter
         const { startDate, endDate, previousStartDate, previousEndDate } = getDateRange(filter);
-        
-        console.log("[Stats API] Date range:", { startDate, endDate, previousStartDate, previousEndDate });
         
         // Optimized query using SQL aggregations instead of fetching all rows
         // This is much faster as it does calculations in the database
@@ -152,10 +147,7 @@ export const GET = async (request: Request) => {
             currentPeriodQuery = `
                 SELECT 
                     COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as total_income,
-                    COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as total_expenses,
-                    (SELECT balance FROM transactions 
-                     WHERE user_id = $1 AND tx_date >= $2 AND tx_date <= $3
-                     ORDER BY tx_date DESC, id DESC LIMIT 1) as latest_balance
+                    COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as total_expenses
                 FROM transactions 
                 WHERE user_id = $1 AND tx_date >= $2 AND tx_date <= $3
             `;
@@ -164,26 +156,19 @@ export const GET = async (request: Request) => {
             currentPeriodQuery = `
                 SELECT 
                     COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as total_income,
-                    COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as total_expenses,
-                    (SELECT balance FROM transactions 
-                     WHERE user_id = $1
-                     ORDER BY tx_date DESC, id DESC LIMIT 1) as latest_balance
+                    COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as total_expenses
                 FROM transactions 
                 WHERE user_id = $1
             `;
         }
         
-        console.log("[Stats API] Optimized query:", currentPeriodQuery);
-        console.log("[Stats API] Params:", currentParams);
-        
         // Fetch aggregated stats for current period
         const currentStats = await neonQuery<{
             total_income: number | string;
             total_expenses: number | string;
-            latest_balance: number | string | null;
         }>(currentPeriodQuery, currentParams);
         
-        const currentResult = currentStats[0] || { total_income: 0, total_expenses: 0, latest_balance: null };
+        const currentResult = currentStats[0] || { total_income: 0, total_expenses: 0 };
         
         // Helper function to safely convert to number
         const toNumber = (value: any): number => {
@@ -194,13 +179,8 @@ export const GET = async (request: Request) => {
         
         const currentIncome = toNumber(currentResult.total_income);
         const currentExpenses = toNumber(currentResult.total_expenses);
-        const netWorth = toNumber(currentResult.latest_balance);
-        
-        console.log(`[Stats API] Current period stats:`, {
-            currentIncome,
-            currentExpenses,
-            netWorth
-        });
+        // Net worth is calculated as income minus expenses
+        const netWorth = currentIncome - currentExpenses;
         
         // Get previous period stats if we have a filter
         let previousIncome = 0;
@@ -211,10 +191,7 @@ export const GET = async (request: Request) => {
             const previousPeriodQuery = `
                 SELECT 
                     COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as total_income,
-                    COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as total_expenses,
-                    (SELECT balance FROM transactions 
-                     WHERE user_id = $1 AND tx_date >= $2 AND tx_date <= $3
-                     ORDER BY tx_date DESC, id DESC LIMIT 1) as latest_balance
+                    COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as total_expenses
                 FROM transactions 
                 WHERE user_id = $1 AND tx_date >= $2 AND tx_date <= $3
             `;
@@ -222,27 +199,14 @@ export const GET = async (request: Request) => {
             const previousStats = await neonQuery<{
                 total_income: number | string;
                 total_expenses: number | string;
-                latest_balance: number | string | null;
             }>(previousPeriodQuery, [userId, previousStartDate, previousEndDate]);
             
-            const previousResult = previousStats[0] || { total_income: 0, total_expenses: 0, latest_balance: null };
+            const previousResult = previousStats[0] || { total_income: 0, total_expenses: 0 };
             previousIncome = toNumber(previousResult.total_income);
             previousExpenses = toNumber(previousResult.total_expenses);
-            previousNetWorth = toNumber(previousResult.latest_balance);
-            
-            console.log(`[Stats API] Previous period stats:`, {
-                previousIncome,
-                previousExpenses,
-                previousNetWorth
-            });
+            // Previous net worth is also calculated as income minus expenses
+            previousNetWorth = previousIncome - previousExpenses;
         }
-        
-        console.log(`[Stats API] Calculated values:`, {
-            currentIncome,
-            currentExpenses,
-            previousIncome,
-            previousExpenses
-        });
         
         // Calculate savings rate
         const currentSavingsRate = currentIncome > 0 
@@ -253,7 +217,7 @@ export const GET = async (request: Request) => {
             ? ((previousIncome - previousExpenses) / previousIncome) * 100 
             : 0;
         
-        // Net worth already calculated in optimized query above
+        // Net worth = income - expenses (calculated above)
         
         // Calculate percentage changes
         const incomeChange = previousIncome > 0 

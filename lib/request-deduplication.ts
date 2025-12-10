@@ -55,15 +55,50 @@ export async function deduplicatedFetch<T>(
   options?: RequestInit
 ): Promise<T> {
   const cacheKey = `fetch:${url}:${JSON.stringify(options || {})}`;
-  
+
   return requestDeduplicator.deduplicate(cacheKey, async () => {
     const response = await fetch(url, options);
     if (!response.ok) {
       throw new Error(`Fetch failed: ${response.statusText}`);
     }
-    return response.json() as Promise<T>;
+
+    // Detect Clerk / auth HTML redirects or other non-JSON responses to avoid
+    // "Unexpected token '<', '<!DOCTYPE' is not valid JSON" console errors.
+    const contentType = response.headers.get("content-type") || "";
+
+    // If this looks like an HTML redirect (e.g. to /sign-in), surface a clear error
+    if (
+      contentType.includes("text/html") ||
+      response.redirected ||
+      response.url.includes("/sign-in")
+    ) {
+      const snippet = (await response.text()).slice(0, 200);
+      throw new Error(
+        `Expected JSON from ${url}, but received HTML instead (likely an auth redirect). ` +
+          `First bytes: ${snippet}`,
+      );
+    }
+
+    // Fallback: parse JSON safely, with a more descriptive error if parsing fails
+    try {
+      return (await response.json()) as T;
+    } catch (err: any) {
+      const text = await response
+        .clone()
+        .text()
+        .catch(() => "");
+      throw new Error(
+        `Failed to parse JSON response from ${url}: ${err?.message || String(
+          err,
+        )}. ` + `First bytes: ${text.slice(0, 200)}`,
+      );
+    }
   });
 }
+
+
+
+
 
 
 

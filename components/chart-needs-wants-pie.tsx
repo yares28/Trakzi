@@ -3,18 +3,20 @@
 import { useEffect, useMemo, useState } from "react"
 import { useTheme } from "next-themes"
 import { ResponsivePie } from "@nivo/pie"
+import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { toNumericValue } from "@/lib/utils"
+import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 
 interface ChartNeedsWantsPieProps {
   data?: Array<{
@@ -26,6 +28,7 @@ interface ChartNeedsWantsPieProps {
   // These props are passed by the draggable analytics layout but sizing is handled outside this component.
   isExpanded?: boolean
   onToggleExpand?: () => void
+  isLoading?: boolean
 }
 
 // Dark colors that require white text
@@ -42,7 +45,7 @@ const getTextColor = (sliceColor: string, colorScheme?: string): string => {
   return darkColors.includes(sliceColor) ? "#ffffff" : "#000000"
 }
 
-export function ChartNeedsWantsPie({ data: baseData = [], categoryControls }: ChartNeedsWantsPieProps) {
+export function ChartNeedsWantsPie({ data: baseData = [], categoryControls, isLoading = false }: ChartNeedsWantsPieProps) {
   const { resolvedTheme } = useTheme()
   const { colorScheme, getPalette } = useColorScheme()
   const [mounted, setMounted] = useState(false)
@@ -87,51 +90,53 @@ export function ChartNeedsWantsPie({ data: baseData = [], categoryControls }: Ch
   const textColor = isDark ? "#9ca3af" : "#4b5563"
   const arcLinkLabelColor = isDark ? "#d1d5db" : "#374151"
 
-  const customTooltip = ({ datum }: { datum: { id: string; label: string; value: number; color: string } }) => {
-    const percentage = total > 0 ? ((datum.value / total) * 100).toFixed(1) : "0.0"
-    const tooltipBg = isDark ? "#1f2937" : "#ffffff"
-    const tooltipText = isDark ? "#f3f4f6" : "#000000"
-    const tooltipSecondary = isDark ? "#9ca3af" : "#666666"
-    const tooltipBorder = isDark ? "#374151" : "#e2e8f0"
-
-    return (
-      <div
-        style={{
-          background: tooltipBg,
-          padding: "8px 12px",
-          borderRadius: "8px",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-          border: `1px solid ${tooltipBorder}`,
-          fontSize: "12px",
-        }}
-      >
-        <div style={{ fontWeight: 600, marginBottom: "4px", color: tooltipText }}>{datum.label}</div>
-        <div style={{ color: tooltipSecondary, marginBottom: "2px" }}>${datum.value.toFixed(2)}</div>
-        <div style={{ color: tooltipSecondary }}>{percentage}%</div>
-      </div>
-    )
-  }
+  // Format currency value
+  const valueFormatter = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  })
 
   const renderInfoTrigger = () => (
-    <ChartInfoPopover
-      title="Needs vs Wants"
-      description="Groups your spending into essentials, mandatory obligations, and discretionary wants."
-      details={[
-        "Essentials include day-to-day living costs like groceries, housing, core utilities, and basic transport.",
-        "Mandatory covers recurring obligations such as insurance, taxes and similar non‑negotiable commitments.",
-        "Wants capture lifestyle and discretionary categories like shopping, entertainment, and travel.",
-      ]}
-      ignoredFootnote="Only expense (negative) transactions are included, and hidden categories are excluded from the totals."
-      categoryControls={categoryControls}
-    />
+    <div className="flex flex-col items-center gap-2">
+      <ChartInfoPopover
+        title="Needs vs Wants"
+        description="Groups your spending into essentials, mandatory obligations, and discretionary wants."
+        details={[
+          "Essentials include day-to-day living costs like groceries, housing, core utilities, and basic transport.",
+          "Mandatory covers recurring obligations such as insurance, taxes and similar non‑negotiable commitments.",
+          "Wants capture lifestyle and discretionary categories like shopping, entertainment, and travel.",
+        ]}
+        ignoredFootnote="Only expense (negative) transactions are included, and hidden categories are excluded from the totals."
+        categoryControls={categoryControls}
+      />
+      <ChartAiInsightButton
+        chartId="needsWantsBreakdown"
+        chartTitle="Needs vs Wants Breakdown"
+        chartDescription="Groups your spending into essentials, mandatory obligations, and discretionary wants."
+        chartData={{
+          total: total,
+          categories: data.map(d => ({ name: d.label, amount: d.value })),
+          needsAmount: data.find(d => d.label.toLowerCase().includes("essential") || d.label.toLowerCase().includes("mandatory"))?.value || 0,
+          wantsAmount: data.find(d => d.label.toLowerCase().includes("want"))?.value || 0
+        }}
+        size="sm"
+      />
+    </div>
   )
 
   if (!mounted) {
     return (
       <Card className="@container/card">
         <CardHeader>
-          <CardTitle>Needs vs Wants</CardTitle>
-          <CardDescription>Your spending split across essentials, mandatory, and wants</CardDescription>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="needsWantsBreakdown"
+              chartTitle="Needs vs Wants"
+              size="md"
+            />
+            <CardTitle>Needs vs Wants</CardTitle>
+          </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
           </CardAction>
@@ -147,20 +152,21 @@ export function ChartNeedsWantsPie({ data: baseData = [], categoryControls }: Ch
     return (
       <Card className="@container/card">
         <CardHeader>
-          <CardTitle>Needs vs Wants</CardTitle>
-          <CardDescription>
-            <span className="hidden @[540px]/card:block">
-              How much of your spending is going to essentials, mandatory obligations, and wants
-            </span>
-            <span className="@[540px]/card:hidden">Needs vs wants split</span>
-          </CardDescription>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="needsWantsBreakdown"
+              chartTitle="Needs vs Wants"
+              size="md"
+            />
+            <CardTitle>Needs vs Wants</CardTitle>
+          </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
-          <div className="h-full w-full min-h-[250px] flex items-center justify-center text-muted-foreground">
-            No data available
+          <div className="h-full w-full min-h-[250px]">
+            <ChartLoadingState isLoading={isLoading} />
           </div>
         </CardContent>
       </Card>
@@ -170,13 +176,14 @@ export function ChartNeedsWantsPie({ data: baseData = [], categoryControls }: Ch
   return (
     <Card className="@container/card">
       <CardHeader>
-        <CardTitle>Needs vs Wants</CardTitle>
-        <CardDescription>
-          <span className="hidden @[540px]/card:block">
-            Distribution of your expenses across essentials, mandatory obligations, and wants
-          </span>
-          <span className="@[540px]/card:hidden">Needs vs wants split</span>
-        </CardDescription>
+        <div className="flex items-center gap-2">
+          <ChartFavoriteButton
+            chartId="needsWantsBreakdown"
+            chartTitle="Needs vs Wants"
+            size="md"
+          />
+          <CardTitle>Needs vs Wants</CardTitle>
+        </div>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoTrigger()}
         </CardAction>
@@ -199,7 +206,29 @@ export function ChartNeedsWantsPie({ data: baseData = [], categoryControls }: Ch
             arcLabelsTextColor={(d: { color: string }) => getTextColor(d.color, colorScheme)}
             valueFormat={(value) => `$${toNumericValue(value).toFixed(2)}`}
             colors={colorConfig}
-            tooltip={customTooltip}
+            tooltip={({ datum }) => {
+              const percentage = total > 0 ? (Number(datum.value) / total) * 100 : 0
+
+              return (
+                <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full border border-border/50"
+                      style={{ backgroundColor: datum.color as string, borderColor: datum.color as string }}
+                    />
+                    <span className="font-medium text-foreground whitespace-nowrap">
+                      {datum.label as string}
+                    </span>
+                  </div>
+                  <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
+                    {valueFormatter.format(Number(datum.value))}
+                  </div>
+                  <div className="mt-0.5 text-[0.7rem] text-foreground/80">
+                    {percentage.toFixed(1)}%
+                  </div>
+                </div>
+              )
+            }}
             theme={{
               text: {
                 fill: textColor,

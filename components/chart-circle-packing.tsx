@@ -1,18 +1,20 @@
 "use client"
 
 import { useMemo } from "react"
+import { useTheme } from "next-themes"
 import { ResponsiveCirclePacking } from "@nivo/circle-packing"
+import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { toNumericValue } from "@/lib/utils"
+import { ChartLoadingState } from "@/components/chart-loading-state"
 
 interface CirclePackingNode {
   name: string
@@ -34,22 +36,33 @@ const sanitizeCirclePackingNode = (node?: CirclePackingNode | null): CirclePacki
 interface ChartCirclePackingProps {
   data?: CirclePackingNode
   categoryControls?: ChartInfoPopoverCategoryControls
+  isLoading?: boolean
 }
 
-export function ChartCirclePacking({ data = { name: "", children: [] }, categoryControls }: ChartCirclePackingProps) {
+export function ChartCirclePacking({ data = { name: "", children: [] }, categoryControls, isLoading = false }: ChartCirclePackingProps) {
+  const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const sanitizedData = useMemo(() => sanitizeCirclePackingNode(data), [data])
+
   const renderInfoTrigger = () => (
-    <ChartInfoPopover
-      title="Budget Distribution"
-      description="Visualizes how your budget or spending is allocated across each category."
-      details={[
-        "Each circle represents an expense category; the larger the bubble, the more you spend there.",
-        "We hide inflow-oriented categories so you only see real expenses."
-      ]}
-      ignoredFootnote="Only expense transactions are aggregated before building the hierarchy."
-      categoryControls={categoryControls}
-    />
+    <div className="flex flex-col items-center gap-2">
+      <ChartInfoPopover
+        title="Budget Distribution"
+        description="Visualizes how your budget or spending is allocated across each category."
+        details={[
+          "Each circle represents an expense category; the larger the bubble, the more you spend there.",
+          "We hide inflow-oriented categories so you only see real expenses."
+        ]}
+        ignoredFootnote="Only expense transactions are aggregated before building the hierarchy."
+        categoryControls={categoryControls}
+      />
+      <ChartAiInsightButton
+        chartId="budgetDistribution"
+        chartTitle="Budget Distribution"
+        chartDescription="Visualizes how your budget or spending is allocated across each category."
+        size="sm"
+      />
+    </div>
   )
   
   // Check if data is empty
@@ -59,14 +72,13 @@ export function ChartCirclePacking({ data = { name: "", children: [] }, category
         <CardHeader>
           <div>
             <CardTitle>Budget Distribution</CardTitle>
-            <CardDescription>Visualizes how your budget is allocated across categories</CardDescription>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
-          No data available
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+          <ChartLoadingState isLoading={isLoading} />
         </CardContent>
       </Card>
     )
@@ -77,7 +89,6 @@ export function ChartCirclePacking({ data = { name: "", children: [] }, category
       <CardHeader>
         <div>
           <CardTitle>Budget Distribution</CardTitle>
-          <CardDescription>Visualizes how your budget is allocated across categories</CardDescription>
         </div>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoTrigger()}

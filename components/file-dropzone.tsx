@@ -39,7 +39,6 @@ export function FileDropzone({ className, onFilesSelected }: FileDropzoneProps) 
       const files = Array.from(e.dataTransfer.files)
       if (files && files.length > 0) {
         onFilesSelected?.(files)
-        console.log("Files dropped:", files)
       }
     },
     [onFilesSelected]
@@ -50,7 +49,6 @@ export function FileDropzone({ className, onFilesSelected }: FileDropzoneProps) 
       const files = Array.from(e.target.files || [])
       if (files && files.length > 0) {
         onFilesSelected?.(files)
-        console.log("Files selected:", files)
       }
     },
     [onFilesSelected]

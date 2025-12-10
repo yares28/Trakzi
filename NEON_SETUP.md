@@ -32,9 +32,23 @@ DIRECT_URL="postgresql://user:password@ep-xxx-xxx.region.aws.neon.tech/dbname?ss
 # If using Neon REST API (optional)
 NEON_REST_URL="https://ep-xxx-xxx.apirest.region.aws.neon.tech/neondb/rest/v1"
 NEON_API_KEY="your-neon-api-key-here"
+
+# Clerk Authentication (REQUIRED)
+# Get these from: https://dashboard.clerk.com/last-active?path=api-keys
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_YOUR_PUBLISHABLE_KEY_HERE
+CLERK_SECRET_KEY=sk_test_YOUR_SECRET_KEY_HERE
+
+# Clerk Sign-In/Sign-Up URLs
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/
+NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/
+
+# Optional: After sign-in/sign-up redirects
+NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/dashboard
+NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/dashboard
 ```
 
-Replace the connection string with your actual Neon connection string from Step 1.
+Replace the connection strings and Clerk keys with your actual values.
 
 **Note:** The `.env.local` file is already in `.gitignore` and will never be committed to git.
 
@@ -52,7 +66,19 @@ Run the following command to generate the Prisma Client:
 npm run db:generate
 ```
 
-## Step 4: Push Database Schema
+## Step 4: Database Schema Setup
+
+### Important: User ID Schema
+
+**This project uses Clerk for authentication**, which means user IDs are text strings (e.g., `"user_2abc123xyz"`), not UUIDs. The database schema has been migrated to support this:
+
+- `users.id` is `TEXT` (not UUID)
+- All `user_id` foreign key columns are `TEXT` (not UUID)
+- Existing UUID data has been preserved as text strings
+
+If you're setting up a fresh database, the schema will be created correctly. If you're migrating from an older version, see `DATABASE_SCHEMA_UPDATE.md` for migration instructions.
+
+### Push Database Schema
 
 Push your Prisma schema to the Neon database:
 
@@ -66,9 +92,7 @@ Or, if you prefer to use migrations:
 npm run db:migrate
 ```
 
-If you are using Prisma, this will create all the tables defined in `prisma/schema.prisma`.
-In this project, most of the production code now talks to Neon **directly via SQL** using
-the helpers in `lib/neonClient.ts` and API routes under `app/api/**`.
+**Note:** The Prisma schema (`prisma/schema.prisma`) may still show UUID types, but the actual database uses TEXT for user IDs to match Clerk's format. Most of the production code talks to Neon **directly via SQL** using the helpers in `lib/neonClient.ts` and API routes under `app/api/**`.
 
 ## Step 5: Verify Setup
 
@@ -94,13 +118,25 @@ the Neon helper functions in `lib/neonClient.ts`:
 
 ```ts
 import { neonQuery, neonInsert } from "@/lib/neonClient"
+import { getCurrentUserId } from "@/lib/auth"
 
-// Example: query transactions
-const rows = await neonQuery(
-  "SELECT * FROM transactions WHERE user_id = $1",
-  [userId]
-)
+// Example: query transactions (with Clerk authentication)
+export async function GET(request: Request) {
+  const userId = await getCurrentUserId() // Gets Clerk user ID and syncs with DB
+  
+  const rows = await neonQuery(
+    "SELECT * FROM transactions WHERE user_id = $1",
+    [userId]
+  )
+  
+  return NextResponse.json(rows)
+}
 ```
+
+**Important:** Always use `getCurrentUserId()` from `lib/auth.ts` to get the authenticated user's ID. This function:
+- Authenticates the user via Clerk
+- Automatically syncs the Clerk user with your database
+- Returns the database user ID (which matches the Clerk user ID)
 
 Category budgets for analytics are stored per user in the
 `public.category_budgets` table and accessed through the `/api/budgets` route.
@@ -119,26 +155,28 @@ This means budgets are now **per user and persisted in Neon**, not just in
 ### Option 2 – Prisma Client
 
 If you prefer to keep using Prisma in other parts of the app, you can still
-import the Prisma client in your application code:
+import the Prisma client in your application code. However, **note that user creation is now handled automatically by Clerk and the user sync function**.
 
 ```typescript
 import { prisma } from '@/lib/prisma'
+import { getCurrentUserId } from '@/lib/auth'
 
-// Example: Create a user
-const user = await prisma.user.create({
-  data: {
-    email: 'user@example.com',
-    name: 'John Doe',
-  },
-})
-
-// Example: Get all transactions for a user
-const transactions = await prisma.transaction.findMany({
-  where: {
-    userId: user.id,
-  },
-})
+// Example: Get all transactions for the current user
+// Note: Users are created automatically via Clerk sign-up and synced via lib/user-sync.ts
+export async function GET() {
+  const userId = await getCurrentUserId() // Gets authenticated Clerk user ID
+  
+  const transactions = await prisma.transaction.findMany({
+    where: {
+      userId: userId, // userId is now TEXT (Clerk user ID)
+    },
+  })
+  
+  return transactions
+}
 ```
+
+**Note:** User creation happens automatically when users sign up via Clerk. The `lib/user-sync.ts` function ensures Clerk users are synced with your database.
 
 ## Available Scripts
 
@@ -198,16 +236,56 @@ If you accidentally committed your Neon credentials to GitHub and they were revo
 - Make sure your schema is valid by running `prisma validate`
 - Check the Prisma logs for detailed error messages
 
+### Authentication Issues
+
+- **"Unauthorized" errors in API routes:**
+  - Make sure Clerk API keys are set correctly in `.env.local`
+  - Verify you're signed in (check the navigation bar for user button)
+  - Restart your dev server after updating environment variables
+
+- **User not created in database:**
+  - Check that the database schema uses TEXT for `users.id` (not UUID)
+  - Verify the `lib/user-sync.ts` function is working
+  - Check browser console and server logs for errors
+
+- **Database schema mismatch errors:**
+  - Ensure `users.id` and all `user_id` columns are TEXT type
+  - See `DATABASE_SCHEMA_UPDATE.md` for migration instructions
+  - The schema has already been migrated if you're using the latest version
+
+## Authentication & User Management
+
+This project uses **Clerk** for authentication. When users sign up or sign in:
+
+1. Clerk handles the authentication flow
+2. The `lib/user-sync.ts` function automatically syncs Clerk users with your database
+3. User IDs in the database match Clerk user IDs (text format, e.g., `"user_2abc123xyz"`)
+
+### User Sync
+
+The `ensureUserExists()` function in `lib/user-sync.ts`:
+- Checks if a Clerk user exists in your database
+- Creates a database record if the user doesn't exist
+- Updates user information (email, name) if it has changed
+- Returns the database user ID
+
+This happens automatically when API routes call `getCurrentUserId()` from `lib/auth.ts`.
+
+### Protected Routes
+
+All routes except `/`, `/sign-in`, and `/sign-up` require authentication. The middleware in `proxy.ts` handles route protection automatically.
+
 ## Next Steps
 
-Now that your database is set up, you can:
+Now that your database is set up with Clerk authentication, you can:
 
-1. Create API routes to interact with the database
-2. Replace static JSON files with database queries
-3. Implement authentication with user persistence
-4. Build the AI integration for document processing
+1. ✅ **Authentication** - Already implemented with Clerk
+2. ✅ **User persistence** - Users are automatically synced with the database
+3. Create API routes to interact with the database (see examples above)
+4. Replace static JSON files with database queries
+5. Build the AI integration for document processing
 
-See `backend_ai_integration_plan.md` for more details on the planned features.
+See `CLERK_INTEGRATION_COMPLETE.md` for details on the authentication setup, and `DATABASE_SCHEMA_UPDATE.md` for information about the schema migration.
 
 
 

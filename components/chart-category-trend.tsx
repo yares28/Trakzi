@@ -10,7 +10,6 @@ import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -45,6 +44,8 @@ export function ChartCategoryTrend({ categoryName }: ChartCategoryTrendProps) {
   const { colorScheme, getPalette } = useColorScheme()
   const { resolvedTheme } = useTheme()
   const [dateFilter, setDateFilter] = useState<DateFilterType | null>(null)
+  const isDark = resolvedTheme === "dark"
+  const gridStrokeColor = isDark ? "#e5e7eb" : "#e5e7eb"
   const [chartData, setChartData] = useState<ChartDataPoint[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -164,7 +165,6 @@ export function ChartCategoryTrend({ categoryName }: ChartCategoryTrendProps) {
       <Card className="@container/card h-full w-full flex flex-col">
         <CardHeader className="flex-shrink-0">
           <CardTitle>{categoryName}</CardTitle>
-          <CardDescription>Loading trend data...</CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoAction()}
           </CardAction>
@@ -187,12 +187,6 @@ export function ChartCategoryTrend({ categoryName }: ChartCategoryTrendProps) {
     <Card className="@container/card h-full w-full flex flex-col">
       <CardHeader className="flex-shrink-0">
         <CardTitle>{categoryName}</CardTitle>
-        <CardDescription>
-          <span className="hidden @[540px]/card:block">
-            Spending trend for {categoryName}
-          </span>
-          <span className="@[540px]/card:hidden">{categoryName} trend</span>
-        </CardDescription>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoAction()}
         </CardAction>
@@ -217,7 +211,7 @@ export function ChartCategoryTrend({ categoryName }: ChartCategoryTrendProps) {
                 />
               </linearGradient>
             </defs>
-            <CartesianGrid vertical={false} />
+            <CartesianGrid vertical={false} stroke={gridStrokeColor} strokeDasharray="3 3" opacity={0.3} />
             <XAxis
               dataKey="date"
               tickLine={false}

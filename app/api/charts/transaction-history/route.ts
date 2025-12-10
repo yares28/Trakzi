@@ -149,7 +149,7 @@ export const GET = async () => {
     } catch (authError: any) {
       console.error("[TransactionHistory API] Auth error:", authError?.message)
       return NextResponse.json(
-        { error: "Authentication required. Set DEMO_USER_ID in .env.local" },
+        { error: "Authentication required. Please sign in to access transaction history." },
         { status: 401 }
       )
     }

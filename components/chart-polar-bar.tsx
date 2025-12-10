@@ -4,6 +4,7 @@ import { useMemo } from "react"
 import { PolarBarTooltipProps, ResponsivePolarBar } from "@nivo/polar-bar"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
+import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import {
   Card,
   CardAction,
@@ -14,35 +15,25 @@ import {
 } from "@/components/ui/card"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { toNumericValue } from "@/lib/utils"
+import { ChartLoadingState } from "@/components/chart-loading-state"
+import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 
 interface ChartPolarBarProps {
   data?: Array<Record<string, string | number>> | { data: Array<Record<string, string | number>>; keys: string[] }
   keys?: string[]
   categoryControls?: ChartInfoPopoverCategoryControls
+  isLoading?: boolean
 }
 
-const PolarBarTooltipContent = ({ arc }: PolarBarTooltipProps) => (
-  <div className="rounded-md border bg-popover px-3 py-2 text-sm shadow-sm">
-    <div className="font-medium">{arc.key}</div>
-    <div className="text-muted-foreground">{arc.formattedValue}</div>
-  </div>
-)
-
-export function ChartPolarBar({ data: dataProp = [], keys: keysProp, categoryControls }: ChartPolarBarProps) {
+export function ChartPolarBar({ data: dataProp = [], keys: keysProp, categoryControls, isLoading = false }: ChartPolarBarProps) {
   const { getPalette } = useColorScheme()
   const { resolvedTheme } = useTheme()
-  const renderInfoTrigger = () => (
-    <ChartInfoPopover
-      title="Household Spend Mix"
-      description="Track monthly expenses across your top categories in a circular stacked chart."
-      details={[
-        "Each ring shows one month, while the colored bars show how much you spent per category.",
-        "Only expense categories are included, and we cap the legend to the five highest spenders for readability."
-      ]}
-      ignoredFootnote="Transactions tagged as income or transfers are removed, and we only render the five categories with the highest spend."
-      categoryControls={categoryControls}
-    />
-  )
+  
+  // In dark mode, use lighter colors (reverse the palette so lightest colors come first)
+  const chartColors = useMemo(() => {
+    const palette = getPalette()
+    return resolvedTheme === "dark" ? [...palette].reverse() : palette
+  }, [getPalette, resolvedTheme])
   
   // Handle both old format (array) and new format (object with data and keys)
   const chartData = Array.isArray(dataProp) ? dataProp : dataProp.data || []
@@ -68,13 +59,47 @@ export function ChartPolarBar({ data: dataProp = [], keys: keysProp, categoryCon
     : (sanitizedChartData.length > 0 
         ? Object.keys(sanitizedChartData[0]).filter(key => key !== 'month')
         : [])
+
+  const renderInfoTrigger = () => (
+    <div className="flex flex-col items-center gap-2">
+      <ChartInfoPopover
+        title="Household Spend Mix"
+        description="Track monthly expenses across your top categories in a circular stacked chart."
+        details={[
+          "Each ring shows one month, while the colored bars show how much you spent per category.",
+          "Only expense categories are included, and we cap the legend to the five highest spenders for readability."
+        ]}
+        ignoredFootnote="Transactions tagged as income or transfers are removed, and we only render the five categories with the highest spend."
+        categoryControls={categoryControls}
+      />
+      <ChartAiInsightButton
+        chartId="householdSpendMix"
+        chartTitle="Household Spend Mix"
+        chartDescription="Track monthly expenses across your top categories in a circular stacked chart."
+        chartData={{
+          months: sanitizedChartData.map(d => d.month as string),
+          categories: finalKeys,
+          dataPoints: sanitizedChartData.length
+        }}
+        size="sm"
+      />
+    </div>
+  )
+  const infoButton = (
+    <div className="absolute top-3 right-3 z-20">
+      {renderInfoTrigger()}
+    </div>
+  )
   const legendItemWidth = useMemo(() => {
     if (!finalKeys.length) return 70
     const longest = finalKeys.reduce((max, key) => Math.max(max, key.length), 0)
     const baseWidth = Math.min(Math.max(longest * 9, 90), 200)
     return Math.max(baseWidth - 20, 70)
   }, [finalKeys])
-  const monthLabelColor = resolvedTheme === "dark" ? "oklch(0.708 0 0)" : "oklch(0.556 0 0)"
+  // Use muted-foreground colors for consistency with other charts
+  const monthLabelColor = resolvedTheme === "dark" 
+    ? "oklch(0.6268 0 0)"  // --muted-foreground in dark mode
+    : "oklch(0.551 0.0234 264.3637)"  // --muted-foreground in light mode
   const polarTheme = useMemo(
     () => ({
       axis: {
@@ -92,68 +117,91 @@ export function ChartPolarBar({ data: dataProp = [], keys: keysProp, categoryCon
     }),
     [monthLabelColor]
   )
-  
+
   if (!sanitizedChartData || sanitizedChartData.length === 0 || finalKeys.length === 0) {
     return (
-      <Card className="@container/card">
+      <Card className="@container/card relative">
+        {infoButton}
         <CardHeader>
-          <div>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="householdSpendMix"
+              chartTitle="Household Spend Mix"
+              size="md"
+            />
             <CardTitle>Household Spend Mix</CardTitle>
-            <CardDescription>Track monthly expenses across key categories</CardDescription>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
-          No data available
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+          <ChartLoadingState isLoading={isLoading} />
         </CardContent>
       </Card>
     )
   }
   
   return (
-    <Card>
+    <Card className="relative">
+      {infoButton}
       <CardHeader>
-        <div>
+        <div className="flex items-center gap-2">
+          <ChartFavoriteButton
+            chartId="householdSpendMix"
+            chartTitle="Household Spend Mix"
+            size="md"
+          />
           <CardTitle>Household Spend Mix</CardTitle>
-          <CardDescription>Track monthly expenses across key categories</CardDescription>
         </div>
-        <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          {renderInfoTrigger()}
-        </CardAction>
+        <CardDescription>Track monthly expenses across key categories</CardDescription>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 chart-polar-bar h-[250px]">
-        <ResponsivePolarBar
-          data={sanitizedChartData}
-          keys={finalKeys}
-          indexBy="month"
-          valueSteps={5}
-          valueFormat=">-$.0f"
-          margin={{ top: 30, right: 20, bottom: 70, left: 20 }}
-          innerRadius={0.25}
-          cornerRadius={4}
-          borderWidth={1}
-          borderColor="#d1d5db"
-          arcLabelsSkipRadius={28}
-          radialAxis={{ angle: 180, tickSize: 5, tickPadding: 5, tickRotation: 0, ticksPosition: 'after' }}
-          circularAxisOuter={{ tickSize: 5, tickPadding: 15, tickRotation: 0 }}
-          colors={getPalette()}
-          tooltip={PolarBarTooltipContent}
-          theme={polarTheme}
-          legends={[
-            {
-              anchor: "bottom",
-              direction: "row",
-              translateY: 50,
-              itemWidth: legendItemWidth,
-              itemHeight: 16,
-              symbolShape: "circle",
-            },
-          ]}
-        />
+        <div className="h-full w-full">
+          <ResponsivePolarBar
+            data={sanitizedChartData}
+            keys={finalKeys}
+            indexBy="month"
+            valueSteps={5}
+            valueFormat=">-$.0f"
+            margin={{ top: 30, right: 20, bottom: 70, left: 20 }}
+            innerRadius={0.25}
+            cornerRadius={4}
+            borderWidth={1}
+            borderColor={resolvedTheme === "dark" ? "#4b5563" : "#d1d5db"}
+            arcLabelsSkipRadius={28}
+            radialAxis={{ angle: 180, tickSize: 5, tickPadding: 5, tickRotation: 0, ticksPosition: 'after' }}
+            circularAxisOuter={{ tickSize: 5, tickPadding: 15, tickRotation: 0 }}
+            colors={chartColors}
+            tooltip={({ arc }) => {
+              return (
+                <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full border border-border/50"
+                      style={{ backgroundColor: arc.color, borderColor: arc.color }}
+                    />
+                    <span className="font-medium text-foreground whitespace-nowrap">
+                      {arc.key}
+                    </span>
+                  </div>
+                  <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
+                    {arc.formattedValue}
+                  </div>
+                </div>
+              )
+            }}
+            theme={polarTheme}
+            legends={[
+              {
+                anchor: "bottom",
+                direction: "row",
+                translateY: 50,
+                itemWidth: legendItemWidth,
+                itemHeight: 16,
+                symbolShape: "circle",
+              },
+            ]}
+          />
+        </div>
       </CardContent>
     </Card>
   )
 }
-

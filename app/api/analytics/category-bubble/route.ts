@@ -57,11 +57,10 @@ export const GET = async (request: NextRequest) => {
     let userId: string;
     try {
       userId = await getCurrentUserId();
-      console.log("[Category Bubble API] User ID:", userId);
     } catch (authError: any) {
       console.error("[Category Bubble API] Auth error:", authError.message);
       return NextResponse.json(
-        { error: "Authentication required. Set DEMO_USER_ID in .env.local" },
+        { error: "Authentication required. Please sign in to access analytics." },
         { status: 401 },
       );
     }
@@ -102,7 +101,6 @@ export const GET = async (request: NextRequest) => {
       total: typeof row.total === "string" ? parseFloat(row.total) || 0 : row.total || 0,
     }));
 
-    console.log(`[Category Bubble API] Returning ${formatted.length} categories`);
 
     return NextResponse.json(formatted);
   } catch (error: any) {

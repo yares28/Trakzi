@@ -4,6 +4,7 @@ import * as React from "react"
 import ReactECharts from "echarts-for-react"
 import { pack, stratify } from "d3-hierarchy"
 import { useTheme } from "next-themes"
+import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
@@ -15,6 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 type Transaction = {
   id: number
   date: string
@@ -41,35 +43,32 @@ export function ChartCategoryBubble({ data = [] }: ChartCategoryBubbleProps) {
   const [mounted, setMounted] = React.useState(false)
   const chartRef = React.useRef<any>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
+  const [tooltip, setTooltip] = React.useState<{ label: string; value: number; color: string } | null>(null)
+  const [tooltipPosition, setTooltipPosition] = React.useState<{ x: number; y: number } | null>(null)
 
   const renderInfoTrigger = () => (
-    <ChartInfoPopover
-      title="Category Bubble Map"
-      description="Bubble pack of your expense categories, sized by total spending."
-      details={[
-        "Each bubble represents an expense category; larger bubbles mean higher total spending.",
-        "Inner bubbles represent common merchant or description groups within each category.",
-      ]}
-      ignoredFootnote="Only expense transactions (amount < 0) are included when aggregating totals, grouped by a shortened description label inside each category."
-    />
+    <div className="flex flex-col items-center gap-2">
+      <ChartInfoPopover
+        title="Category Bubble Map"
+        description="Bubble pack of your expense categories, sized by total spending."
+        details={[
+          "Each bubble represents an expense category; larger bubbles mean higher total spending.",
+          "Inner bubbles represent common merchant or description groups within each category.",
+        ]}
+        ignoredFootnote="Only expense transactions (amount < 0) are included when aggregating totals, grouped by a shortened description label inside each category."
+      />
+      <ChartAiInsightButton
+        chartId="categoryBubbleMap"
+        chartTitle="Category Bubble Map"
+        chartDescription="Bubble pack of your expense categories, sized by total spending."
+        size="sm"
+      />
+    </div>
   )
 
   React.useEffect(() => {
+    // Mark as mounted to avoid rendering chart on server
     setMounted(true)
-    return () => {
-      // Cleanup on unmount - handle React Strict Mode double-mounting
-      if (chartRef.current) {
-        try {
-          const instance = chartRef.current.getEchartsInstance()
-          if (instance && !instance.isDisposed()) {
-            instance.dispose()
-          }
-        } catch (e) {
-          // Ignore disposal errors (common in React Strict Mode)
-        }
-        chartRef.current = null
-      }
-    }
   }, [])
 
   const palette = React.useMemo(() => {
@@ -77,9 +76,96 @@ export function ChartCategoryBubble({ data = [] }: ChartCategoryBubbleProps) {
     if (!base.length) {
       return ["#0f766e", "#14b8a6", "#22c55e", "#84cc16", "#eab308"]
     }
+    // Replace "#fe680e" with "#fe9e64" and "#331300" with "#893401" in the palette
+    const modifiedBase = base.map(color => {
+      if (color === "#fe680e") return "#fe9e64"
+      if (color === "#331300") return "#893401"
+      return color
+    })
     // Reverse so darker colors are used for larger bubbles
-    return [...base].reverse()
+    return [...modifiedBase].reverse()
   }, [getPalette])
+
+  // Format currency value
+  const valueFormatter = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  })
+
+  // ECharts event handlers for custom tooltip
+  const handleChartMouseOver = (params: any, event?: any) => {
+    if (!containerRef.current) return
+    
+    const echartsInstance = chartRef.current?.getEchartsInstance()
+    if (!echartsInstance) return
+
+    const rect = containerRef.current.getBoundingClientRect()
+    let mouseX = 0
+    let mouseY = 0
+
+    if (event && event.offsetX !== undefined && event.offsetY !== undefined) {
+      mouseX = event.offsetX
+      mouseY = event.offsetY
+    } else if (event && event.clientX !== undefined && event.clientY !== undefined) {
+      mouseX = event.clientX - rect.left
+      mouseY = event.clientY - rect.top
+    } else {
+      const zr = echartsInstance.getZr()
+      const handler = zr.handler
+      if (handler && handler.lastOffset) {
+        mouseX = handler.lastOffset[0]
+        mouseY = handler.lastOffset[1]
+      }
+    }
+    
+    setTooltipPosition({
+      x: mouseX,
+      y: mouseY,
+    })
+
+    if (params && params.data) {
+      const id: string = params.data?.id || ""
+      const value: number = params.data?.value || 0
+      const fullName =
+        (id && labelMap[id]) ||
+        (id.includes(".") ? id.split(".").pop() : id || "Expenses")
+      
+      // Get color from visual map or use palette
+      const depth = params.data?.depth || 0
+      const color = palette[Math.min(depth, palette.length - 1)] || palette[0]
+      
+      setTooltip({
+        label: fullName,
+        value,
+        color,
+      })
+    }
+  }
+
+  const handleChartMouseOut = () => {
+    setTooltip(null)
+    setTooltipPosition(null)
+  }
+
+  // Track mouse movement for tooltip positioning
+  React.useEffect(() => {
+    if (tooltip && containerRef.current) {
+      const handleMouseMove = (e: MouseEvent) => {
+        if (!containerRef.current) return
+        const rect = containerRef.current.getBoundingClientRect()
+        setTooltipPosition({
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        })
+      }
+      
+      window.addEventListener('mousemove', handleMouseMove)
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove)
+      }
+    }
+  }, [tooltip])
 
   const { seriesData, maxDepth, labelMap } = React.useMemo(() => {
     if (!data || data.length === 0) {
@@ -243,6 +329,19 @@ export function ChartCategoryBubble({ data = [] }: ChartCategoryBubbleProps) {
             .join("\n")
         : ""
 
+      const isSingleWordLabel =
+        !!nodeName && !nodeName.includes(" ") && !nodeName.includes("\n")
+
+      // Try to keep single-word labels fully visible inside the bubble by:
+      // - allowing the text to wrap instead of truncating
+      // - slightly increasing the available width
+      // - capping font size based on radius and character count
+      const baseFontSize = node.r / 3
+      const autoSizedFont =
+        isSingleWordLabel && nodeName.length > 0
+          ? Math.min(baseFontSize, (node.r * 1.6) / nodeName.length)
+          : baseFontSize
+
       const z2 = api.value("depth") * 2
 
       return {
@@ -260,14 +359,14 @@ export function ChartCategoryBubble({ data = [] }: ChartCategoryBubbleProps) {
           style: {
             text: nodeName,
             fontFamily: "Arial",
-            width: node.r * 1.3,
-            overflow: "truncate",
-            fontSize: node.r / 3,
+            width: isSingleWordLabel ? node.r * 1.8 : node.r * 1.3,
+            overflow: isSingleWordLabel ? "breakAll" : "truncate",
+            fontSize: autoSizedFont,
           },
           emphasis: {
             style: {
               overflow: null,
-              fontSize: Math.max(node.r / 3, 12),
+              fontSize: Math.max(autoSizedFont, 12),
             },
           },
         },
@@ -299,18 +398,7 @@ export function ChartCategoryBubble({ data = [] }: ChartCategoryBubbleProps) {
         source: seriesData,
       },
       tooltip: {
-        formatter: (params: any) => {
-          const id: string = params.data?.id || ""
-          const value: number = params.data?.value || 0
-          const fullName =
-            (id && labelMap[id]) ||
-            (id.includes(".") ? id.split(".").pop() : id || "Expenses")
-
-          return `${fullName}<br/>$${value.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })} spent`
-        },
+        show: false, // Disable default ECharts tooltip
       },
       visualMap: [
         {
@@ -341,9 +429,13 @@ export function ChartCategoryBubble({ data = [] }: ChartCategoryBubbleProps) {
     return (
       <Card className="@container/card">
         <CardHeader>
-          <div>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="categoryBubbleMap"
+              chartTitle="Category Bubble Map"
+              size="md"
+            />
             <CardTitle>Category Bubble Map</CardTitle>
-            <CardDescription>Bubble pack of your expense categories</CardDescription>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
@@ -360,9 +452,13 @@ export function ChartCategoryBubble({ data = [] }: ChartCategoryBubbleProps) {
     return (
       <Card className="@container/card">
         <CardHeader>
-          <div>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="categoryBubbleMap"
+              chartTitle="Category Bubble Map"
+              size="md"
+            />
             <CardTitle>Category Bubble Map</CardTitle>
-            <CardDescription>Bubble pack of your expense categories</CardDescription>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
@@ -378,23 +474,52 @@ export function ChartCategoryBubble({ data = [] }: ChartCategoryBubbleProps) {
   return (
     <Card>
       <CardHeader>
-        <div>
+        <div className="flex items-center gap-2">
+          <ChartFavoriteButton
+            chartId="categoryBubbleMap"
+            chartTitle="Category Bubble Map"
+            size="md"
+          />
           <CardTitle>Category Bubble Map</CardTitle>
-          <CardDescription>Bubble pack of your expense categories</CardDescription>
         </div>
+        <CardDescription>Bubble pack of your expense categories</CardDescription>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoTrigger()}
         </CardAction>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-        <div ref={containerRef} className="h-full w-full" style={{ minHeight: 0, minWidth: 0 }}>
+        <div ref={containerRef} className="relative h-full w-full" style={{ minHeight: 0, minWidth: 0 }}>
           <ReactECharts
             ref={chartRef}
             option={option}
             style={{ height: "100%", width: "100%" }}
             opts={{ renderer: "svg" }}
             notMerge={true}
+            onEvents={{
+              mouseover: handleChartMouseOver,
+              mouseout: handleChartMouseOut,
+            }}
           />
+          {tooltip && tooltipPosition && (
+            <div
+              className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+              style={{
+                left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
+                top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 rounded-full border border-border/50"
+                  style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
+                />
+                <span className="font-medium text-foreground whitespace-nowrap">{tooltip.label}</span>
+              </div>
+              <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
+                {valueFormatter.format(tooltip.value)}
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

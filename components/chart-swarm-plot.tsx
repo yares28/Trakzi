@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react"
 import { ChevronDownIcon } from "lucide-react"
 import { ResponsiveSwarmPlot } from "@nivo/swarmplot"
+import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
+import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import {
   Card,
   CardAction,
@@ -24,6 +26,8 @@ import {
 import { toNumericValue } from "@/lib/utils"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
+import { ChartLoadingState } from "@/components/chart-loading-state"
+import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 
 type ChartSwarmPlotDatum = {
   id: string
@@ -45,9 +49,12 @@ interface ChartSwarmPlotProps {
 // Removed MAX_VISIBLE_GROUPS limit - now shows all categories
 
 export function ChartSwarmPlot({ data }: ChartSwarmPlotProps) {
+  const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const [remoteData, setRemoteData] = useState<ChartSwarmPlotDatum[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  // Initialize loading to true only if data prop is not provided (undefined) - means we need to fetch
+  // If data prop is provided (even if empty array), parent is handling data, so don't show loading
+  const [isLoading, setIsLoading] = useState(data === undefined)
   const [error, setError] = useState<string | null>(null)
   const [categoryOptions, setCategoryOptions] = useState<string[]>([])
   const [visibleGroups, setVisibleGroups] = useState<string[]>([])
@@ -56,6 +63,39 @@ export function ChartSwarmPlot({ data }: ChartSwarmPlotProps) {
     chartId: "analytics:transaction-history",
     storageScope: "analytics",
   })
+  
+  // In dark mode, use lighter colors (reverse the palette so lightest colors come first)
+  const chartColors = useMemo(() => {
+    const palette = getPalette()
+    return resolvedTheme === "dark" ? [...palette].reverse() : palette
+  }, [getPalette, resolvedTheme])
+
+  // Theme for axis labels and text - match muted-foreground color from globals.css
+  const swarmTheme = useMemo(() => {
+    // Use same muted-foreground colors as Recharts charts for consistency
+    const textColor = resolvedTheme === "dark" 
+      ? "oklch(0.6268 0 0)"  // --muted-foreground in dark mode
+      : "oklch(0.551 0.0234 264.3637)"  // --muted-foreground in light mode
+    return {
+      axis: {
+        ticks: {
+          text: {
+            fill: textColor,
+          },
+        },
+        legend: {
+          text: {
+            fill: textColor,
+          },
+        },
+      },
+      labels: {
+        text: {
+          fill: textColor,
+        },
+      },
+    }
+  }, [resolvedTheme])
 
   const normalizeCategoryValue = (value?: string | null) => {
     const trimmed = (value ?? "").trim()
@@ -63,9 +103,12 @@ export function ChartSwarmPlot({ data }: ChartSwarmPlotProps) {
   }
 
   useEffect(() => {
-    if (data && data.length > 0) {
+    // If data prop is provided (even if empty), parent is handling data fetching
+    // Only fetch if data prop is undefined
+    if (data !== undefined) {
       setRemoteData([])
       setError(null)
+      setIsLoading(false)
       return
     }
 
@@ -323,26 +366,73 @@ const selectionSummary =
   const triggerClassName =
     "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 w-40"
 
-  const renderInfoTrigger = () => (
-    <ChartInfoPopover
-      title="Transaction History"
-      description="Recent transactions by category"
-      details={[
-        "Each dot represents an expense; its vertical position is the amount and the group shows which category it belongs to.",
-        "We only pull the most recent 250 expense transactions and ignore any income entries so this view focuses on spending."
-      ]}
-      ignoredFootnote="The dataset comes directly from /api/charts/transaction-history, which filters to recent expenses only."
-      categoryControls={swarmControls}
-    />
+  // Format currency value
+  const valueFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        maximumFractionDigits: 2,
+      }),
+    []
   )
+
+  const renderInfoTrigger = () => (
+    <div className="flex flex-col items-center gap-2">
+      <ChartInfoPopover
+        title="Transaction History"
+        description="Recent transactions by category"
+        details={[
+          "Each dot represents an expense; its vertical position is the amount and the group shows which category it belongs to.",
+          "We only pull the most recent 250 expense transactions and ignore any income entries so this view focuses on spending."
+        ]}
+        ignoredFootnote="The dataset comes directly from /api/charts/transaction-history, which filters to recent expenses only."
+        categoryControls={swarmControls}
+      />
+      <ChartAiInsightButton
+        chartId="transactionHistory"
+        chartTitle="Transaction History"
+        chartDescription="Recent transactions by category"
+        size="sm"
+      />
+    </div>
+  )
+
+  // Check loading state first, before checking for empty data
+  if (isLoading && (!filteredData || filteredData.length === 0)) {
+    return (
+      <Card className="@container/card col-span-full">
+        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="transactionHistory"
+              chartTitle="Transaction History"
+              size="md"
+            />
+            <CardTitle>Transaction History</CardTitle>
+          </div>
+          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            {renderInfoTrigger()}
+          </CardAction>
+        </CardHeader>
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+          <ChartLoadingState isLoading={true} />
+        </CardContent>
+      </Card>
+    )
+  }
 
   if (error && filteredData.length === 0) {
     return (
       <Card className="@container/card col-span-full">
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="transactionHistory"
+              chartTitle="Transaction History"
+              size="md"
+            />
             <CardTitle>Transaction History</CardTitle>
-            <CardDescription>Recent transactions by category</CardDescription>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
@@ -355,39 +445,24 @@ const selectionSummary =
     )
   }
 
-  if (isLoading && filteredData.length === 0) {
-    return (
-      <Card className="@container/card col-span-full">
-        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <CardTitle>Transaction History</CardTitle>
-            <CardDescription>Recent transactions by category</CardDescription>
-          </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
-        </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
-          Loading transactions...
-        </CardContent>
-      </Card>
-    )
-  }
-
   if (!filteredData || filteredData.length === 0) {
     return (
       <Card className="@container/card col-span-full">
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="transactionHistory"
+              chartTitle="Transaction History"
+              size="md"
+            />
             <CardTitle>Transaction History</CardTitle>
-            <CardDescription>Recent transactions by category</CardDescription>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
-          No data available
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+          <ChartLoadingState isLoading={false} />
         </CardContent>
       </Card>
     )
@@ -396,10 +471,15 @@ const selectionSummary =
   return (
     <Card className="col-span-full">
       <CardHeader className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
+        <div className="flex items-center gap-2">
+          <ChartFavoriteButton
+            chartId="transactionHistory"
+            chartTitle="Transaction History"
+            size="md"
+          />
           <CardTitle>Transaction History</CardTitle>
-          <CardDescription>Recent transactions by category</CardDescription>
         </div>
+        <CardDescription>Recent transactions by category</CardDescription>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoTrigger()}
           {chartGroups.length > 0 && (
@@ -464,19 +544,54 @@ const selectionSummary =
         </CardAction>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-        <ResponsiveSwarmPlot
-          data={filteredData}
-          colors={getPalette()}
-          groups={visibleGroups.length ? visibleGroups : chartGroups}
-          value="price"
-          valueScale={dynamicValueScale}
-          size={{ key: "volume", values: [4, 20], sizes: [6, 20] }}
-          forceStrength={4}
-          simulationIterations={100}
-          margin={{ top: 80, right: 100, bottom: 80, left: 100 }}
-          axisBottom={{ legend: "category vs. amount", legendOffset: 40 }}
-          axisLeft={{ legend: "amount ($)", legendOffset: -60 }}
-        />
+        <div className="h-full w-full">
+          <ResponsiveSwarmPlot
+            data={filteredData}
+            colors={chartColors}
+            groups={visibleGroups.length ? visibleGroups : chartGroups}
+            value="price"
+            valueScale={dynamicValueScale}
+            size={{ key: "volume", values: [4, 20], sizes: [6, 20] }}
+            forceStrength={4}
+            simulationIterations={100}
+            margin={{ top: 80, right: 100, bottom: 80, left: 100 }}
+            axisBottom={{ legend: "category vs. amount", legendOffset: 40 }}
+            axisLeft={{ legend: "amount ($)", legendOffset: -60 }}
+            theme={swarmTheme}
+            tooltip={(node) => {
+              const datum = node.data as EnhancedChartDatum
+              const category = datum.categoryLabel || datum.group || "Other"
+              const color = (datum.color || node.color || chartColors[0]) as string
+
+              return (
+                <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full border border-border/50"
+                      style={{ backgroundColor: color, borderColor: color }}
+                    />
+                    <span className="font-medium text-foreground whitespace-nowrap">
+                      {category}
+                    </span>
+                  </div>
+                  <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
+                    {valueFormatter.format(datum.price || 0)}
+                  </div>
+                  {datum.date && (
+                    <div className="mt-0.5 text-[0.7rem] text-foreground/60">
+                      {new Date(datum.date).toLocaleDateString()}
+                    </div>
+                  )}
+                  {datum.description && (
+                    <div className="mt-1 text-[0.7rem] text-foreground/60 max-w-[200px]">
+                      {datum.description}
+                    </div>
+                  )}
+                </div>
+              )
+            }}
+          />
+        </div>
       </CardContent>
     </Card>
   )

@@ -29,10 +29,10 @@ export const POST = async (req: NextRequest) => {
             });
         } catch (err: any) {
             console.error("Error saving file:", err);
-            if (err.message?.includes("DEMO_USER_ID") || err.message?.includes("user auth")) {
+            if (err.message?.includes("Unauthorized") || err.message?.includes("user auth")) {
                 return NextResponse.json({ 
-                    error: "Authentication not configured. Please set DEMO_USER_ID in your environment variables." 
-                }, { status: 500 });
+                    error: "Authentication required. Please sign in to upload statements." 
+                }, { status: 401 });
             }
             throw new Error(`Failed to save file: ${err.message}`);
         }

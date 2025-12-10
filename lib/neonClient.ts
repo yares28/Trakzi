@@ -6,6 +6,7 @@ import { neon } from '@neondatabase/serverless';
 
 // Note: Connection pooling is handled via the pooled connection string
 // The -pooler suffix in the connection string enables Neon's built-in connection pooling
+// Environment variables are automatically loaded by Next.js from .env/.env.local
 
 // Get connection string from environment
 // For connection pooling, use the pooled connection string (adds -pooler to hostname)
@@ -32,7 +33,7 @@ function getPooledConnectionString(connString: string | undefined): string | nul
 const POOLED_CONNECTION_STRING = getPooledConnectionString(CONNECTION_STRING);
 
 if (!POOLED_CONNECTION_STRING) {
-    console.warn("[Neon] DATABASE_URL or NEON_CONNECTION_STRING not set in .env.local");
+    console.warn("[Neon] DATABASE_URL or NEON_CONNECTION_STRING not set in .env or .env.local");
     console.warn("[Neon] Using Neon requires a connection string like:");
     console.warn("[Neon] postgresql://user:password@host/database?sslmode=require");
     console.warn("[Neon] For best performance, use the pooled connection string (adds -pooler to hostname)");
@@ -49,7 +50,7 @@ type NeonOptions = {
 function ensureClient() {
     if (!sql) {
         throw new Error(
-            "Neon client not initialized. Set DATABASE_URL or NEON_CONNECTION_STRING in .env.local\n" +
+            "Neon client not initialized. Set DATABASE_URL or NEON_CONNECTION_STRING in .env or .env.local\n" +
             "Example: postgresql://user:password@host/database?sslmode=require"
         );
     }

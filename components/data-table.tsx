@@ -35,6 +35,7 @@ import {
   IconTrendingUp,
   IconSearch,
   IconX,
+  IconTrash,
 } from "@tabler/icons-react"
 import {
   ColumnDef,
@@ -57,6 +58,17 @@ import { z } from "zod"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { TransactionDialog } from "@/components/transaction-dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -311,6 +323,8 @@ export function DataTable<TData, TValue>({
   columns = defaultColumns as unknown as ColumnDef<TData, TValue>[],
   transactions,
   onTransactionAdded,
+  transactionDialogOpen,
+  onTransactionDialogOpenChange,
 }: DataTableProps<TData, TValue> & {
   transactions?: Array<{
     id: number
@@ -321,6 +335,8 @@ export function DataTable<TData, TValue>({
     category: string
   }>
   onTransactionAdded?: () => void
+  transactionDialogOpen?: boolean
+  onTransactionDialogOpenChange?: (open: boolean) => void
 }) {
   const [data, setData] = React.useState(() => initialData)
   const [rowSelection, setRowSelection] = React.useState({})
@@ -340,8 +356,113 @@ export function DataTable<TData, TValue>({
   })
   const [searchTerm, setSearchTerm] = React.useState("")
   const [selectedCategory, setSelectedCategory] = React.useState<string>("all")
-  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
+  const [deletingId, setDeletingId] = React.useState<number | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+  const [transactionToDelete, setTransactionToDelete] = React.useState<number | null>(null)
+  const [selectedTransactionIds, setSelectedTransactionIds] = React.useState<Set<number>>(new Set())
+  const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = React.useState(false)
+  const [isBatchDeleting, setIsBatchDeleting] = React.useState(false)
+  // Use external dialog state if provided, otherwise use internal state
+  const [internalDialogOpen, setInternalDialogOpen] = React.useState(false)
+  const isDialogOpen = transactionDialogOpen !== undefined ? transactionDialogOpen : internalDialogOpen
+  const setIsDialogOpen = onTransactionDialogOpenChange || setInternalDialogOpen
   const sortableId = React.useId()
+  
+  // Delete transaction handler
+  const handleDeleteTransaction = React.useCallback(async () => {
+    if (!transactionToDelete || deletingId === transactionToDelete) return
+
+    setDeletingId(transactionToDelete)
+    try {
+      const response = await fetch(`/api/transactions/${transactionToDelete}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to delete transaction")
+      }
+
+      toast.success("Transaction deleted successfully")
+      setDeleteDialogOpen(false)
+      setTransactionToDelete(null)
+      
+      // Refresh transactions
+      if (onTransactionAdded) {
+        onTransactionAdded()
+      }
+      
+      // Reload the page after a short delay to ensure deletion is committed
+      setTimeout(() => {
+        window.location.reload()
+      }, 300)
+    } catch (error: any) {
+      console.error("[Delete Transaction] Error:", error)
+      toast.error(error.message || "Failed to delete transaction")
+    } finally {
+      setDeletingId(null)
+    }
+  }, [transactionToDelete, deletingId, onTransactionAdded])
+
+  // Batch delete handler
+  const handleBatchDelete = React.useCallback(async () => {
+    if (selectedTransactionIds.size === 0 || isBatchDeleting) return
+
+    setIsBatchDeleting(true)
+    try {
+      // Delete all selected transactions in parallel
+      const deletePromises = Array.from(selectedTransactionIds).map(async (id) => {
+        const response = await fetch(`/api/transactions/${id}`, {
+          method: "DELETE",
+        })
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || `Failed to delete transaction ${id}`)
+        }
+        return id
+      })
+
+      await Promise.all(deletePromises)
+
+      toast.success(`Successfully deleted ${selectedTransactionIds.size} transaction(s)`)
+      setBatchDeleteDialogOpen(false)
+      setSelectedTransactionIds(new Set())
+      
+      // Refresh transactions
+      if (onTransactionAdded) {
+        onTransactionAdded()
+      }
+      
+      // Reload the page after a short delay to ensure deletions are committed
+      setTimeout(() => {
+        window.location.reload()
+      }, 300)
+    } catch (error: any) {
+      console.error("[Batch Delete] Error:", error)
+      toast.error(error.message || "Failed to delete some transactions")
+    } finally {
+      setIsBatchDeleting(false)
+    }
+  }, [selectedTransactionIds, isBatchDeleting, onTransactionAdded])
+
+  // Toggle transaction selection
+  const toggleTransactionSelection = React.useCallback((id: number) => {
+    setSelectedTransactionIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }, [])
+
+  // Open delete dialog
+  const openDeleteDialog = React.useCallback((transactionId: number) => {
+    setTransactionToDelete(transactionId)
+    setDeleteDialogOpen(true)
+  }, [])
   const sensors = useSensors(
     useSensor(MouseSensor, {}),
     useSensor(TouchSensor, {}),
@@ -381,6 +502,34 @@ export function DataTable<TData, TValue>({
 
     return filtered
   }, [transactions, selectedCategory, searchTerm])
+
+  // Toggle all transactions on current page
+  const toggleAllTransactions = React.useCallback(() => {
+    if (!filteredTransactions || filteredTransactions.length === 0) return
+    
+    const pageSize = transactionPagination.pageSize
+    const maxItems = 10000
+    const limitedTransactions = filteredTransactions.slice(0, maxItems)
+    const currentPage = transactionPagination.pageIndex
+    const startIndex = currentPage * pageSize
+    const endIndex = startIndex + pageSize
+    const pageData = limitedTransactions.slice(startIndex, endIndex)
+    
+    const pageIds = new Set(pageData.map(tx => tx.id))
+    const allSelected = pageIds.size > 0 && Array.from(pageIds).every(id => selectedTransactionIds.has(id))
+    
+    setSelectedTransactionIds((prev) => {
+      const next = new Set(prev)
+      if (allSelected) {
+        // Deselect all on current page
+        pageIds.forEach(id => next.delete(id))
+      } else {
+        // Select all on current page
+        pageIds.forEach(id => next.add(id))
+      }
+      return next
+    })
+  }, [filteredTransactions, transactionPagination, selectedTransactionIds])
 
   // Reset pagination when filters change
   React.useEffect(() => {
@@ -440,14 +589,40 @@ export function DataTable<TData, TValue>({
                 ` of ${transactions.length}`}
             </Badge>
           )}
+          {selectedTransactionIds.size > 0 && (
+            <Badge variant="destructive" className="gap-1">
+              {selectedTransactionIds.size} selected
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-2">
+          {selectedTransactionIds.size > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setBatchDeleteDialogOpen(true)}
+              className="gap-1"
+              disabled={isBatchDeleting}
+            >
+              {isBatchDeleting ? (
+                <>
+                  <IconLoader className="size-4 animate-spin" />
+                  <span className="hidden lg:inline">Deleting...</span>
+                </>
+              ) : (
+                <>
+                  <IconTrash className="size-4" />
+                  <span className="hidden lg:inline">Delete Selected ({selectedTransactionIds.size})</span>
+                </>
+              )}
+            </Button>
+          )}
           <Button 
-            variant="outline" 
             size="sm"
             onClick={() => setIsDialogOpen(true)}
+            className="gap-1 bg-primary text-primary-foreground hover:bg-primary/90"
           >
-            <IconPlus />
+            <IconPlus className="size-4" />
             <span className="hidden lg:inline">Add Transaction</span>
           </Button>
         </div>
@@ -490,21 +665,32 @@ export function DataTable<TData, TValue>({
       </div>
 
       <div className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6">
-        {(() => {
-          console.log("[DataTable] Transactions prop:", transactions)
-          console.log("[DataTable] Transactions length:", transactions?.length)
-          console.log("[DataTable] Is array?", Array.isArray(transactions))
-          if (transactions && transactions.length > 0) {
-            console.log("[DataTable] First transaction:", transactions[0])
-          }
-          return null
-        })()}
         {transactions && Array.isArray(transactions) && transactions.length > 0 ? (
           <>
             <div className="overflow-hidden rounded-lg border">
               <Table>
                 <TableHeader className="bg-muted sticky top-0 z-10">
                   <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={
+                          filteredTransactions.length > 0 &&
+                          (() => {
+                            const pageSize = transactionPagination.pageSize
+                            const maxItems = 10000
+                            const limitedTransactions = filteredTransactions.slice(0, maxItems)
+                            const currentPage = transactionPagination.pageIndex
+                            const startIndex = currentPage * pageSize
+                            const endIndex = startIndex + pageSize
+                            const pageData = limitedTransactions.slice(startIndex, endIndex)
+                            const pageIds = pageData.map(tx => tx.id)
+                            return pageIds.length > 0 && pageIds.every(id => selectedTransactionIds.has(id))
+                          })()
+                        }
+                        onCheckedChange={toggleAllTransactions}
+                        aria-label="Select all"
+                      />
+                    </TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
@@ -512,14 +698,20 @@ export function DataTable<TData, TValue>({
                     {filteredTransactions.some(tx => tx.balance !== null) && (
                       <TableHead className="text-right">Balance</TableHead>
                     )}
+                    <TableHead className="w-12"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {(() => {
+                    // Determine if balance column should be shown (check original transactions, not filtered)
+                    const hasBalanceColumn = transactions?.some(tx => tx.balance !== null) ?? false
+                    const baseColSpan = hasBalanceColumn ? 6 : 5
+                    
                     if (!filteredTransactions || filteredTransactions.length === 0) {
+                      const colSpanWithCheckbox = baseColSpan + 1 // Add 1 for checkbox column
                       return (
                         <TableRow>
-                          <TableCell colSpan={5} className="h-24 text-center">
+                          <TableCell colSpan={colSpanWithCheckbox} className="h-24 text-center">
                             {searchTerm || selectedCategory !== "all" 
                               ? "No transactions match your filters"
                               : "No transactions found"}
@@ -539,9 +731,10 @@ export function DataTable<TData, TValue>({
                     const totalPages = Math.min(Math.ceil(limitedTransactions.length / pageSize), maxPages)
                     
                     if (pageData.length === 0) {
+                      const colSpanWithCheckbox = baseColSpan + 1 // Add 1 for checkbox column
                       return (
                         <TableRow>
-                          <TableCell colSpan={5} className="h-24 text-center">
+                          <TableCell colSpan={colSpanWithCheckbox} className="h-24 text-center">
                             No transactions on this page
                           </TableCell>
                         </TableRow>
@@ -549,7 +742,18 @@ export function DataTable<TData, TValue>({
                     }
                     
                     return pageData.map((tx) => (
-                      <TableRow key={tx.id}>
+                      <TableRow 
+                        key={tx.id}
+                        className="group relative"
+                        data-state={selectedTransactionIds.has(tx.id) ? "selected" : undefined}
+                      >
+                        <TableCell className="w-12">
+                          <Checkbox
+                            checked={selectedTransactionIds.has(tx.id)}
+                            onCheckedChange={() => toggleTransactionSelection(tx.id)}
+                            aria-label={`Select transaction ${tx.id}`}
+                          />
+                        </TableCell>
                         <TableCell className="w-28 flex-shrink-0">
                           {new Date(tx.date).toLocaleDateString("en-US", {
                             year: "numeric",
@@ -573,6 +777,22 @@ export function DataTable<TData, TValue>({
                             {tx.balance !== null ? `${tx.balance.toFixed(2)}€` : "-"}
                           </TableCell>
                         )}
+                        <TableCell className="w-12 flex-shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                            onClick={() => openDeleteDialog(tx.id)}
+                            disabled={deletingId === tx.id}
+                            title="Delete transaction"
+                          >
+                            {deletingId === tx.id ? (
+                              <IconLoader className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <IconTrash className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))
                   })()}
@@ -686,6 +906,109 @@ export function DataTable<TData, TValue>({
           }
         }}
       />
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Transaction</AlertDialogTitle>
+            <AlertDialogDescription>
+              {transactionToDelete && transactions ? (
+                (() => {
+                  const tx = transactions.find(t => t.id === transactionToDelete)
+                  return tx ? (
+                    <>
+                      Are you sure you want to delete this transaction? This action cannot be undone.
+                      <div className="mt-4 rounded-md bg-muted p-3 text-left">
+                        <div className="font-medium">{tx.description}</div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          {new Date(tx.date).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })} • {tx.amount.toFixed(2)}€ • {tx.category}
+                        </div>
+                      </div>
+                    </>
+                  ) : "Are you sure you want to delete this transaction? This action cannot be undone."
+                })()
+              ) : (
+                "Are you sure you want to delete this transaction? This action cannot be undone."
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingId !== null}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteTransaction}
+              disabled={deletingId !== null}
+              className="bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-800"
+            >
+              {deletingId !== null ? (
+                <>
+                  <IconLoader className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={batchDeleteDialogOpen} onOpenChange={setBatchDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Selected Transactions</AlertDialogTitle>
+            <AlertDialogDescription>
+              <p className="mb-2">
+                Are you sure you want to delete {selectedTransactionIds.size} transaction(s)? This action cannot be undone.
+              </p>
+              {transactions && selectedTransactionIds.size > 0 && (
+                <div className="mt-4 rounded-md bg-muted p-3 text-left max-h-48 overflow-y-auto space-y-2">
+                  {Array.from(selectedTransactionIds).slice(0, 5).map((id) => {
+                    const tx = transactions.find(t => t.id === id)
+                    if (!tx) return null
+                    return (
+                      <div key={id}>
+                        <div className="font-medium">{tx.description}</div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          {new Date(tx.date).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })} • {tx.amount.toFixed(2)}€ • {tx.category}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {selectedTransactionIds.size > 5 && (
+                    <div className="text-sm text-muted-foreground pt-2">
+                      ...and {selectedTransactionIds.size - 5} more
+                    </div>
+                  )}
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBatchDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBatchDelete}
+              disabled={isBatchDeleting}
+              className="bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-800"
+            >
+              {isBatchDeleting ? (
+                <>
+                  <IconLoader className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                `Delete ${selectedTransactionIds.size} Transaction${selectedTransactionIds.size > 1 ? 's' : ''}`
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -6,6 +6,7 @@ import "gridstack/dist/gridstack.min.css"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
+import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { ChartCirclePacking } from "@/components/chart-circle-packing"
 import { ChartPolarBar } from "@/components/chart-polar-bar"
 import { ChartRadar } from "@/components/chart-radar"
@@ -241,10 +242,11 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
   const maxIndex = rings.length - 1
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>, index: number) => {
-    const rect = e.currentTarget.getBoundingClientRect()
+    if (!containerRef.current) return
+    const containerRect = containerRef.current.getBoundingClientRect()
     setTooltipPosition({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+      x: e.clientX - containerRect.left,
+      y: e.clientY - containerRect.top,
     })
     setHoveredRing(index)
   }
@@ -621,12 +623,13 @@ export default function AnalyticsPage() {
         cellHeight: 70,
         margin: 0,  // No margin - cards fill entire grid-stack-item
         minRow: 1,
-        float: false,  // Don't float items, use strict grid
+        float: true,  // Allow placing items anywhere without magnetizing to top
+        animate: true,  // Enable smooth animations
         resizable: {
           handles: 'se', // Only bottom-right resize handle (matching trends page style)
         },
         draggable: {
-          handle: ".grid-stack-item-content"
+          handle: ".grid-stack-item-content",
         },
         // Constrain to allowed sizes
         disableOneColumnMode: true,
@@ -736,6 +739,8 @@ export default function AnalyticsPage() {
         gridStackRef.current.removeAll(false)
         gridStackRef.current.load(widgets)
         
+        // Note: No compact() call - allow items to stay where user places them
+        
         // After loading, set constraints directly on GridStack nodes
         // GridStack needs constraints set on the node object itself, not just the widget
         setTimeout(() => {
@@ -775,8 +780,7 @@ export default function AnalyticsPage() {
           }
         }, 100)
         
-        // Force a layout update to ensure sizes are applied
-        gridStackRef.current.compact()
+        // Note: No compact() - cards stay where user places them
         
         // Enforce constraints during resize (not just after)
         gridStackRef.current.on('resize', (event, items) => {
@@ -966,6 +970,7 @@ export default function AnalyticsPage() {
     balance: number | null
     category: string
   }>>([])
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(true)
 
   // Date filter state
   const [dateFilter, setDateFilter] = useState<string | null>(null)
@@ -1131,6 +1136,7 @@ export default function AnalyticsPage() {
 
   // Fetch ALL analytics data in parallel for maximum performance
   const fetchAllAnalyticsData = useCallback(async () => {
+    setIsLoadingTransactions(true)
     try {
       const startTime = performance.now()
       console.log("[Analytics] Starting parallel data fetch...")
@@ -1225,6 +1231,8 @@ export default function AnalyticsPage() {
         description: "Failed to fetch analytics data. Check your database connection.",
         duration: 8000,
       })
+    } finally {
+      setIsLoadingTransactions(false)
     }
   }, [dateFilter])
 
@@ -1576,7 +1584,8 @@ export default function AnalyticsPage() {
       setParseError(null)
       setImportProgress(0)
 
-      await fetchTransactions()
+      // Refresh analytics data after import
+      await fetchAllAnalyticsData()
     } catch (error) {
       clearInterval(progressInterval)
       console.error("Import error:", error)
@@ -1685,11 +1694,8 @@ export default function AnalyticsPage() {
     const currentSavingsRate =
       currentIncome > 0 ? ((currentIncome - currentExpenses) / currentIncome) * 100 : 0
 
-    const sortedByDate = [...rawTransactions].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-    )
-    const netWorth =
-      sortedByDate.length > 0 && sortedByDate[0].balance !== null ? sortedByDate[0].balance : 0
+    // Net worth is calculated as income minus expenses
+    const netWorth = currentIncome - currentExpenses
 
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -1720,13 +1726,8 @@ export default function AnalyticsPage() {
     const previousSavingsRate =
       previousIncome > 0 ? ((previousIncome - previousExpenses) / previousIncome) * 100 : 0
 
-    const previousSorted = previousTransactions.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-    )
-    const previousNetWorth =
-      previousSorted.length > 0 && previousSorted[0].balance !== null
-        ? previousSorted[0].balance
-        : 0
+    // Previous net worth is also calculated as income minus expenses
+    const previousNetWorth = previousIncome - previousExpenses
 
     const incomeChange =
       previousIncome > 0
@@ -2954,7 +2955,9 @@ export default function AnalyticsPage() {
                           >
                             <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartAreaInteractive
+                              chartId="incomeExpensesTracking1"
                               categoryControls={incomeExpenseTopControls}
+                              isLoading={isLoadingTransactions}
                               data={useMemo(() => {
                                 const filteredSource =
                                   incomeExpenseTopVisibility.hiddenCategorySet.size === 0
@@ -3024,7 +3027,9 @@ export default function AnalyticsPage() {
                           >
                             <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartAreaInteractive
+                              chartId="incomeExpensesTracking2"
                               categoryControls={incomeExpenseControls}
+                              isLoading={isLoadingTransactions}
                               data={incomeExpenseChart.data}
                             />
                             </div>
@@ -3226,6 +3231,11 @@ export default function AnalyticsPage() {
                               <CardHeader className="relative flex flex-row items-start justify-between gap-2 flex-1 min-h-[420px] pb-6">
                                 <div className="space-y-1 z-10">
                                   <div className="flex items-center gap-2">
+                                    <ChartFavoriteButton 
+                                      chartId="spendingActivityRings" 
+                                      chartTitle="Spending Activity Rings"
+                                      size="md"
+                                    />
                                     <CardTitle className="mb-0">Spending Activity Rings</CardTitle>
                                     <ChartInfoPopover
                                       title="Spending Activity Rings"
@@ -3236,9 +3246,6 @@ export default function AnalyticsPage() {
                                       ]}
                                     />
                                   </div>
-                                  <CardDescription>
-                                    Top spending categories from your Neon transactions
-                                  </CardDescription>
                                 </div>
                                 <div className="flex items-center gap-2 z-10">
                                   {activityData.length > 0 && (

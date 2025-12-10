@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
+import Link from "next/link"
 import {
   IconCamera,
   IconChartBar,
@@ -12,6 +14,7 @@ import {
   IconHelp,
   IconInnerShadowTop,
   IconListDetails,
+  IconMessageChatbot,
   IconSearch,
   IconSettings,
 } from "@tabler/icons-react"
@@ -57,6 +60,11 @@ const data = {
       title: "Trends",
       url: "/trends",
       icon: IconChartBar,
+    },
+    {
+      title: "Chat",
+      url: "/chat",
+      icon: IconMessageChatbot,
     },
     {
       title: "Fridge",
@@ -157,16 +165,17 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
-              className="data-[slot=sidebar-menu-button]:!p-1.5"
+              className="data-[slot=sidebar-menu-button]:!p-4 !h-auto"
             >
-              <a href="#">
-                {mounted && theme === "dark" ? (
-                  <IconInnerShadowTop className="!size-5 invert" />
-                ) : (
-                  <IconInnerShadowTop className="!size-5" />
-                )}
-                <span className="text-base font-semibold">Acme Inc.</span>
-              </a>
+              <Link href="/">
+                <Image
+                  src="/fullet/fulletlogo.png"
+                  alt="Fullot"
+                  width={180}
+                  height={60}
+                  className="h-16 w-auto object-contain"
+                />
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

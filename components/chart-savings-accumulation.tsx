@@ -5,11 +5,11 @@ import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useTheme } from "next-themes"
 import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -30,6 +30,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@/components/ui/toggle-group"
+import { ChartLoadingState } from "@/components/chart-loading-state"
 
 export const description = "A savings accumulation chart"
 
@@ -40,12 +41,16 @@ interface ChartSavingsAccumulationProps {
     income: number
     expenses: number
   }>
+  isLoading?: boolean
 }
 
-export function ChartSavingsAccumulation({ data: chartData = [] }: ChartSavingsAccumulationProps) {
+export function ChartSavingsAccumulation({ data: chartData = [], isLoading = false }: ChartSavingsAccumulationProps) {
   const isMobile = useIsMobile()
   const { colorScheme, getPalette } = useColorScheme()
+  const { resolvedTheme } = useTheme()
   const [timeRange, setTimeRange] = React.useState("90d")
+  const isDark = resolvedTheme === "dark"
+  const gridStrokeColor = isDark ? "#e5e7eb" : "#e5e7eb"
 
   // Color scheme for savings
   const palette = getPalette().filter(color => color !== "#c3c3c3")
@@ -87,16 +92,10 @@ export function ChartSavingsAccumulation({ data: chartData = [] }: ChartSavingsA
       <Card className="@container/card">
         <CardHeader>
           <CardTitle>Savings Accumulation</CardTitle>
-          <CardDescription>
-            <span className="hidden @[540px]/card:block">
-              Track your savings growth based on income and expenses
-            </span>
-            <span className="@[540px]/card:hidden">Savings over time</span>
-          </CardDescription>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-          <div className="h-[250px] w-full flex items-center justify-center text-muted-foreground">
-            No data available
+          <div className="h-[250px] w-full">
+            <ChartLoadingState isLoading={isLoading} />
           </div>
         </CardContent>
       </Card>
@@ -107,12 +106,6 @@ export function ChartSavingsAccumulation({ data: chartData = [] }: ChartSavingsA
     <Card className="@container/card">
       <CardHeader>
         <CardTitle>Savings Accumulation</CardTitle>
-        <CardDescription>
-          <span className="hidden @[540px]/card:block">
-            Track your savings growth based on income and expenses
-          </span>
-          <span className="@[540px]/card:hidden">Savings over time</span>
-        </CardDescription>
         <CardAction>
           <ToggleGroup
             type="single"
@@ -167,7 +160,7 @@ export function ChartSavingsAccumulation({ data: chartData = [] }: ChartSavingsA
                 />
               </linearGradient>
             </defs>
-            <CartesianGrid vertical={false} />
+            <CartesianGrid vertical={false} stroke={gridStrokeColor} strokeDasharray="3 3" opacity={0.3} />
             <XAxis
               dataKey="date"
               tickLine={false}

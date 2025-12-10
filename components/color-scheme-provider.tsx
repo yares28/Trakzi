@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, ReactNode } from "react"
 
-type ColorScheme = "dark" | "colored" | "gold" | "aqua" | "dull" | "dry" | "greens" | "chrome" | "beach" | "jolly" | "gothic"
+type ColorScheme = "sunset" | "dark" | "colored" | "gold" | "aqua" | "dull" | "dry" | "greens" | "chrome" | "beach" | "jolly" | "gothic"
 
 interface ColorSchemeContextType {
   colorScheme: ColorScheme
@@ -10,11 +10,12 @@ interface ColorSchemeContextType {
   getPalette: () => string[]
 }
 
-// Color palettes
+// Color palettes ordered from darkest to lightest
 export const colorPalettes: Record<ColorScheme, string[]> = {
-  dark: ["#DFDFDF", "#C3C3C3", "#ACACAC", "#8B8B8B", "#696969", "#464646", "#2F2F2F", "#252525"],
-  colored: ["#8b6f47", "#b83d2a", "#9d7a1f", "#8b5a0e", "#2a7a6b", "#C3C3C3"],
-  gold: ["#000000", "#361c1b", "#754232", "#cd894a", "#e6b983", "#fff8bc", "#ffffff", "#2d2433", "#4f4254", "#b092a7", "#c3c3c3"],
+  sunset: ["#331300","#5e2401","#893401","#b44401","#df5501","#fe680e","#fe8339","#fe9e64","#feb98f","#ffd4bb","#ffefe6"],
+  dark: ["#151515", "#2B2B2B", "#414141", "#575757", "#6D6D6D", "#838383", "#999999", "#B0B0B0", "#C6C6C6", "#DCDCDC", "#F2F2F2"],
+  colored: ["#2F1B15", "#3A4E48", "#4B3621", "#2A7A6B", "#4A5B6E", "#8B5A0E", "#B83D2A", "#9D7A1F", "#D88C6C", "#C3C3C3", "#E8DCCA"],  
+  gold: ["#000000","#361c1b","#2d2433","#4f4254","#754232","#cd894a","#b092a7","#e6b983","#c3c3c3","#fff8bc","#ffffff"],
   aqua: ["#000924", "#041b38", "#093659", "#145d87", "#228399", "#31b0b0", "#46cfb3", "#73f0c6", "#abffd1", "#d9ffe2", "#c3c3c3"],
   dull: ["#372f3a", "#464459", "#545e72", "#5d7680", "#6a9395", "#7bad9f", "#8eb29a", "#b3c6b4", "#c5d2ce", "#d3d8d9", "#c3c3c3"],
   dry: ["#2f2a35", "#443d38", "#625653", "#9a5d40", "#a98143", "#3b4262", "#6f7777", "#989da0", "#c2b8a9", "#d9dbba", "#c3c3c3"],
@@ -22,16 +23,16 @@ export const colorPalettes: Record<ColorScheme, string[]> = {
   chrome: ["#cdc9b6", "#8e8c82", "#504f49", "#131311", "#9bb5a4", "#6da392", "#48907f", "#23937f", "#34665a", "#223c35", "#c3c3c3"],
   beach: ["#e43113", "#ed8848", "#f2bf87", "#f5deb3", "#f6e9c7", "#d6f4e9", "#aaebda", "#7be2d2", "#23d2d2", "#229bb9", "#c3c3c3"],
   jolly: ["#a64848", "#e96464", "#cdb195", "#ebccae", "#c6c9bd", "#ecf0da", "#383857", "#5254b1", "#5b6ee1", "#639bff", "#c3c3c3"],
-  gothic: ["#0e0e12", "#1a1a24", "#333346", "#535373", "#8080a4", "#a6a6bf", "#c1c1d2", "#e6e6ec", "#c3c3c3"],
+  gothic: ["#0e0e12","#1a1a24","#333346","#535373","#6a6a8c","#8080a4", "#9393b2", "#a6a6bf", "#c1c1d2", "#c3c3c3", "#e6e6ec"],
 }
 
 const ColorSchemeContext = createContext<ColorSchemeContextType | undefined>(undefined)
 
 export function ColorSchemeProvider({ children }: { children: ReactNode }) {
-  const [colorScheme, setColorScheme] = useState<ColorScheme>("colored")
+  const [colorScheme, setColorScheme] = useState<ColorScheme>("sunset")
 
   const getPalette = () => {
-    return colorPalettes[colorScheme] || colorPalettes.colored
+    return colorPalettes[colorScheme] || colorPalettes.sunset
   }
 
   return (

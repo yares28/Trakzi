@@ -5,17 +5,20 @@ import type { PointerEvent } from "react"
 import { scaleLinear, scalePoint } from "d3-scale"
 import { stack, stackOffsetWiggle, stackOrderInsideOut, area, curveCatmullRom } from "d3-shape"
 import { ticks } from "d3-array"
+import { useTheme } from "next-themes"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
+import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { toNumericValue } from "@/lib/utils"
+import { ChartLoadingState } from "@/components/chart-loading-state"
+import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 
 type ChartSpendingStreamgraphDatum = {
   month: string
@@ -26,6 +29,7 @@ interface ChartSpendingStreamgraphProps {
   data?: Array<Record<string, string | number>>
   keys?: string[]
   categoryControls?: ChartInfoPopoverCategoryControls
+  isLoading?: boolean
 }
 
 const FALLBACK_COLORS = ["#7dd3fc", "#c084fc", "#f472b6", "#f97316", "#34d399", "#f87171", "#fb7185"]
@@ -55,11 +59,14 @@ const monthFormatter = (monthKey: string) => {
   return `${parsedYear}-${normalizedMonth}`
 }
 
-export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControls }: ChartSpendingStreamgraphProps) {
+export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControls, isLoading = false }: ChartSpendingStreamgraphProps) {
   const { getPalette } = useColorScheme()
+  const { resolvedTheme } = useTheme()
   const svgRef = useRef<SVGSVGElement | null>(null)
   const [tooltip, setTooltip] = useState<{ label: string; total: number; color: string } | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
+  
+  const isDark = resolvedTheme === "dark"
 
   const { rows, detectedKeys } = useMemo(() => {
     if (!data?.length) return { rows: [] as ChartSpendingStreamgraphDatum[], detectedKeys: [] as string[] }
@@ -95,11 +102,15 @@ export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControl
   const colorAssignments = useMemo(() => {
     const palette = getPalette()
     const colors = palette.length ? palette : FALLBACK_COLORS
+    // Filter out the empty color (#c3c3c3) and adjust for dark mode
+    const filteredColors = colors.filter(color => color !== "#c3c3c3")
+    // In dark mode, reverse the palette for better contrast
+    const adjustedColors = isDark ? [...filteredColors].reverse() : filteredColors
     return activeKeys.reduce<Record<string, string>>((acc, key, index) => {
-      acc[key] = colors[index % colors.length]
+      acc[key] = adjustedColors[index % adjustedColors.length] || FALLBACK_COLORS[index % FALLBACK_COLORS.length]
       return acc
     }, {})
-  }, [activeKeys, getPalette])
+  }, [activeKeys, getPalette, isDark])
 
   const numericRows = useMemo(() => {
     return rows.map((row) => {
@@ -202,32 +213,44 @@ export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControl
   }
 
   const renderInfoTrigger = () => (
-    <ChartInfoPopover
-      title="Category Streamgraph"
-      description="Stacked monthly expenses inspired by D3 streamgraphs"
-      details={[
-        "Each ribbon represents a spending category. The thicker the ribbon, the more you spent during that month.",
-        "We remove inflows and transfer categories so the stream stays focused on actual spending."
-      ]}
-      ignoredFootnote="Only negative (expense) transactions are streamed. Inflows are excluded from this chart."
-      categoryControls={categoryControls}
-    />
+    <div className="flex flex-col items-center gap-2">
+      <ChartInfoPopover
+        title="Category Streamgraph"
+        description="Stacked monthly expenses inspired by D3 streamgraphs"
+        details={[
+          "Each ribbon represents a spending category. The thicker the ribbon, the more you spent during that month.",
+          "We remove inflows and transfer categories so the stream stays focused on actual spending."
+        ]}
+        ignoredFootnote="Only negative (expense) transactions are streamed. Inflows are excluded from this chart."
+        categoryControls={categoryControls}
+      />
+      <ChartAiInsightButton
+        chartId="spendingStreamgraph"
+        chartTitle="Category Streamgraph"
+        chartDescription="Stacked monthly expenses inspired by D3 streamgraphs"
+        size="sm"
+      />
+    </div>
   )
 
   if (!chartGeometry || !rows.length || !activeKeys.length) {
     return (
       <Card className="@container/card col-span-full">
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="spendingStreamgraph"
+              chartTitle="Category Streamgraph"
+              size="md"
+            />
             <CardTitle>Category Streamgraph</CardTitle>
-            <CardDescription>Monthly spending stacked by category</CardDescription>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
-          No data available
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+          <ChartLoadingState isLoading={isLoading} />
         </CardContent>
       </Card>
     )
@@ -238,9 +261,13 @@ export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControl
   return (
     <Card className="col-span-full">
       <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <div className="flex items-center gap-2">
+          <ChartFavoriteButton
+            chartId="spendingStreamgraph"
+            chartTitle="Category Streamgraph"
+            size="md"
+          />
           <CardTitle>Category Streamgraph</CardTitle>
-          <CardDescription>Stacked monthly expenses inspired by D3 streamgraphs</CardDescription>
         </div>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoTrigger()}
@@ -298,14 +325,14 @@ export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControl
             )}
 
             {/* Layers */}
-            <g className="mix-blend-multiply">
+            <g className={isDark ? "" : "mix-blend-multiply"}>
               {layers.map((layer) => (
                 <path
                   key={layer.key}
                   d={layer.path ?? ""}
                   fill={colorAssignments[layer.key] ?? FALLBACK_COLORS[0]}
-                  fillOpacity={0.9}
-                  stroke="rgba(0,0,0,0.08)"
+                  fillOpacity={isDark ? 0.8 : 0.9}
+                  stroke={isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}
                   strokeWidth={0.5}
                   onPointerMove={(event) => handleLayerPointerMove(event, layer.key)}
                   onPointerLeave={handleLayerPointerLeave}

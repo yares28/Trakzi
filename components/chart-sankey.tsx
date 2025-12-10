@@ -1,18 +1,20 @@
 "use client"
 
 import { useMemo } from "react"
+import { useTheme } from "next-themes"
 import { ResponsiveSankey } from "@nivo/sankey"
+import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { toNumericValue } from "@/lib/utils"
+import { ChartLoadingState } from "@/components/chart-loading-state"
 
 interface SankeyNode {
   id: string
@@ -25,6 +27,7 @@ interface ChartSankeyProps {
     links: Array<{ source: string; target: string; value: number }>
   }
   categoryControls?: ChartInfoPopoverCategoryControls
+  isLoading?: boolean
 }
 
 const formatNodeId = (id: string) => {
@@ -51,8 +54,16 @@ const formatNodeId = (id: string) => {
   return value.replace(/\b\w/g, char => char.toUpperCase())
 }
 
-export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls }: ChartSankeyProps) {
+export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls, isLoading = false }: ChartSankeyProps) {
   const { getPalette } = useColorScheme()
+  const { resolvedTheme } = useTheme()
+  
+  // In dark mode, use lighter colors (reverse the palette so lightest colors come first)
+  const chartColors = useMemo(() => {
+    const palette = getPalette()
+    return resolvedTheme === "dark" ? [...palette].reverse() : palette
+  }, [getPalette, resolvedTheme])
+  
   const currencyFormatter = useMemo(
     () =>
       new Intl.NumberFormat("en-US", {
@@ -88,18 +99,30 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls 
   }, [sanitizedData.nodes])
 
   const getNodeLabel = (id: string) => nodeLabelMap.get(id) ?? formatNodeId(id)
-  
+
   const renderInfoTrigger = () => (
-    <ChartInfoPopover
-      title="Cash Flow Sankey"
-      description="Follow revenue as it moves through the org"
-      details={[
-        "Each link represents cash flowing from income sources through expense categories, eventually reaching savings or surplus.",
-        "We cap the visualization to the most significant inflow sources and expense categories to keep it legible."
-      ]}
-      ignoredFootnote="Smaller categories are aggregated into 'Other' so the diagram stays readable."
-      categoryControls={categoryControls}
-    />
+    <div className="flex flex-col items-center gap-2">
+      <ChartInfoPopover
+        title="Cash Flow Sankey"
+        description="Follow revenue as it moves through the org"
+        details={[
+          "Each link represents cash flowing from income sources through expense categories, eventually reaching savings or surplus.",
+          "We cap the visualization to the most significant inflow sources and expense categories to keep it legible."
+        ]}
+        ignoredFootnote="Smaller categories are aggregated into 'Other' so the diagram stays readable."
+        categoryControls={categoryControls}
+      />
+      <ChartAiInsightButton
+        chartId="moneyFlow"
+        chartTitle="Cash Flow Sankey"
+        chartDescription="Follow revenue as it moves through the org"
+        chartData={{
+          nodes: sanitizedData.nodes.map(n => n.id),
+          links: sanitizedData.links.length
+        }}
+        size="sm"
+      />
+    </div>
   )
 
   if (!sanitizedData.nodes.length || !sanitizedData.links.length) {
@@ -108,12 +131,11 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls 
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <CardTitle>Cash Flow Sankey</CardTitle>
-            <CardDescription>Follow revenue as it moves through the org</CardDescription>
           </div>
           <CardAction>{renderInfoTrigger()}</CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
-          No data available
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+          <ChartLoadingState isLoading={isLoading} />
         </CardContent>
       </Card>
     )
@@ -124,7 +146,6 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls 
       <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <CardTitle>Cash Flow Sankey</CardTitle>
-          <CardDescription>Follow revenue as it moves through the org</CardDescription>
         </div>
         <CardAction>{renderInfoTrigger()}</CardAction>
       </CardHeader>
@@ -158,7 +179,7 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls 
               </div>
             )
           }}
-          colors={getPalette()}
+          colors={chartColors}
           nodeOpacity={1}
           nodeHoverOthersOpacity={0.35}
           nodeThickness={18}
@@ -171,7 +192,7 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls 
           labelPosition="outside"
           labelOrientation="horizontal"
           labelPadding={20}
-          labelTextColor={{ from: "color", modifiers: [["darker", 1]] }}
+          labelTextColor={resolvedTheme === "dark" ? "#ffffff" : { from: "color", modifiers: [["darker", 1]] }}
           legends={[]}
         />
       </CardContent>

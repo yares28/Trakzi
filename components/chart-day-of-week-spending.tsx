@@ -1,8 +1,9 @@
 "use client"
 
-import { useMemo, useEffect, useRef, useCallback } from "react"
+import { useMemo, useEffect, useRef, useCallback, useState } from "react"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
+import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import {
   Card,
   CardAction,
@@ -11,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
 interface ChartDayOfWeekSpendingProps {
@@ -34,6 +36,10 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
   const { getPalette } = useColorScheme()
   const palette = getPalette().filter(color => color !== "#c3c3c3")
   const svgRef = useRef<SVGSVGElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [tooltip, setTooltip] = useState<{ day: string; category: string; amount: number; isTotal: boolean; breakdown?: Array<{ category: string; amount: number }>; color?: string } | null>(null)
+  const tooltipElementRef = useRef<HTMLDivElement | null>(null)
+  const hasAnimatedRef = useRef(false)
   // Small card size: always full width within its grid column
   const cardWidthClass = "w-full"
   
@@ -49,19 +55,27 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
   })
 
   const { hiddenCategorySet, buildCategoryControls, hiddenCategories } = chartVisibility
-  
+
   const renderInfoTrigger = () => (
-    <ChartInfoPopover
-      title="Day of Week Spending by Category"
-      description="See which categories you spend the most on each day of the week."
-      details={[
-        "This chart shows your spending broken down by category for each day of the week.",
-        "Each day has multiple bars, one for each spending category.",
-        "Only expense transactions (negative amounts) are included.",
-        "The chart respects your selected time period filter."
-      ]}
-      categoryControls={categoryControls}
-    />
+    <div className="flex flex-col items-center gap-2">
+      <ChartInfoPopover
+        title="Day of Week Spending by Category"
+        description="See which categories you spend the most on each day of the week."
+        details={[
+          "This chart shows your spending broken down by category for each day of the week.",
+          "Each day has multiple bars, one for each spending category.",
+          "Only expense transactions (negative amounts) are included.",
+          "The chart respects your selected time period filter."
+        ]}
+        categoryControls={categoryControls}
+      />
+      <ChartAiInsightButton
+        chartId="dayOfWeekCategory"
+        chartTitle="Day of Week Spending by Category"
+        chartDescription="See which categories you spend the most on each day of the week."
+        size="sm"
+      />
+    </div>
   )
 
   // Process data to group by day of week and category
@@ -173,8 +187,8 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
   const isDark = resolvedTheme === "dark"
   // Match Nivo chart axis styling
   const textColor = isDark ? "#9ca3af" : "#6b7280" // muted-foreground
-  const borderColor = isDark ? "#374151" : "#e5e7eb" // border color for axis lines
-  const gridColor = isDark ? "#374151" : "#e5e7eb"
+  const borderColor = isDark ? "#e5e7eb" : "#e5e7eb" // border color for axis lines
+  const gridColor = isDark ? "#e5e7eb" : "#e5e7eb"
   const axisColor = borderColor // Use borderColor for axis lines to match Nivo
 
   // Render D3-style grouped bar chart
@@ -182,8 +196,8 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
     if (!svgRef.current || processedData.length === 0) return
 
     const svg = svgRef.current
-    
-    const renderChart = () => {
+
+    const renderChart = (animate: boolean) => {
       // Clear previous content
       svg.innerHTML = ""
 
@@ -268,9 +282,15 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
         const totalBarHeight = yHeight(totalAmount)
         
         totalBar.setAttribute("x", "0")
-        totalBar.setAttribute("y", totalYPos.toString())
         totalBar.setAttribute("width", fxBandwidth.toString())
-        totalBar.setAttribute("height", "0") // Start at 0 for animation
+        // If we're animating, start from height 0 and grow; otherwise draw at final size immediately
+        if (animate) {
+          totalBar.setAttribute("y", chartHeight.toString())
+          totalBar.setAttribute("height", "0")
+        } else {
+          totalBar.setAttribute("y", totalYPos.toString())
+          totalBar.setAttribute("height", totalBarHeight.toString())
+        }
         totalBar.setAttribute("fill", isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.05)")
         totalBar.setAttribute("rx", "2")
         totalBar.setAttribute("ry", "2")
@@ -279,8 +299,10 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
         totalBar.setAttribute("stroke-dasharray", "2,2")
         totalBar.style.cursor = "pointer"
         totalBar.style.pointerEvents = "all"
-        totalBar.style.transition = "height 0.6s ease-out, y 0.6s ease-out"
-        totalBar.style.transitionDelay = "0s"
+        if (animate) {
+          totalBar.style.transition = "height 0.6s ease-out, y 0.6s ease-out"
+          totalBar.style.transitionDelay = "0s"
+        }
         
         // Add tooltip data for total bar
         totalBar.setAttribute("data-day", dayNamesShort[dayIndex])
@@ -291,11 +313,14 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
         
         dayGroup.appendChild(totalBar)
         
-        // Animate the total bar
-        setTimeout(() => {
-          totalBar.setAttribute("height", totalBarHeight.toString())
-          totalBar.setAttribute("y", totalYPos.toString())
-        }, 10)
+        // Animate the total bar only on the initial render to avoid re-running
+        // the animation when React re-renders due to tooltip or other UI state.
+        if (animate) {
+          setTimeout(() => {
+            totalBar.setAttribute("height", totalBarHeight.toString())
+            totalBar.setAttribute("y", totalYPos.toString())
+          }, 10)
+        }
       }
 
       // Create bars for each category within this day
@@ -305,17 +330,26 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
         const finalYPos = y(d.amount)
         const barHeight = yHeight(d.amount)
         
-        // Start animation from bottom
         rect.setAttribute("x", xPos.toString())
-        rect.setAttribute("y", chartHeight.toString()) // Start at bottom
         rect.setAttribute("width", xBandwidth.toString())
-        rect.setAttribute("height", "0") // Start at 0 height
+
+        if (animate) {
+          // Start animation from bottom
+          rect.setAttribute("y", chartHeight.toString())
+          rect.setAttribute("height", "0")
+        } else {
+          // Draw in final position without animation
+          rect.setAttribute("y", finalYPos.toString())
+          rect.setAttribute("height", barHeight.toString())
+        }
         rect.setAttribute("fill", categoryColors.get(d.category) || "#8884d8")
         rect.setAttribute("rx", "2")
         rect.setAttribute("ry", "2")
         rect.style.cursor = "pointer"
-        rect.style.transition = "height 0.6s ease-out, y 0.6s ease-out"
-        rect.style.transitionDelay = `${categoryIndex * 0.05}s` // Stagger animation
+        if (animate) {
+          rect.style.transition = "height 0.6s ease-out, y 0.6s ease-out"
+          rect.style.transitionDelay = `${categoryIndex * 0.05}s` // Stagger animation
+        }
         
         // Add tooltip data
         rect.setAttribute("data-day", dayNamesShort[dayIndex])
@@ -325,11 +359,13 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
         
         dayGroup.appendChild(rect)
         
-        // Animate the bar with a slight delay for staggered effect
-        setTimeout(() => {
-          rect.setAttribute("height", barHeight.toString())
-          rect.setAttribute("y", finalYPos.toString())
-        }, 50 + categoryIndex * 30)
+        // Animate the bar with a slight delay for staggered effect (initial render only)
+        if (animate) {
+          setTimeout(() => {
+            rect.setAttribute("height", barHeight.toString())
+            rect.setAttribute("y", finalYPos.toString())
+          }, 50 + categoryIndex * 30)
+        }
       })
 
       svg.appendChild(dayGroup)
@@ -463,68 +499,60 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
     }
     svg.insertBefore(gridGroup, svg.firstChild)
 
-    // Add tooltip functionality (tooltip is declared outside renderChart)
-    const createTooltip = () => {
-      if (tooltip) return tooltip
-      tooltip = document.createElement("div")
-      tooltip.style.position = "absolute"
-      tooltip.style.pointerEvents = "none"
-      tooltip.style.backgroundColor = isDark ? "#1f2937" : "#ffffff"
-      tooltip.style.border = `1px solid ${gridColor}`
-      tooltip.style.borderRadius = "6px"
-      tooltip.style.padding = "8px"
-      tooltip.style.fontSize = "12px"
-      tooltip.style.color = textColor
-      tooltip.style.display = "none"
-      tooltip.style.zIndex = "1000"
-      document.body.appendChild(tooltip)
+    // Tooltip helpers: keep content updates and position updates separate and
+    // move the tooltip DOM directly for very cheap mouse-move handling.
+    const updateTooltipPosition = (event: MouseEvent) => {
+      if (!containerRef.current || !tooltipElementRef.current) return
+
+      const container = containerRef.current
+      const rect = container.getBoundingClientRect()
+      const rawX = event.clientX - rect.left
+      const rawY = event.clientY - rect.top
+
+      const maxWidth = container.clientWidth || 800
+      const maxHeight = container.clientHeight || 250
+
+      const x = Math.min(Math.max(rawX + 16, 8), maxWidth - 8)
+      const y = Math.min(Math.max(rawY - 16, 8), maxHeight - 8)
+
+      const el = tooltipElementRef.current
+      el.style.left = `${x}px`
+      el.style.top = `${y}px`
     }
 
-    const showTooltip = (event: MouseEvent, day: string, category: string, amount: number, isTotal: boolean, breakdown?: Array<{ category: string; amount: number }>) => {
-      if (!tooltip) createTooltip()
-      if (!tooltip) return
-      
-      if (isTotal && breakdown) {
-        // Show total with category breakdown
-        const breakdownHtml = breakdown
-          .sort((a, b) => b.amount - a.amount)
-          .map(item => `
-            <div style="display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px;">
-              <span style="color: ${textColor};">${item.category}:</span>
-              <span style="font-weight: 600;">$${item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </div>
-          `).join("")
-        
-        tooltip.innerHTML = `
-          <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px;">${day} - Total</div>
-          <div style="border-top: 1px solid ${gridColor}; padding-top: 6px; margin-bottom: 6px;">
-            ${breakdownHtml}
-          </div>
-          <div style="border-top: 1px solid ${gridColor}; padding-top: 6px; margin-top: 4px;">
-            <div style="display: flex; justify-content: space-between; gap: 12px; font-weight: 700; font-size: 13px;">
-              <span>Total:</span>
-              <span>$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </div>
-          </div>
-        `
-      } else {
-        // Show individual category
-        tooltip.innerHTML = `
-          <div style="font-weight: 600; margin-bottom: 4px;">${day}</div>
-          <div style="margin-bottom: 2px;"><strong>${category}:</strong></div>
-          <div>$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-        `
-      }
-      
-      tooltip.style.display = "block"
-      tooltip.style.left = `${event.pageX + 10}px`
-      tooltip.style.top = `${event.pageY + 10}px`
+    const showTooltip = (
+      day: string,
+      category: string,
+      amount: number,
+      isTotal: boolean,
+      breakdown?: Array<{ category: string; amount: number }>,
+      color?: string,
+    ) => {
+      setTooltip((prev) => {
+        // Avoid re-setting identical tooltip content to prevent unnecessary renders.
+        if (
+          prev &&
+          prev.day === day &&
+          prev.category === category &&
+          prev.amount === amount &&
+          prev.isTotal === isTotal &&
+          prev.color === color
+        ) {
+          return prev
+        }
+        return {
+          day,
+          category,
+          amount,
+          isTotal,
+          breakdown,
+          color,
+        }
+      })
     }
 
     const hideTooltip = () => {
-      if (tooltip) {
-        tooltip.style.display = "none"
-      }
+      setTooltip(null)
     }
 
     // Add event listeners to bars
@@ -534,7 +562,10 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
         const target = e.target as SVGElement
         const day = target.getAttribute("data-day") || ""
         const isTotal = target.getAttribute("data-is-total") === "true"
-        
+
+        // On initial hover, set both content and position.
+        updateTooltipPosition(e as unknown as MouseEvent)
+
         if (isTotal) {
           const totalAmount = parseFloat(target.getAttribute("data-total-amount") || "0")
           const breakdownStr = target.getAttribute("data-breakdown") || "[]"
@@ -544,43 +575,33 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
           } catch (e) {
             // Ignore parse errors
           }
-          showTooltip(e as unknown as MouseEvent, day, "", totalAmount, true, breakdown)
+          showTooltip(day, "", totalAmount, true, breakdown)
         } else {
           const category = target.getAttribute("data-category") || ""
           const amount = parseFloat(target.getAttribute("data-amount") || "0")
-          showTooltip(e as unknown as MouseEvent, day, category, amount, false)
+          const color = target.getAttribute("fill") || undefined
+          showTooltip(day, category, amount, false, undefined, color)
         }
       })
       bar.addEventListener("mouseleave", hideTooltip)
       bar.addEventListener("mousemove", (e) => {
         const target = e.target as SVGElement
-        const day = target.getAttribute("data-day") || ""
         const isTotal = target.getAttribute("data-is-total") === "true"
-        
-        if (isTotal) {
-          const totalAmount = parseFloat(target.getAttribute("data-total-amount") || "0")
-          const breakdownStr = target.getAttribute("data-breakdown") || "[]"
-          let breakdown: Array<{ category: string; amount: number }> = []
-          try {
-            breakdown = JSON.parse(breakdownStr)
-          } catch (e) {
-            // Ignore parse errors
-          }
-          showTooltip(e as unknown as MouseEvent, day, "", totalAmount, true, breakdown)
-        } else {
-          const category = target.getAttribute("data-category") || ""
-          const amount = parseFloat(target.getAttribute("data-amount") || "0")
-          showTooltip(e as unknown as MouseEvent, day, category, amount, false)
-        }
+
+        // On mouse move, only update the tooltip position to keep it responsive
+        // without re-running all the content work.
+        updateTooltipPosition(e as unknown as MouseEvent)
       })
     })
     } // End of renderChart function
 
-    // Declare tooltip outside renderChart so it persists across renders
-    let tooltip: HTMLDivElement | null = null
-
-    // Initial render
-    renderChart()
+    // Decide whether to animate this render.
+    // We animate only the first time (or when new data appears), and then
+    // render subsequent updates without animation so that hover/state
+    // changes don't cause the entire chart to "replay" its entrance.
+    const shouldAnimate = !hasAnimatedRef.current
+    renderChart(shouldAnimate)
+    hasAnimatedRef.current = true
 
     // Set up ResizeObserver to handle container size changes
     const container = svg.parentElement
@@ -597,9 +618,6 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
       if (resizeObserver && container) {
         resizeObserver.unobserve(container)
       }
-      if (tooltip && document.body.contains(tooltip)) {
-        document.body.removeChild(tooltip)
-      }
     }
   }, [processedData, categories, categoryColors, isDark, textColor, gridColor, axisColor, hiddenCategories])
 
@@ -607,9 +625,13 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
     return (
       <Card className="@container/card">
         <CardHeader>
-          <div>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="dayOfWeekSpending"
+              chartTitle="Day of Week Spending by Category"
+              size="md"
+            />
             <CardTitle>Day of Week Spending by Category</CardTitle>
-            <CardDescription>See which categories you spend the most on each day</CardDescription>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
@@ -625,16 +647,21 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
   return (
     <Card className="@container/card">
       <CardHeader>
-        <div>
+        <div className="flex items-center gap-2">
+          <ChartFavoriteButton
+            chartId="dayOfWeekSpending"
+            chartTitle="Day of Week Spending by Category"
+            size="md"
+          />
           <CardTitle>Day of Week Spending by Category</CardTitle>
-          <CardDescription>See which categories you spend the most on each day</CardDescription>
         </div>
+        <CardDescription>See which categories you spend the most on each day</CardDescription>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoTrigger()}
         </CardAction>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex flex-col">
-        <div className="w-full flex-1 min-h-0">
+        <div ref={containerRef} className="relative w-full flex-1 min-h-0">
           <svg
             ref={svgRef}
             width="100%"
@@ -642,6 +669,52 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
             preserveAspectRatio="none"
             style={{ display: "block" }}
           />
+          {tooltip && (
+            <div
+              ref={tooltipElementRef}
+              className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+            >
+              {tooltip.isTotal && tooltip.breakdown ? (
+                <>
+                  <div className="font-medium mb-2 text-foreground">{tooltip.day} - Total</div>
+                  <div className="border-t border-border/60 pt-1.5 mb-1.5">
+                    {tooltip.breakdown
+                      .sort((a, b) => b.amount - a.amount)
+                      .map((item, idx) => (
+                        <div key={idx} className="flex justify-between gap-3 mb-1">
+                          <span className="text-foreground/80">{item.category}:</span>
+                          <span className="font-semibold text-foreground">
+                            ${item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                  <div className="border-t border-border/60 pt-1.5 mt-1">
+                    <div className="flex justify-between gap-3 font-bold text-foreground">
+                      <span>Total:</span>
+                      <span>${tooltip.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 mb-1">
+                    {tooltip.color && (
+                      <span
+                        className="h-2.5 w-2.5 rounded-full border border-border/50"
+                        style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
+                      />
+                    )}
+                    <span className="font-medium text-foreground">{tooltip.day}</span>
+                  </div>
+                  <div className="text-foreground/80 mb-0.5">{tooltip.category}:</div>
+                  <div className="font-mono text-[0.7rem] text-foreground/80">
+                    ${tooltip.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
         {categories.length > 0 && (
           <div className="px-4 pb-4 pt-2 flex flex-wrap items-center justify-center gap-3 text-xs">

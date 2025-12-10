@@ -13,7 +13,6 @@ import {
   RadialBar,
   RadialBarChart,
   ResponsiveContainer,
-  Tooltip,
 } from "recharts"
 import { useTheme } from "next-themes"
 
@@ -21,10 +20,10 @@ import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { IconInfoCircle } from "@tabler/icons-react"
 import {
   Popover,
@@ -66,7 +65,6 @@ export function ChartCirclePacking({ data = { name: "", children: [] } }: ChartC
       <Card>
         <CardHeader>
           <CardTitle>Budget Distribution</CardTitle>
-          <CardDescription>Visualizes how your budget is allocated across categories</CardDescription>
         </CardHeader>
         <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
@@ -167,8 +165,14 @@ export function ChartPolarBar({ data: dataProp = [], keys: keysProp }: ChartPola
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Household Spend Mix</CardTitle>
-          <CardDescription>Track monthly expenses across key categories</CardDescription>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="householdSpendMix"
+              chartTitle="Household Spend Mix"
+              size="md"
+            />
+            <CardTitle>Household Spend Mix</CardTitle>
+          </div>
         </CardHeader>
         <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
@@ -180,7 +184,14 @@ export function ChartPolarBar({ data: dataProp = [], keys: keysProp }: ChartPola
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Household Spend Mix</CardTitle>
+        <div className="flex items-center gap-2">
+          <ChartFavoriteButton
+            chartId="householdSpendMix"
+            chartTitle="Household Spend Mix"
+            size="md"
+          />
+          <CardTitle>Household Spend Mix</CardTitle>
+        </div>
         <CardDescription>Track monthly expenses across key categories</CardDescription>
       </CardHeader>
       <CardContent className="chart-polar-bar h-[250px]">
@@ -238,8 +249,14 @@ export function ChartRadar({ data = [] }: ChartRadarProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Financial Health Score</CardTitle>
-          <CardDescription>Assessment of your financial wellness</CardDescription>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="financialHealthScore"
+              chartTitle="Financial Health Score"
+              size="md"
+            />
+            <CardTitle>Financial Health Score</CardTitle>
+          </div>
         </CardHeader>
         <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
@@ -251,7 +268,14 @@ export function ChartRadar({ data = [] }: ChartRadarProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Financial Health Score</CardTitle>
+        <div className="flex items-center gap-2">
+          <ChartFavoriteButton
+            chartId="financialHealthScore"
+            chartTitle="Financial Health Score"
+            size="md"
+          />
+          <CardTitle>Financial Health Score</CardTitle>
+        </div>
         <CardDescription>Assessment of your financial wellness</CardDescription>
       </CardHeader>
       <CardContent className="h-[250px]">
@@ -306,7 +330,6 @@ export function ChartSankey({ data = { nodes: [], links: [] } }: ChartSankeyProp
       <Card className="col-span-full">
         <CardHeader>
           <CardTitle>Cash Flow Sankey</CardTitle>
-          <CardDescription>Follow revenue as it moves through the org</CardDescription>
         </CardHeader>
         <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
@@ -381,7 +404,6 @@ export function ChartStream({ data = [] }: ChartStreamProps) {
       <Card className="col-span-full">
         <CardHeader>
           <CardTitle>Income Streams</CardTitle>
-          <CardDescription>Monthly income breakdown by source</CardDescription>
         </CardHeader>
         <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
@@ -451,8 +473,14 @@ export function ChartSwarmPlot({ data = [] }: ChartSwarmPlotProps) {
     return (
       <Card className="col-span-full">
         <CardHeader>
-          <CardTitle>Transaction History</CardTitle>
-          <CardDescription>Recent transactions by category</CardDescription>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="transactionHistory"
+              chartTitle="Transaction History"
+              size="md"
+            />
+            <CardTitle>Transaction History</CardTitle>
+          </div>
         </CardHeader>
         <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
@@ -464,7 +492,14 @@ export function ChartSwarmPlot({ data = [] }: ChartSwarmPlotProps) {
   return (
     <Card className="col-span-full">
       <CardHeader>
-        <CardTitle>Transaction History</CardTitle>
+        <div className="flex items-center gap-2">
+          <ChartFavoriteButton
+            chartId="transactionHistory"
+            chartTitle="Transaction History"
+            size="md"
+          />
+          <CardTitle>Transaction History</CardTitle>
+        </div>
         <CardDescription>Recent transactions by category</CardDescription>
       </CardHeader>
       <CardContent className="h-[250px]">
@@ -498,6 +533,8 @@ interface ChartTreeMapProps {
 
 export function ChartTreeMap({ data = { name: "", children: [] } }: ChartTreeMapProps) {
   const { getPalette } = useColorScheme()
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme === "dark"
   const [isInfoOpen, setIsInfoOpen] = useState(false)
   const sanitizedData = useMemo(() => {
     if (!data || !data.children) return { name: "", children: [] }
@@ -519,7 +556,6 @@ export function ChartTreeMap({ data = { name: "", children: [] } }: ChartTreeMap
       <Card className="col-span-full">
         <CardHeader>
           <CardTitle>Net Worth Allocation</CardTitle>
-          <CardDescription>Breakdown of your total assets</CardDescription>
           <CardAction>
             <Popover open={isInfoOpen} onOpenChange={setIsInfoOpen}>
               <PopoverTrigger asChild>
@@ -562,7 +598,6 @@ export function ChartTreeMap({ data = { name: "", children: [] } }: ChartTreeMap
       <Card className="col-span-full">
         <CardHeader>
           <CardTitle>Net Worth Allocation</CardTitle>
-          <CardDescription>Breakdown of your total assets - Click on a category to see transactions</CardDescription>
           <CardAction>
             <Popover open={isInfoOpen} onOpenChange={setIsInfoOpen}>
               <PopoverTrigger asChild>
@@ -627,20 +662,30 @@ export function ChartTreeMap({ data = { name: "", children: [] } }: ChartTreeMap
               return words.length > 1 ? words[0] : name
             }}
             borderColor={{ from: "color", modifiers: [["darker", 0.1]] }}
-            tooltip={({ node }) => (
-              <div style={{
-                background: 'white',
-                padding: '8px 12px',
-                borderRadius: '4px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                fontSize: '12px'
-              }}>
-                <strong>{node.formattedValue}</strong>
-                <div style={{ color: '#666', marginTop: '4px' }}>
-                  {node.data.name}
+            tooltip={({ node }) => {
+              const tooltipBg = isDark ? '#1f2937' : '#ffffff'
+              const tooltipText = isDark ? '#f3f4f6' : '#000000'
+              const tooltipSecondary = isDark ? '#9ca3af' : '#666666'
+              const tooltipBorder = isDark ? '#374151' : '#e2e8f0'
+              
+              return (
+                <div style={{
+                  background: tooltipBg,
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  border: `1px solid ${tooltipBorder}`,
+                  fontSize: '12px'
+                }}>
+                  <div style={{ fontWeight: 600, marginBottom: '4px', color: tooltipText }}>
+                    {node.data.name}
+                  </div>
+                  <div style={{ color: tooltipSecondary }}>
+                    {node.formattedValue}
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+            }}
           />
         </CardContent>
       </Card>
@@ -673,6 +718,9 @@ export function ChartRadialBar({
   const [localBudgets, setLocalBudgets] = React.useState<Record<string, number>>(budgets)
   const [dateFilter, setDateFilter] = React.useState<string | null>(null)
   const [mounted, setMounted] = React.useState(false)
+  const [tooltip, setTooltip] = React.useState<{ category: string; spent: number; budget: number; percentage: string; exceeded: boolean; color: string } | null>(null)
+  const [tooltipPosition, setTooltipPosition] = React.useState<{ x: number; y: number } | null>(null)
+  const containerRef = React.useRef<HTMLDivElement>(null)
 
   // Update local budgets when prop changes
   React.useEffect(() => {
@@ -705,6 +753,28 @@ export function ChartRadialBar({
   React.useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Track mouse movement for tooltip positioning
+  React.useEffect(() => {
+    if (tooltip && containerRef.current) {
+      const handleMouseMove = (e: MouseEvent) => {
+        if (!containerRef.current) return
+        const rect = containerRef.current.getBoundingClientRect()
+        setTooltipPosition({
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        })
+      }
+      
+      window.addEventListener('mousemove', handleMouseMove)
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove)
+      }
+    } else {
+      setTooltip(null)
+      setTooltipPosition(null)
+    }
+  }, [tooltip])
 
   const getDefaultBudget = React.useCallback(
     (categoryName: string, spent: number) => {
@@ -764,7 +834,6 @@ export function ChartRadialBar({
       <Card>
         <CardHeader>
           <CardTitle>Category Budget</CardTitle>
-          <CardDescription>Track spending against your budget limits</CardDescription>
         </CardHeader>
         <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
           No data available
@@ -895,86 +964,126 @@ export function ChartRadialBar({
       </CardHeader>
       <CardContent className="h-[250px]">
         {mounted && (
-          <ResponsiveContainer width="100%" height="100%" minHeight={250}>
-            <RadialBarChart
-            innerRadius="15%"
-            outerRadius="100%"
-            cx="50%"
-            cy="50%"
-            data={processedData}
-            // Start on the left (180°) and sweep clockwise back to the left (-180°)
-            startAngle={180}
-            endAngle={-180}
-          >
-            <RadialBar
-              label={(props: {
-                x: number
-                y: number
-                textAnchor?: string
-                payload?: { uv?: number; pv?: number }
-              }) => {
-                const uv = toNumericValue(props.payload?.uv)
-                const pv = toNumericValue(props.payload?.pv)
-                const exceeded = uv > pv
-                return (
-                  <text
-                    x={props.x}
-                    y={props.y}
-                    fill={exceeded ? "#ef4444" : "#666"}
-                    textAnchor={props.textAnchor as "start" | "end" | "inherit" | "middle" | undefined}
-                    fontSize="12"
-                    fontWeight={exceeded ? "bold" : "normal"}
-                  >
-                    {uv.toFixed(2)}
-                  </text>
-                )
+          <div ref={containerRef} className="relative h-full w-full">
+            <ResponsiveContainer width="100%" height="100%" minHeight={250}>
+              <RadialBarChart
+              innerRadius="15%"
+              outerRadius="100%"
+              cx="50%"
+              cy="50%"
+              data={processedData}
+              // Start on the left (180°) and sweep clockwise back to the left (-180°)
+              startAngle={180}
+              endAngle={-180}
+              onMouseMove={(data: any, index: number, e: any) => {
+                if (data && data.activePayload && data.activePayload[0]) {
+                  const payload = data.activePayload[0].payload
+                  const name = data.activePayload[0].name || payload.name || ""
+                  const spent = toNumericValue(payload.uv)
+                  const budget = toNumericValue(payload.pv)
+                  const exceeded = spent > budget
+                  const pct = budget > 0 ? ((spent / budget) * 100).toFixed(1) : '0'
+                  const color = payload.fill || palette[0] || "#8884d8"
+                  
+                  if (containerRef.current && e) {
+                    const rect = containerRef.current.getBoundingClientRect()
+                    setTooltipPosition({
+                      x: e.clientX - rect.left,
+                      y: e.clientY - rect.top,
+                    })
+                    setTooltip({
+                      category: name,
+                      spent,
+                      budget,
+                      percentage: pct,
+                      exceeded,
+                      color,
+                    })
+                  }
+                }
               }}
-              background
-              dataKey="value"
-              isAnimationActive={isAnimationActive}
-            />
-            <Legend
-              iconSize={10}
-              layout="horizontal"
-              verticalAlign="bottom"
-              align="center"
-              wrapperStyle={{ paddingTop: 16 }}
-              formatter={(value: string) => {
-                const legendTextColor =
-                  resolvedTheme === "dark" ? "#ffffff" : "#000000"
-                return (
-                  <span style={{ color: legendTextColor, fontSize: 12 }}>
-                    {value}
-                  </span>
-                )
+              onMouseLeave={() => {
+                setTooltip(null)
+                setTooltipPosition(null)
               }}
-            />
-            <Tooltip
-              formatter={(_, name: string, rawProps: unknown) => {
-                const props = rawProps as { payload: { uv: number; pv: number } }
-                const spent = props.payload.uv
-                const budget = props.payload.pv
-                const exceeded = spent > budget
-                const pct = budget > 0 ? ((spent / budget) * 100).toFixed(1) : '0'
-                return [
-                  <span key="category">
-                    Category: {name}
-                  </span>,
-                  <span key="pct">
-                    Used: {pct}%
-                  </span>,
-                  <span key="spent" style={{ color: exceeded ? '#ef4444' : '#666' }}>
-                    Spent: ${spent.toFixed(2)}
-                  </span>,
-                  <span key="budget">
-                    Budget: ${Math.floor(budget)}
-                  </span>,
-                  exceeded ? <span key="status" style={{ color: '#ef4444' }}>⚠ Exceeded</span> : null
-                ]
+            >
+              <RadialBar
+                label={(props: {
+                  x: number
+                  y: number
+                  textAnchor?: string
+                  payload?: { uv?: number; pv?: number }
+                }) => {
+                  const uv = toNumericValue(props.payload?.uv)
+                  const pv = toNumericValue(props.payload?.pv)
+                  const exceeded = uv > pv
+                  return (
+                    <text
+                      x={props.x}
+                      y={props.y}
+                      fill={exceeded ? "#ef4444" : "#666"}
+                      textAnchor={props.textAnchor as "start" | "end" | "inherit" | "middle" | undefined}
+                      fontSize="12"
+                      fontWeight={exceeded ? "bold" : "normal"}
+                    >
+                      {uv.toFixed(2)}
+                    </text>
+                  )
+                }}
+                background
+                dataKey="value"
+                isAnimationActive={isAnimationActive}
+              />
+              <Legend
+                iconSize={10}
+                layout="horizontal"
+                verticalAlign="bottom"
+                align="center"
+                wrapperStyle={{ paddingTop: 16 }}
+                formatter={(value: string) => {
+                  const legendTextColor =
+                    resolvedTheme === "dark" ? "#ffffff" : "#000000"
+                  return (
+                    <span style={{ color: legendTextColor, fontSize: 12 }}>
+                      {value}
+                    </span>
+                  )
+                }}
+              />
+            </RadialBarChart>
+          </ResponsiveContainer>
+          {tooltip && tooltipPosition && (
+            <div
+              className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+              style={{
+                left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
+                top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
               }}
-            />
-          </RadialBarChart>
-        </ResponsiveContainer>
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span
+                  className="h-2.5 w-2.5 rounded-full border border-border/50"
+                  style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
+                />
+                <span className="font-medium text-foreground whitespace-nowrap">{tooltip.category}</span>
+              </div>
+              <div className="mt-1 text-[0.7rem] text-foreground/80">
+                Used: {tooltip.percentage}%
+              </div>
+              <div className={`mt-0.5 font-mono text-[0.7rem] ${tooltip.exceeded ? 'text-destructive' : 'text-foreground/80'}`}>
+                Spent: ${tooltip.spent.toFixed(2)}
+              </div>
+              <div className="mt-0.5 font-mono text-[0.7rem] text-foreground/80">
+                Budget: ${Math.floor(tooltip.budget)}
+              </div>
+              {tooltip.exceeded && (
+                <div className="mt-1 text-[0.7rem] text-destructive">
+                  ⚠ Exceeded
+                </div>
+              )}
+            </div>
+          )}
+          </div>
         )}
       </CardContent>
     </Card>

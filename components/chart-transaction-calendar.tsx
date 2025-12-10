@@ -5,13 +5,13 @@ import { useState, useEffect, useMemo } from "react"
 import { useTheme } from "next-themes"
 import ReactECharts from "echarts-for-react"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
+import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 
 interface ChartTransactionCalendarProps {
   data?: Array<{
@@ -91,28 +92,39 @@ const formatFilterLabel = (filter: string | null) => {
 }
 
 export function ChartTransactionCalendar({ data: propData }: ChartTransactionCalendarProps) {
-  const renderInfoTrigger = () => (
-    <ChartInfoPopover
-      title="Daily Transaction Activity"
-      description="Your spending patterns throughout the year - darker means more transactions"
-      details={[
-        "Each cell represents a day, colored by the total amount you spent.",
-        "We pull expense-only data from /api/transactions/daily so income, transfers, and savings moves are excluded."
-      ]}
-      ignoredFootnote="The API filters to negative transactions only and trims out internal transfers and savings deposits."
-    />
-  )
-
   const currentYear = new Date().getFullYear()
   const [selectedYear, setSelectedYear] = useState(currentYear.toString())
   const { resolvedTheme } = useTheme()
+
+  const renderInfoTrigger = () => (
+    <div className="flex flex-col items-center gap-2">
+      <ChartInfoPopover
+        title="Daily Transaction Activity"
+        description="Your spending patterns throughout the year - darker means more transactions"
+        details={[
+          "Each cell represents a day, colored by the total amount you spent.",
+          "We pull expense-only data from /api/transactions/daily so income, transfers, and savings moves are excluded."
+        ]}
+        ignoredFootnote="The API filters to negative transactions only and trims out internal transfers and savings deposits."
+      />
+      <ChartAiInsightButton
+        chartId="dailyTransactionActivity"
+        chartTitle="Daily Transaction Activity"
+        chartDescription="Your spending patterns throughout the year - darker means more transactions"
+        size="sm"
+      />
+    </div>
+  )
   const { colorScheme, getPalette } = useColorScheme()
   const [mounted, setMounted] = useState(false)
   const [allData, setAllData] = useState<Array<{ day: string; value: number }>>(propData || [])
   const [isLoading, setIsLoading] = useState(!propData)
+  const [error, setError] = useState<string | null>(null)
   const [dateFilter, setDateFilter] = useState<string | null>(null)
   const chartRef = React.useRef<any>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
+  const [tooltip, setTooltip] = useState<{ date: string; value: number; color: string } | null>(null)
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
 
   // Check if YTD is selected
   const isYTD = selectedYear === "YTD"
@@ -153,19 +165,25 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
     const fetchDailyTransactions = async () => {
       try {
         setIsLoading(true)
+        setError(null)
         const url = dateFilter
           ? `/api/transactions/daily?filter=${encodeURIComponent(dateFilter)}`
           : "/api/transactions/daily"
         const data = await deduplicatedFetch<Array<{ day: string; value: number }>>(url)
         if (Array.isArray(data)) {
           setAllData(data)
+          if (data.length === 0) {
+            setError("No transaction data available for the selected period")
+          }
         } else {
           console.error("[ChartTransactionCalendar] Invalid data format:", data)
           setAllData([])
+          setError("Invalid data format received from server")
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("[ChartTransactionCalendar] Error fetching daily transactions:", error)
         setAllData([])
+        setError(error?.message || "Failed to load transaction data")
       } finally {
         setIsLoading(false)
       }
@@ -175,21 +193,8 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
   }, [propData, dateFilter])
 
   useEffect(() => {
+    // Mark as mounted to avoid rendering chart on server
     setMounted(true)
-    return () => {
-      // Cleanup on unmount - handle React Strict Mode double-mounting
-      if (chartRef.current) {
-        try {
-          const instance = chartRef.current.getEchartsInstance()
-          if (instance && !instance.isDisposed()) {
-            instance.dispose()
-          }
-        } catch (e) {
-          // Ignore disposal errors (common in React Strict Mode)
-        }
-        chartRef.current = null
-      }
-    }
   }, [])
 
   // Generate list of available years from data, or use current year if no data
@@ -206,7 +211,7 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
     return Array.from(years).sort((a, b) => b - a)
   }, [allData, currentYear])
 
-  // Calculate date range based on global filter or local year selection
+  // Calculate date range based on global filter or local year selection.
   const { fromDate, toDate, enforcedByFilter } = useMemo(() => {
     if (dateFilter) {
       const range = getRangeForFilter(dateFilter)
@@ -220,34 +225,65 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
       const oneYearAgo = new Date(today)
       oneYearAgo.setDate(oneYearAgo.getDate() - 365)
       return {
-        fromDate: oneYearAgo.toISOString().split('T')[0],
-        toDate: today.toISOString().split('T')[0],
-        enforcedByFilter: false
+        fromDate: oneYearAgo.toISOString().split("T")[0],
+        toDate: today.toISOString().split("T")[0],
+        enforcedByFilter: false,
       }
     }
 
     return {
       fromDate: `${selectedYear}-01-01`,
       toDate: `${selectedYear}-12-31`,
-      enforcedByFilter: false
+      enforcedByFilter: false,
     }
   }, [dateFilter, isYTD, selectedYear])
 
   // Filter data based on selection, excluding days with value 0 and future dates
-  const filteredData = allData.filter((item) => {
-    const itemDate = item.day
-    const today = new Date().toISOString().split('T')[0]
+  const filteredData = useMemo(() => {
+    const filtered = allData.filter((item) => {
+      const itemDate = item.day
+      const today = new Date().toISOString().split('T')[0]
 
-    if (item.value <= 0 || itemDate > today) return false
-    if (fromDate && itemDate < fromDate) return false
-    if (toDate && itemDate > toDate) return false
-    return true
-  })
+      if (item.value <= 0 || itemDate > today) return false
+      if (fromDate && itemDate < fromDate) return false
+      if (toDate && itemDate > toDate) return false
+      return true
+    })
+    
+    if (allData.length > 0 && filtered.length === 0) {
+    }
+    
+    return filtered
+  }, [allData, fromDate, toDate])
 
   // Format data for ECharts: [date, value] format
   const chartData = useMemo(() => {
     return filteredData.map((item) => [item.day, item.value])
   }, [filteredData])
+
+  // If there is no data for the selected year/YTD, automatically switch to the closest year that has data.
+  useEffect(() => {
+    // Don't auto-switch if a global filter is active
+    if (dateFilter) return
+    // Don't switch if we have no data at all
+    if (!allData || allData.length === 0 || availableYears.length === 0) return
+    // If the chart already has data, do nothing
+    if (chartData.length > 0) return
+
+    // Find the closest year to current year that has data
+    const closestYear = availableYears.reduce((best, year) => {
+      const bestDiff = Math.abs(best - currentYear)
+      const yearDiff = Math.abs(year - currentYear)
+      if (yearDiff < bestDiff) return year
+      if (yearDiff === bestDiff) return year > best ? year : best
+      return best
+    }, availableYears[0])
+
+    // Avoid unnecessary state updates
+    if (selectedYear !== closestYear.toString()) {
+      setSelectedYear(closestYear.toString())
+    }
+  }, [dateFilter, chartData, allData, availableYears, currentYear, selectedYear])
 
   // Calculate max value for visualMap
   const maxValue = useMemo(() => {
@@ -259,23 +295,120 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
 
   // Get colors from color scheme provider
   // Filter out #c3c3c3 (empty color) and reverse so darker colors are at the end (for high spending)
+  // Limit to 3 colors for the legend
   const palette = useMemo(() => {
     const colors = getPalette().filter(color => color !== "#c3c3c3")
-    return [...colors].reverse() // Reverse so darkest colors are at the end for high spending
+    const reversed = [...colors].reverse() // Reverse so darkest colors are at the end for high spending
+    // Take only 3 colors: first (lightest), middle, and last (darkest)
+    if (reversed.length >= 3) {
+      return [reversed[0], reversed[Math.floor(reversed.length / 2)], reversed[reversed.length - 1]]
+    }
+    return reversed.slice(0, 3) // If less than 3 colors available, take what we have
   }, [getPalette])
 
+
+  // Get color for a value based on the palette
+  const getColorForValue = (value: number): string => {
+    if (palette.length === 0) return "#c3c3c3"
+    if (maxValue === 0) return palette[0]
+    
+    const normalizedValue = Math.min(value / maxValue, 1)
+    
+    if (palette.length === 1) return palette[0]
+    if (palette.length === 2) {
+      return normalizedValue < 0.5 ? palette[0] : palette[1]
+    }
+    
+    // For 3+ colors, interpolate
+    const segmentSize = 1 / (palette.length - 1)
+    const segmentIndex = Math.min(Math.floor(normalizedValue / segmentSize), palette.length - 1)
+    return palette[segmentIndex] || palette[palette.length - 1]
+  }
+
+  // Format currency value
+  const valueFormatter = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  })
+
+  // ECharts event handlers for custom tooltip
+  const handleChartMouseOver = (params: any, event?: any) => {
+    if (!containerRef.current) return
+    
+    const echartsInstance = chartRef.current?.getEchartsInstance()
+    if (!echartsInstance) return
+
+    // Get mouse position relative to container
+    const rect = containerRef.current.getBoundingClientRect()
+    let mouseX = 0
+    let mouseY = 0
+
+    if (event && event.offsetX !== undefined && event.offsetY !== undefined) {
+      // Use offsetX/offsetY if available (relative to container)
+      mouseX = event.offsetX
+      mouseY = event.offsetY
+    } else if (event && event.clientX !== undefined && event.clientY !== undefined) {
+      // Fallback to clientX/clientY and convert to container coordinates
+      mouseX = event.clientX - rect.left
+      mouseY = event.clientY - rect.top
+    } else {
+      // Try to get from ECharts zrender handler
+      const zr = echartsInstance.getZr()
+      const handler = zr.handler
+      if (handler && handler.lastOffset) {
+        mouseX = handler.lastOffset[0]
+        mouseY = handler.lastOffset[1]
+      }
+    }
+    
+    setTooltipPosition({
+      x: mouseX,
+      y: mouseY,
+    })
+
+    // Extract data from params
+    if (params.data && Array.isArray(params.data) && params.data.length >= 2) {
+      const date = params.data[0] as string
+      const value = params.data[1] as number
+      const color = getColorForValue(value)
+      
+      setTooltip({
+        date,
+        value,
+        color,
+      })
+    }
+  }
+
+  const handleChartMouseOut = () => {
+    setTooltip(null)
+    setTooltipPosition(null)
+  }
+
+  // Add global mousemove listener when tooltip is visible
+  useEffect(() => {
+    if (tooltip && containerRef.current) {
+      const handleMouseMove = (e: MouseEvent) => {
+        if (!containerRef.current) return
+        const rect = containerRef.current.getBoundingClientRect()
+        setTooltipPosition({
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        })
+      }
+      
+      window.addEventListener('mousemove', handleMouseMove)
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove)
+      }
+    }
+  }, [tooltip])
 
   // ECharts option configuration
   const option = useMemo(() => ({
     tooltip: {
-      position: 'top',
-      formatter: (params: any) => {
-        if (Array.isArray(params)) {
-          const param = params[0]
-          return `${param.data[0]}<br/>$${param.data[1]} in expenses`
-        }
-        return `${params.data[0]}<br/>$${params.data[1]} in expenses`
-      }
+      show: false, // Disable default ECharts tooltip
     },
     title: {
       show: false
@@ -297,7 +430,7 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
       range: [fromDate, toDate],
       itemStyle: {
         borderWidth: 0.5,
-        borderColor: isDark ? '#374151' : '#e5e7eb'
+        borderColor: isDark ? '#e5e7eb' : '#e5e7eb'
       },
       yearLabel: { show: false },
       dayLabel: {
@@ -320,13 +453,14 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
     return (
       <Card className="@container/card">
         <CardHeader>
-          <CardTitle>Daily Transaction Activity</CardTitle>
-          <CardDescription>
-            <span className="hidden @[540px]/card:block">
-              Your spending patterns throughout the year - darker means more transactions
-            </span>
-            <span className="@[540px]/card:hidden">Transaction heatmap</span>
-          </CardDescription>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="dailyTransactionActivity"
+              chartTitle="Daily Transaction Activity"
+              size="md"
+            />
+            <CardTitle>Daily Transaction Activity</CardTitle>
+          </div>
         <CardAction className="flex flex-wrap items-center gap-2">
           {renderInfoTrigger()}
           <Select
@@ -339,7 +473,7 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
               size="sm"
               aria-label="Select year"
             >
-              <SelectValue placeholder={selectedYear === "YTD" ? "YTD" : currentYear.toString()} />
+              <SelectValue placeholder={selectedYear === "YTD" ? "YTD" : selectedYear || currentYear.toString()} />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
               <SelectItem value="YTD" className="rounded-lg">
@@ -360,22 +494,27 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-          <div className="h-[250px] w-full" />
+          <div className="h-[250px] w-full flex items-center justify-center">
+            <span className="text-sm text-muted-foreground">Loading...</span>
+          </div>
         </CardContent>
       </Card>
     )
   }
 
-  return (
-    <Card className="@container/card">
-      <CardHeader>
-        <CardTitle>Daily Transaction Activity</CardTitle>
-        <CardDescription>
-          <span className="hidden @[540px]/card:block">
-            Your spending patterns throughout the year - darker means more transactions
-          </span>
-          <span className="@[540px]/card:hidden">Transaction heatmap</span>
-        </CardDescription>
+  // Show error or empty state
+  if (error || chartData.length === 0) {
+    return (
+      <Card className="@container/card">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="dailyTransactionActivity"
+              chartTitle="Daily Transaction Activity"
+              size="md"
+            />
+            <CardTitle>Daily Transaction Activity</CardTitle>
+          </div>
         <CardAction className="flex flex-wrap items-center gap-2">
           {renderInfoTrigger()}
           <Select
@@ -388,7 +527,7 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
               size="sm"
               aria-label="Select year"
             >
-              <SelectValue placeholder={currentYear.toString()} />
+              <SelectValue placeholder={selectedYear === "YTD" ? "YTD" : selectedYear || currentYear.toString()} />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
               <SelectItem value="YTD" className="rounded-lg">
@@ -409,20 +548,109 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
         </CardAction>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-        <div ref={containerRef} className="h-[250px] w-full" style={{ minHeight: 0, minWidth: 0 }}>
+        <div className="h-[250px] w-full flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">
+              {error || "No transaction data available for the selected period"}
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Try selecting a different year or check if you have transactions in your account.
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+    )
+  }
+
+  return (
+    <Card className="@container/card">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <ChartFavoriteButton
+            chartId="dailyTransactionActivity"
+            chartTitle="Daily Transaction Activity"
+            size="md"
+          />
+          <CardTitle>Daily Transaction Activity</CardTitle>
+        </div>
+        <CardAction className="flex flex-wrap items-center gap-2">
+          {renderInfoTrigger()}
+          <Select
+            value={selectedYear}
+            onValueChange={setSelectedYear}
+            disabled={isGlobalFilterActive}
+          >
+            <SelectTrigger
+              className="w-32 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
+              size="sm"
+              aria-label="Select year"
+            >
+              <SelectValue placeholder={selectedYear === "YTD" ? "YTD" : selectedYear || currentYear.toString()} />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="YTD" className="rounded-lg">
+                YTD
+              </SelectItem>
+              {availableYears.map((year) => (
+                <SelectItem key={year} value={year.toString()} className="rounded-lg">
+                  {year}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {isGlobalFilterActive && (
+            <span className="text-xs text-muted-foreground">
+              Showing {formatFilterLabel(dateFilter)}
+            </span>
+          )}
+        </CardAction>
+      </CardHeader>
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+        <div ref={containerRef} className="relative h-[250px] w-full" style={{ minHeight: 0, minWidth: 0 }}>
           <ReactECharts
             ref={chartRef}
             option={option}
             style={{ height: '100%', width: '100%' }}
             opts={{ renderer: 'svg' }}
             notMerge={true}
+            onEvents={{
+              mouseover: handleChartMouseOver,
+              mouseout: handleChartMouseOut,
+            }}
           />
+          {tooltip && tooltipPosition && (
+            <div
+              className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+              style={{
+                left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
+                top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 rounded-full border border-border/50"
+                  style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
+                />
+                <span className="font-medium text-foreground whitespace-nowrap">
+                  {new Date(tooltip.date).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </span>
+              </div>
+              <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
+                {valueFormatter.format(tooltip.value)}
+              </div>
+            </div>
+          )}
         </div>
-        {/* Color Legend */}
+        {/* Color Legend - Only 3 colors */}
         <div className="mt-4 flex items-center justify-center gap-3 px-2 sm:px-6">
           <span className="text-xs text-muted-foreground">Less</span>
           <div className="flex h-4 items-center gap-0.5">
-            {palette.map((color, index) => (
+            {palette.slice(0, 3).map((color, index) => (
               <div
                 key={index}
                 className="h-full w-3 rounded-sm"

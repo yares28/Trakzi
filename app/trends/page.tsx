@@ -293,7 +293,8 @@ export default function TrendsPage() {
         column: 12,
         cellHeight: 70,
         margin: 0, // Spacing handled via CSS instead
-        float: false,
+        float: true,  // Allow placing items anywhere without magnetizing to top
+        animate: true,  // Enable smooth animations
         draggable: {
           handle: ".grid-stack-item-content",
         },

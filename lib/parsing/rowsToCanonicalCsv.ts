@@ -3,17 +3,18 @@ import Papa from "papaparse";
 import { TxRow } from "../types/transactions";
 
 export function rowsToCanonicalCsv(rows: TxRow[]): string {
-    // Ensure category is always included, even if undefined
+    // Ensure category and summary are always included, even if undefined
     const rowsWithCategories = rows.map(r => ({
         date: r.date,
         description: r.description,
         amount: r.amount,
         balance: r.balance,
-        category: r.category || "" // Use empty string instead of undefined
+        category: r.category || "", // Use empty string instead of undefined
+        summary: r.summary || ""    // Clean merchant name
     }));
     
     const csv = Papa.unparse(rowsWithCategories, {
-        columns: ["date", "description", "amount", "balance", "category"]
+        columns: ["date", "description", "amount", "balance", "category", "summary"]
     });
     
     // Verify category column is in the CSV

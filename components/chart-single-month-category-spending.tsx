@@ -5,16 +5,17 @@ import * as React from "react"
 import ReactECharts from "echarts-for-react"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
+import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import {
   Select,
   SelectContent,
@@ -58,23 +59,12 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
   const [loading, setLoading] = React.useState(true)
   const chartRef = React.useRef<any>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
+  const [tooltip, setTooltip] = React.useState<{ label: string; value: number; color: string } | null>(null)
+  const [tooltipPosition, setTooltipPosition] = React.useState<{ x: number; y: number } | null>(null)
 
   React.useEffect(() => {
+    // Mark as mounted to avoid rendering chart on server
     setMounted(true)
-    return () => {
-      // Cleanup on unmount - handle React Strict Mode double-mounting
-      if (chartRef.current) {
-        try {
-          const instance = chartRef.current.getEchartsInstance()
-          if (instance && !instance.isDisposed()) {
-            instance.dispose()
-          }
-        } catch (e) {
-          // Ignore disposal errors (common in React Strict Mode)
-        }
-        chartRef.current = null
-      }
-    }
   }, [])
 
   // Fetch available months first (without selected month) when dateFilter changes
@@ -159,17 +149,109 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
     return base
   }, [getPalette])
 
+  // Format currency value
+  const valueFormatter = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  })
+
+  // ECharts event handlers for custom tooltip
+  const handleChartMouseOver = (params: any) => {
+    if (!containerRef.current) return
+    
+    const rect = containerRef.current.getBoundingClientRect()
+    let mouseX = 0
+    let mouseY = 0
+    const ecEvent = (params && (params.event?.event || params.event)) as
+      | (MouseEvent & { offsetX?: number; offsetY?: number })
+      | undefined
+
+    if (ecEvent) {
+      if (
+        typeof ecEvent.clientX === "number" &&
+        typeof ecEvent.clientY === "number"
+      ) {
+        mouseX = ecEvent.clientX - rect.left
+        mouseY = ecEvent.clientY - rect.top
+      } else if (
+        typeof ecEvent.offsetX === "number" &&
+        typeof ecEvent.offsetY === "number"
+      ) {
+        mouseX = ecEvent.offsetX
+        mouseY = ecEvent.offsetY
+      }
+    }
+    
+    setTooltipPosition({
+      x: mouseX,
+      y: mouseY,
+    })
+
+    if (params && params.name) {
+      const category = params.name || ""
+      let value = 0
+      if (Array.isArray(params.value)) {
+        value = params.value[1] || params.value[0] || 0
+      } else if (params.data && Array.isArray(params.data)) {
+        value = params.data[1] || 0
+      } else {
+        value = params.value || 0
+      }
+      const index = params.dataIndex || 0
+      const color = palette[index % palette.length]
+      
+      setTooltip({
+        label: category,
+        value,
+        color,
+      })
+    }
+  }
+
+  const handleChartMouseOut = () => {
+    setTooltip(null)
+    setTooltipPosition(null)
+  }
+
+  // Track mouse movement for tooltip positioning
+  React.useEffect(() => {
+    if (tooltip && containerRef.current) {
+      const handleMouseMove = (e: MouseEvent) => {
+        if (!containerRef.current) return
+        const rect = containerRef.current.getBoundingClientRect()
+        setTooltipPosition({
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        })
+      }
+      
+      window.addEventListener('mousemove', handleMouseMove)
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove)
+      }
+    }
+  }, [tooltip])
+
   const renderInfoTrigger = () => (
-    <ChartInfoPopover
-      title="Single Month Category Spending"
-      description="Compare spending across categories for a selected month."
-      details={[
-        "Each bar represents total spending in a category for the selected month.",
-        "Use the month selector to switch between different months.",
-        "Only the most spent categories are shown for each month.",
-      ]}
-      ignoredFootnote="Only expense transactions (amount < 0) are included."
-    />
+    <div className="flex flex-col items-center gap-2">
+      <ChartInfoPopover
+        title="Single Month Category Spending"
+        description="Compare spending across categories for a selected month."
+        details={[
+          "Each bar represents total spending in a category for the selected month.",
+          "Use the month selector to switch between different months.",
+          "Only the most spent categories are shown for each month.",
+        ]}
+        ignoredFootnote="Only expense transactions (amount < 0) are included."
+      />
+      <ChartAiInsightButton
+        chartId="singleMonthCategorySpending"
+        chartTitle="Single Month Category Spending"
+        chartDescription="Compare spending across categories for a selected month."
+        size="sm"
+      />
+    </div>
   )
 
   const option = React.useMemo(() => {
@@ -189,40 +271,20 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
 
     const backgroundColor =
       resolvedTheme === "dark" ? "rgba(15,23,42,0)" : "rgba(248,250,252,0)"
+    
+    // Use muted-foreground color for axis labels
+    const textColor = resolvedTheme === "dark" ? "#9ca3af" : "#6b7280"
 
     return {
       backgroundColor,
+      textStyle: {
+        color: textColor,
+      },
       legend: {
         show: false,
       },
       tooltip: {
-        trigger: "axis",
-        axisPointer: {
-          type: "shadow",
-        },
-        formatter: (params: any) => {
-          const param = Array.isArray(params) ? params[0] : params
-          const category = param.name || ""
-          // For dataset, value might be an array [category, amount] or just the amount
-          let value = 0
-          if (Array.isArray(param.value)) {
-            value = param.value[1] || param.value[0] || 0
-          } else if (param.data && Array.isArray(param.data)) {
-            value = param.data[1] || 0
-          } else {
-            value = param.value || 0
-          }
-          const formattedValue = `$${value.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}`
-          return `<div style="border-radius: 0.375rem; border: 1px solid hsl(var(--border)); background: hsl(var(--popover)); padding: 0.5rem 0.75rem; font-size: 0.875rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);">
-            <div style="font-weight: 500;">${category}: ${formattedValue}</div>
-          </div>`
-        },
-        backgroundColor: "transparent",
-        borderWidth: 0,
-        padding: 0,
+        show: false, // Disable default ECharts tooltip
       },
       dataset: {
         source: datasetSource,
@@ -232,12 +294,39 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
         axisLabel: {
           rotate: 45,
           interval: 0,
+          color: textColor,
+        },
+        axisTick: {
+          lineStyle: {
+            color: textColor,
+          },
+        },
+        axisLine: {
+          lineStyle: {
+            color: textColor,
+          },
         },
       },
       yAxis: {
         type: "value",
         axisLabel: {
           formatter: (value: number) => `$${value.toLocaleString()}`,
+          color: textColor,
+        },
+        axisTick: {
+          lineStyle: {
+            color: textColor,
+          },
+        },
+        axisLine: {
+          lineStyle: {
+            color: textColor,
+          },
+        },
+        splitLine: {
+          lineStyle: {
+            color: resolvedTheme === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+          },
         },
       },
       series: [
@@ -258,9 +347,13 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
     return (
       <Card className="@container/card">
         <CardHeader>
-          <div>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="singleMonthCategorySpending"
+              chartTitle="Single Month Category Spending"
+              size="md"
+            />
             <CardTitle>Single Month Category Spending</CardTitle>
-            <CardDescription>Compare spending across categories for a selected month</CardDescription>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
@@ -277,9 +370,13 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
     return (
       <Card className="@container/card">
         <CardHeader>
-          <div>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="singleMonthCategorySpending"
+              chartTitle="Single Month Category Spending"
+              size="md"
+            />
             <CardTitle>Single Month Category Spending</CardTitle>
-            <CardDescription>Compare spending across categories for a selected month</CardDescription>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
@@ -296,9 +393,13 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
     return (
       <Card className="@container/card">
         <CardHeader>
-          <div>
+          <div className="flex items-center gap-2">
+            <ChartFavoriteButton
+              chartId="singleMonthCategorySpending"
+              chartTitle="Single Month Category Spending"
+              size="md"
+            />
             <CardTitle>Single Month Category Spending</CardTitle>
-            <CardDescription>Compare spending across categories for a selected month</CardDescription>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
@@ -314,9 +415,13 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
   return (
     <Card className="@container/card">
       <CardHeader>
-        <div>
+        <div className="flex items-center gap-2">
+          <ChartFavoriteButton
+            chartId="singleMonthCategorySpending"
+            chartTitle="Single Month Category Spending"
+            size="md"
+          />
           <CardTitle>Single Month Category Spending</CardTitle>
-          <CardDescription>Compare spending across categories for a selected month</CardDescription>
         </div>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoTrigger()}
@@ -350,7 +455,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
                 maximumFractionDigits: 2,
               })}
             </div>
-            <div ref={containerRef} className="flex-1 min-h-0" style={{ minHeight: 0, minWidth: 0 }}>
+            <div ref={containerRef} className="relative flex-1 min-h-0" style={{ minHeight: 0, minWidth: 0 }}>
               {option && (
                 <ReactECharts
                   ref={chartRef}
@@ -358,7 +463,31 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
                   style={{ height: "100%", width: "100%" }}
                   opts={{ renderer: "svg" }}
                   notMerge={true}
+                  onEvents={{
+                    mouseover: handleChartMouseOver,
+                    mouseout: handleChartMouseOut,
+                  }}
                 />
+              )}
+              {tooltip && tooltipPosition && (
+                <div
+                  className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+                  style={{
+                    left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
+                    top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full border border-border/50"
+                      style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
+                    />
+                    <span className="font-medium text-foreground whitespace-nowrap">{tooltip.label}</span>
+                  </div>
+                  <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
+                    {valueFormatter.format(tooltip.value)}
+                  </div>
+                </div>
               )}
             </div>
           </div>

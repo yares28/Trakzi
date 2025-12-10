@@ -1,6 +1,7 @@
 ﻿"use client"
 
-import { useState, useEffect, useCallback, useMemo, memo, useRef, startTransition } from "react"
+import { useState, useEffect, useCallback, useMemo, memo, useRef } from "react"
+import { flushSync } from "react-dom"
 import {
   DndContext,
   closestCenter,
@@ -12,18 +13,16 @@ import {
 } from "@dnd-kit/core"
 import {
   SortableContext,
-  useSortable,
   arrayMove,
   rectSortingStrategy,
 } from "@dnd-kit/sortable"
-import { CSS } from "@dnd-kit/utilities"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
+import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { ChartCirclePacking } from "@/components/chart-circle-packing"
 import { ChartPolarBar } from "@/components/chart-polar-bar"
 import { ChartRadar } from "@/components/chart-radar"
-import { ChartSankey } from "@/components/chart-sankey"
 import { ChartSpendingStreamgraph } from "@/components/chart-spending-streamgraph"
 import { ChartSwarmPlot } from "@/components/chart-swarm-plot"
 import { ChartCategoryFlow } from "@/components/chart-category-flow"
@@ -31,7 +30,6 @@ import { ChartExpensesPie } from "@/components/chart-expenses-pie"
 import { ChartNeedsWantsPie } from "@/components/chart-needs-wants-pie"
 import { ChartSpendingFunnel } from "@/components/chart-spending-funnel"
 import { ChartTreeMap } from "@/components/chart-treemap"
-import { ChartTransactionCalendar } from "@/components/chart-transaction-calendar"
 import { ChartDayOfWeekSpending } from "@/components/chart-day-of-week-spending"
 import { ChartAllMonthsCategorySpending } from "@/components/chart-all-months-category-spending"
 import { ChartCategoryBubble } from "@/components/chart-category-bubble"
@@ -40,6 +38,7 @@ import { ChartDayOfWeekCategory } from "@/components/chart-day-of-week-category"
 import { SectionCards } from "@/components/section-cards"
 import { SiteHeader } from "@/components/site-header"
 import { SortableAnalyticsChart } from "@/components/SortableAnalyticsChart"
+import { toNumericValue } from "@/lib/utils"
 import {
   SidebarInset,
   SidebarProvider,
@@ -80,7 +79,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { useColorScheme } from "@/components/color-scheme-provider"
+import { useColorScheme, colorPalettes } from "@/components/color-scheme-provider"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
 import { IconUpload, IconFile, IconCircleCheck, IconLoader2, IconAlertCircle, IconTrash, IconMaximize, IconMinimize } from "@tabler/icons-react"
 import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
@@ -178,13 +177,14 @@ interface SpendingActivityRingsProps {
   theme: "light" | "dark"
   ringLimits?: Record<string, number>
   getDefaultLimit?: () => number
+  colorScheme?: string
 }
 
 // Custom concentric rings renderer so we control tooltips from Neon data
-function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaultLimit }: SpendingActivityRingsProps) {
-  const rings = Array.isArray(data) ? data : []
-  if (!rings.length) return null
-
+function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaultLimit, colorScheme }: SpendingActivityRingsProps) {
+  const rings = Array.isArray(data) ? data.filter((item): item is NonNullable<typeof item> => item != null) : []
+  
+  // Hooks must be called unconditionally - move before early return
   const [hoveredRing, setHoveredRing] = useState<number | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
   const [isAnimating, setIsAnimating] = useState(true)
@@ -193,9 +193,16 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
 
   // Reset animation state when data changes
   useEffect(() => {
-    setIsAnimating(true)
-    const timer = setTimeout(() => setIsAnimating(false), 800)
-    return () => clearTimeout(timer)
+    // Use setTimeout to avoid synchronous setState in effect
+    let endTimer: NodeJS.Timeout | null = null
+    const timer = setTimeout(() => {
+      setIsAnimating(true)
+      endTimer = setTimeout(() => setIsAnimating(false), 800)
+    }, 0)
+    return () => {
+      clearTimeout(timer)
+      if (endTimer) clearTimeout(endTimer)
+    }
   }, [data])
 
   // Observe container size changes
@@ -205,14 +212,15 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
 
     const updateSize = () => {
       const rect = container.getBoundingClientRect()
-      // Use the smaller dimension to keep the chart square, with some padding
+      // Use the smaller dimension to keep the chart square, with minimal padding
       // Account for padding and margins
-      const padding = 40
+      const padding = 10
       const availableWidth = rect.width - padding
       const availableHeight = rect.height - padding
       const size = Math.min(availableWidth, availableHeight)
+      // Allow chart to scale larger while maintaining minimum size
       const minSize = 200 // Minimum size
-      const maxSize = 800 // Increased maximum size
+      const maxSize = 1200 // Increased maximum size for better visibility
       const clampedSize = Math.max(minSize, Math.min(maxSize, size))
       
       // Only update if size actually changed to avoid unnecessary re-renders
@@ -240,6 +248,9 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
     }
   }, [])
 
+  // Early return after all hooks
+  if (!rings.length) return null
+
   const width = containerSize.width
   const height = containerSize.height
   const centerX = width / 2
@@ -250,14 +261,20 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
   const gap = 4 * sizeScale
   const baseRadius = (config.radius ?? 32) * sizeScale
 
-  const trackBase = theme === "light" ? "#e5e7eb" : "#374151"
+  // For dark color palette, use "#e5e7eb" as background for dark mode
+  const trackBase = colorScheme === "dark" && theme === "dark" 
+    ? "#e5e7eb" 
+    : theme === "light" 
+    ? "#e5e7eb" 
+    : "#374151"
   const maxIndex = rings.length - 1
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>, index: number) => {
-    const rect = e.currentTarget.getBoundingClientRect()
+    if (!containerRef.current) return
+    const containerRect = containerRef.current.getBoundingClientRect()
     setTooltipPosition({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+      x: e.clientX - containerRect.left,
+      y: e.clientY - containerRect.top,
     })
     setHoveredRing(index)
   }
@@ -292,14 +309,8 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
           const trackColor =
             item.backgroundColor || `${trackBase}${theme === "light" ? "ff" : "cc"}`
 
-          // Get category and spent from item data (used in tooltip)
-          const _category = (item as { category?: string }).category ?? "Category"
-          const _spent = typeof (item as { spent?: number }).spent === "number"
-            ? (item as { spent?: number }).spent!
-            : 0
-
           return (
-            <g key={item.category ?? item.label ?? index}>
+            <g key={item?.category ?? item?.label ?? `ring-${index}`}>
               {/* Track */}
               <circle
                 cx={centerX}
@@ -499,7 +510,7 @@ function classifySpendingTier(normalizedCategory: string): SpendingTier {
 
 export default function AnalyticsPage() {
   const { resolvedTheme } = useTheme()
-  const { getPalette } = useColorScheme()
+  const { getPalette, colorScheme } = useColorScheme()
   const palette = getPalette()
   const normalizeCategoryName = useCallback((value?: string | null) => {
     const trimmed = (value ?? "").trim()
@@ -651,11 +662,6 @@ export default function AnalyticsPage() {
     storageScope: "analytics",
     normalizeCategory: normalizeCategoryName,
   })
-  const sankeyVisibility = useChartCategoryVisibility({
-    chartId: "analytics:sankey",
-    storageScope: "analytics",
-    normalizeCategory: normalizeCategoryName,
-  })
   const dayOfWeekSpendingVisibility = useChartCategoryVisibility({
     chartId: "analytics:day-of-week-spending",
     storageScope: "analytics",
@@ -741,7 +747,7 @@ export default function AnalyticsPage() {
     )
   })
 
-  const getDefaultRingLimit = (filter: string | null): number => {
+  const getDefaultRingLimit = useCallback((filter: string | null): number => {
     // All time (no filter), specific year (e.g. "2024"), or last year use a higher default
     const isYearLike =
       !filter ||
@@ -749,7 +755,7 @@ export default function AnalyticsPage() {
       (/^\d{4}$/.test(filter))
 
     return isYearLike ? 5000 : 2000
-  }
+  }, [])
 
 
   // Fetch transactions from Neon database
@@ -1291,11 +1297,8 @@ export default function AnalyticsPage() {
     const currentSavingsRate =
       currentIncome > 0 ? ((currentIncome - currentExpenses) / currentIncome) * 100 : 0
 
-    const sortedByDate = [...rawTransactions].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-    )
-    const netWorth =
-      sortedByDate.length > 0 && sortedByDate[0].balance !== null ? sortedByDate[0].balance : 0
+    // Net worth is calculated as income minus expenses
+    const netWorth = currentIncome - currentExpenses
 
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -1326,13 +1329,8 @@ export default function AnalyticsPage() {
     const previousSavingsRate =
       previousIncome > 0 ? ((previousIncome - previousExpenses) / previousIncome) * 100 : 0
 
-    const previousSorted = previousTransactions.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-    )
-    const previousNetWorth =
-      previousSorted.length > 0 && previousSorted[0].balance !== null
-        ? previousSorted[0].balance
-        : 0
+    // Previous net worth is also calculated as income minus expenses
+    const previousNetWorth = previousIncome - previousExpenses
 
     const incomeChange =
       previousIncome > 0
@@ -1432,10 +1430,32 @@ export default function AnalyticsPage() {
 
       const value = ratioToLimit !== null ? ratioToLimit : 0
 
-      const color =
-        (Array.isArray(palette) && palette.length > 0
-          ? palette[index % palette.length]
-          : undefined) || "#a1a1aa"
+      // Special handling for dark color palette
+      let color: string
+      if (colorScheme === "dark") {
+        // Use dark palette with specific indices
+        const darkPalette = colorPalettes.dark
+        // For dark mode theme: use lighter colors for better visibility against dark background
+        // User wants to start from #DCDCDC (index 9) and use lighter colors
+        // Using only the lightest indices: [9, 10, 8, 7] which gives: #DCDCDC, #F2F2F2, #C6C6C6, #B0B0B0
+        // If more rings are needed, cycle through these light colors
+        // Note: For dark mode UI, we want light colors, so when resolvedTheme === "dark", use light indices
+        const darkModeIndices = [9, 10, 8, 7] // Light colors for dark mode UI (starting from #DCDCDC at index 9)
+        const lightModeIndices = [10, 8, 6, 4, 2] // Darker colors for light mode UI
+        // When UI is in dark mode (resolvedTheme === "dark"), use light colors (darkModeIndices)
+        // When UI is in light mode (resolvedTheme === "light"), use darker colors (lightModeIndices)
+        const indices = resolvedTheme === "dark" ? darkModeIndices : lightModeIndices
+        const paletteIndex = indices[index % indices.length]
+        color = darkPalette[paletteIndex] || "#a1a1aa"
+        
+        // Debug: log the color to verify
+        // console.log(`Ring ${index}: colorScheme=${colorScheme}, resolvedTheme=${resolvedTheme}, paletteIndex=${paletteIndex}, color=${color}`)
+      } else {
+        color =
+          (Array.isArray(palette) && palette.length > 0
+            ? palette[index % palette.length]
+            : undefined) || "#a1a1aa"
+      }
 
       const exceeded = ratioToLimit !== null && amount > effectiveLimit
       const pct = ratioToLimit !== null ? (ratioToLimit * 100).toFixed(1) : '0'
@@ -1454,7 +1474,7 @@ export default function AnalyticsPage() {
         color,
       }
     })
-  }, [rawTransactions, palette, ringCategories, ringLimits])
+  }, [rawTransactions, palette, ringCategories, ringLimits, colorScheme, resolvedTheme, dateFilter, getDefaultRingLimit])
 
   const incomeExpenseChart = useMemo(() => {
     if (!rawTransactions || rawTransactions.length === 0) {
@@ -1491,7 +1511,7 @@ export default function AnalyticsPage() {
       data: Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date)),
       categories: Array.from(categorySet),
     }
-  }, [rawTransactions, incomeExpenseVisibility.hiddenCategorySet])
+  }, [rawTransactions, incomeExpenseVisibility.hiddenCategorySet, normalizeCategoryName])
 
   const incomeExpenseControls = incomeExpenseVisibility.buildCategoryControls(
     incomeExpenseChart.categories,
@@ -2084,133 +2104,6 @@ export default function AnalyticsPage() {
   })
 
 
-  const sankeyData = useMemo(() => {
-    if (!rawTransactions || rawTransactions.length === 0) {
-      return { graph: { nodes: [], links: [] as Array<{ source: string; target: string; value: number }> }, categories: [] as string[] }
-    }
-
-    const categorySet = new Set<string>()
-    rawTransactions.forEach((tx) => {
-      categorySet.add(normalizeCategoryName(tx.category))
-    })
-
-    const filteredSource =
-      sankeyVisibility.hiddenCategorySet.size === 0
-        ? rawTransactions
-        : rawTransactions.filter((tx) => {
-          const category = normalizeCategoryName(tx.category)
-          return !sankeyVisibility.hiddenCategorySet.has(category)
-        })
-
-    if (!filteredSource.length) {
-      return { graph: { nodes: [], links: [] }, categories: Array.from(categorySet) }
-    }
-
-    const rootNode = { id: "root:total-income", label: "Total Income" }
-    const inflowTotals = new Map<string, number>()
-    const outflowTotals = new Map<string, number>()
-
-    filteredSource.forEach((tx) => {
-      const amount = Number(tx.amount) || 0
-      if (amount === 0) return
-
-      const categoryName = tx.category?.trim() || "Other"
-      if (amount > 0) {
-        inflowTotals.set(categoryName, (inflowTotals.get(categoryName) || 0) + amount)
-      } else {
-        outflowTotals.set(categoryName, (outflowTotals.get(categoryName) || 0) + Math.abs(amount))
-      }
-    })
-
-    const totalIncome = Array.from(inflowTotals.values()).reduce((sum, value) => sum + value, 0)
-    const totalExpenses = Array.from(outflowTotals.values()).reduce((sum, value) => sum + value, 0)
-
-    if (totalIncome === 0 && totalExpenses === 0) {
-      return { graph: { nodes: [], links: [] }, categories: Array.from(categorySet) }
-    }
-
-    const limitEntries = (sourceMap: Map<string, number>, limit: number, otherLabel: string) => {
-      const entries = Array.from(sourceMap.entries())
-        .filter(([, value]) => value > 0)
-        .sort((a, b) => b[1] - a[1])
-
-      if (entries.length <= limit) {
-        return entries
-      }
-
-      const slicePoint = Math.max(limit - 1, 1)
-      const topEntries = entries.slice(0, slicePoint)
-      const remainderTotal = entries.slice(slicePoint).reduce((sum, [, value]) => sum + value, 0)
-
-      if (remainderTotal > 0) {
-        topEntries.push([otherLabel, remainderTotal])
-      }
-
-      return topEntries
-    }
-
-    const inflowEntries = limitEntries(inflowTotals, 4, "Other Income")
-    const outflowEntries = limitEntries(outflowTotals, 8, "Other Expenses")
-    const surplusValue = totalIncome - totalExpenses
-    const surplusNode =
-      surplusValue >= 0 ? { id: "node:net-profit", label: "Net Profit" } : { id: "node:net-deficit", label: "Net Deficit" }
-
-    const nodeMap = new Map<string, { id: string; label?: string }>()
-    const ensureNode = (id: string, label?: string) => {
-      if (!nodeMap.has(id)) {
-        nodeMap.set(id, { id, label })
-      }
-    }
-
-    ensureNode(rootNode.id, rootNode.label)
-
-    const inflowLinks = inflowEntries.map(([label, value]) => {
-      const nodeId = `inflow:${label}`
-      ensureNode(nodeId, label)
-      return {
-        source: nodeId,
-        target: rootNode.id,
-        value,
-      }
-    })
-
-    const outflowLinks = outflowEntries.map(([label, value]) => {
-      const nodeId = `outflow:${label}`
-      ensureNode(nodeId, label)
-      return {
-        source: rootNode.id,
-        target: nodeId,
-        value,
-      }
-    })
-
-    if (surplusValue !== 0) {
-      ensureNode(surplusNode.id, surplusNode.label)
-      outflowLinks.push({
-        source: rootNode.id,
-        target: surplusNode.id,
-        value: Math.abs(surplusValue),
-      })
-    }
-
-    const links = [...inflowLinks, ...outflowLinks].filter((link) => link.value > 0)
-
-    if (links.length === 0) {
-      return { graph: { nodes: [], links: [] }, categories: Array.from(categorySet) }
-    }
-
-    const nodes = Array.from(nodeMap.values())
-
-    return {
-      graph: { nodes, links },
-      categories: Array.from(categorySet),
-    }
-  }, [rawTransactions, sankeyVisibility.hiddenCategorySet, normalizeCategoryName])
-
-  const sankeyControls = sankeyVisibility.buildCategoryControls(sankeyData.categories, {
-    description: "Hide sources to remove them from the cash-flow Sankey.",
-  })
-
   const activityConfig: ActivityRingsConfig = useMemo(
     () => ({
       width: 360,
@@ -2222,6 +2115,235 @@ export default function AnalyticsPage() {
   )
 
   const activityTheme = resolvedTheme === "light" ? "light" : "dark"
+
+  // Memoized data for charts rendered inside map callback
+  // These must be at component level to follow Rules of Hooks
+  const transactionHistoryData = useMemo(() => {
+    if (!rawTransactions || rawTransactions.length === 0) {
+      return []
+    }
+
+    const CATEGORY_GROUPS: Record<string, string[]> = {
+      Essentials: [
+        "Groceries",
+        "Rent",
+        "Mortgage",
+        "Utilities",
+        "Insurance",
+        "Taxes",
+        "Healthcare",
+        "Health",
+        "Medical",
+      ],
+      Lifestyle: [
+        "Shopping",
+        "Travel",
+        "Entertainment",
+        "Restaurants",
+        "Bars",
+        "Subscriptions",
+        "Services",
+        "Education",
+        "Personal",
+        "Leisure",
+      ],
+      Transport: [
+        "Transport",
+        "Transportation",
+        "Fuel",
+        "Gas",
+        "Car",
+        "Ride",
+        "Transit",
+        "Commute",
+      ],
+      Financial: [
+        "Transfers",
+        "Transfer",
+        "Fees",
+        "Banking",
+        "Savings",
+        "Investments",
+        "Loan",
+        "Debt",
+        "Mortgage",
+      ],
+    }
+
+    const CATEGORY_DEFAULT_GROUP = "Essentials"
+
+    const resolveGroup = (categoryName: string): string => {
+      const normalized = categoryName.toLowerCase()
+      for (const [group, categories] of Object.entries(CATEGORY_GROUPS)) {
+        if (
+          categories.some((cat) =>
+            normalized.includes(cat.toLowerCase()),
+          )
+        ) {
+          return group
+        }
+      }
+      return CATEGORY_DEFAULT_GROUP
+    }
+
+    const computeVolume = (amount: number): number => {
+      const min = 4
+      const max = 20
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return min
+      }
+      const scaled = Math.round(amount / 50)
+      return Math.max(min, Math.min(max, scaled))
+    }
+
+    return rawTransactions
+      .filter((tx) => tx.amount < 0) // Only expenses
+      .map((tx, index) => {
+        const normalizedAmount = Math.abs(tx.amount)
+        const rawCategory = tx.category || "Other"
+        const group = resolveGroup(rawCategory)
+
+        return {
+          id: tx.id ? `tx-${tx.id}` : `tx-${index}`,
+          group,
+          price: normalizedAmount,
+          volume: computeVolume(normalizedAmount),
+          category: rawCategory,
+          color: null,
+          date: tx.date.split("T")[0],
+          description: tx.description,
+        }
+      })
+  }, [rawTransactions])
+
+  const allMonthsCategorySpendingControls = useMemo(() => {
+    const categories = Array.from(
+      new Set(
+        rawTransactions
+          .filter((tx) => Number(tx.amount) < 0)
+          .map((tx) => normalizeCategoryName(tx.category)),
+      ),
+    ).sort()
+    return monthOfYearSpendingVisibility.buildCategoryControls(
+      categories,
+    )
+  }, [
+    rawTransactions,
+    monthOfYearSpendingVisibility,
+    normalizeCategoryName,
+  ])
+
+  const incomeExpensesTracking1Data = useMemo(() => {
+    const filteredSource =
+      incomeExpenseTopVisibility.hiddenCategorySet.size === 0
+        ? rawTransactions
+        : rawTransactions.filter((tx) => {
+          const category = normalizeCategoryName(tx.category)
+          return !incomeExpenseTopVisibility.hiddenCategorySet.has(category)
+        })
+    const transactionsByDate = new Map<string, Array<{ amount: number }>>()
+    filteredSource.forEach(tx => {
+      const date = tx.date.split('T')[0]
+      if (!transactionsByDate.has(date)) {
+        transactionsByDate.set(date, [])
+      }
+      transactionsByDate.get(date)!.push({ amount: tx.amount })
+    })
+    const sortedDates = Array.from(transactionsByDate.keys()).sort((a, b) => a.localeCompare(b))
+    const incomeByDate = new Map<string, number>()
+    sortedDates.forEach(date => {
+      const dayTransactions = transactionsByDate.get(date)!
+      const dayIncome = dayTransactions
+        .filter(tx => tx.amount > 0)
+        .reduce((sum, tx) => sum + tx.amount, 0)
+      if (dayIncome > 0) {
+        incomeByDate.set(date, dayIncome)
+      }
+    })
+    let cumulativeExpenses = 0
+    const cumulativeExpensesByDate = new Map<string, number>()
+    sortedDates.forEach(date => {
+      const dayTransactions = transactionsByDate.get(date)!
+      dayTransactions.forEach(tx => {
+        if (tx.amount < 0) {
+          cumulativeExpenses += Math.abs(tx.amount)
+        } else if (tx.amount > 0) {
+          cumulativeExpenses = Math.max(0, cumulativeExpenses - tx.amount)
+        }
+      })
+      cumulativeExpensesByDate.set(date, cumulativeExpenses)
+    })
+    return sortedDates.map(date => ({
+      date,
+      desktop: incomeByDate.get(date) || 0,
+      mobile: cumulativeExpensesByDate.get(date) || 0
+    }))
+  }, [rawTransactions, incomeExpenseTopVisibility.hiddenCategorySet, normalizeCategoryName])
+
+  const netWorthAllocationData = useMemo(() => {
+    const filteredSource =
+      treeMapVisibility.hiddenCategorySet.size === 0
+        ? rawTransactions
+        : rawTransactions.filter((tx) => {
+          const category = normalizeCategoryName(tx.category)
+          return !treeMapVisibility.hiddenCategorySet.has(category)
+        })
+    const categoryMap = new Map<string, { total: number; subcategories: Map<string, { amount: number; fullDescription: string }> }>()
+    const getSubCategoryLabel = (description?: string) => {
+      if (!description) return "Misc"
+      const delimiterSplit = description.split(/[-ÔÇô|]/)[0] ?? description
+      const trimmed = delimiterSplit.trim()
+      return trimmed.length > 24 ? `${trimmed.slice(0, 21)}ÔÇª` : (trimmed || "Misc")
+    }
+    filteredSource
+      .filter(tx => tx.amount < 0)
+      .forEach(tx => {
+        const category = tx.category || "Other"
+        const amount = Math.abs(tx.amount)
+        if (!categoryMap.has(category)) {
+          categoryMap.set(category, { total: 0, subcategories: new Map() })
+        }
+        const categoryEntry = categoryMap.get(category)!
+        categoryEntry.total += amount
+        const subCategory = getSubCategoryLabel(tx.description)
+        const existing = categoryEntry.subcategories.get(subCategory)
+        if (existing) {
+          existing.amount += amount
+        } else {
+          categoryEntry.subcategories.set(subCategory, {
+            amount,
+            fullDescription: tx.description || subCategory
+          })
+        }
+      })
+    const maxSubCategories = 5
+    return {
+      name: "Expenses",
+      children: Array.from(categoryMap.entries())
+        .map(([name, { total, subcategories }]) => {
+          const sortedSubs = Array.from(subcategories.entries()).sort((a, b) => b[1].amount - a[1].amount)
+          const topSubs = sortedSubs.slice(0, maxSubCategories)
+          const remainingTotal = sortedSubs.slice(maxSubCategories).reduce((sum, [, value]) => sum + value.amount, 0)
+          const children = topSubs.map(([subName, { amount: loc, fullDescription }]) => ({
+            name: subName,
+            loc,
+            fullDescription
+          }))
+          if (remainingTotal > 0) {
+            children.push({ name: "Other", loc: remainingTotal, fullDescription: "Other transactions" })
+          }
+          return {
+            name,
+            children: children.length > 0 ? children : [{ name, loc: total, fullDescription: name }]
+          }
+        })
+        .sort((a, b) => {
+          const aTotal = a.children.reduce((sum, child) => sum + (child.loc || 0), 0)
+          const bTotal = b.children.reduce((sum, child) => sum + (child.loc || 0), 0)
+          return bTotal - aTotal
+        })
+    }
+  }, [rawTransactions, treeMapVisibility.hiddenCategorySet, normalizeCategoryName])
 
   return (
     <SidebarProvider
@@ -2318,103 +2440,7 @@ export default function AnalyticsPage() {
                             className={colSpanClass}
                           >
                             <ChartSwarmPlot
-                              data={useMemo(() => {
-                                if (!rawTransactions || rawTransactions.length === 0) {
-                                  return []
-                                }
-
-                                const CATEGORY_GROUPS: Record<string, string[]> = {
-                                  Essentials: [
-                                    "Groceries",
-                                    "Rent",
-                                    "Mortgage",
-                                    "Utilities",
-                                    "Insurance",
-                                    "Taxes",
-                                    "Healthcare",
-                                    "Health",
-                                    "Medical",
-                                  ],
-                                  Lifestyle: [
-                                    "Shopping",
-                                    "Travel",
-                                    "Entertainment",
-                                    "Restaurants",
-                                    "Bars",
-                                    "Subscriptions",
-                                    "Services",
-                                    "Education",
-                                    "Personal",
-                                    "Leisure",
-                                  ],
-                                  Transport: [
-                                    "Transport",
-                                    "Transportation",
-                                    "Fuel",
-                                    "Gas",
-                                    "Car",
-                                    "Ride",
-                                    "Transit",
-                                    "Commute",
-                                  ],
-                                  Financial: [
-                                    "Transfers",
-                                    "Transfer",
-                                    "Fees",
-                                    "Banking",
-                                    "Savings",
-                                    "Investments",
-                                    "Loan",
-                                    "Debt",
-                                    "Mortgage",
-                                  ],
-                                }
-
-                                const CATEGORY_DEFAULT_GROUP = "Essentials"
-
-                                const resolveGroup = (categoryName: string): string => {
-                                  const normalized = categoryName.toLowerCase()
-                                  for (const [group, categories] of Object.entries(CATEGORY_GROUPS)) {
-                                    if (
-                                      categories.some((cat) =>
-                                        normalized.includes(cat.toLowerCase()),
-                                      )
-                                    ) {
-                                      return group
-                                    }
-                                  }
-                                  return CATEGORY_DEFAULT_GROUP
-                                }
-
-                                const computeVolume = (amount: number): number => {
-                                  const min = 4
-                                  const max = 20
-                                  if (!Number.isFinite(amount) || amount <= 0) {
-                                    return min
-                                  }
-                                  const scaled = Math.round(amount / 50)
-                                  return Math.max(min, Math.min(max, scaled))
-                                }
-
-                                return rawTransactions
-                                  .filter((tx) => tx.amount < 0) // Only expenses
-                                  .map((tx, index) => {
-                                    const normalizedAmount = Math.abs(tx.amount)
-                                    const rawCategory = tx.category || "Other"
-                                    const group = resolveGroup(rawCategory)
-
-                                    return {
-                                      id: tx.id ? `tx-${tx.id}` : `tx-${index}`,
-                                      group,
-                                      price: normalizedAmount,
-                                      volume: computeVolume(normalizedAmount),
-                                      category: rawCategory,
-                                      color: null,
-                                      date: tx.date.split("T")[0],
-                                      description: tx.description,
-                                    }
-                                  })
-                              }, [rawTransactions])}
+                              data={transactionHistoryData}
                             />
                           </SortableAnalyticsChart>
                         )
@@ -2438,8 +2464,6 @@ export default function AnalyticsPage() {
                                   ),
                                 ).sort(),
                               )}
-                              isExpanded={!!expandedCharts["dayOfWeekSpending"]}
-                              onToggleExpand={() => handleToggleChartExpand("dayOfWeekSpending")}
                             />
                           </SortableAnalyticsChart>
                         )
@@ -2454,26 +2478,7 @@ export default function AnalyticsPage() {
                           >
                             <ChartAllMonthsCategorySpending
                               data={rawTransactions}
-                              categoryControls={useMemo(() => {
-                                const categories = Array.from(
-                                  new Set(
-                                    rawTransactions
-                                      .filter((tx) => Number(tx.amount) < 0)
-                                      .map((tx) => normalizeCategoryName(tx.category)),
-                                  ),
-                                ).sort()
-                                return monthOfYearSpendingVisibility.buildCategoryControls(
-                                  categories,
-                                )
-                              }, [
-                                rawTransactions,
-                                monthOfYearSpendingVisibility,
-                                normalizeCategoryName,
-                              ])}
-                              isExpanded={!!expandedCharts["allMonthsCategorySpending"]}
-                              onToggleExpand={() =>
-                                handleToggleChartExpand("allMonthsCategorySpending")
-                              }
+                              categoryControls={allMonthsCategorySpendingControls}
                             />
                           </SortableAnalyticsChart>
                         )
@@ -2487,55 +2492,9 @@ export default function AnalyticsPage() {
                             className={colSpanClass}
                           >
                             <ChartAreaInteractive
+                              chartId="incomeExpensesTracking1"
                               categoryControls={incomeExpenseTopControls}
-                              data={useMemo(() => {
-                                const filteredSource =
-                                  incomeExpenseTopVisibility.hiddenCategorySet.size === 0
-                                    ? rawTransactions
-                                    : rawTransactions.filter((tx) => {
-                                      const category = normalizeCategoryName(tx.category)
-                                      return !incomeExpenseTopVisibility.hiddenCategorySet.has(category)
-                                    })
-                                const transactionsByDate = new Map<string, Array<{ amount: number }>>()
-                                filteredSource.forEach(tx => {
-                                  const date = tx.date.split('T')[0]
-                                  if (!transactionsByDate.has(date)) {
-                                    transactionsByDate.set(date, [])
-                                  }
-                                  transactionsByDate.get(date)!.push({ amount: tx.amount })
-                                })
-                                const sortedDates = Array.from(transactionsByDate.keys()).sort((a, b) => a.localeCompare(b))
-                                const incomeByDate = new Map<string, number>()
-                                sortedDates.forEach(date => {
-                                  const dayTransactions = transactionsByDate.get(date)!
-                                  const dayIncome = dayTransactions
-                                    .filter(tx => tx.amount > 0)
-                                    .reduce((sum, tx) => sum + tx.amount, 0)
-                                  if (dayIncome > 0) {
-                                    incomeByDate.set(date, dayIncome)
-                                  }
-                                })
-                                let cumulativeExpenses = 0
-                                const cumulativeExpensesByDate = new Map<string, number>()
-                                sortedDates.forEach(date => {
-                                  const dayTransactions = transactionsByDate.get(date)!
-                                  dayTransactions.forEach(tx => {
-                                    if (tx.amount < 0) {
-                                      cumulativeExpenses += Math.abs(tx.amount)
-                                    } else if (tx.amount > 0) {
-                                      cumulativeExpenses = Math.max(0, cumulativeExpenses - tx.amount)
-                                    }
-                                  })
-                                  cumulativeExpensesByDate.set(date, cumulativeExpenses)
-                                })
-                                return sortedDates.map(date => ({
-                                  date,
-                                  desktop: incomeByDate.get(date) || 0,
-                                  mobile: cumulativeExpensesByDate.get(date) || 0
-                                }))
-                              }, [rawTransactions, incomeExpenseTopVisibility.hiddenCategorySet, normalizeCategoryName])}
-                              isExpanded={!!expandedCharts["incomeExpensesTracking1"]}
-                              onToggleExpand={() => handleToggleChartExpand("incomeExpensesTracking1")}
+                              data={incomeExpensesTracking1Data}
                             />
                           </SortableAnalyticsChart>
                         )
@@ -2549,10 +2508,9 @@ export default function AnalyticsPage() {
                             className={colSpanClass}
                           >
                             <ChartAreaInteractive
+                              chartId="incomeExpensesTracking2"
                               categoryControls={incomeExpenseControls}
                               data={incomeExpenseChart.data}
-                              isExpanded={!!expandedCharts["incomeExpensesTracking2"]}
-                              onToggleExpand={() => handleToggleChartExpand("incomeExpensesTracking2")}
                             />
                           </SortableAnalyticsChart>
                         )
@@ -2568,8 +2526,6 @@ export default function AnalyticsPage() {
                             <ChartCategoryFlow
                               categoryControls={categoryFlowControls}
                               data={categoryFlowChart.data}
-                              isExpanded={!!expandedCharts["spendingCategoryRankings"]}
-                              onToggleExpand={() => handleToggleChartExpand("spendingCategoryRankings")}
                             />
                           </SortableAnalyticsChart>
                         )
@@ -2584,72 +2540,7 @@ export default function AnalyticsPage() {
                           >
                             <ChartTreeMap
                               categoryControls={treeMapControls}
-                              data={useMemo(() => {
-                                const filteredSource =
-                                  treeMapVisibility.hiddenCategorySet.size === 0
-                                    ? rawTransactions
-                                    : rawTransactions.filter((tx) => {
-                                      const category = normalizeCategoryName(tx.category)
-                                      return !treeMapVisibility.hiddenCategorySet.has(category)
-                                    })
-                                const categoryMap = new Map<string, { total: number; subcategories: Map<string, { amount: number; fullDescription: string }> }>()
-                                const getSubCategoryLabel = (description?: string) => {
-                                  if (!description) return "Misc"
-                                  const delimiterSplit = description.split(/[-ÔÇô|]/)[0] ?? description
-                                  const trimmed = delimiterSplit.trim()
-                                  return trimmed.length > 24 ? `${trimmed.slice(0, 21)}ÔÇª` : (trimmed || "Misc")
-                                }
-                                filteredSource
-                                  .filter(tx => tx.amount < 0)
-                                  .forEach(tx => {
-                                    const category = tx.category || "Other"
-                                    const amount = Math.abs(tx.amount)
-                                    if (!categoryMap.has(category)) {
-                                      categoryMap.set(category, { total: 0, subcategories: new Map() })
-                                    }
-                                    const categoryEntry = categoryMap.get(category)!
-                                    categoryEntry.total += amount
-                                    const subCategory = getSubCategoryLabel(tx.description)
-                                    const existing = categoryEntry.subcategories.get(subCategory)
-                                    if (existing) {
-                                      existing.amount += amount
-                                    } else {
-                                      categoryEntry.subcategories.set(subCategory, {
-                                        amount,
-                                        fullDescription: tx.description || subCategory
-                                      })
-                                    }
-                                  })
-                                const maxSubCategories = 5
-                                return {
-                                  name: "Expenses",
-                                  children: Array.from(categoryMap.entries())
-                                    .map(([name, { total, subcategories }]) => {
-                                      const sortedSubs = Array.from(subcategories.entries()).sort((a, b) => b[1].amount - a[1].amount)
-                                      const topSubs = sortedSubs.slice(0, maxSubCategories)
-                                      const remainingTotal = sortedSubs.slice(maxSubCategories).reduce((sum, [, value]) => sum + value.amount, 0)
-                                      const children = topSubs.map(([subName, { amount: loc, fullDescription }]) => ({
-                                        name: subName,
-                                        loc,
-                                        fullDescription
-                                      }))
-                                      if (remainingTotal > 0) {
-                                        children.push({ name: "Other", loc: remainingTotal, fullDescription: "Other transactions" })
-                                      }
-                                      return {
-                                        name,
-                                        children: children.length > 0 ? children : [{ name, loc: total, fullDescription: name }]
-                                      }
-                                    })
-                                    .sort((a, b) => {
-                                      const aTotal = a.children.reduce((sum, child) => sum + (child.loc || 0), 0)
-                                      const bTotal = b.children.reduce((sum, child) => sum + (child.loc || 0), 0)
-                                      return bTotal - aTotal
-                                    })
-                                }
-                              }, [rawTransactions, treeMapVisibility.hiddenCategorySet, normalizeCategoryName])}
-                              isExpanded={!!expandedCharts["netWorthAllocation"]}
-                              onToggleExpand={() => handleToggleChartExpand("netWorthAllocation")}
+                              data={netWorthAllocationData}
                             />
                           </SortableAnalyticsChart>
                         )
@@ -2665,8 +2556,6 @@ export default function AnalyticsPage() {
                             <ChartSpendingFunnel
                               categoryControls={spendingFunnelControls}
                               data={spendingFunnelChart.data}
-                              isExpanded={!!expandedCharts["moneyFlow"]}
-                              onToggleExpand={() => handleToggleChartExpand("moneyFlow")}
                             />
                           </SortableAnalyticsChart>
                         )
@@ -2682,8 +2571,6 @@ export default function AnalyticsPage() {
                             <ChartExpensesPie
                               categoryControls={expensesPieControls}
                               data={expensesPieData.slices}
-                              isExpanded={!!expandedCharts["expenseBreakdown"]}
-                              onToggleExpand={() => handleToggleChartExpand("expenseBreakdown")}
                             />
                           </SortableAnalyticsChart>
                         )
@@ -2699,8 +2586,6 @@ export default function AnalyticsPage() {
                             <ChartNeedsWantsPie
                               categoryControls={needsWantsControls}
                               data={needsWantsPieData.slices}
-                              isExpanded={!!expandedCharts["needsWantsBreakdown"]}
-                              onToggleExpand={() => handleToggleChartExpand("needsWantsBreakdown")}
                             />
                           </SortableAnalyticsChart>
                         )
@@ -2715,8 +2600,6 @@ export default function AnalyticsPage() {
                           >
                             <ChartCategoryBubble
                               data={rawTransactions}
-                              isExpanded={!!expandedCharts["categoryBubbleMap"]}
-                              onToggleExpand={() => handleToggleChartExpand("categoryBubbleMap")}
                             />
                           </SortableAnalyticsChart>
                         )
@@ -2733,8 +2616,6 @@ export default function AnalyticsPage() {
                               categoryControls={polarBarControls}
                               data={polarBarData.data}
                               keys={polarBarData.keys}
-                              isExpanded={!!expandedCharts["householdSpendMix"]}
-                              onToggleExpand={() => handleToggleChartExpand("householdSpendMix")}
                             />
                           </SortableAnalyticsChart>
                         )
@@ -2748,8 +2629,6 @@ export default function AnalyticsPage() {
                             className={colSpanClass}
                           >
                             <ChartRadar
-                              isExpanded={!!expandedCharts["financialHealthScore"]}
-                              onToggleExpand={() => handleToggleChartExpand("financialHealthScore")}
                             />
                           </SortableAnalyticsChart>
                         )
@@ -2762,25 +2641,27 @@ export default function AnalyticsPage() {
                             id={chartId}
                             className={colSpanClass}
                           >
-                            <Card className="h-full flex flex-col">
-                              <CardHeader className="relative flex flex-row items-start justify-between gap-2">
-                                <div className="space-y-1">
+                            <Card className="relative h-full flex flex-col">
+                              <CardHeader>
+                                <div className="space-y-1 pointer-events-auto flex-shrink-0">
                                   <div className="flex items-center gap-2">
-                                    <CardTitle className="mb-0">Spending Activity Rings</CardTitle>
-                                    <ChartInfoPopover
-                                      title="Spending Activity Rings"
-                                      description="Top spending categories from your Neon transactions"
-                                      details={[
-                                        "Each ring shows how much a category has consumed relative to its budget.",
-                                        "Budgets come from your saved limits or a default amount for the selected date filter.",
-                                      ]}
+                                    <ChartFavoriteButton 
+                                      chartId="spendingActivityRings" 
+                                      chartTitle="Spending Activity Rings"
                                     />
+                                    <CardTitle className="mb-0">Spending Activity Rings</CardTitle>
                                   </div>
-                                  <CardDescription>
-                                    Top spending categories from your Neon transactions
-                                  </CardDescription>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 pointer-events-auto flex-shrink-0">
+                                  <ChartInfoPopover
+                                    title="Spending Activity Rings"
+                                    description="Top spending categories from your Neon transactions"
+                                    details={[
+                                      "Each ring shows how much a category has consumed relative to its budget.",
+                                      "Budgets come from your saved limits or a default amount for the selected date filter.",
+                                    ]}
+                                    className="self-start"
+                                  />
                                   {activityData.length > 0 && (
                                     <div className="flex flex-col gap-1 z-10 w-[140px]">
                                       <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground text-right">
@@ -2967,7 +2848,7 @@ export default function AnalyticsPage() {
                                   </Button>
                                 </div>
                               </CardHeader>
-                              <CardContent className="min-h-[420px] flex flex-col items-center justify-between flex-1">
+                              <CardContent className="min-h-[420px] flex flex-col items-center justify-between flex-1 mt-[15px]">
                                 {activityData.length === 0 ? (
                                   <span className="text-sm text-muted-foreground">
                                     No expense categories available yet.
@@ -2982,6 +2863,7 @@ export default function AnalyticsPage() {
                                         theme={activityTheme as "light" | "dark"}
                                         ringLimits={ringLimits}
                                         getDefaultLimit={() => getDefaultRingLimit(dateFilter)}
+                                        colorScheme={colorScheme}
                                       />
                                     </div>
                                     <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
@@ -3031,8 +2913,6 @@ export default function AnalyticsPage() {
                               categoryControls={streamgraphControls}
                               data={spendingStreamData.data}
                               keys={spendingStreamData.keys}
-                              isExpanded={!!expandedCharts["spendingStreamgraph"]}
-                              onToggleExpand={() => handleToggleChartExpand("spendingStreamgraph")}
                             />
                           </SortableAnalyticsChart>
                         )
@@ -3047,8 +2927,6 @@ export default function AnalyticsPage() {
                           >
                             <ChartSingleMonthCategorySpending
                               dateFilter={dateFilter}
-                              isExpanded={!!expandedCharts["singleMonthCategorySpending"]}
-                              onToggleExpand={() => handleToggleChartExpand("singleMonthCategorySpending")}
                             />
                           </SortableAnalyticsChart>
                         )
@@ -3063,8 +2941,6 @@ export default function AnalyticsPage() {
                           >
                             <ChartDayOfWeekCategory
                               dateFilter={dateFilter}
-                              isExpanded={!!expandedCharts["dayOfWeekCategory"]}
-                              onToggleExpand={() => handleToggleChartExpand("dayOfWeekCategory")}
                             />
                           </SortableAnalyticsChart>
                         )
@@ -3080,8 +2956,6 @@ export default function AnalyticsPage() {
                             <ChartCirclePacking
                               categoryControls={circlePackingControls}
                               data={circlePackingData.tree}
-                              isExpanded={!!expandedCharts["budgetDistribution"]}
-                              onToggleExpand={() => handleToggleChartExpand("budgetDistribution")}
                             />
                           </SortableAnalyticsChart>
                         )
@@ -3095,99 +2969,7 @@ export default function AnalyticsPage() {
                             className={colSpanClass}
                           >
                             <ChartSwarmPlot
-                              data={useMemo(() => {
-                                if (!rawTransactions || rawTransactions.length === 0) {
-                                  return []
-                                }
-                                const CATEGORY_GROUPS: Record<string, string[]> = {
-                                  Essentials: [
-                                    "Groceries",
-                                    "Rent",
-                                    "Mortgage",
-                                    "Utilities",
-                                    "Insurance",
-                                    "Taxes",
-                                    "Healthcare",
-                                    "Health",
-                                    "Medical",
-                                  ],
-                                  Lifestyle: [
-                                    "Shopping",
-                                    "Travel",
-                                    "Entertainment",
-                                    "Restaurants",
-                                    "Bars",
-                                    "Subscriptions",
-                                    "Services",
-                                    "Education",
-                                    "Personal",
-                                    "Leisure",
-                                  ],
-                                  Transport: [
-                                    "Transport",
-                                    "Transportation",
-                                    "Fuel",
-                                    "Gas",
-                                    "Car",
-                                    "Ride",
-                                    "Transit",
-                                    "Commute",
-                                  ],
-                                  Financial: [
-                                    "Transfers",
-                                    "Transfer",
-                                    "Fees",
-                                    "Banking",
-                                    "Savings",
-                                    "Investments",
-                                    "Loan",
-                                    "Debt",
-                                    "Mortgage",
-                                  ],
-                                }
-                                const CATEGORY_DEFAULT_GROUP = "Essentials"
-                                const resolveGroup = (categoryName: string): string => {
-                                  const normalized = categoryName.toLowerCase()
-                                  for (const [group, categories] of Object.entries(CATEGORY_GROUPS)) {
-                                    if (
-                                      categories.some((cat) =>
-                                        normalized.includes(cat.toLowerCase()),
-                                      )
-                                    ) {
-                                      return group
-                                    }
-                                  }
-                                  return CATEGORY_DEFAULT_GROUP
-                                }
-                                const computeVolume = (amount: number): number => {
-                                  const min = 4
-                                  const max = 20
-                                  if (!Number.isFinite(amount) || amount <= 0) {
-                                    return min
-                                  }
-                                  const scaled = Math.round(amount / 50)
-                                  return Math.max(min, Math.min(max, scaled))
-                                }
-                                return rawTransactions
-                                  .filter((tx) => tx.amount < 0)
-                                  .map((tx, index) => {
-                                    const normalizedAmount = Math.abs(tx.amount)
-                                    const rawCategory = tx.category || "Other"
-                                    const group = resolveGroup(rawCategory)
-                                    return {
-                                      id: tx.id ? `tx-${tx.id}` : `tx-${index}`,
-                                      group,
-                                      price: normalizedAmount,
-                                      volume: computeVolume(normalizedAmount),
-                                      category: rawCategory,
-                                      color: null,
-                                      date: tx.date.split("T")[0],
-                                      description: tx.description,
-                                    }
-                                  })
-                              }, [rawTransactions])}
-                              isExpanded={!!expandedCharts["transactionHistory"]}
-                              onToggleExpand={() => handleToggleChartExpand("transactionHistory")}
+                              data={transactionHistoryData}
                             />
                           </SortableAnalyticsChart>
                         )
@@ -3422,7 +3204,6 @@ export default function AnalyticsPage() {
     </SidebarProvider>
   )
 }
-
 
 
 

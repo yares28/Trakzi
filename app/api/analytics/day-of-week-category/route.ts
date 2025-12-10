@@ -57,11 +57,10 @@ export const GET = async (request: NextRequest) => {
     let userId: string;
     try {
       userId = await getCurrentUserId();
-      console.log("[Day of Week Category API] User ID:", userId);
     } catch (authError: any) {
       console.error("[Day of Week Category API] Auth error:", authError.message);
       return NextResponse.json(
-        { error: "Authentication required. Set DEMO_USER_ID in .env.local" },
+        { error: "Authentication required. Please sign in to access analytics." },
         { status: 401 },
       );
     }
@@ -167,8 +166,6 @@ export const GET = async (request: NextRequest) => {
     // Data is already sorted by total DESC if a specific day was selected
     const filteredData = formatted;
 
-    console.log(`[Day of Week Category API] Returning ${filteredData.length} category-day entries`);
-    console.log(`[Day of Week Category API] Available days:`, availableDays);
 
     return NextResponse.json({
       data: filteredData,

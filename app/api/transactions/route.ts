@@ -79,12 +79,10 @@ export const GET = async (request: Request) => {
         let userId: string;
         try {
             userId = await getCurrentUserId();
-            console.log("[Transactions API] User ID:", userId);
         } catch (authError: any) {
             console.error("[Transactions API] Auth error:", authError.message);
-            console.error("[Transactions API] Make sure DEMO_USER_ID is set in .env.local");
             return NextResponse.json(
-                { error: "Authentication required. Set DEMO_USER_ID in .env.local" },
+                { error: "Authentication required. Please sign in to access transactions." },
                 { status: 401 }
             );
         }
@@ -121,9 +119,6 @@ export const GET = async (request: Request) => {
         // Use index-friendly ordering (matches idx_transactions_user_date_desc_covering)
         query += ` ORDER BY t.tx_date DESC, t.id DESC`;
         
-        console.log("[Transactions API] Query:", query);
-        console.log("[Transactions API] Params:", params);
-        console.log("[Transactions API] Date range:", { startDate, endDate });
         
         // Fetch user transactions ordered by date
         // Convert tx_date (date) to ISO string format
@@ -145,7 +140,6 @@ export const GET = async (request: Request) => {
             const totalCount = typeof countResult[0]?.count === 'string' 
                 ? parseInt(countResult[0].count) 
                 : (countResult[0]?.count as number) || 0;
-            console.log(`[Transactions API] Total transactions for user ${userId}: ${totalCount}`);
             
             if (totalCount === 0) {
                 console.warn(`[Transactions API] No transactions found for user_id: ${userId}`);
@@ -165,7 +159,6 @@ export const GET = async (request: Request) => {
                 raw_csv_row: string | null;
                 category_name: string | null;
             }>(query, params);
-            console.log(`[Transactions API] Query returned ${transactions.length} transactions`);
             if (transactions.length > 0) {
                 console.log(`[Transactions API] First transaction:`, transactions[0]);
             }
@@ -177,7 +170,7 @@ export const GET = async (request: Request) => {
             console.error("  - The transactions table doesn't exist (run backend/schema.sql)");
             console.error("  - The user_id doesn't match any records");
             console.error("  - Database connection issue");
-            console.error("  - Check if DEMO_USER_ID matches user_id in transactions table");
+            console.error("  - No transactions exist for the current user (user may need to import data)");
             throw queryError;
         }
         
@@ -243,16 +236,6 @@ export const GET = async (request: Request) => {
                 }
             }
             
-            // Debug log for January 1st dates to catch any conversion issues
-            if (dateStr && (dateStr.startsWith('2025-01-01') || dateStr.startsWith('2024-01-01'))) {
-                console.log(`[Transactions API] Jan 1 date conversion:`, {
-                    original: tx.tx_date,
-                    originalType: typeof tx.tx_date,
-                    converted: dateStr,
-                    isDate: tx.tx_date instanceof Date
-                });
-            }
-            
             return {
                 id: tx.id,
                 date: dateStr,
@@ -262,34 +245,6 @@ export const GET = async (request: Request) => {
                 category: category
             };
         });
-        
-        console.log("[Transactions API] Returning transactions:", transactionsWithCategory.length);
-        console.log("[Transactions API] First transaction sample:", transactionsWithCategory[0]);
-        
-        // Debug: Check for January 1st transactions
-        const jan1Transactions = transactionsWithCategory.filter(tx => {
-          return tx.date.startsWith('2025-01-01') || tx.date.startsWith('2024-01-01');
-        });
-        if (jan1Transactions.length > 0) {
-          console.log(`[Transactions API] Found ${jan1Transactions.length} January 1st transactions:`, jan1Transactions.map(tx => ({
-            date: tx.date,
-            amount: tx.amount,
-            category: tx.category
-          })));
-        } else {
-          console.warn("[Transactions API] No January 1st transactions found in response");
-        }
-        
-        // Debug: Check for Transport category
-        const transportTransactions = transactionsWithCategory.filter(tx => {
-          const cat = (tx.category || '').toLowerCase();
-          return cat.includes('transport');
-        });
-        if (transportTransactions.length > 0) {
-          console.log(`[Transactions API] Found ${transportTransactions.length} Transport transactions:`, transportTransactions.length);
-        } else {
-          console.warn("[Transactions API] No Transport category transactions found in response");
-        }
         
         // Add caching headers for better performance
         // Cache for 30 seconds, revalidate in background

@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { IconCirclePlusFilled, type Icon } from "@tabler/icons-react"
+import { useContext } from "react"
 
 import {
   SidebarGroup,
@@ -11,6 +12,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { TransactionDialogContext } from "@/components/transaction-dialog-provider"
 
 export function NavMain({
   items,
@@ -24,6 +26,20 @@ export function NavMain({
   onQuickCreate?: () => void
 }) {
   const pathname = usePathname()
+  const dialogContext = useContext(TransactionDialogContext)
+
+  const handleQuickCreate = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    // If onQuickCreate is provided (for backward compatibility), use it
+    // Otherwise use the global dialog if available
+    if (onQuickCreate) {
+      onQuickCreate()
+    } else if (dialogContext) {
+      dialogContext.openDialog()
+    }
+  }
 
   return (
     <SidebarGroup>
@@ -33,7 +49,7 @@ export function NavMain({
             <SidebarMenuButton
               tooltip="Quick Create"
               className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground min-w-8 duration-200 ease-linear"
-              onClick={onQuickCreate}
+              onClick={handleQuickCreate}
             >
               <IconCirclePlusFilled />
               <span>Quick Create</span>

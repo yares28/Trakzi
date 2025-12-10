@@ -12,7 +12,7 @@ export const GET = async (request: NextRequest) => {
         } catch (authError: any) {
             console.error("[Daily 365 Transactions API] Auth error:", authError.message);
             return NextResponse.json(
-                { error: "Authentication required. Set DEMO_USER_ID in .env.local" },
+                { error: "Authentication required. Please sign in to access transactions." },
                 { status: 401 }
             );
         }

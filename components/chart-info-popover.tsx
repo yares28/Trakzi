@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { IconInfoCircle } from "@tabler/icons-react"
 
 import { cn } from "@/lib/utils"
@@ -35,6 +35,7 @@ export interface ChartInfoPopoverProps {
   align?: Align
   side?: Side
   className?: string
+  triggerClassName?: string
   categoryControls?: ChartInfoPopoverCategoryControls
 }
 
@@ -49,10 +50,13 @@ export function ChartInfoPopover({
   align = "end",
   side = "bottom",
   className,
+  triggerClassName,
   categoryControls,
 }: ChartInfoPopoverProps) {
   const [open, setOpen] = useState(false)
   const [categoryPanelOpen, setCategoryPanelOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const contentRef = useRef<HTMLDivElement | null>(null)
 
   const normalizeCategoryValue = (value: string) =>
     (categoryControls?.normalizeCategory ?? defaultNormalizeCategory)(value)
@@ -69,13 +73,31 @@ export function ChartInfoPopover({
     }
   }, [open])
 
+  // Close when clicking anywhere outside the trigger or popover content.
+  useEffect(() => {
+    if (!open) return
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null
+      if (!target) return
+      if (contentRef.current?.contains(target)) return
+      if (triggerRef.current?.contains(target)) return
+      setOpen(false)
+    }
+    window.addEventListener("pointerdown", handlePointerDown, true)
+    return () => window.removeEventListener("pointerdown", handlePointerDown, true)
+  }, [open])
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
+          ref={triggerRef}
           aria-label={triggerAriaLabel ?? `Learn more about ${title}`}
-          className="inline-flex items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+          className={cn(
+            "inline-flex items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+            triggerClassName
+          )}
           onClick={() => setOpen((prev) => !prev)}
         >
           <IconInfoCircle className="h-4 w-4" aria-hidden="true" />
@@ -84,6 +106,7 @@ export function ChartInfoPopover({
       <PopoverContent
         align={align}
         side={side}
+        ref={contentRef}
         className={cn(
           "w-80 max-w-xs bg-popover text-popover-foreground",
           "data-[state=open]:animate-in data-[state=closed]:animate-out",
@@ -195,5 +218,4 @@ export function ChartInfoPopover({
     </Popover>
   )
 }
-
 
