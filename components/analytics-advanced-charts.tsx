@@ -976,33 +976,33 @@ export function ChartRadialBar({
                 data={processedData}
                 startAngle={180}
                 endAngle={-180}
-                onMouseMove={(data: any, index: number, e: any, ...args: any[]) => {
-                if (data && data.activePayload && data.activePayload[0]) {
-                  const payload = data.activePayload[0].payload
-                  const name = data.activePayload[0].name || payload.name || ""
-                  const spent = toNumericValue(payload.uv)
-                  const budget = toNumericValue(payload.pv)
-                  const exceeded = spent > budget
-                  const pct = budget > 0 ? ((spent / budget) * 100).toFixed(1) : '0'
-                  const color = payload.fill || palette[0] || "#8884d8"
-                  
-                  if (containerRef.current && e) {
-                    const rect = containerRef.current.getBoundingClientRect()
-                    setTooltipPosition({
-                      x: e.clientX - rect.left,
-                      y: e.clientY - rect.top,
-                    })
-                    setTooltip({
-                      category: name,
-                      spent,
-                      budget,
-                      percentage: pct,
-                      exceeded,
-                      color,
-                    })
+                onMouseMove={(data: any, index: number, e: any) => {
+                  if (data && data.activePayload && data.activePayload[0]) {
+                    const payload = data.activePayload[0].payload
+                    const name = data.activePayload[0].name || payload.name || ""
+                    const spent = toNumericValue(payload.uv)
+                    const budget = toNumericValue(payload.pv)
+                    const exceeded = spent > budget
+                    const pct = budget > 0 ? ((spent / budget) * 100).toFixed(1) : '0'
+                    const color = payload.fill || palette[0] || "#8884d8"
+                    
+                    if (containerRef.current && e) {
+                      const rect = containerRef.current.getBoundingClientRect()
+                      setTooltipPosition({
+                        x: e.clientX - rect.left,
+                        y: e.clientY - rect.top,
+                      })
+                      setTooltip({
+                        category: name,
+                        spent,
+                        budget,
+                        percentage: pct,
+                        exceeded,
+                        color,
+                      })
+                    }
                   }
-                }
-              }}
+                } as any}
               onMouseLeave={() => {
                 setTooltip(null)
                 setTooltipPosition(null)
