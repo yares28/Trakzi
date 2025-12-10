@@ -63,7 +63,7 @@ export const POST = async (req: NextRequest) => {
             account_name: null,
             source_filename: statementMeta?.sourceFilename ?? null,
             raw_format: statementMeta?.rawFormat ?? "pdf",
-            file_id: statementMeta?.fileId ?? null
+            file_id: statementMeta?.fileId ? Number(statementMeta.fileId) : null
         }
     ) as Array<{ id: number; user_id: string; bank_name: string | null; account_name: string | null; source_filename: string | null; raw_format: string; file_id: number | null }>;
 
