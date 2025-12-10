@@ -967,8 +967,7 @@ export function ChartRadialBar({
         {mounted && (
           <div ref={containerRef} className="relative h-full w-full">
             <ResponsiveContainer width="100%" height="100%" minHeight={250}>
-              {(
-                <RadialBarChart
+              <RadialBarChart
                 innerRadius="15%"
                 outerRadius="100%"
                 cx="50%"
@@ -1003,56 +1002,55 @@ export function ChartRadialBar({
                     }
                   }
                 } as any}
-              onMouseLeave={() => {
-                setTooltip(null)
-                setTooltipPosition(null)
-              }}
-            >
-              <RadialBar
-                label={(props: {
-                  x: number
-                  y: number
-                  textAnchor?: string
-                  payload?: { uv?: number; pv?: number }
-                }) => {
-                  const uv = toNumericValue(props.payload?.uv)
-                  const pv = toNumericValue(props.payload?.pv)
-                  const exceeded = uv > pv
-                  return (
-                    <text
-                      x={props.x}
-                      y={props.y}
-                      fill={exceeded ? "#ef4444" : "#666"}
-                      textAnchor={props.textAnchor as "start" | "end" | "inherit" | "middle" | undefined}
-                      fontSize="12"
-                      fontWeight={exceeded ? "bold" : "normal"}
-                    >
-                      {uv.toFixed(2)}
-                    </text>
-                  )
+                onMouseLeave={() => {
+                  setTooltip(null)
+                  setTooltipPosition(null)
                 }}
-                background
-                dataKey="value"
-                isAnimationActive={isAnimationActive}
-              />
-              <Legend
-                iconSize={10}
-                layout="horizontal"
-                verticalAlign="bottom"
-                align="center"
-                wrapperStyle={{ paddingTop: 16 }}
-                formatter={(value: string) => {
-                  const legendTextColor =
-                    resolvedTheme === "dark" ? "#ffffff" : "#000000"
-                  return (
-                    <span style={{ color: legendTextColor, fontSize: 12 }}>
-                      {value}
-                    </span>
-                  )
-                }}
-              />
-                </RadialBarChart>
-              ) as React.ReactElement}
+              >
+                <RadialBar
+                  label={(props: {
+                    x: number
+                    y: number
+                    textAnchor?: string
+                    payload?: { uv?: number; pv?: number }
+                  }) => {
+                    const uv = toNumericValue(props.payload?.uv)
+                    const pv = toNumericValue(props.payload?.pv)
+                    const exceeded = uv > pv
+                    return (
+                      <text
+                        x={props.x}
+                        y={props.y}
+                        fill={exceeded ? "#ef4444" : "#666"}
+                        textAnchor={props.textAnchor as "start" | "end" | "inherit" | "middle" | undefined}
+                        fontSize="12"
+                        fontWeight={exceeded ? "bold" : "normal"}
+                      >
+                        {uv.toFixed(2)}
+                      </text>
+                    )
+                  }}
+                  background
+                  dataKey="value"
+                  isAnimationActive={isAnimationActive}
+                />
+                <Legend
+                  iconSize={10}
+                  layout="horizontal"
+                  verticalAlign="bottom"
+                  align="center"
+                  wrapperStyle={{ paddingTop: 16 }}
+                  formatter={(value: string) => {
+                    const legendTextColor =
+                      resolvedTheme === "dark" ? "#ffffff" : "#000000"
+                    return (
+                      <span style={{ color: legendTextColor, fontSize: 12 }}>
+                        {value}
+                      </span>
+                    )
+                  }}
+                />
+              </RadialBarChart>
             </ResponsiveContainer>
             {tooltip && tooltipPosition && (
             <div
