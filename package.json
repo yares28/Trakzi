@@ -62,7 +62,7 @@
     "echarts-for-react": "^3.0.5",
     "gridstack": "^12.3.3",
     "lucide-react": "^0.554.0",
-    "next": "16.0.3",
+    "next": "16.0.7",
     "next-themes": "^0.4.6",
     "papaparse": "^5.5.3",
     "pdf-parse": "^1.1.1",
