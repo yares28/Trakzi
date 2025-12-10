@@ -127,9 +127,20 @@ export function ChartCategoryBubble({ data = [] }: ChartCategoryBubbleProps) {
     if (params && params.data) {
       const id: string = params.data?.id || ""
       const value: number = params.data?.value || 0
-      const fullName =
-        (id && labelMap[id]) ||
-        (id.includes(".") ? id.split(".").pop() : id || "Expenses")
+      
+      // Ensure fullName is always a string
+      let fullName: string = "Expenses"
+      if (id) {
+        const mappedLabel = labelMap[id]
+        if (mappedLabel) {
+          fullName = mappedLabel
+        } else if (id.includes(".")) {
+          const lastPart = id.split(".").pop()
+          fullName = lastPart || id
+        } else {
+          fullName = id
+        }
+      }
       
       // Get color from visual map or use palette
       const depth = params.data?.depth || 0
