@@ -114,7 +114,7 @@ export const POST = async (req: NextRequest) => {
 
         const headers: Record<string, string> = {
             "Content-Type": "text/csv",
-            "X-File-Id": savedFile.id
+            "X-File-Id": String(savedFile.id)
         };
 
         // Add warning header if categorization failed
