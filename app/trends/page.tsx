@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { GridStack } from "gridstack"
+import { GridStack, type GridStackOptions } from "gridstack"
 import "gridstack/dist/gridstack.min.css"
 
 import { AppSidebar } from "@/components/app-sidebar"
@@ -288,23 +288,21 @@ export default function TrendsPage() {
 
     // Initialize GridStack - spacing handled via CSS margin
     // Don't let GridStack auto-read attributes - we'll load them explicitly
-    const instance = GridStack.init(
-      {
-        column: 12,
-        cellHeight: 70,
-        margin: 0, // Spacing handled via CSS instead
-        float: true,  // Allow placing items anywhere without magnetizing to top
-        animate: true,  // Enable smooth animations
-        draggable: {
-          handle: ".grid-stack-item-content",
-        },
-        resizable: {
-          handles: 'se', // Only bottom-right resize handle
-        },
-        disableOneColumnMode: true,
+    const gridOptions: GridStackOptions & { disableOneColumnMode?: boolean } = {
+      column: 12,
+      cellHeight: 70,
+      margin: 0, // Spacing handled via CSS instead
+      float: true,  // Allow placing items anywhere without magnetizing to top
+      animate: true,  // Enable smooth animations
+      draggable: {
+        handle: ".grid-stack-item-content",
       },
-      container,
-    )
+      resizable: {
+        handles: 'se', // Only bottom-right resize handle
+      },
+      disableOneColumnMode: true,
+    }
+    const instance = GridStack.init(gridOptions, container)
     
     // Remove all items first to prevent GridStack from reading DOM attributes
     instance.removeAll(false)
