@@ -1497,7 +1497,14 @@ export default function Page() {
         if (Array.isArray(data)) {
           console.log(`[Dashboard] Setting ${data.length} transactions`)
           console.log("[Dashboard] First transaction:", data[0])
-          setTransactions(normalizeTransactions(data))
+          setTransactions(normalizeTransactions(data) as Array<{
+            id: number
+            date: string
+            description: string
+            amount: number
+            balance: number | null
+            category: string
+          }>)
         } else {
           console.error("[Dashboard] Response is not an array:", data)
           if (data.error) {
