@@ -116,11 +116,11 @@ export const POST = async (req: NextRequest) => {
                 color: null
             }));
 
-            const insertedCategories = await neonInsert<{ id: number; name: string }>(
+            const insertedCategories = await neonInsert<{ user_id: string; name: string; color: null; id?: number }>(
                 "categories",
                 newCategoryRows,
                 { returnRepresentation: true }
-            );
+            ) as Array<{ id: number; name: string; user_id: string; color: string | null }>;
 
             // Map newly created categories
             insertedCategories.forEach(cat => {
