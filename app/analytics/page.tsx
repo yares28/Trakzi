@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, memo, useRef, startTransition } from "react"
+import { flushSync } from "react-dom"
 import { GridStack, type GridStackOptions } from "gridstack"
 import "gridstack/dist/gridstack.min.css"
 import { AppSidebar } from "@/components/app-sidebar"
@@ -785,13 +786,12 @@ export default function AnalyticsPage() {
         // Note: No compact() - cards stay where user places them
         
         // Enforce constraints during resize (not just after)
-        gridStackRef.current.on('resize', (event, items) => {
-          if (items && items.length > 0 && gridStackRef.current) {
-            const item = items[0]
-            const chartId = item.el?.getAttribute('data-chart-id')
-            if (chartId && item.el) {
-              // Get the node to access its constraints
-              const node = gridStackRef.current.engine.nodes.find(n => n.el === item.el)
+        gridStackRef.current.on('resize', (event, item) => {
+          if (item && gridStackRef.current) {
+            const chartId = item.getAttribute('data-chart-id')
+            if (chartId) {
+              // Get the node to access its constraints and current size
+              const node = gridStackRef.current.engine.nodes.find(n => n.el === item)
               if (node) {
                 // Use node's constraints (which we set after loading)
                 const minH = node.minH ?? 4
@@ -799,12 +799,12 @@ export default function AnalyticsPage() {
                 const minW = node.minW ?? 6
                 const maxW = node.maxW ?? 12
                 
-                const clampedW = Math.max(minW, Math.min(maxW, item.w || 6))
-                const clampedH = Math.max(minH, Math.min(maxH, item.h || 6))
+                const clampedW = Math.max(minW, Math.min(maxW, node.w || 6))
+                const clampedH = Math.max(minH, Math.min(maxH, node.h || 6))
                 
                 // If size exceeds constraints, clamp it immediately
-                if (item.w !== clampedW || item.h !== clampedH) {
-                  gridStackRef.current.update(item.el, {
+                if (node.w !== clampedW || node.h !== clampedH) {
+                  gridStackRef.current.update(item, {
                     w: clampedW,
                     h: clampedH,
                   })
@@ -815,13 +815,12 @@ export default function AnalyticsPage() {
         })
         
         // Handle vertical resize (GridStack handles this)
-        gridStackRef.current.on('resizestop', (event, items) => {
-          if (items && items.length > 0 && gridStackRef.current) {
-            const item = items[0]
-            const chartId = item.el?.getAttribute('data-chart-id')
-            if (chartId && item.el) {
-              // Get the node to access its constraints
-              const node = gridStackRef.current.engine.nodes.find(n => n.el === item.el)
+        gridStackRef.current.on('resizestop', (event, item) => {
+          if (item && gridStackRef.current) {
+            const chartId = item.getAttribute('data-chart-id')
+            if (chartId) {
+              // Get the node to access its constraints and current size
+              const node = gridStackRef.current.engine.nodes.find(n => n.el === item)
               if (node) {
                 // Use node's constraints (which we set after loading)
                 const minH = node.minH ?? 4
@@ -829,12 +828,12 @@ export default function AnalyticsPage() {
                 const minW = node.minW ?? 6
                 const maxW = node.maxW ?? 12
                 
-                const clampedW = Math.max(minW, Math.min(maxW, item.w || 6))
-                const clampedH = Math.max(minH, Math.min(maxH, item.h || 6))
+                const clampedW = Math.max(minW, Math.min(maxW, node.w || 6))
+                const clampedH = Math.max(minH, Math.min(maxH, node.h || 6))
                 
                 // If size was clamped, update the GridStack item
-                if (item.w !== clampedW || item.h !== clampedH) {
-                  gridStackRef.current.update(item.el, {
+                if (node.w !== clampedW || node.h !== clampedH) {
+                  gridStackRef.current.update(item, {
                     w: clampedW,
                     h: clampedH,
                   })
@@ -844,8 +843,8 @@ export default function AnalyticsPage() {
                 newSizes[chartId] = { 
                   w: clampedW, 
                   h: clampedH,
-                  x: item.x || 0,
-                  y: item.y || 0
+                  x: node.x || 0,
+                  y: node.y || 0
                 }
                 saveChartSizes(newSizes)
               }
@@ -855,49 +854,65 @@ export default function AnalyticsPage() {
         
         // Also save on change event (for drag operations that might affect layout)
         gridStackRef.current.on('change', (event, items) => {
-          if (items && items.length > 0) {
-            const newSizes = { ...savedChartSizes }
-            items.forEach((item) => {
-              const chartId = item.el?.getAttribute('data-chart-id')
-              if (chartId && item.w && item.h) {
-                // Get chart-specific constraints
-                const sizeConfig = getChartCardSize(chartId as ChartId)
-                // Ensure width is snapped to 6 or 12, then clamp to chart constraints
-                const snapped = snapToAllowedSize(item.w, item.h)
-                const clampedW = Math.max(sizeConfig.minW, Math.min(sizeConfig.maxW, snapped.w))
-                const clampedH = Math.max(sizeConfig.minH, Math.min(sizeConfig.maxH, snapped.h))
-                newSizes[chartId] = { 
-                  w: clampedW, 
-                  h: clampedH,
-                  x: item.x || 0,
-                  y: item.y || 0
+          if (items && gridStackRef.current) {
+            const itemsArray = Array.isArray(items) ? items : [items]
+            if (itemsArray.length > 0) {
+              const newSizes = { ...savedChartSizes }
+              itemsArray.forEach((item) => {
+                // item might be a DOM element or a GridStack node
+                const el = (item as any).el || item
+                const node = gridStackRef.current!.engine.nodes.find(n => n.el === el)
+                if (node) {
+                  const chartId = el.getAttribute('data-chart-id')
+                  if (chartId && node.w && node.h) {
+                    // Get chart-specific constraints
+                    const sizeConfig = getChartCardSize(chartId as ChartId)
+                    // Ensure width is snapped to 6 or 12, then clamp to chart constraints
+                    const snapped = snapToAllowedSize(node.w, node.h)
+                    const clampedW = Math.max(sizeConfig.minW, Math.min(sizeConfig.maxW, snapped.w))
+                    const clampedH = Math.max(sizeConfig.minH, Math.min(sizeConfig.maxH, snapped.h))
+                    newSizes[chartId] = { 
+                      w: clampedW, 
+                      h: clampedH,
+                      x: node.x || 0,
+                      y: node.y || 0
+                    }
+                  }
                 }
+              })
+              if (Object.keys(newSizes).length > 0) {
+                saveChartSizes(newSizes)
               }
-            })
-            if (Object.keys(newSizes).length > 0) {
-              saveChartSizes(newSizes)
             }
           }
         })
         
         // Save on drag stop to preserve positions
         gridStackRef.current.on('dragstop', (event, items) => {
-          if (items && items.length > 0) {
-            const newSizes = { ...savedChartSizes }
-            items.forEach((item) => {
-              const chartId = item.el?.getAttribute('data-chart-id')
-              if (chartId && item.w && item.h) {
-                const snapped = snapToAllowedSize(item.w, item.h)
-                newSizes[chartId] = { 
-                  w: snapped.w, 
-                  h: snapped.h,
-                  x: item.x || 0,
-                  y: item.y || 0
+          if (items && gridStackRef.current) {
+            const itemsArray = Array.isArray(items) ? items : [items]
+            if (itemsArray.length > 0) {
+              const newSizes = { ...savedChartSizes }
+              itemsArray.forEach((item) => {
+                // item might be a DOM element or a GridStack node
+                const el = (item as any).el || item
+                const node = gridStackRef.current!.engine.nodes.find(n => n.el === el)
+                if (node) {
+                  const chartId = el.getAttribute('data-chart-id')
+                  if (chartId && node.w && node.h) {
+                    const snapped = snapToAllowedSize(node.w, node.h)
+                    newSizes[chartId] = { 
+                      w: snapped.w, 
+                      h: snapped.h,
+                      x: node.x || 0,
+                      y: node.y || 0
+                    }
+                  }
                 }
+              })
+              if (Object.keys(newSizes).length > 0) {
+                saveChartSizes(newSizes)
               }
-            })
-            if (Object.keys(newSizes).length > 0) {
-              saveChartSizes(newSizes)
             }
           }
         })
