@@ -967,15 +967,16 @@ export function ChartRadialBar({
         {mounted && (
           <div ref={containerRef} className="relative h-full w-full">
             <ResponsiveContainer width="100%" height="100%" minHeight={250}>
-              <RadialBarChart
-              innerRadius="15%"
-              outerRadius="100%"
-              cx="50%"
-              cy="50%"
-              data={processedData}
-              // Start on the left (180°) and sweep clockwise back to the left (-180°)
-              startAngle={180}
-              endAngle={-180}
+              {(() => {
+                return (
+                  <RadialBarChart
+                    innerRadius="15%"
+                    outerRadius="100%"
+                    cx="50%"
+                    cy="50%"
+                    data={processedData}
+                    startAngle={180}
+                    endAngle={-180}
               onMouseMove={(data: any, index: number, e: any, ...args: any[]) => {
                 if (data && data.activePayload && data.activePayload[0]) {
                   const payload = data.activePayload[0].payload
@@ -1051,7 +1052,9 @@ export function ChartRadialBar({
                   )
                 }}
               />
-            </RadialBarChart>
+                </RadialBarChart>
+                )
+              })()}
             </ResponsiveContainer>
             {tooltip && tooltipPosition && (
               <div
