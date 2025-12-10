@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react"
 import { flushSync } from "react-dom"
 import { useSearchParams, useRouter } from "next/navigation"
-import { GridStack } from "gridstack"
+import { GridStack, type GridStackOptions } from "gridstack"
 import "gridstack/dist/gridstack.min.css"
 import { AppSidebar } from "@/components/app-sidebar"
 import { useTransactionDialog } from "@/components/transaction-dialog-provider"
@@ -511,7 +511,7 @@ export default function Page() {
       if (items.length === 0) return
 
       // Initialize GridStack
-      favoritesGridStackRef.current = GridStack.init({
+      const gridOptions: GridStackOptions & { disableOneColumnMode?: boolean } = {
         column: 12,
         cellHeight: 70,
         margin: 0,
@@ -525,7 +525,8 @@ export default function Page() {
           handle: ".grid-stack-item-content"
         },
         disableOneColumnMode: true,
-      }, favoritesGridRef.current)
+      }
+      favoritesGridStackRef.current = GridStack.init(gridOptions, favoritesGridRef.current)
 
       if (favoritesGridStackRef.current && items.length > 0) {
         // Collect widget data
