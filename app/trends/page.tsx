@@ -525,7 +525,7 @@ export default function TrendsPage() {
               }
               
               // Move to next row (full-width cards take up full height)
-              currentY += node.h + 2 // Add spacing
+              currentY += (node.h || 6) + 2 // Add spacing
             })
             
             // Then place regular cards in 2-column layout below full-width cards
