@@ -976,7 +976,7 @@ export function ChartRadialBar({
               // Start on the left (180°) and sweep clockwise back to the left (-180°)
               startAngle={180}
               endAngle={-180}
-              onMouseMove={(data: any, index: number, e: any) => {
+              onMouseMove={(data: any, index: number, e: any, ...args: any[]) => {
                 if (data && data.activePayload && data.activePayload[0]) {
                   const payload = data.activePayload[0].payload
                   const name = data.activePayload[0].name || payload.name || ""
@@ -1002,7 +1002,7 @@ export function ChartRadialBar({
                     })
                   }
                 }
-              }}
+              } as any}
               onMouseLeave={() => {
                 setTooltip(null)
                 setTooltipPosition(null)
