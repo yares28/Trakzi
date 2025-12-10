@@ -47,16 +47,32 @@ export const POST = async (req: NextRequest) => {
     }
 
     // 2) Insert statement
-    const [statement] = await neonInsert("statements", {
+    const [statement] = await neonInsert<{
+        user_id: string;
+        bank_name: string | null;
+        account_name: string | null;
+        source_filename: string | null;
+        raw_format: string;
+        file_id: number | null;
+        id?: number;
+    }>("statements", {
         user_id: userId,
         bank_name: statementMeta?.bankName ?? null,
         account_name: null,
         source_filename: statementMeta?.sourceFilename ?? null,
         raw_format: statementMeta?.rawFormat ?? "pdf",
-        file_id: statementMeta?.fileId ?? null
-    });
+        file_id: statementMeta?.fileId ? Number(statementMeta.fileId) : null
+    }) as Array<{
+        id: number;
+        user_id: string;
+        bank_name: string | null;
+        account_name: string | null;
+        source_filename: string | null;
+        raw_format: string;
+        file_id: number | null;
+    }>;
 
-    const statementId = statement.id as number;
+    const statementId = statement.id;
 
     // 3) Map category names to category_id by fetching/creating categories
     const categoryNameToId = new Map<string, number | null>();

@@ -20,7 +20,18 @@ export async function saveFileToNeon(params: {
     const mimeType = params.file.type || "application/octet-stream";
     const extension = fileName.split(".").pop()?.toLowerCase() ?? null;
 
-    const [inserted] = await neonInsert("user_files", {
+    const [inserted] = await neonInsert<{
+        user_id: string;
+        file_name: string;
+        mime_type: string;
+        extension: string | null;
+        size_bytes: number;
+        data: string;
+        checksum: string;
+        source: string;
+        statement_id: number | null;
+        id?: number;
+    }>("user_files", {
         user_id: userId,
         file_name: fileName,
         mime_type: mimeType,
@@ -30,7 +41,18 @@ export async function saveFileToNeon(params: {
         checksum,
         source: params.source ?? "upload",
         statement_id: params.statementId ?? null
-    });
+    }) as Array<{
+        id: number;
+        user_id: string;
+        file_name: string;
+        mime_type: string;
+        extension: string | null;
+        size_bytes: number;
+        data: string;
+        checksum: string;
+        source: string;
+        statement_id: number | null;
+    }>;
 
     return inserted; // contains id, etc.
 }
