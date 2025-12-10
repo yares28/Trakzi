@@ -5,13 +5,11 @@ import { neonQuery } from "@/lib/neonClient";
 
 export const DELETE = async (
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> | { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) => {
     try {
         const userId = await getCurrentUserId();
-        // In Next.js 16, params might be a Promise
-        const resolvedParams = await Promise.resolve(params);
-        const idParam = resolvedParams.id;
+        const { id: idParam } = await params;
         
         console.log("[Delete Statement API] Received ID param:", idParam, typeof idParam);
         

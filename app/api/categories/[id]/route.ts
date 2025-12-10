@@ -5,12 +5,12 @@ import { neonQuery } from "@/lib/neonClient";
 
 export const DELETE = async (
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> | { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) => {
     try {
         const userId = await getCurrentUserId();
-        const resolvedParams = await Promise.resolve(params);
-        const categoryId = parseInt(resolvedParams.id, 10);
+        const { id } = await params;
+        const categoryId = parseInt(id, 10);
 
         if (isNaN(categoryId) || categoryId <= 0) {
             return NextResponse.json(

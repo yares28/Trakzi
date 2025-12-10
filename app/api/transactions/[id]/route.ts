@@ -5,12 +5,12 @@ import { neonQuery, neonInsert } from "@/lib/neonClient";
 
 export const DELETE = async (
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> | { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) => {
     try {
         const userId = await getCurrentUserId();
-        const resolvedParams = await Promise.resolve(params);
-        const transactionId = parseInt(resolvedParams.id, 10);
+        const { id } = await params;
+        const transactionId = parseInt(id, 10);
 
         if (isNaN(transactionId) || transactionId <= 0) {
             return NextResponse.json(
@@ -39,12 +39,12 @@ export const DELETE = async (
 
 export const PATCH = async (
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> | { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) => {
     try {
         const userId = await getCurrentUserId();
-        const resolvedParams = await Promise.resolve(params);
-        const transactionId = parseInt(resolvedParams.id, 10);
+        const { id } = await params;
+        const transactionId = parseInt(id, 10);
 
         if (isNaN(transactionId) || transactionId <= 0) {
             return NextResponse.json(

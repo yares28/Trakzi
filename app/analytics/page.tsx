@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, memo, useRef, startTransition } from "react"
-import { GridStack } from "gridstack"
+import { GridStack, type GridStackOptions } from "gridstack"
 import "gridstack/dist/gridstack.min.css"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
@@ -618,7 +618,7 @@ export default function AnalyticsPage() {
       if (items.length === 0) return
 
       // Initialize GridStack with empty grid first (don't let it auto-read attributes)
-      gridStackRef.current = GridStack.init({
+      const gridOptions: GridStackOptions & { disableOneColumnMode?: boolean } = {
         column: 12,
         cellHeight: 70,
         margin: 0,  // No margin - cards fill entire grid-stack-item
@@ -631,11 +631,13 @@ export default function AnalyticsPage() {
         draggable: {
           handle: ".grid-stack-item-content",
         },
-        // Constrain to allowed sizes
+        // Constrain to allowed sizes (not typed in GridStackOptions)
         disableOneColumnMode: true,
         // Don't set global min/max - let per-item constraints handle it
         // Per-item min/max will be set when loading widgets
-      }, gridRef.current)
+      }
+
+      gridStackRef.current = GridStack.init(gridOptions, gridRef.current)
       
       // Now explicitly load all items with correct sizes from data attributes or saved sizes
       if (gridStackRef.current && items.length > 0) {

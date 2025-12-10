@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
+import { Analytics } from "@vercel/analytics/react";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ColorSchemeProvider } from "@/components/color-scheme-provider";
 import { TransactionDialogProvider } from "@/components/transaction-dialog-provider";
@@ -54,6 +55,7 @@ export default function RootLayout({
                 </TransactionDialogProvider>
               </FavoritesProvider>
               <Toaster />
+              <Analytics />
             </ColorSchemeProvider>
           </ThemeProvider>
         </body>

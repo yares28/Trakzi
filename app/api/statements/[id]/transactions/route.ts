@@ -5,12 +5,12 @@ import { neonQuery } from "@/lib/neonClient";
 
 export const GET = async (
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> | { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) => {
     try {
         const userId = await getCurrentUserId();
-        const resolvedParams = await Promise.resolve(params);
-        const statementId = parseInt(resolvedParams.id, 10);
+        const { id } = await params;
+        const statementId = parseInt(id, 10);
 
         if (isNaN(statementId) || statementId <= 0) {
             return NextResponse.json(
