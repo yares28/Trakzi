@@ -1009,7 +1009,7 @@ export function ChartRadialBar({
                     setTooltipPosition(null)
                   },
                 },
-                React.createElement(RadialBar, {
+                React.createElement(RadialBar as any, {
                   label: (props: {
                     x: number
                     y: number
@@ -1036,7 +1036,7 @@ export function ChartRadialBar({
                   dataKey: "value",
                   isAnimationActive: isAnimationActive,
                 }),
-                React.createElement(Legend, {
+                React.createElement(Legend as any, {
                   iconSize: 10,
                   layout: "horizontal",
                   verticalAlign: "bottom",
