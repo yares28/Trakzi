@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react"
 import { flushSync } from "react-dom"
 import { useSearchParams, useRouter } from "next/navigation"
-import { GridStack } from "gridstack"
+import { GridStack, type GridStackOptions } from "gridstack"
 import "gridstack/dist/gridstack.min.css"
 import { AppSidebar } from "@/components/app-sidebar"
 import { useTransactionDialog } from "@/components/transaction-dialog-provider"
