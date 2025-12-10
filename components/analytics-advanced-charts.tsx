@@ -1052,38 +1052,38 @@ export function ChartRadialBar({
                 }}
               />
             </RadialBarChart>
-          </ResponsiveContainer>
-          {tooltip && tooltipPosition && (
-            <div
-              className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
-              style={{
-                left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
-                top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
-              }}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <span
-                  className="h-2.5 w-2.5 rounded-full border border-border/50"
-                  style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
-                />
-                <span className="font-medium text-foreground whitespace-nowrap">{tooltip.category}</span>
-              </div>
-              <div className="mt-1 text-[0.7rem] text-foreground/80">
-                Used: {tooltip.percentage}%
-              </div>
-              <div className={`mt-0.5 font-mono text-[0.7rem] ${tooltip.exceeded ? 'text-destructive' : 'text-foreground/80'}`}>
-                Spent: ${tooltip.spent.toFixed(2)}
-              </div>
-              <div className="mt-0.5 font-mono text-[0.7rem] text-foreground/80">
-                Budget: ${Math.floor(tooltip.budget)}
-              </div>
-              {tooltip.exceeded && (
-                <div className="mt-1 text-[0.7rem] text-destructive">
-                  ⚠ Exceeded
+            </ResponsiveContainer>
+            {tooltip && tooltipPosition && (
+              <div
+                className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+                style={{
+                  left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
+                  top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
+                }}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full border border-border/50"
+                    style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
+                  />
+                  <span className="font-medium text-foreground whitespace-nowrap">{tooltip.category}</span>
                 </div>
-              )}
-            </div>
-          )}
+                <div className="mt-1 text-[0.7rem] text-foreground/80">
+                  Used: {tooltip.percentage}%
+                </div>
+                <div className={`mt-0.5 font-mono text-[0.7rem] ${tooltip.exceeded ? 'text-destructive' : 'text-foreground/80'}`}>
+                  Spent: ${tooltip.spent.toFixed(2)}
+                </div>
+                <div className="mt-0.5 font-mono text-[0.7rem] text-foreground/80">
+                  Budget: ${Math.floor(tooltip.budget)}
+                </div>
+                {tooltip.exceeded && (
+                  <div className="mt-1 text-[0.7rem] text-destructive">
+                    ⚠ Exceeded
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </CardContent>
