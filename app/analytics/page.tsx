@@ -850,49 +850,65 @@ export default function AnalyticsPage() {
         
         // Also save on change event (for drag operations that might affect layout)
         gridStackRef.current.on('change', (event, items) => {
-          if (items && items.length > 0) {
-            const newSizes = { ...savedChartSizes }
-            items.forEach((item) => {
-              const chartId = item.el?.getAttribute('data-chart-id')
-              if (chartId && item.w && item.h) {
-                // Get chart-specific constraints
-                const sizeConfig = getChartCardSize(chartId as ChartId)
-                // Ensure width is snapped to 6 or 12, then clamp to chart constraints
-                const snapped = snapToAllowedSize(item.w, item.h)
-                const clampedW = Math.max(sizeConfig.minW, Math.min(sizeConfig.maxW, snapped.w))
-                const clampedH = Math.max(sizeConfig.minH, Math.min(sizeConfig.maxH, snapped.h))
-                newSizes[chartId] = { 
-                  w: clampedW, 
-                  h: clampedH,
-                  x: item.x || 0,
-                  y: item.y || 0
+          if (items && gridStackRef.current) {
+            const itemsArray = Array.isArray(items) ? items : [items]
+            if (itemsArray.length > 0) {
+              const newSizes = { ...savedChartSizes }
+              itemsArray.forEach((item) => {
+                // item might be a DOM element or a GridStack node
+                const el = (item as any).el || item
+                const node = gridStackRef.current!.engine.nodes.find(n => n.el === el)
+                if (node) {
+                  const chartId = el.getAttribute('data-chart-id')
+                  if (chartId && node.w && node.h) {
+                    // Get chart-specific constraints
+                    const sizeConfig = getChartCardSize(chartId as ChartId)
+                    // Ensure width is snapped to 6 or 12, then clamp to chart constraints
+                    const snapped = snapToAllowedSize(node.w, node.h)
+                    const clampedW = Math.max(sizeConfig.minW, Math.min(sizeConfig.maxW, snapped.w))
+                    const clampedH = Math.max(sizeConfig.minH, Math.min(sizeConfig.maxH, snapped.h))
+                    newSizes[chartId] = { 
+                      w: clampedW, 
+                      h: clampedH,
+                      x: node.x || 0,
+                      y: node.y || 0
+                    }
+                  }
                 }
+              })
+              if (Object.keys(newSizes).length > 0) {
+                saveChartSizes(newSizes)
               }
-            })
-            if (Object.keys(newSizes).length > 0) {
-              saveChartSizes(newSizes)
             }
           }
         })
         
         // Save on drag stop to preserve positions
         gridStackRef.current.on('dragstop', (event, items) => {
-          if (items && items.length > 0) {
-            const newSizes = { ...savedChartSizes }
-            items.forEach((item) => {
-              const chartId = item.el?.getAttribute('data-chart-id')
-              if (chartId && item.w && item.h) {
-                const snapped = snapToAllowedSize(item.w, item.h)
-                newSizes[chartId] = { 
-                  w: snapped.w, 
-                  h: snapped.h,
-                  x: item.x || 0,
-                  y: item.y || 0
+          if (items && gridStackRef.current) {
+            const itemsArray = Array.isArray(items) ? items : [items]
+            if (itemsArray.length > 0) {
+              const newSizes = { ...savedChartSizes }
+              itemsArray.forEach((item) => {
+                // item might be a DOM element or a GridStack node
+                const el = (item as any).el || item
+                const node = gridStackRef.current!.engine.nodes.find(n => n.el === el)
+                if (node) {
+                  const chartId = el.getAttribute('data-chart-id')
+                  if (chartId && node.w && node.h) {
+                    const snapped = snapToAllowedSize(node.w, node.h)
+                    newSizes[chartId] = { 
+                      w: snapped.w, 
+                      h: snapped.h,
+                      x: node.x || 0,
+                      y: node.y || 0
+                    }
+                  }
                 }
+              })
+              if (Object.keys(newSizes).length > 0) {
+                saveChartSizes(newSizes)
               }
-            })
-            if (Object.keys(newSizes).length > 0) {
-              saveChartSizes(newSizes)
             }
           }
         })
