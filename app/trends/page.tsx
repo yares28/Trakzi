@@ -45,7 +45,7 @@ function ChartCategoryTrendWrapper({ categoryName }: { categoryName: string }) {
 
     const checkAndHide = () => {
       if (wrapperRef.current) {
-        const gridItem = wrapperRef.current.closest('.grid-stack-item')
+        const gridItem = wrapperRef.current.closest('.grid-stack-item') as HTMLElement | null
         if (gridItem) {
           // If wrapper has no children, ChartCategoryTrend returned null (no data)
           const hasContent = wrapperRef.current.children.length > 0
