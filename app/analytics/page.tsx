@@ -770,7 +770,7 @@ export default function AnalyticsPage() {
                     gridStackRef.current!.update(node.el, {
                       w: clampedW,
                       h: clampedH,
-                    }, false)
+                    })
                   }
                 }
               }
