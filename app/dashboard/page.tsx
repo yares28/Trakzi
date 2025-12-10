@@ -511,7 +511,7 @@ export default function Page() {
       if (items.length === 0) return
 
       // Initialize GridStack
-      favoritesGridStackRef.current = GridStack.init({
+      const gridOptions: GridStackOptions & { disableOneColumnMode?: boolean } = {
         column: 12,
         cellHeight: 70,
         margin: 0,
@@ -525,7 +525,8 @@ export default function Page() {
           handle: ".grid-stack-item-content"
         },
         disableOneColumnMode: true,
-      }, favoritesGridRef.current)
+      }
+      favoritesGridStackRef.current = GridStack.init(gridOptions, favoritesGridRef.current)
 
       if (favoritesGridStackRef.current && items.length > 0) {
         // Collect widget data
@@ -1488,7 +1489,14 @@ export default function Page() {
         if (Array.isArray(data)) {
           console.log(`[Dashboard] Setting ${data.length} transactions`)
           console.log("[Dashboard] First transaction:", data[0])
-          setTransactions(normalizeTransactions(data))
+          setTransactions(normalizeTransactions(data) as Array<{
+            id: number
+            date: string
+            description: string
+            amount: number
+            balance: number | null
+            category: string
+          }>)
         } else {
           console.error("[Dashboard] Response is not an array:", data)
           if (data.error) {

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, memo, useRef, startTransition } from "react"
+import { flushSync } from "react-dom"
 import { GridStack, type GridStackOptions } from "gridstack"
 import "gridstack/dist/gridstack.min.css"
 import { AppSidebar } from "@/components/app-sidebar"
