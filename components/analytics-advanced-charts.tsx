@@ -966,7 +966,7 @@ export function ChartRadialBar({
       <CardContent className="h-[250px]">
         {mounted && (
           <div ref={containerRef} className="relative h-full w-full">
-            <ResponsiveContainer width="100%" height="100%" minHeight={250}>
+            <ResponsiveContainer width="100%" height="100%" minHeight={250} children={
               <RadialBarChart
                 innerRadius="15%"
                 outerRadius="100%"
@@ -1051,7 +1051,7 @@ export function ChartRadialBar({
                   }}
                 />
               </RadialBarChart>
-            </ResponsiveContainer>
+            } as React.ReactElement />
             {tooltip && tooltipPosition && (
             <div
               className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
