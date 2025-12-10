@@ -289,18 +289,18 @@ export default function TrendsPage() {
     // Initialize GridStack - spacing handled via CSS margin
     // Don't let GridStack auto-read attributes - we'll load them explicitly
     const gridOptions: GridStackOptions & { disableOneColumnMode?: boolean } = {
-      column: 12,
-      cellHeight: 70,
-      margin: 0, // Spacing handled via CSS instead
-      float: true,  // Allow placing items anywhere without magnetizing to top
-      animate: true,  // Enable smooth animations
-      draggable: {
-        handle: ".grid-stack-item-content",
-      },
-      resizable: {
-        handles: 'se', // Only bottom-right resize handle
-      },
-      disableOneColumnMode: true,
+        column: 12,
+        cellHeight: 70,
+        margin: 0, // Spacing handled via CSS instead
+        float: true,  // Allow placing items anywhere without magnetizing to top
+        animate: true,  // Enable smooth animations
+        draggable: {
+          handle: ".grid-stack-item-content",
+        },
+        resizable: {
+          handles: 'se', // Only bottom-right resize handle
+        },
+        disableOneColumnMode: true,
     }
     const instance = GridStack.init(gridOptions, container)
     
@@ -525,7 +525,7 @@ export default function TrendsPage() {
               }
               
               // Move to next row (full-width cards take up full height)
-              currentY += node.h + 2 // Add spacing
+              currentY += (node.h || 6) + 2 // Add spacing
             })
             
             // Then place regular cards in 2-column layout below full-width cards
