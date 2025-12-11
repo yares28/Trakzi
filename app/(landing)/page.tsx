@@ -73,7 +73,7 @@ export default function Home() {
           }`}
           href="/"
         >
-          <img src="/fullet/fulletlogo.png" alt="Fullet" className="h-8 w-auto" draggable={false} />
+          <img src="/Trakzi/TrakzilogoB.png" alt="Trakzi" className="h-8 w-auto" draggable={false} />
         </Link>
 
         <div className="absolute inset-0 hidden flex-1 flex-row items-center justify-center space-x-2 text-sm font-medium text-muted-foreground transition duration-200 hover:text-foreground md:flex md:space-x-2">
@@ -156,7 +156,7 @@ export default function Home() {
       {/* Mobile Header */}
       <header className="sticky top-4 z-[9999] mx-4 flex w-auto flex-row items-center justify-between rounded-full bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg md:hidden px-4 py-3">
         <Link className="flex items-center justify-center gap-2" href="/">
-          <img src="/fullet/fulletlogo.png" alt="Fullet" className="h-7 w-auto" draggable={false} />
+          <img src="/Trakzi/TrakzilogoB.png" alt="Trakzi" className="h-7 w-auto" draggable={false} />
         </Link>
 
         <button

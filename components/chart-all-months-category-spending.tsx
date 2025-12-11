@@ -14,6 +14,7 @@ import {
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
+import { ChartLoadingState } from "@/components/chart-loading-state"
 interface ChartAllMonthsCategorySpendingProps {
   data?: Array<{
     id: number
@@ -24,6 +25,7 @@ interface ChartAllMonthsCategorySpendingProps {
     category: string
   }>
   categoryControls?: ChartInfoPopoverCategoryControls
+  isLoading?: boolean
 }
 
 const monthNames = [
@@ -43,7 +45,7 @@ const monthNames = [
 
 const monthNamesShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
-export function ChartAllMonthsCategorySpending({ data = [], categoryControls: propCategoryControls }: ChartAllMonthsCategorySpendingProps) {
+export function ChartAllMonthsCategorySpending({ data = [], categoryControls: propCategoryControls, isLoading = false }: ChartAllMonthsCategorySpendingProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const palette = useMemo(
@@ -736,8 +738,8 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
-          No data available
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+          <ChartLoadingState isLoading={isLoading} />
         </CardContent>
       </Card>
     )

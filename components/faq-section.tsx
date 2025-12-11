@@ -13,9 +13,9 @@ export function FAQSection() {
 
   const faqs = [
     {
-      question: "What is fullet?",
+      question: "What is Trakzi?",
       answer:
-        "fullet is an all-in-one budgeting workspace where you can bring together your accounts, CSV exports, and receipts to see where your money is going at a glance.",
+        "Trakzi is an all-in-one budgeting workspace where you can bring together your accounts, CSV exports, and receipts to see where your money is going at a glance.",
     },
     {
       question: "How do I import my transactions?",
@@ -25,7 +25,7 @@ export function FAQSection() {
     {
       question: "Can I scan and store receipts?",
       answer:
-        "Yes. Snap or upload your grocery and retail receipts, and fullet extracts the totals so you can compare them against your budget and past habits.",
+        "Yes. Snap or upload your grocery and retail receipts, and Trakzi extracts the totals so you can compare them against your budget and past habits.",
     },
     {
       question: "What does the AI actually do?",

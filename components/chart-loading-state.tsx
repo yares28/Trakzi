@@ -1,5 +1,6 @@
 "use client"
 
+import { ShimmeringText } from "@/components/ui/shimmering-text"
 import { cn } from "@/lib/utils"
 
 interface ChartLoadingStateProps {
@@ -11,7 +12,13 @@ export function ChartLoadingState({ isLoading = false, className }: ChartLoading
   if (isLoading) {
     return (
       <div className={cn("flex items-center justify-center h-full w-full", className)}>
-        <span className="shimmer-text text-muted-foreground">Loading Data</span>
+        <ShimmeringText
+          text="Loading data"
+          className="text-muted-foreground font-medium"
+          duration={1.8}
+          repeatDelay={0.3}
+          spread={2.5}
+        />
       </div>
     )
   }

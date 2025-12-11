@@ -169,8 +169,8 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
             >
               <Link href="/">
                 <Image
-                  src="/fullet/fulletlogo.png"
-                  alt="Fullot"
+                  src={theme === "dark" ? "/Trakzi/TrakzilogoB.png" : "/Trakzi/Trakzilogo.png"}
+                  alt="Trakzi"
                   width={180}
                   height={60}
                   className="h-16 w-auto object-contain"

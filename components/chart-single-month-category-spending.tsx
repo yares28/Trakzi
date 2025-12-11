@@ -8,6 +8,7 @@ import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
+import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
   Card,
   CardAction,
@@ -382,8 +383,8 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
-          Loading data...
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+          <ChartLoadingState isLoading />
         </CardContent>
       </Card>
     )
@@ -405,8 +406,8 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
-          No data available
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+          <ChartLoadingState isLoading={loading} />
         </CardContent>
       </Card>
     )

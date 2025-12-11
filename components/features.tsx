@@ -195,8 +195,8 @@ export default function Features() {
                           whileHover={{ scale: 1.1, rotate: 5 }}
                         >
                           <img
-                            src="/fullet/fulleticon.png"
-                            alt="Fullet Logo"
+                            src="/Trakzi/Trakziicon.png"
+                            alt="Trakzi Logo"
                             className="w-full h-full object-contain"
                           />
                         </motion.div>
@@ -284,7 +284,7 @@ export default function Features() {
                 </div>
                 <div className="flex min-h-[300px] grow items-start justify-center select-none">
                   <h1 className="mt-8 text-center text-5xl leading-[100%] font-semibold sm:leading-normal lg:mt-12 lg:text-6xl">
-                    <span className='bg-background relative mt-3 inline-block w-fit rounded-md border px-1.5 py-0.5 before:absolute before:top-0 before:left-0 before:z-10 before:h-full before:w-full before:bg-[url("/noise.gif")] before:opacity-[0.09] before:content-[""]'>
+                    <span className="bg-background relative mt-3 inline-block w-fit rounded-md border px-1.5 py-0.5">
                       <ScrambleHover
                         text="CSV"
                         scrambleSpeed={70}

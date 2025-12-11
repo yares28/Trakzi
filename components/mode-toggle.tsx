@@ -7,7 +7,7 @@ import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 
 export default function ModeToggle() {
-  const { theme, setTheme } = useTheme()
+  const { resolvedTheme, setTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
 
   React.useEffect(() => {
@@ -15,7 +15,8 @@ export default function ModeToggle() {
   }, [])
 
   const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark")
+    const nextTheme = resolvedTheme === "dark" ? "light" : "dark"
+    setTheme(nextTheme)
   }
 
   if (!mounted) {
@@ -29,7 +30,7 @@ export default function ModeToggle() {
 
   return (
     <Button variant="outline" size="icon" onClick={toggleTheme}>
-      {theme === "dark" ? (
+      {resolvedTheme === "dark" ? (
         <Sun className="h-[1.2rem] w-[1.2rem] transition-all" />
       ) : (
         <Moon className="h-[1.2rem] w-[1.2rem] transition-all" />

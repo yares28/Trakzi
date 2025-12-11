@@ -103,8 +103,8 @@ export function StickyFooter() {
               </ul>
             </motion.div>
             <motion.img
-              src="/fullet/fulleticonB.png"
-              alt="Fullet"
+              src="/Trakzi/TrakziiconB.png"
+              alt="Trakzi"
               className="absolute bottom-0 left-0 translate-y-1/4 sm:h-[180px] h-[100px] w-auto select-none opacity-20"
               initial={{ opacity: 0, x: -100 }}
               animate={{ opacity: 0.2, x: 0 }}

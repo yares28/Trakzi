@@ -8,6 +8,7 @@ import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
   Card,
   CardAction,
@@ -35,9 +36,10 @@ type SeriesDatum = {
 
 interface ChartCategoryBubbleProps {
   data?: Transaction[]
+  isLoading?: boolean
 }
 
-export function ChartCategoryBubble({ data = [] }: ChartCategoryBubbleProps) {
+export function ChartCategoryBubble({ data = [], isLoading = false }: ChartCategoryBubbleProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const [mounted, setMounted] = React.useState(false)
@@ -452,8 +454,8 @@ export function ChartCategoryBubble({ data = [] }: ChartCategoryBubbleProps) {
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
-          Loading bubble chart...
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+          <ChartLoadingState isLoading />
         </CardContent>
       </Card>
     )
@@ -475,8 +477,8 @@ export function ChartCategoryBubble({ data = [] }: ChartCategoryBubbleProps) {
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
-          No data available
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+          <ChartLoadingState isLoading={isLoading} />
         </CardContent>
       </Card>
     )

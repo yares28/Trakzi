@@ -4,6 +4,7 @@ import { useMemo, useEffect, useRef, useCallback, useState } from "react"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
+import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
   Card,
   CardAction,
@@ -25,13 +26,14 @@ interface ChartDayOfWeekSpendingProps {
     category: string
   }>
   categoryControls?: ChartInfoPopoverCategoryControls
+  isLoading?: boolean
 }
 
 // Week starts on Monday (ISO 8601 standard)
 const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 const dayNamesShort = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-export function ChartDayOfWeekSpending({ data = [], categoryControls: propCategoryControls }: ChartDayOfWeekSpendingProps) {
+export function ChartDayOfWeekSpending({ data = [], categoryControls: propCategoryControls, isLoading = false }: ChartDayOfWeekSpendingProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const palette = getPalette().filter(color => color !== "#c3c3c3")
@@ -693,8 +695,8 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
-          No data available
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+          <ChartLoadingState isLoading={isLoading} />
         </CardContent>
       </Card>
     )

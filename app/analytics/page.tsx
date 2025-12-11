@@ -2926,6 +2926,7 @@ export default function AnalyticsPage() {
                                     ),
                                   ).sort(),
                                 )}
+                                isLoading={isLoadingTransactions}
                               />
                             </div>
                           </div>
@@ -2954,6 +2955,7 @@ export default function AnalyticsPage() {
                                   monthOfYearSpendingVisibility,
                                   normalizeCategoryName,
                                 ])}
+                                isLoading={isLoadingTransactions}
                               />
                             </div>
                           </div>
@@ -3066,6 +3068,7 @@ export default function AnalyticsPage() {
                             <ChartCategoryFlow
                               categoryControls={categoryFlowControls}
                               data={categoryFlowChart.data}
+                              isLoading={isLoadingTransactions}
                             />
                             </div>
                           </div>
@@ -3142,6 +3145,7 @@ export default function AnalyticsPage() {
                                     })
                                 }
                               }, [rawTransactions, treeMapVisibility.hiddenCategorySet, normalizeCategoryName])}
+                              isLoading={isLoadingTransactions}
                             />
                             </div>
                           </div>
@@ -3166,6 +3170,7 @@ export default function AnalyticsPage() {
                               categoryControls={spendingFunnelControls}
                               data={spendingFunnelChart.data}
                               maxExpenseCategories={moneyFlowMaxExpenseCategories}
+                              isLoading={isLoadingTransactions}
                             />
                             </div>
                           </div>
@@ -3179,6 +3184,7 @@ export default function AnalyticsPage() {
                             <ChartExpensesPie
                               categoryControls={expensesPieControls}
                               data={expensesPieData.slices}
+                              isLoading={isLoadingTransactions}
                             />
                             </div>
                           </div>
@@ -3202,6 +3208,7 @@ export default function AnalyticsPage() {
                               <ChartNeedsWantsPie
                                 categoryControls={needsWantsControls}
                                 data={needsWantsPieData.slices}
+                                isLoading={isLoadingTransactions}
                               />
                             </div>
                           </div>
@@ -3214,6 +3221,7 @@ export default function AnalyticsPage() {
                             <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartCategoryBubble
                               data={rawTransactions}
+                              isLoading={isLoadingTransactions}
                             />
                             </div>
                           </div>
@@ -3228,6 +3236,7 @@ export default function AnalyticsPage() {
                               categoryControls={polarBarControls}
                               data={polarBarData.data}
                               keys={polarBarData.keys}
+                              isLoading={isLoadingTransactions}
                             />
                             </div>
                           </div>
@@ -3505,6 +3514,7 @@ export default function AnalyticsPage() {
                               categoryControls={streamgraphControls}
                               data={spendingStreamData.data}
                               keys={spendingStreamData.keys}
+                              isLoading={isLoadingTransactions}
                             />
                             </div>
                           </div>
