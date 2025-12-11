@@ -14,9 +14,11 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
 
-  // Turbopack configuration (Next.js 16+ uses Turbopack by default)
-  // Empty config silences the warning - pdf-parse is handled via serverExternalPackages
-  turbopack: {},
+  // TypeScript configuration
+  typescript: {
+    // Ignore TypeScript errors during builds (already handled by ESLint ignore)
+    ignoreBuildErrors: false,
+  },
 };
 
 export default nextConfig;
