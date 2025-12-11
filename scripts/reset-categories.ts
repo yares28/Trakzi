@@ -34,8 +34,8 @@ function loadEnv() {
 
 loadEnv()
 
-const CONNECTION_STRING = process.env.DATABASE_URL || process.env.NEON_CONNECTION_STRING
-const DEMO_USER_ID = process.env.DEMO_USER_ID
+const CONNECTION_STRING = process.env.DATABASE_URL ?? process.env.NEON_CONNECTION_STRING ?? ""
+const DEMO_USER_ID = process.env.DEMO_USER_ID ?? ""
 
 if (!CONNECTION_STRING) {
   console.error('Error: DATABASE_URL or NEON_CONNECTION_STRING not set in environment')

@@ -81,6 +81,19 @@ import {
 import { CategorySelect } from "@/components/category-select"
 import { normalizeTransactions } from "@/lib/utils"
 
+type StatementTransaction = {
+    id: number
+    date: string
+    description: string
+    amount: number | string | null | undefined
+    balance: number | string | null | undefined
+    category?: string | null | undefined
+}
+
+type NormalizedStatementTransaction = ReturnType<
+    typeof normalizeTransactions<StatementTransaction>
+>[number]
+
 export const reportSchema = z.object({
     id: z.string(),
     name: z.string(),
@@ -332,14 +345,7 @@ const createColumns = (onDelete?: (statementId: string) => void): ColumnDef<z.in
         cell: ({ row }) => {
             const [deleteOpen, setDeleteOpen] = React.useState(false);
             const [viewOpen, setViewOpen] = React.useState(false);
-            const [transactions, setTransactions] = React.useState<Array<{
-                id: number;
-                date: string;
-                description: string;
-                amount: number;
-                balance: number | null;
-                category: string;
-            }>>([]);
+            const [transactions, setTransactions] = React.useState<NormalizedStatementTransaction[]>([]);
             const [loading, setLoading] = React.useState(false);
 
             const handleDelete = () => {
@@ -361,7 +367,7 @@ const createColumns = (onDelete?: (statementId: string) => void): ColumnDef<z.in
                     const response = await fetch(`/api/statements/${statementId}/transactions`);
                     if (response.ok) {
                         const data = await response.json();
-                        setTransactions(normalizeTransactions(data));
+                        setTransactions(normalizeTransactions<StatementTransaction>(data));
                     } else {
                         console.error("Failed to fetch transactions");
                         setTransactions([]);

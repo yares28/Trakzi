@@ -29,7 +29,7 @@ export function NavUser() {
     <SidebarMenu>
       <SidebarMenuItem>
         <SignedOut>
-          <SignInButton mode="redirect" redirectUrl="/sign-in">
+          <SignInButton mode="redirect">
             <SidebarMenuButton size="lg" className="w-full">
               <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarFallback className="rounded-lg">

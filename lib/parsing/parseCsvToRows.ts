@@ -403,7 +403,7 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
 
     if (columns.length === 0 && rowsData.length > 0) {
         console.warn("[CLIENT] No headers detected, trying to parse without headers");
-        const rawParsed = Papa.parse(cleanedCsv, {
+        const rawParsed = Papa.parse<any[]>(cleanedCsv, {
             header: false,
             skipEmptyLines: true,
             delimiter
@@ -432,7 +432,7 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
     };
 
     // Helper function to find numeric columns (excluding dates)
-    function findNumericColumn(row: Record<string, any>, columns: string[], excludeColumns: string[] = []): string | null {
+    function findNumericColumn(row: Record<string, any>, columns: string[], excludeColumns: string[] = []): string | undefined {
         for (const col of columns) {
             if (excludeColumns.includes(col)) continue;
             const value = row[col];
@@ -448,7 +448,7 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
                 }
             }
         }
-        return null;
+        return undefined;
     }
 
     const rows = rowsData.map((r, index) => {
@@ -504,7 +504,9 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
         let amountColumn = columns.find(col => !dateColumns.includes(col) && col !== descColumn && AMOUNT_REGEX.test(col));
         if (!amountColumn) {
             // Try to find numeric column (excluding dates and description)
-            const excludeCols = [...dateColumns, descColumn].filter(Boolean);
+            const excludeCols = [...dateColumns, descColumn].filter(
+                (col): col is string => Boolean(col)
+            );
             amountColumn = findNumericColumn(r, columns, excludeCols);
         }
         if (!amountColumn) {
@@ -517,7 +519,9 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
         let balanceColumn = columns.find(col => !dateColumns.includes(col) && col !== descColumn && col !== amountColumn && BALANCE_REGEX.test(col));
         if (!balanceColumn) {
             // Try to find another numeric column
-            const excludeCols = [...dateColumns, descColumn, amountColumn].filter(Boolean);
+            const excludeCols = [...dateColumns, descColumn, amountColumn].filter(
+                (col): col is string => Boolean(col)
+            );
             balanceColumn = findNumericColumn(r, columns, excludeCols);
         }
         const rawBalance = balanceColumn && r[balanceColumn] != null ? r[balanceColumn] : (r.balance ?? r.Balance ?? r.BALANCE);

@@ -171,3 +171,5 @@ secrets/
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+.vercel

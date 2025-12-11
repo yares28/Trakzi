@@ -73,6 +73,8 @@ export function ReceiptFridgeAnimation() {
     }
   }, [phase])
 
+  const { scale: fridgeScale, ...fridgeTiltTransforms } = fridgeTilt
+
   return (
     <div
       className="relative w-full h-[280px] flex items-center justify-center overflow-hidden"
@@ -99,7 +101,7 @@ export function ReceiptFridgeAnimation() {
             key="fridge"
             className="relative"
             initial={{ scale: 0.9, opacity: 0, rotateY: -25 }}
-            animate={{ scale: 1, opacity: 1, ...fridgeTilt }}
+            animate={{ scale: fridgeScale, opacity: 1, ...fridgeTiltTransforms }}
             exit={{ scale: 0.8, opacity: 0, rotateY: 10 }}
             transition={{ type: "spring", damping: 18, stiffness: 140 }}
             style={{ transformStyle: "preserve-3d" }}

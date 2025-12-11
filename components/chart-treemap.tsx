@@ -17,14 +17,16 @@ import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 
-interface ChartTreeMapProps {
-  data?: {
+type TreeMapNode = {
+  name: string
+  children: Array<{
     name: string
-    children: Array<{
-      name: string
-      children: Array<{ name: string; loc: number; fullDescription?: string }>
-    }>
-  }
+    children: Array<{ name: string; loc: number; fullDescription?: string }>
+  }>
+}
+
+interface ChartTreeMapProps {
+  data?: TreeMapNode
   categoryControls?: ChartInfoPopoverCategoryControls
   isLoading?: boolean
 }
@@ -45,24 +47,50 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
     // For "dark" color scheme in light mode, shift to lighter colors
     return colorScheme === "dark" ? palette.slice(4) : palette
   }, [getPalette, isDark, colorScheme])
-  
+
   // Text color based on theme - white in dark mode, black in light mode
   const labelColor = isDark ? "#ffffff" : "#000000"
   
-  const sanitizedData = useMemo(() => {
-    if (!data || !data.children) return { name: "", children: [] }
-    const sanitizeChildren = (node: ChartTreeMapProps["data"]): ChartTreeMapProps["data"] => ({
+  const sanitizedData = useMemo<TreeMapNode>(() => {
+    const empty: TreeMapNode = { name: "", children: [] }
+    if (!data?.children?.length) return empty
+
+    const sanitizeChildren = (node: TreeMapNode): TreeMapNode => ({
       name: node?.name || "",
-      children: node?.children?.map(child => ({
-        name: child.name,
-        children: child.children.map(grandchild => ({
-          name: grandchild.name,
-          loc: toNumericValue(grandchild.loc),
-          fullDescription: grandchild.fullDescription
-        }))
-      })) || []
+      children:
+        node?.children?.map((child) => ({
+          name: child.name,
+          children:
+            child.children?.map((grandchild) => ({
+              name: grandchild.name,
+              loc: toNumericValue(grandchild.loc),
+              fullDescription: grandchild.fullDescription,
+            })) || [],
+        })) || [],
     })
-    return sanitizeChildren(data)
+
+    const result = sanitizeChildren(data)
+
+    // #region agent log
+    fetch("http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: "debug-session",
+        runId: "pre-fix",
+        hypothesisId: "H6",
+        location: "chart-treemap.tsx:sanitizedData",
+        message: "sanitizedData computed",
+        data: {
+          hasChildren: Boolean(result.children && result.children.length),
+          childCount: result.children?.length ?? 0,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+
+    return result
   }, [data])
 
   const renderInfoTrigger = () => (
@@ -91,6 +119,26 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
   )
   
   if (!sanitizedData || !sanitizedData.children || sanitizedData.children.length === 0) {
+    // #region agent log
+    fetch("http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: "debug-session",
+        runId: "pre-fix",
+        hypothesisId: "H7",
+        location: "chart-treemap.tsx:empty-state",
+        message: "sanitizedData empty",
+        data: {
+          sanitizedDataExists: Boolean(sanitizedData),
+          childCount: sanitizedData?.children?.length ?? 0,
+          isLoading,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+
     return (
       <Card className="@container/card col-span-full">
         <CardHeader>
