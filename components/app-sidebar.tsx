@@ -32,6 +32,8 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar"
 
 const data = {
@@ -153,28 +155,56 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
   const { theme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
+  const { state } = useSidebar()
 
   React.useEffect(() => {
     setMounted(true)
   }, [])
 
   return (
-    <Sidebar collapsible="offcanvas" {...props}>
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
+    <Sidebar
+      collapsible="icon"
+      style={
+        {
+          "--sidebar-width": "calc(16rem - 5px)",
+          "--sidebar-width-icon": "calc(4.5rem - 5px)",
+        } as React.CSSProperties
+      }
+      {...props}
+    >
+      <SidebarHeader className="flex items-center justify-center pr-[15px]">
+        <SidebarMenu className="flex w-full items-center justify-center">
+          <SidebarMenuItem className="w-auto h-auto">
             <SidebarMenuButton
               asChild
-              className="data-[slot=sidebar-menu-button]:!p-4 !h-auto"
+              className="data-[slot=sidebar-menu-button]:!p-4 !h-auto group-data-[collapsible=icon]:!p-3 group-data-[collapsible=icon]:!h-[4rem] group-data-[collapsible=icon]:!w-[4rem] group-data-[collapsible=icon]:!justify-center"
+              aria-label="Home"
             >
               <Link href="/">
-                <Image
-                  src={theme === "dark" ? "/Trakzi/TrakzilogoB.png" : "/Trakzi/Trakzilogo.png"}
-                  alt="Trakzi"
-                  width={180}
-                  height={60}
-                  className="h-16 w-auto object-contain"
-                />
+                <>
+                  {mounted ? (
+                    <Image
+                      src={theme === "dark" ? "/Trakzi/TrakzilogoB.png" : "/Trakzi/Trakzilogo.png"}
+                      alt="Trakzi"
+                      width={180}
+                      height={60}
+                      className="hidden h-16 w-auto object-contain group-data-[state=expanded]:block"
+                    />
+                  ) : (
+                    <div className="hidden h-16 w-[180px] group-data-[state=expanded]:block" />
+                  )}
+                  {mounted ? (
+                    <Image
+                      src="/Trakzi/Trakziicon.png"
+                      alt="Trakzi icon"
+                      width={64}
+                      height={64}
+                      className="hidden h-12 w-auto object-contain group-data-[state=collapsed]:block"
+                    />
+                  ) : (
+                    <div className="hidden h-12 w-[64px] group-data-[state=collapsed]:block" />
+                  )}
+                </>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -188,6 +218,7 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
       <SidebarFooter>
         <NavUser />
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   )
 }

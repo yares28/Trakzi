@@ -1450,19 +1450,19 @@ export default function Page() {
     // Calculate percentage changes
     const incomeChange = previousIncome > 0 
       ? ((currentIncome - previousIncome) / previousIncome) * 100 
-      : (currentIncome > 0 ? 100 : 0)
+      : 0
 
     const expensesChange = previousExpenses > 0 
       ? ((currentExpenses - previousExpenses) / previousExpenses) * 100 
-      : (currentExpenses > 0 ? 100 : 0)
+      : 0
 
     const savingsRateChange = previousSavingsRate !== 0 
       ? currentSavingsRate - previousSavingsRate 
-      : (currentSavingsRate > 0 ? 100 : 0)
+      : 0
 
     const netWorthChange = previousNetWorth > 0 
       ? ((netWorth - previousNetWorth) / previousNetWorth) * 100 
-      : (netWorth > 0 ? 100 : 0)
+      : 0
 
     return {
       totalIncome: currentIncome,

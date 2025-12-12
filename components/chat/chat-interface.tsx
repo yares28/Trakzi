@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ChatMessage } from "@/components/chat/chat-message"
+import { Orb } from "@/components/ui/orb"
 import { 
   IconSend, 
   IconLoader2, 
-  IconSparkles, 
   IconRefresh,
   IconTrash,
   IconBrain
@@ -52,6 +52,45 @@ export function ChatInterface() {
   const [thinkingText, setThinkingText] = useState("")
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [orbColors, setOrbColors] = useState<[string, string]>(["#E78A53", "#4A90E2"])
+
+  // Get colors from CSS variables - using chart colors which match theme
+  useEffect(() => {
+    const root = document.documentElement
+    const chart1 = getComputedStyle(root).getPropertyValue("--chart-1").trim()
+    const chart2 = getComputedStyle(root).getPropertyValue("--chart-2").trim()
+    
+    // Convert oklch to hex by creating a temporary element
+    const convertOklchToHex = (oklchValue: string): string => {
+      if (!oklchValue || !oklchValue.startsWith("oklch")) {
+        return "#E78A53" // fallback
+      }
+      try {
+        const tempEl = document.createElement("div")
+        tempEl.style.color = oklchValue
+        document.body.appendChild(tempEl)
+        const rgb = window.getComputedStyle(tempEl).color
+        document.body.removeChild(tempEl)
+        
+        // Convert rgb to hex
+        const match = rgb.match(/\d+/g)
+        if (match && match.length >= 3) {
+          const r = parseInt(match[0]).toString(16).padStart(2, "0")
+          const g = parseInt(match[1]).toString(16).padStart(2, "0")
+          const b = parseInt(match[2]).toString(16).padStart(2, "0")
+          return `#${r}${g}${b}`
+        }
+      } catch {
+        // fallback
+      }
+      return "#E78A53"
+    }
+    
+    setOrbColors([
+      convertOklchToHex(chart2) || "#E78A53",
+      convertOklchToHex(chart1) || "#4A90E2"
+    ])
+  }, [])
 
   // Load user context on mount
   useEffect(() => {
@@ -71,12 +110,32 @@ export function ChatInterface() {
     loadContext()
   }, [])
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom with smooth animation
   useEffect(() => {
     if (scrollRef.current) {
       const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]')
       if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight
+        const targetScroll = scrollContainer.scrollHeight
+        const startScroll = scrollContainer.scrollTop
+        const distance = targetScroll - startScroll
+        const duration = 300 // ms
+        const startTime = performance.now()
+
+        const animateScroll = (currentTime: number) => {
+          const elapsed = currentTime - startTime
+          const progress = Math.min(elapsed / duration, 1)
+          
+          // Easing function for smooth animation
+          const easeOutCubic = 1 - Math.pow(1 - progress, 3)
+          
+          scrollContainer.scrollTop = startScroll + distance * easeOutCubic
+          
+          if (progress < 1) {
+            requestAnimationFrame(animateScroll)
+          }
+        }
+        
+        requestAnimationFrame(animateScroll)
       }
     }
   }, [messages, isStreaming])
@@ -222,10 +281,14 @@ export function ChatInterface() {
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-gradient-to-r from-purple-50/50 to-indigo-50/50 dark:from-purple-950/20 dark:to-indigo-950/20">
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
-            <IconSparkles className="h-5 w-5 text-white" />
+          <div className="h-10 w-10 rounded-full overflow-hidden flex items-center justify-center shrink-0">
+            <Orb 
+              colors={orbColors}
+              agentState={isLoading ? "thinking" : isStreaming ? "talking" : null}
+              className="w-full h-full"
+            />
           </div>
           <div>
             <h2 className="font-semibold text-sm">Financial Assistant</h2>
@@ -239,17 +302,6 @@ export function ChatInterface() {
             </p>
           </div>
         </div>
-        {messages.length > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearChat}
-            className="text-muted-foreground hover:text-destructive"
-          >
-            <IconTrash className="h-4 w-4 mr-1" />
-            Clear
-          </Button>
-        )}
       </div>
 
       {/* Messages area */}
@@ -261,9 +313,12 @@ export function ChatInterface() {
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ duration: 0.3 }}
-                className="h-16 w-16 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center mb-4"
+                className="h-16 w-16 rounded-2xl overflow-hidden mb-4 shrink-0"
               >
-                <IconSparkles className="h-8 w-8 text-white" />
+                <Orb 
+                  colors={orbColors}
+                  className="w-full h-full"
+                />
               </motion.div>
               <h3 className="text-lg font-semibold mb-2">
                 Hi! I'm your Financial Assistant
@@ -314,8 +369,12 @@ export function ChatInterface() {
                   exit={{ opacity: 0, y: -10 }}
                   className="flex items-center gap-3 py-4"
                 >
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
-                    <IconBrain className="h-4 w-4 text-white animate-pulse" />
+                  <div className="h-8 w-8 rounded-full overflow-hidden shrink-0">
+                    <Orb 
+                      colors={orbColors}
+                      agentState="thinking"
+                      className="w-full h-full"
+                    />
                   </div>
                   <div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-muted rounded-tl-md">
                     <motion.span
@@ -330,7 +389,7 @@ export function ChatInterface() {
                       {[0, 1, 2].map((i) => (
                         <motion.span
                           key={i}
-                          className="w-1.5 h-1.5 rounded-full bg-purple-500"
+                          className="w-1.5 h-1.5 rounded-full bg-primary"
                           animate={{ scale: [1, 1.3, 1] }}
                           transition={{
                             duration: 0.6,
@@ -352,6 +411,17 @@ export function ChatInterface() {
       <div className="border-t bg-background p-4">
         <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
           <div className="flex gap-2">
+            {messages.length > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={clearChat}
+                className="text-muted-foreground hover:text-destructive shrink-0"
+              >
+                <IconTrash className="h-4 w-4" />
+              </Button>
+            )}
             <Input
               ref={inputRef}
               value={input}
@@ -365,8 +435,8 @@ export function ChatInterface() {
               type="submit"
               disabled={!input.trim() || isLoading}
               className={cn(
-                "bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700",
-                "transition-all duration-200"
+                "bg-primary hover:bg-primary/90",
+                "transition-all duration-200 shrink-0"
               )}
             >
               {isLoading ? (
