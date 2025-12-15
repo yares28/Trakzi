@@ -23,11 +23,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { formatDateForDisplay } from "@/lib/date"
 import { toNumericValue } from "@/lib/utils"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
+import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 
 type ChartSwarmPlotDatum = {
   id: string
@@ -404,6 +406,7 @@ const selectionSummary =
       <Card className="@container/card col-span-full">
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="transactionHistory"
               chartTitle="Transaction History"
@@ -427,6 +430,7 @@ const selectionSummary =
       <Card className="@container/card col-span-full">
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="transactionHistory"
               chartTitle="Transaction History"
@@ -450,6 +454,7 @@ const selectionSummary =
       <Card className="@container/card col-span-full">
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="transactionHistory"
               chartTitle="Transaction History"
@@ -472,6 +477,7 @@ const selectionSummary =
     <Card className="col-span-full">
       <CardHeader className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="flex items-center gap-2">
+          <GridStackCardDragHandle />
           <ChartFavoriteButton
             chartId="transactionHistory"
             chartTitle="Transaction History"
@@ -579,7 +585,7 @@ const selectionSummary =
                   </div>
                   {datum.date && (
                     <div className="mt-0.5 text-[0.7rem] text-foreground/60">
-                      {new Date(datum.date).toLocaleDateString()}
+                      {formatDateForDisplay(datum.date, undefined, {})}
                     </div>
                   )}
                   {datum.description && (
@@ -596,4 +602,3 @@ const selectionSummary =
     </Card>
   )
 }
-

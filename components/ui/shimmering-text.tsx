@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useRef } from "react"
-import { motion, useInView } from "motion/react"
+import { motion, useInView, type UseInViewOptions } from "framer-motion"
 import { cn } from "@/lib/utils"
 
 type ShimmeringTextProps = {
@@ -13,7 +13,7 @@ type ShimmeringTextProps = {
   className?: string
   startOnView?: boolean
   once?: boolean
-  inViewMargin?: string
+  inViewMargin?: UseInViewOptions["margin"]
   spread?: number
   color?: string
   shimmerColor?: string
@@ -84,4 +84,3 @@ export function ShimmeringText({
     </motion.span>
   )
 }
-

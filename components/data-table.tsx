@@ -57,6 +57,7 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { useIsMobile } from "@/hooks/use-mobile"
+import { formatDateForDisplay } from "@/lib/date"
 import { TransactionDialog } from "@/components/transaction-dialog"
 import {
   AlertDialog,
@@ -264,27 +265,10 @@ const defaultColumns: ColumnDef<z.infer<typeof schema>>[] = [
   },
   {
     id: "actions",
-    cell: () => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            className="data-[state=open]:bg-muted text-muted-foreground flex size-8"
-            size="icon"
-          >
-            <IconDotsVertical />
-            <span className="sr-only">Open menu</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-32">
-          <DropdownMenuItem>Edit</DropdownMenuItem>
-          <DropdownMenuItem>Make a copy</DropdownMenuItem>
-          <DropdownMenuItem>Favorite</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive">Delete</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    ),
+    cell: ({ row }) => {
+      // This will be overridden in the DataTable component to have access to delete function
+      return null
+    },
   },
 ]
 
@@ -352,7 +336,7 @@ export function DataTable<TData, TValue>({
   })
   const [transactionPagination, setTransactionPagination] = React.useState({
     pageIndex: 0,
-    pageSize: 20,
+    pageSize: 10,
   })
   const [searchTerm, setSearchTerm] = React.useState("")
   const [selectedCategory, setSelectedCategory] = React.useState<string>("all")
@@ -463,6 +447,36 @@ export function DataTable<TData, TValue>({
     setTransactionToDelete(transactionId)
     setDeleteDialogOpen(true)
   }, [])
+
+  // Override actions column with delete button
+  const columnsWithDelete = React.useMemo(() => {
+    return columns.map((col) => {
+      if (col.id === "actions") {
+        return {
+          ...col,
+          cell: ({ row }: { row: Row<TData> }) => {
+            const rowData = row.original as any
+            const transactionId = rowData.id
+            if (transactions && transactionId) {
+              return (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => openDeleteDialog(transactionId)}
+                >
+                  <IconTrash className="h-4 w-4" />
+                  <span className="sr-only">Delete</span>
+                </Button>
+              )
+            }
+            return null
+          },
+        } as ColumnDef<TData, TValue>
+      }
+      return col
+    })
+  }, [columns, transactions, openDeleteDialog])
   const sensors = useSensors(
     useSensor(MouseSensor, {}),
     useSensor(TouchSensor, {}),
@@ -543,7 +557,7 @@ export function DataTable<TData, TValue>({
 
   const table = useReactTable({
     data,
-    columns,
+    columns: columnsWithDelete,
     state: {
       sorting,
       columnVisibility,
@@ -721,7 +735,7 @@ export function DataTable<TData, TValue>({
                     }
                     
                     const pageSize = transactionPagination.pageSize
-                    const maxPages = 500 // 10000 transactions / 20 per page = 500 pages
+                    const maxPages = 1000 // 10000 transactions / 10 per page = 1000 pages
                     const maxItems = 10000 // Maximum 10000 transactions
                     const limitedTransactions = filteredTransactions.slice(0, maxItems)
                     const currentPage = transactionPagination.pageIndex
@@ -755,7 +769,7 @@ export function DataTable<TData, TValue>({
                           />
                         </TableCell>
                         <TableCell className="w-28 flex-shrink-0">
-                          {new Date(tx.date).toLocaleDateString("en-US", {
+                          {formatDateForDisplay(tx.date, "en-US", {
                             year: "numeric",
                             month: "short",
                             day: "numeric",
@@ -920,7 +934,7 @@ export function DataTable<TData, TValue>({
                       <div className="mt-4 rounded-md bg-muted p-3 text-left">
                         <div className="font-medium">{tx.description}</div>
                         <div className="text-sm text-muted-foreground mt-1">
-                          {new Date(tx.date).toLocaleDateString("en-US", {
+                          {formatDateForDisplay(tx.date, "en-US", {
                             year: "numeric",
                             month: "short",
                             day: "numeric",
@@ -972,7 +986,7 @@ export function DataTable<TData, TValue>({
                       <div key={id}>
                         <div className="font-medium">{tx.description}</div>
                         <div className="text-sm text-muted-foreground mt-1">
-                          {new Date(tx.date).toLocaleDateString("en-US", {
+                          {formatDateForDisplay(tx.date, "en-US", {
                             year: "numeric",
                             month: "short",
                             day: "numeric",

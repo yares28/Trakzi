@@ -12,8 +12,8 @@ export default function SSOCallback() {
     const handleCallback = async () => {
       try {
         await handleRedirectCallback({
-          afterSignInUrl: "/dashboard",
-          afterSignUpUrl: "/dashboard",
+          afterSignInUrl: "/home",
+          afterSignUpUrl: "/home",
         })
       } catch (err) {
         console.error("SSO callback error:", err)
@@ -33,6 +33,10 @@ export default function SSOCallback() {
     </div>
   )
 }
+
+
+
+
 
 
 

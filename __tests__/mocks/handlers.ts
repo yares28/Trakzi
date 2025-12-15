@@ -35,8 +35,8 @@ export const handlers = [
     )
   }),
 
-  // Mock dashboard data endpoint
-  rest.get('/api/dashboard', (req, res, ctx) => {
+  // Mock home data endpoint
+  rest.get('/api/home', (req, res, ctx) => {
     return res(
       ctx.status(200),
       ctx.json({

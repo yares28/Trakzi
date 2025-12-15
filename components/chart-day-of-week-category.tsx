@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
+import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import {
   Select,
   SelectContent,
@@ -64,13 +65,13 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
         if (dateFilter) {
           params.append("filter", dateFilter)
         }
-        
+
         const result = await deduplicatedFetch<{ data: Array<{ category: string; dayOfWeek: number; total: number }>; availableDays: number[] }>(
           `/api/analytics/day-of-week-category?${params.toString()}`
         )
         const days = result.availableDays || []
         setAvailableDays(days)
-        
+
         // Reset selected day to first available when date filter changes
         if (days.length > 0) {
           setSelectedDay((prev) => {
@@ -112,11 +113,39 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
           params.append("filter", dateFilter)
         }
         params.append("dayOfWeek", selectedDay.toString())
-        
+
         const result = await deduplicatedFetch<{ data: Array<{ category: string; dayOfWeek: number; total: number }>; availableDays: number[] }>(
           `/api/analytics/day-of-week-category?${params.toString()}`
         )
-        setData(result.data || [])
+        const fetchedData = result.data || []
+
+        // If data is empty and there are other available days, try to find one with data
+        if (fetchedData.length === 0 && availableDays.length > 1) {
+          const currentIndex = availableDays.indexOf(selectedDay)
+          // Try other days in order (starting from the first)
+          for (const day of availableDays) {
+            if (day === selectedDay) continue
+
+            const altParams = new URLSearchParams()
+            if (dateFilter) {
+              altParams.append("filter", dateFilter)
+            }
+            altParams.append("dayOfWeek", day.toString())
+
+            const altResult = await deduplicatedFetch<{ data: Array<{ category: string; dayOfWeek: number; total: number }>; availableDays: number[] }>(
+              `/api/analytics/day-of-week-category?${altParams.toString()}`
+            )
+
+            if (altResult.data && altResult.data.length > 0) {
+              setSelectedDay(day)
+              setData(altResult.data)
+              setLoading(false)
+              return
+            }
+          }
+        }
+
+        setData(fetchedData)
       } catch (error) {
         console.error("Error fetching day of week category data:", error)
         setData([])
@@ -128,11 +157,11 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
     if (mounted && selectedDay !== null) {
       fetchData()
     }
-  }, [selectedDay, dateFilter, mounted])
+  }, [selectedDay, dateFilter, mounted, availableDays])
 
   const palette = React.useMemo(() => {
     let base = getPalette().filter((color) => color !== "#c3c3c3")
-    
+
     // For colored palette only, filter colors based on theme
     if (colorScheme === "colored") {
       const isDark = resolvedTheme === "dark"
@@ -144,7 +173,7 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
         base = base.filter((color) => color !== "#E8DCCA")
       }
     }
-    
+
     if (!base.length) {
       return ["#0f766e", "#14b8a6", "#22c55e", "#84cc16", "#eab308"]
     }
@@ -288,7 +317,7 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
     // Data is already filtered to selected day and sorted by total descending
     // Get top categories (already sorted by API)
     const topCategories = data.slice(0, 10) // Show top 10 categories
-    
+
     if (!topCategories.length) return null
 
     // Precompute a stable color for each category index so we don't
@@ -303,7 +332,7 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
 
     const backgroundColor =
       resolvedTheme === "dark" ? "rgba(15,23,42,0)" : "rgba(248,250,252,0)"
-    
+
     // Use muted-foreground color for axis labels
     const textColor = resolvedTheme === "dark" ? "#9ca3af" : "#6b7280"
 
@@ -415,6 +444,7 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
       <Card className="@container/card">
         <CardHeader>
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="dayOfWeekCategory"
               chartTitle="Day of Week Category Spending"
@@ -438,6 +468,7 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
       <Card className="@container/card">
         <CardHeader>
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="dayOfWeekCategory"
               chartTitle="Day of Week Category Spending"
@@ -461,6 +492,7 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
       <Card className="@container/card">
         <CardHeader>
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="dayOfWeekCategory"
               chartTitle="Day of Week Category Spending"
@@ -483,6 +515,7 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
     <Card className="@container/card">
       <CardHeader>
         <div className="flex items-center gap-2">
+          <GridStackCardDragHandle />
           <ChartFavoriteButton
             chartId="dayOfWeekCategory"
             chartTitle="Day of Week Category Spending"

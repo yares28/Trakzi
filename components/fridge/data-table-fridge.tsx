@@ -60,7 +60,11 @@ import {
     DropdownMenuCheckboxItem,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuPortal,
     DropdownMenuSeparator,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
@@ -85,6 +89,8 @@ import {
     TabsList,
     TabsTrigger,
 } from "@/components/ui/tabs"
+import { formatDateForDisplay } from "@/lib/date"
+import { getReceiptCategoryByName } from "@/lib/receipt-categories"
 
 export const schema = z.object({
     id: z.string(),
@@ -96,6 +102,8 @@ export const schema = z.object({
             id: z.string(),
             name: z.string(),
             category: z.string(),
+            categoryId: z.number().nullable().optional(),
+            categoryColor: z.string().nullable().optional(),
             price: z.number(),
             quantity: z.number(),
         })
@@ -161,10 +169,9 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
         accessorKey: "date",
         header: "Date",
         cell: ({ row }) => {
-            const date = new Date(row.original.date)
             return (
                 <div className="text-muted-foreground">
-                    {date.toLocaleDateString("en-US", {
+                    {formatDateForDisplay(row.original.date, "en-US", {
                         year: "numeric",
                         month: "short",
                         day: "numeric",
@@ -225,7 +232,29 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     },
 ]
 
-function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
+function DraggableRow({
+    row,
+    categories,
+    updatingItemIds,
+    onItemCategoryChange,
+}: {
+    row: Row<z.infer<typeof schema>>
+    categories: Array<{ name: string; color?: string | null; typeName?: string; typeColor?: string | null; broadType?: string }>
+    updatingItemIds: Record<string, boolean>
+    onItemCategoryChange: (itemId: string, categoryName: string) => void
+}) {
+    // Group categories by broad type
+    const categoriesByBroadType = React.useMemo(() => {
+        const grouped: Record<string, typeof categories> = {}
+        categories.forEach((category) => {
+            const broadType = category.broadType || "Other"
+            if (!grouped[broadType]) {
+                grouped[broadType] = []
+            }
+            grouped[broadType].push(category)
+        })
+        return grouped
+    }, [categories])
     const { transform, transition, setNodeRef, isDragging } = useSortable({
         id: row.original.id,
     })
@@ -267,7 +296,94 @@ function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
                                     {row.original.items.map((item) => (
                                         <TableRow key={item.id} className="hover:bg-background/50">
                                             <TableCell className="text-center">
-                                                <Badge variant="outline">{item.category}</Badge>
+                                                {categories.length ? (
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="mx-auto w-[250px] justify-between"
+                                                                disabled={Boolean(updatingItemIds[item.id])}
+                                                            >
+                                                                <span className="flex items-center gap-2 truncate">
+                                                                    {item.category ? (
+                                                                        <>
+                                                                            <span
+                                                                                className="h-2 w-2 shrink-0 rounded-full border border-border/50"
+                                                                                style={{
+                                                                                    backgroundColor: categories.find((c) => c.name === item.category)?.color ?? item.categoryColor ?? undefined,
+                                                                                    borderColor: categories.find((c) => c.name === item.category)?.color ?? item.categoryColor ?? undefined,
+                                                                                }}
+                                                                            />
+                                                                            <span className="truncate">{item.category}</span>
+                                                                        </>
+                                                                    ) : (
+                                                                        <span className="text-muted-foreground">Select category</span>
+                                                                    )}
+                                                                </span>
+                                                                <IconChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="start" className="w-[250px]">
+                                                            {Object.entries(categoriesByBroadType)
+                                                                .sort(([a], [b]) => a.localeCompare(b))
+                                                                .map(([broadType, typeCategories]) => (
+                                                                    <DropdownMenuSub key={broadType}>
+                                                                        <DropdownMenuSubTrigger>
+                                                                            <span>{broadType}</span>
+                                                                        </DropdownMenuSubTrigger>
+                                                                        <DropdownMenuPortal>
+                                                                            <DropdownMenuSubContent>
+                                                                            {typeCategories
+                                                                                .sort((a, b) => a.name.localeCompare(b.name))
+                                                                                .map((category) => (
+                                                                                    <DropdownMenuItem
+                                                                                        key={category.name}
+                                                                                        onClick={() => onItemCategoryChange(item.id, category.name)}
+                                                                                        className="cursor-pointer"
+                                                                                    >
+                                                                                        <span className="flex items-center gap-2 w-full">
+                                                                                            <span
+                                                                                                className="h-2 w-2 shrink-0 rounded-full border border-border/50"
+                                                                                                style={{
+                                                                                                    backgroundColor: category.color ?? undefined,
+                                                                                                    borderColor: category.color ?? undefined,
+                                                                                                }}
+                                                                                            />
+                                                                                            <span className="truncate">{category.name}</span>
+                                                                                            {category.typeName ? (
+                                                                                                <span
+                                                                                                    className="ml-auto text-xs text-muted-foreground shrink-0"
+                                                                                                    style={
+                                                                                                        category.typeColor
+                                                                                                            ? { color: category.typeColor }
+                                                                                                            : undefined
+                                                                                                    }
+                                                                                                >
+                                                                                                    {category.typeName}
+                                                                                                </span>
+                                                                                            ) : null}
+                                                                                        </span>
+                                                                                    </DropdownMenuItem>
+                                                                                ))}
+                                                                            </DropdownMenuSubContent>
+                                                                        </DropdownMenuPortal>
+                                                                    </DropdownMenuSub>
+                                                                ))}
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                ) : (
+                                                    <Badge
+                                                        variant="outline"
+                                                        style={
+                                                            item.categoryColor
+                                                                ? { borderColor: item.categoryColor, color: item.categoryColor }
+                                                                : undefined
+                                                        }
+                                                    >
+                                                        {item.category}
+                                                    </Badge>
+                                                )}
                                             </TableCell>
                                             <TableCell className="text-center font-medium">{item.name}</TableCell>
                                             <TableCell className="text-center">
@@ -315,10 +431,16 @@ function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
 
 export function DataTableFridge({
     data: initialData,
+    onReceiptsChanged,
 }: {
     data: z.infer<typeof schema>[]
+    onReceiptsChanged?: () => void
 }) {
     const [data, setData] = React.useState(() => initialData)
+    const [categories, setCategories] = React.useState<
+        Array<{ name: string; color?: string | null; typeName?: string; typeColor?: string | null; broadType?: string }>
+    >([])
+    const [updatingItemIds, setUpdatingItemIds] = React.useState<Record<string, boolean>>({})
     const [rowSelection, setRowSelection] = React.useState({})
     const [columnVisibility, setColumnVisibility] =
         React.useState<VisibilityState>({})
@@ -341,6 +463,120 @@ export function DataTableFridge({
     const dataIds = React.useMemo<UniqueIdentifier[]>(
         () => data?.map(({ id }) => id) || [],
         [data]
+    )
+
+    React.useEffect(() => {
+        setData(initialData)
+    }, [initialData])
+
+    React.useEffect(() => {
+        let cancelled = false
+
+        async function loadCategories() {
+            try {
+                const response = await fetch("/api/receipt-categories")
+                if (!response.ok) return
+                const payload = (await response.json()) as Array<{
+                    name?: string
+                    color?: string | null
+                    broadType?: string | null
+                    broad_type?: string | null
+                    type_name?: string
+                    type_color?: string | null
+                    typeName?: string
+                    typeColor?: string | null
+                }>
+                if (cancelled) return
+                const normalized = Array.isArray(payload)
+                    ? payload
+                        .map((cat) => {
+                            const categoryName = typeof cat?.name === "string" ? cat.name : ""
+                            const defaultCategory = getReceiptCategoryByName(categoryName)
+                            const broadTypeValue =
+                                typeof cat?.broadType === "string"
+                                    ? cat.broadType
+                                    : typeof cat?.broad_type === "string"
+                                        ? cat.broad_type
+                                        : defaultCategory?.broadType || "Other"
+                            return {
+                                name: categoryName,
+                                color: typeof cat?.color === "string" ? cat.color : null,
+                                typeName:
+                                    typeof cat?.typeName === "string"
+                                        ? cat.typeName
+                                        : typeof cat?.type_name === "string"
+                                            ? cat.type_name
+                                            : "",
+                                typeColor:
+                                    typeof cat?.typeColor === "string"
+                                        ? cat.typeColor
+                                        : typeof cat?.type_color === "string"
+                                            ? cat.type_color
+                                            : null,
+                                broadType: broadTypeValue || "Other",
+                            }
+                        })
+                        .filter((cat) => cat.name.trim().length > 0)
+                    : []
+                setCategories(normalized)
+            } catch {
+                // Ignore errors; categories are optional for table rendering.
+            }
+        }
+
+        void loadCategories()
+
+        return () => {
+            cancelled = true
+        }
+    }, [])
+
+    const updateItemCategory = React.useCallback(
+        async (itemId: string, categoryName: string) => {
+            setUpdatingItemIds((prev) => ({ ...prev, [itemId]: true }))
+
+            try {
+                const response = await fetch(`/api/receipt-transactions/${encodeURIComponent(itemId)}/category`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ categoryName }),
+                })
+
+                if (!response.ok) {
+                    return
+                }
+
+                const updated = (await response.json()) as {
+                    categoryId: number | null
+                    categoryName: string | null
+                    categoryColor: string | null
+                }
+
+                setData((prev) =>
+                    prev.map((receipt) => ({
+                        ...receipt,
+                        items: receipt.items.map((item) => {
+                            if (item.id !== itemId) return item
+                            return {
+                                ...item,
+                                category: updated.categoryName || categoryName,
+                                categoryId: updated.categoryId ?? null,
+                                categoryColor: updated.categoryColor ?? null,
+                            }
+                        }),
+                    }))
+                )
+
+                onReceiptsChanged?.()
+            } finally {
+                setUpdatingItemIds((prev) => {
+                    const next = { ...prev }
+                    delete next[itemId]
+                    return next
+                })
+            }
+        },
+        [onReceiptsChanged]
     )
 
     const table = useReactTable({
@@ -484,7 +720,13 @@ export function DataTableFridge({
                                         strategy={verticalListSortingStrategy}
                                     >
                                         {table.getRowModel().rows.map((row) => (
-                                            <DraggableRow key={row.id} row={row} />
+                                            <DraggableRow
+                                                key={row.id}
+                                                row={row}
+                                                categories={categories}
+                                                updatingItemIds={updatingItemIds}
+                                                onItemCategoryChange={updateItemCategory}
+                                            />
                                         ))}
                                     </SortableContext>
                                 ) : (

@@ -19,6 +19,7 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
+import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 
 type ChartSpendingStreamgraphDatum = {
   month: string
@@ -238,6 +239,7 @@ export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControl
       <Card className="@container/card col-span-full">
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="spendingStreamgraph"
               chartTitle="Category Streamgraph"
@@ -262,6 +264,7 @@ export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControl
     <Card className="col-span-full">
       <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-2">
+          <GridStackCardDragHandle />
           <ChartFavoriteButton
             chartId="spendingStreamgraph"
             chartTitle="Category Streamgraph"
@@ -410,5 +413,4 @@ export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControl
     </Card>
   )
 }
-
 

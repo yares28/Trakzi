@@ -17,6 +17,7 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
+import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 
 interface ChartPolarBarProps {
   data?: Array<Record<string, string | number>> | { data: Array<Record<string, string | number>>; keys: string[] }
@@ -124,6 +125,7 @@ export function ChartPolarBar({ data: dataProp = [], keys: keysProp, categoryCon
         {infoButton}
         <CardHeader>
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="householdSpendMix"
               chartTitle="Household Spend Mix"
@@ -144,6 +146,7 @@ export function ChartPolarBar({ data: dataProp = [], keys: keysProp, categoryCon
       {infoButton}
       <CardHeader>
         <div className="flex items-center gap-2">
+          <GridStackCardDragHandle />
           <ChartFavoriteButton
             chartId="householdSpendMix"
             chartTitle="Household Spend Mix"

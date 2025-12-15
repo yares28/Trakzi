@@ -7,6 +7,7 @@ import ReactECharts from "echarts-for-react"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { formatDateForDisplay } from "@/lib/date"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import {
   Card,
@@ -23,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
+import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 
 interface ChartTransactionCalendarProps {
   data?: Array<{
@@ -454,6 +456,7 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
       <Card className="@container/card">
         <CardHeader>
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="dailyTransactionActivity"
               chartTitle="Daily Transaction Activity"
@@ -508,6 +511,7 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
       <Card className="@container/card">
         <CardHeader>
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="dailyTransactionActivity"
               chartTitle="Daily Transaction Activity"
@@ -567,6 +571,7 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
     <Card className="@container/card">
       <CardHeader>
         <div className="flex items-center gap-2">
+          <GridStackCardDragHandle />
           <ChartFavoriteButton
             chartId="dailyTransactionActivity"
             chartTitle="Daily Transaction Activity"
@@ -633,7 +638,7 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
                   style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
                 />
                 <span className="font-medium text-foreground whitespace-nowrap">
-                  {new Date(tooltip.date).toLocaleDateString("en-US", {
+                  {formatDateForDisplay(tooltip.date, "en-US", {
                     month: "short",
                     day: "numeric",
                     year: "numeric",
@@ -665,4 +670,3 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
     </Card>
   )
 }
-

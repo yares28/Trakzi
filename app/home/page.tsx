@@ -467,7 +467,7 @@ export default function Page() {
   }, [])
 
   // localStorage key for favorite chart sizes
-  const FAVORITE_SIZES_STORAGE_KEY = 'dashboard-favorites-chart-sizes'
+  const FAVORITE_SIZES_STORAGE_KEY = 'home-favorites-chart-sizes'
 
   // Load saved favorite chart sizes
   const loadFavoriteSizes = useCallback((): Record<string, { w: number; h: number; x?: number; y?: number }> => {
@@ -735,33 +735,33 @@ export default function Page() {
   // Date filter state
   const [dateFilter, setDateFilter] = useState<string | null>(null)
   const incomeExpenseVisibility = useChartCategoryVisibility({
-    chartId: "dashboard:income-expense",
-    storageScope: "dashboard",
+    chartId: "home:income-expense",
+    storageScope: "home",
     normalizeCategory: normalizeCategoryName,
   })
   const categoryFlowVisibility = useChartCategoryVisibility({
-    chartId: "dashboard:category-flow",
-    storageScope: "dashboard",
+    chartId: "home:category-flow",
+    storageScope: "home",
     normalizeCategory: normalizeCategoryName,
   })
   const spendingFunnelVisibility = useChartCategoryVisibility({
-    chartId: "dashboard:spending-funnel",
-    storageScope: "dashboard",
+    chartId: "home:spending-funnel",
+    storageScope: "home",
     normalizeCategory: normalizeCategoryName,
   })
   const expensesPieVisibility = useChartCategoryVisibility({
-    chartId: "dashboard:expenses-pie",
-    storageScope: "dashboard",
+    chartId: "home:expenses-pie",
+    storageScope: "home",
     normalizeCategory: normalizeCategoryName,
   })
   const treeMapVisibility = useChartCategoryVisibility({
-    chartId: "dashboard:treemap",
-    storageScope: "dashboard",
+    chartId: "home:treemap",
+    storageScope: "home",
     normalizeCategory: normalizeCategoryName,
   })
   const streamgraphVisibility = useChartCategoryVisibility({
-    chartId: "dashboard:streamgraph",
-    storageScope: "dashboard",
+    chartId: "home:streamgraph",
+    storageScope: "home",
     normalizeCategory: normalizeCategoryName,
   })
 
@@ -1482,21 +1482,21 @@ export default function Page() {
       const url = dateFilter 
         ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
         : "/api/transactions"
-      console.log("[Dashboard] Fetching transactions from:", url)
+      console.log("[Home] Fetching transactions from:", url)
       const response = await fetch(url, {
         cache: bypassCache ? 'no-store' : 'default',
         headers: bypassCache ? { 'Cache-Control': 'no-cache' } : undefined
       })
       const data = await response.json()
-      console.log("[Dashboard] Response status:", response.status)
-      console.log("[Dashboard] Response data:", data)
-      console.log("[Dashboard] Is array?", Array.isArray(data))
-      console.log("[Dashboard] Data length:", Array.isArray(data) ? data.length : "N/A")
+      console.log("[Home] Response status:", response.status)
+      console.log("[Home] Response data:", data)
+      console.log("[Home] Is array?", Array.isArray(data))
+      console.log("[Home] Data length:", Array.isArray(data) ? data.length : "N/A")
       
       if (response.ok) {
         if (Array.isArray(data)) {
-          console.log(`[Dashboard] Setting ${data.length} transactions`)
-          console.log("[Dashboard] First transaction:", data[0])
+          console.log(`[Home] Setting ${data.length} transactions`)
+          console.log("[Home] First transaction:", data[0])
           setTransactions(normalizeTransactions(data) as Array<{
             id: number
             date: string
@@ -1506,7 +1506,7 @@ export default function Page() {
             category: string
           }>)
         } else {
-          console.error("[Dashboard] Response is not an array:", data)
+          console.error("[Home] Response is not an array:", data)
           if (data.error) {
             toast.error("API Error", {
               description: data.error,
@@ -1560,7 +1560,7 @@ export default function Page() {
   // This ensures transactions are refreshed directly when a transaction is added
   useEffect(() => {
     setRefreshCallback(() => {
-      console.log("[Dashboard] Refresh callback called, fetching transactions...")
+      console.log("[Home] Refresh callback called, fetching transactions...")
       // Small delay to ensure database transaction is committed
       setTimeout(() => {
         fetchTransactions(true)
@@ -1571,11 +1571,11 @@ export default function Page() {
   // Listen for transaction added event from global dialog (fallback)
   useEffect(() => {
     const handleTransactionAdded = () => {
-      console.log("[Dashboard] Transaction added event received, refreshing...")
+      console.log("[Home] Transaction added event received, refreshing...")
       // Delay to ensure the database transaction is committed
       // Use a longer delay to account for network latency and DB commit time
       setTimeout(() => {
-        console.log("[Dashboard] Fetching transactions after delay...")
+        console.log("[Home] Fetching transactions after delay...")
         fetchTransactions(true)
       }, 300)
     }
@@ -1618,7 +1618,7 @@ export default function Page() {
         // Ensure category is a string, not undefined
         category: row.category || undefined
       }))
-      console.log(`[DASHBOARD] Parsed ${rowsWithId.length} rows with categories:`, 
+      console.log(`[HOME] Parsed ${rowsWithId.length} rows with categories:`, 
         rowsWithId.slice(0, 3).map(r => ({ desc: r.description.substring(0, 30), cat: r.category }))
       )
       setParsedRows(rowsWithId)
@@ -1764,7 +1764,7 @@ export default function Page() {
             }
           }
         } catch (categoriesError) {
-          console.warn("[DASHBOARD] Failed to load categories from API. Using defaults.", categoriesError)
+          console.warn("[HOME] Failed to load categories from API. Using defaults.", categoriesError)
         }
         
         // Stage 2: Uploading file (15-25%)
@@ -1868,18 +1868,18 @@ export default function Page() {
         setParsingProgress(100)
 
         // Debug: Log CSV to see if categories are present
-        console.log("[DASHBOARD] Received CSV, length:", csv.length);
+        console.log("[HOME] Received CSV, length:", csv.length);
         const csvLines = csv.trim().split("\n");
-        console.log("[DASHBOARD] CSV header:", csvLines[0]);
-        console.log("[DASHBOARD] CSV first data row:", csvLines[1]);
-        console.log("[DASHBOARD] CSV second data row:", csvLines[2]);
+        console.log("[HOME] CSV header:", csvLines[0]);
+        console.log("[HOME] CSV first data row:", csvLines[1]);
+        console.log("[HOME] CSV second data row:", csvLines[2]);
         
         // Check if category column exists
         const header = csvLines[0].toLowerCase();
         if (!header.includes('category')) {
-          console.error("[DASHBOARD] ERROR: Category column missing from CSV header!");
+          console.error("[HOME] ERROR: Category column missing from CSV header!");
         } else {
-          console.log("[DASHBOARD] Category column found in CSV");
+          console.log("[HOME] Category column found in CSV");
         }
 
         // Count transactions (lines minus header)
@@ -2319,12 +2319,12 @@ export default function Page() {
 
                                                             if (!res.ok) {
                                                               console.error(
-                                                                "[Dashboard] Failed to save ring limit:",
+                                                                "[Home] Failed to save ring limit:",
                                                                 await res.text()
                                                               )
                                                             }
                                                           } catch (error) {
-                                                            console.error("[Dashboard] Error saving ring limit:", error)
+                                                            console.error("[Home] Error saving ring limit:", error)
                                                           }
                                                         }
                                                       }

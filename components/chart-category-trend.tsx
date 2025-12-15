@@ -20,6 +20,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart"
 import { DateFilterType } from "@/components/date-filter"
+import { formatDateForDisplay } from "@/lib/date"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 
 interface ChartCategoryTrendProps {
@@ -219,8 +220,7 @@ export function ChartCategoryTrend({ categoryName }: ChartCategoryTrendProps) {
               tickMargin={8}
               minTickGap={32}
               tickFormatter={(value) => {
-                const date = new Date(value)
-                return date.toLocaleDateString("en-US", {
+                return formatDateForDisplay(String(value), "en-US", {
                   month: "short",
                   day: "numeric",
                 })
@@ -231,7 +231,7 @@ export function ChartCategoryTrend({ categoryName }: ChartCategoryTrendProps) {
               content={
                 <ChartTooltipContent
                   labelFormatter={(value) => {
-                    return new Date(value).toLocaleDateString("en-US", {
+                    return formatDateForDisplay(String(value), "en-US", {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
@@ -254,4 +254,3 @@ export function ChartCategoryTrend({ categoryName }: ChartCategoryTrendProps) {
     </Card>
   )
 }
-

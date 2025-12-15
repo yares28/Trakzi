@@ -20,14 +20,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Fullet",
+  title: "Trakzi",
   description: "Track your income, expenses, savings, and net worth",
   appleWebApp: {
-    title: "Fullet",
+    title: "Trakzi",
     capable: true,
     statusBarStyle: "default",
   },
-  applicationName: "Fullet",
+  applicationName: "Trakzi",
 };
 
 export default function RootLayout({
@@ -37,9 +37,9 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en" suppressHydrationWarning>
+      <html lang="en" suppressHydrationWarning className="overflow-x-hidden">
         <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+          className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
           suppressHydrationWarning
         >
           <ThemeProvider

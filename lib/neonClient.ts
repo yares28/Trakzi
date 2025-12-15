@@ -125,63 +125,12 @@ export async function neonQuery<T = any>(
     const client = ensureClient();
     
     try {
-        // The Neon client is a tagged template function: sql`SELECT * FROM table WHERE id = ${value}`
-        // Convert $1, $2 placeholders to template literal format
-        
-        if (params.length === 0) {
-            // No parameters - execute query directly as template literal
-            const result = await (client as any)`${query}`;
-            const rows = Array.isArray(result) ? result : (result.rows || []);
-            return rows as T[];
-        }
-        
-        // Find all $N placeholders and build template parts
-        const parts: string[] = [];
-        const values: any[] = [];
-        let lastIndex = 0;
-        const placeholderRegex = /\$(\d+)/g;
-        const matches: Array<{ index: number; num: number; length: number }> = [];
-        
-        // Collect all matches
-        let match;
-        while ((match = placeholderRegex.exec(query)) !== null) {
-            matches.push({
-                index: match.index,
-                num: parseInt(match[1]),
-                length: match[0].length
-            });
-        }
-        
-        // Sort by index to process in order
-        matches.sort((a, b) => a.index - b.index);
-        
-        // Build template parts and values
-        for (const m of matches) {
-            const paramIndex = m.num - 1; // $1 -> index 0
-            
-            if (paramIndex >= 0 && paramIndex < params.length) {
-                // Add SQL text before this placeholder
-                parts.push(query.substring(lastIndex, m.index));
-                // Add the parameter value
-                values.push(params[paramIndex]);
-                lastIndex = m.index + m.length;
-            }
-        }
-        
-        // Add remaining SQL text
-        parts.push(query.substring(lastIndex));
-        
-        // Create TemplateStringsArray - this is what JavaScript creates for tagged templates
-        // It needs to be an array-like object with a 'raw' property
-        const templateStrings = Object.assign([...parts], {
-            raw: [...parts] // For SQL, raw and cooked strings are the same
-        }) as TemplateStringsArray;
-        
-        // Call the client as a tagged template function
-        // This is equivalent to: client`part1${value1}part2${value2}part3`
-        const result = await (client as any)(templateStrings, ...values);
-        
-        // Handle both array and { rows: [] } return formats
+        // Use sql.query() for parameterized queries with $1, $2, etc.
+        const result =
+            params.length === 0
+                ? await (client as any).query(query)
+                : await (client as any).query(query, params);
+
         const rows = Array.isArray(result) ? result : (result.rows || []);
         return rows as T[];
     } catch (error: any) {

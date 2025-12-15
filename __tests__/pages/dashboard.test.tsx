@@ -1,21 +1,21 @@
 import { render, screen, waitFor } from '@testing-library/react'
-import DashboardPage from '@/app/dashboard/page'
+import HomePage from '@/app/home/page'
 
-describe('Dashboard Page', () => {
-  it('renders dashboard page', () => {
-    render(<DashboardPage />)
+describe('Home Page', () => {
+  it('renders home page', () => {
+    render(<HomePage />)
     
     expect(screen.getByRole('main')).toBeInTheDocument()
   })
 
-  it('displays dashboard title', () => {
-    render(<DashboardPage />)
+  it('displays home title', () => {
+    render(<HomePage />)
     
-    expect(screen.getByText(/dashboard/i)).toBeInTheDocument()
+    expect(screen.getByText(/home/i)).toBeInTheDocument()
   })
 
-  it('loads and displays dashboard data', async () => {
-    render(<DashboardPage />)
+  it('loads and displays home data', async () => {
+    render(<HomePage />)
     
     await waitFor(() => {
       // Check for data table or chart components
@@ -24,26 +24,26 @@ describe('Dashboard Page', () => {
   })
 
   it('renders section cards', () => {
-    render(<DashboardPage />)
+    render(<HomePage />)
     
     const cards = screen.getAllByTestId('section-card')
     expect(cards.length).toBeGreaterThan(0)
   })
 
   it('renders interactive chart', () => {
-    render(<DashboardPage />)
+    render(<HomePage />)
     
     expect(screen.getByTestId('area-chart')).toBeInTheDocument()
   })
 
   it('renders data table', () => {
-    render(<DashboardPage />)
+    render(<HomePage />)
     
     expect(screen.getByRole('table')).toBeInTheDocument()
   })
 
   it('handles loading state', () => {
-    render(<DashboardPage />)
+    render(<HomePage />)
     
     const loadingIndicator = screen.queryByTestId('loading')
     // Should either be loading or loaded
@@ -56,7 +56,7 @@ describe('Dashboard Page', () => {
       Promise.reject(new Error('API Error'))
     )
 
-    render(<DashboardPage />)
+    render(<HomePage />)
     
     await waitFor(() => {
       expect(screen.queryByText(/error/i)).toBeInTheDocument()

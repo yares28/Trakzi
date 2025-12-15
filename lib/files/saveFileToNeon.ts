@@ -30,7 +30,7 @@ export async function saveFileToNeon(params: {
         checksum: string;
         source: string;
         statement_id: number | null;
-        id?: number;
+        id?: string;
     }>("user_files", {
         user_id: userId,
         file_name: fileName,
@@ -42,7 +42,7 @@ export async function saveFileToNeon(params: {
         source: params.source ?? "upload",
         statement_id: params.statementId ?? null
     }) as Array<{
-        id: number;
+        id: string;
         user_id: string;
         file_name: string;
         mime_type: string;

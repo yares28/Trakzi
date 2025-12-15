@@ -16,6 +16,7 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
+import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 
 type TreeMapNode = {
   name: string
@@ -143,6 +144,7 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
       <Card className="@container/card col-span-full">
         <CardHeader>
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="netWorthAllocation"
               chartTitle="Net Worth Allocation"
@@ -165,6 +167,7 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
     <Card className="col-span-full">
       <CardHeader>
         <div className="flex items-center gap-2">
+          <GridStackCardDragHandle />
           <ChartFavoriteButton
             chartId="netWorthAllocation"
             chartTitle="Net Worth Allocation"
@@ -233,4 +236,3 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
     </Card>
   )
 }
-

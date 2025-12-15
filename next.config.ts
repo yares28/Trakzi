@@ -29,11 +29,6 @@ const nextConfig: NextConfig = {
   // Silence workspace root warning from multiple lockfiles (global pnpm + local npm)
   outputFileTracingRoot: path.join(__dirname),
 
-  // Skip ESLint during production builds to keep deployments unblocked
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-
   // TypeScript configuration
   typescript: {
     ignoreBuildErrors: false,
@@ -63,7 +58,6 @@ fetch("http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8", {
     data: {
       serverExternalPackages: nextConfig.serverExternalPackages,
       outputFileTracingRoot: nextConfig.outputFileTracingRoot,
-      eslintIgnoreDuringBuilds: nextConfig.eslint?.ignoreDuringBuilds ?? null,
       typescriptIgnoreBuildErrors: nextConfig.typescript?.ignoreBuildErrors ?? null,
     },
     timestamp: Date.now(),

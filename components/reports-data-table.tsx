@@ -80,6 +80,7 @@ import {
 } from "@/components/ui/dialog"
 import { CategorySelect } from "@/components/category-select"
 import { normalizeTransactions } from "@/lib/utils"
+import { formatDateForDisplay } from "@/lib/date"
 
 type StatementTransaction = {
     id: number
@@ -197,7 +198,7 @@ function TransactionRow({
     return (
         <TableRow>
             <TableCell className="font-mono text-sm">
-                {new Date(transaction.date).toLocaleDateString("en-US", {
+                {formatDateForDisplay(transaction.date, "en-US", {
                     year: "numeric",
                     month: "short",
                     day: "numeric",
@@ -327,10 +328,9 @@ const createColumns = (onDelete?: (statementId: string) => void): ColumnDef<z.in
         accessorKey: "date",
         header: "Date",
         cell: ({ row }) => {
-            const date = new Date(row.original.date)
             return (
                 <div className="text-sm">
-                    {date.toLocaleDateString("en-US", {
+                    {formatDateForDisplay(row.original.date, "en-US", {
                         year: "numeric",
                         month: "short",
                         day: "numeric",

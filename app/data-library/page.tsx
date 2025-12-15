@@ -58,6 +58,10 @@ import { CategorySelect } from "@/components/category-select"
 import { DataTable } from "@/components/data-table"
 import { DEFAULT_CATEGORIES } from "@/lib/categories"
 import {
+  DEFAULT_RECEIPT_CATEGORIES,
+  DEFAULT_RECEIPT_CATEGORY_TYPES,
+} from "@/lib/receipt-categories"
+import {
   Table,
   TableBody,
   TableCell,
@@ -85,6 +89,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
+import { formatDateForDisplay } from "@/lib/date"
 import { normalizeTransactions, cn } from "@/lib/utils"
 import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv"
@@ -162,6 +167,8 @@ type Transaction = {
   amount: number
   balance: number | null
   category: string
+  receiptTransactionId?: number // For receipt transactions
+  isReceipt?: boolean // Flag to identify receipt transactions
 }
 
 type Statement = {
@@ -170,8 +177,16 @@ type Statement = {
   type: string
   date: string
   reviewer: string
-  statementId: number
+  statementId: number | null
   fileId: string | null
+  receiptId: string | null
+}
+
+type ReceiptCategoryOption = {
+  name: string
+  color: string | null
+  typeName: string
+  typeColor: string | null
 }
 
 type StatsResponse = {
@@ -193,6 +208,28 @@ type Category = {
   totalSpend: number
   totalAmount?: number
   createdAt: string
+}
+
+type ReceiptCategoryType = {
+  id: number
+  name: string
+  color: string | null
+  createdAt: string
+  categoryCount: number
+  transactionCount: number
+  totalSpend: number
+}
+
+type ReceiptCategory = {
+  id: number
+  name: string
+  color: string | null
+  typeId: number
+  typeName: string
+  typeColor: string | null
+  createdAt: string
+  transactionCount: number
+  totalSpend: number
 }
 
 type UserFile = {
@@ -238,7 +275,7 @@ const formatBytes = (bytes: number) => {
 }
 
 const formatDateLabel = (input: string) =>
-  new Date(input).toLocaleDateString([], {
+  formatDateForDisplay(input, [], {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -257,22 +294,21 @@ export default function DataLibraryPage() {
   const [statements, setStatements] = useState<Statement[]>([])
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
+  const [receiptCategoryTypes, setReceiptCategoryTypes] = useState<ReceiptCategoryType[]>([])
+  const [receiptCategories, setReceiptCategories] = useState<ReceiptCategory[]>([])
   const [userFiles, setUserFiles] = useState<UserFile[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [viewLoading, setViewLoading] = useState(false)
   const [selectedStatement, setSelectedStatement] = useState<Statement | null>(null)
-  const [statementTransactions, setStatementTransactions] = useState<
-    {
-      id: number
-      date: string
-      description: string
-      amount: number
-      balance: number | null
-      category: string
-    }[]
-  >([])
+  const [statementTransactions, setStatementTransactions] = useState<Transaction[]>([])
+  const [dialogReceiptCategories, setDialogReceiptCategories] = useState<ReceiptCategoryOption[]>([])
+  const [dialogReceiptCategoryTypes, setDialogReceiptCategoryTypes] = useState<Array<{ id: number; name: string; color: string | null }>>([])
+  const [isCreateReceiptCategoryDialogOpen, setIsCreateReceiptCategoryDialogOpen] = useState(false)
+  const [newDialogReceiptCategoryName, setNewDialogReceiptCategoryName] = useState("")
+  const [newDialogReceiptCategoryTypeId, setNewDialogReceiptCategoryTypeId] = useState<string>("")
+  const [isCreatingReceiptCategory, setIsCreatingReceiptCategory] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [statementToDelete, setStatementToDelete] = useState<Statement | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
@@ -284,6 +320,21 @@ export default function DataLibraryPage() {
   const [deleteCategoryDialogOpen, setDeleteCategoryDialogOpen] = useState(false)
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
   const [deleteCategoryLoading, setDeleteCategoryLoading] = useState(false)
+
+  const [addReceiptTypeDialogOpen, setAddReceiptTypeDialogOpen] = useState(false)
+  const [newReceiptTypeName, setNewReceiptTypeName] = useState("")
+  const [addReceiptTypeLoading, setAddReceiptTypeLoading] = useState(false)
+  const [deleteReceiptTypeDialogOpen, setDeleteReceiptTypeDialogOpen] = useState(false)
+  const [receiptTypeToDelete, setReceiptTypeToDelete] = useState<ReceiptCategoryType | null>(null)
+  const [deleteReceiptTypeLoading, setDeleteReceiptTypeLoading] = useState(false)
+
+  const [addReceiptCategoryDialogOpen, setAddReceiptCategoryDialogOpen] = useState(false)
+  const [newReceiptCategoryName, setNewReceiptCategoryName] = useState("")
+  const [newReceiptCategoryTypeId, setNewReceiptCategoryTypeId] = useState<string>("")
+  const [addReceiptCategoryLoading, setAddReceiptCategoryLoading] = useState(false)
+  const [deleteReceiptCategoryDialogOpen, setDeleteReceiptCategoryDialogOpen] = useState(false)
+  const [receiptCategoryToDelete, setReceiptCategoryToDelete] = useState<ReceiptCategory | null>(null)
+  const [deleteReceiptCategoryLoading, setDeleteReceiptCategoryLoading] = useState(false)
 
   // CSV drop-to-import state
   const [isDragging, setIsDragging] = useState(false)
@@ -344,17 +395,43 @@ export default function DataLibraryPage() {
     }, {})
   }, [statements])
 
+  const [selectedReportType, setSelectedReportType] = useState<string>("all")
+
+  // Get unique types from statements
+  const uniqueReportTypes = useMemo(() => {
+    const types = new Set(statements.map(stmt => stmt.type).filter(Boolean))
+    return Array.from(types).sort()
+  }, [statements])
+
+  // Filter statements based on selected type
+  const filteredStatements = useMemo(() => {
+    if (selectedReportType === "all") {
+      return statements
+    }
+    return statements.filter(stmt => stmt.type === selectedReportType)
+  }, [statements, selectedReportType])
+
   const fetchLibraryData = useCallback(async () => {
     setLoading(true)
     setError(null)
 
     try {
-      const [txRes, statsRes, stmtRes, catRes, filesRes] = await Promise.all([
+      const [
+        txRes,
+        statsRes,
+        stmtRes,
+        catRes,
+        filesRes,
+        receiptTypesRes,
+        receiptCategoriesRes,
+      ] = await Promise.all([
         fetch("/api/transactions"),
         fetch("/api/stats"),
         fetch("/api/statements"),
         fetch("/api/categories"),
         fetch("/api/files"),
+        fetch("/api/receipt-categories/types"),
+        fetch("/api/receipt-categories"),
       ])
 
       if (!txRes.ok) {
@@ -380,14 +457,26 @@ export default function DataLibraryPage() {
           (await filesRes.text()) || "Unable to load raw file inventory."
         )
       }
+      if (!receiptTypesRes.ok) {
+        throw new Error(
+          (await receiptTypesRes.text()) || "Unable to load receipt category types."
+        )
+      }
+      if (!receiptCategoriesRes.ok) {
+        throw new Error(
+          (await receiptCategoriesRes.text()) || "Unable to load receipt categories."
+        )
+      }
 
-      const [txData, statsData, stmtData, catData, filesData] =
+      const [txData, statsData, stmtData, catData, filesData, receiptTypesData, receiptCategoriesData] =
         await Promise.all([
         txRes.json(),
         statsRes.json(),
         stmtRes.json(),
           catRes.json(),
           filesRes.json(),
+          receiptTypesRes.json(),
+          receiptCategoriesRes.json(),
         ])
 
       setTransactions(normalizeTransactions(txData) as Transaction[])
@@ -395,6 +484,8 @@ export default function DataLibraryPage() {
       setStatements(stmtData)
       setCategories(catData)
       setUserFiles(filesData)
+      setReceiptCategoryTypes(receiptTypesData)
+      setReceiptCategories(receiptCategoriesData)
     } catch (err) {
       const message =
         err instanceof Error
@@ -866,8 +957,237 @@ export default function DataLibraryPage() {
     }
   }
 
+  const handleAddReceiptType = async () => {
+    const trimmedName = newReceiptTypeName.trim()
+    if (!trimmedName) {
+      toast.error("Please enter a macronutrient type name")
+      return
+    }
+
+    try {
+      setAddReceiptTypeLoading(true)
+      const response = await fetch("/api/receipt-categories/types", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: trimmedName }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || "Failed to add receipt type")
+      }
+
+      await fetchLibraryData()
+
+      setNewReceiptTypeName("")
+      setAddReceiptTypeDialogOpen(false)
+
+      toast.success(`Receipt type "${trimmedName}" added`)
+    } catch (error) {
+      console.error("[Add Receipt Type] Error:", error)
+      const message = error instanceof Error ? error.message : "Failed to add receipt type"
+      toast.error(message)
+    } finally {
+      setAddReceiptTypeLoading(false)
+    }
+  }
+
+  const handleDeleteReceiptType = async () => {
+    if (!receiptTypeToDelete) return
+
+    try {
+      setDeleteReceiptTypeLoading(true)
+      const response = await fetch("/api/receipt-categories/types", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: receiptTypeToDelete.id }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || "Failed to delete receipt type")
+      }
+
+      await fetchLibraryData()
+
+      setReceiptTypeToDelete(null)
+      setDeleteReceiptTypeDialogOpen(false)
+
+      toast.success(`Receipt type "${receiptTypeToDelete.name}" deleted`)
+    } catch (error) {
+      console.error("[Delete Receipt Type] Error:", error)
+      const message = error instanceof Error ? error.message : "Failed to delete receipt type"
+      toast.error(message)
+    } finally {
+      setDeleteReceiptTypeLoading(false)
+    }
+  }
+
+  const handleAddReceiptCategory = async () => {
+    const trimmedName = newReceiptCategoryName.trim()
+    if (!trimmedName) {
+      toast.error("Please enter a receipt category name")
+      return
+    }
+
+    const typeId = Number(newReceiptCategoryTypeId)
+    if (!Number.isFinite(typeId)) {
+      toast.error("Please select a macronutrient type")
+      return
+    }
+
+    try {
+      setAddReceiptCategoryLoading(true)
+      const response = await fetch("/api/receipt-categories", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: trimmedName, typeId }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || "Failed to add receipt category")
+      }
+
+      await fetchLibraryData()
+
+      setNewReceiptCategoryName("")
+      setAddReceiptCategoryDialogOpen(false)
+
+      toast.success(`Receipt category "${trimmedName}" added`)
+    } catch (error) {
+      console.error("[Add Receipt Category] Error:", error)
+      const message = error instanceof Error ? error.message : "Failed to add receipt category"
+      toast.error(message)
+    } finally {
+      setAddReceiptCategoryLoading(false)
+    }
+  }
+
+  const handleCreateDialogReceiptCategory = async () => {
+    const trimmedName = newDialogReceiptCategoryName.trim()
+    if (!trimmedName) {
+      toast.error("Please enter a receipt category name")
+      return
+    }
+
+    const typeId = Number(newDialogReceiptCategoryTypeId)
+    if (!Number.isFinite(typeId)) {
+      toast.error("Please select a macronutrient type")
+      return
+    }
+
+    try {
+      setIsCreatingReceiptCategory(true)
+      const response = await fetch("/api/receipt-categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: trimmedName,
+          typeId: typeId,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || "Failed to add receipt category")
+      }
+
+      const newCategory = await response.json()
+      
+      // Refresh receipt categories in dialog
+      const categoriesResponse = await fetch("/api/receipt-categories")
+      if (categoriesResponse.ok) {
+        const categoriesPayload = (await categoriesResponse.json()) as Array<{
+          name?: string
+          color?: string | null
+          typeName?: string
+          typeColor?: string | null
+          type_name?: string
+          type_color?: string | null
+        }>
+        const normalized = Array.isArray(categoriesPayload)
+          ? categoriesPayload
+              .map((category) => ({
+                name: typeof category?.name === "string" ? category.name : "",
+                color: typeof category?.color === "string" ? category.color : null,
+                typeName:
+                  typeof category?.typeName === "string"
+                    ? category.typeName
+                    : typeof category?.type_name === "string"
+                      ? category.type_name
+                      : "",
+                typeColor:
+                  typeof category?.typeColor === "string"
+                    ? category.typeColor
+                    : typeof category?.type_color === "string"
+                      ? category.type_color
+                      : null,
+              }))
+              .filter((category) => category.name.trim().length > 0)
+          : []
+        setDialogReceiptCategories(normalized)
+      }
+
+      setNewDialogReceiptCategoryName("")
+      setIsCreateReceiptCategoryDialogOpen(false)
+
+      toast.success(`Receipt category "${trimmedName}" added`)
+    } catch (error: any) {
+      const message = error?.message || "Failed to add receipt category"
+      toast.error(message)
+    } finally {
+      setIsCreatingReceiptCategory(false)
+    }
+  }
+
+  const handleDeleteReceiptCategory = async () => {
+    if (!receiptCategoryToDelete) return
+
+    try {
+      setDeleteReceiptCategoryLoading(true)
+      const response = await fetch("/api/receipt-categories", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: receiptCategoryToDelete.id }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || "Failed to delete receipt category")
+      }
+
+      await fetchLibraryData()
+
+      setReceiptCategoryToDelete(null)
+      setDeleteReceiptCategoryDialogOpen(false)
+
+      toast.success(`Receipt category "${receiptCategoryToDelete.name}" deleted`)
+    } catch (error) {
+      console.error("[Delete Receipt Category] Error:", error)
+      const message = error instanceof Error ? error.message : "Failed to delete receipt category"
+      toast.error(message)
+    } finally {
+      setDeleteReceiptCategoryLoading(false)
+    }
+  }
+
   const isDefaultCategory = (categoryName: string): boolean => {
     return DEFAULT_CATEGORIES.includes(categoryName)
+  }
+
+  const isDefaultReceiptType = (typeName: string): boolean => {
+    const key = typeName.trim().toLowerCase()
+    return DEFAULT_RECEIPT_CATEGORY_TYPES.some((type) => type.name.toLowerCase() === key)
+  }
+
+  const isDefaultReceiptCategory = (categoryName: string): boolean => {
+    const key = categoryName.trim().toLowerCase()
+    return DEFAULT_RECEIPT_CATEGORIES.some((category) => category.name.toLowerCase() === key)
   }
 
   const uniqueCategoryOptions = useMemo(() => {
@@ -886,6 +1206,97 @@ export default function DataLibraryPage() {
     setViewLoading(true)
     setStatementTransactions([])
 
+    // Handle receipts differently
+    if (statement.type === "Receipts" && statement.receiptId) {
+      try {
+        // Load receipt categories and types
+        const [categoriesResponse, typesResponse] = await Promise.all([
+          fetch("/api/receipt-categories"),
+          fetch("/api/receipt-categories/types"),
+        ])
+        
+        if (categoriesResponse.ok) {
+          const categoriesPayload = (await categoriesResponse.json()) as Array<{
+            name?: string
+            color?: string | null
+            typeName?: string
+            typeColor?: string | null
+            type_name?: string
+            type_color?: string | null
+          }>
+          const normalized = Array.isArray(categoriesPayload)
+            ? categoriesPayload
+                .map((category) => ({
+                  name: typeof category?.name === "string" ? category.name : "",
+                  color: typeof category?.color === "string" ? category.color : null,
+                  typeName:
+                    typeof category?.typeName === "string"
+                      ? category.typeName
+                      : typeof category?.type_name === "string"
+                        ? category.type_name
+                        : "",
+                  typeColor:
+                    typeof category?.typeColor === "string"
+                      ? category.typeColor
+                      : typeof category?.type_color === "string"
+                        ? category.type_color
+                        : null,
+                }))
+                .filter((category) => category.name.trim().length > 0)
+            : []
+          setDialogReceiptCategories(normalized)
+        }
+
+        if (typesResponse.ok) {
+          const typesPayload = (await typesResponse.json()) as Array<{
+            id?: number
+            name?: string
+            color?: string | null
+          }>
+          const types = Array.isArray(typesPayload)
+            ? typesPayload
+                .map((type) => ({
+                  id: typeof type?.id === "number" ? type.id : 0,
+                  name: typeof type?.name === "string" ? type.name : "",
+                  color: typeof type?.color === "string" ? type.color : null,
+                }))
+                .filter((type) => type.id > 0 && type.name.trim().length > 0)
+            : []
+          setDialogReceiptCategoryTypes(types)
+          if (types.length > 0) {
+            setNewDialogReceiptCategoryTypeId((prev) => prev || String(types[0].id))
+          }
+        }
+
+        const response = await fetch(`/api/receipts/${statement.receiptId}`)
+        if (response.ok) {
+          const data = await response.json()
+          // Transform receipt transactions to match Transaction format
+          const transactions = (data.transactions || []).map((rt: any) => ({
+            id: rt.id,
+            date: `${rt.receipt_date}T${rt.receipt_time}`,
+            description: rt.description,
+            amount: -Number(rt.total_price), // Negative for expenses
+            balance: null,
+            category: rt.category_name || "Uncategorized",
+            receiptTransactionId: rt.id,
+            isReceipt: true,
+          }))
+          setStatementTransactions(normalizeTransactions(transactions) as Transaction[])
+        } else {
+          console.error("Failed to fetch receipt transactions")
+          setStatementTransactions([])
+        }
+      } catch (err) {
+        console.error("Error fetching receipt transactions:", err)
+        setStatementTransactions([])
+      } finally {
+        setViewLoading(false)
+      }
+      return
+    }
+
+    // Handle regular statements
     const statementId = statement.statementId ?? Number(statement.id)
     if (!statementId) {
       console.error("Missing statement ID")
@@ -912,6 +1323,32 @@ export default function DataLibraryPage() {
 
   const handleDeleteStatement = async () => {
     if (!statementToDelete) return
+
+    // Handle receipts differently
+    if (statementToDelete.type === "Receipts" && statementToDelete.receiptId) {
+      setDeleteLoading(true)
+      try {
+        const response = await fetch(`/api/receipts/${statementToDelete.receiptId}`, {
+          method: "DELETE",
+        })
+        if (response.ok) {
+          await fetchLibraryData()
+          setDeleteDialogOpen(false)
+          setStatementToDelete(null)
+        } else {
+          const errorData = await response.json().catch(() => ({}))
+          alert(errorData.error || "Failed to delete receipt")
+        }
+      } catch (err) {
+        console.error("Error deleting receipt:", err)
+        alert(err instanceof Error ? err.message : "Failed to delete receipt")
+      } finally {
+        setDeleteLoading(false)
+      }
+      return
+    }
+
+    // Handle regular statements
     const statementId = statementToDelete.statementId ?? Number(statementToDelete.id)
     if (!statementId) return
 
@@ -1095,10 +1532,28 @@ export default function DataLibraryPage() {
                           Latest statements synced from Neon storage.
                         </CardDescription>
                       </div>
-                      <Badge variant="outline" className="gap-1">
-                        <IconFolders className="size-3.5" />
-                        {statements.length} total
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="gap-1">
+                          <IconFolders className="size-3.5" />
+                          {filteredStatements.length}
+                          {statements.length !== filteredStatements.length && ` of ${statements.length}`} total
+                        </Badge>
+                        {uniqueReportTypes.length > 0 && (
+                          <Select value={selectedReportType} onValueChange={setSelectedReportType}>
+                            <SelectTrigger className="w-[160px]">
+                              <SelectValue placeholder="All types" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All types</SelectItem>
+                              {uniqueReportTypes.map((type) => (
+                                <SelectItem key={type} value={type}>
+                                  {type}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
                     </CardHeader>
                     <CardContent className="overflow-x-auto">
                       <Table>
@@ -1113,8 +1568,8 @@ export default function DataLibraryPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {statements.length ? (
-                            statements.slice(0, 6).map((statement) => (
+                          {filteredStatements.length ? (
+                            filteredStatements.slice(0, 6).map((statement) => (
                               <TableRow key={statement.id}>
                                 <TableCell className="font-medium">
                                   {statement.name}
@@ -1172,7 +1627,9 @@ export default function DataLibraryPage() {
                             <TableRow>
                               <TableCell colSpan={4} className="text-center">
                                 <p className="text-sm text-muted-foreground">
-                                  No reports yet—upload a statement to populate this list.
+                                  {selectedReportType !== "all"
+                                    ? `No ${selectedReportType} reports found.`
+                                    : "No reports yet—upload a statement to populate this list."}
                                 </p>
                               </TableCell>
                             </TableRow>
@@ -1307,6 +1764,226 @@ export default function DataLibraryPage() {
                       </Table>
                     </CardContent>
                   </Card>
+
+                  <Card className="lg:col-span-2">
+                    <CardHeader className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <CardTitle>Receipt Macronutrient Types</CardTitle>
+                        <CardDescription>
+                          Used to group grocery categories (Protein, Carbs, Fat, Fiber, Vitamins/Minerals).
+                        </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="gap-1">
+                          <IconCategory className="size-3.5" />
+                          {receiptCategoryTypes.length} total
+                        </Badge>
+                        <Button
+                          size="sm"
+                          onClick={() => setAddReceiptTypeDialogOpen(true)}
+                        >
+                          <IconPlus className="size-4 mr-1" />
+                          Add Type
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Type</TableHead>
+                            <TableHead className="hidden md:table-cell">Created</TableHead>
+                            <TableHead className="text-right">Categories</TableHead>
+                            <TableHead className="text-right">Items</TableHead>
+                            <TableHead className="text-right">Spend</TableHead>
+                            <TableHead className="text-right w-20">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {receiptCategoryTypes.length ? (
+                            receiptCategoryTypes.map((type) => (
+                              <TableRow key={type.id}>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className="inline-flex size-2.5 rounded-full"
+                                      style={{
+                                        backgroundColor:
+                                          type.color ?? "hsl(var(--primary))",
+                                      }}
+                                    />
+                                    <span className="font-medium">{type.name}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                                  {formatDateLabel(type.createdAt)}
+                                </TableCell>
+                                <TableCell className="text-right text-sm">
+                                  {type.categoryCount}
+                                </TableCell>
+                                <TableCell className="text-right text-sm">
+                                  {type.transactionCount}
+                                </TableCell>
+                                <TableCell className="text-right text-sm font-medium">
+                                  {type.totalSpend === 0 ? (
+                                    <span className="text-muted-foreground">
+                                      {formatCurrency(0)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-red-500">
+                                      {formatCurrency(type.totalSpend)}
+                                    </span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {!isDefaultReceiptType(type.name) && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      onClick={() => {
+                                        setReceiptTypeToDelete(type)
+                                        setDeleteReceiptTypeDialogOpen(true)
+                                      }}
+                                    >
+                                      <IconTrash className="size-4" />
+                                      <span className="sr-only">Delete type</span>
+                                    </Button>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={6} className="text-center">
+                                <p className="text-sm text-muted-foreground">
+                                  No receipt types yet.
+                                </p>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="lg:col-span-2">
+                    <CardHeader className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <CardTitle>Receipt Categories</CardTitle>
+                        <CardDescription>
+                          Food categories used by AI for receipt line items (Fruits, Meat, Dairy, etc.).
+                        </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="gap-1">
+                          <IconCategory className="size-3.5" />
+                          {receiptCategories.length} total
+                        </Badge>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            if (!newReceiptCategoryTypeId && receiptCategoryTypes.length > 0) {
+                              setNewReceiptCategoryTypeId(String(receiptCategoryTypes[0].id))
+                            }
+                            setAddReceiptCategoryDialogOpen(true)
+                          }}
+                        >
+                          <IconPlus className="size-4 mr-1" />
+                          Add Receipt Category
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Category</TableHead>
+                            <TableHead className="hidden md:table-cell">Type</TableHead>
+                            <TableHead className="hidden lg:table-cell">Created</TableHead>
+                            <TableHead className="text-right">Items</TableHead>
+                            <TableHead className="text-right">Spend</TableHead>
+                            <TableHead className="text-right w-20">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {receiptCategories.length ? (
+                            receiptCategories.map((category) => (
+                              <TableRow key={category.id}>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className="inline-flex size-2.5 rounded-full"
+                                      style={{
+                                        backgroundColor:
+                                          category.color ?? "hsl(var(--primary))",
+                                      }}
+                                    />
+                                    <span className="font-medium">
+                                      {category.name}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className="inline-flex size-2 rounded-full"
+                                      style={{
+                                        backgroundColor:
+                                          category.typeColor ?? "hsl(var(--muted-foreground))",
+                                      }}
+                                    />
+                                    <span>{category.typeName}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                                  {formatDateLabel(category.createdAt)}
+                                </TableCell>
+                                <TableCell className="text-right text-sm">
+                                  {category.transactionCount}
+                                </TableCell>
+                                <TableCell className="text-right text-sm font-medium">
+                                  {category.totalSpend === 0 ? (
+                                    <span className="text-muted-foreground">
+                                      {formatCurrency(0)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-red-500">
+                                      {formatCurrency(category.totalSpend)}
+                                    </span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {!isDefaultReceiptCategory(category.name) && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      onClick={() => {
+                                        setReceiptCategoryToDelete(category)
+                                        setDeleteReceiptCategoryDialogOpen(true)
+                                      }}
+                                    >
+                                      <IconTrash className="size-4" />
+                                      <span className="sr-only">Delete category</span>
+                                    </Button>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={6} className="text-center">
+                                <p className="text-sm text-muted-foreground">
+                                  No receipt categories yet.
+                                </p>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
                 </div>
               </section>
 
@@ -1370,36 +2047,71 @@ export default function DataLibraryPage() {
                             </TableCell>
                             <TableCell>{tx.description}</TableCell>
                             <TableCell>
-                              <CategorySelect
-                                value={tx.category}
-                                onValueChange={(value) => {
-                                  // Update state in a transition so it doesn't block the Select from closing
-                                  const previousCategory = tx.category
-                                  startTransition(() => {
-                                    setStatementTransactions((prev) =>
-                                      prev.map((item) =>
-                                        item.id === tx.id
-                                          ? { ...item, category: value }
-                                          : item
-                                      )
-                                    )
-                                  })
-
-                                  // Then update the database in the background (don't await)
-                                  fetch(
-                                    `/api/transactions/${tx.id}`,
-                                    {
-                                      method: "PATCH",
-                                      headers: {
-                                        "Content-Type": "application/json",
-                                      },
-                                      body: JSON.stringify({
-                                        category: value,
-                                      }),
+                              {tx.isReceipt && tx.receiptTransactionId ? (
+                                <Select
+                                  value={tx.category || "__uncategorized__"}
+                                  onValueChange={(value) => {
+                                    if (value === "__create_new__") {
+                                      setIsCreateReceiptCategoryDialogOpen(true)
+                                      return
                                     }
-                                  )
-                                    .then(async (response) => {
-                                      if (!response.ok) {
+                                    
+                                    const previousCategory = tx.category
+                                    const categoryName = value === "__uncategorized__" ? null : value
+                                    
+                                    // Update state immediately
+                                    startTransition(() => {
+                                      setStatementTransactions((prev) =>
+                                        prev.map((item) =>
+                                          item.id === tx.id
+                                            ? { ...item, category: categoryName || "Uncategorized" }
+                                            : item
+                                        )
+                                      )
+                                    })
+
+                                    // Update database
+                                    fetch(
+                                      `/api/receipt-transactions/${tx.receiptTransactionId}/category`,
+                                      {
+                                        method: "PATCH",
+                                        headers: {
+                                          "Content-Type": "application/json",
+                                        },
+                                        body: JSON.stringify({
+                                          categoryName: categoryName,
+                                        }),
+                                      }
+                                    )
+                                      .then(async (response) => {
+                                        if (!response.ok) {
+                                          // Revert on error
+                                          startTransition(() => {
+                                            setStatementTransactions((prev) =>
+                                              prev.map((item) =>
+                                                item.id === tx.id
+                                                  ? { ...item, category: previousCategory }
+                                                  : item
+                                              )
+                                            )
+                                          })
+                                          const errorData = await response.json().catch(() => ({}))
+                                          toast.error(errorData.error || "Failed to update category")
+                                        } else {
+                                          const updated = await response.json()
+                                          // Update with returned category name
+                                          startTransition(() => {
+                                            setStatementTransactions((prev) =>
+                                              prev.map((item) =>
+                                                item.id === tx.id
+                                                  ? { ...item, category: updated.categoryName || "Uncategorized" }
+                                                  : item
+                                              )
+                                            )
+                                          })
+                                        }
+                                      })
+                                      .catch((err) => {
                                         // Revert on error
                                         startTransition(() => {
                                           setStatementTransactions((prev) =>
@@ -1410,29 +2122,115 @@ export default function DataLibraryPage() {
                                             )
                                           )
                                         })
-                                        const errorData = await response.json().catch(() => ({}))
-                                        alert(errorData.error || "Failed to update category")
-                                      }
-                                    })
-                                    .catch((err) => {
-                                      // Revert on error
-                                      startTransition(() => {
-                                        setStatementTransactions((prev) =>
-                                          prev.map((item) =>
-                                            item.id === tx.id
-                                              ? { ...item, category: previousCategory }
-                                              : item
-                                          )
-                                        )
+                                        console.error("Error updating category:", err)
+                                        toast.error("Error updating category")
                                       })
-                                      console.error(
-                                        "Error updating category:",
-                                        err
+                                  }}
+                                >
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select category" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="__uncategorized__">Uncategorized</SelectItem>
+                                    {dialogReceiptCategories.map((category) => (
+                                      <SelectItem key={category.name} value={category.name}>
+                                        <span className="flex items-center gap-2">
+                                          <span
+                                            className="h-2 w-2 rounded-full border border-border/50"
+                                            style={{
+                                              backgroundColor: category.color ?? undefined,
+                                              borderColor: category.color ?? undefined,
+                                            }}
+                                          />
+                                          <span className="truncate">{category.name}</span>
+                                          {category.typeName ? (
+                                            <span className="ml-auto text-xs text-muted-foreground truncate">
+                                              {category.typeName}
+                                            </span>
+                                          ) : null}
+                                        </span>
+                                      </SelectItem>
+                                    ))}
+                                    <Separator className="my-1" />
+                                    <SelectItem
+                                      value="__create_new__"
+                                      onSelect={(e) => {
+                                        e.preventDefault()
+                                        setIsCreateReceiptCategoryDialogOpen(true)
+                                      }}
+                                    >
+                                      <span className="flex items-center gap-2">
+                                        <IconPlus className="h-3 w-3" />
+                                        Create new category
+                                      </span>
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <CategorySelect
+                                  value={tx.category}
+                                  onValueChange={(value) => {
+                                    // Update state in a transition so it doesn't block the Select from closing
+                                    const previousCategory = tx.category
+                                    startTransition(() => {
+                                      setStatementTransactions((prev) =>
+                                        prev.map((item) =>
+                                          item.id === tx.id
+                                            ? { ...item, category: value }
+                                            : item
+                                        )
                                       )
-                                      alert("Error updating category")
                                     })
-                                }}
-                              />
+
+                                    // Then update the database in the background (don't await)
+                                    fetch(
+                                      `/api/transactions/${tx.id}`,
+                                      {
+                                        method: "PATCH",
+                                        headers: {
+                                          "Content-Type": "application/json",
+                                        },
+                                        body: JSON.stringify({
+                                          category: value,
+                                        }),
+                                      }
+                                    )
+                                      .then(async (response) => {
+                                        if (!response.ok) {
+                                          // Revert on error
+                                          startTransition(() => {
+                                            setStatementTransactions((prev) =>
+                                              prev.map((item) =>
+                                                item.id === tx.id
+                                                  ? { ...item, category: previousCategory }
+                                                  : item
+                                              )
+                                            )
+                                          })
+                                          const errorData = await response.json().catch(() => ({}))
+                                          toast.error(errorData.error || "Failed to update category")
+                                        }
+                                      })
+                                      .catch((err) => {
+                                        // Revert on error
+                                        startTransition(() => {
+                                          setStatementTransactions((prev) =>
+                                            prev.map((item) =>
+                                              item.id === tx.id
+                                                ? { ...item, category: previousCategory }
+                                                : item
+                                            )
+                                          )
+                                        })
+                                        console.error(
+                                          "Error updating category:",
+                                          err
+                                        )
+                                        toast.error("Error updating category")
+                                      })
+                                  }}
+                                />
+                              )}
                             </TableCell>
                             <TableCell className="text-right">
                               {formatCurrency(tx.amount)}
@@ -1451,6 +2249,96 @@ export default function DataLibraryPage() {
                       No transactions found for this statement.
                     </p>
                   )}
+                </DialogContent>
+              </Dialog>
+
+              {/* Create Receipt Category Dialog (from transaction view) */}
+              <Dialog
+                open={isCreateReceiptCategoryDialogOpen}
+                onOpenChange={(open) => {
+                  setIsCreateReceiptCategoryDialogOpen(open)
+                  if (!open) {
+                    setNewDialogReceiptCategoryName("")
+                    if (dialogReceiptCategoryTypes.length > 0) {
+                      setNewDialogReceiptCategoryTypeId(String(dialogReceiptCategoryTypes[0].id))
+                    }
+                  }
+                }}
+              >
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create Receipt Category</DialogTitle>
+                    <DialogDescription>
+                      Add a new category for receipt transactions.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="dialog-receipt-category-name">Category name</Label>
+                      <Input
+                        id="dialog-receipt-category-name"
+                        placeholder="e.g., Fruits, Vegetables, Meat"
+                        value={newDialogReceiptCategoryName}
+                        onChange={(e) => setNewDialogReceiptCategoryName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !isCreatingReceiptCategory) {
+                            e.preventDefault()
+                            handleCreateDialogReceiptCategory()
+                          }
+                        }}
+                        disabled={isCreatingReceiptCategory}
+                        autoFocus
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Macronutrient type</Label>
+                      <Select
+                        value={newDialogReceiptCategoryTypeId}
+                        onValueChange={setNewDialogReceiptCategoryTypeId}
+                        disabled={isCreatingReceiptCategory}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {dialogReceiptCategoryTypes.map((type) => (
+                            <SelectItem key={type.id} value={String(type.id)}>
+                              {type.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsCreateReceiptCategoryDialogOpen(false)
+                        setNewDialogReceiptCategoryName("")
+                      }}
+                      disabled={isCreatingReceiptCategory}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleCreateDialogReceiptCategory}
+                      disabled={
+                        isCreatingReceiptCategory ||
+                        !newDialogReceiptCategoryName.trim() ||
+                        !newDialogReceiptCategoryTypeId
+                      }
+                    >
+                      {isCreatingReceiptCategory ? (
+                        <>
+                          <IconLoader2 className="mr-2 size-4 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        "Create"
+                      )}
+                    </Button>
+                  </DialogFooter>
                 </DialogContent>
               </Dialog>
 
@@ -1613,6 +2501,241 @@ export default function DataLibraryPage() {
                       disabled={deleteCategoryLoading}
                     >
                       {deleteCategoryLoading ? (
+                        <>
+                          <IconLoader2 className="mr-2 size-4 animate-spin" />
+                          Deleting…
+                        </>
+                      ) : (
+                        <>
+                          <IconTrash className="mr-2 size-4" />
+                          Delete
+                        </>
+                      )}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              <Dialog
+                open={addReceiptTypeDialogOpen}
+                onOpenChange={setAddReceiptTypeDialogOpen}
+              >
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add Receipt Type</DialogTitle>
+                    <DialogDescription>
+                      Create a macronutrient type for organizing grocery categories.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="flex flex-col gap-4 py-4">
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="receipt-type-name">Type Name</Label>
+                      <Input
+                        id="receipt-type-name"
+                        placeholder="e.g., Protein, Carbs, Fat"
+                        value={newReceiptTypeName}
+                        onChange={(e) => setNewReceiptTypeName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !addReceiptTypeLoading) {
+                            e.preventDefault()
+                            handleAddReceiptType()
+                          }
+                        }}
+                        disabled={addReceiptTypeLoading}
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setAddReceiptTypeDialogOpen(false)
+                        setNewReceiptTypeName("")
+                      }}
+                      disabled={addReceiptTypeLoading}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleAddReceiptType}
+                      disabled={addReceiptTypeLoading || !newReceiptTypeName.trim()}
+                    >
+                      {addReceiptTypeLoading ? (
+                        <>
+                          <IconLoader2 className="mr-2 size-4 animate-spin" />
+                          Adding...
+                        </>
+                      ) : (
+                        <>
+                          <IconPlus className="mr-2 size-4" />
+                          Add Type
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              <AlertDialog
+                open={deleteReceiptTypeDialogOpen}
+                onOpenChange={(open) => {
+                  setDeleteReceiptTypeDialogOpen(open)
+                  if (!open) {
+                    setReceiptTypeToDelete(null)
+                  }
+                }}
+              >
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete receipt type?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently remove{" "}
+                      <span className="font-medium">
+                        {receiptTypeToDelete?.name ?? "this type"}
+                      </span>
+                      . Deleting a type that is used by receipt items may fail.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={deleteReceiptTypeLoading}>
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={handleDeleteReceiptType}
+                      disabled={deleteReceiptTypeLoading}
+                    >
+                      {deleteReceiptTypeLoading ? (
+                        <>
+                          <IconLoader2 className="mr-2 size-4 animate-spin" />
+                          Deleting…
+                        </>
+                      ) : (
+                        <>
+                          <IconTrash className="mr-2 size-4" />
+                          Delete
+                        </>
+                      )}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              <Dialog
+                open={addReceiptCategoryDialogOpen}
+                onOpenChange={setAddReceiptCategoryDialogOpen}
+              >
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add Receipt Category</DialogTitle>
+                    <DialogDescription>
+                      Create a food category for categorizing receipt line items.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="flex flex-col gap-4 py-4">
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="receipt-category-name">Category Name</Label>
+                      <Input
+                        id="receipt-category-name"
+                        placeholder="e.g., Fruits, Vegetables, Meat"
+                        value={newReceiptCategoryName}
+                        onChange={(e) => setNewReceiptCategoryName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !addReceiptCategoryLoading) {
+                            e.preventDefault()
+                            handleAddReceiptCategory()
+                          }
+                        }}
+                        disabled={addReceiptCategoryLoading}
+                        autoFocus
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2 text-sm">
+                      <Label>Macronutrient type</Label>
+                      <Select
+                        value={newReceiptCategoryTypeId}
+                        onValueChange={setNewReceiptCategoryTypeId}
+                        disabled={addReceiptCategoryLoading}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {receiptCategoryTypes.map((type) => (
+                            <SelectItem key={type.id} value={String(type.id)}>
+                              {type.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setAddReceiptCategoryDialogOpen(false)
+                        setNewReceiptCategoryName("")
+                      }}
+                      disabled={addReceiptCategoryLoading}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleAddReceiptCategory}
+                      disabled={
+                        addReceiptCategoryLoading ||
+                        !newReceiptCategoryName.trim() ||
+                        !newReceiptCategoryTypeId
+                      }
+                    >
+                      {addReceiptCategoryLoading ? (
+                        <>
+                          <IconLoader2 className="mr-2 size-4 animate-spin" />
+                          Adding...
+                        </>
+                      ) : (
+                        <>
+                          <IconPlus className="mr-2 size-4" />
+                          Add Receipt Category
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              <AlertDialog
+                open={deleteReceiptCategoryDialogOpen}
+                onOpenChange={(open) => {
+                  setDeleteReceiptCategoryDialogOpen(open)
+                  if (!open) {
+                    setReceiptCategoryToDelete(null)
+                  }
+                }}
+              >
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete receipt category?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently remove{" "}
+                      <span className="font-medium">
+                        {receiptCategoryToDelete?.name ?? "this category"}
+                      </span>
+                      . Receipt items using this category will become uncategorized.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={deleteReceiptCategoryLoading}>
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={handleDeleteReceiptCategory}
+                      disabled={deleteReceiptCategoryLoading}
+                    >
+                      {deleteReceiptCategoryLoading ? (
                         <>
                           <IconLoader2 className="mr-2 size-4 animate-spin" />
                           Deleting…
@@ -1851,4 +2974,3 @@ export default function DataLibraryPage() {
     </SidebarProvider>
   )
 }
-

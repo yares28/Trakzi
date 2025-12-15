@@ -27,9 +27,7 @@ export default async function ChatPage() {
     >
       <AppSidebar variant="inset" />
       <SidebarInset>
-        <div className="sticky top-0 z-50 bg-background">
-          <SiteHeader />
-        </div>
+        <SiteHeader />
         <div className="flex flex-1 flex-col overflow-hidden">
           <ChatInterface />
         </div>

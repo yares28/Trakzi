@@ -72,6 +72,7 @@ import {
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
 import { IconUpload, IconFile, IconCircleCheck, IconLoader2, IconAlertCircle, IconTrash } from "@tabler/icons-react"
+import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv"
 import { TxRow } from "@/lib/types/transactions"
@@ -203,7 +204,7 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
       const minSize = 200 // Minimum size
       const maxSize = 800 // Increased maximum size
       const clampedSize = Math.max(minSize, Math.min(maxSize, size))
-      
+
       // Only update if size actually changed to avoid unnecessary re-renders
       setContainerSize(prev => {
         if (Math.abs(prev.width - clampedSize) > 1) {
@@ -413,6 +414,13 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
   )
 }
 
+function isFileDragEvent(event: React.DragEvent) {
+  const types = Array.from(event.dataTransfer.types || [])
+  if (types.includes("Files")) return true
+  const items = Array.from(event.dataTransfer.items || [])
+  return items.some((item) => item.kind === "file")
+}
+
 export default function AnalyticsPage() {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
@@ -464,6 +472,7 @@ export default function AnalyticsPage() {
       "allMonthsCategorySpending",
       "singleMonthCategorySpending",
       "dayOfWeekCategory",
+      "cashFlowSankey",
       // "budgetDistribution", // Hidden chart - kept in code but not displayed
     ],
     [],
@@ -493,34 +502,29 @@ export default function AnalyticsPage() {
     "allMonthsCategorySpending": { w: 6, h: 8, x: 0, y: 94 },
     "singleMonthCategorySpending": { w: 6, h: 8, x: 6, y: 102 },
     "dayOfWeekCategory": { w: 6, h: 8, x: 0, y: 102 },
+    "cashFlowSankey": { w: 12, h: 10, x: 0, y: 110 },
     "budgetDistribution": { w: 6, h: 10, x: 0, y: 101 },
   }
 
-  // Define allowed sizes: small (6x6) and large (12x6)
-  const allowedSizes = [
-    { w: 6, h: 6 },  // Small
-    { w: 12, h: 6 }  // Large
-  ]
-
   // Snap to nearest allowed size (snap width, keep height as-is)
-  const snapToAllowedSize = (w: number, h: number) => {
+  const snapToAllowedSize = useCallback((w: number, h: number) => {
     // Snap width to nearest allowed size (6 or 12)
     // Keep height as-is (user can resize vertically freely)
     const widthDistanceToSmall = Math.abs(w - 6)
     const widthDistanceToLarge = Math.abs(w - 12)
-    
+
     const snappedWidth = widthDistanceToSmall <= widthDistanceToLarge ? 6 : 12
-    
+
     // Clamp height to valid range
     const clampedHeight = Math.max(4, Math.min(20, h))
-    
+
     return { w: snappedWidth, h: clampedHeight }
-  }
+  }, [])
 
   // localStorage key for chart sizes and positions
   const CHART_SIZES_STORAGE_KEY = 'analytics-chart-sizes'
   const CHART_SIZES_VERSION_KEY = 'analytics-chart-sizes-version'
-  
+
   // Version hash of default sizes - increment this when defaults change to force update
   const DEFAULT_SIZES_VERSION = '7'
 
@@ -531,49 +535,49 @@ export default function AnalyticsPage() {
       const saved = localStorage.getItem(CHART_SIZES_STORAGE_KEY)
       const savedSizes = saved ? JSON.parse(saved) : {}
       const savedVersion = localStorage.getItem(CHART_SIZES_VERSION_KEY)
-      
+
       // Check if version changed or if we need to update sizes
       const needsUpdate = savedVersion !== DEFAULT_SIZES_VERSION
-      
+
       // Start with defaults, then merge in saved positions (x, y) if they exist
       // This preserves user's manual positioning while applying new default sizes
       const result: Record<string, { w: number; h: number; x?: number; y?: number }> = {}
       let hasChanges = false
-      
+
       Object.keys(DEFAULT_CHART_SIZES).forEach(chartId => {
         const defaultSize = DEFAULT_CHART_SIZES[chartId]
         const savedSize = savedSizes[chartId]
-        
+
         // If version changed, always use new defaults for w and h
         // Otherwise, use saved size if it exists, otherwise use default
         const finalSize = needsUpdate || !savedSize
           ? {
-              w: defaultSize.w,
-              h: defaultSize.h,
-              x: savedSize?.x ?? defaultSize.x,
-              y: savedSize?.y ?? defaultSize.y
-            }
+            w: defaultSize.w,
+            h: defaultSize.h,
+            x: savedSize?.x ?? defaultSize.x,
+            y: savedSize?.y ?? defaultSize.y
+          }
           : {
-              w: savedSize.w,
-              h: savedSize.h,
-              x: savedSize.x ?? defaultSize.x,
-              y: savedSize.y ?? defaultSize.y
-            }
-        
+            w: savedSize.w,
+            h: savedSize.h,
+            x: savedSize.x ?? defaultSize.x,
+            y: savedSize.y ?? defaultSize.y
+          }
+
         result[chartId] = finalSize
-        
+
         // Check if this chart's size changed
         if (needsUpdate && (!savedSize || savedSize.w !== defaultSize.w || savedSize.h !== defaultSize.h)) {
           hasChanges = true
         }
       })
-      
+
       // Save updated sizes if version changed or if we detected changes
       if (needsUpdate || hasChanges) {
         localStorage.setItem(CHART_SIZES_STORAGE_KEY, JSON.stringify(result))
         localStorage.setItem(CHART_SIZES_VERSION_KEY, DEFAULT_SIZES_VERSION)
       }
-      
+
       return result
     } catch (error) {
       console.error('Failed to load chart sizes from localStorage:', error)
@@ -582,10 +586,15 @@ export default function AnalyticsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [DEFAULT_SIZES_VERSION])
 
+  const [savedChartSizes, setSavedChartSizes] = useState<Record<string, { w: number; h: number; x?: number; y?: number }>>({})
+  const savedChartSizesRef = useRef<Record<string, { w: number; h: number; x?: number; y?: number }>>({})
+  const [hasLoadedChartSizes, setHasLoadedChartSizes] = useState(false)
+
   // Save chart sizes and positions to localStorage AND React state
   const saveChartSizes = useCallback(
     (sizes: Record<string, { w: number; h: number; x?: number; y?: number }>) => {
-      // Update in-memory state so components like Money Flow can react immediately
+      // Update in-memory state so components like Money Flow can react immediately.
+      savedChartSizesRef.current = sizes
       setSavedChartSizes(sizes)
 
       if (typeof window === "undefined") return
@@ -599,17 +608,17 @@ export default function AnalyticsPage() {
     [],
   )
 
-  // Load saved sizes on mount - use state to avoid hydration mismatch
-  const [savedChartSizes, setSavedChartSizes] = useState<Record<string, { w: number; h: number; x?: number; y?: number }>>({})
-  
   // Load saved sizes after mount (client-side only)
   useEffect(() => {
     const loaded = loadChartSizes()
+    savedChartSizesRef.current = loaded
     setSavedChartSizes(loaded)
+    setHasLoadedChartSizes(true)
   }, [loadChartSizes])
 
   // Initialize GridStack - wait for items to be rendered
   useEffect(() => {
+    if (!hasLoadedChartSizes) return
     if (!gridRef.current) return
 
     // Define initialization function
@@ -629,7 +638,7 @@ export default function AnalyticsPage() {
           handles: 'se', // Only bottom-right resize handle (matching trends page style)
         },
         draggable: {
-          handle: ".grid-stack-item-content"
+          handle: ".gridstack-drag-handle"
         },
         // Constrain to allowed sizes
         disableOneColumnMode: true,
@@ -637,24 +646,26 @@ export default function AnalyticsPage() {
         // Per-item min/max will be set when loading widgets
       }
       gridStackRef.current = GridStack.init(gridOptions, gridRef.current)
-      
+
       // Now explicitly load all items with correct sizes from data attributes or saved sizes
       if (gridStackRef.current && items.length > 0) {
+        const currentSavedChartSizes = savedChartSizesRef.current
+
         // First pass: collect all widget data with saved positions
         const widgetData = Array.from(items).map((item) => {
           const el = item as HTMLElement
           // Get chartId from data attribute
           const chartId = el.getAttribute('data-chart-id') || ''
-          
+
           // Try to load saved size and position first, then fall back to data attribute, then default
           let w = 12
           let h = 6
           let x = 0
           let y = 0
-          
-          if (chartId && savedChartSizes[chartId]) {
+
+          if (chartId && currentSavedChartSizes[chartId]) {
             // Use saved size and position, but ensure width is exactly 6 or 12
-            const saved = savedChartSizes[chartId]
+            const saved = currentSavedChartSizes[chartId]
             const snapped = snapToAllowedSize(saved.w, saved.h)
             w = snapped.w
             h = saved.h
@@ -681,26 +692,26 @@ export default function AnalyticsPage() {
               w = snapped.w
             }
           }
-          
+
           // Get chart-specific constraints from config
           const sizeConfig = getChartCardSize(chartId as ChartId)
-          
+
           // Ensure height is within chart-specific valid range
           h = Math.max(sizeConfig.minH, Math.min(sizeConfig.maxH, h))
           // Ensure width is within chart-specific valid range
           w = Math.max(sizeConfig.minW, Math.min(sizeConfig.maxW, w))
-          
+
           return { el, w, h, x, y, chartId, minW: sizeConfig.minW, maxW: sizeConfig.maxW, minH: sizeConfig.minH, maxH: sizeConfig.maxH }
         })
-        
+
         // Second pass: use saved positions, default positions, or stack vertically for new items
         let currentY = 0
         const widgets = widgetData.map((data) => {
           // If position was saved, use it; otherwise use default position or stack vertically
           let finalY = data.y
           let finalX = data.x
-          
-          if (!savedChartSizes[data.chartId]) {
+
+          if (!currentSavedChartSizes[data.chartId]) {
             // No saved position, check for default position
             const defaultSize = DEFAULT_CHART_SIZES[data.chartId]
             if (defaultSize) {
@@ -716,7 +727,7 @@ export default function AnalyticsPage() {
             finalY = data.y
             finalX = data.x
           }
-          
+
           const widget = {
             el: data.el,
             w: data.w,
@@ -735,11 +746,11 @@ export default function AnalyticsPage() {
           }
           return widget
         })
-        
+
         // Clear any existing items first, then load with correct sizes
         gridStackRef.current.removeAll(false)
         gridStackRef.current.load(widgets)
-        
+
         // After loading, set constraints directly on GridStack nodes
         // GridStack needs constraints set on the node object itself, not just the widget
         setTimeout(() => {
@@ -749,23 +760,23 @@ export default function AnalyticsPage() {
                 const chartId = node.el.getAttribute('data-chart-id')
                 if (chartId) {
                   const sizeConfig = getChartCardSize(chartId as ChartId)
-                  
+
                   // Set constraints directly on the node (this is what GridStack uses)
                   node.minW = sizeConfig.minW
                   node.maxW = sizeConfig.maxW
                   node.minH = sizeConfig.minH
                   node.maxH = sizeConfig.maxH
-                  
+
                   // Also set on the DOM element for persistence
                   node.el.setAttribute('gs-min-w', sizeConfig.minW.toString())
                   node.el.setAttribute('gs-max-w', sizeConfig.maxW.toString())
                   node.el.setAttribute('gs-min-h', sizeConfig.minH.toString())
                   node.el.setAttribute('gs-max-h', sizeConfig.maxH.toString())
-                  
+
                   // Clamp current size to constraints
                   const clampedW = Math.max(sizeConfig.minW, Math.min(sizeConfig.maxW, node.w || 6))
                   const clampedH = Math.max(sizeConfig.minH, Math.min(sizeConfig.maxH, node.h || 6))
-                  
+
                   // Update if size needs to be clamped
                   if (node.w !== clampedW || node.h !== clampedH) {
                     gridStackRef.current!.update(node.el, {
@@ -778,10 +789,10 @@ export default function AnalyticsPage() {
             })
           }
         }, 100)
-        
+
         // Force a layout update to ensure sizes are applied
         gridStackRef.current.compact()
-        
+
         // Enforce constraints during resize (not just after)
         gridStackRef.current.on('resize', (event, item) => {
           if (item && gridStackRef.current) {
@@ -795,10 +806,10 @@ export default function AnalyticsPage() {
                 const maxH = node.maxH ?? 20
                 const minW = node.minW ?? 6
                 const maxW = node.maxW ?? 12
-                
+
                 const clampedW = Math.max(minW, Math.min(maxW, node.w || 6))
                 const clampedH = Math.max(minH, Math.min(maxH, node.h || 6))
-                
+
                 // If size exceeds constraints, clamp it immediately
                 if (node.w !== clampedW || node.h !== clampedH) {
                   gridStackRef.current.update(item, {
@@ -810,7 +821,7 @@ export default function AnalyticsPage() {
             }
           }
         })
-        
+
         // Handle vertical resize (GridStack handles this)
         gridStackRef.current.on('resizestop', (event, item) => {
           if (item && gridStackRef.current) {
@@ -824,10 +835,10 @@ export default function AnalyticsPage() {
                 const maxH = node.maxH ?? 20
                 const minW = node.minW ?? 6
                 const maxW = node.maxW ?? 12
-                
+
                 const clampedW = Math.max(minW, Math.min(maxW, node.w || 6))
                 const clampedH = Math.max(minH, Math.min(maxH, node.h || 6))
-                
+
                 // If size was clamped, update the GridStack item
                 if (node.w !== clampedW || node.h !== clampedH) {
                   gridStackRef.current.update(item, {
@@ -835,10 +846,10 @@ export default function AnalyticsPage() {
                     h: clampedH,
                   })
                 }
-                
-                const newSizes = { ...savedChartSizes }
-                newSizes[chartId] = { 
-                  w: clampedW, 
+
+                const newSizes = { ...savedChartSizesRef.current }
+                newSizes[chartId] = {
+                  w: clampedW,
                   h: clampedH,
                   x: node.x || 0,
                   y: node.y || 0
@@ -848,13 +859,13 @@ export default function AnalyticsPage() {
             }
           }
         })
-        
+
         // Also save on change event (for drag operations that might affect layout)
         gridStackRef.current.on('change', (event, items) => {
           if (items && gridStackRef.current) {
             const itemsArray = Array.isArray(items) ? items : [items]
             if (itemsArray.length > 0) {
-              const newSizes = { ...savedChartSizes }
+              const newSizes = { ...savedChartSizesRef.current }
               itemsArray.forEach((item) => {
                 // item might be a DOM element or a GridStack node
                 const el = (item as any).el || item
@@ -868,8 +879,8 @@ export default function AnalyticsPage() {
                     const snapped = snapToAllowedSize(node.w, node.h)
                     const clampedW = Math.max(sizeConfig.minW, Math.min(sizeConfig.maxW, snapped.w))
                     const clampedH = Math.max(sizeConfig.minH, Math.min(sizeConfig.maxH, snapped.h))
-                    newSizes[chartId] = { 
-                      w: clampedW, 
+                    newSizes[chartId] = {
+                      w: clampedW,
                       h: clampedH,
                       x: node.x || 0,
                       y: node.y || 0
@@ -883,13 +894,13 @@ export default function AnalyticsPage() {
             }
           }
         })
-        
+
         // Save on drag stop to preserve positions
         gridStackRef.current.on('dragstop', (event, items) => {
           if (items && gridStackRef.current) {
             const itemsArray = Array.isArray(items) ? items : [items]
             if (itemsArray.length > 0) {
-              const newSizes = { ...savedChartSizes }
+              const newSizes = { ...savedChartSizesRef.current }
               itemsArray.forEach((item) => {
                 // item might be a DOM element or a GridStack node
                 const el = (item as any).el || item
@@ -898,8 +909,8 @@ export default function AnalyticsPage() {
                   const chartId = el.getAttribute('data-chart-id')
                   if (chartId && node.w && node.h) {
                     const snapped = snapToAllowedSize(node.w, node.h)
-                    newSizes[chartId] = { 
-                      w: snapped.w, 
+                    newSizes[chartId] = {
+                      w: snapped.w,
                       h: snapped.h,
                       x: node.x || 0,
                       y: node.y || 0
@@ -947,7 +958,7 @@ export default function AnalyticsPage() {
           })
           return
         }
-        
+
         // Force recalculation to ensure symmetrical spacing
         if (gridRef.current) {
           const computedStyle = window.getComputedStyle(gridRef.current)
@@ -973,7 +984,7 @@ export default function AnalyticsPage() {
         gridStackRef.current = null
       }
     }
-  }, [analyticsChartOrder, snapToAllowedSize, savedChartSizes, saveChartSizes])
+  }, [analyticsChartOrder, snapToAllowedSize, saveChartSizes, hasLoadedChartSizes])
 
   // Transactions state
   const [rawTransactions, setRawTransactions] = useState<Array<{
@@ -1154,7 +1165,7 @@ export default function AnalyticsPage() {
     try {
       const startTime = performance.now()
       console.log("[Analytics] Starting parallel data fetch...")
-      
+
       // Fetch ALL data in parallel - this is the key optimization
       const [
         transactionsData,
@@ -1330,6 +1341,7 @@ export default function AnalyticsPage() {
   }, [])
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
+    if (!isFileDragEvent(e)) return
     e.preventDefault()
     e.stopPropagation()
     dragCounterRef.current++
@@ -1339,6 +1351,7 @@ export default function AnalyticsPage() {
   }, [])
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
+    if (!isFileDragEvent(e)) return
     e.preventDefault()
     e.stopPropagation()
     dragCounterRef.current--
@@ -1348,11 +1361,13 @@ export default function AnalyticsPage() {
   }, [])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (!isFileDragEvent(e)) return
     e.preventDefault()
     e.stopPropagation()
   }, [])
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
+    if (!isFileDragEvent(e)) return
     e.preventDefault()
     e.stopPropagation()
     setIsDragging(false)
@@ -2226,9 +2241,9 @@ export default function AnalyticsPage() {
       needsWantsVisibility.hiddenCategorySet.size === 0
         ? rawTransactions
         : rawTransactions.filter((tx) => {
-            const category = normalizeCategoryName(tx.category)
-            return !needsWantsVisibility.hiddenCategorySet.has(category)
-          })
+          const category = normalizeCategoryName(tx.category)
+          return !needsWantsVisibility.hiddenCategorySet.has(category)
+        })
 
     const totals: Record<SpendingTier, number> = {
       Essentials: 0,
@@ -2786,27 +2801,27 @@ export default function AnalyticsPage() {
                 savingsRateChange={stats.savingsRateChange}
                 netWorthChange={stats.netWorthChange}
               />
-              
+
               {/* GridStack analytics chart section */}
               <div className="w-full mb-4">
                 <div ref={gridRef} className="grid-stack w-full px-4 lg:px-6">
-                      {analyticsChartOrder.map((chartId, index) => {
-                      // Determine default size and position for a chart
-                      const getDefaultSize = (id: string) => {
-                        return DEFAULT_CHART_SIZES[id] || { w: 12, h: 6, x: 0, y: 0 }  // Fallback to large if not found
-                      }
-                      const defaultSize = getDefaultSize(chartId)
-                      // Get min/max size constraints from config
-                      const sizeConfig = getChartCardSize(chartId as ChartId)
-                      // Use defaultSize for initial render to avoid hydration mismatch
-                      // Saved sizes will be applied by GridStack after mount via load() method
-                      const initialW = defaultSize.w
-                      const initialH = defaultSize.h
+                  {analyticsChartOrder.map((chartId, index) => {
+                    // Determine default size and position for a chart
+                    const getDefaultSize = (id: string) => {
+                      return DEFAULT_CHART_SIZES[id] || { w: 12, h: 6, x: 0, y: 0 }  // Fallback to large if not found
+                    }
+                    const defaultSize = getDefaultSize(chartId)
+                    // Get min/max size constraints from config
+                    const sizeConfig = getChartCardSize(chartId as ChartId)
+                    // Use defaultSize for initial render to avoid hydration mismatch
+                    // Saved sizes will be applied by GridStack after mount via load() method
+                    const initialW = defaultSize.w
+                    const initialH = defaultSize.h
 
-                      if (chartId === "transactionHistory") {
-                        return (
-                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
-                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    if (chartId === "transactionHistory") {
+                      return (
+                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartSwarmPlot
                               data={useMemo(() => {
                                 if (!rawTransactions || rawTransactions.length === 0) {
@@ -2905,79 +2920,79 @@ export default function AnalyticsPage() {
                                     }
                                   })
                               }, [rawTransactions])}
-                              />
-                            </div>
+                            />
                           </div>
-                        )
-                      }
+                        </div>
+                      )
+                    }
 
-                      if (chartId === "dayOfWeekSpending") {
-                        return (
-                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
-                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                              <ChartDayOfWeekSpending
-                                data={rawTransactions}
-                                categoryControls={dayOfWeekSpendingVisibility.buildCategoryControls(
-                                  Array.from(
-                                    new Set(
-                                      rawTransactions
-                                        .filter((tx) => Number(tx.amount) < 0)
-                                        .map((tx) => normalizeCategoryName(tx.category)),
-                                    ),
-                                  ).sort(),
-                                )}
-                                isLoading={isLoadingTransactions}
-                              />
-                            </div>
+                    if (chartId === "dayOfWeekSpending") {
+                      return (
+                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                            <ChartDayOfWeekSpending
+                              data={rawTransactions}
+                              categoryControls={dayOfWeekSpendingVisibility.buildCategoryControls(
+                                Array.from(
+                                  new Set(
+                                    rawTransactions
+                                      .filter((tx) => Number(tx.amount) < 0)
+                                      .map((tx) => normalizeCategoryName(tx.category)),
+                                  ),
+                                ).sort(),
+                              )}
+                              isLoading={isLoadingTransactions}
+                            />
                           </div>
-                        )
-                      }
+                        </div>
+                      )
+                    }
 
-                      if (chartId === "allMonthsCategorySpending") {
-                        return (
-                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
-                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                              <ChartAllMonthsCategorySpending
-                                data={rawTransactions}
-                                categoryControls={useMemo(() => {
-                                  const categories = Array.from(
-                                    new Set(
-                                      rawTransactions
-                                        .filter((tx) => Number(tx.amount) < 0)
-                                        .map((tx) => normalizeCategoryName(tx.category)),
-                                    ),
-                                  ).sort()
-                                  return monthOfYearSpendingVisibility.buildCategoryControls(
-                                    categories,
-                                  )
-                                }, [
-                                  rawTransactions,
-                                  monthOfYearSpendingVisibility,
-                                  normalizeCategoryName,
-                                ])}
-                                isLoading={isLoadingTransactions}
-                              />
-                            </div>
+                    if (chartId === "allMonthsCategorySpending") {
+                      return (
+                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                            <ChartAllMonthsCategorySpending
+                              data={rawTransactions}
+                              categoryControls={useMemo(() => {
+                                const categories = Array.from(
+                                  new Set(
+                                    rawTransactions
+                                      .filter((tx) => Number(tx.amount) < 0)
+                                      .map((tx) => normalizeCategoryName(tx.category)),
+                                  ),
+                                ).sort()
+                                return monthOfYearSpendingVisibility.buildCategoryControls(
+                                  categories,
+                                )
+                              }, [
+                                rawTransactions,
+                                monthOfYearSpendingVisibility,
+                                normalizeCategoryName,
+                              ])}
+                              isLoading={isLoadingTransactions}
+                            />
                           </div>
-                        )
-                      }
+                        </div>
+                      )
+                    }
 
-                      if (chartId === "incomeExpensesTracking1") {
-                        return (
-                          <div
-                            key={chartId}
-                            className="grid-stack-item overflow-visible"
-                            data-chart-id={chartId}
-                            data-gs-w={initialW}
-                            data-gs-h={initialH}
-                            data-gs-x={defaultSize.x ?? 0}
-                            data-gs-y={defaultSize.y ?? 0}
-                            data-gs-min-w={sizeConfig.minW}
-                            data-gs-max-w={sizeConfig.maxW}
-                            data-gs-min-h={sizeConfig.minH}
-                            data-gs-max-h={sizeConfig.maxH}
-                          >
-                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    if (chartId === "incomeExpensesTracking1") {
+                      return (
+                        <div
+                          key={chartId}
+                          className="grid-stack-item overflow-visible"
+                          data-chart-id={chartId}
+                          data-gs-w={initialW}
+                          data-gs-h={initialH}
+                          data-gs-x={defaultSize.x ?? 0}
+                          data-gs-y={defaultSize.y ?? 0}
+                          data-gs-min-w={sizeConfig.minW}
+                          data-gs-max-w={sizeConfig.maxW}
+                          data-gs-min-h={sizeConfig.minH}
+                          data-gs-max-h={sizeConfig.maxH}
+                        >
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartAreaInteractive
                               chartId="incomeExpensesTracking1"
                               categoryControls={incomeExpenseTopControls}
@@ -3029,56 +3044,56 @@ export default function AnalyticsPage() {
                                 }))
                               }, [rawTransactions, incomeExpenseTopVisibility.hiddenCategorySet, normalizeCategoryName])}
                             />
-                            </div>
                           </div>
-                        )
-                      }
+                        </div>
+                      )
+                    }
 
-                      if (chartId === "incomeExpensesTracking2") {
-                        return (
-                          <div
-                            key={chartId}
-                            className="grid-stack-item overflow-visible"
-                            data-chart-id={chartId}
-                            data-gs-w={initialW}
-                            data-gs-h={initialH}
-                            data-gs-x={defaultSize.x ?? 0}
-                            data-gs-y={defaultSize.y ?? 0}
-                            data-gs-min-w={sizeConfig.minW}
-                            data-gs-max-w={sizeConfig.maxW}
-                            data-gs-min-h={sizeConfig.minH}
-                            data-gs-max-h={sizeConfig.maxH}
-                          >
-                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    if (chartId === "incomeExpensesTracking2") {
+                      return (
+                        <div
+                          key={chartId}
+                          className="grid-stack-item overflow-visible"
+                          data-chart-id={chartId}
+                          data-gs-w={initialW}
+                          data-gs-h={initialH}
+                          data-gs-x={defaultSize.x ?? 0}
+                          data-gs-y={defaultSize.y ?? 0}
+                          data-gs-min-w={sizeConfig.minW}
+                          data-gs-max-w={sizeConfig.maxW}
+                          data-gs-min-h={sizeConfig.minH}
+                          data-gs-max-h={sizeConfig.maxH}
+                        >
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartAreaInteractive
                               chartId="incomeExpensesTracking2"
                               categoryControls={incomeExpenseControls}
                               isLoading={isLoadingTransactions}
                               data={incomeExpenseChart.data}
                             />
-                            </div>
                           </div>
-                        )
-                      }
+                        </div>
+                      )
+                    }
 
-                      if (chartId === "spendingCategoryRankings") {
-                        return (
-                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
-                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    if (chartId === "spendingCategoryRankings") {
+                      return (
+                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartCategoryFlow
                               categoryControls={categoryFlowControls}
                               data={categoryFlowChart.data}
                               isLoading={isLoadingTransactions}
                             />
-                            </div>
                           </div>
-                        )
-                      }
+                        </div>
+                      )
+                    }
 
-                      if (chartId === "netWorthAllocation") {
-                        return (
-                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
-                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    if (chartId === "netWorthAllocation") {
+                      return (
+                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartTreeMap
                               categoryControls={treeMapControls}
                               data={useMemo(() => {
@@ -3147,123 +3162,124 @@ export default function AnalyticsPage() {
                               }, [rawTransactions, treeMapVisibility.hiddenCategorySet, normalizeCategoryName])}
                               isLoading={isLoadingTransactions}
                             />
-                            </div>
                           </div>
-                        )
-                      }
+                        </div>
+                      )
+                    }
 
-                      if (chartId === "moneyFlow") {
-                        return (
-                          <div
-                            key={chartId}
-                            className="grid-stack-item overflow-visible"
-                            data-chart-id={chartId}
-                            data-gs-w={initialW}
-                            data-gs-h={initialH}
-                            data-gs-min-w={sizeConfig.minW}
-                            data-gs-max-w={sizeConfig.maxW}
-                            data-gs-min-h={sizeConfig.minH}
-                            data-gs-max-h={sizeConfig.maxH}
-                          >
-                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    if (chartId === "moneyFlow") {
+                      return (
+                        <div
+                          key={chartId}
+                          className="grid-stack-item overflow-visible"
+                          data-chart-id={chartId}
+                          data-gs-w={initialW}
+                          data-gs-h={initialH}
+                          data-gs-min-w={sizeConfig.minW}
+                          data-gs-max-w={sizeConfig.maxW}
+                          data-gs-min-h={sizeConfig.minH}
+                          data-gs-max-h={sizeConfig.maxH}
+                        >
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartSpendingFunnel
                               categoryControls={spendingFunnelControls}
                               data={spendingFunnelChart.data}
                               maxExpenseCategories={moneyFlowMaxExpenseCategories}
                               isLoading={isLoadingTransactions}
                             />
-                            </div>
                           </div>
-                        )
-                      }
+                        </div>
+                      )
+                    }
 
-                      if (chartId === "expenseBreakdown") {
-                        return (
-                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
-                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    if (chartId === "expenseBreakdown") {
+                      return (
+                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartExpensesPie
                               categoryControls={expensesPieControls}
                               data={expensesPieData.slices}
                               isLoading={isLoadingTransactions}
                             />
-                            </div>
                           </div>
-                        )
-                      }
+                        </div>
+                      )
+                    }
 
-                      if (chartId === "needsWantsBreakdown") {
-                        return (
-                          <div
-                            key={chartId}
-                            className="grid-stack-item overflow-visible"
-                            data-chart-id={chartId}
-                            data-gs-w={initialW}
-                            data-gs-h={initialH}
-                            data-gs-min-w={sizeConfig.minW}
-                            data-gs-max-w={sizeConfig.maxW}
-                            data-gs-min-h={sizeConfig.minH}
-                            data-gs-max-h={sizeConfig.maxH}
-                          >
-                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                              <ChartNeedsWantsPie
-                                categoryControls={needsWantsControls}
-                                data={needsWantsPieData.slices}
-                                isLoading={isLoadingTransactions}
-                              />
-                            </div>
+                    if (chartId === "needsWantsBreakdown") {
+                      return (
+                        <div
+                          key={chartId}
+                          className="grid-stack-item overflow-visible"
+                          data-chart-id={chartId}
+                          data-gs-w={initialW}
+                          data-gs-h={initialH}
+                          data-gs-min-w={sizeConfig.minW}
+                          data-gs-max-w={sizeConfig.maxW}
+                          data-gs-min-h={sizeConfig.minH}
+                          data-gs-max-h={sizeConfig.maxH}
+                        >
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                            <ChartNeedsWantsPie
+                              categoryControls={needsWantsControls}
+                              data={needsWantsPieData.slices}
+                              isLoading={isLoadingTransactions}
+                            />
                           </div>
-                        )
-                      }
+                        </div>
+                      )
+                    }
 
-                      if (chartId === "categoryBubbleMap") {
-                        return (
-                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
-                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    if (chartId === "categoryBubbleMap") {
+                      return (
+                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartCategoryBubble
                               data={rawTransactions}
                               isLoading={isLoadingTransactions}
                             />
-                            </div>
                           </div>
-                        )
-                      }
+                        </div>
+                      )
+                    }
 
-                      if (chartId === "householdSpendMix") {
-                        return (
-                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
-                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    if (chartId === "householdSpendMix") {
+                      return (
+                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartPolarBar
                               categoryControls={polarBarControls}
                               data={polarBarData.data}
                               keys={polarBarData.keys}
                               isLoading={isLoadingTransactions}
                             />
-                            </div>
                           </div>
-                        )
-                      }
+                        </div>
+                      )
+                    }
 
-                      if (chartId === "financialHealthScore") {
-                        return (
-                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
-                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    if (chartId === "financialHealthScore") {
+                      return (
+                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartRadar
                             />
-                            </div>
                           </div>
-                        )
-                      }
+                        </div>
+                      )
+                    }
 
-                      if (chartId === "spendingActivityRings") {
-                        return (
-                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
-                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    if (chartId === "spendingActivityRings") {
+                      return (
+                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <Card className="h-full flex flex-col">
                               <CardHeader className="relative flex flex-row items-start justify-between gap-2 flex-1 min-h-[420px] pb-6">
                                 <div className="space-y-1 z-10">
                                   <div className="flex items-center gap-2">
-                                    <ChartFavoriteButton 
-                                      chartId="spendingActivityRings" 
+                                    <GridStackCardDragHandle />
+                                    <ChartFavoriteButton
+                                      chartId="spendingActivityRings"
                                       chartTitle="Spending Activity Rings"
                                       size="md"
                                     />
@@ -3501,68 +3517,68 @@ export default function AnalyticsPage() {
                                 </div>
                               </CardHeader>
                             </Card>
-                            </div>
                           </div>
-                        )
-                      }
+                        </div>
+                      )
+                    }
 
-                      if (chartId === "spendingStreamgraph") {
-                        return (
-                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
-                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    if (chartId === "spendingStreamgraph") {
+                      return (
+                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartSpendingStreamgraph
                               categoryControls={streamgraphControls}
                               data={spendingStreamData.data}
                               keys={spendingStreamData.keys}
                               isLoading={isLoadingTransactions}
                             />
-                            </div>
                           </div>
-                        )
-                      }
+                        </div>
+                      )
+                    }
 
-                      if (chartId === "singleMonthCategorySpending") {
-                        return (
-                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
-                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    if (chartId === "singleMonthCategorySpending") {
+                      return (
+                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartSingleMonthCategorySpending
                               dateFilter={dateFilter}
                             />
-                            </div>
                           </div>
-                        )
-                      }
+                        </div>
+                      )
+                    }
 
-                      if (chartId === "dayOfWeekCategory") {
-                        return (
-                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
-                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    if (chartId === "dayOfWeekCategory") {
+                      return (
+                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartDayOfWeekCategory
                               dateFilter={dateFilter}
                             />
-                            </div>
                           </div>
-                        )
-                      }
+                        </div>
+                      )
+                    }
 
-                      // Hidden chart - kept in code but not displayed
-                      // if (chartId === "budgetDistribution") {
-                      //   return (
-                      //     <div key={chartId} className="grid-stack-item" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
-                      //       <div className="grid-stack-item-content h-full w-full overflow-hidden">
-                      //       <ChartCirclePacking
-                      //         categoryControls={circlePackingControls}
-                      //         data={circlePackingData.tree}
-                      //       />
-                      //       </div>
-                      //     </div>
-                      //   )
-                      // }
+                    // Hidden chart - kept in code but not displayed
+                    // if (chartId === "budgetDistribution") {
+                    //   return (
+                    //     <div key={chartId} className="grid-stack-item" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                    //       <div className="grid-stack-item-content h-full w-full overflow-hidden">
+                    //       <ChartCirclePacking
+                    //         categoryControls={circlePackingControls}
+                    //         data={circlePackingData.tree}
+                    //       />
+                    //       </div>
+                    //     </div>
+                    //   )
+                    // }
 
-                      if (chartId === "transactionHistory") {
-                        return (
-                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
-                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    if (chartId === "transactionHistory") {
+                      return (
+                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartSwarmPlot
                               data={useMemo(() => {
                                 if (!rawTransactions || rawTransactions.length === 0) {
@@ -3656,23 +3672,37 @@ export default function AnalyticsPage() {
                                   })
                               }, [rawTransactions])}
                             />
-                            </div>
                           </div>
-                        )
-                      }
+                        </div>
+                      )
+                    }
 
-                      if (chartId === "dailyTransactionActivity") {
-                        return (
-                          <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
-                            <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                              <ChartTransactionCalendar />
-                            </div>
+                    if (chartId === "dailyTransactionActivity") {
+                      return (
+                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                            <ChartTransactionCalendar />
                           </div>
-                        )
-                      }
+                        </div>
+                      )
+                    }
 
-                      return null
-                    })}
+                    if (chartId === "cashFlowSankey") {
+                      return (
+                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                            <ChartSankey
+                              data={sankeyData.graph}
+                              categoryControls={sankeyControls}
+                              isLoading={isLoadingTransactions}
+                            />
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    return null
+                  })}
                 </div>
               </div>
             </div>
@@ -3899,8 +3929,3 @@ export default function AnalyticsPage() {
     </SidebarProvider>
   )
 }
-
-
-
-
-

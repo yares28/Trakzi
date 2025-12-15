@@ -47,19 +47,46 @@ const MessageAvatar = React.forwardRef<HTMLDivElement, MessageAvatarProps>(
     // Check if this is an assistant avatar (Trakzi icon)
     const isAssistant = src === "/Trakzi/Trakziicon.png" || name === "Trakzi AI"
     
-    // Get theme colors for orb
-    const [orbColors, setOrbColors] = React.useState<[string, string]>(["#E78A53", "#4A90E2"])
+    // Get theme colors for orb - using orange color only
+    const [orbColors, setOrbColors] = React.useState<[string, string]>(["#e78a53", "#e78a53"])
     
     React.useEffect(() => {
       if (typeof window === "undefined") return
+      
       const getComputedCssVariable = (variable: string) => {
         return getComputedStyle(document.documentElement).getPropertyValue(variable).trim()
       }
-      const primaryColor = getComputedCssVariable("--primary")
-      const secondaryColor = getComputedCssVariable("--secondary")
-      if (primaryColor && secondaryColor) {
-        setOrbColors([primaryColor, secondaryColor])
+      
+      // Convert oklch to hex by creating a temporary element
+      const convertOklchToHex = (oklchValue: string): string => {
+        if (!oklchValue || !oklchValue.startsWith("oklch")) {
+          return "#e78a53" // fallback to app's orange
+        }
+        try {
+          const tempEl = document.createElement("div")
+          tempEl.style.color = oklchValue
+          document.body.appendChild(tempEl)
+          const rgb = window.getComputedStyle(tempEl).color
+          document.body.removeChild(tempEl)
+          
+          // Convert rgb to hex
+          const match = rgb.match(/\d+/g)
+          if (match && match.length >= 3) {
+            const r = parseInt(match[0]).toString(16).padStart(2, "0")
+            const g = parseInt(match[1]).toString(16).padStart(2, "0")
+            const b = parseInt(match[2]).toString(16).padStart(2, "0")
+            return `#${r}${g}${b}`
+          }
+        } catch {
+          // fallback
+        }
+        return "#e78a53"
       }
+      
+      const primaryColor = getComputedCssVariable("--primary")
+      // Use orange color (primary) for both orb colors
+      const orangeColor = convertOklchToHex(primaryColor) || "#e78a53"
+      setOrbColors([orangeColor, orangeColor])
     }, [])
 
     return (

@@ -12,14 +12,14 @@ describe('AppSidebar', () => {
     render(<AppSidebar />)
     
     // Check for common navigation items
-    expect(screen.getByText(/dashboard/i)).toBeInTheDocument()
+    expect(screen.getByText(/home/i)).toBeInTheDocument()
   })
 
   it('highlights active navigation item', () => {
-    render(<AppSidebar activeItem="dashboard" />)
+    render(<AppSidebar activeItem="home" />)
     
-    const dashboardLink = screen.getByText(/dashboard/i)
-    expect(dashboardLink.closest('a')).toHaveClass('active')
+    const homeLink = screen.getByText(/home/i)
+    expect(homeLink.closest('a')).toHaveClass('active')
   })
 
   it('toggles sidebar visibility', () => {
@@ -48,10 +48,10 @@ describe('AppSidebar', () => {
     const mockOnNavigate = jest.fn()
     render(<AppSidebar onNavigate={mockOnNavigate} />)
     
-    const dashboardLink = screen.getByText(/dashboard/i)
-    fireEvent.click(dashboardLink)
+    const homeLink = screen.getByText(/home/i)
+    fireEvent.click(homeLink)
     
-    expect(mockOnNavigate).toHaveBeenCalledWith('dashboard')
+    expect(mockOnNavigate).toHaveBeenCalledWith('home')
   })
 
   it('supports mobile responsive behavior', () => {

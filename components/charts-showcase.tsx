@@ -576,7 +576,7 @@ function ChartCard({
 }: {
   title: string
   description: string
-  icon: React.ElementType
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>
   children: React.ReactNode
   delay: number
 }) {

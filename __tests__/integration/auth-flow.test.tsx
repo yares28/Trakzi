@@ -1,11 +1,11 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import LoginPage from '@/app/login/page'
 import RegisterPage from '@/app/register/page'
-import DashboardPage from '@/app/dashboard/page'
+import HomePage from '@/app/home/page'
 
 describe('Authentication Flow Integration', () => {
   describe('Complete Login Flow', () => {
-    it('allows user to login and navigate to dashboard', async () => {
+    it('allows user to login and navigate to home', async () => {
       // Render login page
       const { rerender } = render(<LoginPage />)
       
@@ -20,18 +20,18 @@ describe('Authentication Flow Integration', () => {
       const submitButton = screen.getByRole('button', { name: /login/i })
       fireEvent.click(submitButton)
       
-      // Wait for redirect and render dashboard
+      // Wait for redirect and render home
       await waitFor(() => {
-        rerender(<DashboardPage />)
+        rerender(<HomePage />)
       })
       
-      // Verify dashboard is displayed
+      // Verify home is displayed
       expect(screen.getByRole('main')).toBeInTheDocument()
     })
   })
 
   describe('Complete Registration Flow', () => {
-    it('allows user to register and navigate to dashboard', async () => {
+    it('allows user to register and navigate to home', async () => {
       // Render register page
       const { rerender } = render(<RegisterPage />)
       
@@ -50,12 +50,12 @@ describe('Authentication Flow Integration', () => {
       const submitButton = screen.getByRole('button', { name: /register/i })
       fireEvent.click(submitButton)
       
-      // Wait for redirect and render dashboard
+      // Wait for redirect and render home
       await waitFor(() => {
-        rerender(<DashboardPage />)
+        rerender(<HomePage />)
       })
       
-      // Verify dashboard is displayed
+      // Verify home is displayed
       expect(screen.getByRole('main')).toBeInTheDocument()
     })
   })
@@ -68,8 +68,8 @@ describe('Authentication Flow Integration', () => {
         push: mockPush,
       }))
       
-      // Try to access dashboard without auth
-      render(<DashboardPage />)
+      // Try to access home without auth
+      render(<HomePage />)
       
       // Should redirect to login
       expect(mockPush).toHaveBeenCalledWith('/login')

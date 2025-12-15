@@ -12,7 +12,7 @@ const isPublicRoute = createRouteMatcher([
 
 // Protected routes that require authentication
 const isProtectedRoute = createRouteMatcher([
-  '/dashboard(.*)',
+  '/home(.*)',
   '/analytics(.*)',
   '/data-library(.*)',
   '/fridge(.*)',
@@ -25,9 +25,9 @@ const isProtectedRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, req) => {
   const { userId } = await auth()
   
-  // If user is signed in and trying to access sign-in/sign-up, redirect to dashboard
+  // If user is signed in and trying to access sign-in/sign-up, redirect to home
   if (userId && (req.nextUrl.pathname.startsWith('/sign-in') || req.nextUrl.pathname.startsWith('/sign-up'))) {
-    return NextResponse.redirect(new URL('/dashboard', req.url))
+    return NextResponse.redirect(new URL('/home', req.url))
   }
 
   // If user is not signed in and trying to access protected routes, redirect to sign-in

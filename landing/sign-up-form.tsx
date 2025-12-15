@@ -76,7 +76,7 @@ export function SignUpForm() {
 
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId })
-        router.push("/dashboard")
+        router.push("/home")
       } else {
         setError("Verification failed. Please try again.")
       }
@@ -96,7 +96,7 @@ export function SignUpForm() {
       const result = await signUp.create({
         strategy,
         redirectUrl: `${window.location.origin}/sso-callback`,
-        actionCompleteRedirectUrl: `${window.location.origin}/dashboard`,
+        actionCompleteRedirectUrl: `${window.location.origin}/home`,
       })
 
       const { verifications } = result

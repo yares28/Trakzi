@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
+import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 
 interface ChartNeedsWantsPieProps {
   data?: Array<{
@@ -130,6 +131,7 @@ export function ChartNeedsWantsPie({ data: baseData = [], categoryControls, isLo
       <Card className="@container/card">
         <CardHeader>
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="needsWantsBreakdown"
               chartTitle="Needs vs Wants"
@@ -153,6 +155,7 @@ export function ChartNeedsWantsPie({ data: baseData = [], categoryControls, isLo
       <Card className="@container/card">
         <CardHeader>
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="needsWantsBreakdown"
               chartTitle="Needs vs Wants"
@@ -177,6 +180,7 @@ export function ChartNeedsWantsPie({ data: baseData = [], categoryControls, isLo
     <Card className="@container/card">
       <CardHeader>
         <div className="flex items-center gap-2">
+          <GridStackCardDragHandle />
           <ChartFavoriteButton
             chartId="needsWantsBreakdown"
             chartTitle="Needs vs Wants"
@@ -251,5 +255,4 @@ export function ChartNeedsWantsPie({ data: baseData = [], categoryControls, isLo
     </Card>
   )
 }
-
 

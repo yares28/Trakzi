@@ -15,6 +15,7 @@ import {
   CardFooter,
 } from "@/components/ui/card"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
+import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import {
   DropdownMenu,
@@ -413,6 +414,7 @@ export function ChartRadar({ categoryControls }: ChartRadarProps) {
     <Card className="@container/card h-full" data-slot="card">
       <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-2">
+          <GridStackCardDragHandle />
           <ChartFavoriteButton
             chartId="financialHealthScore"
             chartTitle="Financial Health Score"
@@ -529,6 +531,7 @@ export function ChartRadar({ categoryControls }: ChartRadarProps) {
     <Card className="@container/card h-full" data-slot="card">
       <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-2">
+          <GridStackCardDragHandle />
           <ChartFavoriteButton
             chartId="financialHealthScore"
             chartTitle="Financial Health Score"

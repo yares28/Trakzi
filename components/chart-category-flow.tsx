@@ -15,6 +15,7 @@ import {
   CardFooter,
 } from "@/components/ui/card"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
+import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 interface ChartCategoryFlowProps {
   data?: Array<{
@@ -88,6 +89,7 @@ export function ChartCategoryFlow({ data = [], categoryControls, isLoading = fal
       <Card className="@container/card">
         <CardHeader>
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="spendingCategoryRankings"
               chartTitle="Spending Category Rankings"
@@ -112,6 +114,7 @@ export function ChartCategoryFlow({ data = [], categoryControls, isLoading = fal
     <Card className="@container/card">
       <CardHeader>
         <div className="flex items-center gap-2">
+          <GridStackCardDragHandle />
           <ChartFavoriteButton
             chartId="spendingCategoryRankings"
             chartTitle="Spending Category Rankings"
@@ -220,4 +223,3 @@ export function ChartCategoryFlow({ data = [], categoryControls, isLoading = fal
     </Card>
   )
 }
-

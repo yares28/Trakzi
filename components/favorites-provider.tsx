@@ -11,7 +11,7 @@ interface FavoritesContextType {
 
 const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined)
 
-const FAVORITES_STORAGE_KEY = "dashboard-favorite-charts"
+const FAVORITES_STORAGE_KEY = "home-favorite-charts"
 
 export function useFavorites() {
   const context = useContext(FavoritesContext)
@@ -74,6 +74,10 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     </FavoritesContext.Provider>
   )
 }
+
+
+
+
 
 
 

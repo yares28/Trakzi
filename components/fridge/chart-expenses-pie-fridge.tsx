@@ -3,9 +3,13 @@
 import { useState, useEffect, useMemo } from "react"
 import { useTheme } from "next-themes"
 import { ResponsivePie } from "@nivo/pie"
+import { IconGripVertical } from "@tabler/icons-react"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { ChartInfoPopover } from "@/components/chart-info-popover"
+import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import {
     Card,
+    CardAction,
     CardContent,
     CardDescription,
     CardHeader,
@@ -67,8 +71,13 @@ export function ChartExpensesPieFridge({ data }: { data: { id: string; label: st
         return (
             <Card className="@container/card">
                 <CardHeader>
-                    <CardTitle>Expense Breakdown</CardTitle>
-                    <CardDescription>Your spending by category</CardDescription>
+                    <div className="flex items-center gap-2">
+                        <span className="gridstack-drag-handle -m-1 inline-flex cursor-grab touch-none select-none items-center justify-center rounded p-1 active:cursor-grabbing">
+                            <IconGripVertical className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                        </span>
+                        <CardTitle>Basket Breakdown</CardTitle>
+                    </div>
+                    <CardDescription>Your grocery spend by category</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="h-[250px] w-full" />
@@ -80,13 +89,41 @@ export function ChartExpensesPieFridge({ data }: { data: { id: string; label: st
     return (
         <Card className="@container/card">
             <CardHeader>
-                <CardTitle>Expense Breakdown</CardTitle>
+                <div className="flex items-center gap-2">
+                    <span className="gridstack-drag-handle -m-1 inline-flex cursor-grab touch-none select-none items-center justify-center rounded p-1 active:cursor-grabbing">
+                        <IconGripVertical className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                    </span>
+                    <CardTitle>Basket Breakdown</CardTitle>
+                </div>
                 <CardDescription>
                     <span className="hidden @[540px]/card:block">
-                        Distribution of your monthly expenses across categories
+                        Distribution of your grocery spending across categories
                     </span>
-                    <span className="@[540px]/card:hidden">Monthly expense distribution</span>
+                    <span className="@[540px]/card:hidden">Category distribution</span>
                 </CardDescription>
+                <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+                    <div className="flex flex-col items-center gap-2">
+                        <ChartInfoPopover
+                            title="Basket Breakdown"
+                            description="Shows how your grocery budget splits across categories."
+                            details={[
+                                "Each slice is a category total (based on receipt line items).",
+                                "Use this to spot a rising spend area (e.g., snacks, beverages, household).",
+                            ]}
+                            ignoredFootnote="Totals are based on receipt line items inside the selected time filter."
+                        />
+                        <ChartAiInsightButton
+                            chartId="fridge:basket-breakdown"
+                            chartTitle="Basket Breakdown"
+                            chartDescription="Grocery spend distribution across categories."
+                            chartData={{
+                                categories: chartData.map((d) => ({ category: d.label, value: d.value })),
+                                total: chartData.reduce((sum, d) => sum + (Number(d.value) || 0), 0),
+                            }}
+                            size="sm"
+                        />
+                    </div>
+                </CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
                 <div className="h-[250px] w-full" key={colorScheme}>

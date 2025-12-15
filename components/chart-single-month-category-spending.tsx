@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
+import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import {
   Select,
   SelectContent,
@@ -76,13 +77,13 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
         if (dateFilter) {
           params.append("filter", dateFilter)
         }
-        
+
         const result = await deduplicatedFetch<{ data: Array<{ category: string; month: number; total: number }>; availableMonths: number[] }>(
           `/api/analytics/monthly-category-duplicate?${params.toString()}`
         )
         const months = result.availableMonths || []
         setAvailableMonths(months)
-        
+
         // Reset selected month to first available when date filter changes
         if (months.length > 0) {
           setSelectedMonth((prev) => {
@@ -124,11 +125,38 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
           params.append("filter", dateFilter)
         }
         params.append("month", selectedMonth.toString())
-        
+
         const result = await deduplicatedFetch<{ data: Array<{ category: string; month: number; total: number }>; availableMonths: number[] }>(
           `/api/analytics/monthly-category-duplicate?${params.toString()}`
         )
-        setData(result.data || [])
+        const fetchedData = result.data || []
+
+        // If data is empty and there are other available months, try to find one with data
+        if (fetchedData.length === 0 && availableMonths.length > 1) {
+          // Try other months in order (starting from the first)
+          for (const month of availableMonths) {
+            if (month === selectedMonth) continue
+
+            const altParams = new URLSearchParams()
+            if (dateFilter) {
+              altParams.append("filter", dateFilter)
+            }
+            altParams.append("month", month.toString())
+
+            const altResult = await deduplicatedFetch<{ data: Array<{ category: string; month: number; total: number }>; availableMonths: number[] }>(
+              `/api/analytics/monthly-category-duplicate?${altParams.toString()}`
+            )
+
+            if (altResult.data && altResult.data.length > 0) {
+              setSelectedMonth(month)
+              setData(altResult.data)
+              setLoading(false)
+              return
+            }
+          }
+        }
+
+        setData(fetchedData)
       } catch (error) {
         console.error("Error fetching month category data:", error)
         setData([])
@@ -140,7 +168,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
     if (mounted && selectedMonth !== null) {
       fetchData()
     }
-  }, [selectedMonth, dateFilter, mounted])
+  }, [selectedMonth, dateFilter, mounted, availableMonths])
 
   const palette = React.useMemo(() => {
     const base = getPalette().filter((color) => color !== "#c3c3c3")
@@ -160,7 +188,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
   // ECharts event handlers for custom tooltip
   const handleChartMouseOver = (params: any) => {
     if (!containerRef.current) return
-    
+
     const rect = containerRef.current.getBoundingClientRect()
     let mouseX = 0
     let mouseY = 0
@@ -183,7 +211,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
         mouseY = ecEvent.offsetY
       }
     }
-    
+
     setTooltipPosition({
       x: mouseX,
       y: mouseY,
@@ -201,7 +229,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
       }
       const index = params.dataIndex || 0
       const color = palette[index % palette.length]
-      
+
       setTooltip({
         label: category,
         value,
@@ -226,7 +254,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
           y: e.clientY - rect.top,
         })
       }
-      
+
       window.addEventListener('mousemove', handleMouseMove)
       return () => {
         window.removeEventListener('mousemove', handleMouseMove)
@@ -261,7 +289,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
     // Data is already filtered to selected month and sorted by total descending
     // Get top categories (already sorted by API)
     const topCategories = data.slice(0, 10) // Show top 10 categories
-    
+
     if (!topCategories.length) return null
 
     // Build dataset source
@@ -272,7 +300,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
 
     const backgroundColor =
       resolvedTheme === "dark" ? "rgba(15,23,42,0)" : "rgba(248,250,252,0)"
-    
+
     // Use muted-foreground color for axis labels
     const textColor = resolvedTheme === "dark" ? "#9ca3af" : "#6b7280"
 
@@ -349,6 +377,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
       <Card className="@container/card">
         <CardHeader>
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="singleMonthCategorySpending"
               chartTitle="Single Month Category Spending"
@@ -372,6 +401,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
       <Card className="@container/card">
         <CardHeader>
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="singleMonthCategorySpending"
               chartTitle="Single Month Category Spending"
@@ -395,6 +425,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
       <Card className="@container/card">
         <CardHeader>
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="singleMonthCategorySpending"
               chartTitle="Single Month Category Spending"
@@ -417,6 +448,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
     <Card className="@container/card">
       <CardHeader>
         <div className="flex items-center gap-2">
+          <GridStackCardDragHandle />
           <ChartFavoriteButton
             chartId="singleMonthCategorySpending"
             chartTitle="Single Month Category Spending"
@@ -501,4 +533,3 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
     </Card>
   )
 }
-

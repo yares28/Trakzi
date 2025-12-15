@@ -6,9 +6,11 @@ import { useTheme } from "next-themes"
 
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
+import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { type ChartId } from "@/lib/chart-card-sizes.config"
+import { formatDateForDisplay } from "@/lib/date"
 import {
   Card,
   CardAction,
@@ -180,8 +182,9 @@ export function ChartAreaInteractive({ data = [], categoryControls, chartId = "i
       <Card className="@container/card">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <ChartFavoriteButton 
-              chartId={chartId} 
+            <GridStackCardDragHandle />
+            <ChartFavoriteButton
+              chartId={chartId}
               chartTitle="Income & Expenses Tracking"
               size="md"
             />
@@ -204,8 +207,9 @@ export function ChartAreaInteractive({ data = [], categoryControls, chartId = "i
       <Card className="@container/card">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <ChartFavoriteButton 
-              chartId={chartId} 
+            <GridStackCardDragHandle />
+            <ChartFavoriteButton
+              chartId={chartId}
               chartTitle="Income & Expenses Tracking"
               size="md"
             />
@@ -259,8 +263,7 @@ export function ChartAreaInteractive({ data = [], categoryControls, chartId = "i
                   tickMargin={8}
                   minTickGap={32}
                   tickFormatter={(value) => {
-                    const date = new Date(value)
-                    return date.toLocaleDateString("en-US", {
+                    return formatDateForDisplay(String(value), "en-US", {
                       month: "short",
                       day: "numeric",
                     })
@@ -337,7 +340,7 @@ export function ChartAreaInteractive({ data = [], categoryControls, chartId = "i
               }}
             >
               <div className="font-medium text-foreground mb-2 whitespace-nowrap">
-                {new Date(tooltip.date).toLocaleDateString("en-US", {
+                {formatDateForDisplay(tooltip.date, "en-US", {
                   month: "short",
                   day: "numeric",
                   year: "numeric",

@@ -13,7 +13,7 @@ import path from 'path'
 
 // Chart mapping from CHARTS_DOCUMENTATION.md
 const CHART_DOCUMENTATION = {
-  dashboard: [
+  home: [
     { name: 'ChartAreaInteractive', file: 'components/chart-area-interactive.tsx', cardName: 'Income & Expenses Tracking' },
     { name: 'ChartCategoryFlow', file: 'components/chart-category-flow.tsx', cardName: 'Spending Category Rankings' },
     { name: 'ChartSpendingFunnel', file: 'components/chart-spending-funnel.tsx', cardName: 'Money Flow' },
@@ -37,9 +37,11 @@ const CHART_DOCUMENTATION = {
     { name: 'ChartSavingsAccumulation', file: 'components/chart-savings-accumulation.tsx', cardName: 'Savings Accumulation' },
   ],
   fridge: [
-    { name: 'ChartAreaInteractiveFridge', file: 'components/fridge/chart-area-interactive-fridge.tsx', cardName: 'Expenses Tracking' },
-    { name: 'ChartCategoryFlowFridge', file: 'components/fridge/chart-category-flow-fridge.tsx', cardName: 'Spending Category Rankings' },
-    { name: 'ChartExpensesPieFridge', file: 'components/fridge/chart-expenses-pie-fridge.tsx', cardName: 'Expense Breakdown' },
+    { name: 'ChartAreaInteractiveFridge', file: 'components/fridge/chart-area-interactive-fridge.tsx', cardName: 'Grocery Spend Trend' },
+    { name: 'ChartCategoryFlowFridge', file: 'components/fridge/chart-category-flow-fridge.tsx', cardName: 'Grocery Category Rankings' },
+    { name: 'ChartDayOfWeekShoppingFridge', file: 'components/fridge/chart-day-of-week-shopping-fridge.tsx', cardName: 'Best Shopping Days' },
+    { name: 'ChartExpensesPieFridge', file: 'components/fridge/chart-expenses-pie-fridge.tsx', cardName: 'Basket Breakdown' },
+    { name: 'ChartPolarBarFridge', file: 'components/fridge/chart-polar-bar-fridge.tsx', cardName: 'Store Spend Mix' },
   ],
 }
 
@@ -177,7 +179,7 @@ describe('Charts Functionality Tests', () => {
       
       // Check page files (they fetch data and pass to charts)
       const pageFiles = [
-        'app/dashboard/page.tsx',
+        'app/home/page.tsx',
         'app/analytics/page.tsx',
         'app/savings/page.tsx',
       ]
@@ -225,16 +227,16 @@ describe('Charts Functionality Tests', () => {
       expect(usesMainApi || pageFilesUseMainApi).toBe(true)
     })
     
-    it('should verify charts on dashboard page use /api/transactions', () => {
-      const dashboardCharts = CHART_DOCUMENTATION.dashboard
-      const dashboardPageContent = readFileContent('app/dashboard/page.tsx')
+    it('should verify charts on home page use /api/transactions', () => {
+      const homeCharts = CHART_DOCUMENTATION.home
+      const homePageContent = readFileContent('app/home/page.tsx')
       
-      expect(dashboardPageContent).toContain('/api/transactions')
+      expect(homePageContent).toContain('/api/transactions')
       
       // Charts should either fetch directly or receive data from parent
       // Parent page should use /api/transactions
-      dashboardCharts.forEach(() => {
-        expect(dashboardPageContent).toMatch(/\/api\/transactions/)
+      homeCharts.forEach(() => {
+        expect(homePageContent).toMatch(/\/api\/transactions/)
       })
     })
     
@@ -275,7 +277,7 @@ describe('Charts Functionality Tests', () => {
       
       // Map page files to their charts
       const pageToCharts: Record<string, string[]> = {
-        'app/dashboard/page.tsx': CHART_DOCUMENTATION.dashboard.map(c => c.name),
+        'app/home/page.tsx': CHART_DOCUMENTATION.home.map(c => c.name),
         'app/analytics/page.tsx': CHART_DOCUMENTATION.analytics.map(c => c.name),
         'app/savings/page.tsx': CHART_DOCUMENTATION.savings.map(c => c.name),
       }
@@ -296,7 +298,7 @@ describe('Charts Functionality Tests', () => {
       
       // Check page files too
       const pageFiles = [
-        'app/dashboard/page.tsx',
+        'app/home/page.tsx',
         'app/analytics/page.tsx',
         'app/savings/page.tsx',
       ]
@@ -388,7 +390,7 @@ describe('Charts Functionality Tests', () => {
       
       // Check page files
       const pageFiles = [
-        { file: 'app/dashboard/page.tsx', charts: CHART_DOCUMENTATION.dashboard.map(c => c.name) },
+        { file: 'app/home/page.tsx', charts: CHART_DOCUMENTATION.home.map(c => c.name) },
         { file: 'app/analytics/page.tsx', charts: CHART_DOCUMENTATION.analytics.map(c => c.name) },
         { file: 'app/savings/page.tsx', charts: CHART_DOCUMENTATION.savings.map(c => c.name) },
       ]
@@ -458,7 +460,7 @@ describe('Charts Functionality Tests', () => {
       
       // Check page files
       const pageFiles = [
-        { file: 'app/dashboard/page.tsx', charts: CHART_DOCUMENTATION.dashboard.map(c => c.name) },
+        { file: 'app/home/page.tsx', charts: CHART_DOCUMENTATION.home.map(c => c.name) },
         { file: 'app/analytics/page.tsx', charts: CHART_DOCUMENTATION.analytics.map(c => c.name) },
         { file: 'app/savings/page.tsx', charts: CHART_DOCUMENTATION.savings.map(c => c.name) },
       ]
@@ -649,12 +651,12 @@ describe('Charts Functionality Tests', () => {
       
       // Check for hardcoded ignores
       const pageToCharts: Record<string, string[]> = {
-        'app/dashboard/page.tsx': CHART_DOCUMENTATION.dashboard.map(c => c.name),
+        'app/home/page.tsx': CHART_DOCUMENTATION.home.map(c => c.name),
         'app/analytics/page.tsx': CHART_DOCUMENTATION.analytics.map(c => c.name),
         'app/savings/page.tsx': CHART_DOCUMENTATION.savings.map(c => c.name),
       }
       
-      const pageFiles = ['app/dashboard/page.tsx', 'app/analytics/page.tsx', 'app/savings/page.tsx']
+      const pageFiles = ['app/home/page.tsx', 'app/analytics/page.tsx', 'app/savings/page.tsx']
       
       // Check all files for hardcoded ignores
       ;[...allCharts.map(c => c.file), ...pageFiles].forEach(file => {
@@ -733,4 +735,3 @@ describe('Charts Functionality Tests', () => {
     })
   })
 })
-

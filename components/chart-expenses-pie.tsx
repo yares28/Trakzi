@@ -16,6 +16,7 @@ import {
   CardFooter,
 } from "@/components/ui/card"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
+import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 interface ChartExpensesPieProps {
   data?: Array<{
@@ -126,6 +127,7 @@ export function ChartExpensesPie({ data: baseData = [], categoryControls, isLoad
       <Card className="@container/card">
         <CardHeader>
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="expenseBreakdown"
               chartTitle="Expense Breakdown"
@@ -150,6 +152,7 @@ export function ChartExpensesPie({ data: baseData = [], categoryControls, isLoad
       <Card className="@container/card">
         <CardHeader>
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="expenseBreakdown"
               chartTitle="Expense Breakdown"
@@ -174,6 +177,7 @@ export function ChartExpensesPie({ data: baseData = [], categoryControls, isLoad
       <Card className="@container/card">
         <CardHeader>
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="expenseBreakdown"
               chartTitle="Expense Breakdown"

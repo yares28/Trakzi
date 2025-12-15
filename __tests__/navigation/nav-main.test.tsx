@@ -2,7 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { NavMain } from '@/components/nav-main'
 
 const mockNavItems = [
-  { title: 'Dashboard', url: '/dashboard', icon: 'Home' },
+  { title: 'Home', url: '/home', icon: 'Home' },
   { title: 'Documents', url: '/documents', icon: 'FileText' },
   { title: 'Settings', url: '/settings', icon: 'Settings' },
 ]
@@ -27,17 +27,17 @@ describe('NavMain', () => {
     const mockOnClick = jest.fn()
     render(<NavMain items={mockNavItems} onItemClick={mockOnClick} />)
     
-    const dashboardItem = screen.getByText('Dashboard')
-    fireEvent.click(dashboardItem)
+    const homeItem = screen.getByText('Home')
+    fireEvent.click(homeItem)
     
-    expect(mockOnClick).toHaveBeenCalledWith('/dashboard')
+    expect(mockOnClick).toHaveBeenCalledWith('/home')
   })
 
   it('highlights active navigation item', () => {
-    render(<NavMain items={mockNavItems} activeUrl="/dashboard" />)
+    render(<NavMain items={mockNavItems} activeUrl="/home" />)
     
-    const dashboardItem = screen.getByText('Dashboard')
-    expect(dashboardItem.closest('a')).toHaveClass('active')
+    const homeItem = screen.getByText('Home')
+    expect(homeItem.closest('a')).toHaveClass('active')
   })
 
   it('supports nested navigation items', () => {

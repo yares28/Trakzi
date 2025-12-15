@@ -95,16 +95,24 @@ These charts are kept in the codebase but are not currently displayed on any pag
 ## Fridge Page (`app/fridge/page.tsx`)
 
 1. **ChartAreaInteractiveFridge** (`components/fridge/chart-area-interactive-fridge.tsx`)
-   - Card Name: "Expenses Tracking"
-   - Description: Your expenses for the last 3 months
+   - Card Name: "Grocery Spend Trend"
+   - Description: Daily grocery totals across the selected time filter
 
 2. **ChartCategoryFlowFridge** (`components/fridge/chart-category-flow-fridge.tsx`)
-   - Card Name: "Spending Category Rankings"
-   - Description: Track how your spending priorities shift over time
+   - Card Name: "Grocery Category Rankings"
+   - Description: Track how your grocery categories shift over time
 
-3. **ChartExpensesPieFridge** (`components/fridge/chart-expenses-pie-fridge.tsx`)
-   - Card Name: "Expense Breakdown"
-   - Description: Distribution of your monthly expenses across categories
+3. **ChartDayOfWeekShoppingFridge** (`components/fridge/chart-day-of-week-shopping-fridge.tsx`)
+   - Card Name: "Best Shopping Days"
+   - Description: Total grocery spend by weekday
+
+4. **ChartExpensesPieFridge** (`components/fridge/chart-expenses-pie-fridge.tsx`)
+   - Card Name: "Basket Breakdown"
+   - Description: Distribution of your grocery spending across categories
+
+5. **ChartPolarBarFridge** (`components/fridge/chart-polar-bar-fridge.tsx`)
+   - Card Name: "Store Spend Mix"
+   - Description: Monthly grocery spend across stores
 
 ## Chart Component Files
 
@@ -122,4 +130,3 @@ All chart components are located in the `components/` directory:
 - `chart-swarm-plot.tsx` - Swarm plot for transaction history
 - `chart-treemap.tsx` - Treemap for net worth allocation
 - `chart-transaction-calendar.tsx` - ECharts calendar heatmap for daily transaction activity (year-by-year with year selector and YTD option)
-

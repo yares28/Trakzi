@@ -152,6 +152,140 @@ cards on the analytics page:
 This means budgets are now **per user and persisted in Neon**, not just in
 `localStorage`.
 
+### Receipt Categories API Example
+
+Here's how to work with receipt categories (similar to regular categories):
+
+```ts
+import { neonQuery, neonInsert } from "@/lib/neonClient"
+import { getCurrentUserId } from "@/lib/auth"
+
+// GET /api/receipt-categories/types - Get all macronutrient types
+export async function GET(request: Request) {
+  const userId = await getCurrentUserId()
+  
+  const types = await neonQuery(
+    "SELECT id, name, color FROM receipt_category_types WHERE user_id = $1 ORDER BY name",
+    [userId]
+  )
+  
+  return NextResponse.json(types)
+}
+
+// POST /api/receipt-categories/types - Create new macronutrient type
+export async function POST(request: Request) {
+  const userId = await getCurrentUserId()
+  const { name, color } = await request.json()
+  
+  const [type] = await neonInsert("receipt_category_types", {
+    user_id: userId,
+    name,
+    color: color || "#6366f1"
+  })
+  
+  return NextResponse.json(type, { status: 201 })
+}
+
+// GET /api/receipt-categories - Get all food categories with type info
+export async function GET(request: Request) {
+  const userId = await getCurrentUserId()
+  
+  const categories = await neonQuery(
+    `SELECT 
+      rc.id,
+      rc.name,
+      rc.color,
+      rc.type_id,
+      rct.name as type_name,
+      rct.color as type_color
+    FROM receipt_categories rc
+    INNER JOIN receipt_category_types rct ON rc.type_id = rct.id
+    WHERE rc.user_id = $1
+    ORDER BY rct.name, rc.name`,
+    [userId]
+  )
+  
+  return NextResponse.json(categories)
+}
+
+// POST /api/receipt-categories - Create new food category
+export async function POST(request: Request) {
+  const userId = await getCurrentUserId()
+  const { name, type_id, color } = await request.json()
+  
+  const [category] = await neonInsert("receipt_categories", {
+    user_id: userId,
+    type_id,
+    name,
+    color: color || "#6366f1"
+  })
+  
+  return NextResponse.json(category, { status: 201 })
+}
+```
+
+### Receipts API Example
+
+Here's how to query receipt transactions for the `/fridge` page:
+
+```ts
+import { neonQuery } from "@/lib/neonClient"
+import { getCurrentUserId } from "@/lib/auth"
+
+// GET /api/fridge - Get all receipt transactions for current user
+export async function GET(request: Request) {
+  const userId = await getCurrentUserId()
+  
+  const rows = await neonQuery(
+    `SELECT 
+      rt.id,
+      rt.description,
+      rt.quantity,
+      rt.price_per_unit,
+      rt.total_price,
+      rt.category_id,
+      rt.receipt_date,
+      rt.receipt_time,
+      r.store_name,
+      r.id as receipt_id,
+      c.name as category_name,
+      c.color as category_color
+    FROM receipt_transactions rt
+    INNER JOIN receipts r ON rt.receipt_id = r.id
+    LEFT JOIN categories c ON rt.category_id = c.id
+    WHERE rt.user_id = $1
+    ORDER BY rt.receipt_date DESC, rt.receipt_time DESC
+    LIMIT $2 OFFSET $3`,
+    [userId, 50, 0]
+  )
+  
+  return NextResponse.json(rows)
+}
+
+// POST /api/receipts/upload - Upload receipt image
+export async function POST(request: Request) {
+  const userId = await getCurrentUserId()
+  const formData = await request.formData()
+  const file = formData.get('file') as File
+  
+  // 1. Save file to user_files with source='Receipt'
+  const fileId = await saveFileToUserFiles(file, userId, 'Receipt')
+  
+  // 2. Create receipt record with status='processing'
+  const receiptId = await neonInsert(
+    `INSERT INTO receipts (user_id, receipt_file_id, total_amount, status)
+     VALUES ($1, $2, $3, 'processing')
+     RETURNING id`,
+    [userId, fileId, 0]
+  )
+  
+  // 3. Trigger async AI processing (background job)
+  // ... AI extraction logic ...
+  
+  return NextResponse.json({ receiptId, status: 'processing' })
+}
+```
+
 ### Option 2 – Prisma Client
 
 If you prefer to keep using Prisma in other parts of the app, you can still
@@ -275,15 +409,143 @@ This happens automatically when API routes call `getCurrentUserId()` from `lib/a
 
 All routes except `/`, `/sign-in`, and `/sign-up` require authentication. The middleware in `proxy.ts` handles route protection automatically.
 
+## Receipts & Receipt Transactions
+
+The database includes support for receipt processing with AI-powered extraction:
+
+### Database Schema
+
+**`receipts` Table:**
+- Stores receipt metadata (store name, date, time, total amount)
+- Links to `user_files` table for receipt images (set `source = 'Receipt'`)
+- Status tracking: `'processing'`, `'completed'`, `'failed'`
+- AI extraction data stored in JSONB for debugging/audit
+
+**`receipt_transactions` Table:**
+- Stores individual line items from receipts
+- Denormalized for performance: includes `user_id`, `receipt_date`, `receipt_time`
+- Links to `receipt_categories` (food categories) and `receipt_category_types` (macronutrients)
+- Auto-assigned categories via AI
+- Optimized indexes for fast queries on `/fridge` page
+
+**`receipt_category_types` Table:**
+- Stores macronutrient types (Protein, Carbs, Fat, Fiber, Vitamins/Minerals)
+- User-customizable categories (identical structure to `categories` table)
+- Used for organizing food categories by nutritional type
+
+**`receipt_categories` Table:**
+- Stores food categories (Fruits, Vegetables, Meat, Dairy, etc.)
+- User-customizable categories (identical structure to `categories` table)
+- Each category belongs to one macronutrient type (`type_id`)
+- Used by AI for auto-assigning categories to receipt items
+
+### Receipt Processing Flow
+
+1. **Upload**: User drags/drops receipt image → saved to `user_files` with `source = 'Receipt'`
+2. **Create Receipt Record**: `receipts` table entry with `status = 'processing'`
+3. **AI Processing**: Background job extracts:
+   - Store name
+   - Receipt date and time
+   - Line items (description, quantity, price_per_unit, total_price)
+   - Auto-assigns categories
+4. **Create Transactions**: `receipt_transactions` records created for each line item
+5. **Complete**: Receipt status updated to `'completed'`
+
+### API Design for `/fridge` Page
+
+**Primary Endpoint: `GET /api/fridge`**
+- Single optimized query using covering index
+- Returns receipt transactions with receipt and category details
+- Fast performance with denormalized data
+
+**Example Query (Optimized for Speed):**
+```sql
+SELECT 
+  rt.id,
+  rt.description,
+  rt.quantity,
+  rt.price_per_unit,
+  rt.total_price,
+  rt.category_id,
+  rt.category_type_id,  -- Denormalized for fastest fetch
+  rt.receipt_date,
+  rt.receipt_time,
+  r.store_name,
+  r.id as receipt_id,
+  r.total_amount as receipt_total_amount,
+  r.status as receipt_status,
+  rc.name as category_name,
+  rc.color as category_color,
+  rct.name as category_type_name,  -- Direct join, no subquery needed
+  rct.color as category_type_color
+FROM receipt_transactions rt
+INNER JOIN receipts r ON rt.receipt_id = r.id
+LEFT JOIN receipt_categories rc ON rt.category_id = rc.id
+LEFT JOIN receipt_category_types rct ON rt.category_type_id = rct.id
+WHERE rt.user_id = $1
+ORDER BY rt.receipt_date DESC, rt.receipt_time DESC;
+```
+
+**Why this is fastest:**
+- `category_type_id` stored directly in `receipt_transactions` (denormalized)
+- Only 2 LEFT JOINs needed (categories + types)
+- Covering index includes both `category_id` and `category_type_id`
+- All filtering happens on indexed columns
+
+### Receipt Categories System
+
+The receipt categories use a two-level hierarchy:
+
+1. **Macronutrient Types** (`receipt_category_types`):
+   - Protein, Carbs, Fat, Fiber, Vitamins/Minerals
+   - User-customizable (can add/edit/delete in Data Library)
+   - Each type has a color for visual distinction
+
+2. **Food Categories** (`receipt_categories`):
+   - Fruits, Vegetables, Meat, Dairy, Bread & Bakery, etc.
+   - User-customizable (can add/edit/delete in Data Library)
+   - Each category belongs to one macronutrient type
+   - Used by AI for auto-assigning categories to receipt items
+
+**Default Categories:**
+- 5 macronutrient types (Protein, Carbs, Fat, Fiber, Vitamins/Minerals)
+- 25+ food categories organized by type
+- See `lib/receipt-categories.ts` for complete list
+
+**Data Library:**
+- Users can manage receipt categories in `/data-library` page
+- Identical interface to regular categories management
+- Can add, edit, delete both types and categories
+
+### Performance Optimizations
+
+- **Denormalization**: 
+  - `user_id`, `receipt_date`, `receipt_time` stored in `receipt_transactions` for direct filtering
+  - `category_type_id` stored directly in `receipt_transactions` to avoid joining through `receipt_categories`
+- **Covering Index**: `idx_receipt_transactions_covering` includes `category_id`, `category_type_id`, and frequently accessed columns
+- **Composite Indexes**: Optimized for common query patterns (by date, by category, by receipt, by type)
+- **Separate Tables**: `receipt_transactions` kept separate from `transactions` for independent scaling
+- **Fast Fetch**: Direct joins to both category tables without subqueries
+
+### Receipt File Storage
+
+Receipt images are stored in the existing `user_files` table:
+- Set `source = 'Receipt'` to tag receipt files
+- Link via `receipts.receipt_file_id` foreign key
+- No schema changes needed to `user_files`
+
 ## Next Steps
 
 Now that your database is set up with Clerk authentication, you can:
 
 1. ✅ **Authentication** - Already implemented with Clerk
 2. ✅ **User persistence** - Users are automatically synced with the database
-3. Create API routes to interact with the database (see examples above)
-4. Replace static JSON files with database queries
-5. Build the AI integration for document processing
+3. ✅ **Receipts Schema** - Receipts and receipt_transactions tables created
+4. ✅ **Receipt Categories** - Two-level category system (types + categories) implemented
+5. Create API routes for receipt categories (`/api/receipt-categories/types`, `/api/receipt-categories`)
+6. Implement receipt upload and AI processing endpoints
+7. Build the `/fridge` page using receipt_transactions API
+8. Build the `/data-library` page for managing receipt categories
 
 See `CLERK_INTEGRATION_COMPLETE.md` for details on the authentication setup, and `DATABASE_SCHEMA_UPDATE.md` for information about the schema migration.
 

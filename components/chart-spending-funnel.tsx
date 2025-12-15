@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
+import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 interface ChartSpendingFunnelProps {
   data?: Array<{
     id: string
@@ -119,6 +120,7 @@ export function ChartSpendingFunnel({ data = [], categoryControls, maxExpenseCat
       <Card className="@container/card">
         <CardHeader>
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="moneyFlow"
               chartTitle="Money Flow"
@@ -143,6 +145,7 @@ export function ChartSpendingFunnel({ data = [], categoryControls, maxExpenseCat
       <Card className="@container/card">
         <CardHeader>
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="moneyFlow"
               chartTitle="Money Flow"
@@ -167,6 +170,7 @@ export function ChartSpendingFunnel({ data = [], categoryControls, maxExpenseCat
     <Card className="@container/card">
       <CardHeader>
         <div className="flex items-center gap-2">
+          <GridStackCardDragHandle />
           <ChartFavoriteButton
             chartId="moneyFlow"
             chartTitle="Money Flow"
@@ -229,4 +233,3 @@ export function ChartSpendingFunnel({ data = [], categoryControls, maxExpenseCat
     </Card>
   )
 }
-

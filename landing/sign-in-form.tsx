@@ -33,7 +33,7 @@ export function SignInForm() {
 
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId })
-        router.push("/dashboard")
+        router.push("/home")
       } else {
         console.log("Sign in result:", result)
         setError("Something went wrong. Please try again.")
@@ -54,7 +54,7 @@ export function SignInForm() {
       const result = await signIn.create({
         strategy,
         redirectUrl: `${window.location.origin}/sso-callback`,
-        actionCompleteRedirectUrl: `${window.location.origin}/dashboard`,
+        actionCompleteRedirectUrl: `${window.location.origin}/home`,
       })
 
       const { firstFactorVerification } = result

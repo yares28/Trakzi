@@ -1,0 +1,401 @@
+import { NextRequest, NextResponse } from "next/server"
+
+import { getCurrentUserId } from "@/lib/auth"
+import { saveFileToNeon } from "@/lib/files/saveFileToNeon"
+import { ensureReceiptCategories } from "@/lib/receipts/receipt-categories-db"
+import {
+  getReceiptItemCategoryPreferences,
+  normalizeReceiptItemDescriptionKey,
+  normalizeReceiptStoreKey,
+} from "@/lib/receipts/item-category-preferences"
+import { suggestReceiptCategoryNameFromDescription } from "@/lib/receipts/receipt-category-heuristics"
+
+function isSupportedReceiptImage(file: File): boolean {
+  const mime = (file.type || "").toLowerCase()
+  if (mime.startsWith("image/")) return true
+
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? ""
+  return ["png", "jpg", "jpeg", "webp", "heic", "heif"].includes(ext)
+}
+
+const MAX_RECEIPT_FILE_BYTES = 10 * 1024 * 1024
+
+const RECEIPT_MODEL = "google/gemini-2.0-flash-001"
+
+type ExtractedReceipt = {
+  store_name?: string | null
+  receipt_date?: string | null
+  receipt_time?: string | null
+  currency?: string | null
+  total_amount?: number | string | null
+  items?: Array<{
+    description?: string | null
+    quantity?: number | string | null
+    price_per_unit?: number | string | null
+    total_price?: number | string | null
+    category?: string | null
+  }>
+}
+
+function parseNumber(value: unknown): number {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0
+  if (typeof value === "string") {
+    const normalized = value.replace(",", ".").replace(/[^0-9.+-]/g, "")
+    const parsed = Number(normalized)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  return 0
+}
+
+function normalizeDate(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const trimmed = value.trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null
+  return trimmed
+}
+
+function normalizeTime(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const trimmed = value.trim()
+  if (!/^\d{2}:\d{2}(:\d{2})?$/.test(trimmed)) return null
+  return trimmed.length === 5 ? `${trimmed}:00` : trimmed
+}
+
+function todayIsoDate(): string {
+  const now = new Date()
+  const yyyy = now.getUTCFullYear()
+  const mm = String(now.getUTCMonth() + 1).padStart(2, "0")
+  const dd = String(now.getUTCDate()).padStart(2, "0")
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function nowIsoTime(): string {
+  const now = new Date()
+  const hh = String(now.getUTCHours()).padStart(2, "0")
+  const mm = String(now.getUTCMinutes()).padStart(2, "0")
+  const ss = String(now.getUTCSeconds()).padStart(2, "0")
+  return `${hh}:${mm}:${ss}`
+}
+
+async function extractReceiptWithAi(params: {
+  base64DataUrl: string
+  fileName: string
+  allowedCategories: string[]
+}): Promise<{ extracted: ExtractedReceipt; rawText: string }> {
+  const apiKey = process.env.OPENROUTER_API_KEY
+  const siteUrl = process.env.SITE_URL || "http://localhost:3000"
+  const siteName = process.env.SITE_NAME || "Folio"
+
+  if (!apiKey) {
+    throw new Error("OPENROUTER_API_KEY is not set")
+  }
+
+  const allowed = params.allowedCategories.length ? params.allowedCategories : ["Other"]
+
+  const prompt = [
+    "You extract structured data from a grocery store receipt image.",
+    "Return ONLY valid JSON (no markdown, no code fences).",
+    "",
+    "Rules:",
+    "- receipt_date must be YYYY-MM-DD.",
+    "- receipt_time must be HH:MM or HH:MM:SS (24h).",
+    "- All money values must be numbers (use . as decimal separator).",
+    `- For item.category, choose exactly one from this list: ${allowed.join(", ")}.`,
+    "- Choose the closest matching category based on the item description (what the item is).",
+    "- ONLY choose a drinks category for beverages/liquids meant to drink (water, soda, juice, coffee, tea, beer, wine, energy drinks).",
+    "- Food staples like rice/pasta/bread are NOT drinks.",
+    "- If you are unsure, choose \"Other\" instead of guessing.",
+    "",
+    "JSON schema to return:",
+    "{",
+    '  "store_name": string | null,',
+    '  "receipt_date": "YYYY-MM-DD" | null,',
+    '  "receipt_time": "HH:MM:SS" | null,',
+    '  "currency": string | null,',
+    '  "total_amount": number | null,',
+    '  "items": [',
+    "    {",
+    '      "description": string,',
+    '      "quantity": number,',
+    '      "price_per_unit": number,',
+    '      "total_price": number,',
+    '      "category": string',
+    "    }",
+    "  ]",
+    "}",
+    "",
+    `Receipt file name: ${params.fileName}`,
+  ].join("\n")
+
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "HTTP-Referer": siteUrl,
+      "X-Title": siteName,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: RECEIPT_MODEL,
+      temperature: 0.2,
+      max_tokens: 1200,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: params.base64DataUrl } },
+          ],
+        },
+      ],
+    }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`OpenRouter error ${response.status}: ${errorText.substring(0, 500)}`)
+  }
+
+  const payload = await response.json()
+  const rawText =
+    payload?.choices?.[0]?.message?.content ||
+    payload?.choices?.[0]?.delta?.content ||
+    ""
+
+  if (typeof rawText !== "string" || rawText.trim().length === 0) {
+    throw new Error("AI response was empty")
+  }
+
+  const trimmed = rawText.trim()
+  try {
+    return { extracted: JSON.parse(trimmed) as ExtractedReceipt, rawText: trimmed }
+  } catch {
+    const first = trimmed.indexOf("{")
+    const last = trimmed.lastIndexOf("}")
+    if (first === -1 || last === -1 || last <= first) {
+      throw new Error("AI response was not valid JSON")
+    }
+    const sliced = trimmed.slice(first, last + 1)
+    return { extracted: JSON.parse(sliced) as ExtractedReceipt, rawText: trimmed }
+  }
+}
+
+export const POST = async (req: NextRequest) => {
+  try {
+    const userId = await getCurrentUserId()
+
+    const formData = await req.formData()
+    const incoming = [
+      ...(formData.getAll("files") as unknown[]),
+      formData.get("file"),
+    ].filter((item): item is File => item instanceof File)
+
+    if (incoming.length === 0) {
+      return NextResponse.json({ error: "No file provided" }, { status: 400 })
+    }
+
+    const receiptCategories = await ensureReceiptCategories(userId)
+    const allowedCategoryNames = receiptCategories.map((category) => category.name)
+    const allowedCategorySet = new Set(allowedCategoryNames.map((name) => name.toLowerCase()))
+    const allowedCategoryNameByLower = new Map(allowedCategoryNames.map((name) => [name.toLowerCase(), name]))
+
+    const categoryBroadTypeByLowerName = new Map<string, string>()
+    receiptCategories.forEach((category) => {
+      const broadType = typeof category?.broad_type === "string" && category.broad_type.trim().length > 0
+        ? category.broad_type.trim()
+        : "Other"
+      categoryBroadTypeByLowerName.set(category.name.toLowerCase(), broadType)
+    })
+
+    const categoryNameById = new Map<number, string>()
+    receiptCategories.forEach((category) => {
+      if (typeof category?.id === "number" && category.id > 0) {
+        categoryNameById.set(category.id, category.name)
+      }
+    })
+
+    const preferenceRows = await getReceiptItemCategoryPreferences({ userId }).catch(() => [])
+    const preferenceCategoryIdByKey = new Map<string, number>()
+    preferenceRows.forEach((row) => {
+      if (!categoryNameById.has(row.category_id)) return
+      const key = `${row.store_key}::${row.description_key}`
+      if (!preferenceCategoryIdByKey.has(key)) {
+        preferenceCategoryIdByKey.set(key, row.category_id)
+      }
+    })
+
+    const receipts: Array<{
+      receiptId: string
+      status: string
+      fileId: string
+      fileName: string
+      storeName: string | null
+      receiptDate: string | null
+      receiptTime: string | null
+      totalAmount: number
+      currency: string
+      transactions: Array<{
+        id: string
+        description: string
+        quantity: number
+        pricePerUnit: number
+        totalPrice: number
+        categoryName: string | null
+      }>
+    }> = []
+    const rejected: Array<{ fileName: string; reason: string }> = []
+
+    for (const file of incoming) {
+      if (!isSupportedReceiptImage(file)) {
+        rejected.push({ fileName: file.name, reason: "Unsupported file type (upload an image)" })
+        continue
+      }
+
+      if (file.size > MAX_RECEIPT_FILE_BYTES) {
+        rejected.push({ fileName: file.name, reason: "File is too large (max 10MB)" })
+        continue
+      }
+
+      try {
+        const stored = await saveFileToNeon({ file, source: "Receipt" })
+
+        const arrayBuffer = await file.arrayBuffer()
+        const buffer = Buffer.from(arrayBuffer)
+        const mimeType = (file.type || stored.mime_type || "image/jpeg").toLowerCase()
+        const base64DataUrl = `data:${mimeType};base64,${buffer.toString("base64")}`
+
+        const { extracted } = await extractReceiptWithAi({
+          base64DataUrl,
+          fileName: file.name,
+          allowedCategories: allowedCategoryNames,
+        })
+
+        const receiptDate = normalizeDate(extracted.receipt_date) || todayIsoDate()
+        const receiptTime = normalizeTime(extracted.receipt_time) || nowIsoTime()
+        const currency =
+          typeof extracted.currency === "string" && extracted.currency.trim().length > 0
+            ? extracted.currency.trim().toUpperCase()
+            : "EUR"
+
+        const storeName =
+          typeof extracted.store_name === "string" && extracted.store_name.trim().length > 0
+            ? extracted.store_name.trim()
+            : null
+
+        const storeKey = normalizeReceiptStoreKey(storeName)
+
+        const rawItems = Array.isArray(extracted.items) ? extracted.items : []
+        const transactions = rawItems
+          .map((item, index) => {
+            const description =
+              typeof item?.description === "string" ? item.description.trim() : ""
+
+            if (!description) return null
+
+            const quantityRaw = parseNumber(item.quantity)
+            const quantity = Number.isFinite(quantityRaw) && quantityRaw > 0 ? quantityRaw : 1
+            const totalPriceRaw = parseNumber(item.total_price)
+            const pricePerUnitRaw = parseNumber(item.price_per_unit)
+
+            const inferredPricePerUnit =
+              pricePerUnitRaw > 0
+                ? pricePerUnitRaw
+                : quantity > 0 && totalPriceRaw > 0
+                  ? totalPriceRaw / quantity
+                  : 0
+
+            const normalizedPricePerUnit = Number(inferredPricePerUnit.toFixed(2))
+            const computedTotal =
+              totalPriceRaw > 0 ? totalPriceRaw : normalizedPricePerUnit > 0 ? normalizedPricePerUnit * quantity : 0
+            const normalizedTotalPrice = Number(computedTotal.toFixed(2))
+
+            const rawCategoryName =
+              typeof item?.category === "string" ? item.category.trim() : ""
+            const rawCategoryLower = rawCategoryName.toLowerCase()
+            const categoryName = rawCategoryName && allowedCategorySet.has(rawCategoryLower)
+              ? allowedCategoryNameByLower.get(rawCategoryLower) ?? rawCategoryName
+              : "Other"
+
+            const descriptionKey = normalizeReceiptItemDescriptionKey(description)
+            let finalCategoryName = categoryName
+            let usedPreference = false
+            if (descriptionKey) {
+              const scopedKey = `${storeKey}::${descriptionKey}`
+              const globalKey = `::${descriptionKey}`
+              const preferredCategoryId =
+                preferenceCategoryIdByKey.get(scopedKey) ?? preferenceCategoryIdByKey.get(globalKey) ?? null
+
+              if (preferredCategoryId) {
+                const preferredName = categoryNameById.get(preferredCategoryId) ?? null
+                if (preferredName && allowedCategorySet.has(preferredName.toLowerCase())) {
+                  finalCategoryName = preferredName
+                  usedPreference = true
+                }
+              }
+            }
+
+            if (!usedPreference) {
+              const heuristicSuggestion = suggestReceiptCategoryNameFromDescription({
+                description,
+                categoryNameByLower: allowedCategoryNameByLower,
+              })
+
+              if (heuristicSuggestion && allowedCategorySet.has(heuristicSuggestion.toLowerCase())) {
+                const currentLower = finalCategoryName.toLowerCase()
+                const currentBroadType = categoryBroadTypeByLowerName.get(currentLower) ?? "Other"
+                const suggestedBroadType = categoryBroadTypeByLowerName.get(heuristicSuggestion.toLowerCase()) ?? "Other"
+
+                const isOther = currentLower === "other"
+                const isDrinkMismatch =
+                  (currentBroadType === "Drinks" && suggestedBroadType !== "Drinks") ||
+                  (currentBroadType !== "Drinks" && suggestedBroadType === "Drinks")
+
+                if (isOther || isDrinkMismatch) {
+                  finalCategoryName = heuristicSuggestion
+                }
+              }
+            }
+
+            return {
+              id: `${stored.id}:${index}`,
+              description,
+              quantity: Number(quantity.toFixed(2)),
+              pricePerUnit: normalizedPricePerUnit,
+              totalPrice: normalizedTotalPrice,
+              categoryName: finalCategoryName,
+            }
+          })
+          .filter((value): value is NonNullable<typeof value> => Boolean(value))
+
+        const summedTotal = transactions.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0)
+        const totalAmount = Math.max(parseNumber(extracted.total_amount), summedTotal)
+
+        receipts.push({
+          receiptId: stored.id,
+          status: "ready",
+          fileId: stored.id,
+          fileName: file.name,
+          storeName,
+          receiptDate,
+          receiptTime,
+          totalAmount: Number(totalAmount.toFixed(2)),
+          currency,
+          transactions,
+        })
+      } catch (error: any) {
+        rejected.push({ fileName: file.name, reason: String(error?.message || error) })
+        continue
+      }
+    }
+
+    return NextResponse.json({ receipts, rejected }, { status: 201 })
+  } catch (error: any) {
+    const message = String(error?.message || "")
+    if (message.includes("Unauthorized")) {
+      return NextResponse.json({ error: "Please sign in to upload receipts." }, { status: 401 })
+    }
+
+    console.error("[Receipts Upload API] Error:", error)
+    return NextResponse.json({ error: "Failed to upload receipt" }, { status: 500 })
+  }
+}

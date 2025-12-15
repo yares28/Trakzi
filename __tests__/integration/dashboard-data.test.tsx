@@ -1,9 +1,9 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
-import DashboardPage from '@/app/dashboard/page'
+import HomePage from '@/app/home/page'
 
-describe('Dashboard Data Integration', () => {
+describe('Home Data Integration', () => {
   beforeEach(() => {
-    // Mock fetch for dashboard data
+    // Mock fetch for home data
     global.fetch = jest.fn(() =>
       Promise.resolve({
         ok: true,
@@ -28,8 +28,8 @@ describe('Dashboard Data Integration', () => {
     jest.restoreAllMocks()
   })
 
-  it('loads and displays dashboard data', async () => {
-    render(<DashboardPage />)
+  it('loads and displays home data', async () => {
+    render(<HomePage />)
     
     await waitFor(() => {
       expect(screen.queryByTestId('loading')).not.toBeInTheDocument()
@@ -42,7 +42,7 @@ describe('Dashboard Data Integration', () => {
   })
 
   it('displays statistics correctly', async () => {
-    render(<DashboardPage />)
+    render(<HomePage />)
     
     await waitFor(() => {
       expect(screen.getByText('600')).toBeInTheDocument()
@@ -53,7 +53,7 @@ describe('Dashboard Data Integration', () => {
   })
 
   it('handles data filtering', async () => {
-    render(<DashboardPage />)
+    render(<HomePage />)
     
     await waitFor(() => {
       expect(screen.getByText('Item 1')).toBeInTheDocument()
@@ -76,7 +76,7 @@ describe('Dashboard Data Integration', () => {
   })
 
   it('updates chart when data changes', async () => {
-    const { rerender } = render(<DashboardPage />)
+    const { rerender } = render(<HomePage />)
     
     await waitFor(() => {
       expect(screen.getByTestId('area-chart')).toBeInTheDocument()
@@ -95,7 +95,7 @@ describe('Dashboard Data Integration', () => {
       })
     ) as jest.Mock
     
-    rerender(<DashboardPage />)
+    rerender(<HomePage />)
     
     await waitFor(() => {
       expect(screen.getByText('150')).toBeInTheDocument()

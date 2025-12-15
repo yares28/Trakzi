@@ -126,8 +126,24 @@ CRITICAL RULES:
 3. Be supportive and non-judgmental about spending habits
 4. Provide actionable, specific advice when possible
 5. Use the user's actual data to personalize responses
-6. Format responses clearly with bullet points or numbered lists when appropriate
-7. Keep responses concise but helpful
+6. Use skimmable, well-structured formatting (see below)
+7. Keep responses easy to scan (avoid walls of text)
+
+OUTPUT STYLE (MANDATORY):
+- Use Markdown.
+- Prefer short sections with headings (use ###).
+- Default structure (adapt if the user asks for something very small):
+  ### At a glance
+  - 2-4 bullets with the key answer + the most relevant numbers.
+  ### Breakdown
+  - Short bullets with brief reasoning (1-2 sentences each).
+  ### Next steps
+  1-6 numbered, specific actions the user can take.
+  ### Quick question (optional)
+  - Ask 1-2 clarifying questions if needed to be more precise.
+- Use bullets and bold labels like **Income:**, **Biggest category:**, **Recommendation:**.
+- Avoid Markdown tables; use bullets instead.
+- If you make an assumption or estimate, label it clearly as an estimate.
 
 TOPICS YOU CAN HELP WITH:
 - Analyzing spending patterns and trends
@@ -153,6 +169,13 @@ USER DATA STATUS: No transaction data available yet. Encourage the user to impor
 `;
     }
 
+    const safeExpensesTotal = context.totalExpenses > 0 ? context.totalExpenses : 0;
+    const topCategories = context.categoryBreakdown.slice(0, 5).map(c => {
+        const pct = safeExpensesTotal > 0 ? (c.total / safeExpensesTotal) * 100 : 0;
+        const pctText = safeExpensesTotal > 0 ? ` (~${pct.toFixed(0)}%)` : "";
+        return `- ${c.name}: $${c.total.toFixed(2)}${pctText}`;
+    }).join('\n');
+
     return basePrompt + `
 
 USER FINANCIAL DATA:
@@ -161,8 +184,8 @@ USER FINANCIAL DATA:
 - Net Savings: $${context.netSavings.toFixed(2)}
 - Total Transactions: ${context.transactionCount}
 
-TOP SPENDING CATEGORIES:
-${context.categoryBreakdown.slice(0, 5).map(c => `- ${c.name}: $${c.total.toFixed(2)}`).join('\n')}
+TOP SPENDING CATEGORIES (share of expenses):
+${topCategories}
 
 MONTHLY TRENDS (Last 6 months):
 ${context.monthlyTrends.map(m => `- ${m.month}: Income $${m.income.toFixed(2)}, Expenses $${m.expenses.toFixed(2)}`).join('\n')}
@@ -381,4 +404,3 @@ export const GET = async () => {
         );
     }
 };
-

@@ -2,10 +2,12 @@
 
 import * as React from "react"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
+import { IconGripVertical } from "@tabler/icons-react"
 
-import { useIsMobile } from "@/hooks/use-mobile"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useTheme } from "next-themes"
+import { ChartInfoPopover } from "@/components/chart-info-popover"
+import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import {
     Card,
     CardAction,
@@ -20,113 +22,81 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
-import {
-    ToggleGroup,
-    ToggleGroupItem,
-} from "@/components/ui/toggle-group"
+import { formatDateForDisplay } from "@/lib/date"
 
 export const description = "An interactive area chart"
 
-export function ChartAreaInteractiveFridge({ data }: { data: { date: string; desktop: number; mobile: number }[] }) {
-    const isMobile = useIsMobile()
-    const { colorScheme, getPalette } = useColorScheme()
+export function ChartAreaInteractiveFridge({ data }: { data: { date: string; spend: number }[] }) {
+    const { getPalette } = useColorScheme()
     const { resolvedTheme } = useTheme()
-    const [timeRange, setTimeRange] = React.useState("90d")
     const isDark = resolvedTheme === "dark"
     const gridStrokeColor = isDark ? "#e5e7eb" : "#e5e7eb"
 
-    // Color scheme: colored uses custom palette, dark uses custom palette
-    // Darker = more expensive (bigger peso)
-    // For all palettes: darker colors = larger amounts, lighter colors = smaller amounts
-    const palette = getPalette().filter(color => color !== "#c3c3c3")
-    // Expenses (darker) = more spending, Income (lighter) = less spending relative to expenses
-    // Use lighter colors from palette for income, darker colors for expenses
-    // Reversed palette: darkest at end, lightest at beginning
+    const palette = getPalette().filter((color) => color !== "#c3c3c3")
     const reversedPalette = [...palette].reverse()
-    const incomeColor = reversedPalette[Math.min(1, reversedPalette.length - 1)] // Lighter for income
-    const expensesColor = reversedPalette[reversedPalette.length - 1] // Darkest for expenses
-    const incomeBorderColor = reversedPalette[0] // Lightest for border
-    const expensesBorderColor = reversedPalette[reversedPalette.length - 1] // Darkest for border
+    const spendColor = reversedPalette[reversedPalette.length - 1] || "#8884d8"
 
     const chartConfig = {
-        cashflow: {
-            label: "Cash Flow",
-        },
-        mobile: {
-            label: "Expenses",
-            color: expensesColor,
+        spend: {
+            label: "Spend",
+            color: spendColor,
         },
     } satisfies ChartConfig
 
-    React.useEffect(() => {
-        if (isMobile) {
-            setTimeRange("7d")
-        }
-    }, [isMobile])
+    const totalSpend = React.useMemo(
+        () => data.reduce((sum, point) => sum + (Number(point.spend) || 0), 0),
+        [data]
+    )
 
-    const filteredData = data.filter((item) => {
-        const date = new Date(item.date)
-        const referenceDate = new Date("2024-11-18") // Using the latest date from fridge-data.json as reference
-        let daysToSubtract = 90
-        if (timeRange === "30d") {
-            daysToSubtract = 30
-        } else if (timeRange === "7d") {
-            daysToSubtract = 7
-        }
-        const startDate = new Date(referenceDate)
-        startDate.setDate(startDate.getDate() - daysToSubtract)
-        return date >= startDate
-    })
+    const peakDay = React.useMemo(() => {
+        return data.reduce(
+            (best, point) => (Number(point.spend) > Number(best.spend) ? point : best),
+            { date: "", spend: 0 }
+        )
+    }, [data])
+
+    const infoAction = (
+        <div className="flex flex-col items-center gap-2">
+            <ChartInfoPopover
+                title="Grocery Spend Trend"
+                description="Daily grocery totals across the selected time filter."
+                details={[
+                    "Each point represents the total spend across all receipts for that day.",
+                    "Use this to spot expensive restock days and weekly patterns.",
+                ]}
+                ignoredFootnote="Totals are based on receipt totals (tax included)."
+            />
+            <ChartAiInsightButton
+                chartId="fridge:spend-trend"
+                chartTitle="Grocery Spend Trend"
+                chartDescription="Daily grocery spend across the selected time filter."
+                chartData={{
+                    totalSpend,
+                    days: data.length,
+                    peakDay,
+                }}
+                size="sm"
+            />
+        </div>
+    )
 
     return (
-        <Card className="@container/card">
+            <Card className="@container/card">
             <CardHeader>
-                <CardTitle>Expenses Tracking</CardTitle>
+                <div className="flex items-center gap-2">
+                    <span className="gridstack-drag-handle -m-1 inline-flex cursor-grab touch-none select-none items-center justify-center rounded p-1 active:cursor-grabbing">
+                        <IconGripVertical className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                    </span>
+                    <CardTitle>Grocery Spend Trend</CardTitle>
+                </div>
                 <CardDescription>
                     <span className="hidden @[540px]/card:block">
-                        Your expenses for the last 3 months
+                        Daily grocery totals across the selected time filter
                     </span>
-                    <span className="@[540px]/card:hidden">Last 3 months</span>
+                    <span className="@[540px]/card:hidden">Daily totals</span>
                 </CardDescription>
-                <CardAction>
-                    <ToggleGroup
-                        type="single"
-                        value={timeRange}
-                        onValueChange={setTimeRange}
-                        variant="outline"
-                        className="hidden *:data-[slot=toggle-group-item]:!px-4 @[767px]/card:flex"
-                    >
-                        <ToggleGroupItem value="90d">Last 3 months</ToggleGroupItem>
-                        <ToggleGroupItem value="30d">Last 30 days</ToggleGroupItem>
-                        <ToggleGroupItem value="7d">Last 7 days</ToggleGroupItem>
-                    </ToggleGroup>
-                    <Select value={timeRange} onValueChange={setTimeRange}>
-                        <SelectTrigger
-                            className="flex w-40 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate @[767px]/card:hidden"
-                            size="sm"
-                            aria-label="Select a value"
-                        >
-                            <SelectValue placeholder="Last 3 months" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                            <SelectItem value="90d" className="rounded-lg">
-                                Last 3 months
-                            </SelectItem>
-                            <SelectItem value="30d" className="rounded-lg">
-                                Last 30 days
-                            </SelectItem>
-                            <SelectItem value="7d" className="rounded-lg">
-                                Last 7 days
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
+                <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+                    {infoAction}
                 </CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
@@ -134,17 +104,17 @@ export function ChartAreaInteractiveFridge({ data }: { data: { date: string; des
                     config={chartConfig}
                     className="aspect-auto h-[250px] w-full"
                 >
-                    <AreaChart data={filteredData}>
+                    <AreaChart data={data}>
                         <defs>
-                            <linearGradient id="fillMobile" x1="0" y1="0" x2="0" y2="1">
+                            <linearGradient id="fillSpend" x1="0" y1="0" x2="0" y2="1">
                                 <stop
                                     offset="5%"
-                                    stopColor="var(--color-mobile)"
+                                    stopColor="var(--color-spend)"
                                     stopOpacity={0.8}
                                 />
                                 <stop
                                     offset="95%"
-                                    stopColor="var(--color-mobile)"
+                                    stopColor="var(--color-spend)"
                                     stopOpacity={0.1}
                                 />
                             </linearGradient>
@@ -157,8 +127,7 @@ export function ChartAreaInteractiveFridge({ data }: { data: { date: string; des
                             tickMargin={8}
                             minTickGap={32}
                             tickFormatter={(value) => {
-                                const date = new Date(value)
-                                return date.toLocaleDateString("en-US", {
+                                return formatDateForDisplay(String(value), "en-US", {
                                     month: "short",
                                     day: "numeric",
                                 })
@@ -169,7 +138,7 @@ export function ChartAreaInteractiveFridge({ data }: { data: { date: string; des
                             content={
                                 <ChartTooltipContent
                                     labelFormatter={(value) => {
-                                        return new Date(value).toLocaleDateString("en-US", {
+                                        return formatDateForDisplay(String(value), "en-US", {
                                             month: "short",
                                             day: "numeric",
                                         })
@@ -179,10 +148,10 @@ export function ChartAreaInteractiveFridge({ data }: { data: { date: string; des
                             }
                         />
                         <Area
-                            dataKey="mobile"
+                            dataKey="spend"
                             type="natural"
-                            fill="url(#fillMobile)"
-                            stroke={expensesBorderColor}
+                            fill="url(#fillSpend)"
+                            stroke={spendColor}
                             strokeWidth={1}
                         />
                     </AreaChart>
@@ -191,4 +160,3 @@ export function ChartAreaInteractiveFridge({ data }: { data: { date: string; des
         </Card>
     )
 }
-

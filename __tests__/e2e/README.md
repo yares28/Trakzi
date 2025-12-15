@@ -25,7 +25,7 @@ npx cypress open
 ```
 __tests__/e2e/
 ├── auth.spec.ts              # Authentication flows
-├── dashboard.spec.ts         # Dashboard interactions
+├── home.spec.ts              # Home page interactions
 ├── file-upload.spec.ts       # File upload workflows
 └── navigation.spec.ts        # Navigation and routing
 ```
@@ -43,8 +43,8 @@ test.describe('Authentication Flow', () => {
     await page.fill('input[name="password"]', 'password123')
     await page.click('button[type="submit"]')
     
-    await expect(page).toHaveURL('http://localhost:3000/dashboard')
-    await expect(page.locator('h1')).toContainText('Dashboard')
+    await expect(page).toHaveURL('http://localhost:3000/home')
+    await expect(page.locator('h1')).toContainText('Home')
   })
 })
 ```

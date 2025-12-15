@@ -2,6 +2,7 @@
 
 import {
   IconLogin,
+  IconSettings,
 } from "@tabler/icons-react"
 import {
   SignedIn,
@@ -20,59 +21,87 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { SettingsPopover } from "@/components/settings-popover"
 
 export function NavUser() {
   const { user, isLoaded } = useUser()
+
+  const settingsButton = (
+    <SettingsPopover>
+      <SidebarMenuButton
+        tooltip="Settings"
+        size="lg"
+        type="button"
+        aria-label="Settings"
+        className="w-12 flex-none justify-center group-data-[collapsible=icon]:w-10"
+      >
+        <IconSettings />
+        <span className="sr-only">Settings</span>
+      </SidebarMenuButton>
+    </SettingsPopover>
+  )
 
   // Show sign-in button when not authenticated
   return (
     <SidebarMenu>
       <SidebarMenuItem>
         <SignedOut>
-          <SignInButton mode="redirect">
-            <SidebarMenuButton size="lg" className="w-full">
-              <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarFallback className="rounded-lg">
-                  <IconLogin className="size-4" />
-                </AvatarFallback>
-              </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">Guest User</span>
-                <span className="text-muted-foreground truncate text-xs">
-                  Click to login
-                </span>
-              </div>
-            </SidebarMenuButton>
-          </SignInButton>
+          <div className="flex w-full items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1">
+            <SignInButton mode="redirect">
+              <SidebarMenuButton
+                size="lg"
+                className="w-auto flex-1 min-w-0 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:justify-center"
+              >
+                <Avatar className="h-8 w-8 rounded-lg">
+                  <AvatarFallback className="rounded-lg">
+                    <IconLogin className="size-4" />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
+                  <span className="truncate font-medium">Guest User</span>
+                  <span className="text-muted-foreground truncate text-xs">
+                    Click to login
+                  </span>
+                </div>
+              </SidebarMenuButton>
+            </SignInButton>
+            {settingsButton}
+          </div>
         </SignedOut>
 
         <SignedIn>
           {isLoaded && user ? (
-            <div className="flex items-center w-full gap-2 p-2">
-              <UserButton
-                afterSignOutUrl="/"
-                appearance={{
-                  elements: {
-                    avatarBox: "h-8 w-8 rounded-lg",
-                    userButtonPopoverCard: "shadow-lg",
-                  },
-                }}
-              />
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">
-                  {user.firstName || user.fullName || "User"}
-                </span>
-                <span className="text-muted-foreground truncate text-xs">
-                  {user.primaryEmailAddress?.emailAddress || ""}
-                </span>
+            <div className="flex w-full items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1">
+              <div className="flex flex-1 min-w-0 items-center gap-2 p-2 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:p-0">
+                <UserButton
+                  afterSignOutUrl="/"
+                  appearance={{
+                    elements: {
+                      avatarBox: "h-8 w-8 rounded-lg",
+                      userButtonPopoverCard: "shadow-lg",
+                    },
+                  }}
+                />
+                <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
+                  <span className="truncate font-medium">
+                    {user.firstName || user.fullName || "User"}
+                  </span>
+                  <span className="text-muted-foreground truncate text-xs">
+                    {user.primaryEmailAddress?.emailAddress || ""}
+                  </span>
+                </div>
               </div>
+              {settingsButton}
             </div>
           ) : (
-            <SidebarMenuButton size="lg" className="w-full">
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">Loading...</span>
-              </div>
-            </SidebarMenuButton>
+            <div className="flex w-full items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1">
+              <SidebarMenuButton size="lg" className="w-auto flex-1 min-w-0 group-data-[collapsible=icon]:flex-none">
+                <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
+                  <span className="truncate font-medium">Loading...</span>
+                </div>
+              </SidebarMenuButton>
+              {settingsButton}
+            </div>
           )}
         </SignedIn>
       </SidebarMenuItem>

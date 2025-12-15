@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
+import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import { ChartLoadingState } from "@/components/chart-loading-state"
@@ -727,6 +728,7 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
       <Card className="@container/card">
         <CardHeader>
           <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="allMonthsCategorySpending"
               chartTitle="All Months Category Spending"
@@ -749,6 +751,7 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
     <Card className="@container/card">
       <CardHeader>
         <div className="flex items-center gap-2">
+          <GridStackCardDragHandle />
           <ChartFavoriteButton
             chartId="allMonthsCategorySpending"
             chartTitle="All Months Category Spending"
@@ -841,4 +844,3 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
     </Card>
   )
 }
-

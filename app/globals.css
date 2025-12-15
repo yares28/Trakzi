@@ -146,6 +146,27 @@ body {
   color: #121113;
 }
 
+/* Icons fill with primary color when their pages are active */
+[data-active="true"] .icon-home,
+[data-active="true"] .icon-savings,
+[data-active="true"] .icon-analytics,
+[data-active="true"] .icon-trends,
+[data-active="true"] .icon-fridge,
+[data-active="true"] .icon-data-library {
+  fill: var(--primary);
+}
+
+/* Chat icon (image) uses filter to tint orange when active */
+/* Filter converts black to primary orange color */
+/* For #e78a53 (RGB: 231, 138, 83) - more accurate calculation */
+[data-active="true"] .icon-chat,
+[data-active="true"] img.icon-chat,
+button[data-active="true"] .icon-chat,
+[data-sidebar="menu-button"][data-active="true"] .icon-chat {
+  filter: brightness(0) saturate(100%) invert(58%) sepia(96%) saturate(1234%) hue-rotate(1deg) brightness(102%) contrast(91%);
+  transition: filter 0.2s ease;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -153,6 +174,24 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* While dragging files over the app we show a full-screen blur overlay. Browser scrollbars
+   (especially horizontal) are not blur-able, so we hide them for the duration. */
+html[data-file-dragging="true"],
+html[data-file-dragging="true"] body {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+html[data-file-dragging="true"] * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html[data-file-dragging="true"] *::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
 }
 
 @layer components {
@@ -225,10 +264,14 @@ body {
     padding-left: 8px !important;
     padding-right: 21px !important;
     box-sizing: border-box !important;
-    cursor: grab;
+    cursor: inherit;
   }
   
-  .grid-stack-item-content:active {
+  .gridstack-drag-handle {
+    cursor: grab;
+  }
+
+  .gridstack-drag-handle:active {
     cursor: grabbing;
   }
   

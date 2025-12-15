@@ -19,6 +19,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
+import { formatDateForDisplay } from "@/lib/date"
 import {
   Select,
   SelectContent,
@@ -168,8 +169,7 @@ export function ChartSavingsAccumulation({ data: chartData = [], isLoading = fal
               tickMargin={8}
               minTickGap={32}
               tickFormatter={(value) => {
-                const date = new Date(value)
-                return date.toLocaleDateString("en-US", {
+                return formatDateForDisplay(String(value), "en-US", {
                   month: "short",
                   day: "numeric",
                 })
@@ -180,7 +180,7 @@ export function ChartSavingsAccumulation({ data: chartData = [], isLoading = fal
               content={
                 <ChartTooltipContent
                   labelFormatter={(value) => {
-                    return new Date(value).toLocaleDateString("en-US", {
+                    return formatDateForDisplay(String(value), "en-US", {
                       month: "short",
                       day: "numeric",
                     })
@@ -206,4 +206,3 @@ export function ChartSavingsAccumulation({ data: chartData = [], isLoading = fal
     </Card>
   )
 }
-
