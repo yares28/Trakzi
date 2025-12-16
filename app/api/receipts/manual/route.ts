@@ -24,7 +24,7 @@ export async function POST(request: Request) {
             total_amount: totalAmount,
             status: 'completed',
             receipt_file_id: null, // No file associated
-        })
+        }) as any
 
         if (!receipt) throw new Error("Failed to create receipt")
 

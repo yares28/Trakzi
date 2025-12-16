@@ -5,6 +5,7 @@
 - [ ] Link custom domain/URL
 - [ ] Set up production database (Neon Postgres)
 - [ ] Configure production environment variables
+- [ ] Add email api to the report a bug button
 
 ## Analytics & Monitoring
 - [ ] Add analytics (Vercel Analytics, PostHog, or similar)

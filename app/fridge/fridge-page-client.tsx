@@ -282,7 +282,7 @@ function isFileDragEvent(event: React.DragEvent) {
 export function FridgePageClient() {
   const { user, isLoaded: isUserLoaded } = useUser()
 
-  const { filter: dateFilter } = useDateFilter()
+  const { filter: dateFilter, setFilter: setDateFilter } = useDateFilter()
   const [receiptTransactions, setReceiptTransactions] = useState<ReceiptTransactionRow[]>([])
   const [isLoadingReceiptTransactions, setIsLoadingReceiptTransactions] = useState(true)
   const [receiptsRefreshNonce, setReceiptsRefreshNonce] = useState(0)

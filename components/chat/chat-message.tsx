@@ -57,7 +57,7 @@ const messageVariants = {
     x: 0,
     scale: 1,
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 350,
       damping: 30,
       mass: 0.8,

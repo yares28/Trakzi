@@ -428,6 +428,7 @@ function isFileDragEvent(event: React.DragEvent) {
 export default function AnalyticsPage() {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
+
   const palette = getPalette()
   const normalizeCategoryName = useCallback((value?: string | null) => {
     const trimmed = (value ?? "").trim()
@@ -1004,7 +1005,7 @@ export default function AnalyticsPage() {
 
   // Date filter state
   // Date filter state
-  const { filter: dateFilter } = useDateFilter()
+  const { filter: dateFilter, setFilter: setDateFilter } = useDateFilter()
 
   const [ringCategories, setRingCategories] = useState<string[]>([])
   const [allExpenseCategories, setAllExpenseCategories] = useState<string[]>([])

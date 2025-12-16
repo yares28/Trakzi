@@ -150,7 +150,7 @@ export function ChartMacronutrientBreakdownFridge({ receiptTransactions = [], ca
         categoryControls={categoryControls}
       />
       <ChartAiInsightButton
-        chartId="fridge:macronutrientBreakdown"
+        chartId="expenseBreakdown"
         chartTitle="Macronutrient Breakdown"
         chartDescription="This pie chart shows how your total grocery expenses are distributed across macronutrient types."
         chartData={{
@@ -171,7 +171,7 @@ export function ChartMacronutrientBreakdownFridge({ receiptTransactions = [], ca
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
             <ChartFavoriteButton
-              chartId="fridge:macronutrientBreakdown"
+              chartId="expenseBreakdown"
               chartTitle="Macronutrient Breakdown"
               size="md"
             />
@@ -196,7 +196,7 @@ export function ChartMacronutrientBreakdownFridge({ receiptTransactions = [], ca
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
             <ChartFavoriteButton
-              chartId="fridge:macronutrientBreakdown"
+              chartId="expenseBreakdown"
               chartTitle="Macronutrient Breakdown"
               size="md"
             />
@@ -221,7 +221,7 @@ export function ChartMacronutrientBreakdownFridge({ receiptTransactions = [], ca
         <div className="flex items-center gap-2">
           <GridStackCardDragHandle />
           <ChartFavoriteButton
-            chartId="fridge:macronutrientBreakdown"
+            chartId="expenseBreakdown"
             chartTitle="Macronutrient Breakdown"
             size="md"
           />

@@ -5,7 +5,7 @@ import { Streamdown } from "streamdown"
 import { cn } from "@/lib/utils"
 
 export interface ResponseProps extends React.ComponentProps<typeof Streamdown> {
-    children?: React.ReactNode
+    children?: string
     className?: string
 }
 

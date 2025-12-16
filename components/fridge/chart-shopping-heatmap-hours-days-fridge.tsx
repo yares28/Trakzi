@@ -23,7 +23,7 @@ import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 
 interface ReceiptTransaction {
-    id: string
+    id: string | number
     receiptId: string
     receiptDate: string
     receiptTime: string | null

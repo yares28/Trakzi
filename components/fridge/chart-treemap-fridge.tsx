@@ -21,10 +21,9 @@ import { getReceiptCategoryByName } from "@/lib/receipt-categories"
 
 type TreeMapNode = {
   name: string
-  children: Array<{
-    name: string
-    children: Array<{ name: string; loc: number; fullDescription?: string }>
-  }>
+  loc?: number
+  fullDescription?: string
+  children?: TreeMapNode[]
 }
 
 type ReceiptTransactionRow = {
@@ -69,7 +68,7 @@ export function ChartTreeMapFridge({ receiptTransactions = [], categoryControls,
   const { getPalette, colorScheme } = useColorScheme()
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
-  
+
   // In dark mode, use lighter colors (reverse the palette so lightest colors come first)
   const chartColors = useMemo(() => {
     const palette = getPalette()
@@ -81,7 +80,7 @@ export function ChartTreeMapFridge({ receiptTransactions = [], categoryControls,
 
   // Text color based on theme - white in dark mode, black in light mode
   const labelColor = isDark ? "#ffffff" : "#000000"
-  
+
   const sanitizedData = useMemo<TreeMapNode>(() => {
     if (!receiptTransactions || receiptTransactions.length === 0) {
       return { name: "", children: [] }
@@ -94,7 +93,7 @@ export function ChartTreeMapFridge({ receiptTransactions = [], categoryControls,
       const categoryName = normalizeCategoryName(item.categoryName)
       const receiptCategory = getReceiptCategoryByName(categoryName)
       const broadType = receiptCategory?.broadType || "Other"
-      
+
       const totalPrice = Number(item.totalPrice) || 0
       if (totalPrice <= 0) return
 
@@ -214,7 +213,7 @@ export function ChartTreeMapFridge({ receiptTransactions = [], categoryControls,
         categoryControls={categoryControls}
       />
       <ChartAiInsightButton
-        chartId="fridge:netWorthAllocation"
+        chartId="netWorthAllocation"
         chartTitle="Net Worth Allocation"
         chartDescription="Breakdown of your grocery spending by broad category, category, and individual items"
         chartData={{
@@ -225,7 +224,7 @@ export function ChartTreeMapFridge({ receiptTransactions = [], categoryControls,
       />
     </div>
   )
-  
+
   if (!sanitizedData || !sanitizedData.children || sanitizedData.children.length === 0) {
     return (
       <Card className="@container/card col-span-full">
@@ -233,7 +232,7 @@ export function ChartTreeMapFridge({ receiptTransactions = [], categoryControls,
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
             <ChartFavoriteButton
-              chartId="fridge:netWorthAllocation"
+              chartId="netWorthAllocation"
               chartTitle="Net Worth Allocation"
               size="md"
             />
@@ -249,14 +248,14 @@ export function ChartTreeMapFridge({ receiptTransactions = [], categoryControls,
       </Card>
     )
   }
-  
+
   return (
     <Card className="col-span-full">
       <CardHeader>
         <div className="flex items-center gap-2">
           <GridStackCardDragHandle />
           <ChartFavoriteButton
-            chartId="fridge:netWorthAllocation"
+            chartId="netWorthAllocation"
             chartTitle="Net Worth Allocation"
             size="md"
           />

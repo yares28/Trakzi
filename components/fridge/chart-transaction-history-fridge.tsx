@@ -32,22 +32,22 @@ import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle
 
 // Receipt transaction type from fridge page
 interface ReceiptTransaction {
-    id: string
+    id: string | number
     description: string
     quantity: number
     pricePerUnit: number
     totalPrice: number
-    categoryId: string | null
+    categoryId: string | number | null
     categoryName: string | null
     categoryColor: string | null
-    categoryTypeId: string | null
-    categoryTypeName: string | null
-    categoryTypeColor: string | null
+    categoryTypeId?: string | number | null
+    categoryTypeName?: string | null
+    categoryTypeColor?: string | null
     receiptId: string
     receiptDate: string
     receiptTime: string | null
     storeName: string | null
-    status: string
+    receiptStatus: string
     receiptTotalAmount: number
 }
 

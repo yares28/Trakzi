@@ -362,7 +362,7 @@ export default function DataLibraryPage() {
   const [reportsSearch, setReportsSearch] = useState("")
   const [reportsPage, setReportsPage] = useState(0)
   const [reportsPageSize, setReportsPageSize] = useState(10)
-  const [selectedReportIds, setSelectedReportIds] = useState<Set<number>>(new Set())
+  const [selectedReportIds, setSelectedReportIds] = useState<Set<string>>(new Set())
 
   // CSV drop-to-import state
   const [isDragging, setIsDragging] = useState(false)
@@ -3597,6 +3597,7 @@ export default function DataLibraryPage() {
                                     hasBalance={hasBalance}
                                     onCategoryChange={(value) => handleCategoryChange(row.id, value)}
                                     onDelete={() => handleDeleteRow(row.id)}
+                                    formatCurrency={formatCurrency}
                                   />
                                 )
                               })

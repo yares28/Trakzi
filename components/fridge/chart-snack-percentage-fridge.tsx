@@ -101,9 +101,9 @@ export function ChartSnackPercentageFridge({ receiptTransactions = [], isLoading
     // Filter by selected stores if any are selected
     const filteredTransactions = selectedStores.size > 0
       ? receiptTransactions.filter((item) => {
-          const store = normalizeStoreName(item.storeName)
-          return selectedStores.has(store)
-        })
+        const store = normalizeStoreName(item.storeName)
+        return selectedStores.has(store)
+      })
       : receiptTransactions
 
     // Group by receipt (trip)
@@ -192,7 +192,7 @@ export function ChartSnackPercentageFridge({ receiptTransactions = [], isLoading
   const dataWithColors = useMemo(() => {
     const numParts = Math.min(snackPercentageData.length, 7)
     const palette = getPalette().filter(color => color !== "#c3c3c3")
-    
+
     // Sort by value descending (highest first) and assign colors
     const sorted = [...snackPercentageData].sort((a, b) => b.value - a.value)
     const reversedPalette = [...palette].reverse().slice(0, numParts)
@@ -201,15 +201,15 @@ export function ChartSnackPercentageFridge({ receiptTransactions = [], isLoading
       color: reversedPalette[index % reversedPalette.length]
     }))
   }, [snackPercentageData, colorScheme, getPalette])
-  
+
   const data = dataWithColors
-  
+
   // Calculate total for percentage calculations
   const total = useMemo(() => {
     return snackPercentageData.reduce((sum, item) => sum + item.value, 0)
   }, [snackPercentageData])
-  
-  const colorConfig = colorScheme === "colored" 
+
+  const colorConfig = colorScheme === "colored"
     ? { datum: "data.color" as const }
     : { datum: "data.color" as const }
 
@@ -217,7 +217,7 @@ export function ChartSnackPercentageFridge({ receiptTransactions = [], isLoading
 
   const textColor = isDark ? "#9ca3af" : "#4b5563"
   const arcLinkLabelColor = isDark ? "#d1d5db" : "#374151"
-  
+
   // Format currency value
   const valueFormatter = new Intl.NumberFormat(undefined, {
     style: "currency",
@@ -258,12 +258,12 @@ export function ChartSnackPercentageFridge({ receiptTransactions = [], isLoading
         ignoredFootnote="Only trips with assigned categories are included. Snacks are identified by the 'Snacks' category."
       />
       <ChartAiInsightButton
-        chartId="fridge:snackPercentage"
+        chartId="expenseBreakdown"
         chartTitle="Snack Percentage per Store"
         chartDescription="Average percentage of snack spending per grocery trip by store."
         chartData={{
-          stores: data.map(d => ({ 
-            name: d.label, 
+          stores: data.map(d => ({
+            name: d.label,
             snackPercentage: d.value,
             trips: d.trips,
             totalSpend: d.totalSpend,
@@ -283,7 +283,7 @@ export function ChartSnackPercentageFridge({ receiptTransactions = [], isLoading
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
             <ChartFavoriteButton
-              chartId="fridge:snackPercentage"
+              chartId="expenseBreakdown"
               chartTitle="Snack Percentage per Store"
               size="md"
             />
@@ -308,7 +308,7 @@ export function ChartSnackPercentageFridge({ receiptTransactions = [], isLoading
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
             <ChartFavoriteButton
-              chartId="fridge:snackPercentage"
+              chartId="expenseBreakdown"
               chartTitle="Snack Percentage per Store"
               size="md"
             />
@@ -379,7 +379,7 @@ export function ChartSnackPercentageFridge({ receiptTransactions = [], isLoading
         <div className="flex items-center gap-2">
           <GridStackCardDragHandle />
           <ChartFavoriteButton
-            chartId="fridge:snackPercentage"
+            chartId="expenseBreakdown"
             chartTitle="Snack Percentage per Store"
             size="md"
           />

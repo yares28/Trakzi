@@ -30,6 +30,7 @@ interface MonthlyData {
     month: string
     Groceries: number
     Restaurants: number
+    [key: string]: string | number
 }
 
 export function ChartGroceryVsRestaurantFridge({ dateFilter }: ChartGroceryVsRestaurantFridgeProps) {
