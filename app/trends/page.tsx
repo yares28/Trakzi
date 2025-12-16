@@ -11,34 +11,14 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
+import { useDateFilter } from "@/components/date-filter-provider"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { ChartCategoryTrend } from "@/components/chart-category-trend"
 
 // Wrapper component to hide grid items when chart returns null (no data)
 function ChartCategoryTrendWrapper({ categoryName }: { categoryName: string }) {
   const wrapperRef = useRef<HTMLDivElement>(null)
-  const [dateFilter, setDateFilter] = useState<string | null>(null)
-
-  // Listen for date filter changes to trigger re-check
-  useEffect(() => {
-    const handleFilterChange = (event: CustomEvent<string | null>) => {
-      setDateFilter(event.detail)
-    }
-
-    // Load initial filter from localStorage
-    if (typeof window !== "undefined") {
-      const savedFilter = localStorage.getItem("dateFilter")
-      if (savedFilter) {
-        setDateFilter(savedFilter)
-      }
-    }
-
-    window.addEventListener("dateFilterChanged", handleFilterChange as EventListener)
-
-    return () => {
-      window.removeEventListener("dateFilterChanged", handleFilterChange as EventListener)
-    }
-  }, [])
+  const { filter: dateFilter } = useDateFilter()
 
   useEffect(() => {
     if (!wrapperRef.current) return
@@ -50,7 +30,7 @@ function ChartCategoryTrendWrapper({ categoryName }: { categoryName: string }) {
           // If wrapper has no children, ChartCategoryTrend returned null (no data)
           const hasContent = wrapperRef.current.children.length > 0
           const wasHidden = gridItem.style.display === 'none'
-          
+
           if (hasContent) {
             gridItem.style.display = ''
             // If item was hidden and now shown, trigger compact
@@ -79,7 +59,7 @@ function ChartCategoryTrendWrapper({ categoryName }: { categoryName: string }) {
 
     // Initial check
     checkAndHide()
-    
+
     // Check multiple times to catch async updates (filter change -> loading -> data/no data)
     const timeouts = [
       setTimeout(checkAndHide, 100),
@@ -138,7 +118,7 @@ export default function TrendsPage() {
   const [categoryTransactionCounts, setCategoryTransactionCounts] = useState<Record<string, number>>({})
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [dateFilter, setDateFilter] = useState<string | null>(null)
+  const { filter: dateFilter } = useDateFilter()
   // Initialize with saved sizes immediately (client-side only)
   const [savedCardSizes, setSavedCardSizes] = useState<Record<string, { w: number; h: number; x: number; y: number }>>(() => {
     if (typeof window !== 'undefined') {
@@ -165,26 +145,7 @@ export default function TrendsPage() {
     }
   }
 
-  // Listen for date filter changes
-  useEffect(() => {
-    const handleFilterChange = (event: CustomEvent<string | null>) => {
-      setDateFilter(event.detail)
-    }
 
-    // Load initial filter from localStorage
-    if (typeof window !== "undefined") {
-      const savedFilter = localStorage.getItem("dateFilter")
-      if (savedFilter) {
-        setDateFilter(savedFilter)
-      }
-    }
-
-    window.addEventListener("dateFilterChanged", handleFilterChange as EventListener)
-
-    return () => {
-      window.removeEventListener("dateFilterChanged", handleFilterChange as EventListener)
-    }
-  }, [])
 
   // Load categories and transaction counts
   useEffect(() => {
@@ -199,11 +160,11 @@ export default function TrendsPage() {
         const payload = await deduplicatedFetch<Category[]>("/api/categories")
         const categoriesWithSpending = Array.isArray(payload)
           ? payload
-              .map((cat) => ({
-                name: (cat?.name ?? "").trim(),
-                totalSpend: typeof cat?.totalSpend === "number" ? cat.totalSpend : 0,
-              }))
-              .filter((cat) => cat.name.length > 0)
+            .map((cat) => ({
+              name: (cat?.name ?? "").trim(),
+              totalSpend: typeof cat?.totalSpend === "number" ? cat.totalSpend : 0,
+            }))
+            .filter((cat) => cat.name.length > 0)
           : []
 
         // Fetch transactions with current filter to count transactions per category
@@ -232,11 +193,11 @@ export default function TrendsPage() {
         const sortedCategories = categoriesWithSpending.sort((a, b) => {
           const countA = counts[a.name] || 0
           const countB = counts[b.name] || 0
-          
+
           // If one has 1 transaction and the other doesn't, put the 1-transaction one last
           if (countA === 1 && countB !== 1) return 1
           if (countA !== 1 && countB === 1) return -1
-          
+
           // If both have 1 transaction or both don't, sort by spending
           if (b.totalSpend !== a.totalSpend) {
             return b.totalSpend - a.totalSpend // Higher spending first
@@ -281,7 +242,7 @@ export default function TrendsPage() {
     const container = gridRef.current
     const items = container.querySelectorAll('.grid-stack-item')
     if (items.length === 0) return
-    
+
     // Load saved sizes directly here to ensure they're available
     const savedSizes = loadCardSizes()
     console.log('[Trends] Loaded saved sizes:', savedSizes)
@@ -289,42 +250,42 @@ export default function TrendsPage() {
     // Initialize GridStack - spacing handled via CSS margin
     // Don't let GridStack auto-read attributes - we'll load them explicitly
     const gridOptions: GridStackOptions & { disableOneColumnMode?: boolean } = {
-        column: 12,
-        cellHeight: 70,
-        margin: 0, // Spacing handled via CSS instead
-        float: true,  // Allow placing items anywhere without magnetizing to top
-        animate: true,  // Enable smooth animations
-        draggable: {
-          handle: ".grid-stack-item-content",
-        },
-        resizable: {
-          handles: 'se', // Only bottom-right resize handle
-        },
-        disableOneColumnMode: true,
+      column: 12,
+      cellHeight: 70,
+      margin: 0, // Spacing handled via CSS instead
+      float: true,  // Allow placing items anywhere without magnetizing to top
+      animate: true,  // Enable smooth animations
+      draggable: {
+        handle: ".grid-stack-item-content",
+      },
+      resizable: {
+        handles: 'se', // Only bottom-right resize handle
+      },
+      disableOneColumnMode: true,
     }
     const instance = GridStack.init(gridOptions, container)
-    
+
     // Remove all items first to prevent GridStack from reading DOM attributes
     instance.removeAll(false)
 
     // Get size config for category trend cards
     const sizeConfig = getChartCardSize("categoryTrend" as ChartId)
-    
+
     // Collect all items with their positions from saved sizes (preferred) or data attributes
     const widgets = Array.from(items).map((item) => {
       const el = item as HTMLElement
       const categoryName = el.getAttribute('data-category-name') || ''
       // Use saved sizes loaded directly here, fallback to state, then data attributes
       const savedSize = savedSizes[categoryName] || savedCardSizes[categoryName]
-      
+
       // Prioritize saved size, then data attributes, then defaults
       const w = savedSize?.w ?? parseInt(el.getAttribute('data-gs-w') || '6', 10)
       const h = savedSize?.h ?? parseInt(el.getAttribute('data-gs-h') || '6', 10)
       const x = savedSize?.x ?? parseInt(el.getAttribute('data-gs-x') || '0', 10)
       const y = savedSize?.y ?? parseInt(el.getAttribute('data-gs-y') || '0', 10)
-      
+
       console.log(`[Trends] Widget for ${categoryName}:`, { w, h, x, y, savedSize })
-      
+
       return {
         el,
         w,
@@ -337,13 +298,13 @@ export default function TrendsPage() {
         maxH: sizeConfig.maxH,
       }
     })
-    
+
     console.log('[Trends] Loading widgets:', widgets.map(w => ({ category: w.el.getAttribute('data-category-name'), w: w.w, h: w.h, x: w.x, y: w.y })))
 
     // Clear any existing items and load with explicit positions
     instance.removeAll(false)
     instance.load(widgets)
-    
+
     // GridStack applies margin by adjusting item sizes and positions
     // The margin creates gaps between items automatically
 
@@ -355,13 +316,13 @@ export default function TrendsPage() {
           node.maxW = sizeConfig.maxW
           node.minH = sizeConfig.minH
           node.maxH = sizeConfig.maxH
-          
+
           // Ensure saved sizes are applied (in case GridStack didn't pick them up from load)
           const categoryName = node.el?.getAttribute('data-category-name') || ''
           const savedSize = savedSizes[categoryName]
           if (savedSize) {
             const needsUpdate = node.w !== savedSize.w || node.h !== savedSize.h || node.x !== savedSize.x || node.y !== savedSize.y
-            console.log(`[Trends] Node ${categoryName}: current=${JSON.stringify({w: node.w, h: node.h, x: node.x, y: node.y})}, saved=${JSON.stringify(savedSize)}, needsUpdate=${needsUpdate}`)
+            console.log(`[Trends] Node ${categoryName}: current=${JSON.stringify({ w: node.w, h: node.h, x: node.x, y: node.y })}, saved=${JSON.stringify(savedSize)}, needsUpdate=${needsUpdate}`)
             if (needsUpdate && node.el) {
               instance.update(node.el, {
                 w: savedSize.w,
@@ -385,7 +346,7 @@ export default function TrendsPage() {
           if (node) {
             const clampedW = Math.max(sizeConfig.minW, Math.min(sizeConfig.maxW, item.w || 6))
             const clampedH = Math.max(sizeConfig.minH, Math.min(sizeConfig.maxH, item.h || 6))
-            
+
             if (item.w !== clampedW || item.h !== clampedH) {
               instance.update(item.el, {
                 w: clampedW,
@@ -396,17 +357,17 @@ export default function TrendsPage() {
         }
       }
     })
-    
+
     // Handle resize stop - save to localStorage
     // Wrap in setTimeout to avoid Next.js static analysis detection
     instance.on('resizestop', () => {
       setTimeout(() => {
         try {
           if (!instance) return
-          
+
           const nodes = instance.engine.nodes
           const sizes: Record<string, { w: number; h: number; x: number; y: number }> = {}
-          
+
           // Collect all sizes first
           for (let i = 0; i < nodes.length; i++) {
             const node = nodes[i]
@@ -424,7 +385,7 @@ export default function TrendsPage() {
               }
             }
           }
-          
+
           // Save all at once
           if (Object.keys(sizes).length > 0) {
             const currentSizes = loadCardSizes()
@@ -436,17 +397,17 @@ export default function TrendsPage() {
         }
       }, 0)
     })
-    
+
     // Handle drag stop - save position to localStorage
     // Wrap in setTimeout to avoid Next.js static analysis detection
     instance.on('dragstop', () => {
       setTimeout(() => {
         try {
           if (!instance) return
-          
+
           const nodes = instance.engine.nodes
           const sizes: Record<string, { w: number; h: number; x: number; y: number }> = {}
-          
+
           // Collect all sizes first
           for (let i = 0; i < nodes.length; i++) {
             const node = nodes[i]
@@ -462,7 +423,7 @@ export default function TrendsPage() {
               }
             }
           }
-          
+
           // Save all at once
           if (Object.keys(sizes).length > 0) {
             const currentSizes = loadCardSizes()
@@ -487,9 +448,9 @@ export default function TrendsPage() {
             const visibleNodes = instance.engine.nodes.filter(
               (node) => node.el && node.el.style.display !== 'none'
             )
-            
+
             if (visibleNodes.length === 0) return
-            
+
             // Sort by original category order (spending rank) by matching category name
             // to the categories array index, but respect the 1-transaction-last rule
             const sortedVisibleNodes = visibleNodes.sort((a, b) => {
@@ -497,44 +458,44 @@ export default function TrendsPage() {
               const categoryB = b.el?.getAttribute('data-category-name') || ''
               const indexA = categories.indexOf(categoryA)
               const indexB = categories.indexOf(categoryB)
-              
+
               // If category not found in array, put it at the end
               if (indexA === -1 && indexB === -1) return 0
               if (indexA === -1) return 1
               if (indexB === -1) return -1
-              
+
               // Categories are already sorted in the array with 1-transaction ones at the end
               // So we just need to maintain that order
               return indexA - indexB
             })
-            
+
             // Separate full-width cards (w=12) from regular cards (w=6)
             const fullWidthCards = sortedVisibleNodes.filter((node) => node.w === 12)
             const regularCards = sortedVisibleNodes.filter((node) => node.w === 6)
-            
+
             let currentY = 0
-            
+
             // Place full-width cards first at the top
             fullWidthCards.forEach((node) => {
               const newX = 0
               const newY = currentY
-              
+
               // Only update if position changed
               if (node.x !== newX || node.y !== newY) {
                 instance.update(node.el!, { x: newX, y: newY })
               }
-              
+
               // Move to next row (full-width cards take up full height)
               currentY += (node.h || 6) + 2 // Add spacing
             })
-            
+
             // Then place regular cards in 2-column layout below full-width cards
             regularCards.forEach((node, index) => {
               const colIndex = index % 2 // 0 = left, 1 = right
               const rowIndex = Math.floor(index / 2)
               const newX = colIndex * 6 // 0 or 6
               const newY = currentY + (rowIndex * 6) // Continue from where full-width cards ended
-              
+
               // Only update if position changed
               if (node.x !== newX || node.y !== newY) {
                 instance.update(node.el!, { x: newX, y: newY })
@@ -604,17 +565,17 @@ export default function TrendsPage() {
                 const spacing = 2
                 const rowIndex = Math.floor(index / 2) // Which row (0, 1, 2, ...)
                 const colIndex = index % 2 // Which column (0 = left, 1 = right)
-                
+
                 const xPosition = colIndex * 6 // 0 for left column, 6 for right column
                 const yPosition = rowIndex * (cardHeight + spacing) // Same y for cards in same row
-                
+
                 // Use saved size from state or defaults
                 const savedSize = savedCardSizes[category]
                 const finalW = savedSize?.w ?? 6
                 const finalH = savedSize?.h ?? cardHeight
                 const finalX = savedSize?.x ?? xPosition
                 const finalY = savedSize?.y ?? yPosition
-                
+
                 return (
                   <div
                     key={category || index}

@@ -5,6 +5,7 @@ import { useTheme } from "next-themes"
 import { ResponsivePie } from "@nivo/pie"
 import { IconGripVertical } from "@tabler/icons-react"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import {
@@ -33,6 +34,7 @@ const getTextColor = (sliceColor: string, colorScheme?: string): string => {
 export function ChartExpensesPieFridge({ data }: { data: { id: string; label: string; value: number }[] }) {
     const { resolvedTheme } = useTheme()
     const { colorScheme, getPalette } = useColorScheme()
+    const { formatCurrency } = useCurrency()
     const [mounted, setMounted] = useState(false)
 
     useEffect(() => {
@@ -141,7 +143,7 @@ export function ChartExpensesPieFridge({ data }: { data: { id: string; label: st
                         arcLinkLabelsColor={{ from: "color" }}
                         arcLabelsSkipAngle={20}
                         arcLabelsTextColor={(d: { color: string }) => getTextColor(d.color, colorScheme)}
-                        valueFormat={(value) => `$${value}`}
+                        valueFormat={(value) => formatCurrency(value)}
                         colors={colorConfig}
                         theme={{
                             text: {

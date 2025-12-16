@@ -6,6 +6,7 @@ import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
   Card,
@@ -34,14 +35,14 @@ const TIME_PERIOD_ORDER = ["Morning", "Afternoon", "Evening", "Night"]
 // Helper function to categorize time of day
 function getTimeOfDay(timeString: string | null): string {
   if (!timeString) return "Unknown"
-  
+
   // Parse time string (format: "HH:MM:SS" or "HH:MM")
   const parts = timeString.split(":")
   if (parts.length < 2) return "Unknown"
-  
+
   const hour = parseInt(parts[0], 10)
   if (isNaN(hour)) return "Unknown"
-  
+
   // Morning: 6:00 - 11:59
   // Afternoon: 12:00 - 17:59
   // Evening: 18:00 - 21:59
@@ -60,6 +61,7 @@ function getTimeOfDay(timeString: string | null): string {
 export function ChartTimeOfDaySpendingFridge({ data = [], isLoading = false }: ChartTimeOfDaySpendingFridgeProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
+  const { formatCurrency, symbol } = useCurrency()
   const [mounted, setMounted] = React.useState(false)
   const chartRef = React.useRef<any>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
@@ -76,11 +78,9 @@ export function ChartTimeOfDaySpendingFridge({ data = [], isLoading = false }: C
     return base.length > 0 ? base : ["#0f766e", "#14b8a6", "#22c55e", "#84cc16", "#eab308"]
   }, [getPalette])
 
-  const valueFormatter = new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  })
+  const valueFormatter = {
+    format: (value: number) => formatCurrency(value, { maximumFractionDigits: 0 })
+  }
 
   const handleChartMouseOver = React.useCallback(
     (params: any) => {
@@ -233,7 +233,7 @@ export function ChartTimeOfDaySpendingFridge({ data = [], isLoading = false }: C
 
     const backgroundColor =
       resolvedTheme === "dark" ? "rgba(15,23,42,0)" : "rgba(248,250,252,0)"
-    
+
     const textColor = resolvedTheme === "dark" ? "#9ca3af" : "#6b7280"
 
     return {
@@ -269,7 +269,7 @@ export function ChartTimeOfDaySpendingFridge({ data = [], isLoading = false }: C
       yAxis: {
         type: "value",
         axisLabel: {
-          formatter: (value: number) => `$${value.toLocaleString()}`,
+          formatter: (value: number) => `${symbol}${value.toLocaleString()}`,
           color: textColor,
         },
         axisTick: {
@@ -400,10 +400,7 @@ export function ChartTimeOfDaySpendingFridge({ data = [], isLoading = false }: C
         {option && data.length > 0 ? (
           <div className="h-full w-full flex flex-col">
             <div className="mb-2 text-sm font-medium text-foreground text-center">
-              Total: ${data.reduce((sum, item) => sum + item.spend, 0).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              Total: {formatCurrency(data.reduce((sum, item) => sum + item.spend, 0))}
             </div>
             <div ref={containerRef} className="relative flex-1 min-h-0" style={{ minHeight: 0, minWidth: 0 }}>
               {chartElement}

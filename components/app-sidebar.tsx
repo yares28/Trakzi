@@ -3,6 +3,22 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { useTheme } from "next-themes"
+import { cn } from "@/lib/utils"
+import { NavDocuments } from "@/components/nav-documents"
+import { NavMain } from "@/components/nav-main"
+import { NavUser } from "@/components/nav-user"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+} from "@/components/ui/sidebar"
 import {
   IconCamera,
   IconFileAi,
@@ -91,20 +107,38 @@ const IconTrends = React.forwardRef<
 IconTrends.displayName = "IconTrends"
 
 // Custom Chat icon component (using star image)
+// Custom Chat icon component (using star image with mask for coloring)
 const IconChat = React.forwardRef<
-  HTMLImageElement,
-  React.ComponentProps<"img">
+  HTMLDivElement,
+  React.ComponentProps<"div">
 >((props, ref) => {
+  const { theme } = useTheme()
+  const pathname = usePathname()
+  const isActive = pathname === "/chat"
+
+  // Use mask approach for coloring support while respecting asset choice
+  const isDark = theme === "dark"
+  const src = isDark ? "/starW.png" : "/starB.png"
+
   return (
-    <img
-      src="/starB.png"
-      alt="Chat"
-      width={20}
-      height={20}
-      className="icon-chat w-5 h-5 ml-[1px]"
-      style={{ width: '20px', height: '20px', marginLeft: '1px' }}
+    <div
       ref={ref}
       {...props}
+      className={cn(
+        "icon-chat w-5 h-5 ml-[1px] shrink-0 group-data-[collapsible=icon]:ml-0",
+        props.className
+      )}
+      style={{
+        ...props.style,
+        width: '20px',
+        height: '20px',
+        // marginLeft: '1px', // Handled via className
+        maskImage: `url(${src})`,
+        maskSize: "contain",
+        maskRepeat: "no-repeat",
+        maskPosition: "center",
+        backgroundColor: isActive ? "#F97316" : "currentColor"
+      }}
     />
   )
 })
@@ -150,20 +184,7 @@ const IconDataLibrary = React.forwardRef<
 ))
 IconDataLibrary.displayName = "IconDataLibrary"
 
-import { useTheme } from "next-themes"
-import { NavDocuments } from "@/components/nav-documents"
-import { NavMain } from "@/components/nav-main"
-import { NavUser } from "@/components/nav-user"
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarRail,
-} from "@/components/ui/sidebar"
+
 
 const data = {
   user: {
@@ -256,6 +277,11 @@ const data = {
       name: "Data Library",
       url: "/data-library",
       icon: IconDataLibrary,
+    },
+    {
+      name: "Dashboard",
+      url: "/dashboard",
+      icon: IconAnalytics,
     },
   ],
 }

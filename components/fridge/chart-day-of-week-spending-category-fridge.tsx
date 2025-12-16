@@ -7,6 +7,7 @@ import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
     Card,
@@ -54,6 +55,7 @@ function normalizeCategoryName(value: string | null | undefined) {
 export function ChartDayOfWeekSpendingCategoryFridge({ receiptTransactions = [], isLoading = false }: ChartDayOfWeekSpendingFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { getPalette } = useColorScheme()
+    const { formatCurrency, symbol } = useCurrency()
     const palette = useMemo(() => getPalette().filter((color) => color !== "#c3c3c3"), [getPalette])
     const svgRef = useRef<SVGSVGElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
@@ -348,7 +350,7 @@ export function ChartDayOfWeekSpendingCategoryFridge({ receiptTransactions = [],
                 tickText.setAttribute("alignment-baseline", "middle")
                 tickText.setAttribute("fill", textColor)
                 tickText.setAttribute("font-size", "12")
-                tickText.textContent = `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                tickText.textContent = `${symbol}${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
                 yAxisGroup.appendChild(tickText)
             }
             svg.appendChild(yAxisGroup)
@@ -477,14 +479,14 @@ export function ChartDayOfWeekSpendingCategoryFridge({ receiptTransactions = [],
                                         {tooltip.breakdown.sort((a, b) => b.amount - a.amount).map((item, idx) => (
                                             <div key={idx} className="flex justify-between gap-3 mb-1">
                                                 <span className="text-foreground/80">{item.category}:</span>
-                                                <span className="font-semibold text-foreground">${item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                <span className="font-semibold text-foreground">{formatCurrency(item.amount)}</span>
                                             </div>
                                         ))}
                                     </div>
                                     <div className="border-t border-border/60 pt-1.5 mt-1">
                                         <div className="flex justify-between gap-3 font-bold text-foreground">
                                             <span>Total:</span>
-                                            <span>${tooltip.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            <span>{formatCurrency(tooltip.amount)}</span>
                                         </div>
                                     </div>
                                 </>
@@ -495,7 +497,7 @@ export function ChartDayOfWeekSpendingCategoryFridge({ receiptTransactions = [],
                                         <span className="font-medium text-foreground">{tooltip.day}</span>
                                     </div>
                                     <div className="text-foreground/80 mb-0.5">{tooltip.category}:</div>
-                                    <div className="font-mono text-[0.7rem] text-foreground/80">${tooltip.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                                    <div className="font-mono text-[0.7rem] text-foreground/80">{formatCurrency(tooltip.amount)}</div>
                                 </>
                             )}
                         </div>

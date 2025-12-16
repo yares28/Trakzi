@@ -47,11 +47,18 @@ export function SiteHeader() {
     window.dispatchEvent(new CustomEvent("dateFilterChanged", { detail: dateFilter }))
   }, [dateFilter])
 
-  // Load filter from localStorage on mount
+  // Load filter from localStorage on mount (with fallback to default time period)
   useEffect(() => {
     const savedFilter = localStorage.getItem("dateFilter")
     if (savedFilter) {
       setDateFilter(savedFilter as DateFilterType)
+    } else {
+      // If no current filter, check for default time period setting
+      const defaultTimePeriod = localStorage.getItem("default-time-period")
+      if (defaultTimePeriod && defaultTimePeriod !== "all") {
+        setDateFilter(defaultTimePeriod as DateFilterType)
+        localStorage.setItem("dateFilter", defaultTimePeriod)
+      }
     }
   }, [])
 

@@ -7,6 +7,7 @@ import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
     Card,
@@ -69,6 +70,7 @@ function normalizeCategoryName(value: string | null | undefined) {
 export function ChartSingleMonthCategoryFridge({ receiptTransactions = [], isLoading = false }: ChartSingleMonthCategoryFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { getPalette } = useColorScheme()
+    const { formatCurrency, symbol } = useCurrency()
     const [mounted, setMounted] = React.useState(false)
     const [selectedMonth, setSelectedMonth] = React.useState<number | null>(null)
     const chartRef = React.useRef<any>(null)
@@ -138,11 +140,9 @@ export function ChartSingleMonthCategoryFridge({ receiptTransactions = [], isLoa
         return base
     }, [getPalette])
 
-    const valueFormatter = new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: "USD",
-        maximumFractionDigits: 0,
-    })
+    const valueFormatter = {
+        format: (value: number) => formatCurrency(value, { maximumFractionDigits: 0 })
+    }
 
     const handleChartMouseOver = (params: any) => {
         if (!containerRef.current) return
@@ -255,7 +255,7 @@ export function ChartSingleMonthCategoryFridge({ receiptTransactions = [], isLoa
             },
             yAxis: {
                 type: "value",
-                axisLabel: { formatter: (value: number) => `$${value.toLocaleString()}`, color: textColor },
+                axisLabel: { formatter: (value: number) => `${symbol}${value.toLocaleString()}`, color: textColor },
                 axisTick: { lineStyle: { color: textColor } },
                 axisLine: { lineStyle: { color: textColor } },
                 splitLine: { lineStyle: { color: resolvedTheme === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)" } },
@@ -342,10 +342,7 @@ export function ChartSingleMonthCategoryFridge({ receiptTransactions = [], isLoa
                 {option && data.length > 0 ? (
                     <div className="h-full w-full flex flex-col">
                         <div className="mb-2 text-sm font-medium text-foreground text-center">
-                            Total: ${data.reduce((sum, item) => sum + item.total, 0).toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                            })}
+                            Total: {formatCurrency(data.reduce((sum, item) => sum + item.total, 0))}
                         </div>
                         <div ref={containerRef} className="relative flex-1 min-h-0" style={{ minHeight: 0, minWidth: 0 }}>
                             <ReactECharts

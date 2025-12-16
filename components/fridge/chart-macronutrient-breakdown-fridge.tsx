@@ -5,6 +5,7 @@ import { useTheme } from "next-themes"
 import { ResponsivePie } from "@nivo/pie"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
@@ -66,6 +67,7 @@ function normalizeMacronutrientType(value: string | null | undefined) {
 export function ChartMacronutrientBreakdownFridge({ receiptTransactions = [], categoryControls, isLoading = false }: ChartMacronutrientBreakdownFridgeProps) {
   const { resolvedTheme } = useTheme()
   const { colorScheme, getPalette } = useColorScheme()
+  const { formatCurrency } = useCurrency()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -75,7 +77,7 @@ export function ChartMacronutrientBreakdownFridge({ receiptTransactions = [], ca
   // Group transactions by macronutrient type
   const macronutrientData = useMemo(() => {
     const totals = new Map<string, number>()
-    
+
     receiptTransactions.forEach((item) => {
       const macronutrientType = normalizeMacronutrientType(item.categoryTypeName)
       const spend = Number(item.totalPrice) || 0
@@ -95,13 +97,13 @@ export function ChartMacronutrientBreakdownFridge({ receiptTransactions = [], ca
     ...item,
     value: toNumericValue(item.value)
   })), [macronutrientData])
-  
+
   // Dynamically assign colors based on number of parts (max 7)
   // For all palettes: darker colors = larger amounts, lighter colors = smaller amounts
   const dataWithColors = useMemo(() => {
     const numParts = Math.min(sanitizedBaseData.length, 7)
     const palette = getPalette().filter(color => color !== "#c3c3c3")
-    
+
     // Sort by value descending (highest first) and assign colors
     // Darker colors go to higher values, lighter colors to lower values
     const sorted = [...sanitizedBaseData].sort((a, b) => b.value - a.value)
@@ -112,15 +114,15 @@ export function ChartMacronutrientBreakdownFridge({ receiptTransactions = [], ca
       color: reversedPalette[index % reversedPalette.length]
     }))
   }, [sanitizedBaseData, colorScheme, getPalette])
-  
+
   const data = dataWithColors
-  
+
   // Calculate total for percentage calculations
   const total = useMemo(() => {
     return sanitizedBaseData.reduce((sum, item) => sum + item.value, 0)
   }, [sanitizedBaseData])
-  
-  const colorConfig = colorScheme === "colored" 
+
+  const colorConfig = colorScheme === "colored"
     ? { datum: "data.color" as const }
     : { datum: "data.color" as const } // Use assigned colors from darkDataWithColors
 
@@ -128,13 +130,11 @@ export function ChartMacronutrientBreakdownFridge({ receiptTransactions = [], ca
 
   const textColor = isDark ? "#9ca3af" : "#4b5563"
   const arcLinkLabelColor = isDark ? "#d1d5db" : "#374151"
-  
-  // Format currency value
-  const valueFormatter = new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2,
-  })
+
+  // Format currency value using user's preferred currency
+  const valueFormatter = useMemo(() => ({
+    format: (value: number) => formatCurrency(value)
+  }), [formatCurrency])
 
   const renderInfoTrigger = () => (
     <div className="flex flex-col items-center gap-2">
@@ -216,21 +216,21 @@ export function ChartMacronutrientBreakdownFridge({ receiptTransactions = [], ca
   }
 
   return (
-      <Card className="@container/card">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <GridStackCardDragHandle />
-            <ChartFavoriteButton
-              chartId="fridge:macronutrientBreakdown"
-              chartTitle="Macronutrient Breakdown"
-              size="md"
-            />
-            <CardTitle>Macronutrient Breakdown</CardTitle>
-          </div>
+    <Card className="@container/card">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <GridStackCardDragHandle />
+          <ChartFavoriteButton
+            chartId="fridge:macronutrientBreakdown"
+            chartTitle="Macronutrient Breakdown"
+            size="md"
+          />
+          <CardTitle>Macronutrient Breakdown</CardTitle>
+        </div>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoTrigger()}
         </CardAction>
-        </CardHeader>
+      </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
         <div className="h-full w-full min-h-[250px]" key={colorScheme}>
           <ResponsivePie
@@ -247,7 +247,7 @@ export function ChartMacronutrientBreakdownFridge({ receiptTransactions = [], ca
             arcLinkLabelsColor={{ from: "color" }}
             arcLabelsSkipAngle={20}
             arcLabelsTextColor={(d: { color: string }) => getTextColor(d.color, colorScheme)}
-            valueFormat={(value) => `$${value.toFixed(2)}`}
+            valueFormat={(value) => formatCurrency(value)}
             colors={colorConfig}
             tooltip={({ datum }) => {
               const percentage = total > 0 ? (Number(datum.value) / total) * 100 : 0

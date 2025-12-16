@@ -71,6 +71,7 @@ import {
 } from "@/components/ui/popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
+import { useDateFilter } from "@/components/date-filter-provider"
 import { IconUpload, IconFile, IconCircleCheck, IconLoader2, IconAlertCircle, IconTrash } from "@tabler/icons-react"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
@@ -998,7 +999,8 @@ export default function AnalyticsPage() {
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(true)
 
   // Date filter state
-  const [dateFilter, setDateFilter] = useState<string | null>(null)
+  // Date filter state
+  const { filter: dateFilter } = useDateFilter()
 
   const [ringCategories, setRingCategories] = useState<string[]>([])
   const [allExpenseCategories, setAllExpenseCategories] = useState<string[]>([])
@@ -1803,6 +1805,72 @@ export default function AnalyticsPage() {
       expensesChange,
       savingsRateChange,
       netWorthChange,
+    }
+  }, [rawTransactions])
+
+  // Calculate trend data for stat cards (daily cumulative values)
+  const statsTrends = useMemo(() => {
+    if (!rawTransactions || rawTransactions.length === 0) {
+      return {
+        incomeTrend: [],
+        expensesTrend: [],
+        netWorthTrend: [],
+      }
+    }
+
+    // Group transactions by date
+    const dateData = new Map<string, { income: number; expenses: number; balance: number | null }>()
+
+    rawTransactions.forEach((tx) => {
+      const date = tx.date.split("T")[0]
+      if (!dateData.has(date)) {
+        dateData.set(date, { income: 0, expenses: 0, balance: null })
+      }
+      const dayData = dateData.get(date)!
+      if (tx.amount > 0) {
+        dayData.income += tx.amount
+      } else {
+        dayData.expenses += Math.abs(tx.amount)
+      }
+      // Keep the last balance for the day
+      if (tx.balance !== null && tx.balance !== undefined) {
+        dayData.balance = tx.balance
+      }
+    })
+
+    // Sort dates
+    const sortedDates = Array.from(dateData.keys()).sort()
+
+    // Cumulative income trend
+    let cumulativeIncome = 0
+    const incomeTrend = sortedDates.map(date => {
+      cumulativeIncome += dateData.get(date)!.income
+      return { date, value: cumulativeIncome }
+    })
+
+    // Cumulative expenses trend
+    let cumulativeExpenses = 0
+    const expensesTrend = sortedDates.map(date => {
+      cumulativeExpenses += dateData.get(date)!.expenses
+      return { date, value: cumulativeExpenses }
+    })
+
+    // Net worth trend (use balance if available, otherwise cumulative income - expenses)
+    let runningBalance = 0
+    const netWorthTrend = sortedDates.map(date => {
+      const dayData = dateData.get(date)!
+      if (dayData.balance !== null) {
+        runningBalance = dayData.balance
+      } else {
+        runningBalance += dayData.income - dayData.expenses
+      }
+      return { date, value: runningBalance }
+    })
+
+    return {
+      incomeTrend,
+      expensesTrend,
+      netWorthTrend,
     }
   }, [rawTransactions])
 
@@ -2800,6 +2868,9 @@ export default function AnalyticsPage() {
                 expensesChange={stats.expensesChange}
                 savingsRateChange={stats.savingsRateChange}
                 netWorthChange={stats.netWorthChange}
+                incomeTrend={statsTrends.incomeTrend}
+                expensesTrend={statsTrends.expensesTrend}
+                netWorthTrend={statsTrends.netWorthTrend}
               />
 
               {/* GridStack analytics chart section */}

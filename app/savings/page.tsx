@@ -29,13 +29,13 @@ export default function Page() {
   // Fetch transactions for charts
   const fetchTransactions = useCallback(async () => {
     try {
-      const url = dateFilter 
+      const url = dateFilter
         ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
         : "/api/transactions"
       console.log("[Savings] Fetching transactions from:", url)
       const response = await fetch(url)
       const data = await response.json()
-      
+
       if (response.ok) {
         if (Array.isArray(data)) {
           console.log(`[Savings] Setting ${data.length} transactions`)
@@ -91,7 +91,7 @@ export default function Page() {
     }
 
     window.addEventListener("dateFilterChanged", handleFilterChange as EventListener)
-    
+
     // Load initial filter from localStorage
     const savedFilter = localStorage.getItem("dateFilter")
     if (savedFilter) {
@@ -127,8 +127,8 @@ export default function Page() {
       .filter(tx => tx.amount < 0)
       .reduce((sum, tx) => sum + tx.amount, 0))
 
-    const currentSavingsRate = currentIncome > 0 
-      ? ((currentIncome - currentExpenses) / currentIncome) * 100 
+    const currentSavingsRate = currentIncome > 0
+      ? ((currentIncome - currentExpenses) / currentIncome) * 100
       : 0
 
     // Net worth is calculated as income minus expenses
@@ -160,28 +160,28 @@ export default function Page() {
       .filter(tx => tx.amount < 0)
       .reduce((sum, tx) => sum + tx.amount, 0))
 
-    const previousSavingsRate = previousIncome > 0 
-      ? ((previousIncome - previousExpenses) / previousIncome) * 100 
+    const previousSavingsRate = previousIncome > 0
+      ? ((previousIncome - previousExpenses) / previousIncome) * 100
       : 0
 
     // Previous net worth is also calculated as income minus expenses
     const previousNetWorth = previousIncome - previousExpenses
 
     // Calculate percentage changes
-    const incomeChange = previousIncome > 0 
-      ? ((currentIncome - previousIncome) / previousIncome) * 100 
+    const incomeChange = previousIncome > 0
+      ? ((currentIncome - previousIncome) / previousIncome) * 100
       : (currentIncome > 0 ? 100 : 0)
 
-    const expensesChange = previousExpenses > 0 
-      ? ((currentExpenses - previousExpenses) / previousExpenses) * 100 
+    const expensesChange = previousExpenses > 0
+      ? ((currentExpenses - previousExpenses) / previousExpenses) * 100
       : (currentExpenses > 0 ? 100 : 0)
 
-    const savingsRateChange = previousSavingsRate !== 0 
-      ? currentSavingsRate - previousSavingsRate 
+    const savingsRateChange = previousSavingsRate !== 0
+      ? currentSavingsRate - previousSavingsRate
       : (currentSavingsRate > 0 ? 100 : 0)
 
-    const netWorthChange = previousNetWorth > 0 
-      ? ((netWorth - previousNetWorth) / previousNetWorth) * 100 
+    const netWorthChange = previousNetWorth > 0
+      ? ((netWorth - previousNetWorth) / previousNetWorth) * 100
       : (netWorth > 0 ? 100 : 0)
 
     return {
@@ -193,6 +193,72 @@ export default function Page() {
       expensesChange: expensesChange,
       savingsRateChange: savingsRateChange,
       netWorthChange: netWorthChange
+    }
+  }, [transactions])
+
+  // Calculate trend data for stat cards (daily cumulative values)
+  const statsTrends = useMemo(() => {
+    if (!transactions || transactions.length === 0) {
+      return {
+        incomeTrend: [],
+        expensesTrend: [],
+        netWorthTrend: [],
+      }
+    }
+
+    // Group transactions by date
+    const dateData = new Map<string, { income: number; expenses: number; balance: number | null }>()
+
+    transactions.forEach((tx) => {
+      const date = tx.date.split("T")[0]
+      if (!dateData.has(date)) {
+        dateData.set(date, { income: 0, expenses: 0, balance: null })
+      }
+      const dayData = dateData.get(date)!
+      if (tx.amount > 0) {
+        dayData.income += tx.amount
+      } else {
+        dayData.expenses += Math.abs(tx.amount)
+      }
+      // Keep the last balance for the day
+      if (tx.balance !== null && tx.balance !== undefined) {
+        dayData.balance = tx.balance
+      }
+    })
+
+    // Sort dates
+    const sortedDates = Array.from(dateData.keys()).sort()
+
+    // Cumulative income trend
+    let cumulativeIncome = 0
+    const incomeTrend = sortedDates.map(date => {
+      cumulativeIncome += dateData.get(date)!.income
+      return { date, value: cumulativeIncome }
+    })
+
+    // Cumulative expenses trend
+    let cumulativeExpenses = 0
+    const expensesTrend = sortedDates.map(date => {
+      cumulativeExpenses += dateData.get(date)!.expenses
+      return { date, value: cumulativeExpenses }
+    })
+
+    // Net worth trend (use balance if available, otherwise cumulative income - expenses)
+    let runningBalance = 0
+    const netWorthTrend = sortedDates.map(date => {
+      const dayData = dateData.get(date)!
+      if (dayData.balance !== null) {
+        runningBalance = dayData.balance
+      } else {
+        runningBalance += dayData.income - dayData.expenses
+      }
+      return { date, value: runningBalance }
+    })
+
+    return {
+      incomeTrend,
+      expensesTrend,
+      netWorthTrend,
     }
   }, [transactions])
 
@@ -208,20 +274,20 @@ export default function Page() {
       if (!acc[date]) {
         acc[date] = { date, income: 0, expenses: 0, savings: 0 }
       }
-      
+
       if (tx.amount > 0) {
         acc[date].income += tx.amount
       } else {
         acc[date].expenses += Math.abs(tx.amount)
       }
-      
+
       return acc
     }, {} as Record<string, { date: string; income: number; expenses: number; savings: number }>)
 
     // Convert to array and calculate cumulative savings
     const sortedDates = Object.keys(dailyData).sort()
     let cumulativeSavings = 0
-    
+
     return sortedDates.map(date => {
       const day = dailyData[date]
       cumulativeSavings += day.income - day.expenses
@@ -249,7 +315,7 @@ export default function Page() {
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
             <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-              <SectionCards 
+              <SectionCards
                 totalIncome={stats.totalIncome}
                 totalExpenses={stats.totalExpenses}
                 savingsRate={stats.savingsRate}
@@ -258,6 +324,9 @@ export default function Page() {
                 expensesChange={stats.expensesChange}
                 savingsRateChange={stats.savingsRateChange}
                 netWorthChange={stats.netWorthChange}
+                incomeTrend={statsTrends.incomeTrend}
+                expensesTrend={statsTrends.expensesTrend}
+                netWorthTrend={statsTrends.netWorthTrend}
               />
               <div className="px-4 lg:px-6">
                 <ChartSavingsAccumulation data={chartData} />

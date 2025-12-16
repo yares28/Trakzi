@@ -183,7 +183,7 @@ interface SpendingActivityRingsProps {
 // Custom concentric rings renderer so we control tooltips from Neon data
 function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaultLimit, colorScheme }: SpendingActivityRingsProps) {
   const rings = Array.isArray(data) ? data.filter((item): item is NonNullable<typeof item> => item != null) : []
-  
+
   // Hooks must be called unconditionally - move before early return
   const [hoveredRing, setHoveredRing] = useState<number | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
@@ -222,7 +222,7 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
       const minSize = 200 // Minimum size
       const maxSize = 1200 // Increased maximum size for better visibility
       const clampedSize = Math.max(minSize, Math.min(maxSize, size))
-      
+
       // Only update if size actually changed to avoid unnecessary re-renders
       setContainerSize(prev => {
         if (Math.abs(prev.width - clampedSize) > 1) {
@@ -262,11 +262,11 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
   const baseRadius = (config.radius ?? 32) * sizeScale
 
   // For dark color palette, use "#e5e7eb" as background for dark mode
-  const trackBase = colorScheme === "dark" && theme === "dark" 
-    ? "#e5e7eb" 
-    : theme === "light" 
-    ? "#e5e7eb" 
-    : "#374151"
+  const trackBase = colorScheme === "dark" && theme === "dark"
+    ? "#e5e7eb"
+    : theme === "light"
+      ? "#e5e7eb"
+      : "#374151"
   const maxIndex = rings.length - 1
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>, index: number) => {
@@ -1372,6 +1372,72 @@ export default function AnalyticsPage() {
     }
   }, [rawTransactions])
 
+  // Calculate trend data for stat cards (daily cumulative values)
+  const statsTrends = useMemo(() => {
+    if (!rawTransactions || rawTransactions.length === 0) {
+      return {
+        incomeTrend: [],
+        expensesTrend: [],
+        netWorthTrend: [],
+      }
+    }
+
+    // Group transactions by date
+    const dateData = new Map<string, { income: number; expenses: number; balance: number | null }>()
+
+    rawTransactions.forEach((tx) => {
+      const date = tx.date.split("T")[0]
+      if (!dateData.has(date)) {
+        dateData.set(date, { income: 0, expenses: 0, balance: null })
+      }
+      const dayData = dateData.get(date)!
+      if (tx.amount > 0) {
+        dayData.income += tx.amount
+      } else {
+        dayData.expenses += Math.abs(tx.amount)
+      }
+      // Keep the last balance for the day
+      if (tx.balance !== null && tx.balance !== undefined) {
+        dayData.balance = tx.balance
+      }
+    })
+
+    // Sort dates
+    const sortedDates = Array.from(dateData.keys()).sort()
+
+    // Cumulative income trend
+    let cumulativeIncome = 0
+    const incomeTrend = sortedDates.map(date => {
+      cumulativeIncome += dateData.get(date)!.income
+      return { date, value: cumulativeIncome }
+    })
+
+    // Cumulative expenses trend
+    let cumulativeExpenses = 0
+    const expensesTrend = sortedDates.map(date => {
+      cumulativeExpenses += dateData.get(date)!.expenses
+      return { date, value: cumulativeExpenses }
+    })
+
+    // Net worth trend (use balance if available, otherwise cumulative income - expenses)
+    let runningBalance = 0
+    const netWorthTrend = sortedDates.map(date => {
+      const dayData = dateData.get(date)!
+      if (dayData.balance !== null) {
+        runningBalance = dayData.balance
+      } else {
+        runningBalance += dayData.income - dayData.expenses
+      }
+      return { date, value: runningBalance }
+    })
+
+    return {
+      incomeTrend,
+      expensesTrend,
+      netWorthTrend,
+    }
+  }, [rawTransactions])
+
   const activityData: ActivityRingsData = useMemo(() => {
     if (!rawTransactions || rawTransactions.length === 0) {
       return []
@@ -1447,7 +1513,7 @@ export default function AnalyticsPage() {
         const indices = resolvedTheme === "dark" ? darkModeIndices : lightModeIndices
         const paletteIndex = indices[index % indices.length]
         color = darkPalette[paletteIndex] || "#a1a1aa"
-        
+
         // Debug: log the color to verify
         // console.log(`Ring ${index}: colorScheme=${colorScheme}, resolvedTheme=${resolvedTheme}, paletteIndex=${paletteIndex}, color=${color}`)
       } else {
@@ -1817,9 +1883,9 @@ export default function AnalyticsPage() {
       needsWantsVisibility.hiddenCategorySet.size === 0
         ? rawTransactions
         : rawTransactions.filter((tx) => {
-            const category = normalizeCategoryName(tx.category)
-            return !needsWantsVisibility.hiddenCategorySet.has(category)
-          })
+          const category = normalizeCategoryName(tx.category)
+          return !needsWantsVisibility.hiddenCategorySet.has(category)
+        })
 
     const totals: Record<SpendingTier, number> = {
       Essentials: 0,
@@ -2408,6 +2474,9 @@ export default function AnalyticsPage() {
                 expensesChange={stats.expensesChange}
                 savingsRateChange={stats.savingsRateChange}
                 netWorthChange={stats.netWorthChange}
+                incomeTrend={statsTrends.incomeTrend}
+                expensesTrend={statsTrends.expensesTrend}
+                netWorthTrend={statsTrends.netWorthTrend}
               />
 
               {/* Draggable analytics chart section */}
@@ -2421,7 +2490,7 @@ export default function AnalyticsPage() {
                     {analyticsChartOrder.map((chartId) => {
                       // Determine if chart should be full width (transactionHistory is always full width, or if expanded)
                       const isFullWidth =
-                        chartId === "transactionHistory" || 
+                        chartId === "transactionHistory" ||
                         chartId === "netWorthAllocation" ||
                         chartId === "spendingStreamgraph" ||
                         chartId === "incomeExpensesTracking1" ||
@@ -2645,8 +2714,8 @@ export default function AnalyticsPage() {
                               <CardHeader>
                                 <div className="space-y-1 pointer-events-auto flex-shrink-0">
                                   <div className="flex items-center gap-2">
-                                    <ChartFavoriteButton 
-                                      chartId="spendingActivityRings" 
+                                    <ChartFavoriteButton
+                                      chartId="spendingActivityRings"
                                       chartTitle="Spending Activity Rings"
                                     />
                                     <CardTitle className="mb-0">Spending Activity Rings</CardTitle>

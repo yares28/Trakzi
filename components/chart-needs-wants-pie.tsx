@@ -7,6 +7,7 @@ import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
@@ -49,6 +50,7 @@ const getTextColor = (sliceColor: string, colorScheme?: string): string => {
 export function ChartNeedsWantsPie({ data: baseData = [], categoryControls, isLoading = false }: ChartNeedsWantsPieProps) {
   const { resolvedTheme } = useTheme()
   const { colorScheme, getPalette } = useColorScheme()
+  const { formatCurrency } = useCurrency()
   const [mounted, setMounted] = useState(false)
 
   const sanitizedBaseData = useMemo(
@@ -91,12 +93,10 @@ export function ChartNeedsWantsPie({ data: baseData = [], categoryControls, isLo
   const textColor = isDark ? "#9ca3af" : "#4b5563"
   const arcLinkLabelColor = isDark ? "#d1d5db" : "#374151"
 
-  // Format currency value
-  const valueFormatter = new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2,
-  })
+  // Format currency value using user's preferred currency
+  const valueFormatter = useMemo(() => ({
+    format: (value: number) => formatCurrency(value)
+  }), [formatCurrency])
 
   const renderInfoTrigger = () => (
     <div className="flex flex-col items-center gap-2">
@@ -208,7 +208,7 @@ export function ChartNeedsWantsPie({ data: baseData = [], categoryControls, isLo
             arcLinkLabelsColor={{ from: "color" }}
             arcLabelsSkipAngle={10}
             arcLabelsTextColor={(d: { color: string }) => getTextColor(d.color, colorScheme)}
-            valueFormat={(value) => `$${toNumericValue(value).toFixed(2)}`}
+            valueFormat={(value) => formatCurrency(toNumericValue(value))}
             colors={colorConfig}
             tooltip={({ datum }) => {
               const percentage = total > 0 ? (Number(datum.value) / total) * 100 : 0

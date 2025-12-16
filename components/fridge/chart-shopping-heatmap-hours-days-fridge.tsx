@@ -9,6 +9,7 @@ import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
     Card,
@@ -44,6 +45,7 @@ export function ChartShoppingHeatmapHoursDaysFridge({
 }: ChartShoppingHeatmapHoursDaysFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { getPalette } = useColorScheme()
+    const { formatCurrency, symbol } = useCurrency()
     const [mounted, setMounted] = useState(false)
     const chartRef = useRef<any>(null)
 
@@ -123,9 +125,9 @@ export function ChartShoppingHeatmapHoursDaysFridge({
     const textColor = isDark ? "#9ca3af" : "#6b7280"
     const bgColor = isDark ? "rgba(15,23,42,0)" : "rgba(248,250,252,0)"
 
-    const currencyFormatter = useMemo(() =>
-        new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }),
-        [])
+    const currencyFormatter = useMemo(() => ({
+        format: (value: number) => formatCurrency(value, { maximumFractionDigits: 0 })
+    }), [formatCurrency])
 
     const option = useMemo(() => {
         if (heatmapData.length === 0) return null
@@ -141,7 +143,7 @@ export function ChartShoppingHeatmapHoursDaysFridge({
                     return `
             <div style="font-size: 12px">
               <strong>${day} at ${hour}</strong><br/>
-              $${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} spent
+              ${symbol}${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} spent
             </div>
           `
                 },
@@ -181,7 +183,7 @@ export function ChartShoppingHeatmapHoursDaysFridge({
                 orient: "vertical",
                 right: 0,
                 top: "center",
-                text: [currencyFormatter.format(maxValue), "$0"],
+                text: [currencyFormatter.format(maxValue), `${symbol}0`],
                 textStyle: { color: textColor, fontSize: 10 },
                 inRange: {
                     color: isDark
@@ -285,11 +287,9 @@ export function ChartShoppingHeatmapHoursDaysFridge({
         )
     }
 
-    const spendingFormatter = new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        maximumFractionDigits: 0
-    })
+    const spendingFormatter = {
+        format: (value: number) => formatCurrency(value, { maximumFractionDigits: 0 })
+    }
 
     return (
         <Card className="@container/card">

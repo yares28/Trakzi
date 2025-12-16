@@ -11,8 +11,10 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
-
 export function NavDocuments({
   items,
 }: {
@@ -20,6 +22,11 @@ export function NavDocuments({
     name: string
     url: string
     icon: Icon
+    items?: {
+      name: string
+      url: string
+      icon?: Icon
+    }[]
   }[]
 }) {
   const pathname = usePathname()
@@ -38,6 +45,23 @@ export function NavDocuments({
                   <span>{item.name}</span>
                 </a>
               </SidebarMenuButton>
+              {item.items?.length ? (
+                <SidebarMenuSub>
+                  {item.items.map((subItem) => {
+                    const isSubActive = pathname === subItem.url
+                    return (
+                      <SidebarMenuSubItem key={subItem.name}>
+                        <SidebarMenuSubButton asChild isActive={isSubActive}>
+                          <a href={subItem.url}>
+                            {subItem.icon && <subItem.icon />}
+                            <span>{subItem.name}</span>
+                          </a>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    )
+                  })}
+                </SidebarMenuSub>
+              ) : null}
             </SidebarMenuItem>
           )
         })}

@@ -6,6 +6,7 @@ import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
     Card,
@@ -66,6 +67,7 @@ function normalizeCategoryName(value: string | null | undefined) {
 export function ChartDayOfWeekCategoryFridge({ receiptTransactions = [], isLoading = false }: ChartDayOfWeekCategoryFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { getPalette, colorScheme } = useColorScheme()
+    const { formatCurrency, symbol } = useCurrency()
     const [mounted, setMounted] = React.useState(false)
     const [selectedDay, setSelectedDay] = React.useState<number | null>(null)
     const chartRef = React.useRef<any>(null)
@@ -299,7 +301,7 @@ export function ChartDayOfWeekCategoryFridge({ receiptTransactions = [], isLoadi
             },
             yAxis: {
                 type: "value",
-                axisLabel: { formatter: (value: number) => `$${value.toLocaleString()}`, color: textColor },
+                axisLabel: { formatter: (value: number) => `${symbol}${value.toLocaleString()}`, color: textColor },
                 axisTick: { lineStyle: { color: textColor } },
                 axisLine: { lineStyle: { color: textColor } },
                 splitLine: { lineStyle: { color: resolvedTheme === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)" } },
@@ -435,10 +437,7 @@ export function ChartDayOfWeekCategoryFridge({ receiptTransactions = [], isLoadi
                 {option && data.length > 0 ? (
                     <div className="h-full w-full flex flex-col">
                         <div className="mb-2 text-sm font-medium text-foreground text-center">
-                            Total: ${data.reduce((sum, item) => sum + item.total, 0).toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                            })}
+                            Total: {formatCurrency(data.reduce((sum, item) => sum + item.total, 0))}
                         </div>
                         <div ref={containerRef} className="relative flex-1 min-h-0" style={{ minHeight: 0, minWidth: 0 }}>
                             {chartElement}

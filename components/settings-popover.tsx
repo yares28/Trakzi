@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Moon, Sun } from "lucide-react"
-import { IconPalette, IconCheck, IconCurrencyDollar } from "@tabler/icons-react"
+import { IconPalette, IconCheck, IconCurrencyDollar, IconCalendar } from "@tabler/icons-react"
 import { useTheme } from "next-themes"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import {
@@ -48,13 +48,24 @@ const currencies = [
   { value: "CNY", label: "CNY (¥)" },
 ]
 
+const timePeriods = [
+  { value: "all", label: "All Time" },
+  { value: "last7days", label: "Last 7 Days" },
+  { value: "last30days", label: "Last 30 Days" },
+  { value: "last3months", label: "Last 3 Months" },
+  { value: "last6months", label: "Last 6 Months" },
+  { value: "lastyear", label: "Last Year" },
+]
+
 const CURRENCY_STORAGE_KEY = "selected-currency"
+const DEFAULT_TIME_PERIOD_KEY = "default-time-period"
 
 export function SettingsPopover({ children }: { children: React.ReactNode }) {
   const { resolvedTheme, setTheme } = useTheme()
   const { colorScheme, setColorScheme } = useColorScheme()
   const [mounted, setMounted] = React.useState(false)
-  const [currency, setCurrency] = React.useState<string>("USD")
+  const [currency, setCurrency] = React.useState<string>("EUR")
+  const [defaultTimePeriod, setDefaultTimePeriod] = React.useState<string>("all")
 
   React.useEffect(() => {
     setMounted(true)
@@ -62,6 +73,11 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
     const savedCurrency = localStorage.getItem(CURRENCY_STORAGE_KEY)
     if (savedCurrency) {
       setCurrency(savedCurrency)
+    }
+    // Load default time period from localStorage
+    const savedTimePeriod = localStorage.getItem(DEFAULT_TIME_PERIOD_KEY)
+    if (savedTimePeriod) {
+      setDefaultTimePeriod(savedTimePeriod)
     }
   }, [])
 
@@ -72,6 +88,22 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new CustomEvent("currencyChanged", { detail: currency }))
     }
   }, [currency, mounted])
+
+  // Handle default time period changes
+  const handleTimePeriodChange = (value: string) => {
+    setDefaultTimePeriod(value)
+    localStorage.setItem(DEFAULT_TIME_PERIOD_KEY, value)
+
+    // Also apply this as the current filter immediately
+    const filterValue = value === "all" ? null : value
+    if (filterValue) {
+      localStorage.setItem("dateFilter", filterValue)
+    } else {
+      localStorage.removeItem("dateFilter")
+    }
+    // Dispatch event to notify all pages of the filter change
+    window.dispatchEvent(new CustomEvent("dateFilterChanged", { detail: filterValue }))
+  }
 
   const toggleTheme = () => {
     const nextTheme = resolvedTheme === "dark" ? "light" : "dark"
@@ -91,28 +123,34 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
         <div className="space-y-4">
           {/* Theme Switcher */}
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Sun className="h-4 w-4" />
-              <span>Theme</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                {resolvedTheme === "dark" ? (
+                  <Moon className="h-4 w-4" />
+                ) : (
+                  <Sun className="h-4 w-4" />
+                )}
+                <span>Theme</span>
+              </div>
+              <button
+                role="switch"
+                aria-checked={resolvedTheme === "dark"}
+                onClick={toggleTheme}
+                className="peer inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=checked]:bg-primary data-[state=unchecked]:bg-input"
+                data-state={resolvedTheme === "dark" ? "checked" : "unchecked"}
+              >
+                <span
+                  className="pointer-events-none flex h-6 w-6 rounded-full bg-background shadow-lg ring-0 transition-transform items-center justify-center data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0"
+                  data-state={resolvedTheme === "dark" ? "checked" : "unchecked"}
+                >
+                  {resolvedTheme === "dark" ? (
+                    <Moon className="h-4 w-4 text-primary" />
+                  ) : (
+                    <Sun className="h-4 w-4 text-amber-500" />
+                  )}
+                </span>
+              </button>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleTheme}
-              className="w-full justify-start"
-            >
-              {resolvedTheme === "dark" ? (
-                <>
-                  <Sun className="mr-2 h-4 w-4" />
-                  Switch to Light
-                </>
-              ) : (
-                <>
-                  <Moon className="mr-2 h-4 w-4" />
-                  Switch to Dark
-                </>
-              )}
-            </Button>
           </div>
 
           <Separator />
@@ -162,8 +200,34 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
               </SelectContent>
             </Select>
           </div>
+
+          <Separator />
+
+          {/* Default Time Period */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <IconCalendar className="h-4 w-4" />
+              <span>Default Time Period</span>
+            </div>
+            <Select value={defaultTimePeriod} onValueChange={handleTimePeriodChange}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select default time period" />
+              </SelectTrigger>
+              <SelectContent>
+                {timePeriods.map((period) => (
+                  <SelectItem key={period.value} value={period.value}>
+                    {period.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Set the default time range for charts and data
+            </p>
+          </div>
         </div>
       </PopoverContent>
     </Popover>
   )
 }
+

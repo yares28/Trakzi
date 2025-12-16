@@ -8,6 +8,7 @@ import { ResponsiveBar, BarDatum, BarTooltipProps } from "@nivo/bar"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import {
@@ -34,6 +35,7 @@ interface MonthlyData {
 export function ChartGroceryVsRestaurantFridge({ dateFilter }: ChartGroceryVsRestaurantFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { getPalette } = useColorScheme()
+    const { formatCurrency, symbol } = useCurrency()
     const [mounted, setMounted] = useState(false)
     const [data, setData] = useState<MonthlyData[]>([])
     const [isLoading, setIsLoading] = useState(true)
@@ -83,15 +85,12 @@ export function ChartGroceryVsRestaurantFridge({ dateFilter }: ChartGroceryVsRes
     const textColor = isDark ? "#9ca3af" : "#6b7280"
     const gridColor = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"
 
-    // Format currency
+    // Format currency using user's preferred currency
     const currencyFormatter = useMemo(
-        () =>
-            new Intl.NumberFormat("en-US", {
-                style: "currency",
-                currency: "USD",
-                maximumFractionDigits: 0,
-            }),
-        []
+        () => ({
+            format: (value: number) => formatCurrency(value, { maximumFractionDigits: 0 })
+        }),
+        [formatCurrency]
     )
 
     // Calculate totals for AI insights
@@ -219,7 +218,7 @@ export function ChartGroceryVsRestaurantFridge({ dateFilter }: ChartGroceryVsRes
                                     tickSize: 5,
                                     tickPadding: 5,
                                     tickRotation: 0,
-                                    format: (v: number) => `$${(v / 1000).toFixed(0)}k`,
+                                    format: (v: number) => `${symbol}${(v / 1000).toFixed(0)}k`,
                                 }}
                                 labelSkipWidth={30}
                                 labelSkipHeight={16}

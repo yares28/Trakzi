@@ -2,6 +2,8 @@
 
 import { useMemo } from "react"
 import { IconTrendingDown, IconTrendingUp } from "@tabler/icons-react"
+import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 
 import { Badge } from "@/components/ui/badge"
 import {
@@ -13,6 +15,9 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
+// Trend data point type
+type TrendDataPoint = { date: string; value: number }
+
 interface SectionCardsProps {
   totalIncome?: number
   totalExpenses?: number
@@ -22,6 +27,10 @@ interface SectionCardsProps {
   expensesChange?: number
   savingsRateChange?: number
   netWorthChange?: number
+  // Trend data arrays for each metric
+  incomeTrend?: TrendDataPoint[]
+  expensesTrend?: TrendDataPoint[]
+  netWorthTrend?: TrendDataPoint[]
 }
 
 type CardId = "income" | "expenses" | "netWorth"
@@ -35,15 +44,94 @@ interface CardData {
   footerText: string
   footerSubtext: string
   formatOptions: { minimumFractionDigits: number; maximumFractionDigits: number }
+  trendColor: string
+  seed: number
+  trendData: TrendDataPoint[]
+}
+
+// Blurred trend line background component with real data support
+function TrendLineBackground({
+  color,
+  seed = 0,
+  dataPoints = []
+}: {
+  color: string;
+  seed?: number;
+  dataPoints?: TrendDataPoint[];
+}) {
+  const pathData = useMemo(() => {
+    // If we don't have enough data points, don't render anything
+    if (!dataPoints || dataPoints.length < 2) {
+      return null
+    }
+
+    const values = dataPoints.map(p => p.value)
+    const minVal = Math.min(...values)
+    const maxVal = Math.max(...values)
+    const range = maxVal - minVal || 1 // Avoid division by zero
+
+    // Normalize values to Y coordinates (40-85 range, inverted because SVG Y is top-down)
+    // Lower part of the card (leaving space at top for content)
+    const normalizedPoints = values.map((val, i) => {
+      const x = (i / (values.length - 1)) * 100
+      // Map value to 40-85 range (40 = top of wave area, 85 = bottom)
+      const normalizedY = 85 - ((val - minVal) / range) * 45
+      return { x, y: normalizedY }
+    })
+
+    // Create smooth curve through points using quadratic curves
+    let d = `M 0 100 L 0 ${normalizedPoints[0].y}`
+
+    for (let i = 0; i < normalizedPoints.length - 1; i++) {
+      const curr = normalizedPoints[i]
+      const next = normalizedPoints[i + 1]
+      const midX = (curr.x + next.x) / 2
+      d += ` Q ${midX} ${curr.y} ${next.x} ${next.y}`
+    }
+
+    d += ` L 100 100 Z`
+    return d
+  }, [dataPoints])
+
+  // Don't render anything if no valid path data
+  if (!pathData) {
+    return null
+  }
+
+  const gradientId = `trend-gradient-main-${seed}`
+
+  return (
+    <svg
+      className="absolute inset-0 w-full h-full pointer-events-none"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      style={{ filter: 'blur(8px)' }}
+    >
+      <defs>
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor={color} stopOpacity="0" />
+          <stop offset="30%" stopColor={color} stopOpacity="0.08" />
+          <stop offset="70%" stopColor={color} stopOpacity="0.15" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.2" />
+        </linearGradient>
+      </defs>
+      <path
+        d={pathData}
+        fill={`url(#${gradientId})`}
+      />
+    </svg>
+  )
 }
 
 function CardComponent({ card }: { card: CardData }) {
+  const { formatCurrency } = useCurrency()
   return (
-    <Card className="@container/card relative group">
+    <Card className="@container/card relative group overflow-hidden">
+      <TrendLineBackground color={card.trendColor} seed={card.seed} dataPoints={card.trendData} />
       <CardHeader>
         <CardDescription>{card.title}</CardDescription>
         <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-          ${card.value.toLocaleString(undefined, card.formatOptions)}
+          {formatCurrency(card.value, card.formatOptions)}
         </CardTitle>
         <CardAction>
           <Badge variant="outline">
@@ -77,6 +165,9 @@ export function SectionCards({
   expensesChange = 0,
   savingsRateChange = 0,
   netWorthChange = 0,
+  incomeTrend = [],
+  expensesTrend = [],
+  netWorthTrend = [],
 }: SectionCardsProps) {
   // Ensure all values are numbers (handle case where API returns strings)
   const safeTotalIncome = Number(totalIncome) || 0
@@ -88,6 +179,18 @@ export function SectionCards({
   const safeSavingsRateChange = Number(savingsRateChange) || 0
   const safeNetWorthChange = Number(netWorthChange) || 0
 
+  const { getPalette } = useColorScheme()
+
+  // Get distinct colors from palette for each card
+  const trendColors = useMemo(() => {
+    const palette = getPalette().filter(c => c !== "#c3c3c3")
+    return [
+      palette[0] || "#14b8a6", // Income
+      palette[1] || "#22c55e", // Expenses
+      palette[2] || "#3b82f6", // Net Worth
+    ]
+  }, [getPalette])
+
   const cardData = useMemo<Record<CardId, CardData>>(() => ({
     income: {
       id: "income",
@@ -95,11 +198,13 @@ export function SectionCards({
       value: safeTotalIncome,
       change: safeIncomeChange,
       description: "Total Income",
-      footerText: `${
-        safeIncomeChange >= 0 ? "Income growing" : "Income decreased"
-      } this month`,
+      footerText: `${safeIncomeChange >= 0 ? "Income growing" : "Income decreased"
+        } this month`,
       footerSubtext: "Compared to last month",
       formatOptions: { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+      trendColor: trendColors[0],
+      seed: 1,
+      trendData: incomeTrend,
     },
     expenses: {
       id: "expenses",
@@ -107,16 +212,18 @@ export function SectionCards({
       value: safeTotalExpenses,
       change: safeExpensesChange,
       description: "Total Expenses",
-      footerText: `${
-        safeExpensesChange <= 0
-          ? "Reduced spending"
-          : "Spending increased"
-      } this period`,
+      footerText: `${safeExpensesChange <= 0
+        ? "Reduced spending"
+        : "Spending increased"
+        } this period`,
       footerSubtext:
         safeExpensesChange <= 0
           ? "Great progress on budgeting"
           : "Review your expenses",
       formatOptions: { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+      trendColor: trendColors[1],
+      seed: 2,
+      trendData: expensesTrend,
     },
     netWorth: {
       id: "netWorth",
@@ -124,11 +231,13 @@ export function SectionCards({
       value: safeNetWorth,
       change: safeNetWorthChange,
       description: "Net Worth",
-      footerText: `${
-        safeNetWorthChange >= 0 ? "Wealth growing" : "Wealth decreased"
-      }`,
+      footerText: `${safeNetWorthChange >= 0 ? "Wealth growing" : "Wealth decreased"
+        }`,
       footerSubtext: "Compared to last month",
       formatOptions: { minimumFractionDigits: 0, maximumFractionDigits: 0 },
+      trendColor: trendColors[2],
+      seed: 3,
+      trendData: netWorthTrend,
     },
   }), [
     safeTotalIncome,
@@ -137,6 +246,10 @@ export function SectionCards({
     safeIncomeChange,
     safeExpensesChange,
     safeNetWorthChange,
+    trendColors,
+    incomeTrend,
+    expensesTrend,
+    netWorthTrend,
   ])
 
   const cardOrder: CardId[] = ["income", "expenses", "netWorth"]

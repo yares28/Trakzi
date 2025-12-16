@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import { type DateFilterType } from "@/components/date-filter"
+import { useDateFilter } from "@/components/date-filter-provider"
 import { FileUpload01 } from "@/components/file-upload-01"
 import { ChartAreaInteractiveFridge } from "@/components/fridge/chart-area-interactive-fridge"
 import { ChartCategoryFlowFridge } from "@/components/fridge/chart-category-flow-fridge"
@@ -279,7 +280,7 @@ function isFileDragEvent(event: React.DragEvent) {
 export function FridgePageClient() {
   const { user, isLoaded: isUserLoaded } = useUser()
 
-  const [dateFilter, setDateFilter] = useState<DateFilterType | null>(null)
+  const { filter: dateFilter } = useDateFilter()
   const [receiptTransactions, setReceiptTransactions] = useState<ReceiptTransactionRow[]>([])
   const [isLoadingReceiptTransactions, setIsLoadingReceiptTransactions] = useState(true)
   const [receiptsRefreshNonce, setReceiptsRefreshNonce] = useState(0)
@@ -1123,6 +1124,85 @@ export function FridgePageClient() {
     }
   }, [receiptLineItems])
 
+  // Calculate trend data for each metric (daily aggregation)
+  const metricsTrends = useMemo(() => {
+    // Group data by date
+    const dateData = new Map<string, {
+      totalSpent: number;
+      receiptIds: Set<string>;
+      storeNames: Set<string>;
+    }>()
+
+    receiptLineItems.forEach((item) => {
+      const date = item.receiptDate
+      if (!date) return
+
+      if (!dateData.has(date)) {
+        dateData.set(date, {
+          totalSpent: 0,
+          receiptIds: new Set(),
+          storeNames: new Set(),
+        })
+      }
+
+      const dayData = dateData.get(date)!
+      dayData.totalSpent += Number(item.totalPrice) || 0
+      dayData.receiptIds.add(item.receiptId)
+      dayData.storeNames.add(normalizeMerchantName(item.storeName))
+    })
+
+    // Sort dates and create trend arrays
+    const sortedDates = Array.from(dateData.keys()).sort()
+
+    // Total Spent trend (cumulative daily spending)
+    const totalSpentTrend = sortedDates.map(date => ({
+      date,
+      value: dateData.get(date)!.totalSpent
+    }))
+
+    // Shopping Trips trend (cumulative receipts per day)
+    let cumulativeTrips = 0
+    const shoppingTripsTrend = sortedDates.map(date => {
+      cumulativeTrips += dateData.get(date)!.receiptIds.size
+      return { date, value: cumulativeTrips }
+    })
+
+    // Stores Visited trend (cumulative unique stores)
+    const allStoresSeen = new Set<string>()
+    const storesVisitedTrend = sortedDates.map(date => {
+      dateData.get(date)!.storeNames.forEach(store => allStoresSeen.add(store))
+      return { date, value: allStoresSeen.size }
+    })
+
+    // Average Receipt trend (running average)
+    let runningTotalSpent = 0
+    let runningTripCount = 0
+    const averageReceiptTrend = sortedDates.map(date => {
+      runningTotalSpent += dateData.get(date)!.totalSpent
+      runningTripCount += dateData.get(date)!.receiptIds.size
+      const avg = runningTripCount > 0 ? runningTotalSpent / runningTripCount : 0
+      return { date, value: avg }
+    })
+
+    // Trips Frequency trend (rolling average days between trips)
+    // This shows the pattern of how often shopping happens
+    const tripsFrequencyTrend = sortedDates.map((date, index) => {
+      if (index === 0) return { date, value: 0 }
+      const prevDate = new Date(sortedDates[index - 1])
+      const currDate = new Date(date)
+      const daysDiff = (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24)
+      return { date, value: daysDiff }
+    })
+
+    return {
+      totalSpentTrend,
+      shoppingTripsTrend,
+      storesVisitedTrend,
+      averageReceiptTrend,
+      tripsFrequencyTrend,
+    }
+  }, [receiptLineItems])
+
   const spendTrendData = useMemo(() => {
     const totals = new Map<string, number>()
     receiptLineItems.forEach((item) => {
@@ -1613,7 +1693,7 @@ export function FridgePageClient() {
         case "grocerySpendTrend":
           return <ChartAreaInteractiveFridge data={spendTrendData} />
         case "groceryCategoryRankings":
-          return <ChartCategoryFlowFridge receiptTransactions={receiptTransactions} isLoading={isLoadingReceiptTransactions} />
+          return <ChartCategoryFlowFridge receiptTransactions={receiptTransactions} isLoading={isLoadingReceiptTransactions} dateFilter={dateFilter} />
         case "groceryExpenseBreakdown":
           return <ChartExpenseBreakdownFridge data={basketBreakdownData} isLoading={isLoadingReceiptTransactions} />
         case "groceryMacronutrientBreakdown":
@@ -1712,6 +1792,11 @@ export function FridgePageClient() {
                 storesVisited={metrics.storesVisited}
                 averageReceipt={metrics.averageReceipt}
                 tripsFrequency={metrics.tripsFrequency}
+                totalSpentTrend={metricsTrends.totalSpentTrend}
+                shoppingTripsTrend={metricsTrends.shoppingTripsTrend}
+                storesVisitedTrend={metricsTrends.storesVisitedTrend}
+                averageReceiptTrend={metricsTrends.averageReceiptTrend}
+                tripsFrequencyTrend={metricsTrends.tripsFrequencyTrend}
               />
 
               <div className="w-full mb-4">

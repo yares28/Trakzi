@@ -5,6 +5,7 @@ import { useTheme } from "next-themes"
 import { ResponsivePie } from "@nivo/pie"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
@@ -78,6 +79,7 @@ const getTextColor = (sliceColor: string, colorScheme?: string): string => {
 export function ChartEmptyVsNutritiousFridge({ receiptTransactions = [], categoryControls, isLoading = false }: ChartEmptyVsNutritiousFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { colorScheme, getPalette } = useColorScheme()
+    const { formatCurrency } = useCurrency()
     const [mounted, setMounted] = useState(false)
 
     useEffect(() => {
@@ -153,12 +155,10 @@ export function ChartEmptyVsNutritiousFridge({ receiptTransactions = [], categor
     const textColor = isDark ? "#9ca3af" : "#4b5563"
     const arcLinkLabelColor = isDark ? "#d1d5db" : "#374151"
 
-    // Format currency value
-    const valueFormatter = new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: "USD",
-        maximumFractionDigits: 2,
-    })
+    // Format currency value using user's preferred currency
+    const valueFormatter = useMemo(() => ({
+        format: (value: number) => formatCurrency(value)
+    }), [formatCurrency])
 
     const renderInfoTrigger = () => (
         <div className="flex flex-col items-center gap-2">
@@ -271,7 +271,7 @@ export function ChartEmptyVsNutritiousFridge({ receiptTransactions = [], categor
                         arcLinkLabelsColor={{ from: "color" }}
                         arcLabelsSkipAngle={20}
                         arcLabelsTextColor={(d: { color: string }) => getTextColor(d.color, colorScheme)}
-                        valueFormat={(value) => `$${value.toFixed(2)}`}
+                        valueFormat={(value) => formatCurrency(value)}
                         colors={colorConfig}
                         tooltip={({ datum }) => {
                             const percentage = total > 0 ? (Number(datum.value) / total) * 100 : 0

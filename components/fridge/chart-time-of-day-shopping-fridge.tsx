@@ -7,6 +7,7 @@ import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
     Card,
@@ -75,6 +76,7 @@ const HOUR_LABELS = [
 export function ChartTimeOfDayShoppingFridge({ receiptTransactions = [], isLoading = false }: ChartTimeOfDayShoppingFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { getPalette } = useColorScheme()
+    const { formatCurrency } = useCurrency()
     const palette = useMemo(() => getPalette().filter((color) => color !== "#c3c3c3"), [getPalette])
     const svgRef = useRef<SVGSVGElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
@@ -420,7 +422,7 @@ export function ChartTimeOfDayShoppingFridge({ receiptTransactions = [], isLoadi
                                 </div>
                                 <div className="flex justify-between gap-3">
                                     <span className="text-foreground/80">Spent:</span>
-                                    <span className="font-semibold text-foreground">${tooltip.spending.toFixed(2)}</span>
+                                    <span className="font-semibold text-foreground">{formatCurrency(tooltip.spending)}</span>
                                 </div>
                             </div>
                         </div>

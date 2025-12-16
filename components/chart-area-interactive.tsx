@@ -9,6 +9,7 @@ import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { type ChartId } from "@/lib/chart-card-sizes.config"
 import { formatDateForDisplay } from "@/lib/date"
 import {
@@ -39,6 +40,7 @@ interface ChartAreaInteractiveProps {
 
 export function ChartAreaInteractive({ data = [], categoryControls, chartId = "incomeExpensesTracking1", isLoading = false }: ChartAreaInteractiveProps) {
   const { colorScheme, getPalette } = useColorScheme()
+  const { formatCurrency } = useCurrency()
   const { resolvedTheme } = useTheme()
   const [tooltip, setTooltip] = useState<{ date: string; income: number; expenses: number } | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number | undefined; y: number | undefined } | null>(null)
@@ -56,16 +58,16 @@ export function ChartAreaInteractive({ data = [], categoryControls, chartId = "i
   // Use lighter colors from palette for income, darker colors for expenses
   // Reversed palette: darkest at end, lightest at beginning
   const reversedPalette = [...palette].reverse()
-  
+
   // Apply custom colors only for dark color palette
   const incomeColor = "#fe8339" // Income color set to "#fe8339"
   let expensesColorLight = reversedPalette[reversedPalette.length - 1] // Darkest for expenses (light mode)
-  
+
   // Determine income and expense colors for light and dark modes
   let incomeColorLight = incomeColor
   let incomeColorDark = incomeColor
   let expensesColorDark = "#D88C6C" // Dark mode: expenses color to "#D88C6C"
-  
+
   if (colorScheme === "dark") {
     // For dark color scheme
     incomeColorLight = "#fe8339"
@@ -76,7 +78,7 @@ export function ChartAreaInteractive({ data = [], categoryControls, chartId = "i
     // For other color schemes, use palette colors for light mode
     expensesColorLight = reversedPalette[reversedPalette.length - 1]
   }
-  
+
   // Use theme-based colors for proper CSS variable generation
   const chartConfig = {
     cashflow: {
@@ -97,19 +99,17 @@ export function ChartAreaInteractive({ data = [], categoryControls, chartId = "i
       },
     },
   } satisfies ChartConfig
-  
+
   // For stroke colors, use current theme colors
   const incomeBorderColor = isDark ? incomeColorDark : incomeColorLight
   const expensesBorderColor = isDark ? expensesColorDark : expensesColorLight
 
   const filteredData = data
 
-  // Format currency value
-  const valueFormatter = new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2,
-  })
+  // Format currency value using user's preferred currency
+  const valueFormatter = {
+    format: (value: number) => formatCurrency(value)
+  }
 
   // Track mouse movement so the tooltip position animates smoothly with the cursor
   useEffect(() => {
@@ -203,22 +203,22 @@ export function ChartAreaInteractive({ data = [], categoryControls, chartId = "i
     )
   }
 
-    return (
-      <Card className="@container/card">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <GridStackCardDragHandle />
-            <ChartFavoriteButton
-              chartId={chartId}
-              chartTitle="Income & Expenses Tracking"
-              size="md"
-            />
-            <CardTitle>Income & Expenses Tracking</CardTitle>
-          </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoAction()}
-          </CardAction>
-        </CardHeader>
+  return (
+    <Card className="@container/card">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <GridStackCardDragHandle />
+          <ChartFavoriteButton
+            chartId={chartId}
+            chartTitle="Income & Expenses Tracking"
+            size="md"
+          />
+          <CardTitle>Income & Expenses Tracking</CardTitle>
+        </div>
+        <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+          {renderInfoAction()}
+        </CardAction>
+      </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 min-w-0 overflow-hidden">
         <div ref={containerRef} className="relative">
           <div ref={chartContainerRef}>
@@ -226,7 +226,7 @@ export function ChartAreaInteractive({ data = [], categoryControls, chartId = "i
               config={chartConfig}
               className="aspect-auto h-[250px] w-full min-w-0"
             >
-              <AreaChart 
+              <AreaChart
                 data={filteredData}
               >
                 <defs>

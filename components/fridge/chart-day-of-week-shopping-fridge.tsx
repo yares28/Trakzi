@@ -7,6 +7,7 @@ import { IconGripVertical } from "@tabler/icons-react"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import {
   Card,
   CardAction,
@@ -33,6 +34,7 @@ interface ChartDayOfWeekShoppingFridgeProps {
 
 export function ChartDayOfWeekShoppingFridge({ data = [] }: ChartDayOfWeekShoppingFridgeProps) {
   const { getPalette } = useColorScheme()
+  const { formatCurrency, symbol } = useCurrency()
   const palette = getPalette().filter((color) => color !== "#c3c3c3")
   const barColor = palette[palette.length - 1] || "#8884d8"
 
@@ -89,7 +91,7 @@ export function ChartDayOfWeekShoppingFridge({ data = [] }: ChartDayOfWeekShoppi
           <BarChart data={data} margin={{ left: 12, right: 12 }}>
             <CartesianGrid vertical={false} />
             <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} />
-            <YAxis tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(v) => `$${v}`} />
+            <YAxis tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(v) => `${symbol}${v}`} />
             <ChartTooltip
               cursor={false}
               content={
@@ -99,7 +101,7 @@ export function ChartDayOfWeekShoppingFridge({ data = [] }: ChartDayOfWeekShoppi
                     <div className="flex flex-1 items-center justify-between">
                       <span className="text-muted-foreground">Spend</span>
                       <span className="text-foreground font-mono font-medium tabular-nums">
-                        ${Number(value).toFixed(2)}
+                        {formatCurrency(Number(value))}
                       </span>
                     </div>
                   )}

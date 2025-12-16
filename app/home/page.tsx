@@ -68,6 +68,7 @@ import { Progress } from "@/components/ui/progress"
 import { memo } from "react"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
 import { useFavorites } from "@/components/favorites-provider"
+import { useDateFilter } from "@/components/date-filter-provider"
 import { getChartMetadata } from "@/lib/chart-metadata"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { useTheme } from "next-themes"
@@ -141,7 +142,7 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
       const minSize = 200
       const maxSize = 800
       const clampedSize = Math.max(minSize, Math.min(maxSize, size))
-      
+
       setContainerSize(prev => {
         if (Math.abs(prev.width - clampedSize) > 1) {
           return { width: clampedSize, height: clampedSize }
@@ -406,14 +407,14 @@ export default function Page() {
   const router = useRouter()
   const { setRefreshCallback } = useTransactionDialog()
   const { favorites } = useFavorites()
-  
+
   // GridStack refs for favorites section
   const favoritesGridRef = useRef<HTMLDivElement>(null)
   const favoritesGridStackRef = useRef<GridStack | null>(null)
-  
+
   // Saved chart sizes for favorites
   const [savedFavoriteSizes, setSavedFavoriteSizes] = useState<Record<string, { w: number; h: number; x?: number; y?: number }>>({})
-  
+
   const [isDragging, setIsDragging] = useState(false)
   const [droppedFile, setDroppedFile] = useState<File | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -534,12 +535,12 @@ export default function Page() {
         const widgetData = Array.from(items).map((item) => {
           const el = item as HTMLElement
           const chartId = el.getAttribute('data-chart-id') || ''
-          
+
           let w = 12
           let h = 6
           let x = 0
           let y = 0
-          
+
           if (chartId && savedFavoriteSizes[chartId]) {
             const saved = savedFavoriteSizes[chartId]
             const snapped = snapToAllowedSize(saved.w, saved.h)
@@ -564,20 +565,20 @@ export default function Page() {
               w = snapped.w
             }
           }
-          
+
           const sizeConfig = getChartCardSize(chartId as ChartId)
           h = Math.max(sizeConfig.minH, Math.min(sizeConfig.maxH, h))
           w = Math.max(sizeConfig.minW, Math.min(sizeConfig.maxW, w))
-          
+
           return { el, w, h, x, y, chartId, minW: sizeConfig.minW, maxW: sizeConfig.maxW, minH: sizeConfig.minH, maxH: sizeConfig.maxH }
         })
-        
+
         // Stack vertically if no saved position
         let currentY = 0
         const widgets = widgetData.map((data) => {
           let finalY = data.y
           let finalX = data.x
-          
+
           if (!savedFavoriteSizes[data.chartId]) {
             const defaultSize = DEFAULT_FAVORITE_SIZES[data.chartId]
             if (defaultSize) {
@@ -588,7 +589,7 @@ export default function Page() {
               currentY += data.h
             }
           }
-          
+
           return {
             el: data.el,
             w: data.w,
@@ -602,10 +603,10 @@ export default function Page() {
             chartId: data.chartId,
           }
         })
-        
+
         favoritesGridStackRef.current.removeAll(false)
         favoritesGridStackRef.current.load(widgets)
-        
+
         // Set constraints on nodes
         setTimeout(() => {
           if (favoritesGridStackRef.current) {
@@ -623,9 +624,9 @@ export default function Page() {
             })
           }
         }, 100)
-        
+
         // Note: No compact() - cards stay where user places them
-        
+
         // Save on resize
         favoritesGridStackRef.current.on('resizestop', (event, item) => {
           if (item && favoritesGridStackRef.current) {
@@ -637,20 +638,20 @@ export default function Page() {
                 const maxH = node.maxH ?? 20
                 const minW = node.minW ?? 6
                 const maxW = node.maxW ?? 12
-                
+
                 const clampedW = Math.max(minW, Math.min(maxW, node.w || 6))
                 const clampedH = Math.max(minH, Math.min(maxH, node.h || 6))
-                
+
                 if (node.w !== clampedW || node.h !== clampedH) {
                   favoritesGridStackRef.current.update(item, {
                     w: clampedW,
                     h: clampedH,
                   })
                 }
-                
+
                 const newSizes = { ...savedFavoriteSizes }
-                newSizes[chartId] = { 
-                  w: clampedW, 
+                newSizes[chartId] = {
+                  w: clampedW,
                   h: clampedH,
                   x: node.x || 0,
                   y: node.y || 0
@@ -660,7 +661,7 @@ export default function Page() {
             }
           }
         })
-        
+
         // Save on drag
         favoritesGridStackRef.current.on('dragstop', (event, items) => {
           if (items && favoritesGridStackRef.current) {
@@ -675,8 +676,8 @@ export default function Page() {
                   const chartId = el.getAttribute('data-chart-id')
                   if (chartId && node.w && node.h) {
                     const snapped = snapToAllowedSize(node.w, node.h)
-                    newSizes[chartId] = { 
-                      w: snapped.w, 
+                    newSizes[chartId] = {
+                      w: snapped.w,
                       h: snapped.h,
                       x: node.x || 0,
                       y: node.y || 0
@@ -699,12 +700,12 @@ export default function Page() {
       if (!favoritesGridRef.current) return
       const items = favoritesGridRef.current.querySelectorAll('.grid-stack-item')
       if (items.length === 0) return
-      
+
       if (favoritesGridStackRef.current) {
         favoritesGridStackRef.current.destroy(false)
         favoritesGridStackRef.current = null
       }
-      
+
       // Use requestAnimationFrame to ensure DOM is stable before GridStack manipulates it
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -733,7 +734,7 @@ export default function Page() {
     category: string
   }>>([])
   // Date filter state
-  const [dateFilter, setDateFilter] = useState<string | null>(null)
+  const { filter: dateFilter } = useDateFilter()
   const incomeExpenseVisibility = useChartCategoryVisibility({
     chartId: "home:income-expense",
     storageScope: "home",
@@ -1286,9 +1287,9 @@ export default function Page() {
         if (existing) {
           existing.amount += amount
         } else {
-          categoryEntry.subcategories.set(subCategory, { 
-            amount, 
-            fullDescription: tx.description || subCategory 
+          categoryEntry.subcategories.set(subCategory, {
+            amount,
+            fullDescription: tx.description || subCategory
           })
         }
       })
@@ -1300,10 +1301,10 @@ export default function Page() {
           const sortedSubs = Array.from(subcategories.entries()).sort((a, b) => b[1].amount - a[1].amount)
           const topSubs = sortedSubs.slice(0, maxSubCategories)
           const remainingTotal = sortedSubs.slice(maxSubCategories).reduce((sum, [, value]) => sum + value.amount, 0)
-          const children = topSubs.map(([subName, { amount: loc, fullDescription }]) => ({ 
-            name: subName, 
+          const children = topSubs.map(([subName, { amount: loc, fullDescription }]) => ({
+            name: subName,
             loc,
-            fullDescription 
+            fullDescription
           }))
           if (remainingTotal > 0) {
             children.push({ name: "Other", loc: remainingTotal, fullDescription: "Other transactions" })
@@ -1407,8 +1408,8 @@ export default function Page() {
       .filter(tx => tx.amount < 0)
       .reduce((sum, tx) => sum + tx.amount, 0))
 
-    const currentSavingsRate = currentIncome > 0 
-      ? ((currentIncome - currentExpenses) / currentIncome) * 100 
+    const currentSavingsRate = currentIncome > 0
+      ? ((currentIncome - currentExpenses) / currentIncome) * 100
       : 0
 
     // Net worth is calculated as income minus expenses
@@ -1440,28 +1441,28 @@ export default function Page() {
       .filter(tx => tx.amount < 0)
       .reduce((sum, tx) => sum + tx.amount, 0))
 
-    const previousSavingsRate = previousIncome > 0 
-      ? ((previousIncome - previousExpenses) / previousIncome) * 100 
+    const previousSavingsRate = previousIncome > 0
+      ? ((previousIncome - previousExpenses) / previousIncome) * 100
       : 0
 
     // Previous net worth is also calculated as income minus expenses
     const previousNetWorth = previousIncome - previousExpenses
 
     // Calculate percentage changes
-    const incomeChange = previousIncome > 0 
-      ? ((currentIncome - previousIncome) / previousIncome) * 100 
+    const incomeChange = previousIncome > 0
+      ? ((currentIncome - previousIncome) / previousIncome) * 100
       : 0
 
-    const expensesChange = previousExpenses > 0 
-      ? ((currentExpenses - previousExpenses) / previousExpenses) * 100 
+    const expensesChange = previousExpenses > 0
+      ? ((currentExpenses - previousExpenses) / previousExpenses) * 100
       : 0
 
-    const savingsRateChange = previousSavingsRate !== 0 
-      ? currentSavingsRate - previousSavingsRate 
+    const savingsRateChange = previousSavingsRate !== 0
+      ? currentSavingsRate - previousSavingsRate
       : 0
 
-    const netWorthChange = previousNetWorth > 0 
-      ? ((netWorth - previousNetWorth) / previousNetWorth) * 100 
+    const netWorthChange = previousNetWorth > 0
+      ? ((netWorth - previousNetWorth) / previousNetWorth) * 100
       : 0
 
     return {
@@ -1476,10 +1477,76 @@ export default function Page() {
     }
   }, [transactions])
 
+  // Calculate trend data for stat cards (daily cumulative values)
+  const statsTrends = useMemo(() => {
+    if (!transactions || transactions.length === 0) {
+      return {
+        incomeTrend: [],
+        expensesTrend: [],
+        netWorthTrend: [],
+      }
+    }
+
+    // Group transactions by date
+    const dateData = new Map<string, { income: number; expenses: number; balance: number | null }>()
+
+    transactions.forEach((tx) => {
+      const date = tx.date.split("T")[0]
+      if (!dateData.has(date)) {
+        dateData.set(date, { income: 0, expenses: 0, balance: null })
+      }
+      const dayData = dateData.get(date)!
+      if (tx.amount > 0) {
+        dayData.income += tx.amount
+      } else {
+        dayData.expenses += Math.abs(tx.amount)
+      }
+      // Keep the last balance for the day
+      if (tx.balance !== null && tx.balance !== undefined) {
+        dayData.balance = tx.balance
+      }
+    })
+
+    // Sort dates
+    const sortedDates = Array.from(dateData.keys()).sort()
+
+    // Cumulative income trend
+    let cumulativeIncome = 0
+    const incomeTrend = sortedDates.map(date => {
+      cumulativeIncome += dateData.get(date)!.income
+      return { date, value: cumulativeIncome }
+    })
+
+    // Cumulative expenses trend
+    let cumulativeExpenses = 0
+    const expensesTrend = sortedDates.map(date => {
+      cumulativeExpenses += dateData.get(date)!.expenses
+      return { date, value: cumulativeExpenses }
+    })
+
+    // Net worth trend (use balance if available, otherwise cumulative income - expenses)
+    let runningBalance = 0
+    const netWorthTrend = sortedDates.map(date => {
+      const dayData = dateData.get(date)!
+      if (dayData.balance !== null) {
+        runningBalance = dayData.balance
+      } else {
+        runningBalance += dayData.income - dayData.expenses
+      }
+      return { date, value: runningBalance }
+    })
+
+    return {
+      incomeTrend,
+      expensesTrend,
+      netWorthTrend,
+    }
+  }, [transactions])
+
   // Fetch transactions for charts
   const fetchTransactions = useCallback(async (bypassCache = false) => {
     try {
-      const url = dateFilter 
+      const url = dateFilter
         ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
         : "/api/transactions"
       console.log("[Home] Fetching transactions from:", url)
@@ -1492,7 +1559,7 @@ export default function Page() {
       console.log("[Home] Response data:", data)
       console.log("[Home] Is array?", Array.isArray(data))
       console.log("[Home] Data length:", Array.isArray(data) ? data.length : "N/A")
-      
+
       if (response.ok) {
         if (Array.isArray(data)) {
           console.log(`[Home] Setting ${data.length} transactions`)
@@ -1579,33 +1646,16 @@ export default function Page() {
         fetchTransactions(true)
       }, 300)
     }
-    
+
     // Use capture phase to ensure we catch the event
     window.addEventListener("transactionAdded", handleTransactionAdded, true)
-    
+
     return () => {
       window.removeEventListener("transactionAdded", handleTransactionAdded, true)
     }
   }, [fetchTransactions])
 
-  // Listen for date filter changes from SiteHeader
-  useEffect(() => {
-    const handleFilterChange = (event: CustomEvent) => {
-      setDateFilter(event.detail)
-    }
-
-    window.addEventListener("dateFilterChanged", handleFilterChange as EventListener)
-    
-    // Load initial filter from localStorage
-    const savedFilter = localStorage.getItem("dateFilter")
-    if (savedFilter) {
-      setDateFilter(savedFilter)
-    }
-
-    return () => {
-      window.removeEventListener("dateFilterChanged", handleFilterChange as EventListener)
-    }
-  }, [])
+  // Date filter is now handled globally via DateFilterProvider
 
   // Parse CSV when it changes
   useEffect(() => {
@@ -1618,7 +1668,7 @@ export default function Page() {
         // Ensure category is a string, not undefined
         category: row.category || undefined
       }))
-      console.log(`[HOME] Parsed ${rowsWithId.length} rows with categories:`, 
+      console.log(`[HOME] Parsed ${rowsWithId.length} rows with categories:`,
         rowsWithId.slice(0, 3).map(r => ({ desc: r.description.substring(0, 30), cat: r.category }))
       )
       setParsedRows(rowsWithId)
@@ -1742,7 +1792,7 @@ export default function Page() {
       // Track parsing progress based on actual CSV parsing stages
       // Stage 1: File upload (0-15%)
       setParsingProgress(5)
-      
+
       try {
         // Parse the file
         const formData = new FormData()
@@ -1766,10 +1816,10 @@ export default function Page() {
         } catch (categoriesError) {
           console.warn("[HOME] Failed to load categories from API. Using defaults.", categoriesError)
         }
-        
+
         // Stage 2: Uploading file (15-25%)
         setParsingProgress(20)
-        
+
         const response = await fetch("/api/statements/parse", {
           method: "POST",
           headers: {
@@ -1803,7 +1853,7 @@ export default function Page() {
         // Stage 3: Server processing - track response stream progress (25-90%)
         // This reflects actual CSV parsing progress as data streams in
         let responseText = ""
-        
+
         if (response.body) {
           const reader = response.body.getReader()
           const contentLength = response.headers.get("content-length")
@@ -1816,11 +1866,11 @@ export default function Page() {
           while (true) {
             const { done, value } = await reader.read()
             if (done) break
-            
+
             const chunk = decoder.decode(value, { stream: true })
             chunks.push(chunk)
             received += value.length
-            
+
             // Update progress: 25% (upload) + 65% (processing/download) based on bytes received
             // This matches the actual CSV parsing progress as data streams in
             if (total > 0) {
@@ -1873,7 +1923,7 @@ export default function Page() {
         console.log("[HOME] CSV header:", csvLines[0]);
         console.log("[HOME] CSV first data row:", csvLines[1]);
         console.log("[HOME] CSV second data row:", csvLines[2]);
-        
+
         // Check if category column exists
         const header = csvLines[0].toLowerCase();
         if (!header.includes('category')) {
@@ -2057,8 +2107,8 @@ export default function Page() {
         } as React.CSSProperties
       }
     >
-      <AppSidebar 
-        variant="inset" 
+      <AppSidebar
+        variant="inset"
         onQuickCreate={() => setIsTransactionDialogOpen(true)}
       />
       <SidebarInset>
@@ -2114,6 +2164,9 @@ export default function Page() {
                 expensesChange={stats.expensesChange}
                 savingsRateChange={stats.savingsRateChange}
                 netWorthChange={stats.netWorthChange}
+                incomeTrend={statsTrends.incomeTrend}
+                expensesTrend={statsTrends.expensesTrend}
+                netWorthTrend={statsTrends.netWorthTrend}
               />
               {/* Favorite Charts Section */}
               {Array.from(favorites).length > 0 && (
@@ -2131,7 +2184,7 @@ export default function Page() {
                       const defaultSize = DEFAULT_FAVORITE_SIZES[chartId] || { w: 12, h: 6, x: 0, y: 0 }
                       const initialW = savedSize?.w ?? defaultSize.w
                       const initialH = savedSize?.h ?? defaultSize.h
-                      
+
                       return (
                         <div
                           key={chartId}
@@ -2166,8 +2219,8 @@ export default function Page() {
                                 <CardHeader className="flex flex-row items-start justify-between gap-2 flex-1 min-h-[420px] pb-6">
                                   <div className="space-y-1 z-10">
                                     <div className="flex items-center gap-2">
-                                      <ChartFavoriteButton 
-                                        chartId="spendingActivityRings" 
+                                      <ChartFavoriteButton
+                                        chartId="spendingActivityRings"
                                         chartTitle="Spending Activity Rings"
                                         size="md"
                                       />
@@ -2400,131 +2453,131 @@ export default function Page() {
                             </div>
                           ) : (
                             <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                                  {(() => {
-                                    if (chartId === "incomeExpensesTracking1" || chartId === "incomeExpensesTracking2") {
-                                      return (
-                                        <ChartAreaInteractive
-                                          chartId={chartId}
-                                          categoryControls={incomeExpenseControls}
-                                          data={incomeExpensesChartData}
-                                        />
-                                      )
-                                    }
-                                    if (chartId === "spendingCategoryRankings") {
-                                      return (
-                                        <ChartCategoryFlow 
-                                          categoryControls={categoryFlowControls} 
-                                          data={categoryFlowChartData}
-                                        />
-                                      )
-                                    }
-                                    if (chartId === "moneyFlow") {
-                                      return (
-                                        <ChartSpendingFunnel 
-                                          categoryControls={spendingFunnelControls} 
-                                          data={spendingFunnelChartData}
-                                        />
-                                      )
-                                    }
-                                    if (chartId === "expenseBreakdown") {
-                                      return (
-                                        <ChartExpensesPie 
-                                          categoryControls={expensesPieControls} 
-                                          data={expensesPieChartData}
-                                        />
-                                      )
-                                    }
-                                    if (chartId === "netWorthAllocation") {
-                                      return (
-                                        <ChartTreeMap 
-                                          categoryControls={treeMapControls}
-                                          data={treeMapChartData}
-                                        />
-                                      )
-                                    }
-                                    if (chartId === "needsWantsBreakdown") {
-                                      return (
-                                        <ChartNeedsWantsPie 
-                                          data={expensesPieChartData}
-                                          categoryControls={expensesPieControls}
-                                        />
-                                      )
-                                    }
-                                    if (chartId === "categoryBubbleMap") {
-                                      return (
-                                        <ChartCategoryBubble 
-                                          data={chartTransactions}
-                                        />
-                                      )
-                                    }
-                                    if (chartId === "householdSpendMix") {
-                                      return (
-                                        <ChartPolarBar 
-                                          data={polarBarChartData}
-                                          categoryControls={expensesPieControls}
-                                        />
-                                      )
-                                    }
-                                    // spendingActivityRings is handled above in the conditional structure
-                                    if (chartId === "spendingStreamgraph") {
-                                      return (
-                                        <ChartSpendingStreamgraph 
-                                          data={spendingStreamData.data}
-                                          keys={spendingStreamData.keys}
-                                          categoryControls={streamgraphControls}
-                                        />
-                                      )
-                                    }
-                                    if (chartId === "transactionHistory") {
-                                      return (
-                                        <ChartSwarmPlot 
-                                          data={chartTransactions.map((tx, idx) => ({
-                                            id: `tx-${tx.id || idx}`,
-                                            group: normalizeCategoryName(tx.category),
-                                            price: Math.abs(tx.amount),
-                                            volume: Math.min(Math.max(Math.abs(tx.amount) / 50, 4), 20),
-                                            category: normalizeCategoryName(tx.category),
-                                          })).filter(item => item.price > 0)}
-                                        />
-                                      )
-                                    }
-                                    if (chartId === "dailyTransactionActivity") {
-                                      return (
-                                        <ChartTransactionCalendar />
-                                      )
-                                    }
-                                    if (chartId === "dayOfWeekSpending") {
-                                      return (
-                                        <ChartDayOfWeekSpending 
-                                          data={chartTransactions}
-                                          categoryControls={expensesPieControls}
-                                        />
-                                      )
-                                    }
-                                    if (chartId === "allMonthsCategorySpending") {
-                                      return (
-                                        <ChartAllMonthsCategorySpending 
-                                          data={chartTransactions}
-                                          categoryControls={expensesPieControls}
-                                        />
-                                      )
-                                    }
-                                    if (chartId === "singleMonthCategorySpending") {
-                                      return (
-                                        <ChartSingleMonthCategorySpending 
-                                          dateFilter={dateFilter}
-                                        />
-                                      )
-                                    }
-                                    if (chartId === "dayOfWeekCategory") {
-                                      return (
-                                        <ChartDayOfWeekCategory 
-                                          dateFilter={dateFilter}
-                                        />
-                                      )
-                                    }
-                                    return null
-                                  })()}
+                              {(() => {
+                                if (chartId === "incomeExpensesTracking1" || chartId === "incomeExpensesTracking2") {
+                                  return (
+                                    <ChartAreaInteractive
+                                      chartId={chartId}
+                                      categoryControls={incomeExpenseControls}
+                                      data={incomeExpensesChartData}
+                                    />
+                                  )
+                                }
+                                if (chartId === "spendingCategoryRankings") {
+                                  return (
+                                    <ChartCategoryFlow
+                                      categoryControls={categoryFlowControls}
+                                      data={categoryFlowChartData}
+                                    />
+                                  )
+                                }
+                                if (chartId === "moneyFlow") {
+                                  return (
+                                    <ChartSpendingFunnel
+                                      categoryControls={spendingFunnelControls}
+                                      data={spendingFunnelChartData}
+                                    />
+                                  )
+                                }
+                                if (chartId === "expenseBreakdown") {
+                                  return (
+                                    <ChartExpensesPie
+                                      categoryControls={expensesPieControls}
+                                      data={expensesPieChartData}
+                                    />
+                                  )
+                                }
+                                if (chartId === "netWorthAllocation") {
+                                  return (
+                                    <ChartTreeMap
+                                      categoryControls={treeMapControls}
+                                      data={treeMapChartData}
+                                    />
+                                  )
+                                }
+                                if (chartId === "needsWantsBreakdown") {
+                                  return (
+                                    <ChartNeedsWantsPie
+                                      data={expensesPieChartData}
+                                      categoryControls={expensesPieControls}
+                                    />
+                                  )
+                                }
+                                if (chartId === "categoryBubbleMap") {
+                                  return (
+                                    <ChartCategoryBubble
+                                      data={chartTransactions}
+                                    />
+                                  )
+                                }
+                                if (chartId === "householdSpendMix") {
+                                  return (
+                                    <ChartPolarBar
+                                      data={polarBarChartData}
+                                      categoryControls={expensesPieControls}
+                                    />
+                                  )
+                                }
+                                // spendingActivityRings is handled above in the conditional structure
+                                if (chartId === "spendingStreamgraph") {
+                                  return (
+                                    <ChartSpendingStreamgraph
+                                      data={spendingStreamData.data}
+                                      keys={spendingStreamData.keys}
+                                      categoryControls={streamgraphControls}
+                                    />
+                                  )
+                                }
+                                if (chartId === "transactionHistory") {
+                                  return (
+                                    <ChartSwarmPlot
+                                      data={chartTransactions.map((tx, idx) => ({
+                                        id: `tx-${tx.id || idx}`,
+                                        group: normalizeCategoryName(tx.category),
+                                        price: Math.abs(tx.amount),
+                                        volume: Math.min(Math.max(Math.abs(tx.amount) / 50, 4), 20),
+                                        category: normalizeCategoryName(tx.category),
+                                      })).filter(item => item.price > 0)}
+                                    />
+                                  )
+                                }
+                                if (chartId === "dailyTransactionActivity") {
+                                  return (
+                                    <ChartTransactionCalendar />
+                                  )
+                                }
+                                if (chartId === "dayOfWeekSpending") {
+                                  return (
+                                    <ChartDayOfWeekSpending
+                                      data={chartTransactions}
+                                      categoryControls={expensesPieControls}
+                                    />
+                                  )
+                                }
+                                if (chartId === "allMonthsCategorySpending") {
+                                  return (
+                                    <ChartAllMonthsCategorySpending
+                                      data={chartTransactions}
+                                      categoryControls={expensesPieControls}
+                                    />
+                                  )
+                                }
+                                if (chartId === "singleMonthCategorySpending") {
+                                  return (
+                                    <ChartSingleMonthCategorySpending
+                                      dateFilter={dateFilter}
+                                    />
+                                  )
+                                }
+                                if (chartId === "dayOfWeekCategory") {
+                                  return (
+                                    <ChartDayOfWeekCategory
+                                      dateFilter={dateFilter}
+                                    />
+                                  )
+                                }
+                                return null
+                              })()}
                             </div>
                           )}
                         </div>
@@ -2533,295 +2586,318 @@ export default function Page() {
                   </div>
                 </div>
               )}
+              {Array.from(favorites).length === 0 && (
+                <div className="px-4 lg:px-6 mb-6">
+                  <Card className="border-dashed border-2 bg-muted/30">
+                    <CardHeader className="text-center py-10">
+                      <div className="mx-auto bg-primary/10 p-4 rounded-full w-fit mb-4">
+                        <IconCircleCheck className="w-8 h-8 text-primary" />
+                      </div>
+                      <CardTitle className="text-xl">Customize Your Dashboard</CardTitle>
+                      <CardDescription className="max-w-lg mx-auto mt-2 text-base">
+                        You haven't favorited any charts yet. Visit Analytics or Trends pages and click the star icon on any chart to pin it here for quick access.
+                      </CardDescription>
+                      <div className="flex justify-center gap-4 mt-6">
+                        <Button variant="outline" onClick={() => router.push('/analytics')}>
+                          Go to Analytics
+                        </Button>
+                        <Button variant="outline" onClick={() => router.push('/trends')}>
+                          Go to Trends
+                        </Button>
+                      </div>
+                    </CardHeader>
+                  </Card>
+                </div>
+              )}
               {/* Charts removed - keeping only SectionCards and DataTable */}
               {false && (
-              <>
-              <div className="px-4 lg:px-6">
-                <ChartAreaInteractive
-                  categoryControls={incomeExpenseControls}
-                  data={useMemo(() => {
-                  // Group transactions by date first
-                  const transactionsByDate = new Map<string, Array<{ amount: number }>>()
-                  chartTransactions.forEach(tx => {
-                    const date = tx.date.split('T')[0]
-                    if (!transactionsByDate.has(date)) {
-                      transactionsByDate.set(date, [])
-                    }
-                    transactionsByDate.get(date)!.push({ amount: tx.amount })
-                  })
+                <>
+                  <div className="px-4 lg:px-6">
+                    <ChartAreaInteractive
+                      categoryControls={incomeExpenseControls}
+                      data={useMemo(() => {
+                        // Group transactions by date first
+                        const transactionsByDate = new Map<string, Array<{ amount: number }>>()
+                        chartTransactions.forEach(tx => {
+                          const date = tx.date.split('T')[0]
+                          if (!transactionsByDate.has(date)) {
+                            transactionsByDate.set(date, [])
+                          }
+                          transactionsByDate.get(date)!.push({ amount: tx.amount })
+                        })
 
-                  // Sort dates chronologically
-                  const sortedDates = Array.from(transactionsByDate.keys()).sort((a, b) => a.localeCompare(b))
+                        // Sort dates chronologically
+                        const sortedDates = Array.from(transactionsByDate.keys()).sort((a, b) => a.localeCompare(b))
 
-                  // Calculate income by date (keep as is - daily income)
-                  const incomeByDate = new Map<string, number>()
-                  sortedDates.forEach(date => {
-                    const dayTransactions = transactionsByDate.get(date)!
-                    const dayIncome = dayTransactions
-                      .filter(tx => tx.amount > 0)
-                      .reduce((sum, tx) => sum + tx.amount, 0)
-                    if (dayIncome > 0) {
-                      incomeByDate.set(date, dayIncome)
-                    }
-                  })
+                        // Calculate income by date (keep as is - daily income)
+                        const incomeByDate = new Map<string, number>()
+                        sortedDates.forEach(date => {
+                          const dayTransactions = transactionsByDate.get(date)!
+                          const dayIncome = dayTransactions
+                            .filter(tx => tx.amount > 0)
+                            .reduce((sum, tx) => sum + tx.amount, 0)
+                          if (dayIncome > 0) {
+                            incomeByDate.set(date, dayIncome)
+                          }
+                        })
 
-                  // Calculate cumulative expenses (accumulate over time, reduced by income)
-                  let cumulativeExpenses = 0
-                  const cumulativeExpensesByDate = new Map<string, number>()
-                  
-                  sortedDates.forEach(date => {
-                    const dayTransactions = transactionsByDate.get(date)!
-                    
-                    // Process all transactions for this day
-                    dayTransactions.forEach(tx => {
-                      if (tx.amount < 0) {
-                        // Add expense to cumulative total
-                        cumulativeExpenses += Math.abs(tx.amount)
-                      } else if (tx.amount > 0) {
-                        // Reduce cumulative expenses by income amount
-                        cumulativeExpenses = Math.max(0, cumulativeExpenses - tx.amount)
-                      }
-                    })
-                    
-                    // Store the cumulative value at the end of this date
-                    cumulativeExpensesByDate.set(date, cumulativeExpenses)
-                  })
+                        // Calculate cumulative expenses (accumulate over time, reduced by income)
+                        let cumulativeExpenses = 0
+                        const cumulativeExpensesByDate = new Map<string, number>()
 
-                  // Combine income and cumulative expenses by date
-                  const result = sortedDates.map(date => ({
-                    date,
-                    desktop: incomeByDate.get(date) || 0,
-                    mobile: cumulativeExpensesByDate.get(date) || 0
-                  }))
+                        sortedDates.forEach(date => {
+                          const dayTransactions = transactionsByDate.get(date)!
 
-                  return result
-                }, [chartTransactions])}
-                />
-              </div>
-              <div className="px-4 lg:px-6">
-                <ChartCategoryFlow categoryControls={categoryFlowControls} data={useMemo(() => {
-                  if (!chartTransactions || chartTransactions.length === 0) {
-                    return []
-                  }
-
-                  // Group by category and month
-                  const categoryMap = new Map<string, Map<string, number>>()
-                  const allMonths = new Set<string>()
-                  
-                  chartTransactions.forEach(tx => {
-                    const category = tx.category || "Other"
-                    // Apply visibility filters
-                    const normalizedCategory = normalizeCategoryName(category)
-                    if (categoryFlowVisibility.hiddenCategorySet.has(normalizedCategory)) {
-                      return
-                    }
-                    const date = new Date(tx.date)
-                    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-                    
-                    allMonths.add(monthKey)
-                    
-                    if (!categoryMap.has(category)) {
-                      categoryMap.set(category, new Map())
-                    }
-                    const monthMap = categoryMap.get(category)!
-                    const current = monthMap.get(monthKey) || 0
-                    monthMap.set(monthKey, current + Math.abs(tx.amount))
-                  })
-                  
-                  // Sort months chronologically
-                  const sortedMonths = Array.from(allMonths).sort((a, b) => a.localeCompare(b))
-                  
-                  // Calculate totals per month for normalization
-                  const monthTotals = new Map<string, number>()
-                  sortedMonths.forEach(month => {
-                    let total = 0
-                    categoryMap.forEach((months) => {
-                      total += months.get(month) || 0
-                    })
-                    monthTotals.set(month, total)
-                  })
-                  
-                  // Normalize data: convert to percentages so each month sums to 100
-                  // This ensures consistent bar widths across all time periods
-                  return Array.from(categoryMap.entries())
-                    .map(([category, months]) => ({
-                      id: category,
-                      data: sortedMonths.map(month => {
-                        const value = months.get(month) || 0
-                        const total = monthTotals.get(month) || 1
-                        // Convert to percentage, with a minimum of 0.1% to ensure visibility
-                        const percentage = total > 0 ? (value / total) * 100 : 0
-                        return {
-                          x: month,
-                          y: Math.max(percentage, 0.1) // Minimum 0.1% to ensure thin bars are still visible
-                        }
-                      })
-                    }))
-                    .filter(series => series.data.some(() => {
-                      // Check if the original value (before normalization) was > 0
-                      const month = series.data.find(d => d.x === series.data.find(d => d.y > 0.1)?.x)?.x
-                      if (!month) return false
-                      const originalValue = categoryMap.get(series.id)?.get(month) || 0
-                      return originalValue > 0
-                    })) // Only include categories with at least one non-zero value
-                }, [chartTransactions])} />
-              </div>
-              {/* Funnel and Pie Charts Side by Side */}
-              <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
-                <ChartSpendingFunnel categoryControls={spendingFunnelControls} data={useMemo(() => {
-                  const totalIncome = chartTransactions.filter(tx => tx.amount > 0).reduce((sum, tx) => sum + tx.amount, 0)
-                  
-                  // Group expenses by category
-                  const categoryMap = new Map<string, number>()
-                  chartTransactions.filter(tx => tx.amount < 0).forEach(tx => {
-                    const category = tx.category || "Other"
-                    const current = categoryMap.get(category) || 0
-                    categoryMap.set(category, current + Math.abs(tx.amount))
-                  })
-                  
-                  // Calculate total expenses and savings first
-                  const totalExpenses = Array.from(categoryMap.values()).reduce((sum, amount) => sum + amount, 0)
-                  const savings = totalIncome - totalExpenses
-                  
-                  // Sort categories by amount (descending) to get spending order
-                  const sortedCategories = Array.from(categoryMap.entries())
-                    .map(([category, amount]) => ({ category, amount }))
-                    .sort((a, b) => b.amount - a.amount)
-                  
-                  const top2Categories = sortedCategories.slice(0, 2)
-                  
-                  // Calculate remaining expenses (all categories beyond top 2)
-                  const shownExpenses = top2Categories.reduce((sum, cat) => sum + cat.amount, 0)
-                  const remainingExpenses = totalExpenses - shownExpenses
-                  
-                  // Build expense categories array
-                  const expenseCategories: Array<{ id: string; value: number; label: string }> = []
-                  
-                  // Add top 2 categories (highest spending)
-                  top2Categories.forEach(cat => {
-                    expenseCategories.push({
-                      id: cat.category.toLowerCase().replace(/\s+/g, '-'),
-                      value: cat.amount,
-                      label: cat.category
-                    })
-                  })
-                  
-                  // Add "Others" category (remaining categories, which are less than top 2)
-                  if (remainingExpenses > 0) {
-                    expenseCategories.push({
-                      id: "others",
-                      value: remainingExpenses,
-                      label: "Others"
-                    })
-                  }
-                  
-                  // Sort expense categories by value (descending) to ensure proper order
-                  expenseCategories.sort((a, b) => b.value - a.value)
-                  
-                  // Build the funnel data in order: Income -> Categories (highest to lowest spending) -> Savings
-                  const funnelData: Array<{ id: string; value: number; label: string }> = []
-                  
-                  // Add Income first
-                  if (totalIncome > 0) {
-                    funnelData.push({ id: "income", value: totalIncome, label: "Income" })
-                  }
-                  
-                  // Add expense categories in descending order of spending
-                  funnelData.push(...expenseCategories)
-                  
-                  // Add Savings at the end
-                  if (savings > 0) {
-                    funnelData.push({ id: "savings", value: savings, label: "Savings" })
-                  }
-                  
-                  return funnelData.filter(item => item.value > 0)
-                }, [chartTransactions])} />
-                <ChartExpensesPie categoryControls={expensesPieControls} data={useMemo(() => {
-                  // Group expenses by category
-                  const categoryMap = new Map<string, number>()
-                  chartTransactions.filter(tx => tx.amount < 0).forEach(tx => {
-                    const category = tx.category || "Other"
-                    const current = categoryMap.get(category) || 0
-                    categoryMap.set(category, current + Math.abs(tx.amount))
-                  })
-                  
-                  return Array.from(categoryMap.entries())
-                    .map(([id, value]) => ({ id, label: id, value }))
-                    .sort((a, b) => b.value - a.value)
-                }, [chartTransactions])} />
-              </div>
-              <div className="px-4 lg:px-6">
-                <ChartTreeMap 
-                  categoryControls={treeMapControls}
-                  data={useMemo(() => {
-                    const categoryMap = new Map<string, { total: number; subcategories: Map<string, { amount: number; fullDescription: string }> }>()
-
-                    const getSubCategoryLabel = (description?: string) => {
-                      if (!description) return "Misc"
-                      // Use first meaningful chunk of the description as a subcategory label
-                      const delimiterSplit = description.split(/[-–|]/)[0] ?? description
-                      const trimmed = delimiterSplit.trim()
-                      return trimmed.length > 24 ? `${trimmed.slice(0, 21)}…` : (trimmed || "Misc")
-                    }
-
-                    chartTransactions
-                      .filter(tx => tx.amount < 0)
-                      .forEach(tx => {
-                        const category = tx.category || "Other"
-                        const amount = Math.abs(tx.amount)
-                        if (!categoryMap.has(category)) {
-                          categoryMap.set(category, { total: 0, subcategories: new Map() })
-                        }
-                        const categoryEntry = categoryMap.get(category)!
-                        categoryEntry.total += amount
-
-                        const subCategory = getSubCategoryLabel(tx.description)
-                        const existing = categoryEntry.subcategories.get(subCategory)
-                        if (existing) {
-                          existing.amount += amount
-                        } else {
-                          categoryEntry.subcategories.set(subCategory, { 
-                            amount, 
-                            fullDescription: tx.description || subCategory 
+                          // Process all transactions for this day
+                          dayTransactions.forEach(tx => {
+                            if (tx.amount < 0) {
+                              // Add expense to cumulative total
+                              cumulativeExpenses += Math.abs(tx.amount)
+                            } else if (tx.amount > 0) {
+                              // Reduce cumulative expenses by income amount
+                              cumulativeExpenses = Math.max(0, cumulativeExpenses - tx.amount)
+                            }
                           })
+
+                          // Store the cumulative value at the end of this date
+                          cumulativeExpensesByDate.set(date, cumulativeExpenses)
+                        })
+
+                        // Combine income and cumulative expenses by date
+                        const result = sortedDates.map(date => ({
+                          date,
+                          desktop: incomeByDate.get(date) || 0,
+                          mobile: cumulativeExpensesByDate.get(date) || 0
+                        }))
+
+                        return result
+                      }, [chartTransactions])}
+                    />
+                  </div>
+                  <div className="px-4 lg:px-6">
+                    <ChartCategoryFlow categoryControls={categoryFlowControls} data={useMemo(() => {
+                      if (!chartTransactions || chartTransactions.length === 0) {
+                        return []
+                      }
+
+                      // Group by category and month
+                      const categoryMap = new Map<string, Map<string, number>>()
+                      const allMonths = new Set<string>()
+
+                      chartTransactions.forEach(tx => {
+                        const category = tx.category || "Other"
+                        // Apply visibility filters
+                        const normalizedCategory = normalizeCategoryName(category)
+                        if (categoryFlowVisibility.hiddenCategorySet.has(normalizedCategory)) {
+                          return
                         }
+                        const date = new Date(tx.date)
+                        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+
+                        allMonths.add(monthKey)
+
+                        if (!categoryMap.has(category)) {
+                          categoryMap.set(category, new Map())
+                        }
+                        const monthMap = categoryMap.get(category)!
+                        const current = monthMap.get(monthKey) || 0
+                        monthMap.set(monthKey, current + Math.abs(tx.amount))
                       })
 
-                    const maxSubCategories = 5
+                      // Sort months chronologically
+                      const sortedMonths = Array.from(allMonths).sort((a, b) => a.localeCompare(b))
 
-                    return {
-                      name: "Expenses",
-                      children: Array.from(categoryMap.entries())
-                        .map(([name, { total, subcategories }]) => {
-                          const sortedSubs = Array.from(subcategories.entries()).sort((a, b) => b[1].amount - a[1].amount)
-                          const topSubs = sortedSubs.slice(0, maxSubCategories)
-                          const remainingTotal = sortedSubs.slice(maxSubCategories).reduce((sum, [, value]) => sum + value.amount, 0)
-                          const children = topSubs.map(([subName, { amount: loc, fullDescription }]) => ({ 
-                            name: subName, 
-                            loc,
-                            fullDescription 
-                          }))
-                          if (remainingTotal > 0) {
-                            children.push({ name: "Other", loc: remainingTotal, fullDescription: "Other transactions" })
-                          }
-                          return {
-                            name,
-                            children: children.length > 0 ? children : [{ name, loc: total, fullDescription: name }]
-                          }
+                      // Calculate totals per month for normalization
+                      const monthTotals = new Map<string, number>()
+                      sortedMonths.forEach(month => {
+                        let total = 0
+                        categoryMap.forEach((months) => {
+                          total += months.get(month) || 0
                         })
-                        .sort((a, b) => {
-                          const aTotal = a.children.reduce((sum, child) => sum + (child.loc || 0), 0)
-                          const bTotal = b.children.reduce((sum, child) => sum + (child.loc || 0), 0)
-                          return bTotal - aTotal
+                        monthTotals.set(month, total)
+                      })
+
+                      // Normalize data: convert to percentages so each month sums to 100
+                      // This ensures consistent bar widths across all time periods
+                      return Array.from(categoryMap.entries())
+                        .map(([category, months]) => ({
+                          id: category,
+                          data: sortedMonths.map(month => {
+                            const value = months.get(month) || 0
+                            const total = monthTotals.get(month) || 1
+                            // Convert to percentage, with a minimum of 0.1% to ensure visibility
+                            const percentage = total > 0 ? (value / total) * 100 : 0
+                            return {
+                              x: month,
+                              y: Math.max(percentage, 0.1) // Minimum 0.1% to ensure thin bars are still visible
+                            }
+                          })
+                        }))
+                        .filter(series => series.data.some(() => {
+                          // Check if the original value (before normalization) was > 0
+                          const month = series.data.find(d => d.x === series.data.find(d => d.y > 0.1)?.x)?.x
+                          if (!month) return false
+                          const originalValue = categoryMap.get(series.id)?.get(month) || 0
+                          return originalValue > 0
+                        })) // Only include categories with at least one non-zero value
+                    }, [chartTransactions])} />
+                  </div>
+                  {/* Funnel and Pie Charts Side by Side */}
+                  <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
+                    <ChartSpendingFunnel categoryControls={spendingFunnelControls} data={useMemo(() => {
+                      const totalIncome = chartTransactions.filter(tx => tx.amount > 0).reduce((sum, tx) => sum + tx.amount, 0)
+
+                      // Group expenses by category
+                      const categoryMap = new Map<string, number>()
+                      chartTransactions.filter(tx => tx.amount < 0).forEach(tx => {
+                        const category = tx.category || "Other"
+                        const current = categoryMap.get(category) || 0
+                        categoryMap.set(category, current + Math.abs(tx.amount))
+                      })
+
+                      // Calculate total expenses and savings first
+                      const totalExpenses = Array.from(categoryMap.values()).reduce((sum, amount) => sum + amount, 0)
+                      const savings = totalIncome - totalExpenses
+
+                      // Sort categories by amount (descending) to get spending order
+                      const sortedCategories = Array.from(categoryMap.entries())
+                        .map(([category, amount]) => ({ category, amount }))
+                        .sort((a, b) => b.amount - a.amount)
+
+                      const top2Categories = sortedCategories.slice(0, 2)
+
+                      // Calculate remaining expenses (all categories beyond top 2)
+                      const shownExpenses = top2Categories.reduce((sum, cat) => sum + cat.amount, 0)
+                      const remainingExpenses = totalExpenses - shownExpenses
+
+                      // Build expense categories array
+                      const expenseCategories: Array<{ id: string; value: number; label: string }> = []
+
+                      // Add top 2 categories (highest spending)
+                      top2Categories.forEach(cat => {
+                        expenseCategories.push({
+                          id: cat.category.toLowerCase().replace(/\s+/g, '-'),
+                          value: cat.amount,
+                          label: cat.category
                         })
-                    }
-                  }, [chartTransactions])}
-                />
-              </div>
-              </>
+                      })
+
+                      // Add "Others" category (remaining categories, which are less than top 2)
+                      if (remainingExpenses > 0) {
+                        expenseCategories.push({
+                          id: "others",
+                          value: remainingExpenses,
+                          label: "Others"
+                        })
+                      }
+
+                      // Sort expense categories by value (descending) to ensure proper order
+                      expenseCategories.sort((a, b) => b.value - a.value)
+
+                      // Build the funnel data in order: Income -> Categories (highest to lowest spending) -> Savings
+                      const funnelData: Array<{ id: string; value: number; label: string }> = []
+
+                      // Add Income first
+                      if (totalIncome > 0) {
+                        funnelData.push({ id: "income", value: totalIncome, label: "Income" })
+                      }
+
+                      // Add expense categories in descending order of spending
+                      funnelData.push(...expenseCategories)
+
+                      // Add Savings at the end
+                      if (savings > 0) {
+                        funnelData.push({ id: "savings", value: savings, label: "Savings" })
+                      }
+
+                      return funnelData.filter(item => item.value > 0)
+                    }, [chartTransactions])} />
+                    <ChartExpensesPie categoryControls={expensesPieControls} data={useMemo(() => {
+                      // Group expenses by category
+                      const categoryMap = new Map<string, number>()
+                      chartTransactions.filter(tx => tx.amount < 0).forEach(tx => {
+                        const category = tx.category || "Other"
+                        const current = categoryMap.get(category) || 0
+                        categoryMap.set(category, current + Math.abs(tx.amount))
+                      })
+
+                      return Array.from(categoryMap.entries())
+                        .map(([id, value]) => ({ id, label: id, value }))
+                        .sort((a, b) => b.value - a.value)
+                    }, [chartTransactions])} />
+                  </div>
+                  <div className="px-4 lg:px-6">
+                    <ChartTreeMap
+                      categoryControls={treeMapControls}
+                      data={useMemo(() => {
+                        const categoryMap = new Map<string, { total: number; subcategories: Map<string, { amount: number; fullDescription: string }> }>()
+
+                        const getSubCategoryLabel = (description?: string) => {
+                          if (!description) return "Misc"
+                          // Use first meaningful chunk of the description as a subcategory label
+                          const delimiterSplit = description.split(/[-–|]/)[0] ?? description
+                          const trimmed = delimiterSplit.trim()
+                          return trimmed.length > 24 ? `${trimmed.slice(0, 21)}…` : (trimmed || "Misc")
+                        }
+
+                        chartTransactions
+                          .filter(tx => tx.amount < 0)
+                          .forEach(tx => {
+                            const category = tx.category || "Other"
+                            const amount = Math.abs(tx.amount)
+                            if (!categoryMap.has(category)) {
+                              categoryMap.set(category, { total: 0, subcategories: new Map() })
+                            }
+                            const categoryEntry = categoryMap.get(category)!
+                            categoryEntry.total += amount
+
+                            const subCategory = getSubCategoryLabel(tx.description)
+                            const existing = categoryEntry.subcategories.get(subCategory)
+                            if (existing) {
+                              existing.amount += amount
+                            } else {
+                              categoryEntry.subcategories.set(subCategory, {
+                                amount,
+                                fullDescription: tx.description || subCategory
+                              })
+                            }
+                          })
+
+                        const maxSubCategories = 5
+
+                        return {
+                          name: "Expenses",
+                          children: Array.from(categoryMap.entries())
+                            .map(([name, { total, subcategories }]) => {
+                              const sortedSubs = Array.from(subcategories.entries()).sort((a, b) => b[1].amount - a[1].amount)
+                              const topSubs = sortedSubs.slice(0, maxSubCategories)
+                              const remainingTotal = sortedSubs.slice(maxSubCategories).reduce((sum, [, value]) => sum + value.amount, 0)
+                              const children = topSubs.map(([subName, { amount: loc, fullDescription }]) => ({
+                                name: subName,
+                                loc,
+                                fullDescription
+                              }))
+                              if (remainingTotal > 0) {
+                                children.push({ name: "Other", loc: remainingTotal, fullDescription: "Other transactions" })
+                              }
+                              return {
+                                name,
+                                children: children.length > 0 ? children : [{ name, loc: total, fullDescription: name }]
+                              }
+                            })
+                            .sort((a, b) => {
+                              const aTotal = a.children.reduce((sum, child) => sum + (child.loc || 0), 0)
+                              const bTotal = b.children.reduce((sum, child) => sum + (child.loc || 0), 0)
+                              return bTotal - aTotal
+                            })
+                        }
+                      }, [chartTransactions])}
+                    />
+                  </div>
+                </>
               )}
-              <DataTable 
-                data={[]} 
+              <DataTable
+                data={[]}
                 transactions={transactions}
                 onTransactionAdded={fetchTransactions}
                 transactionDialogOpen={isTransactionDialogOpen}
@@ -2973,7 +3049,7 @@ export default function Page() {
                             <TableHead className="sticky top-0 z-20 bg-muted">Description</TableHead>
                             <TableHead className="sticky top-0 z-20 bg-muted text-right">Amount</TableHead>
                             <TableHead className="sticky top-0 z-20 bg-muted">Category</TableHead>
-        {parsedRows.some((row) => row.balance !== null && row.balance !== undefined) && (
+                            {parsedRows.some((row) => row.balance !== null && row.balance !== undefined) && (
                               <TableHead className="sticky top-0 z-20 bg-muted text-right">Balance</TableHead>
                             )}
                             <TableHead className="sticky top-0 z-20 bg-muted w-12"></TableHead>
@@ -2989,12 +3065,12 @@ export default function Page() {
                           ) : (
                             parsedRows.map((row) => {
                               const amount = typeof row.amount === 'number' ? row.amount : parseFloat(row.amount) || 0
-                              const balance = row.balance !== null && row.balance !== undefined 
-                                ? (typeof row.balance === 'number' ? row.balance : parseFloat(row.balance)) 
+                              const balance = row.balance !== null && row.balance !== undefined
+                                ? (typeof row.balance === 'number' ? row.balance : parseFloat(row.balance))
                                 : null
                               const category = row.category || 'Other'
                               const hasBalance = parsedRows.some((r) => r.balance !== null && r.balance !== undefined)
-                              
+
                               return (
                                 <MemoizedTableRow
                                   key={row.id ?? `${row.date}-${row.description}`}
@@ -3020,30 +3096,30 @@ export default function Page() {
           <Separator className="flex-shrink-0" />
           <div className="px-6 py-4 flex-shrink-0">
             <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={handleCancel}
-              disabled={isImporting}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleConfirm}
-              className="gap-2"
-              disabled={isParsing || isImporting || !!parseError || !parsedCsv}
-            >
-              {isImporting ? (
-                <>
-                  <IconLoader2 className="w-4 h-4 animate-spin" />
-                  Importing...
-                </>
-              ) : (
-                <>
-                  <IconUpload className="w-4 h-4" />
-                  Import to Database
-                </>
-              )}
-            </Button>
+              <Button
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isImporting}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirm}
+                className="gap-2"
+                disabled={isParsing || isImporting || !!parseError || !parsedCsv}
+              >
+                {isImporting ? (
+                  <>
+                    <IconLoader2 className="w-4 h-4 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <IconUpload className="w-4 h-4" />
+                    Import to Database
+                  </>
+                )}
+              </Button>
             </DialogFooter>
           </div>
         </DialogContent>

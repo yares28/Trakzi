@@ -5,8 +5,10 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/react";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ColorSchemeProvider } from "@/components/color-scheme-provider";
+import { CurrencyProvider } from "@/components/currency-provider";
 import { TransactionDialogProvider } from "@/components/transaction-dialog-provider";
 import { FavoritesProvider } from "@/components/favorites-provider";
+import { DateFilterProvider } from "@/components/date-filter-provider";
 import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
@@ -49,13 +51,17 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <ColorSchemeProvider>
-              <FavoritesProvider>
-                <TransactionDialogProvider>
-                  {children}
-                </TransactionDialogProvider>
-              </FavoritesProvider>
-              <Toaster />
-              <Analytics />
+              <CurrencyProvider>
+                <FavoritesProvider>
+                  <DateFilterProvider>
+                    <TransactionDialogProvider>
+                      {children}
+                    </TransactionDialogProvider>
+                  </DateFilterProvider>
+                </FavoritesProvider>
+                <Toaster />
+                <Analytics />
+              </CurrencyProvider>
             </ColorSchemeProvider>
           </ThemeProvider>
         </body>
@@ -63,3 +69,4 @@ export default function RootLayout({
     </ClerkProvider>
   );
 }
+

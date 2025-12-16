@@ -9,6 +9,7 @@ import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
+import { type DateFilterType } from "@/components/date-filter"
 import {
     Card,
     CardAction,
@@ -43,6 +44,7 @@ type ReceiptTransactionRow = {
 interface ChartCategoryFlowFridgeProps {
     receiptTransactions?: ReceiptTransactionRow[]
     isLoading?: boolean
+    dateFilter?: DateFilterType | null
 }
 
 function normalizeCategoryName(value: string | null | undefined) {
@@ -50,7 +52,7 @@ function normalizeCategoryName(value: string | null | undefined) {
     return trimmed || "Other"
 }
 
-export function ChartCategoryFlowFridge({ receiptTransactions = [], isLoading = false }: ChartCategoryFlowFridgeProps) {
+export function ChartCategoryFlowFridge({ receiptTransactions = [], isLoading = false, dateFilter }: ChartCategoryFlowFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { getPalette } = useColorScheme()
     const [mounted, setMounted] = useState(false)
@@ -59,47 +61,95 @@ export function ChartCategoryFlowFridge({ receiptTransactions = [], isLoading = 
         setMounted(true)
     }, [])
 
-    // Process receipt transactions to compute category rankings over months
+    // Determine time granularity based on date filter
+    const getTimeKey = (date: Date): string => {
+        if (!dateFilter) {
+            // All time: use months
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+        }
+
+        switch (dateFilter) {
+            case "last7days":
+                // Daily grouping for 7 days
+                return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+            case "last30days":
+                // Weekly grouping for 30 days
+                const weekStart = new Date(date)
+                weekStart.setDate(date.getDate() - date.getDay()) // Start of week (Sunday)
+                return `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, "0")}-${String(weekStart.getDate()).padStart(2, "0")}`
+            case "last3months":
+            case "last6months":
+            case "lastyear":
+            default:
+                // Monthly grouping for longer periods
+                return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+        }
+    }
+
+    // Format time key for display based on granularity
+    const formatTimeLabel = (timeKey: string): string => {
+        const parts = timeKey.split("-")
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+        if (parts.length === 3) {
+            // Daily or weekly format (YYYY-MM-DD)
+            const month = monthNames[parseInt(parts[1], 10) - 1]
+            const day = parseInt(parts[2], 10)
+            if (dateFilter === "last7days") {
+                // Show "Mon DD" format for daily
+                return `${month} ${day}`
+            } else {
+                // Show "Week of Mon DD" format for weekly
+                return `${month} ${day}`
+            }
+        } else if (parts.length === 2) {
+            // Monthly format (YYYY-MM)
+            return monthNames[parseInt(parts[1], 10) - 1]
+        }
+        return timeKey
+    }
+
+    // Process receipt transactions to compute category rankings over time periods
     const data = useMemo(() => {
         if (!receiptTransactions || receiptTransactions.length === 0) return []
 
-        // Group by month and category
-        const monthCategoryTotals = new Map<string, Map<string, number>>()
+        // Group by time period and category
+        const periodCategoryTotals = new Map<string, Map<string, number>>()
 
         receiptTransactions.forEach((item) => {
             if (!item.receiptDate) return
             const date = new Date(item.receiptDate)
-            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+            const periodKey = getTimeKey(date)
             const category = normalizeCategoryName(item.categoryName)
             const spend = Number(item.totalPrice) || 0
 
-            if (!monthCategoryTotals.has(monthKey)) {
-                monthCategoryTotals.set(monthKey, new Map())
+            if (!periodCategoryTotals.has(periodKey)) {
+                periodCategoryTotals.set(periodKey, new Map())
             }
-            const categoryMap = monthCategoryTotals.get(monthKey)!
+            const categoryMap = periodCategoryTotals.get(periodKey)!
             categoryMap.set(category, (categoryMap.get(category) || 0) + spend)
         })
 
-        // Get sorted months
-        const sortedMonths = Array.from(monthCategoryTotals.keys()).sort()
-        if (sortedMonths.length === 0) return []
+        // Get sorted time periods
+        const sortedPeriods = Array.from(periodCategoryTotals.keys()).sort()
+        if (sortedPeriods.length === 0) return []
 
-        // Get all unique categories across all months
+        // Get all unique categories across all periods
         const allCategories = new Set<string>()
-        monthCategoryTotals.forEach((categoryMap) => {
+        periodCategoryTotals.forEach((categoryMap) => {
             categoryMap.forEach((_, category) => allCategories.add(category))
         })
 
-        // Calculate rank for each category in each month (rank 1 = highest spending)
+        // Calculate rank for each category in each period (rank 1 = highest spending)
         const categoryRankings = new Map<string, { x: string; y: number }[]>()
         allCategories.forEach((category) => {
             categoryRankings.set(category, [])
         })
 
-        sortedMonths.forEach((monthKey) => {
-            const categoryMap = monthCategoryTotals.get(monthKey)!
+        sortedPeriods.forEach((periodKey) => {
+            const categoryMap = periodCategoryTotals.get(periodKey)!
 
-            // Get all categories with their totals for this month
+            // Get all categories with their totals for this period
             const totals: { category: string; total: number }[] = []
             allCategories.forEach((category) => {
                 totals.push({ category, total: categoryMap.get(category) || 0 })
@@ -111,11 +161,8 @@ export function ChartCategoryFlowFridge({ receiptTransactions = [], isLoading = 
             // Assign ranks (1 = highest spending)
             totals.forEach((item, index) => {
                 const rankings = categoryRankings.get(item.category)!
-                // Format month for display (e.g., "Jan", "Feb")
-                const [year, month] = monthKey.split("-")
-                const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-                const displayMonth = monthNames[parseInt(month, 10) - 1]
-                rankings.push({ x: displayMonth, y: index + 1 })
+                const displayLabel = formatTimeLabel(periodKey)
+                rankings.push({ x: displayLabel, y: index + 1 })
             })
         })
 
@@ -126,7 +173,7 @@ export function ChartCategoryFlowFridge({ receiptTransactions = [], isLoading = 
         const categoryTotals: { category: string; total: number }[] = []
         allCategories.forEach((category) => {
             let total = 0
-            monthCategoryTotals.forEach((categoryMap) => {
+            periodCategoryTotals.forEach((categoryMap) => {
                 total += categoryMap.get(category) || 0
             })
             categoryTotals.push({ category, total })
@@ -144,7 +191,8 @@ export function ChartCategoryFlowFridge({ receiptTransactions = [], isLoading = 
         })
 
         return result
-    }, [receiptTransactions])
+    }, [receiptTransactions, dateFilter])
+
 
     const isDark = resolvedTheme === "dark"
     const textColor = isDark ? "#9ca3af" : "#6b7280"
