@@ -7,6 +7,7 @@ import ReactECharts from "echarts-for-react"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { formatDateForDisplay } from "@/lib/date"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import {
@@ -118,6 +119,7 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
     </div>
   )
   const { colorScheme, getPalette } = useColorScheme()
+  const { formatCurrency } = useCurrency()
   const [mounted, setMounted] = useState(false)
   const [allData, setAllData] = useState<Array<{ day: string; value: number }>>(propData || [])
   const [isLoading, setIsLoading] = useState(!propData)
@@ -251,10 +253,10 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
       if (toDate && itemDate > toDate) return false
       return true
     })
-    
+
     if (allData.length > 0 && filtered.length === 0) {
     }
-    
+
     return filtered
   }, [allData, fromDate, toDate])
 
@@ -313,14 +315,14 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
   const getColorForValue = (value: number): string => {
     if (palette.length === 0) return "#c3c3c3"
     if (maxValue === 0) return palette[0]
-    
+
     const normalizedValue = Math.min(value / maxValue, 1)
-    
+
     if (palette.length === 1) return palette[0]
     if (palette.length === 2) {
       return normalizedValue < 0.5 ? palette[0] : palette[1]
     }
-    
+
     // For 3+ colors, interpolate
     const segmentSize = 1 / (palette.length - 1)
     const segmentIndex = Math.min(Math.floor(normalizedValue / segmentSize), palette.length - 1)
@@ -328,16 +330,12 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
   }
 
   // Format currency value
-  const valueFormatter = new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  })
+
 
   // ECharts event handlers for custom tooltip
   const handleChartMouseOver = (params: any, event?: any) => {
     if (!containerRef.current) return
-    
+
     const echartsInstance = chartRef.current?.getEchartsInstance()
     if (!echartsInstance) return
 
@@ -363,7 +361,7 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
         mouseY = handler.lastOffset[1]
       }
     }
-    
+
     setTooltipPosition({
       x: mouseX,
       y: mouseY,
@@ -374,7 +372,7 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
       const date = params.data[0] as string
       const value = params.data[1] as number
       const color = getColorForValue(value)
-      
+
       setTooltip({
         date,
         value,
@@ -399,7 +397,7 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
           y: e.clientY - rect.top,
         })
       }
-      
+
       window.addEventListener('mousemove', handleMouseMove)
       return () => {
         window.removeEventListener('mousemove', handleMouseMove)
@@ -464,36 +462,36 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
             />
             <CardTitle>Daily Transaction Activity</CardTitle>
           </div>
-        <CardAction className="flex flex-wrap items-center gap-2">
-          {renderInfoTrigger()}
-          <Select
-            value={selectedYear}
-            onValueChange={setSelectedYear}
-            disabled={isGlobalFilterActive}
-          >
-            <SelectTrigger
-              className="w-32 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
-              size="sm"
-              aria-label="Select year"
+          <CardAction className="flex flex-wrap items-center gap-2">
+            {renderInfoTrigger()}
+            <Select
+              value={selectedYear}
+              onValueChange={setSelectedYear}
+              disabled={isGlobalFilterActive}
             >
-              <SelectValue placeholder={selectedYear === "YTD" ? "YTD" : selectedYear || currentYear.toString()} />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              <SelectItem value="YTD" className="rounded-lg">
-                YTD
-              </SelectItem>
-              {availableYears.map((year) => (
-                <SelectItem key={year} value={year.toString()} className="rounded-lg">
-                  {year}
+              <SelectTrigger
+                className="w-32 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
+                size="sm"
+                aria-label="Select year"
+              >
+                <SelectValue placeholder={selectedYear === "YTD" ? "YTD" : selectedYear || currentYear.toString()} />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="YTD" className="rounded-lg">
+                  YTD
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {isGlobalFilterActive && (
-            <span className="text-xs text-muted-foreground">
-              Showing {formatFilterLabel(dateFilter)}
-            </span>
-          )}
+                {availableYears.map((year) => (
+                  <SelectItem key={year} value={year.toString()} className="rounded-lg">
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {isGlobalFilterActive && (
+              <span className="text-xs text-muted-foreground">
+                Showing {formatFilterLabel(dateFilter)}
+              </span>
+            )}
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
@@ -519,51 +517,51 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
             />
             <CardTitle>Daily Transaction Activity</CardTitle>
           </div>
-        <CardAction className="flex flex-wrap items-center gap-2">
-          {renderInfoTrigger()}
-          <Select
-            value={selectedYear}
-            onValueChange={setSelectedYear}
-            disabled={isGlobalFilterActive}
-          >
-            <SelectTrigger
-              className="w-32 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
-              size="sm"
-              aria-label="Select year"
+          <CardAction className="flex flex-wrap items-center gap-2">
+            {renderInfoTrigger()}
+            <Select
+              value={selectedYear}
+              onValueChange={setSelectedYear}
+              disabled={isGlobalFilterActive}
             >
-              <SelectValue placeholder={selectedYear === "YTD" ? "YTD" : selectedYear || currentYear.toString()} />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              <SelectItem value="YTD" className="rounded-lg">
-                YTD
-              </SelectItem>
-              {availableYears.map((year) => (
-                <SelectItem key={year} value={year.toString()} className="rounded-lg">
-                  {year}
+              <SelectTrigger
+                className="w-32 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
+                size="sm"
+                aria-label="Select year"
+              >
+                <SelectValue placeholder={selectedYear === "YTD" ? "YTD" : selectedYear || currentYear.toString()} />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="YTD" className="rounded-lg">
+                  YTD
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {isGlobalFilterActive && (
-            <span className="text-xs text-muted-foreground">
-              Showing {formatFilterLabel(dateFilter)}
-            </span>
-          )}
-        </CardAction>
-      </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-        <div className="h-[250px] w-full flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground">
-              {error || "No transaction data available for the selected period"}
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">
-              Try selecting a different year or check if you have transactions in your account.
-            </p>
+                {availableYears.map((year) => (
+                  <SelectItem key={year} value={year.toString()} className="rounded-lg">
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {isGlobalFilterActive && (
+              <span className="text-xs text-muted-foreground">
+                Showing {formatFilterLabel(dateFilter)}
+              </span>
+            )}
+          </CardAction>
+        </CardHeader>
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+          <div className="h-[250px] w-full flex items-center justify-center">
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground">
+                {error || "No transaction data available for the selected period"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Try selecting a different year or check if you have transactions in your account.
+              </p>
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
     )
   }
 
@@ -646,7 +644,7 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
                 </span>
               </div>
               <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                {valueFormatter.format(tooltip.value)}
+                {formatCurrency(tooltip.value)}
               </div>
             </div>
           )}

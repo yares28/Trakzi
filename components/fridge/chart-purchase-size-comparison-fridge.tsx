@@ -129,6 +129,22 @@ export function ChartPurchaseSizeComparisonFridge({
         return Math.max(...sizeData.map((d) => d.count), 1)
     }, [sizeData])
 
+    // Generate unique integer tick values for Y-axis (0 to maxCount)
+    const yAxisTicks = useMemo(() => {
+        // For small maxCount values, show every integer
+        if (maxCount <= 5) {
+            return Array.from({ length: maxCount + 1 }, (_, i) => i)
+        }
+        // For larger values, show roughly 5 nice ticks
+        const step = Math.ceil(maxCount / 4)
+        const ticks: number[] = [0]
+        for (let i = step; i < maxCount; i += step) {
+            ticks.push(i)
+        }
+        ticks.push(maxCount)
+        return ticks
+    }, [maxCount])
+
     const totalReceipts = useMemo(() => {
         return sizeData.reduce((sum, d) => sum + d.count, 0)
     }, [sizeData])
@@ -270,27 +286,30 @@ export function ChartPurchaseSizeComparisonFridge({
                         className="w-full h-full"
                     >
                         {/* Y-axis grid lines */}
-                        {[0, 0.25, 0.5, 0.75, 1].map((tick) => (
-                            <g key={tick}>
-                                <line
-                                    x1="12"
-                                    y1={55 - tick * 45}
-                                    x2="98"
-                                    y2={55 - tick * 45}
-                                    stroke={gridColor}
-                                    strokeWidth="0.2"
-                                />
-                                <text
-                                    x="10"
-                                    y={55 - tick * 45 + 1}
-                                    textAnchor="end"
-                                    fontSize="3"
-                                    fill={textColor}
-                                >
-                                    {Math.round(maxCount * tick)}
-                                </text>
-                            </g>
-                        ))}
+                        {yAxisTicks.map((tickValue) => {
+                            const tickPosition = maxCount > 0 ? (tickValue / maxCount) : 0
+                            return (
+                                <g key={tickValue}>
+                                    <line
+                                        x1="12"
+                                        y1={55 - tickPosition * 45}
+                                        x2="98"
+                                        y2={55 - tickPosition * 45}
+                                        stroke={gridColor}
+                                        strokeWidth="0.2"
+                                    />
+                                    <text
+                                        x="10"
+                                        y={55 - tickPosition * 45 + 1}
+                                        textAnchor="end"
+                                        fontSize="3"
+                                        fill={textColor}
+                                    >
+                                        {tickValue}
+                                    </text>
+                                </g>
+                            )
+                        })}
 
                         {/* Bars */}
                         {sizeData.map((range, index) => {

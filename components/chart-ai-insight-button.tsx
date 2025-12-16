@@ -7,8 +7,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { IconSparkles, IconBulb, IconAlertTriangle, IconCheck, IconLoader2 } from "@tabler/icons-react"
+import { IconSparkles, IconAlertTriangle, IconCheck, IconLoader2 } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
+
+// Custom lightbulb icon
+const IconLightbulb = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" className={className}>
+    <path fill="none" d="M0 0h24v24H0z"></path>
+    <path d="M11 18H7.94101C7.64391 16.7274 6.30412 15.6857 5.75395 14.9992C4.65645 13.6297 4 11.8915 4 10C4 5.58172 7.58172 2 12 2C16.4183 2 20 5.58172 20 10C20 11.8925 19.3428 13.6315 18.2443 15.0014C17.6944 15.687 16.3558 16.7276 16.059 18H13V13H11V18ZM16 20V21C16 22.1046 15.1046 23 14 23H10C8.89543 23 8 22.1046 8 21V20H16Z"></path>
+  </svg>
+)
 import { useTheme } from "next-themes"
 
 interface ChartAiInsightButtonProps {
@@ -106,7 +114,7 @@ export function ChartAiInsightButton({
       case "negative":
         return <IconAlertTriangle className="h-4 w-4 text-red-500" />
       default:
-        return <IconBulb className="h-4 w-4 text-blue-500" />
+        return <IconLightbulb className="h-4 w-4 text-blue-500" />
     }
   }
 
@@ -153,8 +161,8 @@ export function ChartAiInsightButton({
           <span className="sr-only">Get AI insights for {chartTitle}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent 
-        className="w-80 p-0 overflow-hidden" 
+      <PopoverContent
+        className="w-80 p-0 overflow-hidden"
         align="end"
         side="top"
         sideOffset={8}
@@ -168,7 +176,7 @@ export function ChartAiInsightButton({
             {chartTitle}
           </p>
         </div>
-        
+
         <div className="p-4">
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-6 gap-3">
@@ -231,12 +239,12 @@ export function ChartAiInsightButton({
               {insight.tips && insight.tips.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                    <IconBulb className="h-3 w-3" />
+                    <IconLightbulb className="h-3 w-3" />
                     Tips
                   </p>
                   <ul className="space-y-1.5">
                     {insight.tips.map((tip, idx) => (
-                      <li 
+                      <li
                         key={idx}
                         className="text-xs text-muted-foreground flex items-start gap-2"
                       >

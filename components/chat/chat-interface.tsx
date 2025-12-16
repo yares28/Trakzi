@@ -1,21 +1,26 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { ChatMessage } from "@/components/chat/chat-message"
 import { Orb } from "@/components/ui/orb"
 import { cn } from "@/lib/utils"
 import { AnimatePresence, motion, type Variants } from "framer-motion"
 import {
-  IconArrowDown,
   IconLoader2,
   IconPlayerStop,
-  IconRefresh,
-  IconSend,
   IconTrash,
   IconBolt,
 } from "@tabler/icons-react"
+import {
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation"
+import { PromptInput, PromptInputTextarea, PromptInputSubmit } from "@/components/ai-elements/prompt-input"
+import { Reasoning, ReasoningTrigger, ReasoningContent } from "@/components/ai-elements/reasoning"
+import { ChatMessage } from "@/components/chat/chat-message"
 
 interface Message {
   id: string
@@ -24,15 +29,11 @@ interface Message {
   timestamp: Date
 }
 
-interface FinancialContext {
-  hasData: boolean
-  summary: {
-    totalIncome: number
-    totalExpenses: number
-    netSavings: number
-    transactionCount: number
-    topCategories: { name: string; total: number }[]
-  } | null
+interface DashboardStats {
+  analytics: { score: number; transactionCount: number; hasEnoughTransactions?: boolean }
+  fridge: { score: number; transactionCount: number; hasEnoughTransactions?: boolean }
+  savings: { score: number; savingsRate: number; transactionCount?: number }
+  trends: { score: number; transactionCount?: number }
 }
 
 const STORAGE_KEY = "trakzi.chat.v1"
@@ -59,11 +60,15 @@ const suggestionItem: Variants = {
   },
 }
 
-function StatPill({ label, value }: { label: string; value: string }) {
+function StatPill({ label, value, score }: { label: string; value: string; score?: number }) {
+  const scoreColor = score !== undefined
+    ? score >= 70 ? "text-green-500" : score >= 40 ? "text-yellow-500" : "text-red-500"
+    : ""
+
   return (
     <div className="inline-flex items-center gap-1.5 rounded-full border bg-background/60 px-2.5 py-1 text-[11px] shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/50">
       <span className="text-muted-foreground">{label}</span>
-      <span className="tabular-nums font-medium text-foreground">{value}</span>
+      <span className={cn("tabular-nums font-medium", scoreColor || "text-foreground")}>{value}</span>
     </div>
   )
 }
@@ -89,20 +94,18 @@ export function ChatInterface() {
   const [isLoading, setIsLoading] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
 
-  const [context, setContext] = useState<FinancialContext | null>(null)
-  const [isLoadingContext, setIsLoadingContext] = useState(true)
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [isLoadingStats, setIsLoadingStats] = useState(true)
 
   const [orbColors, setOrbColors] = useState<[string, string]>(["#e78a53", "#e78a53"])
 
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
-  const viewportRef = useRef<HTMLElement | null>(null)
-  const bottomSentinelRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  const [isAtBottom, setIsAtBottom] = useState(true)
 
   const abortRef = useRef<AbortController | null>(null)
   const lastUserPromptRef = useRef<string>("")
+
+  const searchParams = useSearchParams()
+  const initialPromptSent = useRef(false)
 
   // Hydrate from localStorage
   useEffect(() => {
@@ -122,7 +125,7 @@ export function ChatInterface() {
     }
   }, [messages])
 
-  // Read theme primary for Orb (no color changes beyond your token)
+  // Read theme primary for Orb
   useEffect(() => {
     const root = document.documentElement
     const primaryColor = getComputedStyle(root).getPropertyValue("--primary").trim()
@@ -153,43 +156,19 @@ export function ChatInterface() {
     setOrbColors([orange, orange])
   }, [])
 
-  // Load context
+  // Load dashboard stats (all pages)
   useEffect(() => {
-    async function loadContext() {
+    async function loadStats() {
       try {
-        const res = await fetch("/api/ai/chat")
-        if (res.ok) setContext(await res.json())
+        const res = await fetch("/api/dashboard-stats")
+        if (res.ok) setStats(await res.json())
       } catch (e) {
-        console.error("Failed to load context:", e)
+        console.error("Failed to load stats:", e)
       } finally {
-        setIsLoadingContext(false)
+        setIsLoadingStats(false)
       }
     }
-    loadContext()
-  }, [])
-
-  // Capture ScrollArea viewport + bottom detection
-  useEffect(() => {
-    const viewport =
-      (scrollAreaRef.current?.querySelector("[data-radix-scroll-area-viewport]") as HTMLElement | null) ?? null
-    if (!viewport) return
-    viewportRef.current = viewport
-
-    const onScroll = () => {
-      // close enough threshold
-      const threshold = 24
-      const atBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < threshold
-      setIsAtBottom(atBottom)
-    }
-
-    viewport.addEventListener("scroll", onScroll, { passive: true })
-    onScroll()
-
-    return () => viewport.removeEventListener("scroll", onScroll)
-  }, [])
-
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
-    bottomSentinelRef.current?.scrollIntoView({ behavior, block: "end" })
+    loadStats()
   }, [])
 
   const stopStreaming = useCallback(() => {
@@ -253,9 +232,6 @@ export function ChatInterface() {
             if (parsed?.content) {
               full += parsed.content
               setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: full } : m)))
-
-              // ensure we truly reach bottom while streaming (only if user didn't scroll away)
-              if (isAtBottom) requestAnimationFrame(() => scrollToBottom("auto"))
             }
           } catch {
             // ignore malformed chunk
@@ -263,7 +239,7 @@ export function ChatInterface() {
         }
       }
     },
-    [buildPayload, isAtBottom, scrollToBottom]
+    [buildPayload]
   )
 
   const sendMessage = useCallback(
@@ -291,11 +267,8 @@ export function ChatInterface() {
       setInput("")
       setIsLoading(true)
 
-      // Append exactly once (no snapshot hack => no duplicates, no duplicate keys)
       const next = [...messagesRef.current, userMessage, assistantMessage]
       setMessages(next)
-
-      requestAnimationFrame(() => scrollToBottom("smooth"))
 
       try {
         await streamAssistant([...messagesRef.current, userMessage], assistantId)
@@ -311,13 +284,25 @@ export function ChatInterface() {
         setIsLoading(false)
         setIsStreaming(false)
         requestAnimationFrame(() => {
-          scrollToBottom("smooth")
           textareaRef.current?.focus()
         })
       }
     },
-    [isLoading, scrollToBottom, streamAssistant]
+    [isLoading, streamAssistant]
   )
+
+  // Auto-send prompt from URL (from dashboard quick action chips)
+  useEffect(() => {
+    const promptFromUrl = searchParams.get("prompt")
+    if (promptFromUrl && !initialPromptSent.current && !isLoadingStats) {
+      initialPromptSent.current = true
+      // Small delay to ensure component is fully mounted
+      const timer = setTimeout(() => {
+        sendMessage(decodeURIComponent(promptFromUrl))
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+  }, [searchParams, isLoadingStats, sendMessage])
 
   const regenerateLast = useCallback(async () => {
     if (isLoading) return
@@ -332,7 +317,6 @@ export function ChatInterface() {
     }
     if (lastAssistantIndex === -1) return
 
-    // find the last user message before that assistant
     let lastUserIndex = -1
     for (let i = lastAssistantIndex - 1; i >= 0; i--) {
       if (current[i].role === "user") {
@@ -345,7 +329,6 @@ export function ChatInterface() {
     const prompt = current[lastUserIndex].content
     lastUserPromptRef.current = prompt
 
-    // Base conversation is everything up to and including that user message, excluding last assistant
     const baseConversation = current.slice(0, lastUserIndex + 1)
 
     const assistantId = crypto.randomUUID()
@@ -360,7 +343,6 @@ export function ChatInterface() {
     setIsStreaming(false)
 
     setMessages([...baseConversation, assistantMessage])
-    requestAnimationFrame(() => scrollToBottom("smooth"))
 
     try {
       await streamAssistant(baseConversation, assistantId)
@@ -375,31 +357,23 @@ export function ChatInterface() {
       setIsLoading(false)
       setIsStreaming(false)
       requestAnimationFrame(() => {
-        scrollToBottom("smooth")
         textareaRef.current?.focus()
       })
     }
-  }, [isLoading, scrollToBottom, streamAssistant])
+  }, [isLoading, streamAssistant])
 
   const headerSubtitle = useMemo(() => {
-    if (isLoadingContext) return "Loading your data..."
-    if (!context?.hasData) return "No transaction data yet"
-    return `${context.summary?.transactionCount ?? 0} transactions analyzed`
-  }, [context, isLoadingContext])
-
-  const currencyFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: "USD",
-        maximumFractionDigits: 0,
-      }),
-    []
-  )
+    if (isLoadingStats) return "Loading your data..."
+    if (!stats) return "No data available"
+    // Combine transactions + receipt items
+    const totalTransactions = stats.analytics.transactionCount || 0
+    const receiptItems = stats.fridge.transactionCount || 0
+    const total = totalTransactions + receiptItems
+    return `${total.toLocaleString()} transactions analyzed`
+  }, [stats, isLoadingStats])
 
   const canSend = useMemo(() => input.trim().length > 0 && !isLoading, [input, isLoading])
 
-  // Only last assistant message gets regenerate
   const lastAssistantId = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role === "assistant") return messages[i].id
@@ -407,9 +381,14 @@ export function ChatInterface() {
     return null
   }, [messages])
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (canSend) sendMessage(input)
+  }
+
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-gradient-to-b from-background via-background to-muted/15">
-      {/* Subtle background (uses tokens only) */}
+      {/* Subtle background */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute -top-24 left-1/2 -translate-x-1/2">
           <motion.div
@@ -434,7 +413,7 @@ export function ChatInterface() {
             <div className="h-10 w-10 overflow-hidden rounded-2xl border bg-muted/30">
               <Orb
                 colors={orbColors}
-                agentState={isLoading ? "thinking" : isStreaming ? "talking" : null}
+                agentState={isStreaming ? "talking" : null}
                 className="h-full w-full"
               />
             </div>
@@ -447,18 +426,18 @@ export function ChatInterface() {
                 </span>
               </div>
               <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                {isLoadingContext && <IconLoader2 className="h-3.5 w-3.5 animate-spin" />}
+                {isLoadingStats && <IconLoader2 className="h-3.5 w-3.5 animate-spin" />}
                 {headerSubtitle}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {context?.hasData && context.summary && (
+            {/* Transaction sources breakdown */}
+            {stats && (
               <div className="hidden lg:flex items-center gap-2 pr-2 mr-1 border-r">
-                <StatPill label="Income" value={currencyFormatter.format(context.summary.totalIncome)} />
-                <StatPill label="Expenses" value={currencyFormatter.format(context.summary.totalExpenses)} />
-                <StatPill label="Net" value={currencyFormatter.format(context.summary.netSavings)} />
+                <StatPill label="Spending" value={`${stats.analytics.transactionCount || 0}`} />
+                <StatPill label="Receipts" value={`${stats.fridge.transactionCount || 0}`} />
               </div>
             )}
 
@@ -491,83 +470,94 @@ export function ChatInterface() {
         </div>
       </div>
 
-      {/* Body */}
+      {/* Body with Conversation auto-scroll */}
       <div className="relative flex min-h-0 flex-1 flex-col">
-        {/* Messages */}
-        <div className="relative min-h-0 flex-1">
-          <ScrollArea ref={scrollAreaRef} className="h-full">
-            <div className="mx-auto max-w-4xl px-4 py-8">
-              <AnimatePresence mode="wait" initial={false}>
-                {messages.length === 0 ? (
-                  <motion.div
-                    key="empty"
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 8 }}
-                    transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                    className="mx-auto mt-10 max-w-2xl"
-                  >
-                    <div className="rounded-3xl border bg-background/70 p-8 text-center shadow-xl backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                      <div className="mx-auto mb-5 h-16 w-16 overflow-hidden rounded-2xl border bg-muted/30">
+        <Conversation className="flex-1">
+          <ConversationContent className="mx-auto max-w-4xl">
+            <AnimatePresence mode="wait" initial={false}>
+              {messages.length === 0 ? (
+                <motion.div
+                  key="empty"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <ConversationEmptyState
+                    icon={
+                      <div className="h-16 w-16 overflow-hidden rounded-2xl">
                         <Orb colors={orbColors} className="h-full w-full" />
                       </div>
-
-                      <h3 className="text-xl font-semibold tracking-tight">Ask anything about your finances</h3>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        {context?.hasData
-                          ? "Get insights on categories, trends, and cashflow. Ask naturally—I'll do the analysis."
-                          : "Import statements to unlock personalized insights. You can still ask general questions in the meantime."}
-                      </p>
-
-                      {context?.hasData && context.summary && (
-                        <div className="mt-5 flex flex-wrap justify-center gap-2">
-                          <StatPill label="Income" value={currencyFormatter.format(context.summary.totalIncome)} />
-                          <StatPill label="Expenses" value={currencyFormatter.format(context.summary.totalExpenses)} />
-                          <StatPill label="Net" value={currencyFormatter.format(context.summary.netSavings)} />
-                        </div>
-                      )}
-
-                      <motion.div
-                        variants={suggestionList}
-                        initial="hidden"
-                        animate="show"
-                        className="mt-6 flex flex-wrap justify-center gap-2"
-                      >
-                        {SUGGESTED_QUESTIONS.map((q) => (
-                          <motion.button
-                            key={q}
-                            variants={suggestionItem}
-                            onClick={() => sendMessage(q)}
-                            disabled={isLoading}
-                            className={cn(
-                              "rounded-full border bg-background/60 px-4 py-2 text-xs font-medium shadow-sm",
-                              "transition-all hover:-translate-y-0.5 hover:bg-muted/60 hover:border-primary/30 hover:shadow-md",
-                              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                              "active:translate-y-0 active:scale-[0.99]",
-                              "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-sm"
-                            )}
-                          >
-                            {q}
-                          </motion.button>
-                        ))}
-                      </motion.div>
-                    </div>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="messages"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2, ease: "easeOut" }}
-                    className="space-y-2"
+                    }
+                    title="Ask anything about your finances"
+                    description={
+                      stats
+                        ? "Get insights on categories, trends, and cashflow. Ask naturally—I'll do the analysis."
+                        : "Import statements to unlock personalized insights. You can still ask general questions in the meantime."
+                    }
                   >
-                    {messages.map((m) => {
-                      const isLastAssistant = m.role === "assistant" && m.id === lastAssistantId
+                    {/* Stats pills */}
+                    {stats && (
+                      <div className="mt-5 flex flex-wrap justify-center gap-2">
+                        <StatPill label="Analytics" value={`${stats.analytics.score}%`} score={stats.analytics.score} />
+                        <StatPill label="Savings" value={`${stats.savings.savingsRate}%`} score={stats.savings.score} />
+                        <StatPill label="Fridge" value={`${stats.fridge.score}%`} score={stats.fridge.score} />
+                        <StatPill label="Trends" value={`${stats.trends.score}%`} score={stats.trends.score} />
+                      </div>
+                    )}
 
-                      return (
+                    {/* Suggested questions */}
+                    <motion.div
+                      variants={suggestionList}
+                      initial="hidden"
+                      animate="show"
+                      className="mt-6 flex flex-wrap justify-center gap-2"
+                    >
+                      {SUGGESTED_QUESTIONS.map((q) => (
+                        <motion.button
+                          key={q}
+                          variants={suggestionItem}
+                          onClick={() => sendMessage(q)}
+                          disabled={isLoading}
+                          className={cn(
+                            "rounded-full border bg-background/60 px-4 py-2 text-xs font-medium shadow-sm",
+                            "transition-all hover:-translate-y-0.5 hover:bg-muted/60 hover:border-primary/30 hover:shadow-md",
+                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                            "active:translate-y-0 active:scale-[0.99]",
+                            "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-sm"
+                          )}
+                        >
+                          {q}
+                        </motion.button>
+                      ))}
+                    </motion.div>
+                  </ConversationEmptyState>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="messages"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  className="space-y-2"
+                >
+                  {messages.map((m) => {
+                    const isLastAssistant = m.role === "assistant" && m.id === lastAssistantId
+                    const showReasoning = isLastAssistant && (isLoading || isStreaming) && !m.content
+
+                    return (
+                      <div key={m.id}>
+                        {/* Show Reasoning indicator for assistant while thinking */}
+                        {showReasoning && (
+                          <Reasoning isStreaming={isLoading || isStreaming} className="mb-2">
+                            <ReasoningTrigger />
+                            <ReasoningContent>
+                              Analyzing your financial data and generating a response...
+                            </ReasoningContent>
+                          </Reasoning>
+                        )}
                         <ChatMessage
-                          key={m.id}
                           role={m.role}
                           content={m.content}
                           timestamp={m.timestamp}
@@ -576,118 +566,37 @@ export function ChatInterface() {
                           showRegenerate={isLastAssistant && !isLoading && messages.length > 1}
                           onRegenerate={regenerateLast}
                         />
-                      )
-                    })}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                      </div>
+                    )
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-              <div ref={bottomSentinelRef} className="h-px w-full" />
-              {/* extra breathing room above footer island */}
-              <div className="h-6" />
-            </div>
-          </ScrollArea>
+            {/* Extra breathing room above footer */}
+            <div className="h-6" />
+          </ConversationContent>
 
-          <AnimatePresence>
-            {!isAtBottom && messages.length > 0 && (
-              <motion.div
-                className="absolute bottom-28 right-6 z-20"
-                initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
-              >
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="secondary"
-                  className="shadow-lg transition-shadow hover:shadow-xl"
-                  onClick={() => scrollToBottom("smooth")}
-                  title="Jump to latest"
-                >
-                  <IconArrowDown className="h-4 w-4" />
-                </Button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+          <ConversationScrollButton />
+        </Conversation>
 
-        {/* Sticky island composer (real footer, not overlay) */}
+        {/* Sticky composer */}
         <div className="shrink-0 border-t bg-background/70 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="mx-auto max-w-4xl px-4 py-3">
-            <div className="rounded-2xl border bg-background/70 p-3 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-shadow focus-within:shadow-xl">
-              <div className="flex items-end gap-2">
-                <div className="relative flex-1 rounded-xl border bg-muted/20 px-3 py-2 transition-colors focus-within:border-primary/30 focus-within:bg-muted/10 focus-within:ring-2 focus-within:ring-ring/30">
-                  <textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="Ask about spending, budgeting, categories, trends…"
-                    disabled={isLoading}
-                    rows={1}
-                    onKeyDown={(e) => {
-                      // One and only one send path:
-                      // Enter => send, Shift+Enter => newline.
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault()
-                        if (canSend) sendMessage(input)
-                      }
-                    }}
-                    className={cn(
-                      "min-h-[46px] w-full resize-none bg-transparent py-1 text-sm",
-                      "outline-none placeholder:text-muted-foreground/70 focus-visible:ring-0 focus-visible:ring-offset-0",
-                      "disabled:cursor-not-allowed disabled:opacity-60"
-                    )}
-                  />
-                  <div className="pointer-events-none absolute bottom-2 right-2 text-[10px] text-muted-foreground">
-                    Shift+Enter for newline
-                  </div>
-                </div>
-
-                <AnimatePresence mode="popLayout" initial={false}>
-                  {isLoading ? (
-                    <motion.div
-                      key="stop"
-                      className="shrink-0"
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 6 }}
-                      transition={{ duration: 0.15, ease: "easeOut" }}
-                    >
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={stopStreaming}
-                        className="h-11 rounded-xl active:scale-[0.98]"
-                        title="Stop generating"
-                      >
-                        <IconPlayerStop className="mr-2 h-4 w-4" />
-                        Stop
-                      </Button>
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="send"
-                      className="shrink-0"
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 6 }}
-                      transition={{ duration: 0.15, ease: "easeOut" }}
-                    >
-                      <Button
-                        type="button"
-                        disabled={!canSend}
-                        onClick={() => sendMessage(input)}
-                        className="h-11 rounded-xl active:scale-[0.98]"
-                      >
-                        <IconSend className="mr-2 h-4 w-4" />
-                        Send
-                      </Button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
+            <PromptInput onSubmit={handleSubmit}>
+              <PromptInputTextarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask about spending, budgeting, categories, trends…"
+                disabled={isLoading}
+              />
+              <PromptInputSubmit
+                status={isLoading ? "streaming" : "ready"}
+                disabled={!canSend}
+                onClick={isLoading ? stopStreaming : undefined}
+              />
+            </PromptInput>
           </div>
         </div>
       </div>

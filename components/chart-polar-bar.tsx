@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
@@ -28,14 +29,15 @@ interface ChartPolarBarProps {
 
 export function ChartPolarBar({ data: dataProp = [], keys: keysProp, categoryControls, isLoading = false }: ChartPolarBarProps) {
   const { getPalette } = useColorScheme()
+  const { formatCurrency } = useCurrency()
   const { resolvedTheme } = useTheme()
-  
+
   // In dark mode, use lighter colors (reverse the palette so lightest colors come first)
   const chartColors = useMemo(() => {
     const palette = getPalette()
     return resolvedTheme === "dark" ? [...palette].reverse() : palette
   }, [getPalette, resolvedTheme])
-  
+
   // Handle both old format (array) and new format (object with data and keys)
   const chartData = Array.isArray(dataProp) ? dataProp : dataProp.data || []
   const chartKeys = keysProp || (Array.isArray(dataProp) ? [] : dataProp.keys) || []
@@ -53,13 +55,13 @@ export function ChartPolarBar({ data: dataProp = [], keys: keysProp, categoryCon
       return sanitized
     })
   }, [chartData])
-  
+
   // If no keys provided and data is array, extract keys from first data item (excluding 'month')
-  const finalKeys = chartKeys.length > 0 
-    ? chartKeys 
-    : (sanitizedChartData.length > 0 
-        ? Object.keys(sanitizedChartData[0]).filter(key => key !== 'month')
-        : [])
+  const finalKeys = chartKeys.length > 0
+    ? chartKeys
+    : (sanitizedChartData.length > 0
+      ? Object.keys(sanitizedChartData[0]).filter(key => key !== 'month')
+      : [])
 
   const renderInfoTrigger = () => (
     <div className="flex flex-col items-center gap-2">
@@ -98,7 +100,7 @@ export function ChartPolarBar({ data: dataProp = [], keys: keysProp, categoryCon
     return Math.max(baseWidth - 20, 70)
   }, [finalKeys])
   // Use muted-foreground colors for consistency with other charts
-  const monthLabelColor = resolvedTheme === "dark" 
+  const monthLabelColor = resolvedTheme === "dark"
     ? "oklch(0.6268 0 0)"  // --muted-foreground in dark mode
     : "oklch(0.551 0.0234 264.3637)"  // --muted-foreground in light mode
   const polarTheme = useMemo(
@@ -140,7 +142,7 @@ export function ChartPolarBar({ data: dataProp = [], keys: keysProp, categoryCon
       </Card>
     )
   }
-  
+
   return (
     <Card className="relative">
       {infoButton}
@@ -186,7 +188,7 @@ export function ChartPolarBar({ data: dataProp = [], keys: keysProp, categoryCon
                     </span>
                   </div>
                   <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                    {arc.formattedValue}
+                    {formatCurrency(Number(arc.value))}
                   </div>
                 </div>
               )

@@ -25,7 +25,7 @@ import { ChartAllMonthsCategorySpending } from "@/components/chart-all-months-ca
 import { ChartCategoryBubble } from "@/components/chart-category-bubble"
 import { ChartSingleMonthCategorySpending } from "@/components/chart-single-month-category-spending"
 import { ChartDayOfWeekCategory } from "@/components/chart-day-of-week-category"
-import { SectionCards } from "@/components/section-cards"
+import { SectionCards, TrendLineBackground } from "@/components/section-cards"
 import { SiteHeader } from "@/components/site-header"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
@@ -71,6 +71,7 @@ import {
 } from "@/components/ui/popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
+import { useCurrency } from "@/components/currency-provider"
 import { useDateFilter } from "@/components/date-filter-provider"
 import { IconUpload, IconFile, IconCircleCheck, IconLoader2, IconAlertCircle, IconTrash } from "@tabler/icons-react"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
@@ -99,6 +100,7 @@ const MemoizedTableRow = memo(function MemoizedTableRow({
   onCategoryChange: (value: string) => void
   onDelete: () => void
 }) {
+  const { formatCurrency } = useCurrency()
   return (
     <TableRow>
       <TableCell className="w-28 flex-shrink-0">
@@ -110,7 +112,7 @@ const MemoizedTableRow = memo(function MemoizedTableRow({
         </div>
       </TableCell>
       <TableCell className={cn("text-right font-medium w-24 flex-shrink-0", amount < 0 ? "text-red-500" : "text-green-500")}>
-        {amount.toFixed(2)}€
+        {formatCurrency(amount)}
       </TableCell>
       <TableCell className="w-[140px] flex-shrink-0">
         <CategorySelect
@@ -120,7 +122,7 @@ const MemoizedTableRow = memo(function MemoizedTableRow({
       </TableCell>
       {hasBalance && (
         <TableCell className="text-right w-32 flex-shrink-0">
-          {balance !== null ? `${balance.toFixed(2)}€` : "-"}
+          {balance !== null ? formatCurrency(balance) : "-"}
         </TableCell>
       )}
       <TableCell className="w-12 flex-shrink-0">
@@ -173,6 +175,7 @@ interface SpendingActivityRingsProps {
 
 // Custom concentric rings renderer so we control tooltips from Neon data
 function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaultLimit }: SpendingActivityRingsProps) {
+  const { formatCurrency } = useCurrency()
   const rings = Array.isArray(data) ? data : []
   if (!rings.length) return null
 
@@ -377,7 +380,7 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
                     <div className="flex justify-between items-center leading-none gap-4">
                       <span className="text-muted-foreground">Spent:</span>
                       <span className="text-foreground font-mono font-medium tabular-nums" style={{ color: exceeded ? '#ef4444' : undefined }}>
-                        ${spent.toFixed(2)}
+                        {formatCurrency(spent)}
                       </span>
                     </div>
                   </div>
@@ -389,7 +392,7 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
                         />
                         <div className="flex justify-between items-center leading-none gap-4">
                           <span className="text-muted-foreground">Budget:</span>
-                          <span className="text-foreground font-mono font-medium tabular-nums">${Math.floor(budget)}</span>
+                          <span className="text-foreground font-mono font-medium tabular-nums">{formatCurrency(budget, { maximumFractionDigits: 0 })}</span>
                         </div>
                       </div>
                       {exceeded && (
@@ -632,9 +635,10 @@ export default function AnalyticsPage() {
       const gridOptions: GridStackOptions & { disableOneColumnMode?: boolean } = {
         column: 12,
         cellHeight: 70,
-        margin: 0,  // No margin - cards fill entire grid-stack-item
+        margin: 0, // match analytics (cards fill entire item)
         minRow: 1,
-        float: false,  // Don't float items, use strict grid
+        float: false, // match analytics (strict grid)
+        animate: true, // Enable smooth animations
         resizable: {
           handles: 'se', // Only bottom-right resize handle (matching trends page style)
         },
@@ -2805,6 +2809,67 @@ export default function AnalyticsPage() {
 
   const activityTheme = resolvedTheme === "light" ? "light" : "dark"
 
+  // --- Top Summary Card Data ---
+  const transactionSummary = useMemo(() => {
+    if (!rawTransactions || rawTransactions.length === 0) {
+      return { count: 0, timeSpan: "No data", trend: [] }
+    }
+
+    // 1. Transaction Count
+    const count = rawTransactions.length
+
+    // 2. Time Span
+    const dates = rawTransactions
+      .map((t) => new Date(t.date).getTime())
+      .filter((t) => !isNaN(t))
+
+    if (dates.length === 0) return { count, timeSpan: "0 days", trend: [] }
+
+    const minDate = new Date(Math.min(...dates))
+    const maxDate = new Date(Math.max(...dates))
+
+    // Calculate difference
+    let years = maxDate.getFullYear() - minDate.getFullYear()
+    let months = maxDate.getMonth() - minDate.getMonth()
+    let days = maxDate.getDate() - minDate.getDate()
+
+    if (days < 0) {
+      months--
+      // Approximation for days in previous month
+      days += 30
+    }
+    if (months < 0) {
+      years--
+      months += 12
+    }
+
+    let timeSpan = ""
+    if (years > 0) {
+      timeSpan = `${years} year${years > 1 ? "s" : ""}`
+      if (months > 0) timeSpan += ` and ${months} month${months > 1 ? "s" : ""}`
+    } else if (months > 0) {
+      timeSpan = `${months} month${months > 1 ? "s" : ""}`
+      if (days > 0) timeSpan += ` and ${days} day${days > 1 ? "s" : ""}`
+    } else {
+      timeSpan = `${days} day${days !== 1 ? "s" : ""}`
+    }
+
+    // 3. Trend Data (Import Rate / Frequency)
+    const monthCounts = new Map<string, number>()
+    rawTransactions.forEach((tx) => {
+      const d = new Date(tx.date)
+      if (isNaN(d.getTime())) return
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+      monthCounts.set(key, (monthCounts.get(key) || 0) + 1)
+    })
+
+    const trend = Array.from(monthCounts.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, value]) => ({ date, value }))
+
+    return { count, timeSpan, trend }
+  }, [rawTransactions])
+
   return (
     <SidebarProvider
       style={
@@ -2871,6 +2936,9 @@ export default function AnalyticsPage() {
                 incomeTrend={statsTrends.incomeTrend}
                 expensesTrend={statsTrends.expensesTrend}
                 netWorthTrend={statsTrends.netWorthTrend}
+                transactionCount={transactionSummary.count}
+                transactionTimeSpan={transactionSummary.timeSpan}
+                transactionTrend={transactionSummary.trend}
               />
 
               {/* GridStack analytics chart section */}

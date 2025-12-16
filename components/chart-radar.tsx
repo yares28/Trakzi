@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
@@ -54,6 +55,7 @@ interface ChartRadarProps {
 export function ChartRadar({ categoryControls }: ChartRadarProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
+  const { formatCurrency } = useCurrency()
   const [chartData, setChartData] = useState<RadarDatum[]>([])
   const [yearSummaries, setYearSummaries] = useState<FinancialHealthYearSummary[]>([])
   // Initialize loading to true since we always fetch data on mount
@@ -62,7 +64,7 @@ export function ChartRadar({ categoryControls }: ChartRadarProps) {
   const [visibleCapabilities, setVisibleCapabilities] = useState<string[]>([])
   const [isCategorySelectorOpen, setIsCategorySelectorOpen] = useState(false)
   const [hasUserInteracted, setHasUserInteracted] = useState(false)
-  
+
   // In dark mode, use lighter colors (reverse the palette so lightest colors come first)
   const palette = useMemo(() => {
     const basePalette = getPalette()
@@ -99,7 +101,7 @@ export function ChartRadar({ categoryControls }: ChartRadarProps) {
           })
           setChartData(payload.data as RadarDatum[])
           setYearSummaries(payload.years as FinancialHealthYearSummary[])
-          
+
           // If API explicitly returns empty data/years, ensure we show appropriate message
           if (payload.data.length === 0 || payload.years.length === 0) {
             console.warn("[ChartRadar] API returned empty data or years", {
@@ -171,7 +173,7 @@ export function ChartRadar({ categoryControls }: ChartRadarProps) {
   // Calculate top 7 spending categories by total expense across all years
   const topSpendingCategories = useMemo(() => {
     if (!sanitizedData.length) return []
-    
+
     // Calculate total expense per category (sum across all years)
     // Exclude Income and Expenses from top categories (they're always available)
     const categoryTotals = new Map<string, number>()
@@ -231,8 +233,8 @@ export function ChartRadar({ categoryControls }: ChartRadarProps) {
       if (filtered.length === 0) {
         // Only update if the new value is different to prevent unnecessary re-renders
         const currentDefaults = defaultVisibleCapabilities
-        if (prev.length !== currentDefaults.length || 
-            !currentDefaults.every(cap => prev.includes(cap))) {
+        if (prev.length !== currentDefaults.length ||
+          !currentDefaults.every(cap => prev.includes(cap))) {
           return currentDefaults
         }
       }
@@ -330,15 +332,6 @@ export function ChartRadar({ categoryControls }: ChartRadarProps) {
     [categoryTextColor, themeMode]
   )
 
-  const currencyFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        maximumFractionDigits: 0,
-      }),
-    []
-  )
 
 
   const legendEntries = yearSummaries.map((summary, index) => {
@@ -362,8 +355,8 @@ export function ChartRadar({ categoryControls }: ChartRadarProps) {
 
   const selectAllCapabilities = () => {
     setHasUserInteracted(true)
-    const allSelected = effectiveVisibleCapabilities.length === filterableCapabilities.length && 
-                       filterableCapabilities.every(cap => effectiveVisibleCapabilities.includes(cap))
+    const allSelected = effectiveVisibleCapabilities.length === filterableCapabilities.length &&
+      filterableCapabilities.every(cap => effectiveVisibleCapabilities.includes(cap))
     if (allSelected) {
       setVisibleCapabilities([])
     } else {
@@ -486,7 +479,7 @@ export function ChartRadar({ categoryControls }: ChartRadarProps) {
       })
       return renderStatusCard("", true)
     }
-    
+
     // Edge case 2: We have defaults but effectiveVisibleCapabilities is still empty
     // This shouldn't happen with the fixed effectiveVisibleCapabilities logic, but guard against it
     if (sanitizedData.length > 0 && defaultVisibleCapabilities.length > 0 && effectiveVisibleCapabilities.length === 0 && !hasUserInteracted) {
@@ -496,7 +489,7 @@ export function ChartRadar({ categoryControls }: ChartRadarProps) {
       })
       return renderStatusCard("", true)
     }
-    
+
     // Edge case 3: User has interacted and deselected everything, or no valid capabilities exist
     // Only show "No data available" if we're sure this is the final state
     if (hasUserInteracted && effectiveVisibleCapabilities.length === 0) {
@@ -504,7 +497,7 @@ export function ChartRadar({ categoryControls }: ChartRadarProps) {
       console.log("[ChartRadar] User has deselected all capabilities")
       return renderStatusCard("No data available")
     }
-    
+
     // Edge case 4: No capabilities exist at all (data structure issue)
     if (filterableCapabilities.length === 0 && sanitizedData.length > 0) {
       console.warn("[ChartRadar] Data exists but no valid capabilities found", {
@@ -514,7 +507,7 @@ export function ChartRadar({ categoryControls }: ChartRadarProps) {
       })
       return renderStatusCard("No data available")
     }
-    
+
     // Default case: Show no data if we've exhausted all initialization checks
     // This should rarely happen with the fixes above
     console.log("[ChartRadar] Showing 'No data available' - filteredData is empty after all checks", {
@@ -567,8 +560,8 @@ export function ChartRadar({ categoryControls }: ChartRadarProps) {
                   }}
                   className="cursor-pointer font-medium"
                 >
-                  {effectiveVisibleCapabilities.length === filterableCapabilities.length && 
-                   filterableCapabilities.every(cap => effectiveVisibleCapabilities.includes(cap))
+                  {effectiveVisibleCapabilities.length === filterableCapabilities.length &&
+                    filterableCapabilities.every(cap => effectiveVisibleCapabilities.includes(cap))
                     ? "Deselect all"
                     : "Select all"}
                 </DropdownMenuItem>
@@ -640,7 +633,7 @@ export function ChartRadar({ categoryControls }: ChartRadarProps) {
                     </span>
                   </div>
                   <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                    {currencyFormatter.format(value)}
+                    {formatCurrency(value)}
                   </div>
                 </div>
               )

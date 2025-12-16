@@ -2,8 +2,8 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { IconCirclePlusFilled, type Icon } from "@tabler/icons-react"
-import { useContext } from "react"
+import { IconCirclePlusFilled } from "@tabler/icons-react"
+import React, { useContext } from "react"
 
 import {
   SidebarGroup,
@@ -14,6 +14,9 @@ import {
 } from "@/components/ui/sidebar"
 import { TransactionDialogContext } from "@/components/transaction-dialog-provider"
 
+// Use a more flexible icon type that accepts any component
+type IconComponent = React.ComponentType<React.SVGProps<SVGSVGElement> & { className?: string }> | React.ComponentType<React.ComponentProps<"div">>
+
 export function NavMain({
   items,
   onQuickCreate,
@@ -21,7 +24,7 @@ export function NavMain({
   items: {
     title: string
     url: string
-    icon?: Icon
+    icon?: IconComponent
   }[]
   onQuickCreate?: () => void
 }) {
@@ -31,7 +34,7 @@ export function NavMain({
   const handleQuickCreate = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    
+
     // If onQuickCreate is provided (for backward compatibility), use it
     // Otherwise use the global dialog if available
     if (onQuickCreate) {

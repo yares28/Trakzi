@@ -132,94 +132,89 @@ export function ChartCategoryFlow({ data = [], categoryControls, isLoading = fal
           {renderInfoTrigger()}
         </CardAction>
       </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
-          <div className="relative h-full w-full min-h-[250px]">
-            <ResponsiveAreaBump
-              data={data}
-              margin={{ top: 40, right: 120, bottom: 40, left: 140 }}
-              spacing={12}
-              colors={colorConfig}
-              blendMode="normal"
-              startLabel={(serie) => serie.id}
-              endLabel={(serie) => serie.id}
-              startLabelTextColor={textColor}
-              endLabelTextColor={textColor}
-              startLabelPadding={12}
-              endLabelPadding={12}
-              interpolation="smooth"
-              axisTop={{
-                tickSize: 5,
-                tickPadding: 5,
-                tickRotation: 0,
-                legend: "",
-                legendPosition: "middle",
-                legendOffset: -36,
-              }}
-              axisBottom={{
-                tickSize: 5,
-                tickPadding: 5,
-                tickRotation: 0,
-                legend: "",
-                legendPosition: "middle",
-                legendOffset: 32,
-              }}
-              theme={{
-                text: {
-                  fill: textColor,
-                  fontSize: 12,
-                  fontFamily: 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
-                },
-                axis: {
-                  domain: {
-                    line: {
-                      stroke: borderColor,
-                      strokeWidth: 1,
-                    },
-                  },
-                  ticks: {
-                    line: {
-                      stroke: borderColor,
-                      strokeWidth: 1,
-                    },
-                  },
-                },
-                grid: {
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
+        <div className="relative h-full w-full min-h-[250px]">
+          <ResponsiveAreaBump
+            data={data}
+            margin={{ top: 40, right: 120, bottom: 40, left: 140 }}
+            spacing={12}
+            colors={colorConfig}
+            blendMode="normal"
+            startLabel={(serie) => serie.id}
+            endLabel={(serie) => serie.id}
+            startLabelTextColor={textColor}
+            endLabelTextColor={textColor}
+            startLabelPadding={12}
+            endLabelPadding={12}
+            interpolation="smooth"
+            axisTop={{
+              tickSize: 5,
+              tickPadding: 5,
+              tickRotation: 0,
+              legend: "",
+              legendPosition: "middle",
+              legendOffset: -36,
+            }}
+            axisBottom={{
+              tickSize: 5,
+              tickPadding: 5,
+              tickRotation: 0,
+              legend: "",
+              legendPosition: "middle",
+              legendOffset: 32,
+            }}
+            theme={{
+              text: {
+                fill: textColor,
+                fontSize: 12,
+                fontFamily: 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
+              },
+              axis: {
+                domain: {
                   line: {
                     stroke: borderColor,
-                    strokeWidth: 0.5,
+                    strokeWidth: 1,
                   },
                 },
-              }}
-              tooltip={({ serie }) => {
-                const computed = serie as unknown as {
-                  id: string
-                  color: string
-                  data?: Array<{ x: string; y: number }>
-                }
-                const points = Array.isArray(computed.data) ? computed.data : []
-                const lastPoint = points.length ? points[points.length - 1] : undefined
-                const share = (lastPoint?.y ?? 0) * 100
+                ticks: {
+                  line: {
+                    stroke: borderColor,
+                    strokeWidth: 1,
+                  },
+                },
+              },
+              grid: {
+                line: {
+                  stroke: borderColor,
+                  strokeWidth: 0.5,
+                },
+              },
+            }}
+            tooltip={({ serie }) => {
+              const originalSerie = data.find((d) => d.id === serie.id)
+              const lastPoint = originalSerie?.data[originalSerie.data.length - 1]
+              const share = lastPoint?.y ?? 0
 
-                return (
-                  <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="h-2.5 w-2.5 rounded-full border border-border/50"
-                        style={{ backgroundColor: computed.color, borderColor: computed.color }}
-                      />
-                      <span className="font-medium text-foreground whitespace-nowrap">
-                        {computed.id}
-                      </span>
-                    </div>
-                    <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                      {share.toFixed(1)}%
-                    </div>
+              return (
+                <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full border border-border/50"
+                      style={{ backgroundColor: serie.color, borderColor: serie.color }}
+                    />
+                    <span className="font-medium text-foreground whitespace-nowrap">
+                      {serie.id}
+                    </span>
                   </div>
-                )
-              }}
-            />
-          </div>
-        </CardContent>
+                  <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
+                    {share.toFixed(1)}% of spending
+                  </div>
+                </div>
+              )
+            }}
+          />
+        </div>
+      </CardContent>
     </Card>
   )
 }

@@ -6,6 +6,7 @@ import { ResponsiveFunnel } from "@nivo/funnel"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
@@ -46,6 +47,7 @@ const getTextColor = (sliceColor: string, colorScheme?: string): string => {
 export function ChartSpendingFunnel({ data = [], categoryControls, maxExpenseCategories = 2, isLoading = false }: ChartSpendingFunnelProps) {
   const { resolvedTheme } = useTheme()
   const { colorScheme, getPalette } = useColorScheme()
+  const { formatCurrency } = useCurrency()
   const [mounted, setMounted] = useState(false)
   const sanitizedData = useMemo(() => data.map(item => ({
     ...item,
@@ -58,7 +60,7 @@ export function ChartSpendingFunnel({ data = [], categoryControls, maxExpenseCat
 
   const isDark = resolvedTheme === "dark"
   const textColor = isDark ? "#9ca3af" : "#6b7280"
-  
+
   // Use nivo scheme for colored, custom dark palette for dark styling
   // More money = darker color (bigger peso = darker)
   // Each layer is 2 shades lighter than the previous
@@ -67,7 +69,7 @@ export function ChartSpendingFunnel({ data = [], categoryControls, maxExpenseCat
   // For all palettes: darker colors = larger amounts, lighter colors = smaller amounts
   const palette = getPalette().filter(color => color !== "#c3c3c3")
   const numLayers = Math.min(data.length, 7)
-  
+
   // Reverse palette so darkest colors are first (for highest income)
   // Income (largest) gets darkest color, Savings (smallest) gets lightest color
   // Start from position 2 (index 1) to use darker colors
@@ -75,19 +77,13 @@ export function ChartSpendingFunnel({ data = [], categoryControls, maxExpenseCat
   // Create a palette without the first color (index 0) to use darker colors from position 2 onwards
   const darkerPalette = reversedPalette.slice(1)
   let colorConfig = darkerPalette.slice(0, numLayers)
-  
+
   // If we need more colors than available, cycle through the darker palette
   while (colorConfig.length < numLayers) {
     colorConfig.push(...darkerPalette.slice(0, numLayers - colorConfig.length))
   }
   colorConfig = colorConfig.slice(0, numLayers)
 
-  // Format currency value
-  const valueFormatter = new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  })
 
   const renderInfoTrigger = () => (
     <div className="flex flex-col items-center gap-2">
@@ -191,7 +187,7 @@ export function ChartSpendingFunnel({ data = [], categoryControls, maxExpenseCat
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
         <div className="h-full w-full min-h-[250px]">
           <ResponsiveFunnel
-          data={sanitizedData}
+            data={sanitizedData}
             margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
             valueFormat=">-$,.0f"
             colors={colorConfig}
@@ -222,7 +218,7 @@ export function ChartSpendingFunnel({ data = [], categoryControls, maxExpenseCat
                     </span>
                   </div>
                   <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                    {valueFormatter.format(Number(part.data.value))}
+                    {formatCurrency(Number(part.data.value))}
                   </div>
                 </div>
               )

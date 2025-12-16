@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
@@ -41,11 +42,7 @@ const axisFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 1,
 })
 
-const valueFormatter = new Intl.NumberFormat(undefined, {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 0,
-})
+
 
 const monthFormatter = (monthKey: string) => {
   const [year, month] = monthKey.split("-")
@@ -62,11 +59,12 @@ const monthFormatter = (monthKey: string) => {
 
 export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControls, isLoading = false }: ChartSpendingStreamgraphProps) {
   const { getPalette } = useColorScheme()
+  const { formatCurrency } = useCurrency()
   const { resolvedTheme } = useTheme()
   const svgRef = useRef<SVGSVGElement | null>(null)
   const [tooltip, setTooltip] = useState<{ label: string; total: number; color: string } | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
-  
+
   const isDark = resolvedTheme === "dark"
 
   const { rows, detectedKeys } = useMemo(() => {
@@ -390,7 +388,7 @@ export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControl
                 <span className="font-medium text-foreground whitespace-nowrap">{tooltip.label}</span>
               </div>
               <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                {valueFormatter.format(tooltip.total)}
+                {formatCurrency(tooltip.total)}
               </div>
             </div>
           )}

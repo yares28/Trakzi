@@ -414,6 +414,7 @@ export default function Page() {
 
   // Saved chart sizes for favorites
   const [savedFavoriteSizes, setSavedFavoriteSizes] = useState<Record<string, { w: number; h: number; x?: number; y?: number }>>({})
+  const savedFavoriteSizesRef = useRef<Record<string, { w: number; h: number; x?: number; y?: number }>>({})
 
   const [isDragging, setIsDragging] = useState(false)
   const [droppedFile, setDroppedFile] = useState<File | null>(null)
@@ -486,6 +487,7 @@ export default function Page() {
   const saveFavoriteSizes = useCallback(
     (sizes: Record<string, { w: number; h: number; x?: number; y?: number }>) => {
       setSavedFavoriteSizes(sizes)
+      savedFavoriteSizesRef.current = sizes
       if (typeof window === "undefined") return
       try {
         localStorage.setItem(FAVORITE_SIZES_STORAGE_KEY, JSON.stringify(sizes))
@@ -500,6 +502,7 @@ export default function Page() {
   useEffect(() => {
     const loaded = loadFavoriteSizes()
     setSavedFavoriteSizes(loaded)
+    savedFavoriteSizesRef.current = loaded
   }, [loadFavoriteSizes])
 
   // Initialize GridStack for favorites
@@ -541,8 +544,8 @@ export default function Page() {
           let x = 0
           let y = 0
 
-          if (chartId && savedFavoriteSizes[chartId]) {
-            const saved = savedFavoriteSizes[chartId]
+          if (chartId && savedFavoriteSizesRef.current[chartId]) {
+            const saved = savedFavoriteSizesRef.current[chartId]
             const snapped = snapToAllowedSize(saved.w, saved.h)
             w = snapped.w
             h = saved.h
@@ -573,21 +576,20 @@ export default function Page() {
           return { el, w, h, x, y, chartId, minW: sizeConfig.minW, maxW: sizeConfig.maxW, minH: sizeConfig.minH, maxH: sizeConfig.maxH }
         })
 
-        // Stack vertically if no saved position
-        let currentY = 0
+        // Use saved positions or auto-position new items
         const widgets = widgetData.map((data) => {
           let finalY = data.y
           let finalX = data.x
+          let autoPosition = false
 
-          if (!savedFavoriteSizes[data.chartId]) {
-            const defaultSize = DEFAULT_FAVORITE_SIZES[data.chartId]
-            if (defaultSize) {
-              if (typeof defaultSize.x === 'number') finalX = defaultSize.x
-              if (typeof defaultSize.y === 'number') finalY = defaultSize.y
-            } else {
-              finalY = currentY
-              currentY += data.h
-            }
+          if (!savedFavoriteSizesRef.current[data.chartId]) {
+            // New favorite without saved position: auto-position it
+            // We intentionally ignore DEFAULT_FAVORITE_SIZES x/y which are for the Analytics page layout
+            // and often cause items to appear in random spaces (e.g. y=94).
+            autoPosition = true
+            // Undefine x/y to ensure autoPosition takes effect
+            finalX = undefined as unknown as number
+            finalY = undefined as unknown as number
           }
 
           return {
@@ -596,6 +598,7 @@ export default function Page() {
             h: data.h,
             x: finalX,
             y: finalY,
+            autoPosition,
             minW: data.minW || 6,
             maxW: data.maxW || 12,
             minH: data.minH || 4,
@@ -649,7 +652,7 @@ export default function Page() {
                   })
                 }
 
-                const newSizes = { ...savedFavoriteSizes }
+                const newSizes = { ...savedFavoriteSizesRef.current }
                 newSizes[chartId] = {
                   w: clampedW,
                   h: clampedH,
@@ -667,7 +670,7 @@ export default function Page() {
           if (items && favoritesGridStackRef.current) {
             const itemsArray = Array.isArray(items) ? items : [items]
             if (itemsArray.length > 0) {
-              const newSizes = { ...savedFavoriteSizes }
+              const newSizes = { ...savedFavoriteSizesRef.current }
               itemsArray.forEach((item) => {
                 // item might be a DOM element or a GridStack node
                 const el = (item as any).el || item
@@ -722,7 +725,7 @@ export default function Page() {
         favoritesGridStackRef.current = null
       }
     }
-  }, [favorites, savedFavoriteSizes, snapToAllowedSize, saveFavoriteSizes])
+  }, [favorites, snapToAllowedSize, saveFavoriteSizes])
 
   // Transactions state for charts
   const [transactions, setTransactions] = useState<Array<{

@@ -1,5 +1,6 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import { useTheme } from "next-themes"
 import Hero from "@/landing/hero"
 import Features from "@/components/features"
 import { NewReleasePromo } from "@/components/new-release-promo"
@@ -12,12 +13,23 @@ import Link from "next/link"
 export default function Home() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const { theme, setTheme } = useTheme()
+  const previousThemeRef = useRef<string | undefined>(undefined)
 
+  // Force dark mode on landing page, restore user's theme on unmount
   useEffect(() => {
-    const root = window.document.documentElement
-    root.classList.remove("light", "system")
-    root.classList.add("dark")
-  }, [])
+    // Store the user's current theme preference
+    previousThemeRef.current = theme
+    // Set dark mode for the landing page
+    setTheme("dark")
+
+    // Restore the user's theme when leaving the landing page
+    return () => {
+      if (previousThemeRef.current && previousThemeRef.current !== "dark") {
+        setTheme(previousThemeRef.current)
+      }
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const handleScroll = () => {
@@ -57,9 +69,8 @@ export default function Home() {
 
       {/* Desktop Header */}
       <header
-        className={`sticky top-4 z-[9999] mx-auto hidden w-full flex-row items-center justify-between self-start rounded-full bg-background/80 md:flex backdrop-blur-sm border border-border/50 shadow-lg transition-all duration-300 ${
-          isScrolled ? "max-w-3xl px-2" : "max-w-5xl px-4"
-        } py-2`}
+        className={`sticky top-4 z-[9999] mx-auto hidden w-full flex-row items-center justify-between self-start rounded-full bg-background/80 md:flex backdrop-blur-sm border border-border/50 shadow-lg transition-all duration-300 ${isScrolled ? "max-w-3xl px-2" : "max-w-5xl px-4"
+          } py-2`}
         style={{
           willChange: "transform",
           transform: "translateZ(0)",
@@ -68,9 +79,8 @@ export default function Home() {
         }}
       >
         <Link
-          className={`z-50 flex items-center justify-center gap-2 transition-all duration-300 ${
-            isScrolled ? "ml-4" : ""
-          }`}
+          className={`z-50 flex items-center justify-center gap-2 transition-all duration-300 ${isScrolled ? "ml-4" : ""
+            }`}
           href="/"
         >
           <img src="/Trakzi/TrakzilogoB.png" alt="Trakzi" className="h-8 w-auto" draggable={false} />

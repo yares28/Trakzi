@@ -69,20 +69,29 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
 
     const formatCurrency = React.useCallback((
         amount: number,
-        options?: { minimumFractionDigits?: number; maximumFractionDigits?: number }
+        options?: { minimumFractionDigits?: number; maximumFractionDigits?: number; showSign?: boolean }
     ): string => {
         const maxDigits = options?.maximumFractionDigits ?? 2
         const minDigits = options?.minimumFractionDigits ?? Math.min(2, maxDigits)
+        const showSign = options?.showSign ?? false
 
-        const formatted = amount.toLocaleString(undefined, {
+        // Use de-DE locale for European format (comma as decimal separator)
+        const absAmount = Math.abs(amount)
+        const formatted = absAmount.toLocaleString("de-DE", {
             minimumFractionDigits: minDigits,
             maximumFractionDigits: maxDigits,
         })
 
-        if (currencyConfig.position === "after") {
-            return `${formatted} ${currencyConfig.symbol}`
+        // Determine sign prefix
+        let sign = ""
+        if (showSign) {
+            sign = amount >= 0 ? "+" : "-"
+        } else if (amount < 0) {
+            sign = "-"
         }
-        return `${currencyConfig.symbol}${formatted}`
+
+        // Always put symbol after for European format (100,34€)
+        return `${sign}${formatted}${currencyConfig.symbol}`
     }, [currencyConfig])
 
     const value = React.useMemo(() => ({
@@ -107,15 +116,25 @@ export function useCurrency() {
             currency: "EUR",
             setCurrency: () => { },
             symbol: "€",
-            formatCurrency: (amount: number, options?: { minimumFractionDigits?: number; maximumFractionDigits?: number }) => {
+            formatCurrency: (amount: number, options?: { minimumFractionDigits?: number; maximumFractionDigits?: number; showSign?: boolean }) => {
                 const maxDigits = options?.maximumFractionDigits ?? 2
                 const minDigits = options?.minimumFractionDigits ?? Math.min(2, maxDigits)
+                const showSign = options?.showSign ?? false
 
-                const formatted = amount.toLocaleString(undefined, {
+                const absAmount = Math.abs(amount)
+                const formatted = absAmount.toLocaleString("de-DE", {
                     minimumFractionDigits: minDigits,
                     maximumFractionDigits: maxDigits,
                 })
-                return `€${formatted}`
+
+                let sign = ""
+                if (showSign) {
+                    sign = amount >= 0 ? "+" : "-"
+                } else if (amount < 0) {
+                    sign = "-"
+                }
+
+                return `${sign}${formatted}€`
             },
         }
     }

@@ -31,9 +31,13 @@ interface SectionCardsProps {
   incomeTrend?: TrendDataPoint[]
   expensesTrend?: TrendDataPoint[]
   netWorthTrend?: TrendDataPoint[]
+  // New props for Transaction Summary
+  transactionCount?: number
+  transactionTimeSpan?: string
+  transactionTrend?: TrendDataPoint[]
 }
 
-type CardId = "income" | "expenses" | "netWorth"
+type CardId = "income" | "expenses" | "netWorth" | "transactions"
 
 interface CardData {
   id: CardId
@@ -47,10 +51,12 @@ interface CardData {
   trendColor: string
   seed: number
   trendData: TrendDataPoint[]
+  isCurrency?: boolean
+  showChange?: boolean
 }
 
 // Blurred trend line background component with real data support
-function TrendLineBackground({
+export function TrendLineBackground({
   color,
   seed = 0,
   dataPoints = []
@@ -131,15 +137,19 @@ function CardComponent({ card }: { card: CardData }) {
       <CardHeader>
         <CardDescription>{card.title}</CardDescription>
         <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-          {formatCurrency(card.value, card.formatOptions)}
+          {card.isCurrency !== false
+            ? formatCurrency(card.value, card.formatOptions)
+            : card.value.toLocaleString()}
         </CardTitle>
-        <CardAction>
-          <Badge variant="outline">
-            {card.change >= 0 ? <IconTrendingUp /> : <IconTrendingDown />}
-            {card.change >= 0 ? "+" : ""}
-            {card.change.toFixed(1)}%
-          </Badge>
-        </CardAction>
+        {card.showChange !== false && (
+          <CardAction>
+            <Badge variant="outline">
+              {card.change >= 0 ? <IconTrendingUp /> : <IconTrendingDown />}
+              {card.change >= 0 ? "+" : ""}
+              {card.change.toFixed(1)}%
+            </Badge>
+          </CardAction>
+        )}
       </CardHeader>
       <CardFooter className="flex-col items-start gap-1.5 text-sm">
         <div className="line-clamp-1 flex gap-2 font-medium">
@@ -168,6 +178,9 @@ export function SectionCards({
   incomeTrend = [],
   expensesTrend = [],
   netWorthTrend = [],
+  transactionCount = 0,
+  transactionTimeSpan = "",
+  transactionTrend = [],
 }: SectionCardsProps) {
   // Ensure all values are numbers (handle case where API returns strings)
   const safeTotalIncome = Number(totalIncome) || 0
@@ -178,6 +191,7 @@ export function SectionCards({
   const safeExpensesChange = Number(expensesChange) || 0
   const safeSavingsRateChange = Number(savingsRateChange) || 0
   const safeNetWorthChange = Number(netWorthChange) || 0
+  const safeTransactionCount = Number(transactionCount) || 0
 
   const { getPalette } = useColorScheme()
 
@@ -187,11 +201,28 @@ export function SectionCards({
     return [
       palette[0] || "#14b8a6", // Income
       palette[1] || "#22c55e", // Expenses
+      palette[1] || "#22c55e", // Expenses
       palette[2] || "#3b82f6", // Net Worth
+      palette[3] || "#8b5cf6", // Transactions
     ]
   }, [getPalette])
 
   const cardData = useMemo<Record<CardId, CardData>>(() => ({
+    transactions: {
+      id: "transactions",
+      title: "Total Transactions",
+      value: safeTransactionCount,
+      change: 0, // No change metric for now, or calculate if needed
+      description: "Total Transactions",
+      footerText: `Spanning ${transactionTimeSpan}`,
+      footerSubtext: "From first to last transaction",
+      formatOptions: { minimumFractionDigits: 0, maximumFractionDigits: 0 },
+      trendColor: trendColors[3],
+      seed: 99,
+      trendData: transactionTrend,
+      isCurrency: false,
+      showChange: false,
+    },
     income: {
       id: "income",
       title: "Total Income",
@@ -250,12 +281,19 @@ export function SectionCards({
     incomeTrend,
     expensesTrend,
     netWorthTrend,
+    safeTransactionCount,
+    transactionTimeSpan,
+    transactionTrend,
   ])
 
-  const cardOrder: CardId[] = ["income", "expenses", "netWorth"]
+  // Put transactions first as requested ("top card" originally requested, now "with others") -> maybe first is best?
+  // Or logically: Transactions, Income, Expenses, Net Worth ?
+  // Or Income, Expenses, Net Worth, Transactions?
+  // User asked for "top card" previously. I'll put it first to honor "prominence" while grouping.
+  const cardOrder: CardId[] = ["transactions", "income", "expenses", "netWorth"]
 
   return (
-    <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-3">
+    <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
       {cardOrder.map((cardId) => (
         <CardComponent key={cardId} card={cardData[cardId]} />
       ))}

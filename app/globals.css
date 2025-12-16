@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@source "../node_modules/streamdown/dist/*.js";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -170,9 +171,27 @@ button[data-active="true"] .icon-chat,
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    cursor: url('/cursors/cursor-orange.svg') 4 0, auto;
   }
+
   body {
     @apply bg-background text-foreground;
+    cursor: url('/cursors/cursor-orange.svg') 4 0, auto;
+  }
+
+  /* Interactive elements get the hand pointer cursor */
+  a,
+  button,
+  [role="button"],
+  [type="button"],
+  [type="submit"],
+  [type="reset"],
+  select,
+  summary,
+  [tabindex]:not([tabindex="-1"]),
+  label[for],
+  .cursor-pointer {
+    cursor: url('/cursors/hand-orange.svg') 6 0, pointer;
   }
 }
 
@@ -195,6 +214,7 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
 }
 
 @layer components {
+
   /* GridStack container - ensure proper width calculation */
   .grid-stack {
     box-sizing: border-box !important;
@@ -206,33 +226,33 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
     margin-left: 0 !important;
     margin-right: 0 !important;
   }
-  
+
   /* Smooth animations for GridStack items when not dragging */
-  .grid-stack > .grid-stack-item {
+  .grid-stack>.grid-stack-item {
     transition: transform 0.15s ease-out, width 0.15s ease-out, height 0.15s ease-out, left 0.15s ease-out, top 0.15s ease-out;
   }
-  
+
   /* Disable transitions during active drag for immediate responsiveness */
-  .grid-stack > .grid-stack-item.ui-draggable-dragging {
+  .grid-stack>.grid-stack-item.ui-draggable-dragging {
     transition: none !important;
     z-index: 1000 !important;
     opacity: 0.95;
     cursor: grabbing !important;
   }
-  
+
   /* Disable transitions during active resize */
-  .grid-stack > .grid-stack-item.ui-resizable-resizing {
+  .grid-stack>.grid-stack-item.ui-resizable-resizing {
     transition: none !important;
     z-index: 1000 !important;
   }
-  
+
   /* Placeholder styling for drop preview */
-  .grid-stack > .grid-stack-placeholder > .placeholder-content {
+  .grid-stack>.grid-stack-placeholder>.placeholder-content {
     background-color: hsl(var(--muted) / 0.3) !important;
     border: 2px dashed hsl(var(--border)) !important;
     border-radius: var(--radius) !important;
   }
-  
+
   /* Ensure GridStack items and charts don't have scrollbars */
   .grid-stack-item:not(.overflow-visible) {
     overflow: hidden !important;
@@ -241,7 +261,7 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
     margin: 0 !important;
     padding: 0 !important;
   }
-  
+
   /* For trends page - Add spacing between cards using transform/positioning */
   .grid-stack-item.overflow-visible {
     overflow: hidden !important;
@@ -250,9 +270,9 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
     box-sizing: border-box !important;
     max-width: 100% !important;
   }
-  
+
   /* GridStack's default resize handles - let them show naturally */
-  
+
   .grid-stack-item-content {
     height: 100% !important;
     width: 100% !important;
@@ -266,7 +286,7 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
     box-sizing: border-box !important;
     cursor: inherit;
   }
-  
+
   .gridstack-drag-handle {
     cursor: grab;
   }
@@ -274,7 +294,7 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
   .gridstack-drag-handle:active {
     cursor: grabbing;
   }
-  
+
   .grid-stack-item-content [data-slot="card"] {
     height: 100% !important;
     width: 100% !important;
@@ -284,7 +304,7 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
     margin: 0 !important;
     position: relative !important;
   }
-  
+
   .grid-stack-item-content [data-slot="card-content"] {
     flex: 1 !important;
     min-height: 0 !important;
@@ -292,12 +312,12 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
     display: flex !important;
     flex-direction: column !important;
   }
-  
+
   /* Allow overflow-visible to override when explicitly set on cards */
   .grid-stack-item-content [data-slot="card"].overflow-visible {
     overflow: visible !important;
   }
-  
+
   /* Remove padding for trends page grid items to match card size exactly */
   .grid-stack-item-content.overflow-visible {
     overflow: hidden !important;
@@ -306,7 +326,7 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
     padding-left: 0 !important;
     padding-right: 0 !important;
   }
-  
+
   /* For trends page - Create spacing by reducing card size within grid-stack-item */
   /* This creates 16px gaps between cards (8px margin on each side) */
   .grid-stack-item.overflow-visible .grid-stack-item-content.overflow-visible {
@@ -316,7 +336,7 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
     width: calc(100% - 16px) !important;
     box-sizing: border-box !important;
   }
-  
+
   /* Ensure card fills the reduced content area */
   .grid-stack-item.overflow-visible .grid-stack-item-content.overflow-visible [data-slot="card"] {
     height: 100% !important;
@@ -327,7 +347,7 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
     flex-grow: 1 !important;
     position: relative !important;
   }
-  
+
   /* Position resize handle inside the card in the bottom-right corner */
   /* Account for the 8px margin on grid-stack-item-content to position it inside the card */
   .grid-stack-item.overflow-visible .ui-resizable-handle.ui-resizable-se {
@@ -338,12 +358,12 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
     height: 20px !important;
     z-index: 100 !important;
   }
-  
+
   /* Hide all other resize handles */
   .grid-stack-item.overflow-visible .ui-resizable-handle:not(.ui-resizable-se) {
     display: none !important;
   }
-  
+
   /* Analytics page: Position resize handle in bottom-right corner for all cards */
   .grid-stack-item .ui-resizable-handle.ui-resizable-se {
     position: absolute !important;
@@ -354,31 +374,31 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
     z-index: 100 !important;
     user-select: none !important;
   }
-  
+
   /* Analytics page: Hide all other resize handles */
   .grid-stack-item .ui-resizable-handle:not(.ui-resizable-se) {
     display: none !important;
   }
-  
+
   /* Ensure grid-stack-item-content doesn't add any spacing and stretches to fill */
-  .grid-stack-item.overflow-visible > .grid-stack-item-content.overflow-visible {
+  .grid-stack-item.overflow-visible>.grid-stack-item-content.overflow-visible {
     display: flex !important;
     align-items: stretch !important;
     justify-content: stretch !important;
     flex-direction: column !important;
   }
-  
+
   /* Make sure grid-stack-item itself has no transforms or positioning that affects size */
   .grid-stack-item.overflow-visible[style] {
     box-sizing: border-box !important;
   }
-  
+
   /* Force grid-stack-item to match its calculated size exactly */
   .grid-stack-item.overflow-visible[style*="width"],
   .grid-stack-item.overflow-visible[style*="height"] {
     box-sizing: border-box !important;
   }
-  
+
   .chart-polar-bar svg {
     overflow: visible;
   }
@@ -395,8 +415,7 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
     filter: saturate(1.05);
   }
 
-  .chart-polar-bar svg:has(path[data-testid^="arc."]:hover)
-    path[data-testid^="arc."]:not(:hover) {
+  .chart-polar-bar svg:has(path[data-testid^="arc."]:hover) path[data-testid^="arc."]:not(:hover) {
     opacity: 0.35;
     filter: blur(1px) saturate(0.6);
   }

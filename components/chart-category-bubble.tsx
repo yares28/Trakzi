@@ -8,6 +8,7 @@ import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
   Card,
@@ -43,6 +44,7 @@ interface ChartCategoryBubbleProps {
 export function ChartCategoryBubble({ data = [], isLoading = false }: ChartCategoryBubbleProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
+  const { formatCurrency } = useCurrency()
   const [mounted, setMounted] = React.useState(false)
   const chartRef = React.useRef<any>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
@@ -89,17 +91,11 @@ export function ChartCategoryBubble({ data = [], isLoading = false }: ChartCateg
     return [...modifiedBase].reverse()
   }, [getPalette])
 
-  // Format currency value
-  const valueFormatter = new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  })
 
   // ECharts event handlers for custom tooltip
   const handleChartMouseOver = (params: any, event?: any) => {
     if (!containerRef.current) return
-    
+
     const echartsInstance = chartRef.current?.getEchartsInstance()
     if (!echartsInstance) return
 
@@ -121,7 +117,7 @@ export function ChartCategoryBubble({ data = [], isLoading = false }: ChartCateg
         mouseY = handler.lastOffset[1]
       }
     }
-    
+
     setTooltipPosition({
       x: mouseX,
       y: mouseY,
@@ -130,7 +126,7 @@ export function ChartCategoryBubble({ data = [], isLoading = false }: ChartCateg
     if (params && params.data) {
       const id: string = params.data?.id || ""
       const value: number = params.data?.value || 0
-      
+
       // Ensure fullName is always a string
       let fullName: string = "Expenses"
       if (id) {
@@ -144,11 +140,11 @@ export function ChartCategoryBubble({ data = [], isLoading = false }: ChartCateg
           fullName = id
         }
       }
-      
+
       // Get color from visual map or use palette
       const depth = params.data?.depth || 0
       const color = palette[Math.min(depth, palette.length - 1)] || palette[0]
-      
+
       setTooltip({
         label: fullName,
         value,
@@ -173,7 +169,7 @@ export function ChartCategoryBubble({ data = [], isLoading = false }: ChartCateg
           y: e.clientY - rect.top,
         })
       }
-      
+
       window.addEventListener('mousemove', handleMouseMove)
       return () => {
         window.removeEventListener('mousemove', handleMouseMove)
@@ -310,9 +306,9 @@ export function ChartCategoryBubble({ data = [], isLoading = false }: ChartCateg
         .padding(3)(displayRoot as any)
 
       context.nodes = {}
-      ;(displayRoot as any).descendants().forEach((node: any) => {
-        context.nodes[node.data.id] = node
-      })
+        ; (displayRoot as any).descendants().forEach((node: any) => {
+          context.nodes[node.data.id] = node
+        })
     }
 
     const renderItem = (params: any, api: any) => {
@@ -338,9 +334,9 @@ export function ChartCategoryBubble({ data = [], isLoading = false }: ChartCateg
 
       const nodeName = isLeaf
         ? nodePath
-            .slice(nodePath.lastIndexOf(".") + 1)
-            .split(/(?=[A-Z][^A-Z])/g)
-            .join("\n")
+          .slice(nodePath.lastIndexOf(".") + 1)
+          .split(/(?=[A-Z][^A-Z])/g)
+          .join("\n")
         : ""
 
       const isSingleWordLabel =
@@ -533,7 +529,7 @@ export function ChartCategoryBubble({ data = [], isLoading = false }: ChartCateg
                 <span className="font-medium text-foreground whitespace-nowrap">{tooltip.label}</span>
               </div>
               <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                {valueFormatter.format(tooltip.value)}
+                {formatCurrency(tooltip.value)}
               </div>
             </div>
           )}

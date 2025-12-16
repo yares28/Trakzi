@@ -40,6 +40,8 @@ import { ChartShoppingHeatmapDaysMonthsFridge } from "@/components/fridge/chart-
 import { ChartTreeMapFridge } from "@/components/fridge/chart-treemap-fridge"
 import { DataTableFridge } from "@/components/fridge/data-table-fridge"
 import { SectionCardsFridge } from "@/components/fridge/section-cards-fridge"
+import { CardPriceComparisonFridge } from "@/components/fridge/card-price-comparison-fridge"
+import { CardStoreAnalysisFridge } from "@/components/fridge/card-store-analysis-fridge"
 import { SiteHeader } from "@/components/site-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -1445,6 +1447,7 @@ export function FridgePageClient() {
         margin: 0, // match analytics (cards fill entire item)
         minRow: 1,
         float: false, // match analytics (strict grid)
+        animate: true, // Enable smooth animations
         resizable: { handles: "se" },
         draggable: { handle: ".gridstack-drag-handle" },
         disableOneColumnMode: true,
@@ -1831,6 +1834,33 @@ export function FridgePageClient() {
                 data={tableData}
                 onReceiptsChanged={() => setReceiptsRefreshNonce((n) => n + 1)}
               />
+
+              {/* Price & Store Analysis Cards */}
+              <div className="grid gap-4 md:grid-cols-2 px-4 lg:px-6 py-4">
+                <CardPriceComparisonFridge
+                  data={receiptTransactions.map(tx => ({
+                    id: tx.id,
+                    description: tx.description,
+                    pricePerUnit: tx.pricePerUnit,
+                    totalPrice: tx.totalPrice,
+                    receiptDate: tx.receiptDate,
+                    storeName: tx.storeName,
+                  }))}
+                  isLoading={isLoadingReceiptTransactions}
+                />
+                <CardStoreAnalysisFridge
+                  data={receiptTransactions.map(tx => ({
+                    id: tx.id,
+                    description: tx.description,
+                    pricePerUnit: tx.pricePerUnit,
+                    totalPrice: tx.totalPrice,
+                    receiptDate: tx.receiptDate,
+                    storeName: tx.storeName,
+                    categoryName: tx.categoryName,
+                  }))}
+                  isLoading={isLoadingReceiptTransactions}
+                />
+              </div>
             </div>
           </div>
         </main>

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
+import { Area, AreaChart, CartesianGrid, XAxis, Line, ComposedChart, YAxis, Legend } from "recharts"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useColorScheme } from "@/components/color-scheme-provider"
@@ -32,8 +32,18 @@ import {
   ToggleGroupItem,
 } from "@/components/ui/toggle-group"
 import { ChartLoadingState } from "@/components/chart-loading-state"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { IconInfoCircle } from "@tabler/icons-react"
 
-export const description = "A savings accumulation chart"
+export const description = "A savings accumulation chart with moving averages"
 
 interface ChartSavingsAccumulationProps {
   data?: Array<{
@@ -45,11 +55,25 @@ interface ChartSavingsAccumulationProps {
   isLoading?: boolean
 }
 
+// Calculate moving average
+function calculateMA(data: { date: string; savings: number }[], period: number): { date: string; value: number | null }[] {
+  return data.map((item, index) => {
+    if (index < period - 1) {
+      return { date: item.date, value: null }
+    }
+    const slice = data.slice(index - period + 1, index + 1)
+    const sum = slice.reduce((acc, curr) => acc + curr.savings, 0)
+    return { date: item.date, value: sum / period }
+  })
+}
+
 export function ChartSavingsAccumulation({ data: chartData = [], isLoading = false }: ChartSavingsAccumulationProps) {
   const isMobile = useIsMobile()
   const { colorScheme, getPalette } = useColorScheme()
   const { resolvedTheme } = useTheme()
   const [timeRange, setTimeRange] = React.useState("90d")
+  const [show7DayMA, setShow7DayMA] = React.useState(false)
+  const [show30DayMA, setShow30DayMA] = React.useState(false)
   const isDark = resolvedTheme === "dark"
   const gridStrokeColor = isDark ? "#e5e7eb" : "#e5e7eb"
 
@@ -60,10 +84,22 @@ export function ChartSavingsAccumulation({ data: chartData = [], isLoading = fal
   const savingsColor = reversedPalette[Math.min(2, reversedPalette.length - 1)]
   const savingsBorderColor = reversedPalette[Math.min(1, reversedPalette.length - 1)]
 
+  // MA line colors
+  const ma7Color = "#3b82f6" // blue
+  const ma30Color = "#f59e0b" // amber
+
   const chartConfig = {
     savings: {
       label: "Savings",
       color: savingsColor,
+    },
+    ma7: {
+      label: "7-Day MA",
+      color: ma7Color,
+    },
+    ma30: {
+      label: "30-Day MA",
+      color: ma30Color,
     },
   } satisfies ChartConfig
 
@@ -73,19 +109,32 @@ export function ChartSavingsAccumulation({ data: chartData = [], isLoading = fal
     }
   }, [isMobile])
 
-  const filteredData = chartData.filter((item) => {
-    const date = new Date(item.date)
-    const referenceDate = new Date("2024-06-30")
-    let daysToSubtract = 90
-    if (timeRange === "30d") {
-      daysToSubtract = 30
-    } else if (timeRange === "7d") {
-      daysToSubtract = 7
-    }
-    const startDate = new Date(referenceDate)
-    startDate.setDate(startDate.getDate() - daysToSubtract)
-    return date >= startDate
-  })
+  const filteredData = React.useMemo(() => {
+    const filtered = chartData.filter((item) => {
+      const date = new Date(item.date)
+      const referenceDate = new Date("2024-06-30")
+      let daysToSubtract = 90
+      if (timeRange === "30d") {
+        daysToSubtract = 30
+      } else if (timeRange === "7d") {
+        daysToSubtract = 7
+      }
+      const startDate = new Date(referenceDate)
+      startDate.setDate(startDate.getDate() - daysToSubtract)
+      return date >= startDate
+    })
+
+    // Calculate MAs
+    const ma7Data = calculateMA(filtered, 7)
+    const ma30Data = calculateMA(filtered, 30)
+
+    // Merge MA data into filtered data
+    return filtered.map((item, index) => ({
+      ...item,
+      ma7: ma7Data[index]?.value ?? null,
+      ma30: ma30Data[index]?.value ?? null,
+    }))
+  }, [chartData, timeRange])
 
   // Show empty state if no data
   if (!chartData || chartData.length === 0 || filteredData.length === 0) {
@@ -107,7 +156,39 @@ export function ChartSavingsAccumulation({ data: chartData = [], isLoading = fal
     <Card className="@container/card">
       <CardHeader>
         <CardTitle>Savings Accumulation</CardTitle>
-        <CardAction>
+        <CardAction className="flex items-center gap-2">
+          {/* Moving Average Toggle Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <IconInfoCircle className="h-4 w-4" />
+                <span className="sr-only">Chart options</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>Moving Averages</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                checked={show7DayMA}
+                onCheckedChange={setShow7DayMA}
+              >
+                <span className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: ma7Color }} />
+                  7-Day MA
+                </span>
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={show30DayMA}
+                onCheckedChange={setShow30DayMA}
+              >
+                <span className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: ma30Color }} />
+                  30-Day MA
+                </span>
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <ToggleGroup
             type="single"
             value={timeRange}
@@ -146,7 +227,7 @@ export function ChartSavingsAccumulation({ data: chartData = [], isLoading = fal
           config={chartConfig}
           className="aspect-auto h-[250px] w-full"
         >
-          <AreaChart data={filteredData}>
+          <ComposedChart data={filteredData}>
             <defs>
               <linearGradient id="fillSavings" x1="0" y1="0" x2="0" y2="1">
                 <stop
@@ -175,6 +256,7 @@ export function ChartSavingsAccumulation({ data: chartData = [], isLoading = fal
                 })
               }}
             />
+            <YAxis hide domain={['auto', 'auto']} />
             <ChartTooltip
               cursor={false}
               content={
@@ -186,9 +268,10 @@ export function ChartSavingsAccumulation({ data: chartData = [], isLoading = fal
                     })
                   }}
                   indicator="dot"
-                  formatter={(value) => {
+                  formatter={(value, name) => {
                     const numValue = Number(value)
-                    return `$${numValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                    const label = name === "ma7" ? "7-Day MA" : name === "ma30" ? "30-Day MA" : "Savings"
+                    return `${label}: $${numValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
                   }}
                 />
               }
@@ -200,8 +283,48 @@ export function ChartSavingsAccumulation({ data: chartData = [], isLoading = fal
               stroke={savingsBorderColor}
               strokeWidth={2}
             />
-          </AreaChart>
+            {show7DayMA && (
+              <Line
+                dataKey="ma7"
+                type="monotone"
+                stroke={ma7Color}
+                strokeWidth={2}
+                strokeDasharray="5 5"
+                dot={false}
+                connectNulls
+              />
+            )}
+            {show30DayMA && (
+              <Line
+                dataKey="ma30"
+                type="monotone"
+                stroke={ma30Color}
+                strokeWidth={2}
+                strokeDasharray="8 4"
+                dot={false}
+                connectNulls
+              />
+            )}
+          </ComposedChart>
         </ChartContainer>
+
+        {/* Legend for active MAs */}
+        {(show7DayMA || show30DayMA) && (
+          <div className="mt-3 flex items-center justify-center gap-4 text-xs text-muted-foreground">
+            {show7DayMA && (
+              <span className="flex items-center gap-1.5">
+                <span className="h-0.5 w-4 rounded" style={{ backgroundColor: ma7Color, borderStyle: 'dashed' }} />
+                7-Day Moving Average
+              </span>
+            )}
+            {show30DayMA && (
+              <span className="flex items-center gap-1.5">
+                <span className="h-0.5 w-4 rounded" style={{ backgroundColor: ma30Color }} />
+                30-Day Moving Average
+              </span>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   )

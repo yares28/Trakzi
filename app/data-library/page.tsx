@@ -27,6 +27,12 @@ import {
   IconFile,
   IconCircleCheck,
   IconAlertCircle,
+  IconSearch,
+  IconX,
+  IconChevronLeft,
+  IconChevronRight,
+  IconChevronsLeft,
+  IconChevronsRight,
 } from "@tabler/icons-react"
 
 import { AppSidebar } from "@/components/app-sidebar"
@@ -88,7 +94,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Separator } from "@/components/ui/separator"
+import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
+import { useCurrency } from "@/components/currency-provider"
 import { formatDateForDisplay } from "@/lib/date"
 import { normalizeTransactions, cn } from "@/lib/utils"
 import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
@@ -106,7 +114,8 @@ const MemoizedTableRow = memo(function MemoizedTableRow({
   category,
   hasBalance,
   onCategoryChange,
-  onDelete
+  onDelete,
+  formatCurrency
 }: {
   row: ParsedRow
   amount: number
@@ -115,6 +124,7 @@ const MemoizedTableRow = memo(function MemoizedTableRow({
   hasBalance: boolean
   onCategoryChange: (value: string) => void
   onDelete: () => void
+  formatCurrency: (amount: number) => string
 }) {
   return (
     <TableRow>
@@ -127,7 +137,7 @@ const MemoizedTableRow = memo(function MemoizedTableRow({
         </div>
       </TableCell>
       <TableCell className={cn("text-right font-medium w-24 flex-shrink-0", amount < 0 ? "text-red-500" : "text-green-500")}>
-        {amount.toFixed(2)}€
+        {formatCurrency(amount)}
       </TableCell>
       <TableCell className="w-[140px] flex-shrink-0">
         <CategorySelect
@@ -137,7 +147,7 @@ const MemoizedTableRow = memo(function MemoizedTableRow({
       </TableCell>
       {hasBalance && (
         <TableCell className="text-right w-32 flex-shrink-0">
-          {balance !== null ? `${balance.toFixed(2)}€` : "-"}
+          {balance !== null ? formatCurrency(balance) : "-"}
         </TableCell>
       )}
       <TableCell className="w-12 flex-shrink-0">
@@ -281,14 +291,8 @@ const formatDateLabel = (input: string) =>
     day: "numeric",
   })
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: Math.abs(value) >= 1000 ? 0 : 2,
-  }).format(value)
-
 export default function DataLibraryPage() {
+  const { formatCurrency } = useCurrency()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [isPending, startTransition] = useTransition()
   const [statements, setStatements] = useState<Statement[]>([])
@@ -335,6 +339,30 @@ export default function DataLibraryPage() {
   const [deleteReceiptCategoryDialogOpen, setDeleteReceiptCategoryDialogOpen] = useState(false)
   const [receiptCategoryToDelete, setReceiptCategoryToDelete] = useState<ReceiptCategory | null>(null)
   const [deleteReceiptCategoryLoading, setDeleteReceiptCategoryLoading] = useState(false)
+
+  // Search, pagination, and selection state for Categories table
+  const [categorySearch, setCategorySearch] = useState("")
+  const [categoryPage, setCategoryPage] = useState(0)
+  const [categoryPageSize, setCategoryPageSize] = useState(10)
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<number>>(new Set())
+
+  // Search, pagination, and selection state for Receipt Category Types table
+  const [receiptTypeSearch, setReceiptTypeSearch] = useState("")
+  const [receiptTypePage, setReceiptTypePage] = useState(0)
+  const [receiptTypePageSize, setReceiptTypePageSize] = useState(10)
+  const [selectedReceiptTypeIds, setSelectedReceiptTypeIds] = useState<Set<number>>(new Set())
+
+  // Search, pagination, and selection state for Receipt Categories table
+  const [receiptCategorySearch, setReceiptCategorySearch] = useState("")
+  const [receiptCategoryPage, setReceiptCategoryPage] = useState(0)
+  const [receiptCategoryPageSize, setReceiptCategoryPageSize] = useState(10)
+  const [selectedReceiptCategoryIds, setSelectedReceiptCategoryIds] = useState<Set<number>>(new Set())
+
+  // Search, pagination, and selection state for Reports table
+  const [reportsSearch, setReportsSearch] = useState("")
+  const [reportsPage, setReportsPage] = useState(0)
+  const [reportsPageSize, setReportsPageSize] = useState(10)
+  const [selectedReportIds, setSelectedReportIds] = useState<Set<number>>(new Set())
 
   // CSV drop-to-import state
   const [isDragging, setIsDragging] = useState(false)
@@ -395,6 +423,63 @@ export default function DataLibraryPage() {
     }, {})
   }, [statements])
 
+  // Filtered and sorted categories (by totalAmount descending)
+  const filteredCategories = useMemo(() => {
+    let result = categories
+    if (categorySearch.trim()) {
+      const searchLower = categorySearch.toLowerCase().trim()
+      result = result.filter(cat =>
+        cat.name.toLowerCase().includes(searchLower)
+      )
+    }
+    // Sort by totalAmount descending (most spending first)
+    return [...result].sort((a, b) => Math.abs(b.totalAmount ?? 0) - Math.abs(a.totalAmount ?? 0))
+  }, [categories, categorySearch])
+
+  // Filtered and sorted receipt category types (by totalSpend descending)
+  const filteredReceiptTypes = useMemo(() => {
+    let result = receiptCategoryTypes
+    if (receiptTypeSearch.trim()) {
+      const searchLower = receiptTypeSearch.toLowerCase().trim()
+      result = result.filter(type =>
+        type.name.toLowerCase().includes(searchLower)
+      )
+    }
+    // Sort by totalSpend descending
+    return [...result].sort((a, b) => Math.abs(b.totalSpend ?? 0) - Math.abs(a.totalSpend ?? 0))
+  }, [receiptCategoryTypes, receiptTypeSearch])
+
+  // Filtered and sorted receipt categories (by totalSpend descending)
+  const filteredReceiptCategories = useMemo(() => {
+    let result = receiptCategories
+    if (receiptCategorySearch.trim()) {
+      const searchLower = receiptCategorySearch.toLowerCase().trim()
+      result = result.filter(cat =>
+        cat.name.toLowerCase().includes(searchLower) ||
+        cat.typeName.toLowerCase().includes(searchLower)
+      )
+    }
+    // Sort by totalSpend descending
+    return [...result].sort((a, b) => Math.abs(b.totalSpend ?? 0) - Math.abs(a.totalSpend ?? 0))
+  }, [receiptCategories, receiptCategorySearch])
+
+  // Reset pagination when search changes
+  useEffect(() => {
+    setCategoryPage(0)
+  }, [categorySearch])
+
+  useEffect(() => {
+    setReceiptTypePage(0)
+  }, [receiptTypeSearch])
+
+  useEffect(() => {
+    setReceiptCategoryPage(0)
+  }, [receiptCategorySearch])
+
+  useEffect(() => {
+    setReportsPage(0)
+  }, [reportsSearch])
+
   const [selectedReportType, setSelectedReportType] = useState<string>("all")
 
   // Get unique types from statements
@@ -403,13 +488,21 @@ export default function DataLibraryPage() {
     return Array.from(types).sort()
   }, [statements])
 
-  // Filter statements based on selected type
+  // Filter statements based on selected type and search
   const filteredStatements = useMemo(() => {
-    if (selectedReportType === "all") {
-      return statements
+    let result = statements
+    if (selectedReportType !== "all") {
+      result = result.filter(stmt => stmt.type === selectedReportType)
     }
-    return statements.filter(stmt => stmt.type === selectedReportType)
-  }, [statements, selectedReportType])
+    if (reportsSearch.trim()) {
+      const searchLower = reportsSearch.toLowerCase().trim()
+      result = result.filter(stmt =>
+        stmt.name.toLowerCase().includes(searchLower) ||
+        (stmt.type && stmt.type.toLowerCase().includes(searchLower))
+      )
+    }
+    return result
+  }, [statements, selectedReportType, reportsSearch])
 
   const fetchLibraryData = useCallback(async () => {
     setLoading(true)
@@ -470,9 +563,9 @@ export default function DataLibraryPage() {
 
       const [txData, statsData, stmtData, catData, filesData, receiptTypesData, receiptCategoriesData] =
         await Promise.all([
-        txRes.json(),
-        statsRes.json(),
-        stmtRes.json(),
+          txRes.json(),
+          statsRes.json(),
+          stmtRes.json(),
           catRes.json(),
           filesRes.json(),
           receiptTypesRes.json(),
@@ -617,7 +710,7 @@ export default function DataLibraryPage() {
       setTransactionCount(0)
 
       setParsingProgress(5)
-      
+
       try {
         const formData = new FormData()
         formData.append("file", file)
@@ -639,9 +732,9 @@ export default function DataLibraryPage() {
         } catch (categoriesError) {
           console.warn("[DATA-LIBRARY] Failed to load categories from API. Using defaults.", categoriesError)
         }
-        
+
         setParsingProgress(20)
-        
+
         const response = await fetch("/api/statements/parse", {
           method: "POST",
           headers: {
@@ -670,7 +763,7 @@ export default function DataLibraryPage() {
         }
 
         let responseText = ""
-        
+
         if (response.body) {
           const reader = response.body.getReader()
           const contentLength = response.headers.get("content-length")
@@ -682,11 +775,11 @@ export default function DataLibraryPage() {
           while (true) {
             const { done, value } = await reader.read()
             if (done) break
-            
+
             const chunk = decoder.decode(value, { stream: true })
             chunks.push(chunk)
             received += value.length
-            
+
             if (total > 0) {
               const downloadProgress = (received / total) * 65
               setParsingProgress(25 + downloadProgress)
@@ -904,18 +997,18 @@ export default function DataLibraryPage() {
       }
 
       const created = await response.json()
-      
+
       // Refresh categories list
       await fetchLibraryData()
-      
+
       // Reset form
       setNewCategoryName("")
       setNewCategoryTier("Wants")
       setAddCategoryDialogOpen(false)
-      
+
       // Persist the chosen tier locally for Needs vs Wants classification
       saveCategoryTier(created.name ?? trimmedName, newCategoryTier)
-      
+
       toast.success(`Category "${created.name}" added`)
     } catch (error) {
       console.error("[Add Category] Error:", error)
@@ -942,11 +1035,11 @@ export default function DataLibraryPage() {
 
       // Refresh categories list
       await fetchLibraryData()
-      
+
       // Reset state
       setCategoryToDelete(null)
       setDeleteCategoryDialogOpen(false)
-      
+
       toast.success(`Category "${categoryToDelete.name}" deleted`)
     } catch (error) {
       console.error("[Delete Category] Error:", error)
@@ -1098,7 +1191,7 @@ export default function DataLibraryPage() {
       }
 
       const newCategory = await response.json()
-      
+
       // Refresh receipt categories in dialog
       const categoriesResponse = await fetch("/api/receipt-categories")
       if (categoriesResponse.ok) {
@@ -1112,23 +1205,23 @@ export default function DataLibraryPage() {
         }>
         const normalized = Array.isArray(categoriesPayload)
           ? categoriesPayload
-              .map((category) => ({
-                name: typeof category?.name === "string" ? category.name : "",
-                color: typeof category?.color === "string" ? category.color : null,
-                typeName:
-                  typeof category?.typeName === "string"
-                    ? category.typeName
-                    : typeof category?.type_name === "string"
-                      ? category.type_name
-                      : "",
-                typeColor:
-                  typeof category?.typeColor === "string"
-                    ? category.typeColor
-                    : typeof category?.type_color === "string"
-                      ? category.type_color
-                      : null,
-              }))
-              .filter((category) => category.name.trim().length > 0)
+            .map((category) => ({
+              name: typeof category?.name === "string" ? category.name : "",
+              color: typeof category?.color === "string" ? category.color : null,
+              typeName:
+                typeof category?.typeName === "string"
+                  ? category.typeName
+                  : typeof category?.type_name === "string"
+                    ? category.type_name
+                    : "",
+              typeColor:
+                typeof category?.typeColor === "string"
+                  ? category.typeColor
+                  : typeof category?.type_color === "string"
+                    ? category.type_color
+                    : null,
+            }))
+            .filter((category) => category.name.trim().length > 0)
           : []
         setDialogReceiptCategories(normalized)
       }
@@ -1214,7 +1307,7 @@ export default function DataLibraryPage() {
           fetch("/api/receipt-categories"),
           fetch("/api/receipt-categories/types"),
         ])
-        
+
         if (categoriesResponse.ok) {
           const categoriesPayload = (await categoriesResponse.json()) as Array<{
             name?: string
@@ -1226,23 +1319,23 @@ export default function DataLibraryPage() {
           }>
           const normalized = Array.isArray(categoriesPayload)
             ? categoriesPayload
-                .map((category) => ({
-                  name: typeof category?.name === "string" ? category.name : "",
-                  color: typeof category?.color === "string" ? category.color : null,
-                  typeName:
-                    typeof category?.typeName === "string"
-                      ? category.typeName
-                      : typeof category?.type_name === "string"
-                        ? category.type_name
-                        : "",
-                  typeColor:
-                    typeof category?.typeColor === "string"
-                      ? category.typeColor
-                      : typeof category?.type_color === "string"
-                        ? category.type_color
-                        : null,
-                }))
-                .filter((category) => category.name.trim().length > 0)
+              .map((category) => ({
+                name: typeof category?.name === "string" ? category.name : "",
+                color: typeof category?.color === "string" ? category.color : null,
+                typeName:
+                  typeof category?.typeName === "string"
+                    ? category.typeName
+                    : typeof category?.type_name === "string"
+                      ? category.type_name
+                      : "",
+                typeColor:
+                  typeof category?.typeColor === "string"
+                    ? category.typeColor
+                    : typeof category?.type_color === "string"
+                      ? category.type_color
+                      : null,
+              }))
+              .filter((category) => category.name.trim().length > 0)
             : []
           setDialogReceiptCategories(normalized)
         }
@@ -1255,12 +1348,12 @@ export default function DataLibraryPage() {
           }>
           const types = Array.isArray(typesPayload)
             ? typesPayload
-                .map((type) => ({
-                  id: typeof type?.id === "number" ? type.id : 0,
-                  name: typeof type?.name === "string" ? type.name : "",
-                  color: typeof type?.color === "string" ? type.color : null,
-                }))
-                .filter((type) => type.id > 0 && type.name.trim().length > 0)
+              .map((type) => ({
+                id: typeof type?.id === "number" ? type.id : 0,
+                name: typeof type?.name === "string" ? type.name : "",
+                color: typeof type?.color === "string" ? type.color : null,
+              }))
+              .filter((type) => type.id > 0 && type.name.trim().length > 0)
             : []
           setDialogReceiptCategoryTypes(types)
           if (types.length > 0) {
@@ -1381,17 +1474,32 @@ export default function DataLibraryPage() {
         ? `Last touch ${formatFreshness(latestTransactionDate).toLowerCase()}`
         : "Waiting for first sync",
       icon: IconRefresh,
+      subtitle: "synced ledger entries",
     },
     {
       title: "Documents Archived",
       value: formatNumber(statements.length),
       hint:
         Object.keys(statementDistribution).length > 0
-          ? `${Object.keys(statementDistribution).length} source${
-              Object.keys(statementDistribution).length === 1 ? "" : "s"
-            }`
+          ? `${Object.keys(statementDistribution).length} source${Object.keys(statementDistribution).length === 1 ? "" : "s"
+          }`
           : "Upload a statement to unlock insights",
       icon: IconShieldCheck,
+      subtitle: "documents captured",
+    },
+    {
+      title: "User Categories",
+      value: formatNumber(categories.length),
+      hint: "Count pulled directly from your Neon categories table.",
+      icon: IconCategory,
+      subtitle: "total categories synced from Neon",
+    },
+    {
+      title: "Receipt Categories",
+      value: formatNumber(receiptCategories.length),
+      hint: `${receiptCategoryTypes.length} macronutrient type${receiptCategoryTypes.length === 1 ? "" : "s"}`,
+      icon: IconFolders,
+      subtitle: "food categories for AI",
     },
   ]
 
@@ -1474,7 +1582,7 @@ export default function DataLibraryPage() {
                 )}
               </section>
 
-              <section className="grid gap-4 px-4 lg:grid-cols-3 lg:px-6">
+              <section className="grid gap-4 px-4 lg:grid-cols-4 lg:px-6">
                 {kpiCards.map((card) => (
                   <Card key={card.title}>
                     <CardHeader className="flex flex-wrap items-center justify-between gap-2">
@@ -1490,54 +1598,26 @@ export default function DataLibraryPage() {
                     <CardContent>
                       <div className="text-4xl font-semibold">{card.value}</div>
                       <p className="text-muted-foreground text-sm">
-                        {card.title === "Transactions Indexed"
-                          ? "synced ledger entries"
-                          : "documents captured"}
+                        {card.subtitle}
                       </p>
                     </CardContent>
                   </Card>
                 ))}
-                <Card>
-                  <CardHeader className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <CardTitle>User Categories</CardTitle>
-                      <CardDescription>
-                        Count pulled directly from your Neon categories table.
-                      </CardDescription>
-                    </div>
-                    <Badge variant="outline" className="gap-1">
-                      <IconCategory className="size-3.5" />
-                      Live
-                    </Badge>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-4xl font-semibold">
-                      {formatNumber(categories.length)}
-                    </div>
-                    <p className="text-muted-foreground text-sm">
-                      total categories synced from Neon
-                    </p>
-                  </CardContent>
-                </Card>
               </section>
 
 
               <section className="px-4 lg:px-6">
                 <div className="grid gap-4 lg:grid-cols-2">
                   <Card className="lg:col-span-2">
-                    <CardHeader className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
+                    <CardHeader className="flex flex-wrap items-center justify-between gap-2 pb-2">
+                      <div className="flex items-center gap-2">
                         <CardTitle>Reports</CardTitle>
-                        <CardDescription>
-                          Latest statements synced from Neon storage.
-                        </CardDescription>
+                        <Badge variant="secondary">
+                          {filteredStatements.length}
+                          {statements.length !== filteredStatements.length && ` of ${statements.length}`}
+                        </Badge>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="gap-1">
-                          <IconFolders className="size-3.5" />
-                          {filteredStatements.length}
-                          {statements.length !== filteredStatements.length && ` of ${statements.length}`} total
-                        </Badge>
                         {uniqueReportTypes.length > 0 && (
                           <Select value={selectedReportType} onValueChange={setSelectedReportType}>
                             <SelectTrigger className="w-[160px]">
@@ -1555,433 +1635,1023 @@ export default function DataLibraryPage() {
                         )}
                       </div>
                     </CardHeader>
-                    <CardContent className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Report</TableHead>
-                            <TableHead className="hidden md:table-cell">
-                              Type
-                            </TableHead>
-                            <TableHead>Uploaded</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredStatements.length ? (
-                            filteredStatements.slice(0, 6).map((statement) => (
-                              <TableRow key={statement.id}>
-                                <TableCell className="font-medium">
-                                  {statement.name}
-                                </TableCell>
-                                <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                                  {statement.type}
-                                </TableCell>
-                                <TableCell className="text-sm text-muted-foreground">
-                                  {formatDateLabel(statement.date)}
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex justify-end gap-2">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() =>
-                                        handleViewStatementTransactions(statement)
-                                      }
-                                      className="hover:bg-accent"
-                                    >
-                                      {viewLoading &&
-                                      selectedStatement?.id === statement.id ? (
-                                        <IconLoader2 className="size-4 animate-spin" />
-                                      ) : (
-                                        <IconEye className="size-4" />
-                                      )}
-                                      <span className="sr-only">View transactions</span>
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => {
-                                        setStatementToDelete(statement)
-                                        setDeleteDialogOpen(true)
-                                      }}
-                                      disabled={
-                                        deleteLoading &&
-                                        statementToDelete?.id === statement.id
-                                      }
-                                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                    >
-                                      {deleteLoading &&
-                                      statementToDelete?.id === statement.id ? (
-                                        <IconLoader2 className="size-4 animate-spin" />
-                                      ) : (
-                                        <IconTrash className="size-4" />
-                                      )}
-                                      <span className="sr-only">Delete</span>
-                                    </Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={4} className="text-center">
-                                <p className="text-sm text-muted-foreground">
-                                  {selectedReportType !== "all"
-                                    ? `No ${selectedReportType} reports found.`
-                                    : "No reports yet—upload a statement to populate this list."}
-                                </p>
-                              </TableCell>
-                            </TableRow>
+                    <CardContent>
+                      {/* Search */}
+                      <div className="mb-4">
+                        <div className="relative">
+                          <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Search reports..."
+                            value={reportsSearch}
+                            onChange={(e) => setReportsSearch(e.target.value)}
+                            className="pl-9 pr-9"
+                          />
+                          {reportsSearch && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                              onClick={() => setReportsSearch("")}
+                            >
+                              <IconX className="size-4" />
+                            </Button>
                           )}
-                        </TableBody>
-                      </Table>
+                        </div>
+                      </div>
+                      <div className="overflow-hidden rounded-lg border">
+                        <Table>
+                          <TableHeader className="bg-muted sticky top-0 z-10">
+                            <TableRow>
+                              <TableHead className="w-12">
+                                <Checkbox
+                                  checked={
+                                    filteredStatements.length > 0 &&
+                                    (() => {
+                                      const startIndex = reportsPage * reportsPageSize
+                                      const endIndex = startIndex + reportsPageSize
+                                      const pageData = filteredStatements.slice(startIndex, endIndex)
+                                      return pageData.length > 0 && pageData.every(s => selectedReportIds.has(s.id))
+                                    })()
+                                  }
+                                  onCheckedChange={(checked) => {
+                                    const startIndex = reportsPage * reportsPageSize
+                                    const endIndex = startIndex + reportsPageSize
+                                    const pageData = filteredStatements.slice(startIndex, endIndex)
+                                    if (checked) {
+                                      setSelectedReportIds(prev => {
+                                        const next = new Set(prev)
+                                        pageData.forEach(s => next.add(s.id))
+                                        return next
+                                      })
+                                    } else {
+                                      setSelectedReportIds(prev => {
+                                        const next = new Set(prev)
+                                        pageData.forEach(s => next.delete(s.id))
+                                        return next
+                                      })
+                                    }
+                                  }}
+                                  aria-label="Select all"
+                                />
+                              </TableHead>
+                              <TableHead>Report</TableHead>
+                              <TableHead className="hidden md:table-cell">
+                                Type
+                              </TableHead>
+                              <TableHead>Uploaded</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {(() => {
+                              const startIndex = reportsPage * reportsPageSize
+                              const endIndex = startIndex + reportsPageSize
+                              const pageData = filteredStatements.slice(startIndex, endIndex)
+
+                              if (pageData.length === 0) {
+                                return (
+                                  <TableRow>
+                                    <TableCell colSpan={5} className="text-center h-24">
+                                      <p className="text-sm text-muted-foreground">
+                                        {reportsSearch
+                                          ? "No reports match your search."
+                                          : selectedReportType !== "all"
+                                            ? `No ${selectedReportType} reports found.`
+                                            : "No reports yet—upload a statement to populate this list."}
+                                      </p>
+                                    </TableCell>
+                                  </TableRow>
+                                )
+                              }
+
+                              return pageData.map((statement) => (
+                                <TableRow key={statement.id}>
+                                  <TableCell>
+                                    <Checkbox
+                                      checked={selectedReportIds.has(statement.id)}
+                                      onCheckedChange={(checked) => {
+                                        setSelectedReportIds(prev => {
+                                          const next = new Set(prev)
+                                          if (checked) {
+                                            next.add(statement.id)
+                                          } else {
+                                            next.delete(statement.id)
+                                          }
+                                          return next
+                                        })
+                                      }}
+                                      aria-label={`Select ${statement.name}`}
+                                    />
+                                  </TableCell>
+                                  <TableCell className="font-medium">
+                                    {statement.name}
+                                  </TableCell>
+                                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                                    {statement.type}
+                                  </TableCell>
+                                  <TableCell className="text-sm text-muted-foreground">
+                                    {formatDateLabel(statement.date)}
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex justify-end gap-2">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() =>
+                                          handleViewStatementTransactions(statement)
+                                        }
+                                        className="hover:bg-accent"
+                                      >
+                                        {viewLoading &&
+                                          selectedStatement?.id === statement.id ? (
+                                          <IconLoader2 className="size-4 animate-spin" />
+                                        ) : (
+                                          <IconEye className="size-4" />
+                                        )}
+                                        <span className="sr-only">View transactions</span>
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => {
+                                          setStatementToDelete(statement)
+                                          setDeleteDialogOpen(true)
+                                        }}
+                                        disabled={
+                                          deleteLoading &&
+                                          statementToDelete?.id === statement.id
+                                        }
+                                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      >
+                                        {deleteLoading &&
+                                          statementToDelete?.id === statement.id ? (
+                                          <IconLoader2 className="size-4 animate-spin" />
+                                        ) : (
+                                          <IconTrash className="size-4" />
+                                        )}
+                                        <span className="sr-only">Delete</span>
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            })()}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      {/* Pagination with rows per page */}
+                      <div className="flex items-center justify-between mt-4">
+                        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                          <span>Rows per page:</span>
+                          <Select
+                            value={String(reportsPageSize)}
+                            onValueChange={(value) => {
+                              setReportsPageSize(Number(value))
+                              setReportsPage(0)
+                            }}
+                          >
+                            <SelectTrigger className="h-8 w-[70px]">
+                              <SelectValue placeholder={reportsPageSize} />
+                            </SelectTrigger>
+                            <SelectContent side="top">
+                              {[10, 20, 30, 50, 100].map((pageSize) => (
+                                <SelectItem key={pageSize} value={String(pageSize)}>
+                                  {pageSize}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <span className="ml-2">
+                            {filteredStatements.length > 0
+                              ? `${Math.min(reportsPage * reportsPageSize + 1, filteredStatements.length)}-${Math.min((reportsPage + 1) * reportsPageSize, filteredStatements.length)} of ${filteredStatements.length}`
+                              : "0 of 0"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => setReportsPage(0)}
+                            disabled={reportsPage === 0}
+                          >
+                            <IconChevronsLeft className="size-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => setReportsPage(Math.max(0, reportsPage - 1))}
+                            disabled={reportsPage === 0}
+                          >
+                            <IconChevronLeft className="size-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => setReportsPage(Math.min(Math.ceil(filteredStatements.length / reportsPageSize) - 1, reportsPage + 1))}
+                            disabled={reportsPage >= Math.ceil(filteredStatements.length / reportsPageSize) - 1}
+                          >
+                            <IconChevronRight className="size-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => setReportsPage(Math.ceil(filteredStatements.length / reportsPageSize) - 1)}
+                            disabled={reportsPage >= Math.ceil(filteredStatements.length / reportsPageSize) - 1}
+                          >
+                            <IconChevronsRight className="size-4" />
+                          </Button>
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                   <Card className="lg:col-span-2">
                     <CardContent className="p-0">
-                      <DataTable 
-                        data={[]} 
+                      <DataTable
+                        data={[]}
                         transactions={transactions}
                       />
                     </CardContent>
                   </Card>
                   <Card className="lg:col-span-2">
-                    <CardHeader className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <CardTitle>Categories</CardTitle>
-                        <CardDescription>
-                          Full taxonomy pulled from Neon categories table.
-                        </CardDescription>
-                      </div>
+                    <CardHeader className="flex flex-wrap items-center justify-between gap-2 pb-2">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="gap-1">
-                          <IconCategory className="size-3.5" />
-                          {categories.length} total
+                        <CardTitle>Categories</CardTitle>
+                        <Badge variant="secondary">
+                          {filteredCategories.length}
+                          {categories.length !== filteredCategories.length &&
+                            ` of ${categories.length}`}
                         </Badge>
-                        <Button
-                          size="sm"
-                          onClick={() => setAddCategoryDialogOpen(true)}
-                        >
-                          <IconPlus className="size-4 mr-1" />
-                          Add Category
-                        </Button>
                       </div>
+                      <Button
+                        size="sm"
+                        onClick={() => setAddCategoryDialogOpen(true)}
+                      >
+                        <IconPlus className="size-4 mr-1" />
+                        Add Category
+                      </Button>
                     </CardHeader>
-                    <CardContent className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Category</TableHead>
-                            <TableHead className="hidden md:table-cell">
-                              Created
-                            </TableHead>
-                            <TableHead className="text-right">
-                              Transactions
-                            </TableHead>
-                            <TableHead className="text-right">Spend</TableHead>
-                            <TableHead className="text-right w-20">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {categories.length ? (
-                            categories.map((category) => (
-                              <TableRow key={category.id}>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    <span
-                                      className="inline-flex size-2.5 rounded-full"
-                                      style={{
-                                        backgroundColor:
-                                          category.color ?? "hsl(var(--primary))",
-                                      }}
-                                    />
-                                    <span className="font-medium">
-                                      {category.name}
-                                    </span>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                                  {formatDateLabel(category.createdAt)}
-                                </TableCell>
-                                <TableCell className="text-right text-sm">
-                                  {category.transactionCount}
-                                </TableCell>
-                                <TableCell className="text-right text-sm font-medium">
-                                  {(() => {
-                                    const amount = category.totalAmount ?? 0
-                                    if (amount === 0) {
-                                      return (
-                                        <span className="text-muted-foreground">
-                                          {formatCurrency(0)}
-                                        </span>
-                                      )
+                    <CardContent>
+                      {/* Search */}
+                      <div className="mb-4">
+                        <div className="relative">
+                          <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Search categories..."
+                            value={categorySearch}
+                            onChange={(e) => setCategorySearch(e.target.value)}
+                            className="pl-9 pr-9"
+                          />
+                          {categorySearch && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                              onClick={() => setCategorySearch("")}
+                            >
+                              <IconX className="size-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="overflow-hidden rounded-lg border">
+                        <Table>
+                          <TableHeader className="bg-muted sticky top-0 z-10">
+                            <TableRow>
+                              <TableHead className="w-12">
+                                <Checkbox
+                                  checked={
+                                    filteredCategories.length > 0 &&
+                                    (() => {
+                                      const startIndex = categoryPage * categoryPageSize
+                                      const endIndex = startIndex + categoryPageSize
+                                      const pageData = filteredCategories.slice(startIndex, endIndex)
+                                      return pageData.length > 0 && pageData.every(c => selectedCategoryIds.has(c.id))
+                                    })()
+                                  }
+                                  onCheckedChange={(checked) => {
+                                    const startIndex = categoryPage * categoryPageSize
+                                    const endIndex = startIndex + categoryPageSize
+                                    const pageData = filteredCategories.slice(startIndex, endIndex)
+                                    if (checked) {
+                                      setSelectedCategoryIds(prev => {
+                                        const next = new Set(prev)
+                                        pageData.forEach(c => next.add(c.id))
+                                        return next
+                                      })
+                                    } else {
+                                      setSelectedCategoryIds(prev => {
+                                        const next = new Set(prev)
+                                        pageData.forEach(c => next.delete(c.id))
+                                        return next
+                                      })
                                     }
-                                    if (amount < 0) {
-                                      // Expenses (negative) - show in red
+                                  }}
+                                  aria-label="Select all"
+                                />
+                              </TableHead>
+                              <TableHead>Category</TableHead>
+                              <TableHead className="hidden md:table-cell">
+                                Created
+                              </TableHead>
+                              <TableHead className="text-right">
+                                Transactions
+                              </TableHead>
+                              <TableHead className="text-right">Spend</TableHead>
+                              <TableHead className="text-right w-20">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {(() => {
+                              const startIndex = categoryPage * categoryPageSize
+                              const endIndex = startIndex + categoryPageSize
+                              const pageData = filteredCategories.slice(startIndex, endIndex)
+
+                              if (pageData.length === 0) {
+                                return (
+                                  <TableRow>
+                                    <TableCell colSpan={6} className="text-center h-24">
+                                      <p className="text-sm text-muted-foreground">
+                                        {categorySearch
+                                          ? "No categories match your search."
+                                          : "No categories yet—tag transactions to build your taxonomy."}
+                                      </p>
+                                    </TableCell>
+                                  </TableRow>
+                                )
+                              }
+
+                              return pageData.map((category) => (
+                                <TableRow key={category.id}>
+                                  <TableCell>
+                                    <Checkbox
+                                      checked={selectedCategoryIds.has(category.id)}
+                                      onCheckedChange={(checked) => {
+                                        setSelectedCategoryIds(prev => {
+                                          const next = new Set(prev)
+                                          if (checked) {
+                                            next.add(category.id)
+                                          } else {
+                                            next.delete(category.id)
+                                          }
+                                          return next
+                                        })
+                                      }}
+                                      aria-label={`Select ${category.name}`}
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className="inline-flex size-2.5 rounded-full"
+                                        style={{
+                                          backgroundColor:
+                                            category.color ?? "hsl(var(--primary))",
+                                        }}
+                                      />
+                                      <span className="font-medium">
+                                        {category.name}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                                    {formatDateLabel(category.createdAt)}
+                                  </TableCell>
+                                  <TableCell className="text-right text-sm">
+                                    {category.transactionCount}
+                                  </TableCell>
+                                  <TableCell className="text-right text-sm font-medium">
+                                    {(() => {
+                                      const amount = category.totalAmount ?? 0
+                                      if (amount === 0) {
+                                        return (
+                                          <span className="text-muted-foreground">
+                                            {formatCurrency(0)}
+                                          </span>
+                                        )
+                                      }
                                       return (
-                                        <span className="text-red-500">
+                                        <span className={amount < 0 ? "text-red-500" : "text-green-500"}>
                                           {formatCurrency(amount)}
                                         </span>
                                       )
-                                    }
-                                    // Income (positive) - show in green
-                                    return (
-                                      <span className="text-green-500">
-                                        {formatCurrency(amount)}
-                                      </span>
-                                    )
-                                  })()}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {!isDefaultCategory(category.name) && (
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                      onClick={() => {
-                                        setCategoryToDelete(category)
-                                        setDeleteCategoryDialogOpen(true)
-                                      }}
-                                    >
-                                      <IconTrash className="size-4" />
-                                      <span className="sr-only">Delete category</span>
-                                    </Button>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={5} className="text-center">
-                                <p className="text-sm text-muted-foreground">
-                                  No categories yet—tag transactions to build your taxonomy.
-                                </p>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
+                                    })()}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {!isDefaultCategory(category.name) && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        onClick={() => {
+                                          setCategoryToDelete(category)
+                                          setDeleteCategoryDialogOpen(true)
+                                        }}
+                                      >
+                                        <IconTrash className="size-4" />
+                                        <span className="sr-only">Delete category</span>
+                                      </Button>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            })()}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      {/* Pagination with rows per page */}
+                      <div className="flex items-center justify-between mt-4">
+                        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                          <span>Rows per page:</span>
+                          <Select
+                            value={String(categoryPageSize)}
+                            onValueChange={(value) => {
+                              setCategoryPageSize(Number(value))
+                              setCategoryPage(0)
+                            }}
+                          >
+                            <SelectTrigger className="h-8 w-[70px]">
+                              <SelectValue placeholder={categoryPageSize} />
+                            </SelectTrigger>
+                            <SelectContent side="top">
+                              {[10, 20, 30, 50, 100].map((pageSize) => (
+                                <SelectItem key={pageSize} value={String(pageSize)}>
+                                  {pageSize}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <span className="ml-2">
+                            {filteredCategories.length > 0
+                              ? `${Math.min(categoryPage * categoryPageSize + 1, filteredCategories.length)}-${Math.min((categoryPage + 1) * categoryPageSize, filteredCategories.length)} of ${filteredCategories.length}`
+                              : "0 of 0"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => setCategoryPage(0)}
+                            disabled={categoryPage === 0}
+                          >
+                            <IconChevronsLeft className="size-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => setCategoryPage(Math.max(0, categoryPage - 1))}
+                            disabled={categoryPage === 0}
+                          >
+                            <IconChevronLeft className="size-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => setCategoryPage(Math.min(Math.ceil(filteredCategories.length / categoryPageSize) - 1, categoryPage + 1))}
+                            disabled={categoryPage >= Math.ceil(filteredCategories.length / categoryPageSize) - 1}
+                          >
+                            <IconChevronRight className="size-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => setCategoryPage(Math.ceil(filteredCategories.length / categoryPageSize) - 1)}
+                            disabled={categoryPage >= Math.ceil(filteredCategories.length / categoryPageSize) - 1}
+                          >
+                            <IconChevronsRight className="size-4" />
+                          </Button>
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
 
                   <Card className="lg:col-span-2">
-                    <CardHeader className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
+                    <CardHeader className="flex flex-wrap items-center justify-between gap-2 pb-2">
+                      <div className="flex items-center gap-2">
                         <CardTitle>Receipt Macronutrient Types</CardTitle>
-                        <CardDescription>
-                          Used to group grocery categories (Protein, Carbs, Fat, Fiber, Vitamins/Minerals).
-                        </CardDescription>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="gap-1">
-                          <IconCategory className="size-3.5" />
-                          {receiptCategoryTypes.length} total
+                        <Badge variant="secondary">
+                          {filteredReceiptTypes.length}
+                          {receiptCategoryTypes.length !== filteredReceiptTypes.length &&
+                            ` of ${receiptCategoryTypes.length}`}
                         </Badge>
-                        <Button
-                          size="sm"
-                          onClick={() => setAddReceiptTypeDialogOpen(true)}
-                        >
-                          <IconPlus className="size-4 mr-1" />
-                          Add Type
-                        </Button>
                       </div>
+                      <Button
+                        size="sm"
+                        onClick={() => setAddReceiptTypeDialogOpen(true)}
+                      >
+                        <IconPlus className="size-4 mr-1" />
+                        Add Type
+                      </Button>
                     </CardHeader>
-                    <CardContent className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Type</TableHead>
-                            <TableHead className="hidden md:table-cell">Created</TableHead>
-                            <TableHead className="text-right">Categories</TableHead>
-                            <TableHead className="text-right">Items</TableHead>
-                            <TableHead className="text-right">Spend</TableHead>
-                            <TableHead className="text-right w-20">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {receiptCategoryTypes.length ? (
-                            receiptCategoryTypes.map((type) => (
-                              <TableRow key={type.id}>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    <span
-                                      className="inline-flex size-2.5 rounded-full"
-                                      style={{
-                                        backgroundColor:
-                                          type.color ?? "hsl(var(--primary))",
-                                      }}
-                                    />
-                                    <span className="font-medium">{type.name}</span>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                                  {formatDateLabel(type.createdAt)}
-                                </TableCell>
-                                <TableCell className="text-right text-sm">
-                                  {type.categoryCount}
-                                </TableCell>
-                                <TableCell className="text-right text-sm">
-                                  {type.transactionCount}
-                                </TableCell>
-                                <TableCell className="text-right text-sm font-medium">
-                                  {type.totalSpend === 0 ? (
-                                    <span className="text-muted-foreground">
-                                      {formatCurrency(0)}
-                                    </span>
-                                  ) : (
-                                    <span className="text-red-500">
-                                      {formatCurrency(type.totalSpend)}
-                                    </span>
-                                  )}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {!isDefaultReceiptType(type.name) && (
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                      onClick={() => {
-                                        setReceiptTypeToDelete(type)
-                                        setDeleteReceiptTypeDialogOpen(true)
-                                      }}
-                                    >
-                                      <IconTrash className="size-4" />
-                                      <span className="sr-only">Delete type</span>
-                                    </Button>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={6} className="text-center">
-                                <p className="text-sm text-muted-foreground">
-                                  No receipt types yet.
-                                </p>
-                              </TableCell>
-                            </TableRow>
+                    <CardContent>
+                      {/* Search */}
+                      <div className="mb-4">
+                        <div className="relative">
+                          <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Search types..."
+                            value={receiptTypeSearch}
+                            onChange={(e) => setReceiptTypeSearch(e.target.value)}
+                            className="pl-9 pr-9"
+                          />
+                          {receiptTypeSearch && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                              onClick={() => setReceiptTypeSearch("")}
+                            >
+                              <IconX className="size-4" />
+                            </Button>
                           )}
-                        </TableBody>
-                      </Table>
+                        </div>
+                      </div>
+                      <div className="overflow-hidden rounded-lg border">
+                        <Table>
+                          <TableHeader className="bg-muted sticky top-0 z-10">
+                            <TableRow>
+                              <TableHead className="w-12">
+                                <Checkbox
+                                  checked={
+                                    filteredReceiptTypes.length > 0 &&
+                                    (() => {
+                                      const startIndex = receiptTypePage * receiptTypePageSize
+                                      const endIndex = startIndex + receiptTypePageSize
+                                      const pageData = filteredReceiptTypes.slice(startIndex, endIndex)
+                                      return pageData.length > 0 && pageData.every(t => selectedReceiptTypeIds.has(t.id))
+                                    })()
+                                  }
+                                  onCheckedChange={(checked) => {
+                                    const startIndex = receiptTypePage * receiptTypePageSize
+                                    const endIndex = startIndex + receiptTypePageSize
+                                    const pageData = filteredReceiptTypes.slice(startIndex, endIndex)
+                                    if (checked) {
+                                      setSelectedReceiptTypeIds(prev => {
+                                        const next = new Set(prev)
+                                        pageData.forEach(t => next.add(t.id))
+                                        return next
+                                      })
+                                    } else {
+                                      setSelectedReceiptTypeIds(prev => {
+                                        const next = new Set(prev)
+                                        pageData.forEach(t => next.delete(t.id))
+                                        return next
+                                      })
+                                    }
+                                  }}
+                                  aria-label="Select all"
+                                />
+                              </TableHead>
+                              <TableHead>Type</TableHead>
+                              <TableHead className="hidden md:table-cell">Created</TableHead>
+                              <TableHead className="text-right">Categories</TableHead>
+                              <TableHead className="text-right">Items</TableHead>
+                              <TableHead className="text-right">Spend</TableHead>
+                              <TableHead className="text-right w-20">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {(() => {
+                              const startIndex = receiptTypePage * receiptTypePageSize
+                              const endIndex = startIndex + receiptTypePageSize
+                              const pageData = filteredReceiptTypes.slice(startIndex, endIndex)
+
+                              if (pageData.length === 0) {
+                                return (
+                                  <TableRow>
+                                    <TableCell colSpan={7} className="text-center h-24">
+                                      <p className="text-sm text-muted-foreground">
+                                        {receiptTypeSearch
+                                          ? "No types match your search."
+                                          : "No receipt types yet."}
+                                      </p>
+                                    </TableCell>
+                                  </TableRow>
+                                )
+                              }
+
+                              return pageData.map((type) => (
+                                <TableRow key={type.id}>
+                                  <TableCell>
+                                    <Checkbox
+                                      checked={selectedReceiptTypeIds.has(type.id)}
+                                      onCheckedChange={(checked) => {
+                                        setSelectedReceiptTypeIds(prev => {
+                                          const next = new Set(prev)
+                                          if (checked) {
+                                            next.add(type.id)
+                                          } else {
+                                            next.delete(type.id)
+                                          }
+                                          return next
+                                        })
+                                      }}
+                                      aria-label={`Select ${type.name}`}
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className="inline-flex size-2.5 rounded-full"
+                                        style={{
+                                          backgroundColor:
+                                            type.color ?? "hsl(var(--primary))",
+                                        }}
+                                      />
+                                      <span className="font-medium">{type.name}</span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                                    {formatDateLabel(type.createdAt)}
+                                  </TableCell>
+                                  <TableCell className="text-right text-sm">
+                                    {type.categoryCount}
+                                  </TableCell>
+                                  <TableCell className="text-right text-sm">
+                                    {type.transactionCount}
+                                  </TableCell>
+                                  <TableCell className="text-right text-sm font-medium">
+                                    {(() => {
+                                      const amount = type.totalSpend ?? 0
+                                      if (amount === 0) {
+                                        return (
+                                          <span className="text-muted-foreground">
+                                            {formatCurrency(0)}
+                                          </span>
+                                        )
+                                      }
+                                      return (
+                                        <span className={amount < 0 ? "text-red-500" : "text-green-500"}>
+                                          {formatCurrency(amount)}
+                                        </span>
+                                      )
+                                    })()}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {!isDefaultReceiptType(type.name) && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        onClick={() => {
+                                          setReceiptTypeToDelete(type)
+                                          setDeleteReceiptTypeDialogOpen(true)
+                                        }}
+                                      >
+                                        <IconTrash className="size-4" />
+                                        <span className="sr-only">Delete type</span>
+                                      </Button>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            })()}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      {/* Pagination with rows per page */}
+                      <div className="flex items-center justify-between mt-4">
+                        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                          <span>Rows per page:</span>
+                          <Select
+                            value={String(receiptTypePageSize)}
+                            onValueChange={(value) => {
+                              setReceiptTypePageSize(Number(value))
+                              setReceiptTypePage(0)
+                            }}
+                          >
+                            <SelectTrigger className="h-8 w-[70px]">
+                              <SelectValue placeholder={receiptTypePageSize} />
+                            </SelectTrigger>
+                            <SelectContent side="top">
+                              {[10, 20, 30, 50, 100].map((pageSize) => (
+                                <SelectItem key={pageSize} value={String(pageSize)}>
+                                  {pageSize}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <span className="ml-2">
+                            {filteredReceiptTypes.length > 0
+                              ? `${Math.min(receiptTypePage * receiptTypePageSize + 1, filteredReceiptTypes.length)}-${Math.min((receiptTypePage + 1) * receiptTypePageSize, filteredReceiptTypes.length)} of ${filteredReceiptTypes.length}`
+                              : "0 of 0"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => setReceiptTypePage(0)}
+                            disabled={receiptTypePage === 0}
+                          >
+                            <IconChevronsLeft className="size-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => setReceiptTypePage(Math.max(0, receiptTypePage - 1))}
+                            disabled={receiptTypePage === 0}
+                          >
+                            <IconChevronLeft className="size-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => setReceiptTypePage(Math.min(Math.ceil(filteredReceiptTypes.length / receiptTypePageSize) - 1, receiptTypePage + 1))}
+                            disabled={receiptTypePage >= Math.ceil(filteredReceiptTypes.length / receiptTypePageSize) - 1}
+                          >
+                            <IconChevronRight className="size-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => setReceiptTypePage(Math.ceil(filteredReceiptTypes.length / receiptTypePageSize) - 1)}
+                            disabled={receiptTypePage >= Math.ceil(filteredReceiptTypes.length / receiptTypePageSize) - 1}
+                          >
+                            <IconChevronsRight className="size-4" />
+                          </Button>
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
-
                   <Card className="lg:col-span-2">
-                    <CardHeader className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <CardTitle>Receipt Categories</CardTitle>
-                        <CardDescription>
-                          Food categories used by AI for receipt line items (Fruits, Meat, Dairy, etc.).
-                        </CardDescription>
-                      </div>
+                    <CardHeader className="flex flex-wrap items-center justify-between gap-2 pb-2">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="gap-1">
-                          <IconCategory className="size-3.5" />
-                          {receiptCategories.length} total
+                        <CardTitle>Receipt Categories</CardTitle>
+                        <Badge variant="secondary">
+                          {filteredReceiptCategories.length}
+                          {receiptCategories.length !== filteredReceiptCategories.length &&
+                            ` of ${receiptCategories.length}`}
                         </Badge>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            if (!newReceiptCategoryTypeId && receiptCategoryTypes.length > 0) {
-                              setNewReceiptCategoryTypeId(String(receiptCategoryTypes[0].id))
-                            }
-                            setAddReceiptCategoryDialogOpen(true)
-                          }}
-                        >
-                          <IconPlus className="size-4 mr-1" />
-                          Add Receipt Category
-                        </Button>
                       </div>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          if (!newReceiptCategoryTypeId && receiptCategoryTypes.length > 0) {
+                            setNewReceiptCategoryTypeId(String(receiptCategoryTypes[0].id))
+                          }
+                          setAddReceiptCategoryDialogOpen(true)
+                        }}
+                      >
+                        <IconPlus className="size-4 mr-1" />
+                        Add Receipt Category
+                      </Button>
                     </CardHeader>
-                    <CardContent className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Category</TableHead>
-                            <TableHead className="hidden md:table-cell">Type</TableHead>
-                            <TableHead className="hidden lg:table-cell">Created</TableHead>
-                            <TableHead className="text-right">Items</TableHead>
-                            <TableHead className="text-right">Spend</TableHead>
-                            <TableHead className="text-right w-20">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {receiptCategories.length ? (
-                            receiptCategories.map((category) => (
-                              <TableRow key={category.id}>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    <span
-                                      className="inline-flex size-2.5 rounded-full"
-                                      style={{
-                                        backgroundColor:
-                                          category.color ?? "hsl(var(--primary))",
-                                      }}
-                                    />
-                                    <span className="font-medium">
-                                      {category.name}
-                                    </span>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                                  <div className="flex items-center gap-2">
-                                    <span
-                                      className="inline-flex size-2 rounded-full"
-                                      style={{
-                                        backgroundColor:
-                                          category.typeColor ?? "hsl(var(--muted-foreground))",
-                                      }}
-                                    />
-                                    <span>{category.typeName}</span>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                                  {formatDateLabel(category.createdAt)}
-                                </TableCell>
-                                <TableCell className="text-right text-sm">
-                                  {category.transactionCount}
-                                </TableCell>
-                                <TableCell className="text-right text-sm font-medium">
-                                  {category.totalSpend === 0 ? (
-                                    <span className="text-muted-foreground">
-                                      {formatCurrency(0)}
-                                    </span>
-                                  ) : (
-                                    <span className="text-red-500">
-                                      {formatCurrency(category.totalSpend)}
-                                    </span>
-                                  )}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {!isDefaultReceiptCategory(category.name) && (
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                      onClick={() => {
-                                        setReceiptCategoryToDelete(category)
-                                        setDeleteReceiptCategoryDialogOpen(true)
-                                      }}
-                                    >
-                                      <IconTrash className="size-4" />
-                                      <span className="sr-only">Delete category</span>
-                                    </Button>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={6} className="text-center">
-                                <p className="text-sm text-muted-foreground">
-                                  No receipt categories yet.
-                                </p>
-                              </TableCell>
-                            </TableRow>
+                    <CardContent>
+                      {/* Search */}
+                      <div className="mb-4">
+                        <div className="relative">
+                          <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Search categories or types..."
+                            value={receiptCategorySearch}
+                            onChange={(e) => setReceiptCategorySearch(e.target.value)}
+                            className="pl-9 pr-9"
+                          />
+                          {receiptCategorySearch && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                              onClick={() => setReceiptCategorySearch("")}
+                            >
+                              <IconX className="size-4" />
+                            </Button>
                           )}
-                        </TableBody>
-                      </Table>
+                        </div>
+                      </div>
+                      <div className="overflow-hidden rounded-lg border">
+                        <Table>
+                          <TableHeader className="bg-muted sticky top-0 z-10">
+                            <TableRow>
+                              <TableHead className="w-12">
+                                <Checkbox
+                                  checked={
+                                    filteredReceiptCategories.length > 0 &&
+                                    (() => {
+                                      const startIndex = receiptCategoryPage * receiptCategoryPageSize
+                                      const endIndex = startIndex + receiptCategoryPageSize
+                                      const pageData = filteredReceiptCategories.slice(startIndex, endIndex)
+                                      return pageData.length > 0 && pageData.every(c => selectedReceiptCategoryIds.has(c.id))
+                                    })()
+                                  }
+                                  onCheckedChange={(checked) => {
+                                    const startIndex = receiptCategoryPage * receiptCategoryPageSize
+                                    const endIndex = startIndex + receiptCategoryPageSize
+                                    const pageData = filteredReceiptCategories.slice(startIndex, endIndex)
+                                    if (checked) {
+                                      setSelectedReceiptCategoryIds(prev => {
+                                        const next = new Set(prev)
+                                        pageData.forEach(c => next.add(c.id))
+                                        return next
+                                      })
+                                    } else {
+                                      setSelectedReceiptCategoryIds(prev => {
+                                        const next = new Set(prev)
+                                        pageData.forEach(c => next.delete(c.id))
+                                        return next
+                                      })
+                                    }
+                                  }}
+                                  aria-label="Select all"
+                                />
+                              </TableHead>
+                              <TableHead>Category</TableHead>
+                              <TableHead className="hidden md:table-cell">Type</TableHead>
+                              <TableHead className="hidden lg:table-cell">Created</TableHead>
+                              <TableHead className="text-right">Items</TableHead>
+                              <TableHead className="text-right">Spend</TableHead>
+                              <TableHead className="text-right w-20">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {(() => {
+                              const startIndex = receiptCategoryPage * receiptCategoryPageSize
+                              const endIndex = startIndex + receiptCategoryPageSize
+                              const pageData = filteredReceiptCategories.slice(startIndex, endIndex)
+
+                              if (pageData.length === 0) {
+                                return (
+                                  <TableRow>
+                                    <TableCell colSpan={7} className="text-center h-24">
+                                      <p className="text-sm text-muted-foreground">
+                                        {receiptCategorySearch
+                                          ? "No categories match your search."
+                                          : "No receipt categories yet."}
+                                      </p>
+                                    </TableCell>
+                                  </TableRow>
+                                )
+                              }
+
+                              return pageData.map((category) => (
+                                <TableRow key={category.id}>
+                                  <TableCell>
+                                    <Checkbox
+                                      checked={selectedReceiptCategoryIds.has(category.id)}
+                                      onCheckedChange={(checked) => {
+                                        setSelectedReceiptCategoryIds(prev => {
+                                          const next = new Set(prev)
+                                          if (checked) {
+                                            next.add(category.id)
+                                          } else {
+                                            next.delete(category.id)
+                                          }
+                                          return next
+                                        })
+                                      }}
+                                      aria-label={`Select ${category.name}`}
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className="inline-flex size-2.5 rounded-full"
+                                        style={{
+                                          backgroundColor:
+                                            category.color ?? "hsl(var(--primary))",
+                                        }}
+                                      />
+                                      <span className="font-medium">
+                                        {category.name}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className="inline-flex size-2 rounded-full"
+                                        style={{
+                                          backgroundColor:
+                                            category.typeColor ?? "hsl(var(--muted-foreground))",
+                                        }}
+                                      />
+                                      <span>{category.typeName}</span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                                    {formatDateLabel(category.createdAt)}
+                                  </TableCell>
+                                  <TableCell className="text-right text-sm">
+                                    {category.transactionCount}
+                                  </TableCell>
+                                  <TableCell className="text-right text-sm font-medium">
+                                    {(() => {
+                                      const amount = category.totalSpend ?? 0
+                                      if (amount === 0) {
+                                        return (
+                                          <span className="text-muted-foreground">
+                                            {formatCurrency(0)}
+                                          </span>
+                                        )
+                                      }
+                                      return (
+                                        <span className={amount < 0 ? "text-red-500" : "text-green-500"}>
+                                          {formatCurrency(amount)}
+                                        </span>
+                                      )
+                                    })()}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {!isDefaultReceiptCategory(category.name) && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        onClick={() => {
+                                          setReceiptCategoryToDelete(category)
+                                          setDeleteReceiptCategoryDialogOpen(true)
+                                        }}
+                                      >
+                                        <IconTrash className="size-4" />
+                                        <span className="sr-only">Delete category</span>
+                                      </Button>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            })()}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      {/* Pagination with rows per page */}
+                      <div className="flex items-center justify-between mt-4">
+                        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                          <span>Rows per page:</span>
+                          <Select
+                            value={String(receiptCategoryPageSize)}
+                            onValueChange={(value) => {
+                              setReceiptCategoryPageSize(Number(value))
+                              setReceiptCategoryPage(0)
+                            }}
+                          >
+                            <SelectTrigger className="h-8 w-[70px]">
+                              <SelectValue placeholder={receiptCategoryPageSize} />
+                            </SelectTrigger>
+                            <SelectContent side="top">
+                              {[10, 20, 30, 50, 100].map((pageSize) => (
+                                <SelectItem key={pageSize} value={String(pageSize)}>
+                                  {pageSize}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <span className="ml-2">
+                            {filteredReceiptCategories.length > 0
+                              ? `${Math.min(receiptCategoryPage * receiptCategoryPageSize + 1, filteredReceiptCategories.length)}-${Math.min((receiptCategoryPage + 1) * receiptCategoryPageSize, filteredReceiptCategories.length)} of ${filteredReceiptCategories.length}`
+                              : "0 of 0"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => setReceiptCategoryPage(0)}
+                            disabled={receiptCategoryPage === 0}
+                          >
+                            <IconChevronsLeft className="size-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => setReceiptCategoryPage(Math.max(0, receiptCategoryPage - 1))}
+                            disabled={receiptCategoryPage === 0}
+                          >
+                            <IconChevronLeft className="size-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => setReceiptCategoryPage(Math.min(Math.ceil(filteredReceiptCategories.length / receiptCategoryPageSize) - 1, receiptCategoryPage + 1))}
+                            disabled={receiptCategoryPage >= Math.ceil(filteredReceiptCategories.length / receiptCategoryPageSize) - 1}
+                          >
+                            <IconChevronRight className="size-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => setReceiptCategoryPage(Math.ceil(filteredReceiptCategories.length / receiptCategoryPageSize) - 1)}
+                            disabled={receiptCategoryPage >= Math.ceil(filteredReceiptCategories.length / receiptCategoryPageSize) - 1}
+                          >
+                            <IconChevronsRight className="size-4" />
+                          </Button>
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
@@ -2020,9 +2690,9 @@ export default function DataLibraryPage() {
                                 [...prev].sort((a, b) =>
                                   sortDirection === "asc"
                                     ? new Date(a.date).getTime() -
-                                      new Date(b.date).getTime()
+                                    new Date(b.date).getTime()
                                     : new Date(b.date).getTime() -
-                                      new Date(a.date).getTime()
+                                    new Date(a.date).getTime()
                                 )
                               )
                               setSortDirection((prev) =>
@@ -2055,10 +2725,10 @@ export default function DataLibraryPage() {
                                       setIsCreateReceiptCategoryDialogOpen(true)
                                       return
                                     }
-                                    
+
                                     const previousCategory = tx.category
                                     const categoryName = value === "__uncategorized__" ? null : value
-                                    
+
                                     // Update state immediately
                                     startTransition(() => {
                                       setStatementTransactions((prev) =>
@@ -2467,8 +3137,8 @@ export default function DataLibraryPage() {
                       )}
                     </Button>
                   </div>
-                  </DialogContent>
-                </Dialog>
+                </DialogContent>
+              </Dialog>
 
               <AlertDialog
                 open={deleteCategoryDialogOpen}
@@ -2911,12 +3581,12 @@ export default function DataLibraryPage() {
                             ) : (
                               parsedRows.map((row) => {
                                 const amount = typeof row.amount === 'number' ? row.amount : parseFloat(row.amount) || 0
-                                const balance = row.balance !== null && row.balance !== undefined 
-                                  ? (typeof row.balance === 'number' ? row.balance : parseFloat(row.balance)) 
+                                const balance = row.balance !== null && row.balance !== undefined
+                                  ? (typeof row.balance === 'number' ? row.balance : parseFloat(row.balance))
                                   : null
                                 const category = row.category || 'Other'
                                 const hasBalance = parsedRows.some((r) => r.balance !== null && r.balance !== undefined)
-                                
+
                                 return (
                                   <MemoizedTableRow
                                     key={row.id ?? `${row.date}-${row.description}`}
@@ -2970,7 +3640,7 @@ export default function DataLibraryPage() {
             </div>
           </DialogContent>
         </Dialog>
-      </SidebarInset>
-    </SidebarProvider>
+      </SidebarInset >
+    </SidebarProvider >
   )
 }

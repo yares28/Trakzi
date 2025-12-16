@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
-    Loader2, Lightbulb, TrendingUp, TrendingDown, Sparkles,
+    Loader2, TrendingUp, TrendingDown, Sparkles,
     Info, Users, X, Target, ChevronDown, ChevronUp, Flag, Lock
 } from "lucide-react";
 import {
@@ -43,6 +43,14 @@ const IconSavings = () => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
         <path fill="none" d="M0 0h24v24H0z"></path>
         <path d="M10.0049 19.9998H6.00488V21.9998H4.00488V19.9998H3.00488C2.4526 19.9998 2.00488 19.552 2.00488 18.9998V3.99977C2.00488 3.44748 2.4526 2.99977 3.00488 2.99977H10.0049V1.59C10.0049 1.31385 10.2287 1.09 10.5049 1.09C10.5324 1.09 10.5599 1.09227 10.5871 1.0968L21.1693 2.8605C21.6515 2.94086 22.0049 3.35805 22.0049 3.84689V5.99977H23.0049V7.99977H22.0049V14.9998H23.0049V16.9998H22.0049V19.1526C22.0049 19.6415 21.6515 20.0587 21.1693 20.139L20.0049 20.3331V21.9998H18.0049V20.6664L10.5871 21.9027C10.3147 21.9481 10.0571 21.7641 10.0117 21.4917C10.0072 21.4646 10.0049 21.4371 10.0049 21.4095V19.9998ZM12.0049 19.6388L20.0049 18.3055V4.69402L12.0049 3.36069V19.6388ZM16.5049 13.9998C15.6765 13.9998 15.0049 12.8805 15.0049 11.4998C15.0049 10.1191 15.6765 8.99977 16.5049 8.99977C17.3333 8.99977 18.0049 10.1191 18.0049 11.4998C18.0049 12.8805 17.3333 13.9998 16.5049 13.9998Z"></path>
+    </svg>
+);
+
+// Custom Lightbulb icon
+const IconLightbulb = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" className={className}>
+        <path fill="none" d="M0 0h24v24H0z"></path>
+        <path d="M11 18H7.94101C7.64391 16.7274 6.30412 15.6857 5.75395 14.9992C4.65645 13.6297 4 11.8915 4 10C4 5.58172 7.58172 2 12 2C16.4183 2 20 5.58172 20 10C20 11.8925 19.3428 13.6315 18.2443 15.0014C17.6944 15.687 16.3558 16.7276 16.059 18H13V13H11V18ZM16 20V21C16 22.1046 15.1046 23 14 23H10C8.89543 23 8 22.1046 8 21V20H16Z"></path>
     </svg>
 );
 
@@ -443,8 +451,7 @@ function getTipIconColor(priority: "low" | "medium" | "high"): string {
 }
 
 function getIconForTip(icon: string): React.ReactNode {
-    // User requested: Replace emojis with lightbulb icons
-    return <Lightbulb className="h-3 w-3 text-primary" />;
+    return <IconLightbulb className="h-3 w-3 text-primary" />;
 }
 
 // Phase 1: Score Labels
@@ -949,7 +956,7 @@ export default function DashboardPage() {
                                                             className="flex items-center justify-between w-full group"
                                                         >
                                                             <div className="flex items-center gap-2">
-                                                                <Lightbulb className="h-4 w-4 text-primary" />
+                                                                <IconLightbulb className="h-4 w-4 text-primary" />
                                                                 <span className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
                                                                     Tips to improve ({item.insight.tips.length})
                                                                 </span>
@@ -1044,6 +1051,42 @@ export default function DashboardPage() {
                     // TODO: Persist goal to database
                 }}
             />
+
+            {/* Quick Action Chips - Floating Bar */}
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+                <motion.div
+                    initial={{ y: 100, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.5, type: "spring", stiffness: 300, damping: 25 }}
+                    className="flex items-center gap-2 rounded-full border bg-background/95 px-4 py-2 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80"
+                >
+                    <span className="text-xs text-muted-foreground mr-1">Ask AI:</span>
+                    <Link
+                        href="/chat?prompt=Give%20me%20a%20monthly%20spending%20summary"
+                        className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
+                    >
+                        Monthly summary
+                    </Link>
+                    <Link
+                        href="/chat?prompt=What%20are%20my%20top%20expenses%20this%20month"
+                        className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
+                    >
+                        Top expenses
+                    </Link>
+                    <Link
+                        href="/chat?prompt=What%20seasonal%20spending%20patterns%20do%20you%20see%20in%20my%20data"
+                        className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors hidden sm:block"
+                    >
+                        Seasonal patterns
+                    </Link>
+                    <Link
+                        href="/chat?prompt=Compare%20my%20spending%20year%20over%20year"
+                        className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors hidden md:block"
+                    >
+                        Year-over-year
+                    </Link>
+                </motion.div>
+            </div>
         </SidebarProvider>
     );
 }

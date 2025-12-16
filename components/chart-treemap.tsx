@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
@@ -34,9 +35,10 @@ interface ChartTreeMapProps {
 
 export function ChartTreeMap({ data = { name: "", children: [] }, categoryControls, isLoading = false }: ChartTreeMapProps) {
   const { getPalette, colorScheme } = useColorScheme()
+  const { formatCurrency } = useCurrency()
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
-  
+
   // In dark mode, use lighter colors (reverse the palette so lightest colors come first)
   // Also handle the "dark" color scheme specially
   const chartColors = useMemo(() => {
@@ -51,7 +53,7 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
 
   // Text color based on theme - white in dark mode, black in light mode
   const labelColor = isDark ? "#ffffff" : "#000000"
-  
+
   const sanitizedData = useMemo<TreeMapNode>(() => {
     const empty: TreeMapNode = { name: "", children: [] }
     if (!data?.children?.length) return empty
@@ -88,7 +90,7 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
         },
         timestamp: Date.now(),
       }),
-    }).catch(() => {});
+    }).catch(() => { });
     // #endregion
 
     return result
@@ -118,7 +120,7 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
       />
     </div>
   )
-  
+
   if (!sanitizedData || !sanitizedData.children || sanitizedData.children.length === 0) {
     // #region agent log
     fetch("http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8", {
@@ -137,7 +139,7 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
         },
         timestamp: Date.now(),
       }),
-    }).catch(() => {});
+    }).catch(() => { });
     // #endregion
 
     return (
@@ -162,7 +164,7 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
       </Card>
     )
   }
-  
+
   return (
     <Card className="col-span-full">
       <CardHeader>
@@ -225,7 +227,7 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
                     <span className="font-medium text-foreground">{displayName}</span>
                   </div>
                   <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                    {node.formattedValue}
+                    {formatCurrency(node.value)}
                   </div>
                 </div>
               )

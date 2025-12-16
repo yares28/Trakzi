@@ -1,9 +1,7 @@
 "use client"
 
 import { usePathname } from "next/navigation"
-import {
-  type Icon,
-} from "@tabler/icons-react"
+import React from "react"
 
 import {
   SidebarGroup,
@@ -15,17 +13,21 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
+
+// Use a more flexible icon type that accepts any component
+type IconComponent = React.ComponentType<React.SVGProps<SVGSVGElement> & { className?: string }>
+
 export function NavDocuments({
   items,
 }: {
   items: {
     name: string
     url: string
-    icon: Icon
+    icon: IconComponent
     items?: {
       name: string
       url: string
-      icon?: Icon
+      icon?: IconComponent
     }[]
   }[]
 }) {

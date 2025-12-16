@@ -14,6 +14,7 @@ import {
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 interface ChartAllMonthsCategorySpendingProps {
@@ -49,6 +50,7 @@ const monthNamesShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug",
 export function ChartAllMonthsCategorySpending({ data = [], categoryControls: propCategoryControls, isLoading = false }: ChartAllMonthsCategorySpendingProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
+  const { formatCurrency } = useCurrency()
   const palette = useMemo(
     () => getPalette().filter((color) => color !== "#c3c3c3"),
     [getPalette, resolvedTheme],
@@ -92,7 +94,7 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
           const result = await deduplicatedFetch<{ data: Record<number, Array<{ category: string; month: number; total: number }>>; availableMonths: number[] }>(
             `/api/analytics/monthly-category-duplicate?months=${allMonths}`
           )
-          
+
           // Result is now an object with month numbers as keys
           if (result.data && typeof result.data === 'object') {
             Object.entries(result.data).forEach(([monthStr, monthData]: [string, any]) => {
@@ -106,7 +108,7 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
         } catch (err) {
           console.warn(`[All Months Category Spending] Error fetching batch months:`, err)
         }
-        
+
         setActualMonthTotals(totals)
       } catch (error) {
         console.error('[All Months Category Spending] Error fetching actual totals:', error)
@@ -131,7 +133,7 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
 
     let januaryTotal = 0
     const monthYearMap = new Map<string, number>() // Track totals by "month-year" for debugging
-    
+
     data.forEach((tx) => {
       const amount = Number(tx.amount) || 0
       if (amount < 0) {
@@ -159,7 +161,7 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
           monthIndex = date.getUTCMonth()
           year = date.getUTCFullYear()
         }
-        
+
         const category = normalizeCategoryName(tx.category)
 
         if (hiddenCategorySet.has(category)) {
@@ -191,7 +193,7 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
         }
       }
     })
-    
+
     // Debug: Check for January 1st transactions
     const jan1Transactions = data.filter(tx => {
       const amount = Number(tx.amount) || 0
@@ -315,7 +317,7 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
       setTooltipPosition(null)
     }
     svg.addEventListener("mouseleave", handleSvgMouseLeave)
-    
+
     let lastWidth: number | null = null
     let lastHeight: number | null = null
 
@@ -396,7 +398,7 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
 
         const visibleTotal = monthTotals.get(monthIndex) || 0
         const actualTotal = actualMonthTotals.get(monthIndex) || 0
-        
+
         if (visibleTotal > 0 || actualTotal > 0) {
           const totalBar = document.createElementNS("http://www.w3.org/2000/svg", "rect")
           // Use visible total for bar height (visual representation)
@@ -424,7 +426,7 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
           totalBar.setAttribute("data-total-amount", actualTotal.toString())
           const breakdown = monthCategoryBreakdown.get(monthIndex) || []
           totalBar.setAttribute("data-breakdown", JSON.stringify(breakdown))
-          
+
           monthGroup.appendChild(totalBar)
 
           setTimeout(() => {
@@ -567,7 +569,7 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
           "font-family",
           'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
         )
-        tickText.textContent = `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+        tickText.textContent = formatCurrency(value, { maximumFractionDigits: 0 })
         yAxisGroup.appendChild(tickText)
       }
       svg.appendChild(yAxisGroup)
@@ -670,14 +672,14 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
               // Ignore parse errors
             }
             showTooltip(e as unknown as MouseEvent, month, "", totalAmount, true, breakdown)
-        } else {
-          const category = target.getAttribute("data-category") || ""
-          const amount = parseFloat(target.getAttribute("data-amount") || "0")
-          const color = target.getAttribute("fill") || undefined
-          showTooltip(e as unknown as MouseEvent, month, category, amount, false, undefined, color)
-        }
+          } else {
+            const category = target.getAttribute("data-category") || ""
+            const amount = parseFloat(target.getAttribute("data-amount") || "0")
+            const color = target.getAttribute("fill") || undefined
+            showTooltip(e as unknown as MouseEvent, month, category, amount, false, undefined, color)
+          }
+        })
       })
-    })
     } // End of renderChart function
 
     // Initial render with current container size
@@ -721,7 +723,7 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
       }
       svg.removeEventListener("mouseleave", handleSvgMouseLeave)
     }
-  }, [processedData, categories, categoryColors, isDark, textColor, gridColor, axisColor, actualMonthTotals])
+  }, [processedData, categories, categoryColors, isDark, textColor, gridColor, axisColor, actualMonthTotals, formatCurrency])
 
   if (!data || data.length === 0) {
     return (
@@ -790,7 +792,7 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
                         <div key={idx} className="flex justify-between gap-3 mb-1">
                           <span className="text-foreground/80">{item.category}:</span>
                           <span className="font-semibold text-foreground">
-                            ${item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {formatCurrency(item.amount)}
                           </span>
                         </div>
                       ))}
@@ -798,49 +800,51 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
                   <div className="border-t border-border/60 pt-1.5 mt-1">
                     <div className="flex justify-between gap-3 font-bold text-foreground">
                       <span>Total:</span>
-                      <span>${tooltip.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span>{formatCurrency(tooltip.amount)}</span>
                     </div>
                   </div>
                 </>
               ) : (
-                <>
-                  <div className="flex items-center gap-2 mb-1">
-                    {tooltip.color && (
-                      <span
-                        className="h-2.5 w-2.5 rounded-full border border-border/50"
-                        style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
-                      />
-                    )}
-                    <span className="font-medium text-foreground">{tooltip.month}</span>
+                <div className="flex items-center gap-2">
+                  {tooltip.color && (
+                    <span
+                      className="h-2.5 w-2.5 rounded-full border border-border/50"
+                      style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
+                    />
+                  )}
+                  <div className="flex flex-col">
+                    <span className="font-medium text-foreground">{tooltip.category}</span>
+                    <span className="text-muted-foreground text-[10px]">{tooltip.month}</span>
                   </div>
-                  <div className="text-foreground/80 mb-0.5">{tooltip.category}:</div>
-                  <div className="font-mono text-[0.7rem] text-foreground/80">
-                    ${tooltip.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                </>
+                  <span className="font-mono ml-2 text-foreground">
+                    {formatCurrency(tooltip.amount)}
+                  </span>
+                </div>
               )}
             </div>
           )}
         </div>
-        {categories.length > 0 && (
-          <div className="px-4 pb-4 pt-2 flex flex-wrap items-center justify-center gap-3 text-xs">
-            {categories.slice(0, 10).map((category) => (
-              <div key={category} className="flex items-center gap-1.5">
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{
-                    backgroundColor: categoryColors.get(category) || "#8884d8",
-                  }}
-                />
-                <span className="text-muted-foreground">{category}</span>
-              </div>
-            ))}
-            {categories.length > 10 && (
-              <span className="text-muted-foreground">+{categories.length - 10} more</span>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+        {
+          categories.length > 0 && (
+            <div className="px-4 pb-4 pt-2 flex flex-wrap items-center justify-center gap-3 text-xs">
+              {categories.slice(0, 10).map((category) => (
+                <div key={category} className="flex items-center gap-1.5">
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{
+                      backgroundColor: categoryColors.get(category) || "#8884d8",
+                    }}
+                  />
+                  <span className="text-muted-foreground">{category}</span>
+                </div>
+              ))}
+              {categories.length > 10 && (
+                <span className="text-muted-foreground">+{categories.length - 10} more</span>
+              )}
+            </div>
+          )
+        }
+      </CardContent >
+    </Card >
   )
 }

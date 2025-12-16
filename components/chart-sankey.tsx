@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
@@ -60,6 +61,7 @@ const formatNodeId = (id: string) => {
 export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls, isLoading = false }: ChartSankeyProps) {
   const { getPalette } = useColorScheme()
   const { resolvedTheme } = useTheme()
+  const { formatCurrency } = useCurrency()
 
   // In dark mode, use lighter colors (reverse the palette so lightest colors come first)
   const chartColors = useMemo(() => {
@@ -67,15 +69,7 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls,
     return resolvedTheme === "dark" ? [...palette].reverse() : palette
   }, [getPalette, resolvedTheme])
 
-  const currencyFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        maximumFractionDigits: 2,
-      }),
-    []
-  )
+
 
   const sanitizedData = useMemo(() => {
     const nodes = (data?.nodes || []).map(node => {
@@ -189,7 +183,7 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls,
               return (
                 <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
                   <div className="font-medium text-foreground">{label}</div>
-                  <div className="text-muted-foreground">{currencyFormatter.format(value)}</div>
+                  <div className="text-muted-foreground">{formatCurrency(value)}</div>
                 </div>
               )
             }}
@@ -202,7 +196,7 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls,
                     {sourceLabel} → {targetLabel}
                   </div>
                   <div className="text-muted-foreground">
-                    {currencyFormatter.format(toNumericValue(link.value))}
+                    {formatCurrency(toNumericValue(link.value))}
                   </div>
                 </div>
               )

@@ -179,23 +179,6 @@ export function ChartGroceryVsRestaurantFridge({ dateFilter }: ChartGroceryVsRes
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
                 {hasData ? (
                     <div className="h-full w-full min-h-[250px] flex flex-col">
-                        {/* Legend */}
-                        <div className="mb-2 flex justify-center gap-6 text-xs">
-                            <div className="flex items-center gap-1.5">
-                                <span
-                                    className="h-3 w-3 rounded-sm"
-                                    style={{ backgroundColor: palette[0] }}
-                                />
-                                <span className="text-muted-foreground">Groceries</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                                <span
-                                    className="h-3 w-3 rounded-sm"
-                                    style={{ backgroundColor: palette[1] }}
-                                />
-                                <span className="text-muted-foreground">Restaurants</span>
-                            </div>
-                        </div>
                         {/* Stacked Bar Chart */}
                         <div className="flex-1 min-h-0" style={{ minHeight: "200px" }}>
                             <ResponsiveBar
@@ -218,7 +201,13 @@ export function ChartGroceryVsRestaurantFridge({ dateFilter }: ChartGroceryVsRes
                                     tickSize: 5,
                                     tickPadding: 5,
                                     tickRotation: 0,
-                                    format: (v: number) => `${symbol}${(v / 1000).toFixed(0)}k`,
+                                    format: (v: number) => {
+                                        if (v === 0) return `${symbol}0`
+                                        if (Math.abs(v) >= 1000) {
+                                            return `${symbol}${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}k`
+                                        }
+                                        return `${symbol}${v.toFixed(0)}`
+                                    },
                                 }}
                                 labelSkipWidth={30}
                                 labelSkipHeight={16}
@@ -272,6 +261,23 @@ export function ChartGroceryVsRestaurantFridge({ dateFilter }: ChartGroceryVsRes
                                     </div>
                                 )}
                             />
+                        </div>
+                        {/* Legend at bottom */}
+                        <div className="mt-2 flex justify-center gap-6 text-xs">
+                            <div className="flex items-center gap-1.5">
+                                <span
+                                    className="h-3 w-3 rounded-sm"
+                                    style={{ backgroundColor: palette[0] }}
+                                />
+                                <span className="text-muted-foreground">Groceries</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <span
+                                    className="h-3 w-3 rounded-sm"
+                                    style={{ backgroundColor: palette[1] }}
+                                />
+                                <span className="text-muted-foreground">Restaurants</span>
+                            </div>
                         </div>
                     </div>
                 ) : (

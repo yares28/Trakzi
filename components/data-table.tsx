@@ -58,6 +58,7 @@ import { z } from "zod"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { formatDateForDisplay } from "@/lib/date"
+import { useCurrency } from "@/components/currency-provider"
 import { TransactionDialog } from "@/components/transaction-dialog"
 import {
   AlertDialog,
@@ -322,6 +323,7 @@ export function DataTable<TData, TValue>({
   transactionDialogOpen?: boolean
   onTransactionDialogOpenChange?: (open: boolean) => void
 }) {
+  const { formatCurrency } = useCurrency()
   const [data, setData] = React.useState(() => initialData)
   const [rowSelection, setRowSelection] = React.useState({})
   const [columnVisibility, setColumnVisibility] =
@@ -351,7 +353,7 @@ export function DataTable<TData, TValue>({
   const isDialogOpen = transactionDialogOpen !== undefined ? transactionDialogOpen : internalDialogOpen
   const setIsDialogOpen = onTransactionDialogOpenChange || setInternalDialogOpen
   const sortableId = React.useId()
-  
+
   // Delete transaction handler
   const handleDeleteTransaction = React.useCallback(async () => {
     if (!transactionToDelete || deletingId === transactionToDelete) return
@@ -370,12 +372,12 @@ export function DataTable<TData, TValue>({
       toast.success("Transaction deleted successfully")
       setDeleteDialogOpen(false)
       setTransactionToDelete(null)
-      
+
       // Refresh transactions
       if (onTransactionAdded) {
         onTransactionAdded()
       }
-      
+
       // Reload the page after a short delay to ensure deletion is committed
       setTimeout(() => {
         window.location.reload()
@@ -411,12 +413,12 @@ export function DataTable<TData, TValue>({
       toast.success(`Successfully deleted ${selectedTransactionIds.size} transaction(s)`)
       setBatchDeleteDialogOpen(false)
       setSelectedTransactionIds(new Set())
-      
+
       // Refresh transactions
       if (onTransactionAdded) {
         onTransactionAdded()
       }
-      
+
       // Reload the page after a short delay to ensure deletions are committed
       setTimeout(() => {
         window.location.reload()
@@ -498,7 +500,7 @@ export function DataTable<TData, TValue>({
   // Filter transactions based on search and category
   const filteredTransactions = React.useMemo(() => {
     if (!transactions || transactions.length === 0) return []
-    
+
     let filtered = transactions
 
     // Filter by category
@@ -509,7 +511,7 @@ export function DataTable<TData, TValue>({
     // Filter by search term (description)
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase().trim()
-      filtered = filtered.filter(tx => 
+      filtered = filtered.filter(tx =>
         tx.description.toLowerCase().includes(searchLower)
       )
     }
@@ -520,7 +522,7 @@ export function DataTable<TData, TValue>({
   // Toggle all transactions on current page
   const toggleAllTransactions = React.useCallback(() => {
     if (!filteredTransactions || filteredTransactions.length === 0) return
-    
+
     const pageSize = transactionPagination.pageSize
     const maxItems = 10000
     const limitedTransactions = filteredTransactions.slice(0, maxItems)
@@ -528,10 +530,10 @@ export function DataTable<TData, TValue>({
     const startIndex = currentPage * pageSize
     const endIndex = startIndex + pageSize
     const pageData = limitedTransactions.slice(startIndex, endIndex)
-    
+
     const pageIds = new Set(pageData.map(tx => tx.id))
     const allSelected = pageIds.size > 0 && Array.from(pageIds).every(id => selectedTransactionIds.has(id))
-    
+
     setSelectedTransactionIds((prev) => {
       const next = new Set(prev)
       if (allSelected) {
@@ -599,7 +601,7 @@ export function DataTable<TData, TValue>({
           {filteredTransactions && filteredTransactions.length > 0 && (
             <Badge variant="secondary">
               {filteredTransactions.length}
-              {transactions && transactions.length !== filteredTransactions.length && 
+              {transactions && transactions.length !== filteredTransactions.length &&
                 ` of ${transactions.length}`}
             </Badge>
           )}
@@ -631,7 +633,7 @@ export function DataTable<TData, TValue>({
               )}
             </Button>
           )}
-          <Button 
+          <Button
             size="sm"
             onClick={() => setIsDialogOpen(true)}
             className="gap-1 bg-primary text-primary-foreground hover:bg-primary/90"
@@ -641,7 +643,7 @@ export function DataTable<TData, TValue>({
           </Button>
         </div>
       </div>
-      
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 px-4 lg:px-6 mb-5">
         <div className="relative flex-1">
@@ -720,20 +722,20 @@ export function DataTable<TData, TValue>({
                     // Determine if balance column should be shown (check original transactions, not filtered)
                     const hasBalanceColumn = transactions?.some(tx => tx.balance !== null) ?? false
                     const baseColSpan = hasBalanceColumn ? 6 : 5
-                    
+
                     if (!filteredTransactions || filteredTransactions.length === 0) {
                       const colSpanWithCheckbox = baseColSpan + 1 // Add 1 for checkbox column
                       return (
                         <TableRow>
                           <TableCell colSpan={colSpanWithCheckbox} className="h-24 text-center">
-                            {searchTerm || selectedCategory !== "all" 
+                            {searchTerm || selectedCategory !== "all"
                               ? "No transactions match your filters"
                               : "No transactions found"}
                           </TableCell>
                         </TableRow>
                       )
                     }
-                    
+
                     const pageSize = transactionPagination.pageSize
                     const maxPages = 1000 // 10000 transactions / 10 per page = 1000 pages
                     const maxItems = 10000 // Maximum 10000 transactions
@@ -743,7 +745,7 @@ export function DataTable<TData, TValue>({
                     const endIndex = startIndex + pageSize
                     const pageData = limitedTransactions.slice(startIndex, endIndex)
                     const totalPages = Math.min(Math.ceil(limitedTransactions.length / pageSize), maxPages)
-                    
+
                     if (pageData.length === 0) {
                       const colSpanWithCheckbox = baseColSpan + 1 // Add 1 for checkbox column
                       return (
@@ -754,9 +756,9 @@ export function DataTable<TData, TValue>({
                         </TableRow>
                       )
                     }
-                    
+
                     return pageData.map((tx) => (
-                      <TableRow 
+                      <TableRow
                         key={tx.id}
                         className="group relative"
                         data-state={selectedTransactionIds.has(tx.id) ? "selected" : undefined}
@@ -781,14 +783,14 @@ export function DataTable<TData, TValue>({
                           </div>
                         </TableCell>
                         <TableCell className={`text-right font-medium w-24 flex-shrink-0 ${tx.amount < 0 ? "text-red-500" : "text-green-500"}`}>
-                          {tx.amount.toFixed(2)}€
+                          {formatCurrency(tx.amount)}
                         </TableCell>
                         <TableCell className="w-[140px] flex-shrink-0">
                           <Badge variant="outline">{tx.category}</Badge>
                         </TableCell>
                         {filteredTransactions.some(t => t.balance !== null) && (
                           <TableCell className="text-right w-32 flex-shrink-0">
-                            {tx.balance !== null ? `${tx.balance.toFixed(2)}€` : "-"}
+                            {tx.balance !== null ? formatCurrency(tx.balance) : "-"}
                           </TableCell>
                         )}
                         <TableCell className="w-12 flex-shrink-0">
@@ -813,7 +815,7 @@ export function DataTable<TData, TValue>({
                 </TableBody>
               </Table>
             </div>
-            <div className="flex items-center justify-between px-4">
+            <div className="flex items-center justify-between mt-4">
               {(() => {
                 const pageSize = transactionPagination.pageSize
                 const maxPages = 500 // 10000 transactions / 20 per page = 500 pages
@@ -825,75 +827,72 @@ export function DataTable<TData, TValue>({
                 const totalPages = Math.min(Math.ceil(limitedTransactions.length / pageSize), maxPages)
                 const showingStart = Math.min(startIndex + 1, limitedTransactions.length)
                 const showingEnd = Math.min(endIndex, limitedTransactions.length)
-                
+
                 return (
                   <>
-                    <div className="text-muted-foreground hidden flex-1 text-sm lg:flex">
-                      Showing {showingStart} to {showingEnd} of {limitedTransactions.length} transaction(s)
-                      {transactions.length > maxItems && ` (showing first ${maxItems} of ${transactions.length} total)`}
+                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                      <span>Rows per page:</span>
+                      <Select
+                        value={String(pageSize)}
+                        onValueChange={(value) => {
+                          setTransactionPagination({ pageIndex: 0, pageSize: Number(value) })
+                        }}
+                      >
+                        <SelectTrigger className="h-8 w-[70px]">
+                          <SelectValue placeholder={pageSize} />
+                        </SelectTrigger>
+                        <SelectContent side="top">
+                          {[10, 20, 30, 50, 100].map((size) => (
+                            <SelectItem key={size} value={String(size)}>
+                              {size}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <span className="ml-2">
+                        {limitedTransactions.length > 0
+                          ? `${showingStart}-${showingEnd} of ${limitedTransactions.length}`
+                          : "0 of 0"}
+                        {transactions && transactions.length > maxItems && ` (max ${maxItems})`}
+                      </span>
                     </div>
-                    <div className="flex w-full items-center gap-8 lg:w-fit">
-                      <div className="hidden items-center gap-2 lg:flex">
-                        <Label htmlFor="tx-rows-per-page" className="text-sm font-medium">
-                          Rows per page
-                        </Label>
-                        <Select
-                          value={`${pageSize}`}
-                          onValueChange={() => {}}
-                          disabled
-                        >
-                          <SelectTrigger size="sm" className="w-20" id="tx-rows-per-page">
-                            <SelectValue placeholder={pageSize} />
-                          </SelectTrigger>
-                          <SelectContent side="top">
-                            <SelectItem value={`${pageSize}`}>{pageSize}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex w-fit items-center justify-center text-sm font-medium">
-                        Page {currentPage + 1} of {totalPages}
-                      </div>
-                      <div className="ml-auto flex items-center gap-2 lg:ml-0">
-                        <Button
-                          variant="outline"
-                          className="hidden h-8 w-8 p-0 lg:flex"
-                          onClick={() => setTransactionPagination({ ...transactionPagination, pageIndex: 0 })}
-                          disabled={currentPage === 0}
-                        >
-                          <span className="sr-only">Go to first page</span>
-                          <IconChevronsLeft />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="size-8"
-                          size="icon"
-                          onClick={() => setTransactionPagination({ ...transactionPagination, pageIndex: Math.max(0, currentPage - 1) })}
-                          disabled={currentPage === 0}
-                        >
-                          <span className="sr-only">Go to previous page</span>
-                          <IconChevronLeft />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="size-8"
-                          size="icon"
-                          onClick={() => setTransactionPagination({ ...transactionPagination, pageIndex: Math.min(totalPages - 1, currentPage + 1) })}
-                          disabled={currentPage >= totalPages - 1}
-                        >
-                          <span className="sr-only">Go to next page</span>
-                          <IconChevronRight />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="hidden size-8 lg:flex"
-                          size="icon"
-                          onClick={() => setTransactionPagination({ ...transactionPagination, pageIndex: totalPages - 1 })}
-                          disabled={currentPage >= totalPages - 1}
-                        >
-                          <span className="sr-only">Go to last page</span>
-                          <IconChevronsRight />
-                        </Button>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="size-8"
+                        onClick={() => setTransactionPagination({ ...transactionPagination, pageIndex: 0 })}
+                        disabled={currentPage === 0}
+                      >
+                        <IconChevronsLeft className="size-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="size-8"
+                        onClick={() => setTransactionPagination({ ...transactionPagination, pageIndex: Math.max(0, currentPage - 1) })}
+                        disabled={currentPage === 0}
+                      >
+                        <IconChevronLeft className="size-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="size-8"
+                        onClick={() => setTransactionPagination({ ...transactionPagination, pageIndex: Math.min(totalPages - 1, currentPage + 1) })}
+                        disabled={currentPage >= totalPages - 1}
+                      >
+                        <IconChevronRight className="size-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="size-8"
+                        onClick={() => setTransactionPagination({ ...transactionPagination, pageIndex: totalPages - 1 })}
+                        disabled={currentPage >= totalPages - 1}
+                      >
+                        <IconChevronsRight className="size-4" />
+                      </Button>
                     </div>
                   </>
                 )
@@ -938,7 +937,7 @@ export function DataTable<TData, TValue>({
                             year: "numeric",
                             month: "short",
                             day: "numeric",
-                          })} • {tx.amount.toFixed(2)}€ • {tx.category}
+                          })} • {formatCurrency(tx.amount)} • {tx.category}
                         </div>
                       </div>
                     </>
@@ -990,7 +989,7 @@ export function DataTable<TData, TValue>({
                             year: "numeric",
                             month: "short",
                             day: "numeric",
-                          })} • {tx.amount.toFixed(2)}€ • {tx.category}
+                          })} • {formatCurrency(tx.amount)} • {tx.category}
                         </div>
                       </div>
                     )

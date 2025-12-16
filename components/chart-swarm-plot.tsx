@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -53,6 +54,7 @@ interface ChartSwarmPlotProps {
 export function ChartSwarmPlot({ data }: ChartSwarmPlotProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
+  const { formatCurrency } = useCurrency()
   const [remoteData, setRemoteData] = useState<ChartSwarmPlotDatum[]>([])
   // Initialize loading to true only if data prop is not provided (undefined) - means we need to fetch
   // If data prop is provided (even if empty array), parent is handling data, so don't show loading
@@ -65,7 +67,7 @@ export function ChartSwarmPlot({ data }: ChartSwarmPlotProps) {
     chartId: "analytics:transaction-history",
     storageScope: "analytics",
   })
-  
+
   // In dark mode, use lighter colors (reverse the palette so lightest colors come first)
   const chartColors = useMemo(() => {
     const palette = getPalette()
@@ -75,7 +77,7 @@ export function ChartSwarmPlot({ data }: ChartSwarmPlotProps) {
   // Theme for axis labels and text - match muted-foreground color from globals.css
   const swarmTheme = useMemo(() => {
     // Use same muted-foreground colors as Recharts charts for consistency
-    const textColor = resolvedTheme === "dark" 
+    const textColor = resolvedTheme === "dark"
       ? "oklch(0.6268 0 0)"  // --muted-foreground in dark mode
       : "oklch(0.551 0.0234 264.3637)"  // --muted-foreground in light mode
     return {
@@ -239,19 +241,19 @@ export function ChartSwarmPlot({ data }: ChartSwarmPlotProps) {
     sanitizedData.forEach(item => {
       categoriesWithData.add(item.categoryLabel)
     })
-    
+
     // Filter combinedCategoryOptions to only include categories with data
     const filteredCombined = combinedCategoryOptions.filter(cat => categoriesWithData.has(cat))
     if (filteredCombined.length > 0) {
       return filteredCombined
     }
-    
+
     // Filter fallbackCategoryOptions to only include categories with data
     const filteredFallback = fallbackCategoryOptions.filter(cat => categoriesWithData.has(cat))
     if (filteredFallback.length > 0) {
       return filteredFallback
     }
-    
+
     return []
   }, [combinedCategoryOptions, fallbackCategoryOptions, sanitizedData])
 
@@ -349,8 +351,8 @@ export function ChartSwarmPlot({ data }: ChartSwarmPlotProps) {
 
   const selectAllGroups = () => {
     // Toggle: if all are selected, deselect all; otherwise select all
-    const allSelected = visibleGroups.length === chartGroups.length && 
-                       chartGroups.every(group => visibleGroups.includes(group))
+    const allSelected = visibleGroups.length === chartGroups.length &&
+      chartGroups.every(group => visibleGroups.includes(group))
     if (allSelected) {
       setVisibleGroups([])
     } else {
@@ -358,26 +360,16 @@ export function ChartSwarmPlot({ data }: ChartSwarmPlotProps) {
     }
   }
 
-const selectionSummary =
-  visibleGroups.length === 0 || visibleGroups.length === chartGroups.length
-    ? "All categories"
-    : visibleGroups.length === 1
-      ? visibleGroups[0]
-      : `${visibleGroups.length} categories`
+  const selectionSummary =
+    visibleGroups.length === 0 || visibleGroups.length === chartGroups.length
+      ? "All categories"
+      : visibleGroups.length === 1
+        ? visibleGroups[0]
+        : `${visibleGroups.length} categories`
 
   const triggerClassName =
     "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 w-40"
 
-  // Format currency value
-  const valueFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        maximumFractionDigits: 2,
-      }),
-    []
-  )
 
   const renderInfoTrigger = () => (
     <div className="flex flex-col items-center gap-2">
@@ -472,7 +464,7 @@ const selectionSummary =
       </Card>
     )
   }
-  
+
   return (
     <Card className="col-span-full">
       <CardHeader className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -514,8 +506,8 @@ const selectionSummary =
                   }}
                   className="cursor-pointer font-medium"
                 >
-                  {visibleGroups.length === chartGroups.length && 
-                   chartGroups.every(group => visibleGroups.includes(group))
+                  {visibleGroups.length === chartGroups.length &&
+                    chartGroups.every(group => visibleGroups.includes(group))
                     ? "Deselect all"
                     : "Select all"}
                 </DropdownMenuItem>
@@ -581,7 +573,7 @@ const selectionSummary =
                     </span>
                   </div>
                   <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                    {valueFormatter.format(datum.price || 0)}
+                    {formatCurrency(datum.price || 0)}
                   </div>
                   {datum.date && (
                     <div className="mt-0.5 text-[0.7rem] text-foreground/60">

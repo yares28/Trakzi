@@ -366,11 +366,13 @@ export function TransactionDialog({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">None (individual transaction)</SelectItem>
-                      {statements.map((statement) => (
-                        <SelectItem key={statement.id} value={String(statement.statementId)}>
-                          {statement.name} ({statement.type})
-                        </SelectItem>
-                      ))}
+                      {statements
+                        .filter((statement) => statement.statementId != null)
+                        .map((statement) => (
+                          <SelectItem key={`stmt-${statement.statementId}`} value={String(statement.statementId)}>
+                            {statement.name} ({statement.type})
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </Field>

@@ -6,6 +6,7 @@ import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
@@ -41,6 +42,7 @@ const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satu
 export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette, colorScheme } = useColorScheme()
+  const { formatCurrency } = useCurrency()
   const [mounted, setMounted] = React.useState(false)
   const [data, setData] = React.useState<DayOfWeekData[]>([])
   const [availableDays, setAvailableDays] = React.useState<number[]>([])
@@ -180,12 +182,7 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
     return base
   }, [getPalette, colorScheme, resolvedTheme])
 
-  // Format currency value
-  const valueFormatter = new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  })
+
 
   // ECharts event handlers for custom tooltip
   const handleChartMouseOver = React.useCallback(
@@ -371,7 +368,7 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
       yAxis: {
         type: "value",
         axisLabel: {
-          formatter: (value: number) => `$${value.toLocaleString()}`,
+          formatter: (value: number) => formatCurrency(value, { maximumFractionDigits: 0 }),
           color: textColor,
         },
         axisTick: {
@@ -551,10 +548,7 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
         {option && data.length > 0 ? (
           <div className="h-full w-full flex flex-col">
             <div className="mb-2 text-sm font-medium text-foreground text-center">
-              Total: ${data.reduce((sum, item) => sum + item.total, 0).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              Total: {formatCurrency(data.reduce((sum, item) => sum + item.total, 0))}
             </div>
             <div ref={containerRef} className="relative flex-1 min-h-0" style={{ minHeight: 0, minWidth: 0 }}>
               {chartElement}
@@ -574,7 +568,7 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
                     <span className="font-medium text-foreground whitespace-nowrap">{tooltip.label}</span>
                   </div>
                   <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                    {valueFormatter.format(tooltip.value)}
+                    {formatCurrency(tooltip.value)}
                   </div>
                 </div>
               )}

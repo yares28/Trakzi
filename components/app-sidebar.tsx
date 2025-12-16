@@ -184,6 +184,48 @@ const IconDataLibrary = React.forwardRef<
 ))
 IconDataLibrary.displayName = "IconDataLibrary"
 
+// Custom Dashboard icon component
+const IconDashboard = React.forwardRef<
+  SVGSVGElement,
+  React.ComponentProps<"svg">
+>((props, ref) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    width="16"
+    height="16"
+    fill="currentColor"
+    className="icon-dashboard"
+    ref={ref}
+    {...props}
+  >
+    <path fill="none" d="M0 0h24v24H0z"></path>
+    <path d="M19.5 4.7832V7.6709L22 9.11426V14.8867L19.499 16.3311L19.5 19.2178L14.5 22.1045L13 21.2383V18H11V21.2373L9.5 22.1045L4.5 19.2178V16.3311L2 14.8877L2.00098 9.11328L4.5 7.66992V4.78418L9.5 1.89746L11 2.76367V6H13V2.7627L14.501 1.89648L19.5 4.7832Z"></path>
+  </svg>
+))
+IconDashboard.displayName = "IconDashboard"
+
+// Custom Reports icon component
+const IconReports = React.forwardRef<
+  SVGSVGElement,
+  React.ComponentProps<"svg">
+>((props, ref) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    width="16"
+    height="16"
+    fill="currentColor"
+    className="icon-reports"
+    ref={ref}
+    {...props}
+  >
+    <path fill="none" d="M0 0h24v24H0z"></path>
+    <path d="M20 22H4C3.44772 22 3 21.5523 3 21V3C3 2.44772 3.44772 2 4 2H20C20.5523 2 21 2.44772 21 3V21C21 21.5523 20.5523 22 20 22ZM19 20V4H5V20H19ZM7 6H17V8H7V6ZM7 10H17V12H7V10ZM7 14H14V16H7V14Z"></path>
+  </svg>
+))
+IconReports.displayName = "IconReports"
+
 
 
 const data = {
@@ -274,14 +316,19 @@ const data = {
   ],
   documents: [
     {
+      name: "Dashboard",
+      url: "/dashboard",
+      icon: IconDashboard,
+    },
+    {
       name: "Data Library",
       url: "/data-library",
       icon: IconDataLibrary,
     },
     {
-      name: "Dashboard",
-      url: "/dashboard",
-      icon: IconAnalytics,
+      name: "Reports",
+      url: "/reports",
+      icon: IconReports,
     },
   ],
 }

@@ -10,6 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { BugReportDialog } from "@/components/bug-report-dialog"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -225,6 +226,10 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
               Set the default time range for charts and data
             </p>
           </div>
+
+          <Separator />
+
+          <BugReportDialog />
         </div>
       </PopoverContent>
     </Popover>
