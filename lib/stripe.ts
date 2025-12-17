@@ -48,6 +48,4 @@ export function getPlanFromPriceId(priceId: string): 'pro' | 'max' | 'free' {
 }
 
 // Get app URL for redirects
-export function getAppUrl(): string {
-    return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-}
+export { getAppUrl } from './env';

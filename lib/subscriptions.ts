@@ -6,6 +6,22 @@ import { neonQuery, neonInsert } from './neonClient';
 export type PlanType = 'free' | 'pro' | 'max';
 export type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'trialing';
 
+// Database row type (snake_case as stored in DB)
+interface SubscriptionDbRow {
+    id: string;
+    user_id: string;
+    plan: string;
+    status: string;
+    stripe_customer_id: string | null;
+    stripe_subscription_id: string | null;
+    stripe_price_id: string | null;
+    current_period_end: Date | string | null;
+    cancel_at_period_end: boolean;
+    created_at: Date | string;
+    updated_at: Date | string;
+}
+
+// Application type (camelCase for TypeScript)
 export interface Subscription {
     id: string;
     userId: string;
@@ -20,12 +36,29 @@ export interface Subscription {
     updatedAt: Date;
 }
 
+// Map database row to TypeScript interface
+function mapDbRowToSubscription(row: SubscriptionDbRow): Subscription {
+    return {
+        id: row.id,
+        userId: row.user_id,
+        plan: row.plan as PlanType,
+        status: row.status as SubscriptionStatus,
+        stripeCustomerId: row.stripe_customer_id,
+        stripeSubscriptionId: row.stripe_subscription_id,
+        stripePriceId: row.stripe_price_id,
+        currentPeriodEnd: row.current_period_end ? new Date(row.current_period_end) : null,
+        cancelAtPeriodEnd: row.cancel_at_period_end,
+        createdAt: new Date(row.created_at),
+        updatedAt: new Date(row.updated_at),
+    };
+}
+
 /**
  * Get user's subscription from database
  */
 export async function getUserSubscription(userId: string): Promise<Subscription | null> {
-    const results = await neonQuery<Subscription>(
-        `SELECT * FROM subscriptions WHERE "userId" = $1 LIMIT 1`,
+    const results = await neonQuery<SubscriptionDbRow>(
+        `SELECT * FROM subscriptions WHERE user_id = $1 LIMIT 1`,
         [userId]
     );
 
@@ -33,7 +66,7 @@ export async function getUserSubscription(userId: string): Promise<Subscription 
         return null;
     }
 
-    return results[0];
+    return mapDbRowToSubscription(results[0]);
 }
 
 /**
@@ -56,17 +89,17 @@ export async function upsertSubscription(data: {
 
     if (existing) {
         // Update existing subscription
-        const result = await neonQuery<Subscription>(
+        const result = await neonQuery<SubscriptionDbRow>(
             `UPDATE subscriptions SET
         plan = $1,
         status = $2,
-        "stripeCustomerId" = COALESCE($3, "stripeCustomerId"),
-        "stripeSubscriptionId" = COALESCE($4, "stripeSubscriptionId"),
-        "stripePriceId" = COALESCE($5, "stripePriceId"),
-        "currentPeriodEnd" = COALESCE($6, "currentPeriodEnd"),
-        "cancelAtPeriodEnd" = COALESCE($7, "cancelAtPeriodEnd"),
-        "updatedAt" = $8
-      WHERE "userId" = $9
+        stripe_customer_id = COALESCE($3, stripe_customer_id),
+        stripe_subscription_id = COALESCE($4, stripe_subscription_id),
+        stripe_price_id = COALESCE($5, stripe_price_id),
+        current_period_end = COALESCE($6, current_period_end),
+        cancel_at_period_end = COALESCE($7, cancel_at_period_end),
+        updated_at = $8
+      WHERE user_id = $9
       RETURNING *`,
             [
                 data.plan,
@@ -80,23 +113,23 @@ export async function upsertSubscription(data: {
                 data.userId,
             ]
         );
-        return result[0];
+        return mapDbRowToSubscription(result[0]);
     } else {
         // Insert new subscription
-        const result = await neonInsert<Subscription>('subscriptions', {
+        const result = await neonInsert<SubscriptionDbRow>('subscriptions', {
             id: crypto.randomUUID(),
-            userId: data.userId,
+            user_id: data.userId,
             plan: data.plan,
             status: data.status,
-            stripeCustomerId: data.stripeCustomerId ?? null,
-            stripeSubscriptionId: data.stripeSubscriptionId ?? null,
-            stripePriceId: data.stripePriceId ?? null,
-            currentPeriodEnd: data.currentPeriodEnd ?? null,
-            cancelAtPeriodEnd: data.cancelAtPeriodEnd ?? false,
-            createdAt: now,
-            updatedAt: now,
+            stripe_customer_id: data.stripeCustomerId ?? null,
+            stripe_subscription_id: data.stripeSubscriptionId ?? null,
+            stripe_price_id: data.stripePriceId ?? null,
+            current_period_end: data.currentPeriodEnd ?? null,
+            cancel_at_period_end: data.cancelAtPeriodEnd ?? false,
+            created_at: now,
+            updated_at: now,
         });
-        return result[0];
+        return mapDbRowToSubscription(result[0]);
     }
 }
 
@@ -154,12 +187,12 @@ export async function requirePro(userId: string): Promise<void> {
 export async function getSubscriptionByStripeCustomerId(
     stripeCustomerId: string
 ): Promise<Subscription | null> {
-    const results = await neonQuery<Subscription>(
-        `SELECT * FROM subscriptions WHERE "stripeCustomerId" = $1 LIMIT 1`,
+    const results = await neonQuery<SubscriptionDbRow>(
+        `SELECT * FROM subscriptions WHERE stripe_customer_id = $1 LIMIT 1`,
         [stripeCustomerId]
     );
 
-    return results.length > 0 ? results[0] : null;
+    return results.length > 0 ? mapDbRowToSubscription(results[0]) : null;
 }
 
 /**
@@ -168,10 +201,10 @@ export async function getSubscriptionByStripeCustomerId(
 export async function getSubscriptionByStripeSubscriptionId(
     stripeSubscriptionId: string
 ): Promise<Subscription | null> {
-    const results = await neonQuery<Subscription>(
-        `SELECT * FROM subscriptions WHERE "stripeSubscriptionId" = $1 LIMIT 1`,
+    const results = await neonQuery<SubscriptionDbRow>(
+        `SELECT * FROM subscriptions WHERE stripe_subscription_id = $1 LIMIT 1`,
         [stripeSubscriptionId]
     );
 
-    return results.length > 0 ? results[0] : null;
+    return results.length > 0 ? mapDbRowToSubscription(results[0]) : null;
 }

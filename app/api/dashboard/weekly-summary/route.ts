@@ -1,5 +1,6 @@
 // app/api/dashboard/weekly-summary/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { getSiteUrl, getSiteName } from "@/lib/env";
 
 interface SummaryRequest {
     savingsRate: number;
@@ -21,8 +22,8 @@ export async function POST(request: NextRequest) {
         const { savingsRate, savingsScore, trendDirection, trendChange } = body;
 
         const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-        const SITE_URL = process.env.SITE_URL || "http://localhost:3000";
-        const SITE_NAME = process.env.SITE_NAME || "Folio Finance";
+        const SITE_URL = getSiteUrl();
+        const SITE_NAME = getSiteName();
 
         if (!OPENROUTER_API_KEY) {
             console.warn("[Weekly Summary API] OpenRouter API key not configured");

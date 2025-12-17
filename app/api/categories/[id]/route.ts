@@ -21,11 +21,11 @@ export const DELETE = async (
 
         // Check if category exists and belongs to user
         const checkQuery = `
-            SELECT id, name 
+            SELECT id, name, is_default 
             FROM categories 
             WHERE id = $1 AND user_id = $2
         `;
-        const existing = await neonQuery<{ id: number; name: string }>(
+        const existing = await neonQuery<{ id: number; name: string; is_default: boolean }>(
             checkQuery,
             [categoryId, userId]
         );
@@ -37,15 +37,23 @@ export const DELETE = async (
             );
         }
 
+        // Prevent deletion of default categories
+        if (existing[0].is_default) {
+            return NextResponse.json(
+                { error: "Cannot delete default categories. Default categories are required for the app to function properly." },
+                { status: 403 }
+            );
+        }
+
         // Delete the category (transactions will have category_id set to NULL due to foreign key)
         const deleteQuery = `
             DELETE FROM categories 
-            WHERE id = $1 AND user_id = $2
+            WHERE id = $1 AND user_id = $2 AND is_default = false
         `;
-        
+
         await neonQuery(deleteQuery, [categoryId, userId]);
 
-        return NextResponse.json({ 
+        return NextResponse.json({
             success: true,
             message: `Category "${existing[0].name}" deleted successfully`
         });
@@ -57,6 +65,7 @@ export const DELETE = async (
         );
     }
 };
+
 
 
 

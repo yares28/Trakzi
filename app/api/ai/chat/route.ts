@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth";
 import { neonQuery } from "@/lib/neonClient";
+import { getSiteUrl, getSiteName } from "@/lib/env";
 
 interface ChatMessage {
     role: "user" | "assistant" | "system";
@@ -232,10 +233,10 @@ export const POST = async (req: NextRequest) => {
         }
 
         const lastUserMessage = messages.filter(m => m.role === "user").pop();
-        
+
         // Basic topic filter - check if the latest message seems finance-related
         // This is a soft check; the AI will also enforce topic boundaries
-        const seemsFinanceRelated = lastUserMessage 
+        const seemsFinanceRelated = lastUserMessage
             ? isFinanceRelated(lastUserMessage.content)
             : true;
 
@@ -261,8 +262,8 @@ export const POST = async (req: NextRequest) => {
         }
 
         const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-        const SITE_URL = process.env.SITE_URL || "http://localhost:3000";
-        const SITE_NAME = process.env.SITE_NAME || "Folio";
+        const SITE_URL = getSiteUrl();
+        const SITE_NAME = getSiteName();
 
         if (!OPENROUTER_API_KEY) {
             return NextResponse.json(

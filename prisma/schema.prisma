@@ -1,5 +1,9 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
+//
+// NOTE: This project primarily uses raw SQL via lib/neonClient.ts
+// The authoritative schema is in database/schema.sql
+// This Prisma schema is kept for reference and Prisma Studio usage
 
 generator client {
   provider = "prisma-client-js"
@@ -12,93 +16,68 @@ datasource db {
 }
 
 model User {
-  id           String        @id @default(cuid())
-  email        String        @unique
+  id           String         @id  // Clerk user ID (e.g., "user_2abc123xyz")
+  email        String         @unique
   name         String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  reports      Report[]
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
   transactions Transaction[]
-  fridgeItems  FridgeItem[]
   subscription Subscription?
 
   @@map("users")
 }
 
-// Represents an uploaded file (PDF Statement or Receipt Image)
-model Report {
-  id           String        @id @default(cuid())
-  userId       String
-  type         String        // "BANK_STATEMENT" | "RECEIPT"
-  status       String        // "PROCESSING" | "REVIEW_REQUIRED" | "PROCESSED"
-  url          String        // Storage URL
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  
-  // Relations
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions Transaction[]
-  fridgeItems  FridgeItem[]
-
-  @@map("reports")
-}
-
 // General Spending (Populates Dashboard & Analytics)
 model Transaction {
-  id          String   @id @default(cuid())
-  userId      String
-  reportId    String?
-  date        DateTime
-  amount      Float
+  id          Int       @id @default(autoincrement())
+  userId      String    @map("user_id")
+  statementId Int?      @map("statement_id")
+  txDate      DateTime  @map("tx_date") @db.Date
+  txTime      DateTime? @map("tx_time") @db.Time()  // Optional time from CSV import
   description String
-  category    String   // e.g., "Housing", "Dining", "Transport"
-  isRecurring Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  amount      Decimal   @db.Decimal(12, 2)
+  balance     Decimal?  @db.Decimal(12, 2)
+  categoryId  Int?      @map("category_id")
+  currency    String    @default("EUR")
+  rawCsvRow   Json?     @map("raw_csv_row")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  report      Report?  @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId], name: "idx_transactions_user")
+  @@index([userId, txDate(sort: Desc)], name: "idx_transactions_user_date")
   @@map("transactions")
-}
-
-// Fridge/Grocery Items (Populates Fridge Dashboard)
-model FridgeItem {
-  id           String   @id @default(cuid())
-  userId       String
-  reportId     String?
-  name         String   // e.g., "Milk"
-  category     String   // e.g., "Dairy"
-  price        Float
-  quantity     Int      @default(1)
-  purchaseDate DateTime
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  // Relations
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  report       Report?  @relation(fields: [reportId], references: [id], onDelete: SetNull)
-
-  @@map("fridge_items")
 }
 
 // Subscription & Entitlement Tracking
 model Subscription {
   id                    String    @id @default(cuid())
-  userId                String    @unique
-  plan                  String    @default("free")  // free, pro, team
+  userId                String    @unique @map("user_id")
+  plan                  String    @default("free")  // free, pro, max
   status                String    @default("active") // active, canceled, past_due, trialing
-  stripeCustomerId      String?   @unique
-  stripeSubscriptionId  String?   @unique
-  stripePriceId         String?
-  currentPeriodEnd      DateTime?
-  cancelAtPeriodEnd     Boolean   @default(false)
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  stripeCustomerId      String?   @unique @map("stripe_customer_id")
+  stripeSubscriptionId  String?   @unique @map("stripe_subscription_id")
+  stripePriceId         String?   @map("stripe_price_id")
+  currentPeriodEnd      DateTime? @map("current_period_end")
+  cancelAtPeriodEnd     Boolean   @default(false) @map("cancel_at_period_end")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
   
   // Relations
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@map("subscriptions")
 }
+
+// NOTE: The following tables are managed via raw SQL (see database/schema.sql):
+// - categories
+// - statements  
+// - category_budgets
+// - user_files
+// - receipts
+// - receipt_category_types
+// - receipt_categories
+// - receipt_transactions
+// - receipt_item_category_preferences

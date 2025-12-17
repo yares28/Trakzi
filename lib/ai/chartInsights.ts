@@ -1,5 +1,7 @@
 // lib/ai/chartInsights.ts
 
+import { getSiteUrl, getSiteName } from '@/lib/env';
+
 export interface ChartInsightRequest {
     chartId: string;
     chartTitle: string;
@@ -70,8 +72,8 @@ Analyze this chart data and provide a personalized insight for the user.
 `.trim();
 
     const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-    const SITE_URL = process.env.SITE_URL || "http://localhost:3000";
-    const SITE_NAME = process.env.SITE_NAME || "Folio";
+    const SITE_URL = getSiteUrl();
+    const SITE_NAME = getSiteName();
 
     if (!OPENROUTER_API_KEY) {
         return {
@@ -121,7 +123,7 @@ Analyze this chart data and provide a personalized insight for the user.
         }
 
         const parsed = JSON.parse(content);
-        
+
         return {
             insight: parsed.insight || "Analysis complete.",
             sentiment: parsed.sentiment || "neutral",

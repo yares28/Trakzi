@@ -3,6 +3,69 @@
 
 import { currentUser } from '@clerk/nextjs/server'
 import { neonQuery, neonInsert } from '@/lib/neonClient'
+import { DEFAULT_CATEGORIES as DEFAULT_TRANSACTION_CATEGORIES } from '@/lib/categories'
+import { ensureReceiptCategories } from '@/lib/receipts/receipt-categories-db'
+
+// Default category colors for transaction categories
+const CATEGORY_COLORS: Record<string, string> = {
+    "Groceries": "#10b981",
+    "Restaurants": "#f97316",
+    "Bars": "#a855f7",
+    "Rent": "#6366f1",
+    "Mortgage": "#3b82f6",
+    "Utilities": "#0ea5e9",
+    "Fuel": "#84cc16",
+    "Transport": "#14b8a6",
+    "Insurance": "#f43f5e",
+    "Taxes & Fees": "#dc2626",
+    "Shopping": "#ec4899",
+    "Entertainment": "#8b5cf6",
+    "Education": "#06b6d4",
+    "Health & Fitness": "#22c55e",
+    "Subscriptions": "#6366f1",
+    "Travel": "#0891b2",
+    "Services": "#64748b",
+    "Income": "#22c55e",
+    "Transfers": "#94a3b8",
+    "Refunds": "#10b981",
+    "Savings": "#3b82f6",
+    "Other": "#6b7280",
+}
+
+/**
+ * Seeds default transaction categories for a new user
+ * These categories are marked as is_default=true and cannot be deleted
+ */
+async function seedDefaultCategories(userId: string): Promise<void> {
+    // Check if user already has categories
+    const existingCategories = await neonQuery<{ count: string }>(
+        `SELECT COUNT(*) as count FROM categories WHERE user_id = $1`,
+        [userId]
+    )
+
+    const count = parseInt(existingCategories[0]?.count || '0')
+    if (count > 0) {
+        // User already has categories, skip seeding
+        return
+    }
+
+    // Insert default transaction categories
+    const categoryRows = DEFAULT_TRANSACTION_CATEGORIES.map((name, index) => ({
+        user_id: userId,
+        name: name,
+        color: CATEGORY_COLORS[name] || '#6b7280',
+        is_default: true,
+        created_at: new Date(),
+        updated_at: new Date(),
+    }))
+
+    if (categoryRows.length > 0) {
+        await neonInsert('categories', categoryRows, { returnRepresentation: false })
+    }
+
+    // Also seed receipt categories (for fridge page)
+    await ensureReceiptCategories(userId)
+}
 
 /**
  * Ensures the current Clerk user exists in the database
@@ -14,7 +77,7 @@ import { neonQuery, neonInsert } from '@/lib/neonClient'
  */
 export async function ensureUserExists(): Promise<string> {
     const clerkUser = await currentUser()
-    
+
     if (!clerkUser) {
         throw new Error("Unauthorized - Please sign in")
     }
@@ -31,9 +94,9 @@ export async function ensureUserExists(): Promise<string> {
         WHERE id = $1::text
         LIMIT 1
     `
-    
+
     let existingUsers = await neonQuery<{ id: string }>(userQuery, [clerkUserId])
-    
+
     // If not found, try by email
     if (existingUsers.length === 0) {
         userQuery = `
@@ -54,7 +117,7 @@ export async function ensureUserExists(): Promise<string> {
             WHERE id = $3::text
         `
         await neonQuery(updateQuery, [email, name, existingUsers[0].id])
-        
+
         return existingUsers[0].id
     }
 
@@ -62,22 +125,28 @@ export async function ensureUserExists(): Promise<string> {
     // Note: Clerk uses string IDs like "user_xxxxx"
     // If your schema uses UUID for user_id, you'll need to update it to use text
     // OR create a mapping table
-    
+
     const insertQuery = `
         INSERT INTO users (id, email, name)
         VALUES ($1::text, $2::text, $3::text)
         RETURNING id
     `
-    
+
     try {
         const result = await neonQuery<{ id: string }>(insertQuery, [clerkUserId, email, name])
         if (result.length === 0) {
             throw new Error('Failed to create user - no ID returned')
         }
-        return result[0].id
+
+        const newUserId = result[0].id
+
+        // Seed default categories for new user
+        await seedDefaultCategories(newUserId)
+
+        return newUserId
     } catch (error: any) {
         // If insert fails due to type mismatch (UUID vs text), provide helpful error
-        if (error.message?.includes('uuid') || 
+        if (error.message?.includes('uuid') ||
             error.message?.includes('invalid input syntax') ||
             error.message?.includes('type uuid')) {
             throw new Error(
@@ -99,4 +168,3 @@ export async function ensureUserExists(): Promise<string> {
 export async function getCurrentUserId(): Promise<string> {
     return ensureUserExists()
 }
-

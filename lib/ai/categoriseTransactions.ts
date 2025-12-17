@@ -1,11 +1,11 @@
 // lib/ai/categoriseTransactions.ts
 import { TxRow } from "../types/transactions";
+import { getSiteUrl, getSiteName } from '@/lib/env';
+import { DEFAULT_CATEGORIES as MAIN_DEFAULT_CATEGORIES } from '@/lib/categories';
 
-// Default categories (single words)
-const DEFAULT_CATEGORIES = [
-    "Groceries", "Restaurants", "Shopping", "Transport", "Utilities",
-    "Insurance", "Taxes", "Income", "Transfers", "Savings", "Other"
-];
+// Default categories - synced with lib/categories.ts
+// These are the categories the AI can assign to transactions
+const DEFAULT_CATEGORIES = MAIN_DEFAULT_CATEGORIES;
 
 // Common merchant patterns for smart summarization
 const MERCHANT_PATTERNS: { pattern: RegExp; summary: string; category?: string }[] = [
@@ -15,7 +15,7 @@ const MERCHANT_PATTERNS: { pattern: RegExp; summary: string; category?: string }
     { pattern: /aliexpress/i, summary: "AliExpress", category: "Shopping" },
     { pattern: /ebay/i, summary: "eBay", category: "Shopping" },
     { pattern: /shein/i, summary: "Shein", category: "Shopping" },
-    
+
     // Streaming & Entertainment
     { pattern: /netflix/i, summary: "Netflix", category: "Utilities" },
     { pattern: /spotify/i, summary: "Spotify", category: "Utilities" },
@@ -23,7 +23,7 @@ const MERCHANT_PATTERNS: { pattern: RegExp; summary: string; category?: string }
     { pattern: /hbo|max/i, summary: "HBO Max", category: "Utilities" },
     { pattern: /youtube|google\s*play/i, summary: "Google/YouTube", category: "Utilities" },
     { pattern: /apple/i, summary: "Apple", category: "Shopping" },
-    
+
     // Supermarkets (Spain/Europe)
     { pattern: /mercadona/i, summary: "Mercadona", category: "Groceries" },
     { pattern: /carrefour/i, summary: "Carrefour", category: "Groceries" },
@@ -34,7 +34,7 @@ const MERCHANT_PATTERNS: { pattern: RegExp; summary: string; category?: string }
     { pattern: /alcampo/i, summary: "Alcampo", category: "Groceries" },
     { pattern: /hipercor/i, summary: "Hipercor", category: "Groceries" },
     { pattern: /el corte ingles|corte\s*ingles/i, summary: "El Corte Inglés", category: "Shopping" },
-    
+
     // Transport
     { pattern: /uber(?!eats)/i, summary: "Uber", category: "Transport" },
     { pattern: /lyft/i, summary: "Lyft", category: "Transport" },
@@ -43,21 +43,21 @@ const MERCHANT_PATTERNS: { pattern: RegExp; summary: string; category?: string }
     { pattern: /renfe/i, summary: "Renfe", category: "Transport" },
     { pattern: /metro|tmb|emt/i, summary: "Public Transport", category: "Transport" },
     { pattern: /repsol|cepsa|bp\b|shell|gasolinera/i, summary: "Gas Station", category: "Transport" },
-    
+
     // Food Delivery
     { pattern: /ubereats|uber\s*eats/i, summary: "Uber Eats", category: "Restaurants" },
     { pattern: /glovo/i, summary: "Glovo", category: "Restaurants" },
     { pattern: /just\s*eat|justeat/i, summary: "Just Eat", category: "Restaurants" },
     { pattern: /deliveroo/i, summary: "Deliveroo", category: "Restaurants" },
     { pattern: /doordash/i, summary: "DoorDash", category: "Restaurants" },
-    
+
     // Restaurants & Cafes
     { pattern: /starbucks/i, summary: "Starbucks", category: "Restaurants" },
     { pattern: /mcdonalds|mcdonald/i, summary: "McDonald's", category: "Restaurants" },
     { pattern: /burger\s*king/i, summary: "Burger King", category: "Restaurants" },
     { pattern: /telepizza/i, summary: "Telepizza", category: "Restaurants" },
     { pattern: /dominos/i, summary: "Domino's", category: "Restaurants" },
-    
+
     // Insurance (Spain)
     { pattern: /mapfre/i, summary: "Mapfre", category: "Insurance" },
     { pattern: /axa\b/i, summary: "AXA", category: "Insurance" },
@@ -66,7 +66,7 @@ const MERCHANT_PATTERNS: { pattern: RegExp; summary: string; category?: string }
     { pattern: /asisa/i, summary: "Asisa", category: "Insurance" },
     { pattern: /dkv/i, summary: "DKV", category: "Insurance" },
     { pattern: /seguro|insurance|poliza/i, summary: "Insurance", category: "Insurance" },
-    
+
     // Telecom & Utilities
     { pattern: /movistar|telefonica/i, summary: "Movistar", category: "Utilities" },
     { pattern: /vodafone/i, summary: "Vodafone", category: "Utilities" },
@@ -77,19 +77,19 @@ const MERCHANT_PATTERNS: { pattern: RegExp; summary: string; category?: string }
     { pattern: /iberdrola/i, summary: "Iberdrola", category: "Utilities" },
     { pattern: /endesa/i, summary: "Endesa", category: "Utilities" },
     { pattern: /naturgy|gas\s*natural/i, summary: "Naturgy", category: "Utilities" },
-    
+
     // Banks & Transfers
     { pattern: /bizum/i, summary: "Bizum Transfer", category: "Transfers" },
     { pattern: /paypal/i, summary: "PayPal", category: "Transfers" },
     { pattern: /transferencia/i, summary: "Bank Transfer", category: "Transfers" },
     { pattern: /ingreso|deposito/i, summary: "Deposit", category: "Income" },
     { pattern: /nomina|salario|sueldo/i, summary: "Salary", category: "Income" },
-    
+
     // Taxes & Fees
     { pattern: /comision/i, summary: "Bank Fee", category: "Taxes" },
     { pattern: /hacienda|agencia\s*tributaria/i, summary: "Tax Agency", category: "Taxes" },
     { pattern: /impuesto|iva/i, summary: "Tax", category: "Taxes" },
-    
+
     // Travel & Hotels
     { pattern: /booking\.com|booking/i, summary: "Booking.com", category: "Shopping" },
     { pattern: /airbnb/i, summary: "Airbnb", category: "Shopping" },
@@ -104,21 +104,21 @@ const MERCHANT_PATTERNS: { pattern: RegExp; summary: string; category?: string }
  */
 function extractSummary(description: string): string {
     const desc = description.trim();
-    
+
     // Check against known merchant patterns first
     for (const { pattern, summary } of MERCHANT_PATTERNS) {
         if (pattern.test(desc)) {
             return summary;
         }
     }
-    
+
     // Remove common prefixes (Spanish bank formats)
     let cleaned = desc
         .replace(/^(COMPRA|PAGO|RECIBO|TRANSFERENCIA|BIZUM|CARGO|ABONO|INGRESO)\s+/i, "")
         .replace(/^(EN|DE|A|DESDE|HACIA)\s+/i, "")
         .replace(/^WWW\./i, "")
         .replace(/^HTTP[S]?:\/\//i, "");
-    
+
     // Remove trailing reference numbers and codes
     cleaned = cleaned
         .replace(/\s+[A-Z0-9]{6,}$/i, "")  // Remove trailing codes like "CW4WE8Q35"
@@ -130,25 +130,25 @@ function extractSummary(description: string): string {
         .replace(/\s+\*+\d+$/i, "")  // Remove masked card numbers
         .replace(/\s+\d{2}\/\d{2}\/\d{2,4}$/i, "")  // Remove trailing dates
         .replace(/\s+\d+[.,]\d{2}\s*(EUR|€)?$/i, "");  // Remove amounts
-    
+
     // Extract domain name if it looks like a website
     const domainMatch = cleaned.match(/([a-zA-Z0-9-]+)\.(com|es|net|org|eu|co)/i);
     if (domainMatch) {
         cleaned = domainMatch[1].charAt(0).toUpperCase() + domainMatch[1].slice(1).toLowerCase();
     }
-    
+
     // Clean up and capitalize
     cleaned = cleaned
         .replace(/[*]+/g, " ")  // Replace asterisks with spaces
         .replace(/\s+/g, " ")   // Normalize whitespace
         .trim();
-    
+
     // If still too long or messy, take first meaningful words
     if (cleaned.length > 30) {
         const words = cleaned.split(" ").slice(0, 3);
         cleaned = words.join(" ");
     }
-    
+
     // Capitalize first letter of each word for clean display
     if (cleaned.length > 0) {
         cleaned = cleaned
@@ -157,7 +157,7 @@ function extractSummary(description: string): string {
             .map(word => word.charAt(0).toUpperCase() + word.slice(1))
             .join(" ");
     }
-    
+
     return cleaned || description.substring(0, 30);
 }
 
@@ -193,7 +193,7 @@ export async function categoriseTransactions(rows: TxRow[], customCategories?: s
 
     // Find rows that still need AI categorization (no pattern match)
     const rowsNeedingAI = enrichedRows.filter(r => !r._patternCategory);
-    
+
     // Build a compact payload for the LLM (only rows without pattern-based categories)
     const items = rowsNeedingAI.map(r => ({
         index: r._index,
@@ -234,8 +234,8 @@ You MUST include ALL ${items.length} transactions. Each entry needs:
 
         // Using OpenRouter API
         const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-        const SITE_URL = process.env.SITE_URL || "http://localhost:3000";
-        const SITE_NAME = process.env.SITE_NAME || "Folio";
+        const SITE_URL = getSiteUrl();
+        const SITE_NAME = getSiteName();
 
         if (!OPENROUTER_API_KEY) {
             console.warn("[AI] No OpenRouter API key found, using pattern-based categorization only");
@@ -268,20 +268,20 @@ You MUST include ALL ${items.length} transactions. Each entry needs:
                 } else {
                     const json = await res.json();
                     const content = json.choices[0]?.message?.content;
-                    
+
                     if (content) {
                         try {
                             const parsed = JSON.parse(content);
-                            const mapping = parsed.map || parsed.categories || parsed.results || 
+                            const mapping = parsed.map || parsed.categories || parsed.results ||
                                 (Array.isArray(parsed) ? parsed : []);
-                            
+
                             for (const m of mapping) {
                                 const idx = m.index ?? m.i ?? m.id;
                                 const cat = m.category ?? m.cat ?? m.c;
-                                
+
                                 if (typeof idx === "number" && typeof cat === "string") {
                                     // Validate and normalize category
-                                    const normalizedCat = CATEGORIES.find(c => 
+                                    const normalizedCat = CATEGORIES.find(c =>
                                         c.toLowerCase() === cat.toLowerCase()
                                     ) || cat;
                                     aiMapping.set(idx, normalizedCat);
@@ -302,7 +302,7 @@ You MUST include ALL ${items.length} transactions. Each entry needs:
     // Helper function for fallback categorization
     const applyFallbackCategory = (row: TxRow): string => {
         const desc = row.description.toLowerCase();
-        
+
         // Income detection (positive amounts)
         if (row.amount > 0) {
             if (desc.includes("transfer") || desc.includes("transferencia") || desc.includes("ingreso") || desc.includes("bizum")) {
@@ -310,61 +310,61 @@ You MUST include ALL ${items.length} transactions. Each entry needs:
             }
             return CATEGORIES.find(c => c.toLowerCase().includes("income") || c.toLowerCase().includes("salary")) || "Income";
         }
-        
+
         // Transfers (negative amounts with transfer keywords)
         if (desc.includes("transfer") || desc.includes("transferencia") || desc.includes("bizum")) {
             return CATEGORIES.find(c => c.toLowerCase().includes("transfer")) || "Transfers";
         }
-        
+
         // Utilities
-        if (desc.includes("digi") || desc.includes("telecom") || desc.includes("internet") || desc.includes("phone") || 
+        if (desc.includes("digi") || desc.includes("telecom") || desc.includes("internet") || desc.includes("phone") ||
             desc.includes("utility") || desc.includes("electric") || desc.includes("water") || desc.includes("recibo") ||
             desc.includes("netflix") || desc.includes("spotify")) {
             return CATEGORIES.find(c => c.toLowerCase().includes("utilit")) || "Utilities";
         }
-        
+
         // Insurance
         if (desc.includes("mapfre") || desc.includes("seguro") || desc.includes("insurance") || desc.includes("poliza")) {
             return CATEGORIES.find(c => c.toLowerCase().includes("insur")) || "Insurance";
         }
-        
+
         // Shopping
         if (desc.includes("zalando") || desc.includes("amazon") || desc.includes("shopping") || desc.includes("compra") ||
             desc.includes("hotel") || desc.includes("booking")) {
             return CATEGORIES.find(c => c.toLowerCase().includes("shopp")) || "Shopping";
         }
-        
+
         // Groceries
-        if (desc.includes("grocer") || desc.includes("supermarket") || desc.includes("mercadona") || 
+        if (desc.includes("grocer") || desc.includes("supermarket") || desc.includes("mercadona") ||
             desc.includes("carrefour") || desc.includes("food") || desc.includes("tienda") ||
             desc.includes("lidl") || desc.includes("aldi")) {
             return CATEGORIES.find(c => c.toLowerCase().includes("grocer")) || "Groceries";
         }
-        
+
         // Restaurants
-        if (desc.includes("restaurant") || desc.includes("cafe") || desc.includes("bar") || 
+        if (desc.includes("restaurant") || desc.includes("cafe") || desc.includes("bar") ||
             desc.includes("starbucks") || desc.includes("comida") || desc.includes("glovo") ||
             desc.includes("just eat") || desc.includes("deliveroo")) {
             return CATEGORIES.find(c => c.toLowerCase().includes("restaurant")) || "Restaurants";
         }
-        
+
         // Transport
-        if (desc.includes("uber") || desc.includes("taxi") || desc.includes("metro") || 
+        if (desc.includes("uber") || desc.includes("taxi") || desc.includes("metro") ||
             desc.includes("bus") || desc.includes("transport") || desc.includes("gasolina") ||
             desc.includes("renfe") || desc.includes("cabify")) {
             return CATEGORIES.find(c => c.toLowerCase().includes("transport")) || "Transport";
         }
-        
+
         // Taxes
         if (desc.includes("comision") || desc.includes("fee") || desc.includes("tax") || desc.includes("impuesto")) {
             return CATEGORIES.find(c => c.toLowerCase().includes("tax")) || "Taxes";
         }
-        
+
         // Savings
         if (desc.includes("saving") || desc.includes("ahorro")) {
             return CATEGORIES.find(c => c.toLowerCase().includes("saving")) || "Savings";
         }
-        
+
         return CATEGORIES.find(c => c.toLowerCase() === "other") || CATEGORIES[CATEGORIES.length - 1] || "Other";
     };
 
@@ -372,12 +372,12 @@ You MUST include ALL ${items.length} transactions. Each entry needs:
     const result = enrichedRows.map(r => {
         // Priority: 1) Pattern match, 2) AI, 3) Fallback
         let category = r._patternCategory || aiMapping.get(r._index) || applyFallbackCategory(r);
-        
+
         // Validate category exists in list
         if (!CATEGORIES.some(c => c.toLowerCase() === category.toLowerCase())) {
             category = applyFallbackCategory(r);
         }
-        
+
         return {
             date: r.date,
             description: r.description,
@@ -387,10 +387,10 @@ You MUST include ALL ${items.length} transactions. Each entry needs:
             summary: r.summary
         } as TxRow;
     });
-    
+
     const categorizedCount = result.filter(r => r.category && r.category !== "Other").length;
     const patternMatched = enrichedRows.filter(r => r._patternCategory).length;
     console.log(`[AI] Final: ${categorizedCount}/${result.length} categorized (${patternMatched} from patterns, ${aiMapping.size} from AI)`);
-    
+
     return result;
 }

@@ -119,3 +119,5 @@ export function getReceiptBroadTypes(): string[] {
   })
   return Array.from(broadTypes).sort()
 }
+
+

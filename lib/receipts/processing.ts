@@ -6,6 +6,7 @@ import {
   normalizeReceiptStoreKey,
 } from "@/lib/receipts/item-category-preferences"
 import { suggestReceiptCategoryNameFromDescription } from "@/lib/receipts/receipt-category-heuristics"
+import { getSiteUrl, getSiteName } from "@/lib/env"
 
 const RECEIPT_MODEL = "google/gemini-2.0-flash-001"
 
@@ -128,8 +129,8 @@ async function extractReceiptWithAi(params: {
   allowedCategories: string[]
 }): Promise<{ extracted: ExtractedReceipt; rawText: string }> {
   const apiKey = process.env.OPENROUTER_API_KEY
-  const siteUrl = process.env.SITE_URL || "http://localhost:3000"
-  const siteName = process.env.SITE_NAME || "Folio"
+  const siteUrl = getSiteUrl()
+  const siteName = getSiteName()
 
   if (!apiKey) {
     throw new Error("OPENROUTER_API_KEY is not set")
