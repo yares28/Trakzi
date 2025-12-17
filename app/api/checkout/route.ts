@@ -29,14 +29,10 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Validate priceId is one of our known prices
-        const validPrices = Object.values(STRIPE_PRICES).filter(Boolean);
-        if (validPrices.length > 0 && !validPrices.includes(priceId)) {
-            return NextResponse.json(
-                { error: 'Invalid price ID' },
-                { status: 400 }
-            );
-        }
+        // Note: We don't validate priceId against server-side env vars here
+        // because the frontend uses NEXT_PUBLIC_* vars and server uses STRIPE_PRICE_ID_* vars
+        // Stripe will validate the price ID when creating the checkout session
+        // and return a clear error if the price doesn't exist
 
         const stripe = getStripe();
         const appUrl = getAppUrl();
@@ -50,6 +46,8 @@ export async function POST(request: NextRequest) {
         }
 
         // Create Checkout Session
+        // Note: In subscription mode, Stripe automatically creates a customer
+        // so we don't need customer_creation (it's only for payment mode)
         const session = await stripe.checkout.sessions.create({
             mode: 'subscription',
             payment_method_types: ['card'],
@@ -61,8 +59,9 @@ export async function POST(request: NextRequest) {
             ],
             success_url: successUrl || `${appUrl}/home?checkout=success`,
             cancel_url: cancelUrl || `${appUrl}/?checkout=canceled`,
-            customer: customerId,
-            customer_creation: customerId ? undefined : 'always',
+            // If user already has a Stripe customer ID, use it
+            // Otherwise Stripe will create a new customer automatically
+            ...(customerId && { customer: customerId }),
             metadata: {
                 userId: userId,
             },

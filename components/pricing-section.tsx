@@ -7,6 +7,7 @@ import { geist } from "@/lib/fonts"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@clerk/nextjs"
+import { toast } from "sonner"
 
 const pricingPlans = [
   {
@@ -82,7 +83,8 @@ export function PricingSection() {
     const priceId = isAnnual ? plan.annualPriceId : plan.monthlyPriceId
 
     if (!priceId) {
-      console.error('No price ID configured for this plan')
+      console.error('No price ID configured for this plan. Check NEXT_PUBLIC_STRIPE_PRICE_ID_* environment variables.')
+      toast.error('Pricing is not configured yet. Please contact support.')
       return
     }
 
@@ -103,7 +105,7 @@ export function PricingSection() {
 
       if (data.error) {
         console.error('Checkout error:', data.error)
-        alert(data.error)
+        toast.error(data.error)
         return
       }
 
@@ -112,7 +114,7 @@ export function PricingSection() {
       }
     } catch (error) {
       console.error('Checkout error:', error)
-      alert('Failed to start checkout. Please try again.')
+      toast.error('Failed to start checkout. Please try again.')
     } finally {
       setLoadingPlan(null)
     }
