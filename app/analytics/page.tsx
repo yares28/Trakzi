@@ -478,7 +478,6 @@ export default function AnalyticsPage() {
       "singleMonthCategorySpending",
       "dayOfWeekCategory",
       "cashFlowSankey",
-      // "budgetDistribution", // Hidden chart - kept in code but not displayed
     ],
     [],
   )
@@ -508,7 +507,6 @@ export default function AnalyticsPage() {
     "singleMonthCategorySpending": { w: 6, h: 8, x: 6, y: 102 },
     "dayOfWeekCategory": { w: 6, h: 8, x: 0, y: 102 },
     "cashFlowSankey": { w: 12, h: 10, x: 0, y: 110 },
-    "budgetDistribution": { w: 6, h: 10, x: 0, y: 101 },
   }
 
   // Snap to nearest allowed size (snap width, keep height as-is)
@@ -531,7 +529,7 @@ export default function AnalyticsPage() {
   const CHART_SIZES_VERSION_KEY = 'analytics-chart-sizes-version'
 
   // Version hash of default sizes - increment this when defaults change to force update
-  const DEFAULT_SIZES_VERSION = '7'
+  const DEFAULT_SIZES_VERSION = '9'
 
   // Load saved chart sizes and positions from localStorage
   const loadChartSizes = useCallback((): Record<string, { w: number; h: number; x?: number; y?: number }> => {
@@ -3701,19 +3699,7 @@ export default function AnalyticsPage() {
                       )
                     }
 
-                    // Hidden chart - kept in code but not displayed
-                    // if (chartId === "budgetDistribution") {
-                    //   return (
-                    //     <div key={chartId} className="grid-stack-item" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
-                    //       <div className="grid-stack-item-content h-full w-full overflow-hidden">
-                    //       <ChartCirclePacking
-                    //         categoryControls={circlePackingControls}
-                    //         data={circlePackingData.tree}
-                    //       />
-                    //       </div>
-                    //     </div>
-                    //   )
-                    // }
+
 
                     if (chartId === "transactionHistory") {
                       return (

@@ -1,56 +1,122 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { Check, Sparkles } from "lucide-react"
+import { Check, Sparkles, Loader2 } from "lucide-react"
 import { useState } from "react"
 import { geist } from "@/lib/fonts"
 import { cn } from "@/lib/utils"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@clerk/nextjs"
 
 const pricingPlans = [
   {
     name: "Starter",
     price: "Free",
-    description: "Perfect for getting started with v0",
-    features: ["5 components per month", "Basic templates", "Community support", "Standard components"],
+    description: "Perfect for getting started",
+    features: ["5 transaction imports per month", "Basic analytics", "Community support", "Standard reports"],
     popular: false,
     cta: "Get Started",
+    priceId: null, // Free plan - no Stripe price
   },
   {
-    name: "Pro",
+    name: "PRO",
     monthlyPrice: 29,
     annualPrice: 24,
-    description: "For professionals building serious projects",
+    description: "For professionals tracking finances seriously",
     features: [
-      "Unlimited components",
-      "Premium templates",
+      "Unlimited transaction imports",
+      "Advanced analytics",
       "Priority support",
-      "Advanced animations",
-      "Custom themes",
-      "Export to GitHub",
+      "AI-powered insights",
+      "Custom categories",
+      "Export to CSV/PDF",
     ],
     popular: true,
     cta: "Start Free Trial",
+    monthlyPriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY,
+    annualPriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_ANNUAL,
   },
   {
-    name: "Team",
+    name: "MAX",
     monthlyPrice: 99,
     annualPrice: 79,
-    description: "For teams collaborating on projects",
+    description: "For power users who want everything",
     features: [
-      "Everything in Pro",
+      "Everything in PRO",
       "Team collaboration",
-      "Shared component library",
-      "Advanced analytics",
+      "Shared dashboards",
+      "Advanced reports",
       "Custom integrations",
       "Dedicated support",
     ],
     popular: false,
-    cta: "Contact Sales",
+    cta: "Go MAX",
+    monthlyPriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_MAX_MONTHLY,
+    annualPriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_MAX_ANNUAL,
   },
 ]
 
 export function PricingSection() {
   const [isAnnual, setIsAnnual] = useState(false)
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
+  const router = useRouter()
+  const { isSignedIn } = useAuth()
+
+  const handlePlanSelect = async (plan: typeof pricingPlans[0]) => {
+    // Free plan - just redirect to sign up or dashboard
+    if (plan.priceId === null && !plan.monthlyPriceId) {
+      if (isSignedIn) {
+        router.push('/home')
+      } else {
+        router.push('/sign-up')
+      }
+      return
+    }
+
+    // Paid plans - need to be signed in
+    if (!isSignedIn) {
+      router.push('/sign-up')
+      return
+    }
+
+    const priceId = isAnnual ? plan.annualPriceId : plan.monthlyPriceId
+
+    if (!priceId) {
+      console.error('No price ID configured for this plan')
+      return
+    }
+
+    setLoadingPlan(plan.name)
+
+    try {
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          priceId,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.error) {
+        console.error('Checkout error:', data.error)
+        alert(data.error)
+        return
+      }
+
+      if (data.url) {
+        window.location.href = data.url
+      }
+    } catch (error) {
+      console.error('Checkout error:', error)
+      alert('Failed to start checkout. Please try again.')
+    } finally {
+      setLoadingPlan(null)
+    }
+  }
 
   return (
     <section className="relative py-24 px-4">
@@ -97,17 +163,15 @@ export function PricingSection() {
           >
             <button
               onClick={() => setIsAnnual(false)}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                !isAnnual ? "bg-[#e78a53] text-white shadow-lg" : "text-white/60 hover:text-white/80"
-              }`}
+              className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-200 ${!isAnnual ? "bg-[#e78a53] text-white shadow-lg" : "text-white/60 hover:text-white/80"
+                }`}
             >
               Monthly
             </button>
             <button
               onClick={() => setIsAnnual(true)}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-200 relative ${
-                isAnnual ? "bg-[#e78a53] text-white shadow-lg" : "text-white/60 hover:text-white/80"
-              }`}
+              className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-200 relative ${isAnnual ? "bg-[#e78a53] text-white shadow-lg" : "text-white/60 hover:text-white/80"
+                }`}
             >
               Annual
               <span className="absolute -top-2 -right-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
@@ -127,11 +191,10 @@ export function PricingSection() {
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: index * 0.1 }}
               whileHover={{ y: -5 }}
-              className={`relative rounded-2xl p-8 backdrop-blur-sm border transition-all duration-300 ${
-                plan.popular
-                  ? "bg-gradient-to-b from-[#e78a53]/10 to-transparent border-[#e78a53]/30 shadow-lg shadow-[#e78a53]/10"
-                  : "bg-white/5 border-white/10 hover:border-white/20"
-              }`}
+              className={`relative rounded-2xl p-8 backdrop-blur-sm border transition-all duration-300 ${plan.popular
+                ? "bg-gradient-to-b from-[#e78a53]/10 to-transparent border-[#e78a53]/30 shadow-lg shadow-[#e78a53]/10"
+                : "bg-white/5 border-white/10 hover:border-white/20"
+                }`}
             >
               {plan.popular && (
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
@@ -170,13 +233,21 @@ export function PricingSection() {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className={`w-full py-3 px-6 rounded-lg font-medium transition-all duration-200 ${
-                  plan.popular
-                    ? "bg-gradient-to-r from-[#e78a53] to-[#e78a53]/80 text-white shadow-lg shadow-[#e78a53]/25 hover:shadow-[#e78a53]/40"
-                    : "bg-white/10 text-white border border-white/20 hover:bg-white/20"
-                }`}
+                disabled={loadingPlan === plan.name}
+                onClick={() => handlePlanSelect(plan)}
+                className={`w-full py-3 px-6 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed ${plan.popular
+                  ? "bg-gradient-to-r from-[#e78a53] to-[#e78a53]/80 text-white shadow-lg shadow-[#e78a53]/25 hover:shadow-[#e78a53]/40"
+                  : "bg-white/10 text-white border border-white/20 hover:bg-white/20"
+                  }`}
               >
-                {plan.cta}
+                {loadingPlan === plan.name ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  plan.cta
+                )}
               </motion.button>
             </motion.div>
           ))}
@@ -191,13 +262,14 @@ export function PricingSection() {
           className="text-center mt-16"
         >
           <p className="text-white/60 mb-4">Need a custom solution? We're here to help.</p>
-          <motion.button
+          <motion.a
+            href="mailto:sales@trakzi.com?subject=Custom Solution Inquiry"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="text-[#e78a53] hover:text-[#e78a53]/80 font-medium transition-colors"
           >
             Contact our sales team →
-          </motion.button>
+          </motion.a>
         </motion.div>
       </div>
     </section>

@@ -44,19 +44,32 @@ Key idea:
 - **Each chart id** (e.g. `"incomeExpensesTracking1"`) gets a **default `{ w, h, x, y }`**.
 - These are used when **no saved layout** is in `localStorage`.
 
-Example (simplified from `DEFAULT_CHART_SIZES`):
+- **Full-width cards (w=12)**
+  - `"incomeExpensesTracking1"`: `{ w: 12, h: 6, x: 0, y: 0 }`
+  - `"incomeExpensesTracking2"`: `{ w: 12, h: 6, x: 0, y: 6 }`
+  - `"spendingCategoryRankings"`: `{ w: 12, h: 8, x: 0, y: 12 }`
+  - `"netWorthAllocation"`: `{ w: 12, h: 10, x: 0, y: 20 }`
+  - `"spendingStreamgraph"`: `{ w: 12, h: 9, x: 0, y: 60 }`
+  - `"transactionHistory"`: `{ w: 12, h: 9, x: 0, y: 69 }`
+  - `"dailyTransactionActivity"`: `{ w: 12, h: 7, x: 0, y: 78 }`
+  - `"cashFlowSankey"`: `{ w: 12, h: 10, x: 0, y: 110 }`
 
-- **Full‑width cards**
-  - `"incomeExpensesTracking1": { w: 12, h: 6, x: 0, y: 0 }`
-  - `"incomeExpensesTracking2": { w: 12, h: 6, x: 0, y: 6 }`
-  - `"spendingCategoryRankings": { w: 12, h: 8, x: 0, y: 12 }`
-  - `"netWorthAllocation": { w: 12, h: 10, x: 0, y: 20 }`
+- **Half-width cards (w=6)**
+  - **Left Column (x=0)**
+    - `"moneyFlow"`: `{ w: 6, h: 10, x: 0, y: 30 }`
+    - `"householdSpendMix"`: `{ w: 6, h: 10, x: 0, y: 40 }`
+    - `"spendingActivityRings"`: `{ w: 6, h: 10, x: 0, y: 50 }`
+    - `"allMonthsCategorySpending"`: `{ w: 6, h: 8, x: 0, y: 94 }`
+    - `"dayOfWeekCategory"`: `{ w: 6, h: 8, x: 0, y: 102 }`
 
-- **Half‑width cards (left/right columns)**
-  - `"moneyFlow": { w: 6, h: 10, x: 0, y: 30 }` → left column.
-  - `"needsWantsBreakdown": { w: 6, h: 10, x: 6, y: 20 }` → right column.
-  - `"expenseBreakdown": { w: 6, h: 10, x: 6, y: 30 }` → right column.
-  - etc.
+
+  - **Right Column (x=6)**
+    - `"needsWantsBreakdown"`: `{ w: 6, h: 10, x: 6, y: 20 }`
+    - `"expenseBreakdown"`: `{ w: 6, h: 10, x: 6, y: 30 }`
+    - `"financialHealthScore"`: `{ w: 6, h: 10, x: 6, y: 30 }` (Note: same y as expenseBreakdown in default, likely stacked or pushed down by GridStack auto-positioning)
+    - `"categoryBubbleMap"`: `{ w: 6, h: 10, x: 6, y: 40 }`
+    - `"dayOfWeekSpending"`: `{ w: 6, h: 8, x: 6, y: 86 }`
+    - `"singleMonthCategorySpending"`: `{ w: 6, h: 8, x: 6, y: 102 }`
 
 **How this fits into the DOM:**
 - For each chart id, the page renders a `div.grid-stack-item` with:
@@ -150,7 +163,7 @@ The layout is persisted so users keep their custom arrangement:
 - **Keys**
   - `CHART_SIZES_STORAGE_KEY = "analytics-chart-sizes"`
   - `CHART_SIZES_VERSION_KEY = "analytics-chart-sizes-version"`
-  - `DEFAULT_SIZES_VERSION = "7"` (at the time of writing).
+  - `DEFAULT_SIZES_VERSION = "9"` (at the time of writing).
 
 - **On load**
   - The page:

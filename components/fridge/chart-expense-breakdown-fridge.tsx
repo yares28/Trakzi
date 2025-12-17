@@ -108,7 +108,7 @@ export function ChartExpenseBreakdownFridge({ data: baseData = [], categoryContr
         categoryControls={categoryControls}
       />
       <ChartAiInsightButton
-        chartId="expenseBreakdown"
+        chartId="fridge:expenseBreakdown"
         chartTitle="Expense Breakdown"
         chartDescription="This pie chart shows how your total grocery expenses are distributed across receipt categories."
         chartData={{
@@ -129,7 +129,7 @@ export function ChartExpenseBreakdownFridge({ data: baseData = [], categoryContr
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
             <ChartFavoriteButton
-              chartId="expenseBreakdown"
+              chartId="fridge:expenseBreakdown"
               chartTitle="Expense Breakdown"
               size="md"
             />
@@ -154,7 +154,7 @@ export function ChartExpenseBreakdownFridge({ data: baseData = [], categoryContr
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
             <ChartFavoriteButton
-              chartId="expenseBreakdown"
+              chartId="fridge:expenseBreakdown"
               chartTitle="Expense Breakdown"
               size="md"
             />
@@ -179,7 +179,7 @@ export function ChartExpenseBreakdownFridge({ data: baseData = [], categoryContr
         <div className="flex items-center gap-2">
           <GridStackCardDragHandle />
           <ChartFavoriteButton
-            chartId="expenseBreakdown"
+            chartId="fridge:expenseBreakdown"
             chartTitle="Expense Breakdown"
             size="md"
           />

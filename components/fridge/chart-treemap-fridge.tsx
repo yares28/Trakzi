@@ -213,7 +213,7 @@ export function ChartTreeMapFridge({ receiptTransactions = [], categoryControls,
         categoryControls={categoryControls}
       />
       <ChartAiInsightButton
-        chartId="netWorthAllocation"
+        chartId="fridge:netWorthAllocation"
         chartTitle="Net Worth Allocation"
         chartDescription="Breakdown of your grocery spending by broad category, category, and individual items"
         chartData={{
@@ -232,7 +232,7 @@ export function ChartTreeMapFridge({ receiptTransactions = [], categoryControls,
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
             <ChartFavoriteButton
-              chartId="netWorthAllocation"
+              chartId="fridge:netWorthAllocation"
               chartTitle="Net Worth Allocation"
               size="md"
             />
@@ -255,7 +255,7 @@ export function ChartTreeMapFridge({ receiptTransactions = [], categoryControls,
         <div className="flex items-center gap-2">
           <GridStackCardDragHandle />
           <ChartFavoriteButton
-            chartId="netWorthAllocation"
+            chartId="fridge:netWorthAllocation"
             chartTitle="Net Worth Allocation"
             size="md"
           />

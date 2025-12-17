@@ -258,7 +258,7 @@ export function ChartSnackPercentageFridge({ receiptTransactions = [], isLoading
         ignoredFootnote="Only trips with assigned categories are included. Snacks are identified by the 'Snacks' category."
       />
       <ChartAiInsightButton
-        chartId="expenseBreakdown"
+        chartId="fridge:snackPercentage"
         chartTitle="Snack Percentage per Store"
         chartDescription="Average percentage of snack spending per grocery trip by store."
         chartData={{
@@ -283,7 +283,7 @@ export function ChartSnackPercentageFridge({ receiptTransactions = [], isLoading
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
             <ChartFavoriteButton
-              chartId="expenseBreakdown"
+              chartId="fridge:snackPercentage"
               chartTitle="Snack Percentage per Store"
               size="md"
             />
@@ -308,7 +308,7 @@ export function ChartSnackPercentageFridge({ receiptTransactions = [], isLoading
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
             <ChartFavoriteButton
-              chartId="expenseBreakdown"
+              chartId="fridge:snackPercentage"
               chartTitle="Snack Percentage per Store"
               size="md"
             />
@@ -379,7 +379,7 @@ export function ChartSnackPercentageFridge({ receiptTransactions = [], isLoading
         <div className="flex items-center gap-2">
           <GridStackCardDragHandle />
           <ChartFavoriteButton
-            chartId="expenseBreakdown"
+            chartId="fridge:snackPercentage"
             chartTitle="Snack Percentage per Store"
             size="md"
           />

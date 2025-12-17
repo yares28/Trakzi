@@ -19,7 +19,8 @@ model User {
   updatedAt    DateTime      @updatedAt
   reports      Report[]
   transactions Transaction[]
-  fridgeItems FridgeItem[]
+  fridgeItems  FridgeItem[]
+  subscription Subscription?
 
   @@map("users")
 }
@@ -80,4 +81,24 @@ model FridgeItem {
   report       Report?  @relation(fields: [reportId], references: [id], onDelete: SetNull)
 
   @@map("fridge_items")
+}
+
+// Subscription & Entitlement Tracking
+model Subscription {
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  plan                  String    @default("free")  // free, pro, team
+  status                String    @default("active") // active, canceled, past_due, trialing
+  stripeCustomerId      String?   @unique
+  stripeSubscriptionId  String?   @unique
+  stripePriceId         String?
+  currentPeriodEnd      DateTime?
+  cancelAtPeriodEnd     Boolean   @default(false)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  // Relations
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("subscriptions")
 }
