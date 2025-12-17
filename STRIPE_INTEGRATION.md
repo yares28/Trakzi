@@ -698,17 +698,22 @@ const pricingPlans = [
   // ...
   {
     name: "PRO",
-    monthlyPrice: 29,  // ← Change this
-    annualPrice: 24,   // ← Change this (price per month when billed annually)
+    monthlyPrice: 4.99,   // € per month
+    annualPrice: 49.99,   // € per year
+    ctaMonthly: "Start Free Trial",  // Button text for monthly (has free trial)
+    ctaAnnual: "Subscribe Now",      // Button text for annual (no free trial)
     // ...
   },
   {
     name: "MAX",
-    monthlyPrice: 99,  // ← Change this
-    annualPrice: 79,   // ← Change this
+    monthlyPrice: 19.99,   // € per month
+    annualPrice: 199.99,   // € per year
+    ctaMonthly: "Start Free Trial",
+    ctaAnnual: "Go MAX",
     // ...
   },
 ]
 ```
 
 **Important:** These prices are display-only. The actual charge is determined by the Stripe Price IDs in your environment variables.
+

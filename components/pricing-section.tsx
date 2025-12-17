@@ -21,9 +21,9 @@ const pricingPlans = [
   },
   {
     name: "PRO",
-    monthlyPrice: 29,
-    annualPrice: 24,
-    description: "For professionals tracking finances seriously",
+    monthlyPrice: 4.99,
+    annualPrice: 49.99,
+    description: "For anyone who wants to track their finances seriously",
     features: [
       "Unlimited transaction imports",
       "Advanced analytics",
@@ -33,14 +33,15 @@ const pricingPlans = [
       "Export to CSV/PDF",
     ],
     popular: true,
-    cta: "Start Free Trial",
+    ctaMonthly: "Start Free Trial",
+    ctaAnnual: "Subscribe Now",
     monthlyPriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY,
     annualPriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_ANNUAL,
   },
   {
     name: "MAX",
-    monthlyPrice: 99,
-    annualPrice: 79,
+    monthlyPrice: 19.99,
+    annualPrice: 199.99,
     description: "For power users who want everything",
     features: [
       "Everything in PRO",
@@ -51,7 +52,8 @@ const pricingPlans = [
       "Dedicated support",
     ],
     popular: false,
-    cta: "Go MAX",
+    ctaMonthly: "Start Free Trial",
+    ctaAnnual: "Go MAX",
     monthlyPriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_MAX_MONTHLY,
     annualPriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_MAX_ANNUAL,
   },
@@ -214,7 +216,7 @@ export function PricingSection() {
                   ) : (
                     <>
                       <span className="text-4xl font-bold text-white">
-                        ${isAnnual ? plan.annualPrice : plan.monthlyPrice}
+                        €{isAnnual ? plan.annualPrice : plan.monthlyPrice}
                       </span>
                       <span className="text-white/60 text-lg">{isAnnual ? "/year" : "/month"}</span>
                     </>
@@ -248,7 +250,7 @@ export function PricingSection() {
                     Processing...
                   </>
                 ) : (
-                  plan.cta
+                  plan.cta || (isAnnual ? plan.ctaAnnual : plan.ctaMonthly)
                 )}
               </motion.button>
             </motion.div>
