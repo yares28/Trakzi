@@ -14,7 +14,14 @@ const pricingPlans = [
     name: "Starter",
     price: "Free",
     description: "Perfect for getting started",
-    features: ["5 transaction imports per month", "Basic analytics", "Community support", "Standard reports"],
+    features: [
+      "400 transactions/month (bank + fridge)",
+      "Unlimited receipt scans",
+      "AI auto-categorization",
+      "5 AI chat messages/day",
+      "Advanced analytics charts",
+      "10 custom categories",
+    ],
     popular: false,
     cta: "Get Started",
     priceId: null, // Free plan - no Stripe price
@@ -25,11 +32,11 @@ const pricingPlans = [
     annualPrice: 49.99,
     description: "For anyone who wants to track their finances seriously",
     features: [
-      "Unlimited transaction imports",
-      "Advanced analytics",
-      "Priority support",
-      "AI-powered insights",
-      "Custom categories",
+      "3,000 transactions/month",
+      "Unlimited receipt scans",
+      "Unlimited AI chat messages",
+      "AI-powered insights & summaries",
+      "Unlimited custom categories",
       "Export to CSV/PDF",
     ],
     popular: true,
@@ -44,12 +51,12 @@ const pricingPlans = [
     annualPrice: 199.99,
     description: "For power users who want everything",
     features: [
+      "Unlimited transactions",
       "Everything in PRO",
-      "Team collaboration",
-      "Shared dashboards",
-      "Advanced reports",
-      "Custom integrations",
-      "Dedicated support",
+      "Priority support",
+      "Early access to new features",
+      "Team collaboration (coming soon)",
+      "Custom integrations (coming soon)",
     ],
     popular: false,
     ctaMonthly: "Start Free Trial",
@@ -58,6 +65,7 @@ const pricingPlans = [
     annualPriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_MAX_ANNUAL,
   },
 ]
+
 
 export function PricingSection() {
   const [isAnnual, setIsAnnual] = useState(false)
