@@ -1,10 +1,17 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Crown, Zap, AlertCircle, Check, ArrowUp, ArrowDown } from "lucide-react";
+import { Sparkles, Crown, Zap, AlertCircle, Check, ArrowUp, ArrowDown, CreditCard, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -88,11 +95,13 @@ function PlanCard({
     isCurrentPlan,
     currentUserPlan,
     onManageSubscription,
+    isManaging,
 }: {
     plan: PlanType;
     isCurrentPlan: boolean;
     currentUserPlan: PlanType;
     onManageSubscription: () => void;
+    isManaging: boolean;
 }) {
     const info = PLAN_INFO[plan];
     const Icon = info.icon;
@@ -122,7 +131,7 @@ function PlanCard({
                 <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-400 to-orange-500 opacity-20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
             )}
 
-            <div className="relative space-y-4">
+            <div className="relative space-y-3">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -135,46 +144,62 @@ function PlanCard({
                 </div>
 
                 {/* Features */}
-                <ul className="space-y-1.5">
+                <ul className="space-y-1">
                     {info.features.slice(0, 4).map((feature, index) => (
-                        <li key={index} className="flex items-start gap-2 text-sm">
-                            <Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
+                        <li key={index} className="flex items-start gap-2 text-xs">
+                            <Check className="h-3.5 w-3.5 text-green-500 shrink-0 mt-0.5" />
                             <span className="text-muted-foreground">{feature}</span>
                         </li>
                     ))}
                     {info.features.length > 4 && (
-                        <li className="text-xs text-muted-foreground pl-6">
-                            +{info.features.length - 4} more features
+                        <li className="text-xs text-muted-foreground pl-5">
+                            +{info.features.length - 4} more
                         </li>
                     )}
                 </ul>
 
                 {/* Action Button */}
                 {isCurrentPlan ? (
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full text-destructive border-destructive/30 hover:bg-destructive/10"
-                        onClick={onManageSubscription}
-                    >
-                        {currentUserPlan === "free" ? "No Subscription" : "Manage / Unsubscribe"}
-                    </Button>
+                    <div className="space-y-2 pt-2">
+                        {currentUserPlan !== "free" && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-destructive border-destructive/30 hover:bg-destructive/10"
+                                onClick={onManageSubscription}
+                                disabled={isManaging}
+                            >
+                                {isManaging ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    "Unsubscribe"
+                                )}
+                            </Button>
+                        )}
+                    </div>
                 ) : isUpgrade ? (
-                    <Link href="/#pricing" className="block">
-                        <Button size="sm" className="w-full bg-gradient-to-r from-primary to-primary/80">
+                    <Link href="/#pricing" className="block pt-2">
+                        <Button size="sm" className={`w-full ${plan === "max" ? "bg-gradient-to-r from-amber-500 to-orange-500" : "bg-gradient-to-r from-primary to-primary/80"}`}>
                             <ArrowUp className="h-4 w-4 mr-1" />
-                            Upgrade to {info.name}
+                            Upgrade
                         </Button>
                     </Link>
                 ) : isDowngrade ? (
                     <Button
                         variant="outline"
                         size="sm"
-                        className="w-full"
+                        className="w-full mt-2"
                         onClick={onManageSubscription}
+                        disabled={isManaging}
                     >
-                        <ArrowDown className="h-4 w-4 mr-1" />
-                        Downgrade to {info.name}
+                        {isManaging ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <>
+                                <ArrowDown className="h-4 w-4 mr-1" />
+                                Downgrade
+                            </>
+                        )}
                     </Button>
                 ) : null}
             </div>
@@ -182,14 +207,18 @@ function PlanCard({
     );
 }
 
-export function SubscriptionCard() {
+export function SubscriptionDialog({ children }: { children: React.ReactNode }) {
     const [status, setStatus] = useState<SubscriptionStatus | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isManaging, setIsManaging] = useState(false);
+    const [open, setOpen] = useState(false);
 
     useEffect(() => {
+        if (!open) return;
+
         async function fetchStatus() {
+            setIsLoading(true);
             try {
                 const response = await fetch("/api/subscription/status");
                 if (!response.ok) throw new Error("Failed to fetch");
@@ -202,7 +231,7 @@ export function SubscriptionCard() {
             }
         }
         fetchStatus();
-    }, []);
+    }, [open]);
 
     const handleManageSubscription = async () => {
         if (status?.plan === "free") {
@@ -230,81 +259,77 @@ export function SubscriptionCard() {
         }
     };
 
-    if (isLoading) {
-        return (
-            <Card className="animate-pulse">
-                <CardHeader className="pb-2">
-                    <div className="h-6 w-48 bg-muted rounded" />
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    // Order plans with current plan first
+    const allPlans: PlanType[] = ["free", "pro", "max"];
+    const orderedPlans: PlanType[] = status
+        ? [status.plan, ...allPlans.filter((p) => p !== status.plan)]
+        : allPlans;
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                {children}
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <CreditCard className="h-5 w-5 text-primary" />
+                        Manage Subscription
+                    </DialogTitle>
+                    <DialogDescription>
+                        View your current plan, upgrade, or manage your subscription.
+                    </DialogDescription>
+                </DialogHeader>
+
+                {isLoading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 py-4">
                         {[1, 2, 3].map((i) => (
-                            <div key={i} className="h-48 bg-muted rounded-xl" />
+                            <div key={i} className="h-48 bg-muted rounded-xl animate-pulse" />
                         ))}
                     </div>
-                </CardContent>
-            </Card>
-        );
-    }
-
-    if (error || !status) {
-        return (
-            <Card className="border-dashed">
-                <CardContent className="pt-6">
-                    <div className="flex items-center gap-2 text-muted-foreground">
+                ) : error || !status ? (
+                    <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
                         <AlertCircle className="h-4 w-4" />
                         <span className="text-sm">{error || "Unable to load"}</span>
                     </div>
-                </CardContent>
-            </Card>
-        );
-    }
+                ) : (
+                    <div className="space-y-4">
+                        {/* Subscription info */}
+                        {status.subscription?.currentPeriodEnd && (
+                            <div className="text-center text-sm text-muted-foreground">
+                                {status.subscription.cancelAtPeriodEnd
+                                    ? "Your subscription ends on "
+                                    : "Renews automatically on "}
+                                <span className="font-medium">
+                                    {new Date(status.subscription.currentPeriodEnd).toLocaleDateString()}
+                                </span>
+                            </div>
+                        )}
 
-    // Order plans with current plan first
-    const allPlans: PlanType[] = ["free", "pro", "max"];
-    const orderedPlans: PlanType[] = [
-        status.plan,
-        ...allPlans.filter((p) => p !== status.plan),
-    ];
+                        {/* Plan cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {orderedPlans.map((plan) => (
+                                <PlanCard
+                                    key={plan}
+                                    plan={plan}
+                                    isCurrentPlan={plan === status.plan}
+                                    currentUserPlan={status.plan}
+                                    onManageSubscription={handleManageSubscription}
+                                    isManaging={isManaging}
+                                />
+                            ))}
+                        </div>
 
-    return (
-        <Card className="relative overflow-hidden">
-            {/* Background glow */}
-            {status.plan === "pro" && (
-                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-orange-400 to-orange-600 opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-            )}
-            {status.plan === "max" && (
-                <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-amber-400 to-orange-500 opacity-10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-            )}
-
-            <CardHeader className="pb-4 relative">
-                <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                        <Sparkles className="h-5 w-5 text-primary" />
-                        Your Subscription
-                    </CardTitle>
-                    {status.subscription?.currentPeriodEnd && (
-                        <p className="text-xs text-muted-foreground">
-                            {status.subscription.cancelAtPeriodEnd ? "Ends" : "Renews"}{" "}
-                            {new Date(status.subscription.currentPeriodEnd).toLocaleDateString()}
+                        {/* Help text */}
+                        <p className="text-xs text-center text-muted-foreground">
+                            Need help? Contact us at{" "}
+                            <a href="mailto:help@trakzi.com" className="text-primary hover:underline">
+                                help@trakzi.com
+                            </a>
                         </p>
-                    )}
-                </div>
-            </CardHeader>
-
-            <CardContent className="relative">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {orderedPlans.map((plan) => (
-                        <PlanCard
-                            key={plan}
-                            plan={plan}
-                            isCurrentPlan={plan === status.plan}
-                            currentUserPlan={status.plan}
-                            onManageSubscription={handleManageSubscription}
-                        />
-                    ))}
-                </div>
-            </CardContent>
-        </Card>
+                    </div>
+                )}
+            </DialogContent>
+        </Dialog>
     );
 }

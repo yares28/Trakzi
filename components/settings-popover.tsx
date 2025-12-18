@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Moon, Sun } from "lucide-react"
+import { Moon, Sun, CreditCard } from "lucide-react"
 import { IconPalette, IconCheck, IconCurrencyDollar, IconCalendar } from "@tabler/icons-react"
 import { useTheme } from "next-themes"
 import { useColorScheme } from "@/components/color-scheme-provider"
@@ -11,6 +11,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { BugReportDialog } from "@/components/bug-report-dialog"
+import { SubscriptionDialog } from "@/components/subscription-dialog"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -237,7 +238,16 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
 
           <Separator />
 
-          <BugReportDialog />
+          {/* Actions */}
+          <div className="flex gap-2">
+            <SubscriptionDialog>
+              <Button variant="outline" size="sm" className="flex-1">
+                <CreditCard className="h-4 w-4 mr-2" />
+                Subscription
+              </Button>
+            </SubscriptionDialog>
+            <BugReportDialog />
+          </div>
         </div>
       </PopoverContent>
     </Popover>
