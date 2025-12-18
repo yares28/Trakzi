@@ -15,9 +15,10 @@ import { useDateFilter } from "@/components/date-filter-provider"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { ChartCategoryTrend } from "@/components/chart-category-trend"
 import { ShimmeringText } from "@/components/ui/shimmering-text"
-import { TrendingUp, Upload, ArrowRight, Loader2 } from "lucide-react"
+import { TrendingUp, Upload, ArrowRight } from "lucide-react"
+import { IconChartLine } from "@tabler/icons-react"
+import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
-import { ChartCardSkeleton } from "@/components/ui/card-skeleton"
 
 // Wrapper component to hide grid items when chart returns null (no data)
 function ChartCategoryTrendWrapper({ categoryName }: { categoryName: string }) {
@@ -534,44 +535,30 @@ export default function TrendsPage() {
       <SidebarInset>
         <SiteHeader />
         <main className="flex-1 space-y-6 p-4 pt-0 lg:p-6 lg:pt-2">
-          <section className="space-y-3 text-center pt-4">
-            <div className="flex items-center justify-center gap-3">
-              <TrendingUp className="h-8 w-8 text-primary" />
+          <section className="px-4 lg:px-6 pt-4">
+            <div className="flex flex-col items-center justify-center gap-4 rounded-3xl border bg-muted/30 px-6 py-8 text-center">
+              <Badge variant="outline" className="gap-1 px-3 py-1 text-sm">
+                <IconChartLine className="size-4" />
+                Trend Analysis
+              </Badge>
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
                 <ShimmeringText
                   text="Category Trends"
                   duration={3}
                   spread={2}
-                  color="hsl(var(--foreground))"
                   shimmerColor="hsl(var(--primary))"
                 />
               </h1>
+              <p className="text-muted-foreground max-w-2xl">
+                Visualize spending patterns across all your categories over time.
+                Each card represents a category from your data, showing trends and insights
+                to help you understand where your money goes.
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
-              Each card below represents a category from your data. Cards are fixed to 6 columns wide,
-              with a taller layout to match the main Analytics charts, and can be freely rearranged.
-            </p>
           </section>
 
           {isLoading && (
-            <div className="flex flex-col items-center justify-center py-16 px-4">
-              <div className="relative mb-6">
-                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Loader2 className="h-10 w-10 text-primary animate-spin" />
-                </div>
-              </div>
-              <h3 className="text-lg font-medium text-foreground mb-2">
-                Loading Category Trends
-              </h3>
-              <p className="text-sm text-muted-foreground text-center max-w-md mb-8">
-                Fetching your spending categories and transaction data...
-              </p>
-              {/* Skeleton preview */}
-              <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-4">
-                <ChartCardSkeleton height={200} />
-                <ChartCardSkeleton height={200} />
-              </div>
-            </div>
+            <p className="text-sm text-muted-foreground">Loading categories…</p>
           )}
 
           {error && !isLoading && (
@@ -579,34 +566,42 @@ export default function TrendsPage() {
           )}
 
           {!isLoading && !hasCategories && !error && (
-            <div className="flex flex-col items-center justify-center py-16 px-4">
-              <div className="relative mb-6">
-                <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
-                  <TrendingUp className="h-12 w-12 text-primary/60" />
+            <section className="px-4 lg:px-6">
+              <div className="flex flex-col items-center justify-center gap-6 rounded-3xl border bg-muted/30 px-6 py-16 text-center">
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                    <TrendingUp className="h-10 w-10 text-primary/60" />
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-background border-2 border-dashed border-primary/30 flex items-center justify-center">
+                    <Upload className="h-4 w-4 text-primary/50" />
+                  </div>
                 </div>
-                <div className="absolute -bottom-1 -right-1 w-10 h-10 rounded-full bg-background border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
-                  <Upload className="h-5 w-5 text-muted-foreground/50" />
+                <div className="space-y-2">
+                  <Badge variant="outline" className="gap-1 px-3 py-1 text-sm">
+                    <IconChartLine className="size-4" />
+                    Getting Started
+                  </Badge>
+                  <h2 className="text-2xl font-semibold tracking-tight">
+                    No Trends to Display Yet
+                  </h2>
+                  <p className="text-muted-foreground max-w-lg mx-auto">
+                    Trends are generated based on your spending categories. Once you upload transactions,
+                    we&apos;ll analyze your spending patterns and show you detailed category trends over time.
+                  </p>
                 </div>
+                <Link
+                  href="/data-library"
+                  className="group flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+                >
+                  <Upload className="h-4 w-4" />
+                  Upload Transactions
+                  <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                </Link>
+                <p className="text-xs text-muted-foreground/70">
+                  Tip: You can import CSV files from your bank or manually add transactions
+                </p>
               </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">
-                No Trends to Display Yet
-              </h3>
-              <p className="text-muted-foreground text-center max-w-md mb-6">
-                Trends are generated based on your spending categories. Once you upload transactions,
-                we&apos;ll analyze your spending patterns and show you detailed category trends over time.
-              </p>
-              <Link
-                href="/data-library"
-                className="group flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
-              >
-                <Upload className="h-4 w-4" />
-                Upload Transactions
-                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-              </Link>
-              <p className="text-xs text-muted-foreground/70 mt-4">
-                Tip: You can import CSV files from your bank or manually add transactions
-              </p>
-            </div>
+            </section>
           )}
 
           {hasCategories && (
