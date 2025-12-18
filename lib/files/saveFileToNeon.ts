@@ -1,57 +1,39 @@
 // lib/files/saveFileToNeon.ts
-import crypto from "crypto";
 import { neonInsert } from "../neonClient";
 import { getCurrentUserId } from "../auth";
 
 export async function saveFileToNeon(params: {
     file: File;
     source?: string;
-    statementId?: number;
 }) {
     const userId = await getCurrentUserId();
 
     const arrayBuffer = await params.file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const hexData = "\\x" + buffer.toString("hex");
-    const checksum = crypto.createHash("sha256").update(buffer).digest("hex");
 
     const fileName = params.file.name;
-    const sizeBytes = params.file.size;
     const mimeType = params.file.type || "application/octet-stream";
-    const extension = fileName.split(".").pop()?.toLowerCase() ?? null;
 
     const [inserted] = await neonInsert<{
         user_id: string;
         file_name: string;
         mime_type: string;
-        extension: string | null;
-        size_bytes: number;
-        data: string;
-        checksum: string;
         source: string;
-        statement_id: number | null;
+        data: string;
         id?: string;
     }>("user_files", {
         user_id: userId,
         file_name: fileName,
         mime_type: mimeType,
-        extension,
-        size_bytes: sizeBytes,
+        source: params.source ?? "Upload",
         data: hexData,
-        checksum,
-        source: params.source ?? "upload",
-        statement_id: params.statementId ?? null
     }) as Array<{
         id: string;
         user_id: string;
         file_name: string;
         mime_type: string;
-        extension: string | null;
-        size_bytes: number;
-        data: string;
-        checksum: string;
         source: string;
-        statement_id: number | null;
     }>;
 
     return inserted; // contains id, etc.
