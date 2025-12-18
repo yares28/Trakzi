@@ -13,6 +13,7 @@ export type CsvDiagnostics = {
     invalidDateSamples: Array<{ index: number; value: string }>;
     filteredOutSamples: Array<{ index: number; reason: string; row: Partial<TxRow> }>;
     softValidatedCount: number;
+    duplicatesDetected: number;
     warnings: string[];
 };
 
@@ -300,7 +301,7 @@ function coerceNumber(value: any): number | null {
     // Check if comma is used as decimal separator (European format)
     const hasComma = normalized.includes(',');
     const hasDot = normalized.includes('.');
-    
+
     if (hasComma && hasDot) {
         // Both present - determine which is decimal separator
         const lastComma = normalized.lastIndexOf(',');
@@ -343,7 +344,7 @@ function coerceNumber(value: any): number | null {
 
     // Remove any remaining non-numeric characters except dot
     normalized = normalized.replace(/[^0-9.]/g, "");
-    
+
     // Handle multiple dots (shouldn't happen after above logic, but safety check)
     if ((normalized.match(/\./g) || []).length > 1) {
         const lastDot = normalized.lastIndexOf(".");
@@ -383,11 +384,15 @@ function mapArraysToObjects(rawParsed: Papa.ParseResult<any[]>): { rows: Record<
 export function parseCsvToRows(csv: string): TxRow[];
 export function parseCsvToRows(csv: string, options: { returnDiagnostics: true }): { rows: TxRow[]; diagnostics: CsvDiagnostics };
 export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?: T): ParseCsvReturn<T> {
+    // Handle empty or whitespace-only input
+    if (!csv || csv.trim().length === 0) {
+        throw new Error("Empty file: The CSV file contains no data.");
+    }
+
     const hasTabs = csv.includes('\t');
     const initialDelimiter = hasTabs ? '\t' : ',';
 
-    console.log(`[CLIENT] CSV delimiter detected: ${hasTabs ? 'TAB' : 'COMMA'}`);
-    console.log(`[CLIENT] CSV length: ${csv.length}, first 500 chars:`, csv.substring(0, 500));
+    console.log(`[CSV Parser] Delimiter: ${hasTabs ? 'TAB' : 'COMMA'}, Length: ${csv.length}`);
 
     const { csv: cleanedCsv, delimiter, headerRowIndex } = preprocessCsv(csv, initialDelimiter);
     console.log(`[CLIENT] Cleaned CSV length: ${cleanedCsv.length}, first 500 chars:`, cleanedCsv.substring(0, 500));
@@ -428,6 +433,7 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
         invalidDateSamples: [],
         filteredOutSamples: [],
         softValidatedCount: 0,
+        duplicatesDetected: 0,
         warnings: []
     };
 
@@ -441,8 +447,9 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
                 // Check if it looks like a number (has digits and possibly comma/dot/currency)
                 if (/[\d,.\-€$£¥]/.test(strValue) && !looksLikeDate(strValue)) {
                     // Try to parse it - if it's a valid number, this is likely an amount/balance
+                    // NOTE: We now accept 0 amounts (fee reversals, adjustments)
                     const testNum = coerceNumber(strValue);
-                    if (testNum !== null && testNum !== 0) {
+                    if (testNum !== null) {
                         return col;
                     }
                 }
@@ -542,6 +549,7 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
         const dateStr = row.date?.trim() ?? "";
         const isDateValid = /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
         const hasDescription = !!(row.description && row.description.trim().length > 0);
+        // NOTE: We now accept amount=0 (fee reversals, adjustments)
         const hasAmount = typeof row.amount === "number" && !isNaN(row.amount);
         const hasBalance = typeof row.balance === "number" && !isNaN(row.balance);
 
@@ -554,7 +562,7 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
         if (softValid) {
             diagnostics.softValidatedCount++;
             if (!isDateValid && diagnostics.warnings.length < 5) {
-                diagnostics.warnings.push(`Row ${index} kept with missing/invalid date but has data.`);
+                diagnostics.warnings.push(`Row ${index + 1}: Kept with missing/invalid date.`);
             }
             return true;
         }
@@ -575,13 +583,28 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
         return false;
     });
 
+    // Detect duplicates (same date, description, amount)
+    const seen = new Set<string>();
+    for (const row of validRows) {
+        const key = `${row.date}|${row.description}|${row.amount}`;
+        if (seen.has(key)) {
+            diagnostics.duplicatesDetected++;
+        } else {
+            seen.add(key);
+        }
+    }
+    if (diagnostics.duplicatesDetected > 0) {
+        diagnostics.warnings.push(`${diagnostics.duplicatesDetected} potential duplicate transaction(s) detected.`);
+    }
+
     diagnostics.rowsAfterFiltering = validRows.length;
 
     if (validRows.length === 0) {
-        console.error(`[CLIENT] ERROR: No valid rows found. Columns:`, columns);
+        console.error(`[CSV Parser] No valid rows found. Columns:`, columns);
         if (rows.length > 0) {
-            console.error(`[CLIENT] First raw row sample:`, rowsData[0]);
+            console.error(`[CSV Parser] First raw row:`, rowsData[0]);
         }
+        throw new Error("No valid transactions found in the CSV. Please check that the file has Date, Description, and Amount columns.");
     }
 
     if (options?.returnDiagnostics) {

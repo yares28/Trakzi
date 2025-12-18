@@ -18,6 +18,10 @@ import Image from "next/image";
 
 // Plan icons with dark/light mode variants
 const planIcons = {
+    free: {
+        light: "/Trakzi/subs/freeicon.png",
+        dark: "/Trakzi/subs/freeiconB.png",
+    },
     pro: {
         light: "/Trakzi/subs/TrakziProIcon.png",
         dark: "/Trakzi/subs/TrakziProIconB.png",
@@ -148,27 +152,23 @@ function PlanCard({
                 {/* Header */}
                 <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                        {/* Show plan image icon for pro/max, lucide icon for free */}
-                        {plan === "pro" || plan === "max" ? (
-                            <>
-                                <Image
-                                    src={planIcons[plan].dark}
-                                    alt={`${plan} icon`}
-                                    width={24}
-                                    height={24}
-                                    className="hidden dark:block"
-                                />
-                                <Image
-                                    src={planIcons[plan].light}
-                                    alt={`${plan} icon`}
-                                    width={24}
-                                    height={24}
-                                    className="block dark:hidden"
-                                />
-                            </>
-                        ) : (
-                            <Icon className={`h-5 w-5 ${info.iconColor}`} />
-                        )}
+                        {/* Show plan image icon for all plans */}
+                        <>
+                            <Image
+                                src={planIcons[plan].dark}
+                                alt={`${plan} icon`}
+                                width={24}
+                                height={24}
+                                className="hidden dark:block"
+                            />
+                            <Image
+                                src={planIcons[plan].light}
+                                alt={`${plan} icon`}
+                                width={24}
+                                height={24}
+                                className="block dark:hidden"
+                            />
+                        </>
                         <span className="font-semibold">{info.name}</span>
                     </div>
                     <Badge className={info.badgeClass}>

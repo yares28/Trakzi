@@ -143,27 +143,24 @@ export const POST = async (req: NextRequest) => {
     // 4) Insert statement
     const [statement] = await neonInsert<{
         user_id: string;
-        bank_name: string | null;
-        account_name: string | null;
-        source_filename: string | null;
-        raw_format: string;
-        file_id: string | null;
+        file_name: string;
+        status: string;
+        row_count: number;
+        imported_count: number;
         id?: number;
     }>("statements", {
         user_id: userId,
-        bank_name: statementMeta?.bankName ?? null,
-        account_name: null,
-        source_filename: statementMeta?.sourceFilename ?? null,
-        raw_format: statementMeta?.rawFormat ?? "pdf",
-        file_id: statementMeta?.fileId ?? null
+        file_name: statementMeta?.sourceFilename ?? "imported_csv.csv",
+        status: "completed",
+        row_count: rowsToInsert.length,
+        imported_count: rowsToInsert.length,
     }) as Array<{
         id: number;
         user_id: string;
-        bank_name: string | null;
-        account_name: string | null;
-        source_filename: string | null;
-        raw_format: string;
-        file_id: string | null;
+        file_name: string;
+        status: string;
+        row_count: number;
+        imported_count: number;
     }>;
 
     const statementId = statement.id;

@@ -1,12 +1,13 @@
 // app/api/statements/parse/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { saveFileToNeon } from "@/lib/files/saveFileToNeon";
-// Import parsePdfToRows dynamically to avoid DOMMatrix error during module evaluation
-import { parseExcelToRows } from "@/lib/parsing/parseExcelToRows";
 import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows";
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv";
 import { categoriseTransactions } from "@/lib/ai/categoriseTransactions";
 import { TxRow } from "@/lib/types/transactions";
+
+// Maximum file size: 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 export const POST = async (req: NextRequest) => {
     const formData = await req.formData();
@@ -17,7 +18,23 @@ export const POST = async (req: NextRequest) => {
         return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
+    // Check file size
+    if (file.size > MAX_FILE_SIZE) {
+        return NextResponse.json(
+            { error: "File too large. Maximum size is 10MB." },
+            { status: 400 }
+        );
+    }
+
     const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+
+    // Only accept CSV files
+    if (extension !== "csv") {
+        return NextResponse.json(
+            { error: `Only CSV files are supported. Received: .${extension}` },
+            { status: 400 }
+        );
+    }
 
     try {
         // 1) Save file in user_files
@@ -30,56 +47,44 @@ export const POST = async (req: NextRequest) => {
         } catch (err: any) {
             console.error("Error saving file:", err);
             if (err.message?.includes("DEMO_USER_ID") || err.message?.includes("user auth")) {
-                return NextResponse.json({ 
-                    error: "Authentication not configured. Please set DEMO_USER_ID in your environment variables." 
+                return NextResponse.json({
+                    error: "Authentication not configured. Please set DEMO_USER_ID in your environment variables."
                 }, { status: 500 });
             }
             throw new Error(`Failed to save file: ${err.message}`);
         }
 
-        // 2) Parse rows depending on type
+        // 2) Parse CSV to rows
         const buffer = Buffer.from(await file.arrayBuffer());
         let rows: TxRow[] = [];
 
         try {
-            if (extension === "pdf") {
-                // Dynamic import to avoid DOMMatrix error during SSR
-                const { parsePdfToRows } = await import("@/lib/parsing/parsePdfToRows");
-                rows = await parsePdfToRows(buffer);
-            } else if (extension === "xls" || extension === "xlsx") {
-                rows = parseExcelToRows(buffer);
-            } else if (extension === "csv") {
-                rows = parseCsvToRows(buffer.toString("utf-8"));
-            } else {
-                // Unsupported for parsing → just store file
-                return NextResponse.json(
-                    {
-                        fileId: savedFile.id,
-                        parseable: false,
-                        message: `File stored but not parsed (extension: ${extension})`
-                    },
-                    { status: 200 }
-                );
+            // Handle UTF-8 BOM if present
+            let csvContent = buffer.toString("utf-8");
+            if (csvContent.charCodeAt(0) === 0xFEFF) {
+                csvContent = csvContent.slice(1);
             }
+
+            rows = parseCsvToRows(csvContent);
         } catch (parseErr: any) {
             console.error("Parse error:", parseErr);
             const errorMessage = parseErr.message || "Unknown parsing error";
-            
+
             // Provide more helpful error messages
             if (errorMessage.includes("No transactions found")) {
-                return NextResponse.json({ 
-                    error: `Parse Error: ${errorMessage}` 
+                return NextResponse.json({
+                    error: `Parse Error: ${errorMessage}`
                 }, { status: 400 });
             }
-            
-            return NextResponse.json({ 
-                error: `Parse Error: Failed to parse ${extension.toUpperCase()} file: ${errorMessage}` 
+
+            return NextResponse.json({
+                error: `Parse Error: Failed to parse CSV file. Please check the file format.`
             }, { status: 500 });
         }
 
         if (rows.length === 0) {
-            return NextResponse.json({ 
-                error: `Parse Error: No transactions found in the ${extension.toUpperCase()} file. Please check the file format.` 
+            return NextResponse.json({
+                error: `Parse Error: No transactions found in the CSV file. Please check the file format.`
             }, { status: 400 });
         }
 
@@ -91,7 +96,7 @@ export const POST = async (req: NextRequest) => {
             // Get custom categories from request if provided (from frontend localStorage)
             const customCategoriesHeader = req.headers.get("X-Custom-Categories");
             const customCategories = customCategoriesHeader ? JSON.parse(customCategoriesHeader) : undefined;
-            
+
             console.log(`[PARSE API] Calling categoriseTransactions with ${rows.length} rows`);
             withCategories = await categoriseTransactions(rows, customCategories);
             const categorizedCount = withCategories.filter(r => r.category && r.category !== "Other").length;
@@ -129,7 +134,6 @@ export const POST = async (req: NextRequest) => {
         });
     } catch (err: any) {
         console.error("Unexpected error:", err);
-        const errorMessage = err.message || "An unexpected error occurred while processing the file";
-        return NextResponse.json({ error: errorMessage }, { status: 500 });
+        return NextResponse.json({ error: "An unexpected error occurred while processing the file" }, { status: 500 });
     }
 };

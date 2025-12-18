@@ -43,11 +43,15 @@ const currencies = [
   { value: "USD", label: "USD ($)" },
   { value: "EUR", label: "EUR (€)" },
   { value: "GBP", label: "GBP (£)" },
-  { value: "JPY", label: "JPY (¥)" },
   { value: "CAD", label: "CAD (C$)" },
   { value: "AUD", label: "AUD (A$)" },
-  { value: "CHF", label: "CHF (Fr)" },
+  { value: "JPY", label: "JPY (¥)" },
   { value: "CNY", label: "CNY (¥)" },
+  { value: "INR", label: "INR (₹)" },
+  { value: "BRL", label: "BRL (R$)" },
+  { value: "MXN", label: "MXN ($)" },
+  { value: "KRW", label: "KRW (₩)" },
+  { value: "CHF", label: "CHF (Fr)" },
 ]
 
 const timePeriods = [
@@ -66,7 +70,7 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
   const { resolvedTheme, setTheme } = useTheme()
   const { colorScheme, setColorScheme } = useColorScheme()
   const [mounted, setMounted] = React.useState(false)
-  const [currency, setCurrency] = React.useState<string>("EUR")
+  const [currency, setCurrency] = React.useState<string>("USD")
   const [defaultTimePeriod, setDefaultTimePeriod] = React.useState<string>("all")
 
   React.useEffect(() => {
@@ -253,6 +257,7 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
     </Popover>
   )
 }
+
 
 
 
