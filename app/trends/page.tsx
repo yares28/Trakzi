@@ -15,8 +15,9 @@ import { useDateFilter } from "@/components/date-filter-provider"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { ChartCategoryTrend } from "@/components/chart-category-trend"
 import { ShimmeringText } from "@/components/ui/shimmering-text"
-import { TrendingUp, Upload, ArrowRight } from "lucide-react"
+import { TrendingUp, Upload, ArrowRight, Loader2 } from "lucide-react"
 import Link from "next/link"
+import { ChartCardSkeleton } from "@/components/ui/card-skeleton"
 
 // Wrapper component to hide grid items when chart returns null (no data)
 function ChartCategoryTrendWrapper({ categoryName }: { categoryName: string }) {
@@ -541,6 +542,7 @@ export default function TrendsPage() {
                   text="Category Trends"
                   duration={3}
                   spread={2}
+                  color="hsl(var(--foreground))"
                   shimmerColor="hsl(var(--primary))"
                 />
               </h1>
@@ -552,7 +554,24 @@ export default function TrendsPage() {
           </section>
 
           {isLoading && (
-            <p className="text-sm text-muted-foreground">Loading categories…</p>
+            <div className="flex flex-col items-center justify-center py-16 px-4">
+              <div className="relative mb-6">
+                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Loader2 className="h-10 w-10 text-primary animate-spin" />
+                </div>
+              </div>
+              <h3 className="text-lg font-medium text-foreground mb-2">
+                Loading Category Trends
+              </h3>
+              <p className="text-sm text-muted-foreground text-center max-w-md mb-8">
+                Fetching your spending categories and transaction data...
+              </p>
+              {/* Skeleton preview */}
+              <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-4">
+                <ChartCardSkeleton height={200} />
+                <ChartCardSkeleton height={200} />
+              </div>
+            </div>
           )}
 
           {error && !isLoading && (
