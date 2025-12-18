@@ -245,17 +245,31 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
 
         setIsManaging(true);
         try {
-            const response = await fetch("/api/billing/portal", {
+            // Use the cancel endpoint to cancel at period end
+            const response = await fetch("/api/billing/cancel", {
                 method: "POST",
             });
             const data = await response.json();
-            if (data.url) {
-                window.location.href = data.url;
+
+            if (data.success) {
+                toast.success("Subscription cancelled", {
+                    description: data.message,
+                    duration: 5000,
+                });
+                // Refresh the subscription status
+                const statusResponse = await fetch("/api/subscription/status");
+                if (statusResponse.ok) {
+                    const newStatus = await statusResponse.json();
+                    setStatus(newStatus);
+                }
+            } else if (data.error) {
+                toast.error(data.error);
             } else {
-                toast.error("Unable to open subscription portal");
+                toast.error("Unable to cancel subscription");
             }
         } catch (err) {
-            toast.error("Failed to open subscription management");
+            console.error("Cancel subscription error:", err);
+            toast.error("Failed to cancel subscription");
         } finally {
             setIsManaging(false);
         }

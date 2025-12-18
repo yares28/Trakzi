@@ -21,6 +21,13 @@ export async function POST() {
         // Get user's subscription to find Stripe customer ID
         const subscription = await getUserSubscription(userId);
 
+        console.log('[Billing Portal] User subscription:', {
+            userId,
+            plan: subscription?.plan,
+            stripeCustomerId: subscription?.stripeCustomerId,
+            stripeSubscriptionId: subscription?.stripeSubscriptionId,
+        });
+
         if (!subscription?.stripeCustomerId) {
             return NextResponse.json(
                 { error: 'No active subscription found. Please subscribe first.' },
@@ -34,8 +41,10 @@ export async function POST() {
         // Create Customer Portal session
         const session = await stripe.billingPortal.sessions.create({
             customer: subscription.stripeCustomerId,
-            return_url: `${appUrl}/home`,
+            return_url: `${appUrl}/dashboard`,
         });
+
+        console.log('[Billing Portal] Session created:', session.url);
 
         return NextResponse.json({ url: session.url });
     } catch (error: any) {
@@ -48,9 +57,46 @@ export async function POST() {
             );
         }
 
+        if (error.type === 'StripeInvalidRequestError') {
+            return NextResponse.json(
+                { error: 'Invalid subscription. Please contact support.' },
+                { status: 400 }
+            );
+        }
+
         return NextResponse.json(
             { error: error.message || 'Failed to create billing portal session' },
             { status: 500 }
         );
+    }
+}
+
+// GET request to check if user can access billing portal
+export async function GET() {
+    try {
+        const { userId } = await auth();
+
+        if (!userId) {
+            return NextResponse.json({ canAccess: false, reason: 'Not authenticated' });
+        }
+
+        const subscription = await getUserSubscription(userId);
+
+        if (!subscription?.stripeCustomerId) {
+            return NextResponse.json({
+                canAccess: false,
+                reason: 'No subscription',
+                plan: subscription?.plan || 'free'
+            });
+        }
+
+        return NextResponse.json({
+            canAccess: true,
+            plan: subscription.plan,
+            stripeCustomerId: subscription.stripeCustomerId,
+        });
+    } catch (error) {
+        console.error('[Billing Portal] Error checking access:', error);
+        return NextResponse.json({ canAccess: false, reason: 'Error' });
     }
 }
