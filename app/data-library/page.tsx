@@ -103,6 +103,7 @@ import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv"
 import { TxRow } from "@/lib/types/transactions"
 import { memo } from "react"
+import posthog from "posthog-js"
 
 type ParsedRow = TxRow & { id: number }
 
@@ -1009,6 +1010,12 @@ export default function DataLibraryPage() {
       // Persist the chosen tier locally for Needs vs Wants classification
       saveCategoryTier(created.name ?? trimmedName, newCategoryTier)
 
+      // Track category created
+      posthog.capture('category_created', {
+        category_name: created.name ?? trimmedName,
+        category_tier: newCategoryTier,
+      })
+
       toast.success(`Category "${created.name}" added`)
     } catch (error) {
       console.error("[Add Category] Error:", error)
@@ -1425,6 +1432,13 @@ export default function DataLibraryPage() {
           method: "DELETE",
         })
         if (response.ok) {
+          // Track statement deleted
+          posthog.capture('statement_deleted', {
+            statement_name: statementToDelete.name,
+            statement_type: statementToDelete.type,
+            is_receipt: true,
+          })
+
           await fetchLibraryData()
           setDeleteDialogOpen(false)
           setStatementToDelete(null)
@@ -1451,6 +1465,13 @@ export default function DataLibraryPage() {
         method: "DELETE",
       })
       if (response.ok) {
+        // Track statement deleted
+        posthog.capture('statement_deleted', {
+          statement_name: statementToDelete.name,
+          statement_type: statementToDelete.type,
+          is_receipt: false,
+        })
+
         await fetchLibraryData()
         setDeleteDialogOpen(false)
         setStatementToDelete(null)
@@ -2779,6 +2800,12 @@ export default function DataLibraryPage() {
                                               )
                                             )
                                           })
+                                          // Track transaction category changed
+                                          posthog.capture('transaction_category_changed', {
+                                            previous_category: previousCategory,
+                                            new_category: updated.categoryName || categoryName,
+                                            transaction_type: 'receipt',
+                                          })
                                         }
                                       })
                                       .catch((err) => {
@@ -2879,6 +2906,13 @@ export default function DataLibraryPage() {
                                           })
                                           const errorData = await response.json().catch(() => ({}))
                                           toast.error(errorData.error || "Failed to update category")
+                                        } else {
+                                          // Track transaction category changed
+                                          posthog.capture('transaction_category_changed', {
+                                            previous_category: previousCategory,
+                                            new_category: value,
+                                            transaction_type: 'statement',
+                                          })
                                         }
                                       })
                                       .catch((err) => {

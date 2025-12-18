@@ -10,6 +10,7 @@ import { TransactionDialogProvider } from "@/components/transaction-dialog-provi
 import { FavoritesProvider } from "@/components/favorites-provider";
 import { DateFilterProvider } from "@/components/date-filter-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { PostHogUserIdentifier } from "@/components/posthog-user-identifier";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -55,6 +56,7 @@ export default function RootLayout({
                 <FavoritesProvider>
                   <DateFilterProvider>
                     <TransactionDialogProvider>
+                      <PostHogUserIdentifier />
                       {children}
                     </TransactionDialogProvider>
                   </DateFilterProvider>

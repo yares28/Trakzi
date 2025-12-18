@@ -1,0 +1,67 @@
+[
+  {
+    "event": "pricing_plan_clicked",
+    "description": "User clicked on a pricing plan (Starter, PRO, or MAX) from the landing page pricing section",
+    "file_path": "components/pricing-section.tsx"
+  },
+  {
+    "event": "checkout_started",
+    "description": "User initiated the Stripe checkout flow for a paid plan",
+    "file_path": "components/pricing-section.tsx"
+  },
+  {
+    "event": "file_import_started",
+    "description": "User dropped a file to import transactions (conversion funnel top)",
+    "file_path": "app/analytics/page.tsx"
+  },
+  {
+    "event": "file_import_completed",
+    "description": "User successfully imported transactions from a file (key conversion event)",
+    "file_path": "app/analytics/page.tsx"
+  },
+  {
+    "event": "file_import_failed",
+    "description": "File import failed with an error (churn indicator)",
+    "file_path": "app/analytics/page.tsx"
+  },
+  {
+    "event": "category_created",
+    "description": "User created a new transaction category in data library",
+    "file_path": "app/data-library/page.tsx"
+  },
+  {
+    "event": "statement_deleted",
+    "description": "User deleted a statement/report from data library (potential churn signal)",
+    "file_path": "app/data-library/page.tsx"
+  },
+  {
+    "event": "ai_chat_message_sent",
+    "description": "User sent a message to the AI chat assistant",
+    "file_path": "components/chat/chat-interface.tsx"
+  },
+  {
+    "event": "quick_ai_prompt_clicked",
+    "description": "User clicked a quick AI prompt chip from the dashboard",
+    "file_path": "app/dashboard/page.tsx"
+  },
+  {
+    "event": "dashboard_card_viewed",
+    "description": "User clicked to view details of a financial health score card",
+    "file_path": "app/dashboard/page.tsx"
+  },
+  {
+    "event": "budget_limit_set",
+    "description": "User set or updated a budget limit for a spending category",
+    "file_path": "app/analytics/page.tsx"
+  },
+  {
+    "event": "transaction_category_changed",
+    "description": "User manually changed a transaction's category (engagement signal)",
+    "file_path": "app/data-library/page.tsx"
+  },
+  {
+    "event": "billing_period_toggled",
+    "description": "User toggled between monthly and annual billing on pricing page",
+    "file_path": "components/pricing-section.tsx"
+  }
+]

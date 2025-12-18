@@ -79,6 +79,7 @@ import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv"
 import { TxRow } from "@/lib/types/transactions"
 import { DEFAULT_CATEGORIES } from "@/lib/categories"
+import posthog from "posthog-js"
 
 type ParsedRow = TxRow & { id: number }
 
@@ -1392,6 +1393,13 @@ export default function AnalyticsPage() {
 
       setParsingProgress(5)
 
+      // Track file import started
+      posthog.capture('file_import_started', {
+        file_name: file.name,
+        file_size: file.size,
+        file_type: file.type || file.name.split('.').pop()?.toLowerCase() || 'unknown',
+      })
+
       try {
         const formData = new FormData()
         formData.append("file", file)
@@ -1519,6 +1527,15 @@ export default function AnalyticsPage() {
           error instanceof Error ? error.message : "Failed to parse file. Please try again."
         setParseError(errorMessage)
 
+        // Track file import failed during parsing
+        posthog.capture('file_import_failed', {
+          file_name: file.name,
+          file_size: file.size,
+          file_type: file.type || file.name.split('.').pop()?.toLowerCase() || 'unknown',
+          error_message: errorMessage,
+          stage: 'parsing',
+        })
+
         if (errorMessage.includes("DEMO_USER_ID") || errorMessage.includes("Authentication")) {
           toast.error("Configuration Error", {
             description: "Please configure DEMO_USER_ID in your environment variables.",
@@ -1610,6 +1627,14 @@ export default function AnalyticsPage() {
         description: `${data.inserted} transactions imported from ${droppedFile.name}`,
       })
 
+      // Track file import completed
+      posthog.capture('file_import_completed', {
+        file_name: droppedFile.name,
+        file_size: droppedFile.size,
+        file_type: droppedFile.type || droppedFile.name.split('.').pop()?.toLowerCase() || 'unknown',
+        transaction_count: data.inserted,
+      })
+
       setIsDialogOpen(false)
       setDroppedFile(null)
       setParsedCsv(null)
@@ -1623,12 +1648,23 @@ export default function AnalyticsPage() {
     } catch (error) {
       clearInterval(progressInterval)
       console.error("Import error:", error)
+      const errorMessage = error instanceof Error
+        ? error.message
+        : "Failed to import transactions. Please try again."
       toast.error("Import Failed", {
-        description:
-          error instanceof Error
-            ? error.message
-            : "Failed to import transactions. Please try again.",
+        description: errorMessage,
       })
+
+      // Track file import failed during import
+      posthog.capture('file_import_failed', {
+        file_name: droppedFile.name,
+        file_size: droppedFile.size,
+        file_type: droppedFile.type || droppedFile.name.split('.').pop()?.toLowerCase() || 'unknown',
+        error_message: errorMessage,
+        stage: 'import',
+        transaction_count: transactionCount,
+      })
+
       setImportProgress(0)
     } finally {
       setIsImporting(false)
@@ -3575,7 +3611,14 @@ export default function AnalyticsPage() {
                                                             }),
                                                           })
 
-                                                          if (!res.ok) {
+                                                          if (res.ok) {
+                                                            // Track budget limit set
+                                                            posthog.capture('budget_limit_set', {
+                                                              category_name: savedCategory,
+                                                              budget_amount: limitValue,
+                                                              date_filter: dateFilter || 'all_time',
+                                                            })
+                                                          } else {
                                                             console.error(
                                                               "[Analytics] Failed to save ring limit:",
                                                               await res.text()

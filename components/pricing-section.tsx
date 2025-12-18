@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@clerk/nextjs"
 import { toast } from "sonner"
+import posthog from "posthog-js"
 
 const pricingPlans = [
   {
@@ -73,6 +74,15 @@ export function PricingSection() {
   const { isSignedIn } = useAuth()
 
   const handlePlanSelect = async (plan: typeof pricingPlans[0]) => {
+    // Track pricing plan click
+    posthog.capture('pricing_plan_clicked', {
+      plan_name: plan.name,
+      billing_period: isAnnual ? 'annual' : 'monthly',
+      price: plan.price || (isAnnual ? plan.annualPrice : plan.monthlyPrice),
+      is_popular: plan.popular,
+      is_signed_in: isSignedIn,
+    })
+
     // Free plan - just redirect to sign up or dashboard
     if (plan.priceId === null && !plan.monthlyPriceId) {
       if (isSignedIn) {
@@ -104,6 +114,14 @@ export function PricingSection() {
 
     // User is signed in, go directly to checkout
     setLoadingPlan(plan.name)
+
+    // Track checkout started
+    posthog.capture('checkout_started', {
+      plan_name: plan.name,
+      billing_period: isAnnual ? 'annual' : 'monthly',
+      price_id: priceId,
+      price: isAnnual ? plan.annualPrice : plan.monthlyPrice,
+    })
 
     try {
       const response = await fetch('/api/checkout', {
@@ -179,14 +197,20 @@ export function PricingSection() {
             className="flex items-center justify-center gap-4 p-1 bg-white/5 rounded-full border border-white/10 backdrop-blur-sm w-fit mx-auto"
           >
             <button
-              onClick={() => setIsAnnual(false)}
+              onClick={() => {
+                setIsAnnual(false)
+                posthog.capture('billing_period_toggled', { billing_period: 'monthly', previous_period: 'annual' })
+              }}
               className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-200 ${!isAnnual ? "bg-[#e78a53] text-white shadow-lg" : "text-white/60 hover:text-white/80"
                 }`}
             >
               Monthly
             </button>
             <button
-              onClick={() => setIsAnnual(true)}
+              onClick={() => {
+                setIsAnnual(true)
+                posthog.capture('billing_period_toggled', { billing_period: 'annual', previous_period: 'monthly' })
+              }}
               className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-200 relative ${isAnnual ? "bg-[#e78a53] text-white shadow-lg" : "text-white/60 hover:text-white/80"
                 }`}
             >
