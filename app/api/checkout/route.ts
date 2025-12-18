@@ -77,15 +77,40 @@ export async function POST(request: NextRequest) {
     } catch (error: any) {
         console.error('[Checkout] Error creating session:', error);
 
-        if (error.message?.includes('Stripe is not initialized')) {
+        // Map technical errors to user-friendly messages
+        const errorMessage = error.message || '';
+
+        if (errorMessage.includes('Stripe is not initialized')) {
             return NextResponse.json(
-                { error: 'Payment system not configured. Please contact support.' },
+                { error: 'Payment system is temporarily unavailable. Please try again later.' },
                 { status: 503 }
             );
         }
 
+        if (errorMessage.includes('No such price')) {
+            return NextResponse.json(
+                { error: 'This pricing option is currently unavailable. Please try a different plan or contact support.' },
+                { status: 400 }
+            );
+        }
+
+        if (errorMessage.includes('Invalid API Key') || errorMessage.includes('api_key')) {
+            return NextResponse.json(
+                { error: 'Payment configuration error. Please contact support.' },
+                { status: 503 }
+            );
+        }
+
+        if (errorMessage.includes('rate limit') || errorMessage.includes('too many requests')) {
+            return NextResponse.json(
+                { error: 'Too many requests. Please wait a moment and try again.' },
+                { status: 429 }
+            );
+        }
+
+        // Generic fallback - don't expose internal error details
         return NextResponse.json(
-            { error: error.message || 'Failed to create checkout session' },
+            { error: 'Unable to start checkout. Please try again or contact support if the problem persists.' },
             { status: 500 }
         );
     }

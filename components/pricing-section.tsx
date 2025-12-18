@@ -138,16 +138,43 @@ export function PricingSection() {
 
       if (data.error) {
         console.error('Checkout error:', data.error)
-        toast.error(data.error)
+
+        // Track checkout error
+        posthog.capture('checkout_error', {
+          plan_name: plan.name,
+          error: data.error,
+          status: response.status,
+        })
+
+        // Show user-friendly toast
+        toast.error(data.error, {
+          description: 'Please try again or contact support if the issue persists.',
+          duration: 5000,
+        })
         return
       }
 
       if (data.url) {
+        // Track successful redirect to Stripe
+        posthog.capture('checkout_redirect', {
+          plan_name: plan.name,
+          billing_period: isAnnual ? 'annual' : 'monthly',
+        })
         window.location.href = data.url
       }
     } catch (error) {
       console.error('Checkout error:', error)
-      toast.error('Failed to start checkout. Please try again.')
+
+      // Track network/unexpected error
+      posthog.capture('checkout_error', {
+        plan_name: plan.name,
+        error: 'Network error',
+      })
+
+      toast.error('Connection issue', {
+        description: 'Unable to connect to payment service. Please check your internet and try again.',
+        duration: 5000,
+      })
     } finally {
       setLoadingPlan(null)
     }
