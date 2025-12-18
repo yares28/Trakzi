@@ -14,6 +14,9 @@ import { deduplicatedFetch } from "@/lib/request-deduplication"
 import { useDateFilter } from "@/components/date-filter-provider"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { ChartCategoryTrend } from "@/components/chart-category-trend"
+import { ShimmeringText } from "@/components/ui/shimmering-text"
+import { TrendingUp, Upload, ArrowRight } from "lucide-react"
+import Link from "next/link"
 
 // Wrapper component to hide grid items when chart returns null (no data)
 function ChartCategoryTrendWrapper({ categoryName }: { categoryName: string }) {
@@ -529,9 +532,19 @@ export default function TrendsPage() {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
-        <main className="flex-1 space-y-4 p-4 pt-0 lg:p-6 lg:pt-2">
-          <section className="space-y-2 text-center">
-            <h2 className="text-lg font-semibold tracking-tight">Category Trends</h2>
+        <main className="flex-1 space-y-6 p-4 pt-0 lg:p-6 lg:pt-2">
+          <section className="space-y-3 text-center pt-4">
+            <div className="flex items-center justify-center gap-3">
+              <TrendingUp className="h-8 w-8 text-primary" />
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+                <ShimmeringText
+                  text="Category Trends"
+                  duration={3}
+                  spread={2}
+                  shimmerColor="hsl(var(--primary))"
+                />
+              </h1>
+            </div>
             <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
               Each card below represents a category from your data. Cards are fixed to 6 columns wide,
               with a taller layout to match the main Analytics charts, and can be freely rearranged.
@@ -547,9 +560,34 @@ export default function TrendsPage() {
           )}
 
           {!isLoading && !hasCategories && !error && (
-            <p className="text-sm text-muted-foreground">
-              No categories found yet. Add categories from the Analytics page to see trends here.
-            </p>
+            <div className="flex flex-col items-center justify-center py-16 px-4">
+              <div className="relative mb-6">
+                <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
+                  <TrendingUp className="h-12 w-12 text-primary/60" />
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-10 h-10 rounded-full bg-background border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
+                  <Upload className="h-5 w-5 text-muted-foreground/50" />
+                </div>
+              </div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">
+                No Trends to Display Yet
+              </h3>
+              <p className="text-muted-foreground text-center max-w-md mb-6">
+                Trends are generated based on your spending categories. Once you upload transactions,
+                we&apos;ll analyze your spending patterns and show you detailed category trends over time.
+              </p>
+              <Link
+                href="/data-library"
+                className="group flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+              >
+                <Upload className="h-4 w-4" />
+                Upload Transactions
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </Link>
+              <p className="text-xs text-muted-foreground/70 mt-4">
+                Tip: You can import CSV files from your bank or manually add transactions
+              </p>
+            </div>
           )}
 
           {hasCategories && (
