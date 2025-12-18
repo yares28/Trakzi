@@ -1,11 +1,22 @@
 import { NextResponse } from "next/server"
 import { getCurrentUserId } from "@/lib/auth"
 import { neonInsert } from "@/lib/neonClient"
+import { assertCapacityOrExplain } from "@/lib/limits/transactions-cap"
 
 export async function POST(request: Request) {
     try {
         const userId = await getCurrentUserId()
         const { date, time, storeName, description, amount, quantity, categoryId, categoryTypeId } = await request.json()
+
+        // Check transaction capacity before proceeding
+        const capacityCheck = await assertCapacityOrExplain({
+            userId,
+            incomingCount: 1,
+        })
+
+        if (!capacityCheck.ok) {
+            return NextResponse.json(capacityCheck.limitExceeded, { status: 403 })
+        }
 
         const receiptDate = date || new Date().toISOString().split('T')[0]
         const receiptTime = time || new Date().toTimeString().split(' ')[0]
@@ -42,7 +53,17 @@ export async function POST(request: Request) {
             receipt_time: receiptTime, // Denormalized
         })
 
-        return NextResponse.json({ receipt, transaction }, { status: 201 })
+        return NextResponse.json({
+            receipt,
+            transaction,
+            capacity: {
+                plan: capacityCheck.capacity.plan,
+                used: capacityCheck.capacity.used + 1,
+                remaining: capacityCheck.capacity.remaining === Infinity
+                    ? Infinity
+                    : capacityCheck.capacity.remaining - 1,
+            }
+        }, { status: 201 })
 
     } catch (error: any) {
         console.error("Error creating manual receipt transaction:", error)

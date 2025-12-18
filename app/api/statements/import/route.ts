@@ -4,7 +4,12 @@ import Papa from "papaparse";
 import { neonInsert, neonQuery } from "@/lib/neonClient";
 import { getCurrentUserId } from "@/lib/auth";
 import { TxRow } from "@/lib/types/transactions";
-import { checkTotalTransactionLimit } from "@/lib/feature-access";
+import {
+    assertCapacityOrExplain,
+    getRemainingCapacity,
+    calculatePartialImportSize,
+    LimitExceededResponse
+} from "@/lib/limits/transactions-cap";
 
 type ImportBody = {
     csv: string;
@@ -14,31 +19,36 @@ type ImportBody = {
         rawFormat?: "pdf" | "csv" | "xlsx" | "xls" | "other";
         fileId?: string | null;
     };
+    // Optional: allow partial import if over cap
+    allowPartialImport?: boolean;
+    // Optional: filter by date range
+    dateFrom?: string;
+    dateTo?: string;
+};
+
+type ImportResponse = {
+    statementId: number;
+    inserted: number;
+    skipped?: number;
+    duplicatesSkipped?: number;
+    partialImport?: boolean;
+    reachedCap?: boolean;
+    capacity?: {
+        plan: string;
+        cap: number;
+        used: number;
+        remaining: number;
+    };
 };
 
 export const POST = async (req: NextRequest) => {
     const body = (await req.json()) as ImportBody;
-    const { csv, statementMeta } = body;
+    const { csv, statementMeta, allowPartialImport, dateFrom, dateTo } = body;
     if (!csv) {
         return NextResponse.json({ error: "Missing CSV" }, { status: 400 });
     }
 
     const userId = await getCurrentUserId();
-
-    // Check if user has reached their transaction limit
-    const limitCheck = await checkTotalTransactionLimit(userId);
-    if (!limitCheck.allowed) {
-        return NextResponse.json(
-            {
-                error: limitCheck.reason,
-                upgradeRequired: true,
-                currentUsage: limitCheck.currentUsage,
-                limit: limitCheck.limit,
-                plan: limitCheck.plan
-            },
-            { status: 403 }
-        );
-    }
 
     // 1) Parse CSV into TxRow[]
     const parsed = Papa.parse(csv, {
@@ -50,7 +60,7 @@ export const POST = async (req: NextRequest) => {
         console.warn("Import CSV parse errors:", parsed.errors);
     }
 
-    const rows: TxRow[] = (parsed.data as any[]).map((r) => ({
+    let rows: TxRow[] = (parsed.data as any[]).map((r) => ({
         date: String(r.date),
         description: String(r.description),
         amount: Number(r.amount),
@@ -62,24 +72,75 @@ export const POST = async (req: NextRequest) => {
         return NextResponse.json({ error: "No rows in CSV" }, { status: 400 });
     }
 
-    // Check if importing these rows would exceed the limit
-    if (limitCheck.limit !== undefined && limitCheck.limit !== Infinity && limitCheck.currentUsage !== undefined) {
-        const remainingAllowance = limitCheck.limit - limitCheck.currentUsage;
-        if (rows.length > remainingAllowance) {
-            return NextResponse.json(
-                {
-                    error: `You can only import ${remainingAllowance} more transactions this month (trying to import ${rows.length})`,
-                    upgradeRequired: true,
-                    currentUsage: limitCheck.currentUsage,
-                    limit: limitCheck.limit,
-                    plan: limitCheck.plan
-                },
-                { status: 403 }
-            );
+    // Apply date filter if provided
+    if (dateFrom || dateTo) {
+        rows = rows.filter(row => {
+            const rowDate = row.date;
+            if (dateFrom && rowDate < dateFrom) return false;
+            if (dateTo && rowDate > dateTo) return false;
+            return true;
+        });
+
+        if (rows.length === 0) {
+            return NextResponse.json({
+                error: "No transactions match the selected date range"
+            }, { status: 400 });
         }
     }
 
-    // 2) Insert statement
+    // Extract date range for UI hints
+    const dates = rows.map(r => r.date).filter(Boolean).sort();
+    const dateMin = dates[0] || undefined;
+    const dateMax = dates[dates.length - 1] || undefined;
+
+    // 2) Check capacity
+    const capacityCheck = await assertCapacityOrExplain({
+        userId,
+        incomingCount: rows.length,
+        dateMin,
+        dateMax,
+    });
+
+    if (!capacityCheck.ok) {
+        // If partial import is allowed and there's remaining capacity, proceed
+        if (allowPartialImport && capacityCheck.limitExceeded.remaining > 0) {
+            // Will handle partial import below
+        } else {
+            // Return structured LIMIT_EXCEEDED response
+            return NextResponse.json(capacityCheck.limitExceeded, { status: 403 });
+        }
+    }
+
+    // 3) Calculate how many rows to insert
+    const capacity = capacityCheck.ok ? capacityCheck.capacity : await getRemainingCapacity(userId);
+    const { allowedCount, skippedCount } = calculatePartialImportSize(rows.length, capacity.remaining);
+
+    if (allowedCount === 0) {
+        // Edge case: no capacity at all
+        const limitExceeded: LimitExceededResponse = {
+            code: 'LIMIT_EXCEEDED',
+            plan: capacity.plan,
+            cap: capacity.cap,
+            used: capacity.used,
+            remaining: 0,
+            incomingCount: rows.length,
+            dateMin,
+            dateMax,
+            suggestedActions: ['UPGRADE', 'DELETE_EXISTING'],
+            upgradePlans: capacity.plan === 'free' ? ['pro', 'max'] : capacity.plan === 'pro' ? ['max'] : [],
+        };
+        return NextResponse.json(limitExceeded, { status: 403 });
+    }
+
+    // Sort rows by date (most recent first) for partial import determinism
+    rows.sort((a, b) => b.date.localeCompare(a.date));
+
+    // Take only the allowed count if doing partial import
+    const rowsToInsert = allowPartialImport && skippedCount > 0
+        ? rows.slice(0, allowedCount)
+        : rows.slice(0, allowedCount);
+
+    // 4) Insert statement
     const [statement] = await neonInsert<{
         user_id: string;
         bank_name: string | null;
@@ -107,13 +168,13 @@ export const POST = async (req: NextRequest) => {
 
     const statementId = statement.id;
 
-    // 3) Map category names to category_id by fetching/creating categories
+    // 5) Map category names to category_id by fetching/creating categories
     const categoryNameToId = new Map<string, number | null>();
 
     // Extract unique category names from rows (excluding undefined/null/empty)
     const uniqueCategoryNames = Array.from(
         new Set(
-            rows
+            rowsToInsert
                 .map(r => r.category)
                 .filter((cat): cat is string => typeof cat === 'string' && cat.trim().length > 0)
         )
@@ -162,8 +223,8 @@ export const POST = async (req: NextRequest) => {
         }
     }
 
-    // 4) Build transactions rows for Neon with proper category_id
-    const txRows = rows.map((r) => ({
+    // 6) Build transactions rows for Neon with proper category_id
+    const txRows = rowsToInsert.map((r) => ({
         user_id: userId,
         statement_id: statementId,
         tx_date: r.date,
@@ -177,15 +238,27 @@ export const POST = async (req: NextRequest) => {
         raw_csv_row: JSON.stringify(r)
     }));
 
-    const insertedTx = await neonInsert("transactions", txRows, {
+    await neonInsert("transactions", txRows, {
         returnRepresentation: false
     });
 
-    return NextResponse.json(
-        {
-            statementId,
-            inserted: rows.length
+    // Build response
+    const response: ImportResponse = {
+        statementId,
+        inserted: rowsToInsert.length,
+        capacity: {
+            plan: capacity.plan,
+            cap: capacity.cap,
+            used: capacity.used + rowsToInsert.length,
+            remaining: capacity.remaining - rowsToInsert.length,
         },
-        { status: 201 }
-    );
+    };
+
+    if (skippedCount > 0) {
+        response.skipped = skippedCount;
+        response.partialImport = true;
+        response.reachedCap = true;
+    }
+
+    return NextResponse.json(response, { status: 201 });
 };

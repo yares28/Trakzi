@@ -1,6 +1,7 @@
 "use client"
 import { motion, AnimatePresence } from "framer-motion"
 import { useState, useEffect } from "react"
+import Link from "next/link"
 
 export function StickyFooter() {
   const [isAtBottom, setIsAtBottom] = useState(false)
@@ -28,6 +29,9 @@ export function StickyFooter() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
+  const linkStyle = { color: "#121113" }
+  const hoverColor = "rgba(18, 17, 19, 0.8)"
+
   return (
     <AnimatePresence>
       {isAtBottom && (
@@ -49,56 +53,91 @@ export function StickyFooter() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
             >
+              {/* Navigation */}
               <ul className="space-y-2">
                 <li
                   className="hover:underline cursor-pointer transition-colors"
-                  style={{ color: "#121113" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(18, 17, 19, 0.8)")}
+                  style={linkStyle}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
                   onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
                 >
-                  Home
+                  <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+                    Home
+                  </button>
                 </li>
                 <li
                   className="hover:underline cursor-pointer transition-colors"
-                  style={{ color: "#121113" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(18, 17, 19, 0.8)")}
+                  style={linkStyle}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
                   onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
                 >
-                  Docs
+                  <button onClick={() => {
+                    const el = document.getElementById("features")
+                    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
+                  }}>
+                    Features
+                  </button>
                 </li>
                 <li
                   className="hover:underline cursor-pointer transition-colors"
-                  style={{ color: "#121113" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(18, 17, 19, 0.8)")}
+                  style={linkStyle}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
                   onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
                 >
-                  Components
+                  <button onClick={() => {
+                    const el = document.getElementById("pricing")
+                    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
+                  }}>
+                    Pricing
+                  </button>
                 </li>
               </ul>
+
+              {/* Legal */}
               <ul className="space-y-2">
                 <li
                   className="hover:underline cursor-pointer transition-colors"
-                  style={{ color: "#121113" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(18, 17, 19, 0.8)")}
+                  style={linkStyle}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
                   onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
                 >
-                  Github
+                  <Link href="/terms">Terms</Link>
                 </li>
                 <li
                   className="hover:underline cursor-pointer transition-colors"
-                  style={{ color: "#121113" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(18, 17, 19, 0.8)")}
+                  style={linkStyle}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
                   onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
                 >
-                  Twitter
+                  <Link href="/privacy">Privacy</Link>
                 </li>
                 <li
                   className="hover:underline cursor-pointer transition-colors"
-                  style={{ color: "#121113" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(18, 17, 19, 0.8)")}
+                  style={linkStyle}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
                   onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
                 >
-                  Discord
+                  <Link href="/cookies">Cookies</Link>
+                </li>
+                <li
+                  className="hover:underline cursor-pointer transition-colors"
+                  style={linkStyle}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
+                >
+                  <Link href="/legal">Legal</Link>
+                </li>
+              </ul>
+
+              {/* Contact */}
+              <ul className="space-y-2">
+                <li
+                  className="hover:underline cursor-pointer transition-colors"
+                  style={linkStyle}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
+                >
+                  <a href="mailto:help@trakzi.com">Contact</a>
                 </li>
               </ul>
             </motion.div>

@@ -9,6 +9,13 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@clerk/nextjs"
 import { toast } from "sonner"
 import posthog from "posthog-js"
+import Image from "next/image"
+
+// Plan logos for landing page (these replace the plan name text)
+const planLogos = {
+  PRO: "/Trakzi/subs/TrakziProLogo.png",
+  MAX: "/Trakzi/subs/TrakziMaxLogoB.png",
+} as const
 
 const pricingPlans = [
   {
@@ -40,7 +47,7 @@ const pricingPlans = [
       "Export to CSV",
     ],
     popular: true,
-    ctaMonthly: "Start Free Trial",
+    ctaMonthly: "Go PRO",
     ctaAnnual: "Go PRO",
     monthlyPriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY,
     annualPriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_ANNUAL,
@@ -293,7 +300,20 @@ export function PricingSection() {
               )}
 
               <div className="text-center mb-8">
-                <h3 className="text-xl font-bold text-white mb-2">{plan.name}</h3>
+                <div className="flex items-center justify-center gap-2 mb-2 h-10">
+                  {/* Show plan logo for PRO and MAX, text for others */}
+                  {(plan.name === "PRO" || plan.name === "MAX") ? (
+                    <Image
+                      src={planLogos[plan.name as keyof typeof planLogos]}
+                      alt={`${plan.name} plan`}
+                      width={120}
+                      height={40}
+                      className="object-contain"
+                    />
+                  ) : (
+                    <h3 className="text-xl font-bold text-white">{plan.name}</h3>
+                  )}
+                </div>
                 <div className="flex items-baseline justify-center gap-1 mb-2">
                   {plan.price ? (
                     <span className="text-4xl font-bold text-white">{plan.price}</span>

@@ -22,7 +22,7 @@ export async function GET() {
             status: summary.status,
             limits: {
                 ...summary.limits,
-                maxTotalTransactionsPerMonth: sanitizeInfinity(summary.limits.maxTotalTransactionsPerMonth),
+                maxTotalTransactions: sanitizeInfinity(summary.limits.maxTotalTransactions),
                 maxReceiptScansPerMonth: sanitizeInfinity(summary.limits.maxReceiptScansPerMonth),
                 aiChatMessagesPerDay: sanitizeInfinity(summary.limits.aiChatMessagesPerDay),
                 customTransactionCategoriesLimit: sanitizeInfinity(summary.limits.customTransactionCategoriesLimit),

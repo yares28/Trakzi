@@ -14,12 +14,25 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, Crown, Zap, AlertCircle, Check, ArrowUp, ArrowDown, CreditCard, Loader2, X } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import Image from "next/image";
+
+// Plan icons with dark/light mode variants
+const planIcons = {
+    pro: {
+        light: "/Trakzi/subs/TrakziProIcon.png",
+        dark: "/Trakzi/subs/TrakziProIconB.png",
+    },
+    max: {
+        light: "/Trakzi/subs/trakziMaxIcon.png",
+        dark: "/Trakzi/subs/TrakziMaxIconB.png",
+    },
+} as const;
 
 type SubscriptionStatus = {
     plan: "free" | "pro" | "max";
     status: string;
     limits: {
-        maxTotalTransactionsPerMonth: number;
+        maxTotalTransactions: number;
         aiChatEnabled: boolean;
         aiChatMessagesPerDay: number;
         aiInsightsEnabled: boolean;
@@ -135,7 +148,27 @@ function PlanCard({
                 {/* Header */}
                 <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                        <Icon className={`h-5 w-5 ${info.iconColor}`} />
+                        {/* Show plan image icon for pro/max, lucide icon for free */}
+                        {plan === "pro" || plan === "max" ? (
+                            <>
+                                <Image
+                                    src={planIcons[plan].dark}
+                                    alt={`${plan} icon`}
+                                    width={24}
+                                    height={24}
+                                    className="hidden dark:block"
+                                />
+                                <Image
+                                    src={planIcons[plan].light}
+                                    alt={`${plan} icon`}
+                                    width={24}
+                                    height={24}
+                                    className="block dark:hidden"
+                                />
+                            </>
+                        ) : (
+                            <Icon className={`h-5 w-5 ${info.iconColor}`} />
+                        )}
                         <span className="font-semibold">{info.name}</span>
                     </div>
                     <Badge className={info.badgeClass}>

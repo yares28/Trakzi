@@ -4,6 +4,12 @@
 import { getUserPlan, getUserSubscription, PlanType } from './subscriptions';
 import { getPlanLimits, isFeatureEnabled, PlanLimits } from './plan-limits';
 import { neonQuery } from './neonClient';
+import {
+    getRemainingCapacity,
+    assertCapacityOrExplain,
+    TransactionCapacity,
+    LimitExceededResponse
+} from './limits/transactions-cap';
 
 export interface FeatureAccessResult {
     allowed: boolean;
@@ -42,52 +48,29 @@ export async function checkFeatureAccess(
 
 /**
  * Check TOTAL transactions limit (bank transactions + receipt items combined)
- * This is the main limit to check before adding any transaction
+ * This checks against the TOTAL cap (not per-month).
+ * 
+ * @deprecated Use assertCapacityOrExplain() from lib/limits/transactions-cap.ts for new code
  */
 export async function checkTotalTransactionLimit(userId: string): Promise<FeatureAccessResult> {
-    const plan = await getUserPlan(userId);
-    const limits = getPlanLimits(plan);
+    const capacity = await getRemainingCapacity(userId);
 
-    if (limits.maxTotalTransactionsPerMonth === Infinity) {
-        return { allowed: true, plan };
-    }
-
-    // Count bank transactions this month
-    const bankTxResult = await neonQuery<{ count: string }>(
-        `SELECT COUNT(*) as count FROM transactions 
-         WHERE user_id = $1 
-         AND tx_date >= DATE_TRUNC('month', CURRENT_DATE)`,
-        [userId]
-    );
-
-    // Count receipt transactions (fridge items) this month
-    const receiptTxResult = await neonQuery<{ count: string }>(
-        `SELECT COUNT(*) as count FROM receipt_transactions 
-         WHERE user_id = $1 
-         AND created_at >= DATE_TRUNC('month', CURRENT_DATE)`,
-        [userId]
-    );
-
-    const bankCount = parseInt(bankTxResult[0]?.count || '0');
-    const fridgeCount = parseInt(receiptTxResult[0]?.count || '0');
-    const totalCount = bankCount + fridgeCount;
-
-    if (totalCount >= limits.maxTotalTransactionsPerMonth) {
+    if (capacity.cap === Infinity || capacity.remaining > 0) {
         return {
-            allowed: false,
-            reason: `You've reached your monthly limit of ${limits.maxTotalTransactionsPerMonth} total transactions (bank + fridge items)`,
-            currentUsage: totalCount,
-            limit: limits.maxTotalTransactionsPerMonth,
-            plan,
-            upgradeRequired: true,
+            allowed: true,
+            currentUsage: capacity.used,
+            limit: capacity.cap === Infinity ? undefined : capacity.cap,
+            plan: capacity.plan,
         };
     }
 
     return {
-        allowed: true,
-        currentUsage: totalCount,
-        limit: limits.maxTotalTransactionsPerMonth,
-        plan,
+        allowed: false,
+        reason: `You've reached your limit of ${capacity.cap} total transactions`,
+        currentUsage: capacity.used,
+        limit: capacity.cap,
+        plan: capacity.plan,
+        upgradeRequired: true,
     };
 }
 
@@ -99,34 +82,18 @@ export async function getTotalTransactionUsage(userId: string): Promise<{
     fridgeItems: number;
     total: number;
     limit: number;
+    remaining: number;
     plan: PlanType;
 }> {
-    const plan = await getUserPlan(userId);
-    const limits = getPlanLimits(plan);
-
-    const bankTxResult = await neonQuery<{ count: string }>(
-        `SELECT COUNT(*) as count FROM transactions 
-         WHERE user_id = $1 
-         AND tx_date >= DATE_TRUNC('month', CURRENT_DATE)`,
-        [userId]
-    );
-
-    const receiptTxResult = await neonQuery<{ count: string }>(
-        `SELECT COUNT(*) as count FROM receipt_transactions 
-         WHERE user_id = $1 
-         AND created_at >= DATE_TRUNC('month', CURRENT_DATE)`,
-        [userId]
-    );
-
-    const bankTransactions = parseInt(bankTxResult[0]?.count || '0');
-    const fridgeItems = parseInt(receiptTxResult[0]?.count || '0');
+    const capacity = await getRemainingCapacity(userId);
 
     return {
-        bankTransactions,
-        fridgeItems,
-        total: bankTransactions + fridgeItems,
-        limit: limits.maxTotalTransactionsPerMonth,
-        plan,
+        bankTransactions: capacity.bankTransactions,
+        fridgeItems: capacity.receiptItems,
+        total: capacity.used,
+        limit: capacity.cap,
+        remaining: capacity.remaining,
+        plan: capacity.plan,
     };
 }
 
@@ -292,6 +259,7 @@ export async function getUserPlanSummary(userId: string) {
             bankTransactions: usage.bankTransactions,
             fridgeItems: usage.fridgeItems,
             transactionLimit: usage.limit,
+            remaining: usage.remaining,
         },
         subscription: subscription ? {
             currentPeriodEnd: subscription.currentPeriodEnd,
@@ -299,3 +267,6 @@ export async function getUserPlanSummary(userId: string) {
         } : null,
     };
 }
+
+// Re-export cap types for convenience
+export type { TransactionCapacity, LimitExceededResponse };

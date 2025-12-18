@@ -11,14 +11,14 @@ function getDateRange(filter: string | null): { startDate: string | null; endDat
     // Use UTC methods to avoid timezone issues
     const now = new Date();
     const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    
+
     const formatDate = (date: Date): string => {
         const year = date.getUTCFullYear();
         const month = String(date.getUTCMonth() + 1).padStart(2, '0');
         const day = String(date.getUTCDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     };
-    
+
     switch (filter) {
         case "last7days": {
             const startDate = new Date(today);
@@ -86,14 +86,14 @@ export const GET = async (request: Request) => {
                 { status: 401 }
             );
         }
-        
+
         // Get filter from query params
         const { searchParams } = new URL(request.url);
         const filter = searchParams.get("filter");
-        
+
         // Get date range based on filter
         const { startDate, endDate } = getDateRange(filter);
-        
+
         // Optimized query using covering index for better performance
         // The covering index includes user_id, tx_date DESC, amount, balance, category_id, description
         // This allows the query to use index-only scans
@@ -110,16 +110,16 @@ export const GET = async (request: Request) => {
                      LEFT JOIN categories c ON t.category_id = c.id
                      WHERE t.user_id = $1`;
         const params: any[] = [userId];
-        
+
         if (startDate && endDate) {
             query += ` AND t.tx_date >= $2 AND t.tx_date <= $3`;
             params.push(startDate, endDate);
         }
-        
+
         // Use index-friendly ordering (matches idx_transactions_user_date_desc_covering)
         query += ` ORDER BY t.tx_date DESC, t.id DESC`;
-        
-        
+
+
         // Fetch user transactions ordered by date
         // Convert tx_date (date) to ISO string format
         let transactions: Array<{
@@ -132,15 +132,15 @@ export const GET = async (request: Request) => {
             raw_csv_row: string | null;
             category_name: string | null;
         }>;
-        
+
         try {
             // First, check if there are any transactions for this user at all
             const countQuery = `SELECT COUNT(*) as count FROM transactions WHERE user_id = $1`;
             const countResult = await neonQuery<{ count: string | number }>(countQuery, [userId]);
-            const totalCount = typeof countResult[0]?.count === 'string' 
-                ? parseInt(countResult[0].count) 
+            const totalCount = typeof countResult[0]?.count === 'string'
+                ? parseInt(countResult[0].count)
                 : (countResult[0]?.count as number) || 0;
-            
+
             if (totalCount === 0) {
                 console.warn(`[Transactions API] No transactions found for user_id: ${userId}`);
                 console.warn(`[Transactions API] This might mean:`);
@@ -148,7 +148,7 @@ export const GET = async (request: Request) => {
                 console.warn(`  - Transactions exist but with different user_id`);
                 console.warn(`  - To debug, run: SELECT DISTINCT user_id FROM transactions;`);
             }
-            
+
             transactions = await neonQuery<{
                 id: number;
                 tx_date: Date | string;
@@ -173,11 +173,11 @@ export const GET = async (request: Request) => {
             console.error("  - No transactions exist for the current user (user may need to import data)");
             throw queryError;
         }
-        
+
         // Parse category from category_name, raw_csv_row, or default to "Other"
         const transactionsWithCategory = transactions.map(tx => {
             let category: string = "Other";
-            
+
             // Priority 1: Use category name from categories table
             if (tx.category_name) {
                 category = tx.category_name;
@@ -193,7 +193,7 @@ export const GET = async (request: Request) => {
                     // Ignore parse errors
                 }
             }
-            
+
             // Convert date to ISO string format (YYYY-MM-DD)
             // Critical: Extract date string directly to avoid ANY timezone conversion
             let dateStr: string;
@@ -235,7 +235,7 @@ export const GET = async (request: Request) => {
                     dateStr = `${year}-${month}-${day}`;
                 }
             }
-            
+
             return {
                 id: tx.id,
                 date: dateStr,
@@ -245,7 +245,7 @@ export const GET = async (request: Request) => {
                 category: category
             };
         });
-        
+
         // Add caching headers for better performance
         // Cache for 30 seconds, revalidate in background
         return NextResponse.json(transactionsWithCategory, {
@@ -286,6 +286,17 @@ export const POST = async (request: Request) => {
                 { error: "Amount must be a valid number" },
                 { status: 400 }
             );
+        }
+
+        // Check transaction capacity before proceeding
+        const { assertCapacityOrExplain } = await import("@/lib/limits/transactions-cap");
+        const capacityCheck = await assertCapacityOrExplain({
+            userId,
+            incomingCount: 1,
+        });
+
+        if (!capacityCheck.ok) {
+            return NextResponse.json(capacityCheck.limitExceeded, { status: 403 });
         }
 
         // Validate date format (should be YYYY-MM-DD)
@@ -380,8 +391,8 @@ export const POST = async (request: Request) => {
         const dateFormatted = transaction.tx_date instanceof Date
             ? transaction.tx_date.toISOString().split('T')[0]
             : typeof transaction.tx_date === 'string'
-            ? transaction.tx_date.split('T')[0]
-            : new Date(transaction.tx_date as any).toISOString().split('T')[0];
+                ? transaction.tx_date.split('T')[0]
+                : new Date(transaction.tx_date as any).toISOString().split('T')[0];
 
         return NextResponse.json({
             id: transaction.id,

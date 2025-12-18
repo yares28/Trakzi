@@ -13,12 +13,12 @@ import { PlanType } from './subscriptions';
 
 export interface PlanLimits {
     // -------------------------------------------------------------------------
-    // TOTAL TRANSACTIONS
+    // TOTAL TRANSACTIONS (LIFETIME CAP)
     // Combines: bank statement transactions + fridge/receipt items
+    // This is a TOTAL cap on stored transactions, not per-month.
     // Used when: User imports CSV, adds manual transaction, or scans receipt items
-    // Recommendation: Free 300-500, Pro 2000-5000, Max unlimited
     // -------------------------------------------------------------------------
-    maxTotalTransactionsPerMonth: number;
+    maxTotalTransactions: number;
 
     // -------------------------------------------------------------------------
     // RECEIPT SCANS
@@ -114,7 +114,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     // FREE PLAN
     // =========================================================================
     free: {
-        maxTotalTransactionsPerMonth: 400,
+        maxTotalTransactions: 400,       // Total transactions ever stored
         maxReceiptScansPerMonth: Infinity,
         receiptOcrEnabled: true,
         aiChatEnabled: true,
@@ -132,7 +132,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     // PRO PLAN
     // =========================================================================
     pro: {
-        maxTotalTransactionsPerMonth: 3000,
+        maxTotalTransactions: 3000,      // Total transactions ever stored
         maxReceiptScansPerMonth: Infinity,
         receiptOcrEnabled: true,
         aiChatEnabled: true,
@@ -150,7 +150,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     // MAX PLAN
     // =========================================================================
     max: {
-        maxTotalTransactionsPerMonth: Infinity,
+        maxTotalTransactions: 15000,     // High limit for Max plan
         maxReceiptScansPerMonth: Infinity,
         receiptOcrEnabled: true,
         aiChatEnabled: true,
@@ -193,4 +193,23 @@ export function getPlanDisplayName(plan: PlanType): string {
 export function needsUpgrade(currentPlan: PlanType, requiredPlan: PlanType): boolean {
     const planOrder: PlanType[] = ['free', 'pro', 'max'];
     return planOrder.indexOf(currentPlan) < planOrder.indexOf(requiredPlan);
+}
+
+/**
+ * Get the next plan that would increase transaction capacity
+ */
+export function getUpgradePlans(currentPlan: PlanType): PlanType[] {
+    const currentCap = PLAN_LIMITS[currentPlan].maxTotalTransactions;
+    const upgrades: PlanType[] = [];
+
+    if (currentPlan === 'free') {
+        upgrades.push('pro', 'max');
+    } else if (currentPlan === 'pro') {
+        // Only suggest max if it has higher cap
+        if (PLAN_LIMITS.max.maxTotalTransactions > currentCap) {
+            upgrades.push('max');
+        }
+    }
+
+    return upgrades;
 }

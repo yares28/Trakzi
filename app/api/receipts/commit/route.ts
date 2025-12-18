@@ -74,11 +74,39 @@ export const POST = async (req: NextRequest) => {
       return NextResponse.json({ error: "No receipts provided" }, { status: 400 })
     }
 
+    // Allow partial import flag
+    const allowPartialImport = body?.allowPartialImport === true
+
+    // Calculate total items across all receipts
+    const totalIncomingItems = incoming.reduce((sum, receipt) => {
+      const txCount = Array.isArray(receipt?.transactions) ? receipt.transactions.length : 0
+      return sum + txCount
+    }, 0)
+
+    // Check capacity before proceeding
+    const { assertCapacityOrExplain, getRemainingCapacity, calculatePartialImportSize } =
+      await import("@/lib/limits/transactions-cap")
+
+    const capacityCheck = await assertCapacityOrExplain({
+      userId,
+      incomingCount: totalIncomingItems,
+    })
+
+    if (!capacityCheck.ok) {
+      if (!allowPartialImport || capacityCheck.limitExceeded.remaining === 0) {
+        return NextResponse.json(capacityCheck.limitExceeded, { status: 403 })
+      }
+      // Will handle partial import below
+    }
+
+    const capacity = capacityCheck.ok ? capacityCheck.capacity : await getRemainingCapacity(userId)
+    let remainingCapacity = capacity.remaining
+
     const receiptCategories = await ensureReceiptCategories(userId)
     const categoryByName = new Map(receiptCategories.map((cat) => [cat.name.toLowerCase(), cat]))
     const otherCategory = categoryByName.get("other") ?? null
 
-    const receipts: Array<{ receiptId: string; fileId: string; status: string }> = []
+    const receipts: Array<{ receiptId: string; fileId: string; status: string; itemsInserted: number; itemsSkipped: number }> = []
     const rejected: Array<{ fileId: string; reason: string }> = []
 
     for (const receipt of incoming) {
@@ -189,15 +217,35 @@ export const POST = async (req: NextRequest) => {
           continue
         }
 
+        // Track how many items we can insert based on remaining capacity
+        let itemsInserted = 0
+        let itemsSkipped = 0
+
         if (normalizedTransactions.length > 0) {
-          const rowsToInsert = normalizedTransactions.map((tx) => ({
-            ...tx,
-            receipt_id: receiptId,
-          }))
-          await neonInsert("receipt_transactions", rowsToInsert, { returnRepresentation: false })
+          // Calculate how many items we can insert
+          const itemsToInsert = remainingCapacity === Infinity
+            ? normalizedTransactions
+            : normalizedTransactions.slice(0, remainingCapacity)
+
+          itemsSkipped = normalizedTransactions.length - itemsToInsert.length
+
+          if (itemsToInsert.length > 0) {
+            const rowsToInsert = itemsToInsert.map((tx) => ({
+              ...tx,
+              receipt_id: receiptId,
+            }))
+            await neonInsert("receipt_transactions", rowsToInsert, { returnRepresentation: false })
+            itemsInserted = itemsToInsert.length
+
+            // Update remaining capacity
+            if (remainingCapacity !== Infinity) {
+              remainingCapacity -= itemsInserted
+            }
+          }
         }
 
         const preferenceEntries = normalizedTransactions
+          .slice(0, itemsInserted) // Only save preferences for inserted items
           .filter((tx) => Number.isFinite(tx.category_id) && (tx.category_id ?? 0) > 0)
           .map((tx) => ({ description: tx.description, categoryId: tx.category_id as number }))
 
@@ -209,7 +257,7 @@ export const POST = async (req: NextRequest) => {
           })
         }
 
-        receipts.push({ receiptId, fileId, status: "completed" })
+        receipts.push({ receiptId, fileId, status: "completed", itemsInserted, itemsSkipped })
       } catch (error: any) {
         const reason = String(error?.message || error) || "Failed to import receipt"
         rejected.push({ fileId, reason })
@@ -217,7 +265,25 @@ export const POST = async (req: NextRequest) => {
       }
     }
 
-    return NextResponse.json({ receipts, rejected }, { status: 201, headers: { "Cache-Control": "no-store" } })
+    // Calculate totals
+    const totalInserted = receipts.reduce((sum, r) => sum + r.itemsInserted, 0)
+    const totalSkipped = receipts.reduce((sum, r) => sum + r.itemsSkipped, 0)
+
+    return NextResponse.json({
+      receipts,
+      rejected,
+      summary: {
+        itemsInserted: totalInserted,
+        itemsSkipped: totalSkipped,
+        reachedCap: totalSkipped > 0,
+        capacity: {
+          plan: capacity.plan,
+          cap: capacity.cap,
+          used: capacity.used + totalInserted,
+          remaining: capacity.remaining === Infinity ? Infinity : capacity.remaining - totalInserted,
+        }
+      }
+    }, { status: 201, headers: { "Cache-Control": "no-store" } })
   } catch (error: any) {
     const message = String(error?.message || "")
     if (message.includes("Unauthorized")) {
