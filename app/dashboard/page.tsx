@@ -803,11 +803,6 @@ export default function DashboardPage() {
                                 </div>
                             </section>
 
-                            {/* Subscription Card */}
-                            <section className="px-4 lg:px-6">
-                                <SubscriptionCard />
-                            </section>
-
                             <section className="px-4 lg:px-6">
                                 <dl className="grid grid-cols-1 gap-8 lg:grid-cols-2 xl:grid-cols-3 w-full">
                                     {displayData.map((item, index) => {
@@ -1063,6 +1058,11 @@ export default function DashboardPage() {
                                         maxTransactions={500}
                                     />
                                 </div>
+                            </section>
+
+                            {/* Subscription Card */}
+                            <section className="px-4 lg:px-6 pb-6">
+                                <SubscriptionCard />
                             </section>
                         </div>
                     </div>

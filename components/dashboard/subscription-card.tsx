@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Crown, Zap, AlertCircle, Check, ArrowUp, ArrowDown } from "lucide-react";
+import { Sparkles, Crown, Zap, AlertCircle, Check, ArrowUp, ArrowDown, Loader2, X } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -42,10 +42,10 @@ const PLAN_INFO = {
         iconColor: "text-muted-foreground",
         badgeClass: "bg-muted text-muted-foreground",
         features: [
-            "400 transactions (~1 year of stats)",
+            "400 transactions",
             "Unlimited receipt scans",
-            "5 AI chat messages per day",
-            "Advanced analytics charts",
+            "5 AI chat/day",
+            "Analytics charts",
             "10 custom categories",
         ],
     },
@@ -56,11 +56,11 @@ const PLAN_INFO = {
         iconColor: "text-primary",
         badgeClass: "bg-gradient-to-r from-primary to-primary/80 text-white border-0",
         features: [
-            "3,000 transactions (~6 years of stats)",
+            "3,000 transactions",
             "Unlimited receipt scans",
-            "Unlimited AI chat messages",
-            "AI-powered insights & summaries",
-            "Unlimited custom categories",
+            "Unlimited AI chat",
+            "AI insights & summaries",
+            "Unlimited categories",
             "Export to CSV",
         ],
     },
@@ -74,9 +74,9 @@ const PLAN_INFO = {
             "Unlimited transactions",
             "Everything in PRO",
             "Priority support",
-            "Early access to new features",
-            "Sub-accounts (coming soon)",
-            "Custom API access (coming soon)",
+            "Early access",
+            "Sub-accounts (soon)",
+            "Custom API (soon)",
         ],
     },
 };
@@ -88,11 +88,13 @@ function PlanCard({
     isCurrentPlan,
     currentUserPlan,
     onManageSubscription,
+    isManaging,
 }: {
     plan: PlanType;
     isCurrentPlan: boolean;
     currentUserPlan: PlanType;
     onManageSubscription: () => void;
+    isManaging: boolean;
 }) {
     const info = PLAN_INFO[plan];
     const Icon = info.icon;
@@ -104,12 +106,12 @@ function PlanCard({
     const isDowngrade = thisIndex < currentIndex;
 
     return (
-        <div className={`relative p-4 rounded-xl border ${isCurrentPlan ? "border-primary bg-primary/5" : "border-border"}`}>
+        <div className={`relative p-4 rounded-xl border flex flex-col ${isCurrentPlan ? "border-primary bg-primary/5" : "border-border"}`}>
             {/* Current plan indicator */}
             {isCurrentPlan && (
                 <div className="absolute -top-3 left-4">
                     <Badge className="bg-primary text-primary-foreground text-xs">
-                        Current Plan
+                        Current
                     </Badge>
                 </div>
             )}
@@ -122,9 +124,9 @@ function PlanCard({
                 <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-400 to-orange-500 opacity-20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
             )}
 
-            <div className="relative space-y-4">
+            <div className="relative flex-1 flex flex-col">
                 {/* Header */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                         <Icon className={`h-5 w-5 ${info.iconColor}`} />
                         <span className="font-semibold">{info.name}</span>
@@ -134,49 +136,67 @@ function PlanCard({
                     </Badge>
                 </div>
 
-                {/* Features */}
-                <ul className="space-y-1.5">
-                    {info.features.slice(0, 4).map((feature, index) => (
+                {/* Features - show all */}
+                <ul className="space-y-1.5 flex-1">
+                    {info.features.map((feature, index) => (
                         <li key={index} className="flex items-start gap-2 text-sm">
                             <Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
                             <span className="text-muted-foreground">{feature}</span>
                         </li>
                     ))}
-                    {info.features.length > 4 && (
-                        <li className="text-xs text-muted-foreground pl-6">
-                            +{info.features.length - 4} more features
-                        </li>
-                    )}
                 </ul>
 
-                {/* Action Button */}
-                {isCurrentPlan ? (
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full text-destructive border-destructive/30 hover:bg-destructive/10"
-                        onClick={onManageSubscription}
-                    >
-                        {currentUserPlan === "free" ? "No Subscription" : "Manage / Unsubscribe"}
-                    </Button>
-                ) : isUpgrade ? (
-                    <Link href="/#pricing" className="block">
-                        <Button size="sm" className="w-full bg-gradient-to-r from-primary to-primary/80">
-                            <ArrowUp className="h-4 w-4 mr-1" />
-                            Upgrade to {info.name}
+                {/* Action Buttons */}
+                <div className="mt-4 space-y-2">
+                    {isCurrentPlan ? (
+                        currentUserPlan !== "free" ? (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-destructive border-destructive/30 hover:bg-destructive/10"
+                                onClick={onManageSubscription}
+                                disabled={isManaging}
+                            >
+                                {isManaging ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <>
+                                        <X className="h-4 w-4 mr-1" />
+                                        Unsubscribe
+                                    </>
+                                )}
+                            </Button>
+                        ) : (
+                            <div className="h-9" /> /* Spacer for Free plan */
+                        )
+                    ) : isUpgrade ? (
+                        <Link href="/#pricing" className="block">
+                            <Button size="sm" className={`w-full ${plan === "max" ? "bg-gradient-to-r from-amber-500 to-orange-500" : "bg-gradient-to-r from-primary to-primary/80"}`}>
+                                <ArrowUp className="h-4 w-4 mr-1" />
+                                Upgrade
+                            </Button>
+                        </Link>
+                    ) : isDowngrade ? (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={onManageSubscription}
+                            disabled={isManaging}
+                        >
+                            {isManaging ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <>
+                                    <ArrowDown className="h-4 w-4 mr-1" />
+                                    Downgrade
+                                </>
+                            )}
                         </Button>
-                    </Link>
-                ) : isDowngrade ? (
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={onManageSubscription}
-                    >
-                        <ArrowDown className="h-4 w-4 mr-1" />
-                        Downgrade to {info.name}
-                    </Button>
-                ) : null}
+                    ) : (
+                        <div className="h-9" /> /* Spacer */
+                    )}
+                </div>
             </div>
         </div>
     );
@@ -239,7 +259,7 @@ export function SubscriptionCard() {
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {[1, 2, 3].map((i) => (
-                            <div key={i} className="h-48 bg-muted rounded-xl" />
+                            <div key={i} className="h-56 bg-muted rounded-xl" />
                         ))}
                     </div>
                 </CardContent>
@@ -301,6 +321,7 @@ export function SubscriptionCard() {
                             isCurrentPlan={plan === status.plan}
                             currentUserPlan={status.plan}
                             onManageSubscription={handleManageSubscription}
+                            isManaging={isManaging}
                         />
                     ))}
                 </div>

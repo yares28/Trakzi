@@ -91,9 +91,9 @@ export function BugReportDialog() {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground">
+                <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-muted-foreground hover:text-foreground">
                     <IconBug className="h-4 w-4" />
-                    <span>Report a Bug / Feature</span>
+                    <span>Bug / Feature</span>
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
