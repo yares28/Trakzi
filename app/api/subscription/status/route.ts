@@ -13,15 +13,28 @@ export async function GET() {
         const summary = await getUserPlanSummary(userId);
         const usage = await getTotalTransactionUsage(userId);
 
+        // Handle Infinity values - JSON doesn't support Infinity
+        // Use -1 to indicate unlimited
+        const sanitizeInfinity = (val: number) => val === Infinity ? -1 : val;
+
         return NextResponse.json({
             plan: summary.plan,
             status: summary.status,
-            limits: summary.limits,
+            limits: {
+                ...summary.limits,
+                maxTotalTransactionsPerMonth: sanitizeInfinity(summary.limits.maxTotalTransactionsPerMonth),
+                maxReceiptScansPerMonth: sanitizeInfinity(summary.limits.maxReceiptScansPerMonth),
+                aiChatMessagesPerDay: sanitizeInfinity(summary.limits.aiChatMessagesPerDay),
+                customTransactionCategoriesLimit: sanitizeInfinity(summary.limits.customTransactionCategoriesLimit),
+                customFridgeCategoriesLimit: sanitizeInfinity(summary.limits.customFridgeCategoriesLimit),
+                dataRetentionMonths: sanitizeInfinity(summary.limits.dataRetentionMonths),
+            },
             usage: {
                 bankTransactions: usage.bankTransactions,
                 fridgeItems: usage.fridgeItems,
                 totalTransactions: usage.total,
-                transactionLimit: usage.limit,
+                // -1 means unlimited
+                transactionLimit: usage.limit === Infinity ? -1 : usage.limit,
                 percentUsed: usage.limit === Infinity ? 0 : Math.round((usage.total / usage.limit) * 100),
             },
             subscription: summary.subscription,

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Sparkles, Crown, Zap } from "lucide-react";
+import { Sparkles, Crown, Zap, Loader2 } from "lucide-react";
 
 interface TransactionProgressBarProps {
     spendingTransactions?: number;
@@ -19,7 +19,7 @@ type SubscriptionData = {
         bankTransactions: number;
         fridgeItems: number;
         totalTransactions: number;
-        transactionLimit: number;
+        transactionLimit: number; // -1 means unlimited
     };
 };
 
@@ -52,11 +52,13 @@ export function TransactionProgressBar({
     className,
 }: TransactionProgressBarProps) {
     const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
     // Fetch subscription data on mount
     useEffect(() => {
         async function fetchSubscription() {
             try {
+                setIsLoading(true);
                 const response = await fetch("/api/subscription/status");
                 if (response.ok) {
                     const data = await response.json();
@@ -64,19 +66,37 @@ export function TransactionProgressBar({
                 }
             } catch (error) {
                 console.error("Failed to fetch subscription status:", error);
+            } finally {
+                setIsLoading(false);
             }
         }
         fetchSubscription();
     }, []);
 
+    // Show loading skeleton while fetching
+    if (isLoading) {
+        return (
+            <Card className={cn("w-full shadow-sm", className)}>
+                <CardContent className="py-4">
+                    <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-sm">Loading subscription info...</span>
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
+
     // Use subscription data if available, otherwise use props
     const spendingTransactions = subscriptionData?.usage.bankTransactions ?? propSpending ?? 0;
     const groceryTransactions = subscriptionData?.usage.fridgeItems ?? propGrocery ?? 0;
-    const maxTransactions = subscriptionData?.usage.transactionLimit ?? propMax ?? 500;
+    // -1 means unlimited from the API
+    const apiLimit = subscriptionData?.usage.transactionLimit;
+    const maxTransactions = apiLimit === -1 ? Infinity : (apiLimit ?? propMax ?? 500);
     const plan = subscriptionData?.plan ?? "free";
 
     const totalTransactions = spendingTransactions + groceryTransactions;
-    const isUnlimited = maxTransactions === Infinity || maxTransactions === 0;
+    const isUnlimited = maxTransactions === Infinity || maxTransactions <= 0;
     const freeSlots = isUnlimited ? Infinity : Math.max(0, maxTransactions - totalTransactions);
     const displayMax = isUnlimited ? "∞" : maxTransactions.toLocaleString();
 
