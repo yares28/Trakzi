@@ -10,19 +10,25 @@ import { ensureUserExists } from './user-sync'
  */
 export async function getCurrentUserId(): Promise<string> {
     const { userId } = await auth()
-    
+
     if (!userId) {
         throw new Error("Unauthorized - Please sign in to access this resource")
     }
-    
+
     // Ensure user exists in database and return the synced user ID
+    // This MUST succeed for subscriptions and other features to work correctly
     try {
         return await ensureUserExists()
     } catch (syncError: any) {
-        // If sync fails, log but still return Clerk userId
-        // This allows the app to work even if database sync has issues
-        console.warn('[Auth] User sync failed, using Clerk userId:', syncError.message)
-        return userId
+        // Log the full error for debugging
+        console.error('[Auth] CRITICAL: User sync failed!', {
+            clerkUserId: userId,
+            error: syncError.message,
+            stack: syncError.stack
+        })
+
+        // Re-throw so the calling code knows there's an issue
+        throw new Error(`User database sync failed: ${syncError.message}`)
     }
 }
 
@@ -34,7 +40,7 @@ export async function getCurrentUserIdOrNull(): Promise<string | null> {
     try {
         const { userId } = await auth()
         if (!userId) return null
-        
+
         // Try to sync, but don't fail if it doesn't work
         try {
             return await ensureUserExists()

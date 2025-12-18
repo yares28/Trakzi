@@ -26,7 +26,6 @@ import { Separator } from "@/components/ui/separator";
 import { GoalSettingModal } from "@/components/dashboard/goal-setting-modal";
 import { AIWeeklySummary } from "@/components/dashboard/ai-weekly-summary";
 import { TransactionProgressBar } from "@/components/dashboard/transaction-progress-bar";
-import { SubscriptionCard } from "@/components/dashboard/subscription-card";
 
 // Custom Icons matching sidebar (from app-sidebar.tsx)
 const IconAnalytics = () => (
@@ -792,13 +791,6 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
-                    {/* Subscription Status Card */}
-                    <div className="w-full max-w-7xl mb-8">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <SubscriptionCard />
-                        </div>
-                    </div>
-
                     <dl className="grid grid-cols-1 gap-8 lg:grid-cols-2 xl:grid-cols-3 w-full">
                         {displayData.map((item, index) => {
                             const scoreLabel = getScoreLabel(item.progress);
@@ -811,8 +803,7 @@ export default function DashboardPage() {
                                     className="relative"
                                 >
                                     {/* Blur/Lock Overlay for cards below transaction threshold */}
-                                    {/* DISABLED FOR TROUBLESHOOTING - Re-enable before production (see PRE_LAUNCH_CHECKLIST.md) */}
-                                    {/* item.isLocked && (
+                                    {item.isLocked && (
                                         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm rounded-xl">
                                             <div className="p-4 rounded-full bg-muted/50 mb-3">
                                                 <Lock className="h-8 w-8 text-muted-foreground" />
@@ -822,7 +813,7 @@ export default function DashboardPage() {
                                                 {item.currentCount}/{item.minRequired} {item.key === "fridge" ? "grocery items" : "transactions"}
                                             </p>
                                         </div>
-                                    ) */}
+                                    )}
                                     {/* Phase 1: Gradient background + enhanced hover */}
                                     <Card className={`p-0 gap-0 h-full flex flex-col ${getCardGradient(item.key)} ${getCardHoverStyles()}`}>
                                         {/* Card Header */}

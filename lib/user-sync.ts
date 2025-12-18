@@ -127,8 +127,8 @@ export async function ensureUserExists(): Promise<string> {
     // OR create a mapping table
 
     const insertQuery = `
-        INSERT INTO users (id, email, name)
-        VALUES ($1::text, $2::text, $3::text)
+        INSERT INTO users (id, email, name, created_at, updated_at)
+        VALUES ($1::text, $2::text, $3::text, NOW(), NOW())
         RETURNING id
     `
 
