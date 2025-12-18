@@ -75,6 +75,7 @@ import { useTheme } from "next-themes"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
+import { usePendingCheckout } from "@/hooks/use-pending-checkout"
 import {
   Popover,
   PopoverContent,
@@ -407,6 +408,9 @@ export default function Page() {
   const router = useRouter()
   const { setRefreshCallback } = useTransactionDialog()
   const { favorites } = useFavorites()
+
+  // Handle pending checkout after signup (if user selected a paid plan before signing up)
+  const { isProcessing: isCheckoutProcessing } = usePendingCheckout()
 
   // GridStack refs for favorites section
   const favoritesGridRef = useRef<HTMLDivElement>(null)

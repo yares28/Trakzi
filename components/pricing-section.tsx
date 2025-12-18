@@ -78,17 +78,14 @@ export function PricingSection() {
       if (isSignedIn) {
         router.push('/home')
       } else {
+        // Clear any pending checkout for free plan
+        localStorage.removeItem('pendingCheckoutPriceId')
         router.push('/sign-up')
       }
       return
     }
 
-    // Paid plans - need to be signed in
-    if (!isSignedIn) {
-      router.push('/sign-up')
-      return
-    }
-
+    // Get the price ID for the selected billing period
     const priceId = isAnnual ? plan.annualPriceId : plan.monthlyPriceId
 
     if (!priceId) {
@@ -97,6 +94,15 @@ export function PricingSection() {
       return
     }
 
+    // Paid plans - need to be signed in
+    if (!isSignedIn) {
+      // Store the selected price ID so we can redirect to checkout after signup
+      localStorage.setItem('pendingCheckoutPriceId', priceId)
+      router.push('/sign-up')
+      return
+    }
+
+    // User is signed in, go directly to checkout
     setLoadingPlan(plan.name)
 
     try {

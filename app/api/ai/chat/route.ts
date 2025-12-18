@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth";
 import { neonQuery } from "@/lib/neonClient";
 import { getSiteUrl, getSiteName } from "@/lib/env";
+import { checkAiChatLimit } from "@/lib/feature-access";
 
 interface ChatMessage {
     role: "user" | "assistant" | "system";
@@ -221,6 +222,19 @@ export const POST = async (req: NextRequest) => {
     try {
         // Authenticate user
         const userId = await getCurrentUserId();
+
+        // Check if user has AI chat access
+        const chatAccess = await checkAiChatLimit(userId);
+        if (!chatAccess.allowed) {
+            return NextResponse.json(
+                {
+                    error: chatAccess.reason,
+                    upgradeRequired: true,
+                    plan: chatAccess.plan
+                },
+                { status: 403 }
+            );
+        }
 
         const body = await req.json();
         const { messages } = body as { messages: ChatMessage[] };

@@ -4,6 +4,7 @@ import Papa from "papaparse";
 import { neonInsert, neonQuery } from "@/lib/neonClient";
 import { getCurrentUserId } from "@/lib/auth";
 import { TxRow } from "@/lib/types/transactions";
+import { checkTotalTransactionLimit } from "@/lib/feature-access";
 
 type ImportBody = {
     csv: string;
@@ -23,6 +24,21 @@ export const POST = async (req: NextRequest) => {
     }
 
     const userId = await getCurrentUserId();
+
+    // Check if user has reached their transaction limit
+    const limitCheck = await checkTotalTransactionLimit(userId);
+    if (!limitCheck.allowed) {
+        return NextResponse.json(
+            {
+                error: limitCheck.reason,
+                upgradeRequired: true,
+                currentUsage: limitCheck.currentUsage,
+                limit: limitCheck.limit,
+                plan: limitCheck.plan
+            },
+            { status: 403 }
+        );
+    }
 
     // 1) Parse CSV into TxRow[]
     const parsed = Papa.parse(csv, {
@@ -44,6 +60,23 @@ export const POST = async (req: NextRequest) => {
 
     if (rows.length === 0) {
         return NextResponse.json({ error: "No rows in CSV" }, { status: 400 });
+    }
+
+    // Check if importing these rows would exceed the limit
+    if (limitCheck.limit !== undefined && limitCheck.limit !== Infinity && limitCheck.currentUsage !== undefined) {
+        const remainingAllowance = limitCheck.limit - limitCheck.currentUsage;
+        if (rows.length > remainingAllowance) {
+            return NextResponse.json(
+                {
+                    error: `You can only import ${remainingAllowance} more transactions this month (trying to import ${rows.length})`,
+                    upgradeRequired: true,
+                    currentUsage: limitCheck.currentUsage,
+                    limit: limitCheck.limit,
+                    plan: limitCheck.plan
+                },
+                { status: 403 }
+            );
+        }
     }
 
     // 2) Insert statement
@@ -76,7 +109,7 @@ export const POST = async (req: NextRequest) => {
 
     // 3) Map category names to category_id by fetching/creating categories
     const categoryNameToId = new Map<string, number | null>();
-    
+
     // Extract unique category names from rows (excluding undefined/null/empty)
     const uniqueCategoryNames = Array.from(
         new Set(
@@ -138,8 +171,8 @@ export const POST = async (req: NextRequest) => {
         amount: r.amount,
         balance: r.balance,
         currency: "EUR",
-        category_id: r.category && categoryNameToId.has(r.category) 
-            ? categoryNameToId.get(r.category)! 
+        category_id: r.category && categoryNameToId.has(r.category)
+            ? categoryNameToId.get(r.category)!
             : null,
         raw_csv_row: JSON.stringify(r)
     }));
