@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import Stripe from 'stripe';
+import { clerkClient } from '@clerk/nextjs/server';
 import { getStripe, getPlanFromPriceId } from '@/lib/stripe';
 import { upsertSubscription, getSubscriptionByStripeCustomerId } from '@/lib/subscriptions';
 
@@ -118,6 +119,30 @@ export async function POST(request: NextRequest) {
 }
 
 /**
+ * Sync subscription info to Clerk user metadata
+ */
+async function syncSubscriptionToClerk(userId: string, plan: string, status: string, stripeCustomerId: string, currentPeriodEnd: Date) {
+    try {
+        const client = await clerkClient();
+        await client.users.updateUserMetadata(userId, {
+            publicMetadata: {
+                subscription: {
+                    plan,
+                    status,
+                    stripeCustomerId,
+                    currentPeriodEnd: currentPeriodEnd.toISOString(),
+                    updatedAt: new Date().toISOString(),
+                },
+            },
+        });
+        console.log(`[Webhook] Synced subscription to Clerk for user ${userId}`);
+    } catch (clerkError) {
+        console.error(`[Webhook] Failed to sync to Clerk:`, clerkError);
+        // Don't fail if Clerk sync fails
+    }
+}
+
+/**
  * Handle checkout.session.completed
  * Creates initial subscription record
  */
@@ -152,6 +177,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
     });
 
+    // Sync to Clerk
+    const status = subscription.status === 'active' ? 'active' : 'trialing';
+    await syncSubscriptionToClerk(userId, plan, status, customerId, new Date(subscription.current_period_end * 1000));
+
     console.log(`[Webhook] Subscription created for user ${userId}, plan: ${plan}`);
 }
 
@@ -162,22 +191,26 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
     const customerId = subscription.customer;
     const priceId = subscription.items.data[0]?.price.id;
     const plan = getPlanFromPriceId(priceId || '');
+    const status = mapStripeStatus(subscription.status);
 
     // Find user by Stripe customer ID
     const existingSub = await getSubscriptionByStripeCustomerId(customerId);
 
+    let userId: string;
+
     if (!existingSub) {
         // Check metadata for userId (from subscription creation)
-        const userId = subscription.metadata?.userId;
-        if (!userId) {
+        const metaUserId = subscription.metadata?.userId;
+        if (!metaUserId) {
             console.error('[Webhook] Cannot find user for subscription update');
             return;
         }
+        userId = metaUserId;
 
         await upsertSubscription({
             userId,
             plan,
-            status: mapStripeStatus(subscription.status),
+            status,
             stripeCustomerId: customerId,
             stripeSubscriptionId: subscription.id,
             stripePriceId: priceId,
@@ -185,16 +218,20 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
         });
     } else {
+        userId = existingSub.userId;
         await upsertSubscription({
-            userId: existingSub.userId,
+            userId,
             plan,
-            status: mapStripeStatus(subscription.status),
+            status,
             stripeSubscriptionId: subscription.id,
             stripePriceId: priceId,
             currentPeriodEnd: new Date(subscription.current_period_end * 1000),
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
         });
     }
+
+    // Sync to Clerk
+    await syncSubscriptionToClerk(userId, plan, status, customerId, new Date(subscription.current_period_end * 1000));
 
     console.log(`[Webhook] Subscription updated for customer ${customerId}`);
 }
@@ -214,6 +251,15 @@ async function handleSubscriptionDeleted(subscription: StripeSubscriptionData) {
             status: 'canceled',
             currentPeriodEnd: new Date(subscription.current_period_end * 1000),
         });
+
+        // Sync to Clerk - mark as canceled/free
+        await syncSubscriptionToClerk(
+            existingSub.userId,
+            'free',
+            'canceled',
+            customerId,
+            new Date(subscription.current_period_end * 1000)
+        );
 
         console.log(`[Webhook] Subscription canceled for user ${existingSub.userId}`);
     }

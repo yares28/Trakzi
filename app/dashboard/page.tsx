@@ -26,6 +26,7 @@ import { Separator } from "@/components/ui/separator";
 import { GoalSettingModal } from "@/components/dashboard/goal-setting-modal";
 import { AIWeeklySummary } from "@/components/dashboard/ai-weekly-summary";
 import { TransactionProgressBar } from "@/components/dashboard/transaction-progress-bar";
+import { SubscriptionCard } from "@/components/dashboard/subscription-card";
 
 // Custom Icons matching sidebar (from app-sidebar.tsx)
 const IconAnalytics = () => (
@@ -788,6 +789,13 @@ export default function DashboardPage() {
                                 Financial Health
                             </h1>
                             <p className="text-muted-foreground text-lg">AI-powered analysis of your spending, savings, and habits</p>
+                        </div>
+                    </div>
+
+                    {/* Subscription Status Card */}
+                    <div className="w-full max-w-7xl mb-8">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <SubscriptionCard />
                         </div>
                     </div>
 
