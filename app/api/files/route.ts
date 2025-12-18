@@ -7,36 +7,26 @@ type FileRow = {
   id: string
   file_name: string
   mime_type: string
-  extension: string | null
-  size_bytes: number
   source: string | null
-  uploaded_at: string
-  raw_format: string | null
-  bank_name: string | null
-  account_name: string | null
+  created_at: string
 }
 
 export const GET = async () => {
   try {
     const userId = await getCurrentUserId()
 
+    // Query files from user_files table - using actual schema columns
     const files = await neonQuery<FileRow>(
       `
         SELECT 
-          uf.id,
-          uf.file_name,
-          uf.mime_type,
-          uf.extension,
-          uf.size_bytes,
-          uf.source,
-          uf.uploaded_at,
-          s.raw_format,
-          s.bank_name,
-          s.account_name
-        FROM user_files uf
-        LEFT JOIN statements s ON s.id = uf.statement_id
-        WHERE uf.user_id = $1
-        ORDER BY uf.uploaded_at DESC
+          id,
+          file_name,
+          mime_type,
+          source,
+          created_at
+        FROM user_files
+        WHERE user_id = $1
+        ORDER BY created_at DESC
       `,
       [userId]
     )
@@ -45,43 +35,42 @@ export const GET = async () => {
       id: file.id,
       fileName: file.file_name,
       mimeType: file.mime_type,
-      extension: file.extension,
-      sizeBytes: Number(file.size_bytes),
-      source: file.source,
+      source: file.source || 'Upload',
       uploadedAt:
-        typeof file.uploaded_at === "string"
-          ? file.uploaded_at
-          : new Date(file.uploaded_at).toISOString(),
-      rawFormat: file.raw_format,
-      bankName: file.bank_name,
-      accountName: file.account_name,
+        typeof file.created_at === "string"
+          ? file.created_at
+          : new Date(file.created_at).toISOString(),
     }))
 
-    // Add caching headers - files change infrequently
-    // Cache for 2 minutes, revalidate in background
+    // Add caching headers
     return NextResponse.json(payload, {
       headers: {
         'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
       },
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("[Files API] Error:", error)
-    return NextResponse.json({ error: "Failed to load files" }, { status: 500 })
+
+    // User-friendly error messages
+    if (error.message?.includes("Unauthorized")) {
+      return NextResponse.json(
+        { error: "Please sign in to view your files." },
+        { status: 401 }
+      )
+    }
+
+    // Return empty array for "relation does not exist" errors (table not created yet)
+    if (error.message?.includes("does not exist")) {
+      return NextResponse.json([], {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60',
+        },
+      })
+    }
+
+    return NextResponse.json(
+      { error: "Unable to load your files. Please try again." },
+      { status: 500 }
+    )
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

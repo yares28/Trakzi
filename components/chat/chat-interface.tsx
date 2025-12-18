@@ -499,18 +499,27 @@ export function ChatInterface() {
                     }
                     title="Ask anything about your finances"
                     description={
-                      stats
+                      stats && stats.analytics.hasEnoughTransactions
                         ? "Get insights on categories, trends, and cashflow. Ask naturally—I'll do the analysis."
-                        : "Import statements to unlock personalized insights. You can still ask general questions in the meantime."
+                        : "Import statements to unlock personalized insights and AI scores. You can still ask general questions in the meantime."
                     }
                   >
-                    {/* Stats pills */}
-                    {stats && (
+                    {/* Stats pills - show if user has enough transactions */}
+                    {stats && stats.analytics.hasEnoughTransactions ? (
                       <div className="mt-5 flex flex-wrap justify-center gap-2">
                         <StatPill label="Analytics" value={`${stats.analytics.score}%`} score={stats.analytics.score} />
                         <StatPill label="Savings" value={`${stats.savings.savingsRate}%`} score={stats.savings.score} />
                         <StatPill label="Fridge" value={`${stats.fridge.score}%`} score={stats.fridge.score} />
                         <StatPill label="Trends" value={`${stats.trends.score}%`} score={stats.trends.score} />
+                      </div>
+                    ) : (
+                      <div className="mt-5 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 px-4 py-3 text-center">
+                        <p className="text-sm text-muted-foreground">
+                          🔒 <span className="font-medium">AI Scores Locked</span>
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground/80">
+                          Import at least {stats?.analytics?.transactionCount ? `${100 - stats.analytics.transactionCount} more` : '100'} transactions to unlock personalized financial scores
+                        </p>
                       </div>
                     )}
 
