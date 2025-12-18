@@ -84,12 +84,15 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
             return prev
           })
         } else {
+          // No days available - set loading to false so we show empty state
           setSelectedDay(null)
+          setLoading(false)
         }
       } catch (error) {
         console.error("Error fetching available days:", error)
         setAvailableDays([])
         setSelectedDay(null)
+        setLoading(false)
       }
     }
 
@@ -502,7 +505,10 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-          <ChartLoadingState isLoading={loading} />
+          <ChartLoadingState
+            emptyTitle="No spending data"
+            emptyDescription="Import your bank statements to see spending by day of week"
+          />
         </CardContent>
       </Card>
     )

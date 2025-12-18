@@ -96,12 +96,15 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
             return prev
           })
         } else {
+          // No months available - set loading to false so we show empty state
           setSelectedMonth(null)
+          setLoading(false)
         }
       } catch (error) {
         console.error("Error fetching available months:", error)
         setAvailableMonths([])
         setSelectedMonth(null)
+        setLoading(false)
       }
     }
 
