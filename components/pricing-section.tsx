@@ -86,7 +86,7 @@ export function PricingSection() {
     // Free plan - just redirect to sign up or dashboard
     if (plan.priceId === null && !plan.monthlyPriceId) {
       if (isSignedIn) {
-        router.push('/home')
+        router.push('/dashboard')
       } else {
         // Clear any pending checkout for free plan
         localStorage.removeItem('pendingCheckoutPriceId')
@@ -112,8 +112,28 @@ export function PricingSection() {
       return
     }
 
-    // User is signed in, go directly to checkout
+    // User is signed in - check if they already have a subscription
     setLoadingPlan(plan.name)
+
+    try {
+      // First check subscription status
+      const subResponse = await fetch('/api/subscription/status')
+      if (subResponse.ok) {
+        const subData = await subResponse.json()
+        // If user already has a paid plan (not free), redirect to dashboard
+        if (subData.plan && subData.plan !== 'free') {
+          toast.info('You already have an active subscription!', {
+            description: 'Manage your subscription from the Dashboard.',
+            duration: 5000,
+          })
+          router.push('/dashboard')
+          return
+        }
+      }
+    } catch (error) {
+      // Continue with checkout if subscription check fails
+      console.error('Error checking subscription:', error)
+    }
 
     // Track checkout started
     posthog.capture('checkout_started', {

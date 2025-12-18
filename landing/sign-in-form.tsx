@@ -106,7 +106,7 @@ export function SignInForm() {
         {/* Header */}
         <div className="text-center mb-8">
           <Link href="/" className="z-50 flex items-center justify-center gap-2 transition-all duration-300 mb-6">
-            <img src="/Trakzi/Trakzilogo.png" alt="Trakzi" className="h-8 w-auto" draggable={false} />
+            <img src="/Trakzi/TrakzilogoB.png" alt="Trakzi" className="h-8 w-auto" draggable={false} />
           </Link>
           <h1 className="text-3xl font-bold text-white mb-2">Welcome back</h1>
           <p className="text-zinc-400">Sign in to your account to continue</p>

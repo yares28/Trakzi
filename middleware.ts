@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 
 // Public routes that don't require authentication
 const isPublicRoute = createRouteMatcher([
-  '/sign-in(.*)', 
+  '/sign-in(.*)',
   '/sign-up(.*)',
   '/sso-callback(.*)',
   '/', // Landing page is public
@@ -14,17 +14,19 @@ const isPublicRoute = createRouteMatcher([
 const isProtectedRoute = createRouteMatcher([
   '/home(.*)',
   '/analytics(.*)',
+  '/dashboard(.*)',
   '/data-library(.*)',
   '/fridge(.*)',
   '/reports(.*)',
   '/savings(.*)',
   '/trends(.*)',
-  '/chat(.*)', // Chat page is protected
+  '/chat(.*)',
+  '/testCharts(.*)',
 ])
 
 export default clerkMiddleware(async (auth, req) => {
   const { userId } = await auth()
-  
+
   // If user is signed in and trying to access sign-in/sign-up, redirect to home
   if (userId && (req.nextUrl.pathname.startsWith('/sign-in') || req.nextUrl.pathname.startsWith('/sign-up'))) {
     return NextResponse.redirect(new URL('/home', req.url))
