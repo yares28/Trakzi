@@ -385,8 +385,8 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
-          Loading chart...
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+          <ChartLoadingState isLoading />
         </CardContent>
       </Card>
     )
@@ -434,7 +434,10 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-          <ChartLoadingState isLoading={loading} />
+          <ChartLoadingState
+            emptyTitle="No monthly data yet"
+            emptyDescription="Import your bank statements to see monthly category spending"
+          />
         </CardContent>
       </Card>
     )
@@ -518,9 +521,10 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
             </div>
           </div>
         ) : (
-          <div className="h-full w-full flex items-center justify-center text-muted-foreground">
-            No data for selected month
-          </div>
+          <ChartLoadingState
+            emptyTitle="No spending data"
+            emptyDescription="No transactions recorded for this month yet"
+          />
         )}
       </CardContent>
     </Card>

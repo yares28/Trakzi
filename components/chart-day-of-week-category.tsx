@@ -575,9 +575,10 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
             </div>
           </div>
         ) : (
-          <div className="h-full w-full flex items-center justify-center text-muted-foreground">
-            No data for selected day
-          </div>
+          <ChartLoadingState
+            emptyTitle="No spending data"
+            emptyDescription="No transactions recorded for this day yet"
+          />
         )}
       </CardContent>
     </Card>

@@ -420,7 +420,11 @@ export function ChartRadar({ categoryControls }: ChartRadarProps) {
         </CardAction>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-        {isLoading ? <ChartLoadingState isLoading={true} /> : <div className="flex items-center justify-center text-muted-foreground">{message}</div>}
+        <ChartLoadingState
+          isLoading={isLoading}
+          emptyTitle="No financial data yet"
+          emptyDescription="Import your bank statements to see your financial health score"
+        />
       </CardContent>
     </Card>
   )

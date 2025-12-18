@@ -23,21 +23,31 @@ export function ChartLoadingState({
   height = "h-full"
 }: ChartLoadingStateProps) {
 
-  // Loading state with shimmer
+  // Loading state with shimmer box that fills the chart area
   if (isLoading) {
     return (
-      <div className={cn("flex flex-col items-center justify-center w-full space-y-3", height, className)}>
-        {/* Shimmer bars to simulate chart loading */}
-        <div className="w-full max-w-xs space-y-2">
-          <div className="h-3 w-full rounded-full bg-muted animate-pulse" />
-          <div className="h-3 w-4/5 rounded-full bg-muted animate-pulse" style={{ animationDelay: "0.1s" }} />
-          <div className="h-3 w-3/5 rounded-full bg-muted animate-pulse" style={{ animationDelay: "0.2s" }} />
-          <div className="h-3 w-4/5 rounded-full bg-muted animate-pulse" style={{ animationDelay: "0.3s" }} />
-          <div className="h-3 w-2/3 rounded-full bg-muted animate-pulse" style={{ animationDelay: "0.4s" }} />
+      <div className={cn("flex flex-col items-center justify-center w-full", height, className)}>
+        {/* Box shimmer skeleton to fill chart area */}
+        <div className="w-full h-full max-h-[200px] flex flex-col justify-end items-center gap-0.5 p-4">
+          {/* Simulated bar chart skeleton */}
+          <div className="w-full flex items-end justify-center gap-1.5">
+            {[40, 65, 50, 80, 35, 70, 55, 75, 45, 60].map((h, i) => (
+              <div
+                key={i}
+                className="flex-1 max-w-8 rounded-t bg-muted animate-pulse"
+                style={{
+                  height: `${h}%`,
+                  animationDelay: `${i * 0.08}s`
+                }}
+              />
+            ))}
+          </div>
+          {/* X-axis line */}
+          <div className="w-full h-0.5 bg-muted/60 rounded" />
         </div>
         <ShimmeringText
           text="Loading data"
-          className="text-muted-foreground font-medium text-sm"
+          className="text-muted-foreground font-medium text-sm mt-2"
           duration={1.8}
           repeatDelay={0.3}
           spread={2.5}
@@ -75,7 +85,7 @@ export function ChartLoadingState({
  */
 export function ChartCardSkeleton({ className, height = "h-[300px]" }: { className?: string; height?: string }) {
   return (
-    <div className={cn("rounded-xl border bg-card p-6", height, className)}>
+    <div className={cn("rounded-xl border bg-card p-6 flex flex-col", height, className)}>
       {/* Header skeleton */}
       <div className="flex items-center justify-between mb-4">
         <div className="space-y-2">
@@ -85,14 +95,14 @@ export function ChartCardSkeleton({ className, height = "h-[300px]" }: { classNa
         <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
       </div>
 
-      {/* Chart area skeleton */}
-      <div className="flex-1 flex items-end justify-center gap-1 pt-4">
-        {[...Array(12)].map((_, i) => (
+      {/* Chart area skeleton - simulated bar chart */}
+      <div className="flex-1 flex items-end justify-center gap-1.5 pt-4">
+        {[50, 70, 45, 85, 40, 75, 60, 80, 55, 65, 50, 70].map((h, i) => (
           <div
             key={i}
-            className="w-6 rounded-t bg-muted animate-pulse"
+            className="flex-1 max-w-6 rounded-t bg-muted animate-pulse"
             style={{
-              height: `${Math.random() * 60 + 40}%`,
+              height: `${h}%`,
               animationDelay: `${i * 0.05}s`
             }}
           />

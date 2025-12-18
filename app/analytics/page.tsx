@@ -25,6 +25,7 @@ import { ChartAllMonthsCategorySpending } from "@/components/chart-all-months-ca
 import { ChartCategoryBubble } from "@/components/chart-category-bubble"
 import { ChartSingleMonthCategorySpending } from "@/components/chart-single-month-category-spending"
 import { ChartDayOfWeekCategory } from "@/components/chart-day-of-week-category"
+import { ChartLoadingState } from "@/components/chart-loading-state"
 import { SectionCards, TrendLineBackground } from "@/components/section-cards"
 import { SiteHeader } from "@/components/site-header"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
@@ -3650,9 +3651,10 @@ export default function AnalyticsPage() {
                                 {/* Chart overlay layer */}
                                 <div className="absolute inset-0 flex flex-col items-center justify-between pt-20 pb-4">
                                   {activityData.length === 0 ? (
-                                    <span className="text-sm text-muted-foreground">
-                                      No expense categories available yet.
-                                    </span>
+                                    <ChartLoadingState
+                                      emptyTitle="No spending categories yet"
+                                      emptyDescription="Import your bank statements to see activity rings"
+                                    />
                                   ) : (
                                     <>
                                       <div className="flex items-center justify-center w-full flex-1 min-h-0">

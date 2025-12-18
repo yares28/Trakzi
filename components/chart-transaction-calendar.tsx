@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
+import { ChartLoadingState } from "@/components/chart-loading-state"
 
 interface ChartTransactionCalendarProps {
   data?: Array<{
@@ -495,8 +496,8 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-          <div className="h-[250px] w-full flex items-center justify-center">
-            <span className="text-sm text-muted-foreground">Loading...</span>
+          <div className="h-[250px] w-full">
+            <ChartLoadingState isLoading />
           </div>
         </CardContent>
       </Card>
@@ -550,15 +551,11 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-          <div className="h-[250px] w-full flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground">
-                {error || "No transaction data available for the selected period"}
-              </p>
-              <p className="text-xs text-muted-foreground mt-2">
-                Try selecting a different year or check if you have transactions in your account.
-              </p>
-            </div>
+          <div className="h-[250px] w-full">
+            <ChartLoadingState
+              emptyTitle="No daily activity yet"
+              emptyDescription="Import your bank statements to see a calendar heatmap of your spending"
+            />
           </div>
         </CardContent>
       </Card>
