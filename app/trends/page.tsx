@@ -536,24 +536,21 @@ export default function TrendsPage() {
         <SiteHeader />
         <main className="flex-1 space-y-6 p-4 pt-0 lg:p-6 lg:pt-2">
           <section className="px-4 lg:px-6 pt-4">
-            <div className="flex flex-col items-center justify-center gap-4 rounded-3xl border bg-muted/30 px-6 py-8 text-center">
-              <Badge variant="outline" className="gap-1 px-3 py-1 text-sm">
-                <IconChartLine className="size-4" />
-                Trend Analysis
-              </Badge>
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-                <ShimmeringText
-                  text="Category Trends"
-                  duration={3}
-                  spread={2}
-                  shimmerColor="hsl(var(--primary))"
-                />
-              </h1>
-              <p className="text-muted-foreground max-w-2xl">
-                Visualize spending patterns across all your categories over time.
-                Each card represents a category from your data, showing trends and insights
-                to help you understand where your money goes.
-              </p>
+            <div className="flex flex-col justify-between gap-4 rounded-3xl border bg-muted/30 px-6 py-6 lg:flex-row lg:items-center">
+              <div className="space-y-2">
+                <Badge variant="outline" className="gap-1 px-3 py-1 text-sm">
+                  <IconChartLine className="size-4" />
+                  Trend Analysis
+                </Badge>
+                <h1 className="text-3xl font-semibold tracking-tight">
+                  Trends
+                </h1>
+                <p className="text-muted-foreground max-w-2xl">
+                  Visualize spending patterns across all your categories over time.
+                  Each card represents a category from your data, showing trends and insights
+                  to help you understand where your money goes.
+                </p>
+              </div>
             </div>
           </section>
 
@@ -567,39 +564,41 @@ export default function TrendsPage() {
 
           {!isLoading && !hasCategories && !error && (
             <section className="px-4 lg:px-6">
-              <div className="flex flex-col items-center justify-center gap-6 rounded-3xl border bg-muted/30 px-6 py-16 text-center">
-                <div className="relative">
-                  <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-                    <TrendingUp className="h-10 w-10 text-primary/60" />
+              <div className="flex flex-col justify-between gap-6 rounded-3xl border bg-muted/30 px-6 py-6 lg:flex-row lg:items-center">
+                <div className="flex items-start gap-4">
+                  <div className="relative shrink-0">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                      <TrendingUp className="h-8 w-8 text-primary/60" />
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-background border-2 border-dashed border-primary/30 flex items-center justify-center">
+                      <Upload className="h-3 w-3 text-primary/50" />
+                    </div>
                   </div>
-                  <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-background border-2 border-dashed border-primary/30 flex items-center justify-center">
-                    <Upload className="h-4 w-4 text-primary/50" />
+                  <div className="space-y-2">
+                    <Badge variant="outline" className="gap-1 px-3 py-1 text-sm">
+                      <IconChartLine className="size-4" />
+                      Getting Started
+                    </Badge>
+                    <h2 className="text-2xl font-semibold tracking-tight">
+                      No Trends to Display Yet
+                    </h2>
+                    <p className="text-muted-foreground max-w-lg">
+                      Trends are generated based on your spending categories. Once you upload transactions,
+                      we&apos;ll analyze your spending patterns and show you detailed category trends over time.
+                    </p>
+                    <p className="text-xs text-muted-foreground/70 pt-1">
+                      Tip: You can import CSV files from your bank or manually add transactions
+                    </p>
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Badge variant="outline" className="gap-1 px-3 py-1 text-sm">
-                    <IconChartLine className="size-4" />
-                    Getting Started
-                  </Badge>
-                  <h2 className="text-2xl font-semibold tracking-tight">
-                    No Trends to Display Yet
-                  </h2>
-                  <p className="text-muted-foreground max-w-lg mx-auto">
-                    Trends are generated based on your spending categories. Once you upload transactions,
-                    we&apos;ll analyze your spending patterns and show you detailed category trends over time.
-                  </p>
                 </div>
                 <Link
                   href="/data-library"
-                  className="group flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+                  className="group flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors shrink-0"
                 >
                   <Upload className="h-4 w-4" />
                   Upload Transactions
                   <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                 </Link>
-                <p className="text-xs text-muted-foreground/70">
-                  Tip: You can import CSV files from your bank or manually add transactions
-                </p>
               </div>
             </section>
           )}

@@ -782,14 +782,25 @@ export default function DashboardPage() {
                 <DashboardHeader />
                 <div className="flex flex-col items-center p-6 md:p-10 w-full min-h-[calc(100vh-4rem)] bg-background">
                     {/* Header Section */}
-                    <div className="w-full max-w-7xl mb-8 flex items-end justify-between">
-                        <div>
-                            <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl mb-2 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                                Financial Health
-                            </h1>
-                            <p className="text-muted-foreground text-lg">AI-powered analysis of your spending, savings, and habits</p>
+                    <section className="w-full max-w-7xl mb-8">
+                        <div className="flex flex-col justify-between gap-4 rounded-3xl border bg-muted/30 px-6 py-6 lg:flex-row lg:items-center">
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="inline-flex items-center gap-1 px-3 py-1 text-sm border rounded-full">
+                                        <Sparkles className="size-4" />
+                                        AI-Powered
+                                    </span>
+                                </div>
+                                <h1 className="text-3xl font-semibold tracking-tight">
+                                    Dashboard
+                                </h1>
+                                <p className="text-muted-foreground max-w-2xl">
+                                    Real-time analysis of your spending, savings, and habits.
+                                    Track your financial health with AI-powered insights and personalized recommendations.
+                                </p>
+                            </div>
                         </div>
-                    </div>
+                    </section>
 
                     <dl className="grid grid-cols-1 gap-8 lg:grid-cols-2 xl:grid-cols-3 w-full">
                         {displayData.map((item, index) => {
