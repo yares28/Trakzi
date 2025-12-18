@@ -50,6 +50,7 @@ export default function RootLayout({
             defaultTheme="light"
             enableSystem={false}
             disableTransitionOnChange
+            storageKey="trakzi-theme"
           >
             <ColorSchemeProvider>
               <CurrencyProvider>

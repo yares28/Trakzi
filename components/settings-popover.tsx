@@ -163,20 +163,28 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
               <span>Color Palette</span>
             </div>
             <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-              {colorSchemes.map((scheme) => (
-                <Button
-                  key={scheme.value}
-                  variant={colorScheme === scheme.value ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setColorScheme(scheme.value)}
-                  className="justify-start"
-                >
-                  <span className="flex-1 text-left">{scheme.label}</span>
-                  {colorScheme === scheme.value && (
-                    <IconCheck className="h-4 w-4" />
-                  )}
-                </Button>
-              ))}
+              {colorSchemes.map((scheme) => {
+                const isDisabled = scheme.value !== "sunset";
+                return (
+                  <Button
+                    key={scheme.value}
+                    variant={colorScheme === scheme.value ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => !isDisabled && setColorScheme(scheme.value)}
+                    disabled={isDisabled}
+                    className={`justify-start ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                    title={isDisabled ? "Coming Soon" : undefined}
+                  >
+                    <span className="flex-1 text-left">
+                      {scheme.label}
+                      {isDisabled && <span className="text-xs text-muted-foreground ml-1">(Soon)</span>}
+                    </span>
+                    {colorScheme === scheme.value && (
+                      <IconCheck className="h-4 w-4" />
+                    )}
+                  </Button>
+                );
+              })}
             </div>
           </div>
 
