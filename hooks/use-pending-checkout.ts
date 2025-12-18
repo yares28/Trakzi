@@ -8,7 +8,8 @@ import { toast } from 'sonner'
 /**
  * Hook to handle pending checkout after user signs up
  * Checks localStorage for a pending priceId and redirects to checkout
- * Also checks if user already has a subscription and redirects to dashboard
+ * For EXISTING users (already have account), redirects to dashboard instead
+ * Only NEW users go through Stripe checkout
  */
 export function usePendingCheckout() {
     const { isSignedIn, isLoaded } = useAuth()
@@ -26,26 +27,40 @@ export function usePendingCheckout() {
         // Clear the pending checkout immediately to prevent loops
         localStorage.removeItem('pendingCheckoutPriceId')
 
-        // Redirect to checkout
+        // Process the checkout
         const processCheckout = async () => {
             setIsProcessing(true)
 
             try {
-                // First check if user already has a subscription
+                // Check if user already exists in our system (has subscription record)
                 const subResponse = await fetch('/api/subscription/status')
+
                 if (subResponse.ok) {
                     const subData = await subResponse.json()
-                    // If user already has a paid plan (not free), redirect to dashboard
-                    if (subData.plan && subData.plan !== 'free') {
-                        toast.info('Welcome back! You already have an active subscription.', {
-                            description: 'Manage your subscription from the Dashboard.',
-                            duration: 5000,
-                        })
+
+                    // Check if user already has ANY subscription record (meaning they're an existing user)
+                    // The API returns usage data for existing users, even on free plan
+                    if (subData.usage && subData.usage.totalTransactions !== undefined) {
+                        // User already exists in the system
+                        if (subData.plan && subData.plan !== 'free') {
+                            // User has a paid plan
+                            toast.info('Welcome back! You already have an active subscription.', {
+                                description: 'Manage your subscription from the Dashboard.',
+                                duration: 5000,
+                            })
+                        } else {
+                            // User exists but is on free plan - they can upgrade from dashboard
+                            toast.success('Welcome back!', {
+                                description: 'You can upgrade your plan from the Dashboard.',
+                                duration: 5000,
+                            })
+                        }
                         router.push('/dashboard')
                         return
                     }
                 }
 
+                // User is NEW - proceed with Stripe checkout
                 const response = await fetch('/api/checkout', {
                     method: 'POST',
                     headers: {
