@@ -57,6 +57,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Checkbox } from "@/components/ui/checkbox"
 import { cn, normalizeTransactions } from "@/lib/utils"
 import { IconUpload, IconFile, IconCircleCheck, IconLoader2, IconAlertCircle, IconTrash } from "@tabler/icons-react"
 import { toast } from "sonner"
@@ -346,18 +347,29 @@ const MemoizedTableRow = memo(function MemoizedTableRow({
   row,
   amount,
   category,
+  isSelected,
+  onSelectChange,
   onCategoryChange,
   onDelete
 }: {
   row: ParsedRow
   amount: number
   category: string
+  isSelected: boolean
+  onSelectChange: (value: boolean) => void
   onCategoryChange: (value: string) => void
   onDelete: () => void
 }) {
   const { formatCurrency } = useCurrency()
   return (
     <TableRow>
+      <TableCell className="w-12">
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={(checked) => onSelectChange(checked === true)}
+          aria-label="Select transaction"
+        />
+      </TableCell>
       <TableCell className="w-28 flex-shrink-0">
         <div className="flex flex-col">
           <span>{row.date}</span>
@@ -397,7 +409,8 @@ const MemoizedTableRow = memo(function MemoizedTableRow({
   // Only re-render if the category or row id actually changed
   return (
     prevProps.category === nextProps.category &&
-    prevProps.row.id === nextProps.row.id
+    prevProps.row.id === nextProps.row.id &&
+    prevProps.isSelected === nextProps.isSelected
   )
 })
 
@@ -433,6 +446,7 @@ export default function Page() {
   const [isAiReparseOpen, setIsAiReparseOpen] = useState(false)
   const [aiReparseContext, setAiReparseContext] = useState("")
   const [isAiReparsing, setIsAiReparsing] = useState(false)
+  const [selectedParsedRowIds, setSelectedParsedRowIds] = useState<Set<number>>(new Set())
   const [transactionCount, setTransactionCount] = useState<number>(0)
   const [hiddenCategories, setHiddenCategories] = useState<string[]>([])
   const dragCounterRef = useRef(0)
@@ -1728,6 +1742,26 @@ export default function Page() {
     }, 300) // Wait 300ms after last change before regenerating CSV
   }, [])
 
+  const handleToggleParsedRow = useCallback((rowId: number, value: boolean) => {
+    setSelectedParsedRowIds((prev) => {
+      const next = new Set(prev)
+      if (value) {
+        next.add(rowId)
+      } else {
+        next.delete(rowId)
+      }
+      return next
+    })
+  }, [])
+
+  const handleSelectAllParsedRows = useCallback((value: boolean) => {
+    if (!value) {
+      setSelectedParsedRowIds(new Set())
+      return
+    }
+    setSelectedParsedRowIds(new Set(parsedRows.map((row) => row.id)))
+  }, [parsedRows])
+
   const handleDeleteRow = useCallback((rowId: number) => {
     flushSync(() => {
       setParsedRows((prevRows) => {
@@ -1738,6 +1772,11 @@ export default function Page() {
         setTransactionCount(updatedRows.length)
         return updatedRows
       })
+    })
+    setSelectedParsedRowIds((prev) => {
+      const next = new Set(prev)
+      next.delete(rowId)
+      return next
     })
 
     // Regenerate CSV after deletion
@@ -1755,6 +1794,35 @@ export default function Page() {
       setParsedCsv(newCsv)
     }, 100) // Shorter delay for deletion
   }, [])
+
+  const handleDeleteSelectedRows = useCallback(() => {
+    if (selectedParsedRowIds.size === 0) return
+    const selectedIds = new Set(selectedParsedRowIds)
+
+    flushSync(() => {
+      setParsedRows((prevRows) => {
+        const updatedRows = prevRows.filter((row) => !selectedIds.has(row.id))
+        latestParsedRowsRef.current = updatedRows
+        setTransactionCount(updatedRows.length)
+        return updatedRows
+      })
+      setSelectedParsedRowIds(new Set())
+    })
+
+    if (csvRegenerationTimerRef.current) {
+      clearTimeout(csvRegenerationTimerRef.current)
+    }
+
+    csvRegenerationTimerRef.current = setTimeout(() => {
+      const rowsForCsv = latestParsedRowsRef.current.map((row) => {
+        const { id: _ignored, ...rest } = row
+        void _ignored
+        return rest as TxRow
+      })
+      const newCsv = rowsToCanonicalCsv(rowsForCsv)
+      setParsedCsv(newCsv)
+    }, 100)
+  }, [selectedParsedRowIds])
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -1791,6 +1859,7 @@ export default function Page() {
     setParsedCsv(null)
     setFileId(null)
     setTransactionCount(0)
+    setSelectedParsedRowIds(new Set())
 
     // Track parsing progress based on actual CSV parsing stages
     // Stage 1: File upload (0-15%)
@@ -2982,7 +3051,7 @@ export default function Page() {
         </DialogContent>
       </Dialog>
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[95vw] lg:max-w-[1200px] w-full max-h-[90vh] flex flex-col p-0 gap-0">
+        <DialogContent className="sm:max-w-[95vw] lg:max-w-[1400px] w-full max-h-[90vh] flex flex-col p-0 gap-0">
           <div className="px-6 pt-6 pb-4 flex-shrink-0">
             <DialogHeader>
               <div className="flex items-center gap-3 mb-2">
@@ -3115,7 +3184,7 @@ export default function Page() {
 
               {/* Parsed CSV Preview - Hide during import */}
               {parsedCsv && !isParsing && !parseError && !isImporting && (
-                <Card className="border-2 overflow-hidden flex flex-col min-h-0">
+                <Card className="border-2 overflow-hidden flex flex-col min-h-0 max-w-[1200px] w-full mx-auto">
                   <CardHeader className="flex-shrink-0 px-4 pt-4 pb-2">
                     <div className="flex items-start justify-between gap-4">
                       <div>
@@ -3124,14 +3193,24 @@ export default function Page() {
                           Review and edit categories before importing
                         </CardDescription>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsAiReparseOpen(true)}
-                        disabled={!droppedFile || isAiReparsing}
-                      >
-                        Reparse with AI
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={handleDeleteSelectedRows}
+                          disabled={selectedParsedRowIds.size === 0}
+                        >
+                          Delete selected
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsAiReparseOpen(true)}
+                          disabled={!droppedFile || isAiReparsing}
+                        >
+                          Reparse with AI
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
@@ -3139,6 +3218,13 @@ export default function Page() {
                       <Table>
                         <TableHeader className="bg-muted sticky top-0 z-10">
                           <TableRow>
+                            <TableHead className="w-12">
+                              <Checkbox
+                                checked={parsedRows.length > 0 && selectedParsedRowIds.size === parsedRows.length}
+                                onCheckedChange={(checked) => handleSelectAllParsedRows(checked === true)}
+                                aria-label="Select all transactions"
+                              />
+                            </TableHead>
                             <TableHead>Date</TableHead>
                             <TableHead>Description</TableHead>
                             <TableHead className="text-right">Amount</TableHead>
@@ -3149,7 +3235,7 @@ export default function Page() {
                         <TableBody>
                           {parsedRows.length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={5} className="h-24 text-center">
+                              <TableCell colSpan={6} className="h-24 text-center">
                                 No transactions found
                               </TableCell>
                             </TableRow>
@@ -3164,6 +3250,8 @@ export default function Page() {
                                   row={row}
                                   amount={amount}
                                   category={category}
+                                  isSelected={selectedParsedRowIds.has(row.id)}
+                                  onSelectChange={(value) => handleToggleParsedRow(row.id, value)}
                                   onCategoryChange={(value) => handleCategoryChange(row.id, value)}
                                   onDelete={() => handleDeleteRow(row.id)}
                                 />
