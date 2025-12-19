@@ -17,6 +17,7 @@ export interface Subscription {
     currentPeriodEnd: Date | null;
     cancelAtPeriodEnd: boolean;
     isLifetime: boolean;
+    pendingPlan: PlanType | null;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -32,6 +33,7 @@ interface SubscriptionRow {
     current_period_end: string | Date | null;
     cancel_at_period_end: boolean;
     is_lifetime: boolean;
+    pending_plan: string | null;
     created_at: string | Date;
     updated_at: string | Date;
 }
@@ -48,6 +50,7 @@ function rowToSubscription(row: SubscriptionRow): Subscription {
         currentPeriodEnd: row.current_period_end ? new Date(row.current_period_end) : null,
         cancelAtPeriodEnd: row.cancel_at_period_end ?? false,
         isLifetime: row.is_lifetime ?? false,
+        pendingPlan: row.pending_plan ? (row.pending_plan as PlanType) : null,
         createdAt: new Date(row.created_at),
         updatedAt: new Date(row.updated_at),
     };
@@ -124,6 +127,7 @@ export async function upsertSubscription(params: {
     stripePriceId?: string;
     currentPeriodEnd?: Date;
     cancelAtPeriodEnd?: boolean;
+    pendingPlan?: PlanType | null;
 }): Promise<Subscription> {
     const {
         userId,
@@ -134,6 +138,7 @@ export async function upsertSubscription(params: {
         stripePriceId,
         currentPeriodEnd,
         cancelAtPeriodEnd = false,
+        pendingPlan,
     } = params;
 
     // Use ON CONFLICT DO UPDATE to handle both insert and update
@@ -149,8 +154,9 @@ export async function upsertSubscription(params: {
             stripe_price_id,
             current_period_end,
             cancel_at_period_end,
+            pending_plan,
             updated_at
-        ) VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, NOW())
+        ) VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
         ON CONFLICT (user_id) 
         DO UPDATE SET
             plan = COALESCE($2, subscriptions.plan),
@@ -160,6 +166,7 @@ export async function upsertSubscription(params: {
             stripe_price_id = COALESCE($6, subscriptions.stripe_price_id),
             current_period_end = COALESCE($7, subscriptions.current_period_end),
             cancel_at_period_end = COALESCE($8, subscriptions.cancel_at_period_end),
+            pending_plan = $9,
             updated_at = NOW()
         RETURNING *
         `,
@@ -172,6 +179,7 @@ export async function upsertSubscription(params: {
             stripePriceId ?? null,
             currentPeriodEnd ?? null,
             cancelAtPeriodEnd,
+            pendingPlan ?? null,
         ]
     );
 

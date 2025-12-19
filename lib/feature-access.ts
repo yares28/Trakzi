@@ -264,6 +264,7 @@ export async function getUserPlanSummary(userId: string) {
         subscription: subscription ? {
             currentPeriodEnd: subscription.currentPeriodEnd,
             cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+            pendingPlan: subscription.pendingPlan,
         } : null,
     };
 }

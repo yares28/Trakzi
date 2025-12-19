@@ -227,6 +227,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     current_period_end TIMESTAMPTZ,
     cancel_at_period_end BOOLEAN DEFAULT FALSE,
     is_lifetime BOOLEAN DEFAULT FALSE, -- Lifetime subscriptions bypass Stripe operations
+    pending_plan TEXT DEFAULT NULL, -- Plan the user will switch to at period end
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

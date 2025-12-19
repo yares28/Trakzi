@@ -144,6 +144,7 @@ export async function POST(request: NextRequest) {
 
         if (isUpgrade) {
             // Upgrade: Schedule for next billing period (no immediate charge)
+            // But give immediate access to higher features
             const updatedSubscription = await stripe.subscriptions.update(
                 subscription.stripeSubscriptionId,
                 {
@@ -157,6 +158,7 @@ export async function POST(request: NextRequest) {
 
             const periodEnd = safeTimestampToDate((updatedSubscription as any).current_period_end);
 
+            // For upgrades, we DO update the plan immediately since they get higher features right away
             await upsertSubscription({
                 userId,
                 plan: targetPlanLower,
@@ -165,6 +167,7 @@ export async function POST(request: NextRequest) {
                 stripeCustomerId: subscription.stripeCustomerId ?? undefined,
                 cancelAtPeriodEnd: false,
                 currentPeriodEnd: periodEnd ?? undefined,
+                pendingPlan: null, // Clear any pending plan
             });
 
             // Update Clerk metadata
@@ -181,12 +184,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({
                 action: 'upgraded',
                 success: true,
-                message: `Successfully scheduled upgrade to ${targetPlan.toUpperCase()}! You'll be charged the new rate on ${periodEndStr}.`,
-                plan: targetPlan,
+                message: `Successfully upgraded to ${targetPlan.toUpperCase()}! You'll be charged the new rate starting ${periodEndStr}.`,
+                plan: targetPlanLower,
                 effectiveDate: periodEnd?.toISOString(),
             });
         } else if (isDowngrade) {
             // Downgrade: Schedule for end of billing period
+            // Keep current plan until the end, set pendingPlan for what they'll switch to
             const updatedSubscription = await stripe.subscriptions.update(
                 subscription.stripeSubscriptionId,
                 {
@@ -199,32 +203,28 @@ export async function POST(request: NextRequest) {
             // Get the period end date safely
             const periodEnd = safeTimestampToDate((updatedSubscription as any).current_period_end);
 
+            // KEEP the current plan, but set the pending plan
             await upsertSubscription({
                 userId,
-                plan: targetPlanLower,
+                plan: currentPlanLower, // Keep the current plan!
                 status: 'active',
                 stripeSubscriptionId: subscription.stripeSubscriptionId,
                 stripeCustomerId: subscription.stripeCustomerId ?? undefined,
                 cancelAtPeriodEnd: false,
                 currentPeriodEnd: periodEnd ?? undefined,
+                pendingPlan: targetPlanLower, // This is what they'll switch to
             });
 
-            // Update Clerk metadata
-            const client = await clerkClient();
-            await client.users.updateUserMetadata(userId, {
-                publicMetadata: {
-                    subscriptionPlan: targetPlanLower,
-                    subscriptionStatus: 'active',
-                },
-            });
+            // Don't update Clerk metadata - they still have their current plan
 
             const periodEndStr = periodEnd ? periodEnd.toLocaleDateString() : 'the end of your billing period';
 
             return NextResponse.json({
                 action: 'downgraded',
                 success: true,
-                message: `Plan changed to ${targetPlan.toUpperCase()}. Your current benefits remain active until ${periodEndStr}.`,
-                plan: targetPlan,
+                message: `Your plan will change to ${targetPlan.toUpperCase()} on ${periodEndStr}. You keep your current benefits until then.`,
+                plan: currentPlanLower, // Keep showing current plan
+                pendingPlan: targetPlanLower,
                 effectiveDate: periodEnd?.toISOString(),
             });
         }

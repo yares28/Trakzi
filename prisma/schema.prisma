@@ -63,6 +63,7 @@ model Subscription {
   currentPeriodEnd      DateTime? @map("current_period_end")
   cancelAtPeriodEnd     Boolean   @default(false) @map("cancel_at_period_end")
   isLifetime            Boolean   @default(false) @map("is_lifetime")
+  pendingPlan           String?   @map("pending_plan") // Plan to switch to at period end
   createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt             DateTime  @updatedAt @map("updated_at")
   
