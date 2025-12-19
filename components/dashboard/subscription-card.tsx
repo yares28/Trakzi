@@ -386,11 +386,8 @@ export function SubscriptionCard() {
                     description: data.message,
                     duration: 5000,
                 });
-                const statusResponse = await fetch("/api/subscription/status");
-                if (statusResponse.ok) {
-                    const newStatus = await statusResponse.json();
-                    setStatus(newStatus);
-                }
+                // Refresh using /api/subscription/me
+                await refreshStatus();
             } else if (data.error) {
                 toast.error(data.error);
             } else {
@@ -401,6 +398,74 @@ export function SubscriptionCard() {
             toast.error("Failed to cancel subscription");
         } finally {
             setIsManaging(false);
+        }
+    };
+
+    // Cancel immediately (not at period end)
+    const handleCancelNow = async () => {
+        setIsManaging(true);
+        try {
+            const response = await fetch("/api/billing/cancel-now", {
+                method: "POST",
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                toast.success("Subscription cancelled immediately", {
+                    description: data.message,
+                    duration: 5000,
+                });
+                // Refresh using /api/subscription/me
+                await refreshStatus();
+                setShowCancelConfirm(false);
+            } else if (data.error) {
+                toast.error(data.error);
+            } else {
+                toast.error("Unable to cancel subscription");
+            }
+        } catch (err) {
+            console.error("Cancel now error:", err);
+            toast.error("Failed to cancel subscription");
+        } finally {
+            setIsManaging(false);
+        }
+    };
+
+    // Helper to refresh subscription status
+    const refreshStatus = async () => {
+        try {
+            const response = await fetch("/api/subscription/me");
+            if (!response.ok) return;
+            const data = await response.json();
+            setStatus({
+                plan: data.plan,
+                status: data.status,
+                limits: {
+                    maxTotalTransactions: data.limits?.max_total_transactions ?? 400,
+                    aiChatEnabled: data.limits?.ai_chat_enabled ?? true,
+                    aiChatMessagesPerDay: data.limits?.ai_chat_messages_per_day ?? 5,
+                    aiInsightsEnabled: data.limits?.ai_insights_enabled ?? false,
+                    exportEnabled: data.limits?.export_enabled ?? false,
+                    customTransactionCategoriesLimit: 10,
+                    customFridgeCategoriesLimit: 10,
+                },
+                usage: {
+                    bankTransactions: data.usage?.bank_transactions || 0,
+                    fridgeItems: data.usage?.receipt_transactions || 0,
+                    totalTransactions: data.used_total || 0,
+                    transactionLimit: data.cap === -1 ? Infinity : (data.cap || 400),
+                    percentUsed: data.cap > 0 && data.cap !== -1
+                        ? Math.round((data.used_total / data.cap) * 100)
+                        : 0,
+                },
+                subscription: {
+                    currentPeriodEnd: data.current_period_end,
+                    cancelAtPeriodEnd: data.cancel_at_period_end,
+                    pendingPlan: data.pending_plan,
+                },
+            });
+        } catch (err) {
+            console.error("Failed to refresh status:", err);
         }
     };
 
@@ -687,16 +752,26 @@ export function SubscriptionCard() {
                             </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter className="gap-2 sm:gap-0">
+                    <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:gap-2">
                         <AlertDialogCancel className="font-semibold">Keep My Subscription</AlertDialogCancel>
                         <AlertDialogAction
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            className="bg-amber-600 text-white hover:bg-amber-700"
                             onClick={() => {
                                 setShowCancelConfirm(false);
                                 handleManageSubscription();
                             }}
                         >
-                            Yes, Cancel Subscription
+                            Cancel at Period End
+                        </AlertDialogAction>
+                        <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={handleCancelNow}
+                            disabled={isManaging}
+                        >
+                            {isManaging ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : null}
+                            Cancel Now
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
