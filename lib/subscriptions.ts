@@ -140,6 +140,7 @@ export async function upsertSubscription(params: {
     const rows = await neonQuery<SubscriptionRow>(
         `
         INSERT INTO subscriptions (
+            id,
             user_id,
             plan,
             status,
@@ -149,7 +150,7 @@ export async function upsertSubscription(params: {
             current_period_end,
             cancel_at_period_end,
             updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+        ) VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, NOW())
         ON CONFLICT (user_id) 
         DO UPDATE SET
             plan = COALESCE($2, subscriptions.plan),
