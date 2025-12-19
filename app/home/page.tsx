@@ -1865,6 +1865,8 @@ export default function Page() {
         const fileIdHeader = response.headers.get("X-File-Id")
         const categorizationError = response.headers.get("X-Categorization-Error")
         const categorizationWarning = response.headers.get("X-Categorization-Warning")
+        const aiUsedHeaderVal = response.headers.get("X-AI-Parsing-Used")
+        const aiReasonHeaderVal = response.headers.get("X-AI-Parsing-Reason")
 
         if (!response.ok) {
           // Read response body once - try JSON first, fallback to text
@@ -1972,13 +1974,12 @@ export default function Page() {
         setFileId(fileIdHeader)
         setTransactionCount(count)
 
-        const aiUsed = response.headers.get("X-AI-Parsing-Used") === "true"
+        const aiUsed = aiUsedHeaderVal === "true"
         setWasAIParsed(aiUsed)
 
         if (aiUsed) {
-          const aiReason = response.headers.get("X-AI-Parsing-Reason")
           toast.info("AI Parsing Used", {
-            description: aiReason || "AI was used to parse this file as the standard parser couldn't handle the format.",
+            description: aiReasonHeaderVal || "AI was used to parse this file as the standard parser couldn't handle the format.",
             duration: 5000,
           })
           // If AI was used, show the reparse panel by default so they can refine it

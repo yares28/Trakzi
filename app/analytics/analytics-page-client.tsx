@@ -993,8 +993,8 @@ export default function AnalyticsPage() {
         const fileIdHeader = response.headers.get("X-File-Id")
         const categorizationError = response.headers.get("X-Categorization-Error")
         const categorizationWarning = response.headers.get("X-Categorization-Warning")
-        const aiUsedHeader = response.headers.get("X-AI-Parsing-Used")
-        const aiReasonHeader = response.headers.get("X-AI-Parsing-Reason")
+        const aiUsedHeaderVal = response.headers.get("X-AI-Parsing-Used")
+        const aiReasonHeaderVal = response.headers.get("X-AI-Parsing-Reason")
 
         if (!response.ok) {
           let errorMessage = `HTTP error! status: ${response.status}`
@@ -1072,13 +1072,13 @@ export default function AnalyticsPage() {
         setTransactionCount(count)
 
         // Set AI parsed state
-        const aiUsed = aiUsedHeader === "true"
+        const aiUsed = aiUsedHeaderVal === "true"
         setWasAIParsed(aiUsed)
 
         if (aiUsed) {
           setShowReparsePanel(true)
           toast.info("AI-Powered Parsing Used", {
-            description: `We used AI to process this file (${aiReasonHeader || "automatic fallback"}). Review the results below.`,
+            description: `We used AI to process this file (${aiReasonHeaderVal || "automatic fallback"}). Review the results below.`,
             duration: 5000,
           })
         }
