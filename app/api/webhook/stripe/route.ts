@@ -224,7 +224,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
     const customerId = subscription.customer;
     const priceId = subscription.items.data[0]?.price.id;
-    const plan = getPlanFromPriceId(priceId || '');
+    const newPlan = getPlanFromPriceId(priceId || '');
     const status = mapStripeStatus(subscription.status);
     const periodEnd = safeTimestampToDate(subscription.current_period_end);
 
@@ -232,6 +232,9 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
     const existingSub = await getSubscriptionByStripeCustomerId(customerId);
 
     let userId: string;
+
+    // Plan hierarchy for comparison
+    const PLAN_HIERARCHY: Record<string, number> = { free: 0, pro: 1, max: 2 };
 
     if (!existingSub) {
         // Check metadata for userId (from subscription creation)
@@ -244,7 +247,7 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
 
         await upsertSubscription({
             userId,
-            plan,
+            plan: newPlan,
             status,
             stripeCustomerId: customerId,
             stripeSubscriptionId: subscription.id,
@@ -252,23 +255,56 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
             currentPeriodEnd: periodEnd ?? undefined,
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
         });
+
+        // Sync to Clerk
+        await syncSubscriptionToClerk(userId, newPlan, status, customerId, periodEnd);
     } else {
         userId = existingSub.userId;
-        await upsertSubscription({
-            userId,
-            plan,
-            status,
-            stripeSubscriptionId: subscription.id,
-            stripePriceId: priceId,
-            currentPeriodEnd: periodEnd ?? undefined,
-            cancelAtPeriodEnd: subscription.cancel_at_period_end,
-        });
+        const currentPlan = existingSub.plan;
+
+        // Check if this is a downgrade
+        const currentTier = PLAN_HIERARCHY[currentPlan] ?? 0;
+        const newTier = PLAN_HIERARCHY[newPlan] ?? 0;
+        const isDowngrade = newTier < currentTier;
+
+        // Check if we're at the period end (renewal time) - time to apply pending changes
+        const now = new Date();
+        const isAtPeriodEnd = periodEnd && Math.abs(now.getTime() - periodEnd.getTime()) < 60000; // Within 1 minute
+
+        if (isDowngrade && !isAtPeriodEnd) {
+            // Downgrade: Keep current plan, set pending plan
+            console.log(`[Webhook] Downgrade detected from ${currentPlan} to ${newPlan}, setting as pending`);
+            await upsertSubscription({
+                userId,
+                plan: currentPlan, // Keep current plan
+                status,
+                stripeSubscriptionId: subscription.id,
+                stripePriceId: priceId,
+                currentPeriodEnd: periodEnd ?? undefined,
+                cancelAtPeriodEnd: subscription.cancel_at_period_end,
+                pendingPlan: newPlan, // Set as pending
+            });
+
+            // Don't update Clerk - user still has their current plan
+            console.log(`[Webhook] Subscription downgrade scheduled for customer ${customerId}`);
+        } else {
+            // Upgrade or renewal: Apply new plan immediately, clear pending
+            await upsertSubscription({
+                userId,
+                plan: newPlan,
+                status,
+                stripeSubscriptionId: subscription.id,
+                stripePriceId: priceId,
+                currentPeriodEnd: periodEnd ?? undefined,
+                cancelAtPeriodEnd: subscription.cancel_at_period_end,
+                pendingPlan: null, // Clear any pending plan
+            });
+
+            // Sync to Clerk
+            await syncSubscriptionToClerk(userId, newPlan, status, customerId, periodEnd);
+            console.log(`[Webhook] Subscription updated for customer ${customerId}`);
+        }
     }
-
-    // Sync to Clerk
-    await syncSubscriptionToClerk(userId, plan, status, customerId, periodEnd);
-
-    console.log(`[Webhook] Subscription updated for customer ${customerId}`);
 }
 
 /**
