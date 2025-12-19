@@ -10,6 +10,20 @@ import { clerkClient } from '@clerk/nextjs/server';
 // Plan hierarchy for determining upgrade vs downgrade
 const PLAN_HIERARCHY = { free: 0, pro: 1, max: 2 } as const;
 
+/**
+ * Safely convert Unix timestamp to Date
+ */
+function safeTimestampToDate(timestamp: number | undefined | null): Date | null {
+    if (timestamp === undefined || timestamp === null || isNaN(timestamp)) {
+        return null;
+    }
+    const date = new Date(timestamp * 1000);
+    if (isNaN(date.getTime())) {
+        return null;
+    }
+    return date;
+}
+
 export async function POST(request: NextRequest) {
     try {
         const { userId } = await auth();
@@ -76,15 +90,46 @@ export async function POST(request: NextRequest) {
 
         // Case 2: User has an active subscription - update it
         const stripe = getStripe();
-        const currentPlan = subscription.plan as keyof typeof PLAN_HIERARCHY;
-        const isUpgrade = PLAN_HIERARCHY[targetPlan as keyof typeof PLAN_HIERARCHY] > PLAN_HIERARCHY[currentPlan];
-        const isDowngrade = PLAN_HIERARCHY[targetPlan as keyof typeof PLAN_HIERARCHY] < PLAN_HIERARCHY[currentPlan];
+
+        // Normalize plan names to lowercase for comparison
+        const currentPlanLower = subscription.plan.toLowerCase() as keyof typeof PLAN_HIERARCHY;
+        const targetPlanLower = targetPlan.toLowerCase() as keyof typeof PLAN_HIERARCHY;
+
+        // Check if plans are valid
+        if (!(currentPlanLower in PLAN_HIERARCHY)) {
+            console.error(`[Change Plan] Invalid current plan: ${subscription.plan}`);
+            return NextResponse.json(
+                { error: `Invalid current plan: ${subscription.plan}` },
+                { status: 400 }
+            );
+        }
+        if (!(targetPlanLower in PLAN_HIERARCHY)) {
+            console.error(`[Change Plan] Invalid target plan: ${targetPlan}`);
+            return NextResponse.json(
+                { error: `Invalid target plan: ${targetPlan}` },
+                { status: 400 }
+            );
+        }
+
+        const isUpgrade = PLAN_HIERARCHY[targetPlanLower] > PLAN_HIERARCHY[currentPlanLower];
+        const isDowngrade = PLAN_HIERARCHY[targetPlanLower] < PLAN_HIERARCHY[currentPlanLower];
+        const isSamePlan = PLAN_HIERARCHY[targetPlanLower] === PLAN_HIERARCHY[currentPlanLower];
 
         console.log('[Change Plan] Updating subscription:', {
             subscriptionId: subscription.stripeSubscriptionId,
+            currentPlan: currentPlanLower,
+            targetPlan: targetPlanLower,
             isUpgrade,
             isDowngrade,
+            isSamePlan,
         });
+
+        if (isSamePlan) {
+            return NextResponse.json(
+                { error: `You are already on the ${targetPlan.toUpperCase()} plan.` },
+                { status: 400 }
+            );
+        }
 
         // Get current subscription to find the subscription item ID
         const stripeSubscription = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
@@ -98,46 +143,50 @@ export async function POST(request: NextRequest) {
         }
 
         if (isUpgrade) {
-            // Upgrade: Apply immediately with proration
+            // Upgrade: Schedule for next billing period (no immediate charge)
             const updatedSubscription = await stripe.subscriptions.update(
                 subscription.stripeSubscriptionId,
                 {
                     items: [{ id: subscriptionItemId, price: priceId }],
-                    proration_behavior: 'create_prorations',
+                    proration_behavior: 'none', // No immediate charge, just schedule
+                    billing_cycle_anchor: 'unchanged',
                     // If subscription was scheduled to cancel, reactivate it
                     cancel_at_period_end: false,
                 }
             );
 
+            const periodEnd = safeTimestampToDate((updatedSubscription as any).current_period_end);
+
             await upsertSubscription({
                 userId,
-                plan: targetPlan,
+                plan: targetPlanLower,
                 status: 'active',
                 stripeSubscriptionId: subscription.stripeSubscriptionId,
                 stripeCustomerId: subscription.stripeCustomerId ?? undefined,
                 cancelAtPeriodEnd: false,
+                currentPeriodEnd: periodEnd ?? undefined,
             });
 
             // Update Clerk metadata
             const client = await clerkClient();
             await client.users.updateUserMetadata(userId, {
                 publicMetadata: {
-                    subscriptionPlan: targetPlan,
+                    subscriptionPlan: targetPlanLower,
                     subscriptionStatus: 'active',
                 },
             });
 
+            const periodEndStr = periodEnd ? periodEnd.toLocaleDateString() : 'your next billing date';
+
             return NextResponse.json({
                 action: 'upgraded',
                 success: true,
-                message: `Successfully upgraded to ${targetPlan.toUpperCase()}!`,
+                message: `Successfully scheduled upgrade to ${targetPlan.toUpperCase()}! You'll be charged the new rate on ${periodEndStr}.`,
                 plan: targetPlan,
+                effectiveDate: periodEnd?.toISOString(),
             });
         } else if (isDowngrade) {
-            // Downgrade: Schedule for end of billing period using subscription schedule
-            // Note: For now, we'll apply at period end by setting the new price immediately
-            // but with no proration, so user keeps current plan until renewal
-
+            // Downgrade: Schedule for end of billing period
             const updatedSubscription = await stripe.subscriptions.update(
                 subscription.stripeSubscriptionId,
                 {
@@ -147,33 +196,36 @@ export async function POST(request: NextRequest) {
                 }
             );
 
-            // Get the period end date
-            const periodEnd = new Date((updatedSubscription as any).current_period_end * 1000);
+            // Get the period end date safely
+            const periodEnd = safeTimestampToDate((updatedSubscription as any).current_period_end);
 
             await upsertSubscription({
                 userId,
-                plan: targetPlan,
+                plan: targetPlanLower,
                 status: 'active',
                 stripeSubscriptionId: subscription.stripeSubscriptionId,
                 stripeCustomerId: subscription.stripeCustomerId ?? undefined,
                 cancelAtPeriodEnd: false,
+                currentPeriodEnd: periodEnd ?? undefined,
             });
 
             // Update Clerk metadata
             const client = await clerkClient();
             await client.users.updateUserMetadata(userId, {
                 publicMetadata: {
-                    subscriptionPlan: targetPlan,
+                    subscriptionPlan: targetPlanLower,
                     subscriptionStatus: 'active',
                 },
             });
 
+            const periodEndStr = periodEnd ? periodEnd.toLocaleDateString() : 'the end of your billing period';
+
             return NextResponse.json({
                 action: 'downgraded',
                 success: true,
-                message: `Plan changed to ${targetPlan.toUpperCase()}. Your current benefits remain active until ${periodEnd.toLocaleDateString()}.`,
+                message: `Plan changed to ${targetPlan.toUpperCase()}. Your current benefits remain active until ${periodEndStr}.`,
                 plan: targetPlan,
-                effectiveDate: periodEnd.toISOString(),
+                effectiveDate: periodEnd?.toISOString(),
             });
         }
 

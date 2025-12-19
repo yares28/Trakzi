@@ -8,6 +8,20 @@ import { getUserSubscription, upsertSubscription } from '@/lib/subscriptions';
 import { clerkClient } from '@clerk/nextjs/server';
 import type Stripe from 'stripe';
 
+/**
+ * Safely convert Unix timestamp to Date
+ */
+function safeTimestampToDate(timestamp: number | undefined | null): Date | null {
+    if (timestamp === undefined || timestamp === null || isNaN(timestamp)) {
+        return null;
+    }
+    const date = new Date(timestamp * 1000);
+    if (isNaN(date.getTime())) {
+        return null;
+    }
+    return date;
+}
+
 export async function POST() {
     try {
         // Get authenticated user
@@ -86,9 +100,9 @@ export async function POST() {
             { cancel_at_period_end: true }
         );
 
-        // Extract values from Stripe response (use type assertion for proper typing)
+        // Extract values from Stripe response safely
         const currentPeriodEndTimestamp = (stripeSubResult as unknown as { current_period_end: number }).current_period_end;
-        const periodEndDate = new Date(currentPeriodEndTimestamp * 1000);
+        const periodEndDate = safeTimestampToDate(currentPeriodEndTimestamp);
 
         console.log('[Cancel Subscription] Stripe subscription updated:', {
             id: stripeSubResult.id,
@@ -102,7 +116,7 @@ export async function POST() {
             plan: subscription.plan,
             status: 'active', // Still active until period end
             cancelAtPeriodEnd: true,
-            currentPeriodEnd: periodEndDate,
+            currentPeriodEnd: periodEndDate ?? undefined,
         });
 
         // Update Clerk metadata
@@ -114,10 +128,12 @@ export async function POST() {
             },
         });
 
+        const periodEndStr = periodEndDate ? periodEndDate.toLocaleDateString() : 'the end of your billing period';
+
         return NextResponse.json({
             success: true,
-            message: `Your subscription will be cancelled at the end of your billing period on ${periodEndDate.toLocaleDateString()}.`,
-            cancelDate: periodEndDate.toISOString(),
+            message: `Your subscription will be cancelled at the end of your billing period on ${periodEndStr}.`,
+            cancelDate: periodEndDate?.toISOString(),
             immediate: false,
         });
     } catch (error: any) {
