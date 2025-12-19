@@ -78,21 +78,18 @@ export default function TermsPage() {
                         </section>
 
                         <section>
-                            <h2 className="text-xl font-semibold text-white mb-4">7. Subscription Trial, Billing, and Cancellation</h2>
+                            <h2 className="text-xl font-semibold text-white mb-4">7. Subscription Billing and Cancellation</h2>
 
-                            <h3 className="text-lg font-medium text-white mb-2">7.1 Trial</h3>
-                            <p className="mb-4">Trakzi may offer a 1-month free trial for Pro. If you do not cancel before the end of the trial, your subscription will renew and you will be charged the subscription fee.</p>
-
-                            <h3 className="text-lg font-medium text-white mb-2">7.2 Auto-renewal</h3>
+                            <h3 className="text-lg font-medium text-white mb-2">7.1 Auto-renewal</h3>
                             <p className="mb-4">Subscriptions renew automatically (monthly or yearly) until cancelled.</p>
 
-                            <h3 className="text-lg font-medium text-white mb-2">7.3 Cancellation</h3>
+                            <h3 className="text-lg font-medium text-white mb-2">7.2 Cancellation</h3>
                             <p className="mb-4">You can cancel at any time. Cancellation takes effect at the end of the current billing period; you keep access until then.</p>
 
-                            <h3 className="text-lg font-medium text-white mb-2">7.4 Refunds</h3>
+                            <h3 className="text-lg font-medium text-white mb-2">7.3 Refunds</h3>
                             <p className="mb-4">Refunds are case-by-case at Trakzi&apos;s reasonable discretion. Contact <a href="mailto:help@trakzi.com" className="text-primary hover:underline">help@trakzi.com</a> with details.</p>
 
-                            <h3 className="text-lg font-medium text-white mb-2">7.5 Right of Withdrawal (EU Consumers)</h3>
+                            <h3 className="text-lg font-medium text-white mb-2">7.4 Right of Withdrawal (EU Consumers)</h3>
                             <p>If you are an EU consumer buying online, you may have a 14-day right of withdrawal for distance contracts, subject to exceptions—particularly for services that begin immediately with your consent and acknowledgement. If you request immediate access to the Service during the withdrawal period, you acknowledge this may affect your withdrawal right as permitted by law.</p>
                         </section>
 

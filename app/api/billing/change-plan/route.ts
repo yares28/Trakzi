@@ -143,16 +143,18 @@ export async function POST(request: NextRequest) {
         }
 
         if (isUpgrade) {
-            // Upgrade: Schedule for next billing period (no immediate charge)
-            // But give immediate access to higher features
+            // Upgrade: Charge immediately with proration
+            // User pays the prorated difference NOW and gets immediate access
             const updatedSubscription = await stripe.subscriptions.update(
                 subscription.stripeSubscriptionId,
                 {
                     items: [{ id: subscriptionItemId, price: priceId }],
-                    proration_behavior: 'none', // No immediate charge, just schedule
+                    proration_behavior: 'always_invoice', // Charge prorated difference immediately
                     billing_cycle_anchor: 'unchanged',
                     // If subscription was scheduled to cancel, reactivate it
                     cancel_at_period_end: false,
+                    // Handle payment failures gracefully
+                    payment_behavior: 'error_if_incomplete',
                 }
             );
 

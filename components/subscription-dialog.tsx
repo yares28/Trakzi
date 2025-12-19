@@ -307,24 +307,54 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
         nextBillingAmount: string | null;
         currency: string;
     }>({ loading: false, error: null, prorationAmount: null, daysRemaining: null, nextBillingAmount: null, currency: 'eur' });
+    // Downgrade cap preview state
+    const [downgradeCapInfo, setDowngradeCapInfo] = useState<{
+        currentTotal: number;
+        targetCap: number;
+        toDelete: number;
+    } | null>(null);
+
+    // Plan caps for downgrade warning
+    const PLAN_CAPS: Record<PlanType, number> = { free: 400, pro: 3000, max: 15000 };
+
+    // Fetch subscription status with usage data
+    const fetchStatus = async () => {
+        try {
+            const response = await fetch("/api/subscription/me");
+            if (!response.ok) throw new Error("Failed to fetch");
+            const data = await response.json();
+            // Transform to expected format
+            setStatus({
+                plan: data.plan,
+                status: data.status,
+                limits: data.limits || {},
+                usage: {
+                    bankTransactions: data.usage?.bank_transactions || 0,
+                    fridgeItems: data.usage?.receipt_transactions || 0,
+                    totalTransactions: data.used_total || 0,
+                    transactionLimit: data.cap || 400,
+                    percentUsed: data.cap > 0 ? Math.round((data.used_total / data.cap) * 100) : 0,
+                },
+                subscription: {
+                    currentPeriodEnd: data.current_period_end,
+                    cancelAtPeriodEnd: data.cancel_at_period_end,
+                },
+            });
+        } catch (err) {
+            setError("Unable to load subscription info");
+        }
+    };
 
     useEffect(() => {
         if (!open) return;
 
-        async function fetchStatus() {
-            setIsLoading(true);
-            try {
-                const response = await fetch("/api/subscription/status");
-                if (!response.ok) throw new Error("Failed to fetch");
-                const data = await response.json();
-                setStatus(data);
-            } catch (err) {
-                setError("Unable to load subscription info");
-            } finally {
-                setIsLoading(false);
-            }
-        }
-        fetchStatus();
+        setIsLoading(true);
+        fetchStatus().finally(() => setIsLoading(false));
+
+        // Polling while dialog is open (every 5 seconds)
+        const pollInterval = setInterval(fetchStatus, 5000);
+
+        return () => clearInterval(pollInterval);
     }, [open]);
 
     // Format date for display
@@ -373,6 +403,39 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
             }
         } catch (err) {
             console.error("Cancel subscription error:", err);
+            toast.error("Failed to cancel subscription");
+        } finally {
+            setIsManaging(false);
+        }
+    };
+
+    const handleCancelNow = async () => {
+        setIsManaging(true);
+        try {
+            const response = await fetch("/api/billing/cancel-now", {
+                method: "POST",
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                toast.success("Subscription cancelled immediately", {
+                    description: data.message,
+                    duration: 5000,
+                });
+                // Refresh the subscription status
+                const statusResponse = await fetch("/api/subscription/status");
+                if (statusResponse.ok) {
+                    const newStatus = await statusResponse.json();
+                    setStatus(newStatus);
+                }
+                setShowCancelConfirm(false);
+            } else if (data.error) {
+                toast.error(data.error);
+            } else {
+                toast.error("Unable to cancel subscription");
+            }
+        } catch (err) {
+            console.error("Cancel now error:", err);
             toast.error("Failed to cancel subscription");
         } finally {
             setIsManaging(false);
@@ -509,6 +572,13 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
     };
 
     const confirmDowngrade = (plan: PlanType) => {
+        // Calculate cap warning info
+        if (status) {
+            const currentTotal = status.usage.totalTransactions;
+            const targetCap = PLAN_CAPS[plan];
+            const toDelete = Math.max(0, currentTotal - targetCap);
+            setDowngradeCapInfo({ currentTotal, targetCap, toDelete });
+        }
         setShowDowngradeConfirm(plan);
     };
 
@@ -709,16 +779,26 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                             </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter className="gap-2 sm:gap-0">
+                    <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:gap-2">
                         <AlertDialogCancel className="font-semibold">Keep My Subscription</AlertDialogCancel>
                         <AlertDialogAction
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            className="bg-amber-600 text-white hover:bg-amber-700"
                             onClick={() => {
                                 setShowCancelConfirm(false);
                                 handleManageSubscription();
                             }}
                         >
-                            Yes, Cancel Subscription
+                            Cancel at Period End
+                        </AlertDialogAction>
+                        <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={handleCancelNow}
+                            disabled={isManaging}
+                        >
+                            {isManaging ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : null}
+                            Cancel Now
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -858,6 +938,28 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Auto-delete warning if over cap */}
+                                {downgradeCapInfo && downgradeCapInfo.toDelete > 0 && (
+                                    <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4">
+                                        <div className="flex items-start gap-3">
+                                            <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="text-sm font-medium text-destructive">
+                                                    Transaction Limit Warning
+                                                </p>
+                                                <p className="text-sm text-muted-foreground mt-1">
+                                                    You have <strong>{downgradeCapInfo.currentTotal.toLocaleString()}</strong> transactions,
+                                                    but the {showDowngradeConfirm?.toUpperCase()} plan allows only <strong>{downgradeCapInfo.targetCap.toLocaleString()}</strong>.
+                                                </p>
+                                                <p className="text-sm text-destructive mt-2">
+                                                    If you don't delete <strong>{downgradeCapInfo.toDelete.toLocaleString()}</strong> transactions
+                                                    before {billingDate}, Trakzi will automatically delete your oldest transactions to fit the plan.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <p className="text-xs text-muted-foreground">
                                     You can upgrade again anytime to restore these features.

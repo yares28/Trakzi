@@ -588,7 +588,7 @@ export function SubscriptionCard() {
                     {/* Pending plan info */}
                     {status.subscription?.pendingPlan && (
                         <div className="mt-2 text-sm text-amber-600 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
-                            Your plan will change to <strong>{status.subscription.pendingPlan.toUpperCase()}</strong> on {shortBillingDate}
+                            Your plan will change to <strong>{status.subscription.pendingPlan.toUpperCase()}</strong> on {shortBillingDate || "your next billing date"}
                         </div>
                     )}
                 </CardHeader>
@@ -612,10 +612,10 @@ export function SubscriptionCard() {
                         ))}
                     </div>
                 </CardContent>
-            </Card>
+            </Card >
 
             {/* Cancel Confirmation Dialog - Enhanced */}
-            <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+            < AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm} >
                 <AlertDialogContent className="max-w-md">
                     <AlertDialogHeader>
                         <div className="flex items-center gap-3 mb-2">
@@ -671,10 +671,11 @@ export function SubscriptionCard() {
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
-            </AlertDialog>
+            </AlertDialog >
 
             {/* Upgrade Confirmation Dialog */}
-            <AlertDialog open={!!showUpgradeConfirm} onOpenChange={(open) => !open && setShowUpgradeConfirm(null)}>
+            < AlertDialog open={!!showUpgradeConfirm
+            } onOpenChange={(open) => !open && setShowUpgradeConfirm(null)}>
                 <AlertDialogContent className="max-w-md">
                     <AlertDialogHeader>
                         <div className="flex items-center gap-3 mb-2">
@@ -744,10 +745,10 @@ export function SubscriptionCard() {
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
-            </AlertDialog>
+            </AlertDialog >
 
             {/* Downgrade Confirmation Dialog - Enhanced */}
-            <AlertDialog open={!!showDowngradeConfirm} onOpenChange={(open) => !open && setShowDowngradeConfirm(null)}>
+            < AlertDialog open={!!showDowngradeConfirm} onOpenChange={(open) => !open && setShowDowngradeConfirm(null)}>
                 <AlertDialogContent className="max-w-md">
                     <AlertDialogHeader>
                         <div className="flex items-center gap-3 mb-2">
@@ -832,7 +833,7 @@ export function SubscriptionCard() {
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
-            </AlertDialog>
+            </AlertDialog >
         </>
     );
 }

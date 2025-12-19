@@ -4,7 +4,7 @@
 import { neonQuery } from './neonClient';
 
 export type PlanType = 'free' | 'pro' | 'max';
-export type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'trialing' | 'paused';
+export type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'paused';
 
 export interface Subscription {
     id: string;
@@ -98,8 +98,8 @@ export async function getUserPlan(userId: string): Promise<PlanType> {
         return 'free';
     }
 
-    // Check if subscription is active or trialing
-    if (['active', 'trialing'].includes(subscription.status)) {
+    // Check if subscription is active
+    if (subscription.status === 'active') {
         return subscription.plan;
     }
 
@@ -226,9 +226,8 @@ export async function syncSubscriptionToClerk(
 export function mapStripeStatus(stripeStatus: string): SubscriptionStatus {
     switch (stripeStatus) {
         case 'active':
+        case 'trialing': // Treat trialing as active (no trial policy)
             return 'active';
-        case 'trialing':
-            return 'trialing';
         case 'past_due':
         case 'unpaid':
             return 'past_due';

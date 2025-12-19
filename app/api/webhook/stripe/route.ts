@@ -6,7 +6,8 @@ import { headers } from 'next/headers';
 import Stripe from 'stripe';
 import { clerkClient } from '@clerk/nextjs/server';
 import { getStripe, getPlanFromPriceId } from '@/lib/stripe';
-import { upsertSubscription, getSubscriptionByStripeCustomerId } from '@/lib/subscriptions';
+import { upsertSubscription, getSubscriptionByStripeCustomerId, mapStripeStatus } from '@/lib/subscriptions';
+import { enforceTransactionCap, getTransactionCap } from '@/lib/limits/transactions-cap';
 
 // Disable body parsing - we need raw body for signature verification
 export const runtime = 'nodejs';
@@ -203,7 +204,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     await upsertSubscription({
         userId,
         plan,
-        status: subscription.status === 'active' ? 'active' : 'trialing',
+        status: 'active', // Always active, no trial
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscriptionId,
         stripePriceId: priceId,
@@ -211,9 +212,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
     });
 
-    // Sync to Clerk
-    const status = subscription.status === 'active' ? 'active' : 'trialing';
-    await syncSubscriptionToClerk(userId, plan, status, customerId, periodEnd);
+    // Sync to Clerk - always 'active' (no trial)
+    await syncSubscriptionToClerk(userId, plan, 'active', customerId, periodEnd);
 
     console.log(`[Webhook] Subscription created for user ${userId}, plan: ${plan}`);
 }
@@ -288,7 +288,11 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
             // Don't update Clerk - user still has their current plan
             console.log(`[Webhook] Subscription downgrade scheduled for customer ${customerId}`);
         } else {
-            // Upgrade or renewal: Apply new plan immediately, clear pending
+            // Upgrade or renewal at period end: Apply new plan immediately, clear pending
+            // If this is a downgrade being applied at period end, enforce cap
+            const isPendingDowngradeApplied = existingSub.pendingPlan &&
+                PLAN_HIERARCHY[existingSub.pendingPlan as keyof typeof PLAN_HIERARCHY] < PLAN_HIERARCHY[currentPlan];
+
             await upsertSubscription({
                 userId,
                 plan: newPlan,
@@ -299,6 +303,16 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
                 cancelAtPeriodEnd: subscription.cancel_at_period_end,
                 pendingPlan: null, // Clear any pending plan
             });
+
+            // If downgrade was just applied, enforce cap by deleting oldest transactions
+            if (isPendingDowngradeApplied || isDowngrade) {
+                const newCap = getTransactionCap(newPlan);
+                console.log(`[Webhook] Downgrade applied to ${newPlan}, enforcing cap of ${newCap}`);
+                const result = await enforceTransactionCap(userId, newCap);
+                if (result.deleted > 0) {
+                    console.log(`[Webhook] Auto-deleted ${result.deleted} transactions for user ${userId} to fit ${newPlan} cap`);
+                }
+            }
 
             // Sync to Clerk
             await syncSubscriptionToClerk(userId, newPlan, status, customerId, periodEnd);
@@ -442,22 +456,4 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
     console.log(`[Webhook] Subscription cancelled due to refund for user ${existingSub.userId}`);
 }
 
-/**
- * Map Stripe subscription status to our status
- */
-function mapStripeStatus(stripeStatus: string): 'active' | 'canceled' | 'past_due' | 'trialing' {
-    switch (stripeStatus) {
-        case 'active':
-            return 'active';
-        case 'trialing':
-            return 'trialing';
-        case 'past_due':
-        case 'unpaid':
-            return 'past_due';
-        case 'canceled':
-        case 'incomplete_expired':
-            return 'canceled';
-        default:
-            return 'active';
-    }
-}
+// Note: mapStripeStatus is now imported from lib/subscriptions.ts

@@ -251,3 +251,170 @@ export function isLimitExceededResponse(response: unknown): response is LimitExc
         (response as LimitExceededResponse).code === 'LIMIT_EXCEEDED'
     );
 }
+
+// ============================================================================
+// AUTO-DELETE ON DOWNGRADE
+// ============================================================================
+
+interface OldestTransaction {
+    source_table: 'transactions' | 'receipt_transactions';
+    id: number;
+    ts: Date;
+}
+
+/**
+ * Get the oldest transactions across both tables that need to be deleted
+ * to fit within a target cap. Orders by timestamp ASC (oldest first).
+ */
+export async function getOldestTransactionsToDelete(
+    userId: string,
+    countToDelete: number
+): Promise<OldestTransaction[]> {
+    if (countToDelete <= 0) {
+        return [];
+    }
+
+    const result = await neonQuery<{ source_table: string; id: string; ts: string }>(`
+        WITH oldest AS (
+            SELECT 'transactions' AS source_table, 
+                   id::text, 
+                   (tx_date + COALESCE(tx_time, '00:00:00'::time))::timestamp AS ts
+            FROM transactions WHERE user_id = $1
+            UNION ALL
+            SELECT 'receipt_transactions' AS source_table, 
+                   id::text, 
+                   (receipt_date + COALESCE(receipt_time, '00:00:00'::time))::timestamp AS ts
+            FROM receipt_transactions WHERE user_id = $1
+        )
+        SELECT source_table, id, ts::text 
+        FROM oldest 
+        ORDER BY ts ASC, id ASC 
+        LIMIT $2
+    `, [userId, countToDelete]);
+
+    return result.map(row => ({
+        source_table: row.source_table as 'transactions' | 'receipt_transactions',
+        id: parseInt(row.id),
+        ts: new Date(row.ts),
+    }));
+}
+
+/**
+ * Delete specific transactions by table and ID
+ */
+async function deleteTransactionsByTableAndIds(
+    userId: string,
+    table: 'transactions' | 'receipt_transactions',
+    ids: number[]
+): Promise<number> {
+    if (ids.length === 0) return 0;
+
+    const result = await neonQuery<{ count: string }>(`
+        WITH deleted AS (
+            DELETE FROM ${table}
+            WHERE user_id = $1 AND id = ANY($2::int[])
+            RETURNING id
+        )
+        SELECT COUNT(*)::text as count FROM deleted
+    `, [userId, ids]);
+
+    return parseInt(result[0]?.count || '0');
+}
+
+/**
+ * Enforce transaction cap by deleting oldest transactions.
+ * Called when a user downgrades to a plan with a lower cap.
+ * 
+ * @returns Object with count of deleted transactions per table
+ */
+export async function enforceTransactionCap(
+    userId: string,
+    targetCap: number
+): Promise<{
+    deleted: number;
+    tables: {
+        transactions: number;
+        receipt_transactions: number;
+    };
+    remaining: number;
+}> {
+    // Get current usage
+    const counts = await getTransactionCount(userId);
+    const currentTotal = counts.total;
+
+    // Calculate how many to delete
+    const toDelete = Math.max(0, currentTotal - targetCap);
+
+    if (toDelete === 0) {
+        return {
+            deleted: 0,
+            tables: { transactions: 0, receipt_transactions: 0 },
+            remaining: targetCap - currentTotal,
+        };
+    }
+
+    console.log(`[Cap Enforcement] User ${userId}: need to delete ${toDelete} transactions (${currentTotal} current, ${targetCap} cap)`);
+
+    // Get oldest transactions to delete
+    const oldest = await getOldestTransactionsToDelete(userId, toDelete);
+
+    // Group by table
+    const byTable: Record<string, number[]> = {
+        transactions: [],
+        receipt_transactions: [],
+    };
+
+    for (const tx of oldest) {
+        byTable[tx.source_table].push(tx.id);
+    }
+
+    // Delete from each table
+    const deletedFromTransactions = await deleteTransactionsByTableAndIds(
+        userId,
+        'transactions',
+        byTable.transactions
+    );
+
+    const deletedFromReceipts = await deleteTransactionsByTableAndIds(
+        userId,
+        'receipt_transactions',
+        byTable.receipt_transactions
+    );
+
+    const totalDeleted = deletedFromTransactions + deletedFromReceipts;
+
+    console.log(`[Cap Enforcement] User ${userId}: deleted ${totalDeleted} transactions (${deletedFromTransactions} bank, ${deletedFromReceipts} receipts)`);
+
+    return {
+        deleted: totalDeleted,
+        tables: {
+            transactions: deletedFromTransactions,
+            receipt_transactions: deletedFromReceipts,
+        },
+        remaining: targetCap - (currentTotal - totalDeleted),
+    };
+}
+
+/**
+ * Calculate how many transactions would need to be deleted for a given target cap
+ */
+export async function calculateDeletionsForCap(
+    userId: string,
+    targetCap: number
+): Promise<{
+    currentTotal: number;
+    targetCap: number;
+    toDelete: number;
+    wouldExceed: boolean;
+}> {
+    const counts = await getTransactionCount(userId);
+    const toDelete = Math.max(0, counts.total - targetCap);
+
+    return {
+        currentTotal: counts.total,
+        targetCap,
+        toDelete,
+        wouldExceed: toDelete > 0,
+    };
+}
+
