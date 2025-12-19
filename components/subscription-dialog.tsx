@@ -298,6 +298,15 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
     const [showDowngradeConfirm, setShowDowngradeConfirm] = useState<PlanType | null>(null);
     const [showUpgradeConfirm, setShowUpgradeConfirm] = useState<PlanType | null>(null);
+    // Upgrade preview state
+    const [upgradePreview, setUpgradePreview] = useState<{
+        loading: boolean;
+        error: string | null;
+        prorationAmount: string | null;
+        daysRemaining: number | null;
+        nextBillingAmount: string | null;
+        currency: string;
+    }>({ loading: false, error: null, prorationAmount: null, daysRemaining: null, nextBillingAmount: null, currency: 'eur' });
 
     useEffect(() => {
         if (!open) return;
@@ -503,13 +512,44 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
         setShowDowngradeConfirm(plan);
     };
 
-    const confirmUpgrade = (plan: PlanType) => {
+    const confirmUpgrade = async (plan: PlanType) => {
         // For free users, go directly to checkout (no confirmation needed)
         if (!status || status.plan === 'free' || !status.subscription) {
             handleUpgrade(plan);
         } else {
-            // For paid users upgrading, show confirmation
+            // For paid users upgrading, show confirmation with proration preview
             setShowUpgradeConfirm(plan);
+            setUpgradePreview({ loading: true, error: null, prorationAmount: null, daysRemaining: null, nextBillingAmount: null, currency: 'eur' });
+
+            try {
+                const priceId = getPriceIdForPlan(plan);
+                if (!priceId) {
+                    setUpgradePreview(prev => ({ ...prev, loading: false, error: 'Unable to get pricing information' }));
+                    return;
+                }
+
+                const response = await fetch('/api/billing/preview-upgrade', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ targetPriceId: priceId }),
+                });
+                const data = await response.json();
+
+                if (data.error) {
+                    setUpgradePreview(prev => ({ ...prev, loading: false, error: data.error }));
+                } else {
+                    setUpgradePreview({
+                        loading: false,
+                        error: null,
+                        prorationAmount: data.prorationAmountFormatted,
+                        daysRemaining: data.daysRemaining,
+                        nextBillingAmount: data.nextBillingAmountFormatted,
+                        currency: data.currency || 'eur',
+                    });
+                }
+            } catch (err) {
+                setUpgradePreview(prev => ({ ...prev, loading: false, error: 'Failed to calculate upgrade cost' }));
+            }
         }
     };
 
@@ -840,6 +880,124 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                             }}
                         >
                             Yes, Downgrade
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Upgrade Confirmation Dialog with Payment Preview */}
+            <AlertDialog open={!!showUpgradeConfirm} onOpenChange={(open) => !open && setShowUpgradeConfirm(null)}>
+                <AlertDialogContent className="sm:max-w-md">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <ArrowUp className="h-5 w-5 text-primary" />
+                            Upgrade to {showUpgradeConfirm?.toUpperCase()}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-4">
+                                {upgradePreview.loading ? (
+                                    <div className="flex items-center justify-center py-6">
+                                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                        <span className="ml-2 text-sm">Calculating your upgrade cost...</span>
+                                    </div>
+                                ) : upgradePreview.error ? (
+                                    <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 text-center">
+                                        <p className="text-sm text-destructive">{upgradePreview.error}</p>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            You can still proceed, but the exact amount will be shown at checkout.
+                                        </p>
+                                    </div>
+                                ) : upgradePreview.prorationAmount ? (
+                                    <div className="space-y-4">
+                                        {/* Payment breakdown */}
+                                        <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-muted-foreground">Pay now (prorated)</span>
+                                                <span className="text-lg font-bold text-primary">
+                                                    €{upgradePreview.prorationAmount}
+                                                </span>
+                                            </div>
+                                            <div className="border-t border-border pt-3">
+                                                <p className="text-xs text-muted-foreground">
+                                                    This covers the {upgradePreview.daysRemaining} days remaining in your current billing period.
+                                                </p>
+                                            </div>
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="text-muted-foreground">Next month onwards</span>
+                                                <span className="font-medium">
+                                                    €{showUpgradeConfirm === 'max' ? '19.99' : '4.99'}/month
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* What you'll get */}
+                                        <div>
+                                            <p className="text-sm font-medium mb-2">What you'll get:</p>
+                                            <ul className="text-sm text-muted-foreground space-y-1">
+                                                {showUpgradeConfirm === 'max' ? (
+                                                    <>
+                                                        <li className="flex items-center gap-2">
+                                                            <Check className="h-3.5 w-3.5 text-green-500" />
+                                                            Unlimited transactions
+                                                        </li>
+                                                        <li className="flex items-center gap-2">
+                                                            <Check className="h-3.5 w-3.5 text-green-500" />
+                                                            Priority support
+                                                        </li>
+                                                        <li className="flex items-center gap-2">
+                                                            <Check className="h-3.5 w-3.5 text-green-500" />
+                                                            Early access to new features
+                                                        </li>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <li className="flex items-center gap-2">
+                                                            <Check className="h-3.5 w-3.5 text-green-500" />
+                                                            3,000 transactions
+                                                        </li>
+                                                        <li className="flex items-center gap-2">
+                                                            <Check className="h-3.5 w-3.5 text-green-500" />
+                                                            Unlimited AI chat
+                                                        </li>
+                                                        <li className="flex items-center gap-2">
+                                                            <Check className="h-3.5 w-3.5 text-green-500" />
+                                                            CSV export
+                                                        </li>
+                                                    </>
+                                                )}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">
+                                        Your payment method on file will be charged the prorated amount for the upgrade.
+                                    </p>
+                                )}
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="gap-2 sm:gap-0">
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            disabled={upgradePreview.loading}
+                            className={showUpgradeConfirm === 'max'
+                                ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+                                : "bg-gradient-to-r from-primary to-primary/80"
+                            }
+                            onClick={() => {
+                                if (showUpgradeConfirm) {
+                                    handleUpgrade(showUpgradeConfirm);
+                                }
+                                setShowUpgradeConfirm(null);
+                            }}
+                        >
+                            {upgradePreview.loading ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : null}
+                            {upgradePreview.prorationAmount
+                                ? `Pay €${upgradePreview.prorationAmount} Now`
+                                : 'Upgrade Now'
+                            }
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
