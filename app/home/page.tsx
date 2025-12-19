@@ -3135,15 +3135,15 @@ export default function Page() {
                     </div>
                   </CardHeader>
                   <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
-                    <div className="h-full max-h-[500px] overflow-auto relative">
+                    <div className="h-full max-h-[500px] overflow-auto rounded-lg border">
                       <Table>
-                        <TableHeader className="sticky top-0 z-20 bg-muted border-b">
+                        <TableHeader className="bg-muted sticky top-0 z-10">
                           <TableRow>
-                            <TableHead className="sticky top-0 z-20 bg-muted">Date</TableHead>
-                            <TableHead className="sticky top-0 z-20 bg-muted">Description</TableHead>
-                            <TableHead className="sticky top-0 z-20 bg-muted text-right">Amount</TableHead>
-                            <TableHead className="sticky top-0 z-20 bg-muted">Category</TableHead>
-                            <TableHead className="sticky top-0 z-20 bg-muted w-12"></TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Description</TableHead>
+                            <TableHead className="text-right">Amount</TableHead>
+                            <TableHead>Category</TableHead>
+                            <TableHead className="w-12"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
