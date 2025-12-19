@@ -29,6 +29,7 @@ const relevantEvents = new Set([
     'customer.subscription.deleted',
     'invoice.payment_succeeded',
     'invoice.payment_failed',
+    'charge.refunded',
 ]);
 
 export async function POST(request: NextRequest) {
@@ -100,6 +101,12 @@ export async function POST(request: NextRequest) {
             case 'invoice.payment_failed': {
                 const invoice = event.data.object as Stripe.Invoice;
                 await handlePaymentFailed(invoice);
+                break;
+            }
+
+            case 'charge.refunded': {
+                const charge = event.data.object as Stripe.Charge;
+                await handleChargeRefunded(charge);
                 break;
             }
 
@@ -303,6 +310,71 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
 
         console.log(`[Webhook] Payment failed for user ${existingSub.userId}, attempt ${attemptCount}`);
     }
+}
+
+/**
+ * Handle charge.refunded - cancel subscription and revoke access
+ * This is triggered when you issue a refund from the Stripe dashboard
+ */
+async function handleChargeRefunded(charge: Stripe.Charge) {
+    const customerId = charge.customer as string;
+    const amountRefunded = charge.amount_refunded;
+    const refundedFull = charge.refunded; // true if fully refunded
+
+    console.log(`[Webhook] Charge refunded for customer ${customerId}, amount: ${amountRefunded}, full refund: ${refundedFull}`);
+
+    // Only cancel on full refund (you can adjust this logic if needed)
+    if (!refundedFull) {
+        console.log(`[Webhook] Partial refund - not cancelling subscription`);
+        return;
+    }
+
+    const existingSub = await getSubscriptionByStripeCustomerId(customerId);
+
+    if (!existingSub) {
+        console.log(`[Webhook] No subscription found for customer ${customerId}`);
+        return;
+    }
+
+    // Cancel the subscription in Stripe if it exists
+    if (existingSub.stripeSubscriptionId) {
+        try {
+            const stripe = getStripe();
+            await stripe.subscriptions.cancel(existingSub.stripeSubscriptionId);
+            console.log(`[Webhook] Cancelled Stripe subscription ${existingSub.stripeSubscriptionId}`);
+        } catch (stripeError) {
+            console.error(`[Webhook] Failed to cancel Stripe subscription:`, stripeError);
+            // Continue to update our database even if Stripe cancel fails
+        }
+    }
+
+    // Update our database - downgrade to free and mark as canceled
+    await upsertSubscription({
+        userId: existingSub.userId,
+        plan: 'free',
+        status: 'canceled',
+        cancelAtPeriodEnd: false,
+        currentPeriodEnd: new Date(), // Access ends immediately on refund
+    });
+
+    // Sync to Clerk - mark as canceled/free with refund flag
+    try {
+        const client = await clerkClient();
+        await client.users.updateUserMetadata(existingSub.userId, {
+            publicMetadata: {
+                subscription: {
+                    plan: 'free',
+                    status: 'canceled',
+                    refunded: true,
+                    refundedAt: new Date().toISOString(),
+                },
+            },
+        });
+    } catch (clerkError) {
+        console.error('[Webhook] Failed to sync refund to Clerk:', clerkError);
+    }
+
+    console.log(`[Webhook] Subscription cancelled due to refund for user ${existingSub.userId}`);
 }
 
 /**

@@ -43,6 +43,14 @@ export async function POST() {
             );
         }
 
+        // Check for lifetime subscriptions
+        if (subscription.isLifetime) {
+            return NextResponse.json(
+                { error: 'Lifetime subscriptions cannot be cancelled. Your subscription never expires!' },
+                { status: 400 }
+            );
+        }
+
         if (!subscription.stripeSubscriptionId) {
             // No Stripe subscription ID - just update our database
             console.log('[Cancel Subscription] No Stripe subscription ID, updating database only');

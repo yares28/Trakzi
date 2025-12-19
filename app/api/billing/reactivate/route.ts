@@ -41,6 +41,14 @@ export async function POST() {
             );
         }
 
+        // Check for lifetime subscriptions
+        if (subscription.isLifetime) {
+            return NextResponse.json(
+                { error: 'Your lifetime subscription is already active and never expires!' },
+                { status: 400 }
+            );
+        }
+
         if (!subscription.cancelAtPeriodEnd) {
             return NextResponse.json(
                 { error: 'Your subscription is not scheduled to cancel.' },

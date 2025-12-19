@@ -16,6 +16,7 @@ export interface Subscription {
     stripePriceId: string | null;
     currentPeriodEnd: Date | null;
     cancelAtPeriodEnd: boolean;
+    isLifetime: boolean;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -30,6 +31,7 @@ interface SubscriptionRow {
     stripe_price_id: string | null;
     current_period_end: string | Date | null;
     cancel_at_period_end: boolean;
+    is_lifetime: boolean;
     created_at: string | Date;
     updated_at: string | Date;
 }
@@ -45,6 +47,7 @@ function rowToSubscription(row: SubscriptionRow): Subscription {
         stripePriceId: row.stripe_price_id,
         currentPeriodEnd: row.current_period_end ? new Date(row.current_period_end) : null,
         cancelAtPeriodEnd: row.cancel_at_period_end ?? false,
+        isLifetime: row.is_lifetime ?? false,
         createdAt: new Date(row.created_at),
         updatedAt: new Date(row.updated_at),
     };

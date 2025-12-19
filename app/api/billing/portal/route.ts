@@ -29,8 +29,23 @@ export async function POST() {
         });
 
         if (!subscription?.stripeCustomerId) {
+            // Check if this is a lifetime subscription
+            if (subscription?.isLifetime) {
+                return NextResponse.json(
+                    { error: 'Lifetime subscriptions cannot be managed through the billing portal. Your subscription never expires!' },
+                    { status: 400 }
+                );
+            }
             return NextResponse.json(
                 { error: 'No active subscription found. Please subscribe first.' },
+                { status: 400 }
+            );
+        }
+
+        // Additional check for lifetime subscriptions with customer ID
+        if (subscription.isLifetime) {
+            return NextResponse.json(
+                { error: 'Lifetime subscriptions cannot be managed through the billing portal. Your subscription never expires!' },
                 { status: 400 }
             );
         }

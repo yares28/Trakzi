@@ -62,6 +62,7 @@ model Subscription {
   stripePriceId         String?   @map("stripe_price_id")
   currentPeriodEnd      DateTime? @map("current_period_end")
   cancelAtPeriodEnd     Boolean   @default(false) @map("cancel_at_period_end")
+  isLifetime            Boolean   @default(false) @map("is_lifetime")
   createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt             DateTime  @updatedAt @map("updated_at")
   
