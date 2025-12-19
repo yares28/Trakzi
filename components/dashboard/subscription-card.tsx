@@ -312,10 +312,39 @@ export function SubscriptionCard() {
     useEffect(() => {
         async function fetchStatus() {
             try {
-                const response = await fetch("/api/subscription/status");
+                // Use /api/subscription/me which returns pendingPlan and usage data
+                const response = await fetch("/api/subscription/me");
                 if (!response.ok) throw new Error("Failed to fetch");
                 const data = await response.json();
-                setStatus(data);
+
+                // Transform response to expected format
+                setStatus({
+                    plan: data.plan,
+                    status: data.status,
+                    limits: {
+                        maxTotalTransactions: data.limits?.max_total_transactions ?? 400,
+                        aiChatEnabled: data.limits?.ai_chat_enabled ?? true,
+                        aiChatMessagesPerDay: data.limits?.ai_chat_messages_per_day ?? 5,
+                        aiInsightsEnabled: data.limits?.ai_insights_enabled ?? false,
+                        exportEnabled: data.limits?.export_enabled ?? false,
+                        customTransactionCategoriesLimit: 10,
+                        customFridgeCategoriesLimit: 10,
+                    },
+                    usage: {
+                        bankTransactions: data.usage?.bank_transactions || 0,
+                        fridgeItems: data.usage?.receipt_transactions || 0,
+                        totalTransactions: data.used_total || 0,
+                        transactionLimit: data.cap === -1 ? Infinity : (data.cap || 400),
+                        percentUsed: data.cap > 0 && data.cap !== -1
+                            ? Math.round((data.used_total / data.cap) * 100)
+                            : 0,
+                    },
+                    subscription: {
+                        currentPeriodEnd: data.current_period_end,
+                        cancelAtPeriodEnd: data.cancel_at_period_end,
+                        pendingPlan: data.pending_plan,
+                    },
+                });
             } catch (err) {
                 setError("Unable to load subscription info");
             } finally {
