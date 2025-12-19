@@ -3319,40 +3319,34 @@ export default function Page() {
                       </Table>
                     </div>
                   </CardContent>
-                </Card>
-              )}
 
-              {/* Data looks wrong? Reparse panel */}
-              {parsedCsv && !isParsing && !parseError && !isImporting && !isReparsing && (
-                <div className="space-y-4">
-                  <div
-                    className="flex items-center justify-between px-2 cursor-pointer group"
-                    onClick={() => setShowReparsePanel(!showReparsePanel)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="p-1 rounded bg-muted">
-                        <IconChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", showReparsePanel ? "rotate-180" : "")} />
+                  {/* Data looks wrong? Reparse option - inside the table Card */}
+                  <div className="px-4 pb-4 pt-2 border-t bg-muted/30">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {wasAIParsed && (
+                          <Badge variant="secondary" className="text-[10px] h-5 bg-primary/10 text-primary border-primary/20">
+                            AI-Parsed
+                          </Badge>
+                        )}
+                        <button
+                          onClick={() => setShowReparsePanel(!showReparsePanel)}
+                          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                        >
+                          Data looks wrong?
+                          <IconChevronDown className={cn("w-3 h-3 transition-transform", showReparsePanel && "rotate-180")} />
+                        </button>
                       </div>
-                      <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">
-                        Data looks wrong?
-                      </span>
                     </div>
-                    {wasAIParsed && (
-                      <Badge variant="secondary" className="text-[10px] h-5 bg-primary/10 text-primary border-primary/20">
-                        AI-Parsed
-                      </Badge>
-                    )}
-                  </div>
 
-                  {showReparsePanel && (
-                    <Card className="border-2 border-primary/10 bg-muted/30 shadow-sm animate-in fade-in slide-in-from-top-2">
-                      <CardContent className="pt-4 space-y-4">
+                    {showReparsePanel && (
+                      <div className="mt-3 space-y-3 animate-in fade-in slide-in-from-top-2">
                         <div className="space-y-2">
                           <p className="text-[11px] font-medium text-muted-foreground">
-                            Help AI understand this file better (e.g., "The dates are in US format", "The amount is column B"):
+                            Help AI understand this file better:
                           </p>
                           <Textarea
-                            placeholder="Provide instructions to AI..."
+                            placeholder="e.g., 'Dates are DD/MM/YYYY', 'Skip first 5 rows', 'Amount is column B'..."
                             className="text-xs min-h-[60px] resize-none bg-background focus-visible:ring-primary/30"
                             value={reparseDirective}
                             onChange={(e) => setReparseDirective(e.target.value)}
@@ -3367,10 +3361,10 @@ export default function Page() {
                           <IconUpload className="mr-2 h-3 w-3" />
                           {wasAIParsed ? "Try AI Again" : "Improve results with AI"}
                         </Button>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
+                      </div>
+                    )}
+                  </div>
+                </Card>
               )}
             </div>
           )}
