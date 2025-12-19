@@ -32,6 +32,31 @@ const relevantEvents = new Set([
     'charge.refunded',
 ]);
 
+/**
+ * Safely convert Unix timestamp to Date, returns null if invalid
+ */
+function safeTimestampToDate(timestamp: number | undefined | null): Date | null {
+    if (timestamp === undefined || timestamp === null || isNaN(timestamp)) {
+        return null;
+    }
+    const date = new Date(timestamp * 1000);
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+        return null;
+    }
+    return date;
+}
+
+/**
+ * Safely convert Date to ISO string, returns undefined if invalid
+ */
+function safeDateToISO(date: Date | null | undefined): string | undefined {
+    if (!date || isNaN(date.getTime())) {
+        return undefined;
+    }
+    return date.toISOString();
+}
+
 export async function POST(request: NextRequest) {
     const body = await request.text();
     const headersList = await headers();
@@ -128,7 +153,7 @@ export async function POST(request: NextRequest) {
 /**
  * Sync subscription info to Clerk user metadata
  */
-async function syncSubscriptionToClerk(userId: string, plan: string, status: string, stripeCustomerId: string, currentPeriodEnd: Date) {
+async function syncSubscriptionToClerk(userId: string, plan: string, status: string, stripeCustomerId: string, currentPeriodEnd: Date | null) {
     try {
         const client = await clerkClient();
         await client.users.updateUserMetadata(userId, {
@@ -137,7 +162,7 @@ async function syncSubscriptionToClerk(userId: string, plan: string, status: str
                     plan,
                     status,
                     stripeCustomerId,
-                    currentPeriodEnd: currentPeriodEnd.toISOString(),
+                    currentPeriodEnd: safeDateToISO(currentPeriodEnd),
                     updatedAt: new Date().toISOString(),
                 },
             },
@@ -173,6 +198,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     const priceId = subscription.items.data[0]?.price.id;
     const plan = getPlanFromPriceId(priceId || '');
 
+    const periodEnd = safeTimestampToDate(subscription.current_period_end);
+
     await upsertSubscription({
         userId,
         plan,
@@ -180,13 +207,13 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscriptionId,
         stripePriceId: priceId,
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        currentPeriodEnd: periodEnd ?? undefined,
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
     });
 
     // Sync to Clerk
     const status = subscription.status === 'active' ? 'active' : 'trialing';
-    await syncSubscriptionToClerk(userId, plan, status, customerId, new Date(subscription.current_period_end * 1000));
+    await syncSubscriptionToClerk(userId, plan, status, customerId, periodEnd);
 
     console.log(`[Webhook] Subscription created for user ${userId}, plan: ${plan}`);
 }
@@ -199,6 +226,7 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
     const priceId = subscription.items.data[0]?.price.id;
     const plan = getPlanFromPriceId(priceId || '');
     const status = mapStripeStatus(subscription.status);
+    const periodEnd = safeTimestampToDate(subscription.current_period_end);
 
     // Find user by Stripe customer ID
     const existingSub = await getSubscriptionByStripeCustomerId(customerId);
@@ -221,7 +249,7 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
             stripeCustomerId: customerId,
             stripeSubscriptionId: subscription.id,
             stripePriceId: priceId,
-            currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+            currentPeriodEnd: periodEnd ?? undefined,
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
         });
     } else {
@@ -232,13 +260,13 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
             status,
             stripeSubscriptionId: subscription.id,
             stripePriceId: priceId,
-            currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+            currentPeriodEnd: periodEnd ?? undefined,
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
         });
     }
 
     // Sync to Clerk
-    await syncSubscriptionToClerk(userId, plan, status, customerId, new Date(subscription.current_period_end * 1000));
+    await syncSubscriptionToClerk(userId, plan, status, customerId, periodEnd);
 
     console.log(`[Webhook] Subscription updated for customer ${customerId}`);
 }
@@ -248,6 +276,7 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
  */
 async function handleSubscriptionDeleted(subscription: StripeSubscriptionData) {
     const customerId = subscription.customer;
+    const periodEnd = safeTimestampToDate(subscription.current_period_end);
 
     const existingSub = await getSubscriptionByStripeCustomerId(customerId);
 
@@ -256,7 +285,7 @@ async function handleSubscriptionDeleted(subscription: StripeSubscriptionData) {
             userId: existingSub.userId,
             plan: 'free',
             status: 'canceled',
-            currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+            currentPeriodEnd: periodEnd ?? undefined,
         });
 
         // Sync to Clerk - mark as canceled/free
@@ -265,7 +294,7 @@ async function handleSubscriptionDeleted(subscription: StripeSubscriptionData) {
             'free',
             'canceled',
             customerId,
-            new Date(subscription.current_period_end * 1000)
+            periodEnd
         );
 
         console.log(`[Webhook] Subscription canceled for user ${existingSub.userId}`);
