@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Crown, Zap, AlertCircle, Check, ArrowUp, ArrowDown, Loader2, X } from "lucide-react";
-import Link from "next/link";
 import { toast } from "sonner";
 import Image from "next/image";
 
@@ -105,12 +104,16 @@ function PlanCard({
     isCurrentPlan,
     currentUserPlan,
     onManageSubscription,
+    onUpgrade,
+    onDowngrade,
     isManaging,
 }: {
     plan: PlanType;
     isCurrentPlan: boolean;
     currentUserPlan: PlanType;
     onManageSubscription: () => void;
+    onUpgrade: (plan: PlanType) => void;
+    onDowngrade: (plan: PlanType) => void;
     isManaging: boolean;
 }) {
     const info = PLAN_INFO[plan];
@@ -203,18 +206,27 @@ function PlanCard({
                             <div className="h-9" /> /* Spacer for Free plan */
                         )
                     ) : isUpgrade ? (
-                        <Link href="/#pricing" className="block">
-                            <Button size="sm" className={`w-full ${plan === "max" ? "bg-gradient-to-r from-amber-500 to-orange-500" : "bg-gradient-to-r from-primary to-primary/80"}`}>
-                                <ArrowUp className="h-4 w-4 mr-1" />
-                                Upgrade
-                            </Button>
-                        </Link>
+                        <Button
+                            size="sm"
+                            className={`w-full ${plan === "max" ? "bg-gradient-to-r from-amber-500 to-orange-500" : "bg-gradient-to-r from-primary to-primary/80"}`}
+                            onClick={() => onUpgrade(plan)}
+                            disabled={isManaging}
+                        >
+                            {isManaging ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <>
+                                    <ArrowUp className="h-4 w-4 mr-1" />
+                                    Upgrade
+                                </>
+                            )}
+                        </Button>
                     ) : isDowngrade ? (
                         <Button
                             variant="outline"
                             size="sm"
                             className="w-full"
-                            onClick={onManageSubscription}
+                            onClick={() => onDowngrade(plan)}
                             disabled={isManaging}
                         >
                             {isManaging ? (
@@ -297,6 +309,96 @@ export function SubscriptionCard() {
         }
     };
 
+    // Get price ID for a plan
+    const getPriceIdForPlan = (plan: PlanType): string | null => {
+        if (plan === 'pro') {
+            return process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY || null;
+        }
+        if (plan === 'max') {
+            return process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_MAX_MONTHLY || null;
+        }
+        return null;
+    };
+
+    const handleUpgrade = async (targetPlan: PlanType) => {
+        const priceId = getPriceIdForPlan(targetPlan);
+        if (!priceId) {
+            toast.error("Unable to process upgrade. Please try again later.");
+            return;
+        }
+
+        setIsManaging(true);
+        try {
+            const response = await fetch("/api/billing/change-plan", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ targetPlan, priceId }),
+            });
+            const data = await response.json();
+
+            if (data.action === 'checkout' && data.url) {
+                window.location.href = data.url;
+            } else if (data.success) {
+                toast.success(data.message || `Upgraded to ${targetPlan.toUpperCase()}!`);
+                const statusResponse = await fetch("/api/subscription/status");
+                if (statusResponse.ok) {
+                    const newStatus = await statusResponse.json();
+                    setStatus(newStatus);
+                }
+            } else if (data.error) {
+                toast.error(data.error);
+            } else {
+                toast.error("Unable to process upgrade");
+            }
+        } catch (err) {
+            console.error("Upgrade error:", err);
+            toast.error("Failed to upgrade subscription");
+        } finally {
+            setIsManaging(false);
+        }
+    };
+
+    const handleDowngrade = async (targetPlan: PlanType) => {
+        if (targetPlan === 'free') {
+            handleManageSubscription();
+            return;
+        }
+
+        const priceId = getPriceIdForPlan(targetPlan);
+        if (!priceId) {
+            toast.error("Unable to process downgrade. Please try again later.");
+            return;
+        }
+
+        setIsManaging(true);
+        try {
+            const response = await fetch("/api/billing/change-plan", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ targetPlan, priceId }),
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                toast.success(data.message || `Downgraded to ${targetPlan.toUpperCase()}`);
+                const statusResponse = await fetch("/api/subscription/status");
+                if (statusResponse.ok) {
+                    const newStatus = await statusResponse.json();
+                    setStatus(newStatus);
+                }
+            } else if (data.error) {
+                toast.error(data.error);
+            } else {
+                toast.error("Unable to process downgrade");
+            }
+        } catch (err) {
+            console.error("Downgrade error:", err);
+            toast.error("Failed to downgrade subscription");
+        } finally {
+            setIsManaging(false);
+        }
+    };
+
     if (isLoading) {
         return (
             <Card className="animate-pulse">
@@ -368,6 +470,8 @@ export function SubscriptionCard() {
                             isCurrentPlan={plan === status.plan}
                             currentUserPlan={status.plan}
                             onManageSubscription={handleManageSubscription}
+                            onUpgrade={handleUpgrade}
+                            onDowngrade={handleDowngrade}
                             isManaging={isManaging}
                         />
                     ))}

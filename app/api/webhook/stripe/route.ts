@@ -266,10 +266,13 @@ async function handleSubscriptionDeleted(subscription: StripeSubscriptionData) {
 }
 
 /**
- * Handle failed payment
+ * Handle failed payment - mark subscription as past_due and sync to Clerk
  */
 async function handlePaymentFailed(invoice: Stripe.Invoice) {
     const customerId = invoice.customer as string;
+    const attemptCount = invoice.attempt_count || 1;
+
+    console.log(`[Webhook] Payment failed for customer ${customerId}, attempt ${attemptCount}`);
 
     const existingSub = await getSubscriptionByStripeCustomerId(customerId);
 
@@ -280,7 +283,25 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
             status: 'past_due',
         });
 
-        console.log(`[Webhook] Payment failed for user ${existingSub.userId}`);
+        // Sync payment failure to Clerk so UI can show warning
+        try {
+            const client = await clerkClient();
+            await client.users.updateUserMetadata(existingSub.userId, {
+                publicMetadata: {
+                    subscription: {
+                        plan: existingSub.plan,
+                        status: 'past_due',
+                        paymentFailed: true,
+                        failedAt: new Date().toISOString(),
+                        attemptCount,
+                    },
+                },
+            });
+        } catch (clerkError) {
+            console.error('[Webhook] Failed to sync payment failure to Clerk:', clerkError);
+        }
+
+        console.log(`[Webhook] Payment failed for user ${existingSub.userId}, attempt ${attemptCount}`);
     }
 }
 

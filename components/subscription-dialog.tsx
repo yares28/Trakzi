@@ -9,10 +9,19 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Crown, Zap, AlertCircle, Check, ArrowUp, ArrowDown, CreditCard, Loader2, X } from "lucide-react";
-import Link from "next/link";
+import { Sparkles, Crown, Zap, AlertCircle, Check, ArrowUp, ArrowDown, CreditCard, Loader2, X, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
 
@@ -112,13 +121,21 @@ function PlanCard({
     isCurrentPlan,
     currentUserPlan,
     onManageSubscription,
+    onUpgrade,
+    onDowngrade,
+    onReactivate,
     isManaging,
+    isCancelPending,
 }: {
     plan: PlanType;
     isCurrentPlan: boolean;
     currentUserPlan: PlanType;
     onManageSubscription: () => void;
+    onUpgrade: (plan: PlanType) => void;
+    onDowngrade: (plan: PlanType) => void;
+    onReactivate: () => void;
     isManaging: boolean;
+    isCancelPending: boolean;
 }) {
     const info = PLAN_INFO[plan];
     const Icon = info.icon;
@@ -190,38 +207,67 @@ function PlanCard({
                 <div className="mt-4 space-y-2">
                     {isCurrentPlan ? (
                         currentUserPlan !== "free" ? (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="w-full text-destructive border-destructive/30 hover:bg-destructive/10"
-                                onClick={onManageSubscription}
-                                disabled={isManaging}
-                            >
-                                {isManaging ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <>
-                                        <X className="h-4 w-4 mr-1" />
-                                        Unsubscribe
-                                    </>
-                                )}
-                            </Button>
+                            isCancelPending ? (
+                                // Show reactivate button if subscription is pending cancellation
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full text-green-600 border-green-600/30 hover:bg-green-500/10"
+                                    onClick={onReactivate}
+                                    disabled={isManaging}
+                                >
+                                    {isManaging ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <>
+                                            <RotateCcw className="h-4 w-4 mr-1" />
+                                            Reactivate
+                                        </>
+                                    )}
+                                </Button>
+                            ) : (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full text-destructive border-destructive/30 hover:bg-destructive/10"
+                                    onClick={onManageSubscription}
+                                    disabled={isManaging}
+                                >
+                                    {isManaging ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <>
+                                            <X className="h-4 w-4 mr-1" />
+                                            Unsubscribe
+                                        </>
+                                    )}
+                                </Button>
+                            )
                         ) : (
                             <div className="h-9" /> /* Spacer for Free plan */
                         )
                     ) : isUpgrade ? (
-                        <Link href="/#pricing" className="block">
-                            <Button size="sm" className={`w-full ${plan === "max" ? "bg-gradient-to-r from-amber-500 to-orange-500" : "bg-gradient-to-r from-primary to-primary/80"}`}>
-                                <ArrowUp className="h-4 w-4 mr-1" />
-                                Upgrade
-                            </Button>
-                        </Link>
+                        <Button
+                            size="sm"
+                            className={`w-full ${plan === "max" ? "bg-gradient-to-r from-amber-500 to-orange-500" : "bg-gradient-to-r from-primary to-primary/80"}`}
+                            onClick={() => onUpgrade(plan)}
+                            disabled={isManaging}
+                        >
+                            {isManaging ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <>
+                                    <ArrowUp className="h-4 w-4 mr-1" />
+                                    Upgrade
+                                </>
+                            )}
+                        </Button>
                     ) : isDowngrade ? (
                         <Button
                             variant="outline"
                             size="sm"
                             className="w-full"
-                            onClick={onManageSubscription}
+                            onClick={() => onDowngrade(plan)}
                             disabled={isManaging}
                         >
                             {isManaging ? (
@@ -248,6 +294,9 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
     const [error, setError] = useState<string | null>(null);
     const [isManaging, setIsManaging] = useState(false);
     const [open, setOpen] = useState(false);
+    // Confirmation dialog states
+    const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+    const [showDowngradeConfirm, setShowDowngradeConfirm] = useState<PlanType | null>(null);
 
     useEffect(() => {
         if (!open) return;
@@ -308,6 +357,139 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
         }
     };
 
+    // Get price ID for a plan
+    const getPriceIdForPlan = (plan: PlanType): string | null => {
+        // Use NEXT_PUBLIC_ env vars since this is client-side
+        if (plan === 'pro') {
+            return process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY || null;
+        }
+        if (plan === 'max') {
+            return process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_MAX_MONTHLY || null;
+        }
+        return null;
+    };
+
+    const handleUpgrade = async (targetPlan: PlanType) => {
+        const priceId = getPriceIdForPlan(targetPlan);
+        if (!priceId) {
+            toast.error("Unable to process upgrade. Please try again later.");
+            return;
+        }
+
+        setIsManaging(true);
+        try {
+            const response = await fetch("/api/billing/change-plan", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ targetPlan, priceId }),
+            });
+            const data = await response.json();
+
+            if (data.action === 'checkout' && data.url) {
+                // Redirect to Stripe checkout
+                window.location.href = data.url;
+            } else if (data.success) {
+                toast.success(data.message || `Upgraded to ${targetPlan.toUpperCase()}!`);
+                // Refresh subscription status
+                const statusResponse = await fetch("/api/subscription/status");
+                if (statusResponse.ok) {
+                    const newStatus = await statusResponse.json();
+                    setStatus(newStatus);
+                }
+            } else if (data.error) {
+                toast.error(data.error);
+            } else {
+                toast.error("Unable to process upgrade");
+            }
+        } catch (err) {
+            console.error("Upgrade error:", err);
+            toast.error("Failed to upgrade subscription");
+        } finally {
+            setIsManaging(false);
+        }
+    };
+
+    const handleDowngrade = async (targetPlan: PlanType) => {
+        if (targetPlan === 'free') {
+            // Downgrading to free is just canceling
+            handleManageSubscription();
+            return;
+        }
+
+        const priceId = getPriceIdForPlan(targetPlan);
+        if (!priceId) {
+            toast.error("Unable to process downgrade. Please try again later.");
+            return;
+        }
+
+        setIsManaging(true);
+        try {
+            const response = await fetch("/api/billing/change-plan", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ targetPlan, priceId }),
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                toast.success(data.message || `Downgraded to ${targetPlan.toUpperCase()}`);
+                // Refresh subscription status
+                const statusResponse = await fetch("/api/subscription/status");
+                if (statusResponse.ok) {
+                    const newStatus = await statusResponse.json();
+                    setStatus(newStatus);
+                }
+            } else if (data.error) {
+                toast.error(data.error);
+            } else {
+                toast.error("Unable to process downgrade");
+            }
+        } catch (err) {
+            console.error("Downgrade error:", err);
+            toast.error("Failed to downgrade subscription");
+        } finally {
+            setIsManaging(false);
+        }
+    };
+
+    const handleReactivate = async () => {
+        setIsManaging(true);
+        try {
+            const response = await fetch("/api/billing/reactivate", {
+                method: "POST",
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                toast.success(data.message || "Subscription reactivated!");
+                // Refresh subscription status
+                const statusResponse = await fetch("/api/subscription/status");
+                if (statusResponse.ok) {
+                    const newStatus = await statusResponse.json();
+                    setStatus(newStatus);
+                }
+            } else if (data.error) {
+                toast.error(data.error);
+            } else {
+                toast.error("Unable to reactivate subscription");
+            }
+        } catch (err) {
+            console.error("Reactivate error:", err);
+            toast.error("Failed to reactivate subscription");
+        } finally {
+            setIsManaging(false);
+        }
+    };
+
+    // Wrapper functions to show confirmation dialogs
+    const confirmCancel = () => {
+        setShowCancelConfirm(true);
+    };
+
+    const confirmDowngrade = (plan: PlanType) => {
+        setShowDowngradeConfirm(plan);
+    };
+
     // Order plans with current plan first
     const allPlans: PlanType[] = ["free", "pro", "max"];
     const orderedPlans: PlanType[] = status
@@ -315,70 +497,162 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
         : allPlans;
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                {children}
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-3xl">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                        <CreditCard className="h-5 w-5 text-primary" />
-                        Manage Subscription
-                    </DialogTitle>
-                    <DialogDescription>
-                        View your current plan, upgrade, or manage your subscription.
-                    </DialogDescription>
-                </DialogHeader>
+        <>
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                    {children}
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <CreditCard className="h-5 w-5 text-primary" />
+                            Manage Subscription
+                        </DialogTitle>
+                        <DialogDescription>
+                            View your current plan, upgrade, or manage your subscription.
+                        </DialogDescription>
+                    </DialogHeader>
 
-                {isLoading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4">
-                        {[1, 2, 3].map((i) => (
-                            <div key={i} className="h-56 bg-muted rounded-xl animate-pulse" />
-                        ))}
-                    </div>
-                ) : error || !status ? (
-                    <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
-                        <AlertCircle className="h-4 w-4" />
-                        <span className="text-sm">{error || "Unable to load"}</span>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        {/* Subscription info */}
-                        {status.subscription?.currentPeriodEnd && (
-                            <div className="text-center text-sm text-muted-foreground">
-                                {status.subscription.cancelAtPeriodEnd
-                                    ? "Your subscription ends on "
-                                    : "Renews automatically on "}
-                                <span className="font-medium">
-                                    {new Date(status.subscription.currentPeriodEnd).toLocaleDateString()}
-                                </span>
-                            </div>
-                        )}
-
-                        {/* Plan cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {orderedPlans.map((plan) => (
-                                <PlanCard
-                                    key={plan}
-                                    plan={plan}
-                                    isCurrentPlan={plan === status.plan}
-                                    currentUserPlan={status.plan}
-                                    onManageSubscription={handleManageSubscription}
-                                    isManaging={isManaging}
-                                />
+                    {isLoading ? (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4">
+                            {[1, 2, 3].map((i) => (
+                                <div key={i} className="h-56 bg-muted rounded-xl animate-pulse" />
                             ))}
                         </div>
+                    ) : error || !status ? (
+                        <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
+                            <AlertCircle className="h-4 w-4" />
+                            <span className="text-sm">{error || "Unable to load"}</span>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {/* Payment failure warning */}
+                            {status.status === 'past_due' && (
+                                <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 flex items-start gap-2">
+                                    <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-sm font-medium text-destructive">Payment Failed</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            Your last payment was unsuccessful. Please update your payment method to continue using premium features.
+                                        </p>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="mt-2 text-xs"
+                                            onClick={async () => {
+                                                try {
+                                                    const response = await fetch('/api/billing/portal', { method: 'POST' });
+                                                    const data = await response.json();
+                                                    if (data.url) window.location.href = data.url;
+                                                } catch (e) {
+                                                    toast.error('Unable to open billing portal');
+                                                }
+                                            }}
+                                        >
+                                            Update Payment Method
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
 
-                        {/* Help text */}
-                        <p className="text-xs text-center text-muted-foreground">
-                            Need help? Contact us at{" "}
-                            <a href="mailto:help@trakzi.com" className="text-primary hover:underline">
-                                help@trakzi.com
-                            </a>
-                        </p>
-                    </div>
-                )}
-            </DialogContent>
-        </Dialog>
+                            {/* Subscription info */}
+                            {status.subscription?.currentPeriodEnd && (
+                                <div className="text-center text-sm text-muted-foreground">
+                                    {status.subscription.cancelAtPeriodEnd
+                                        ? "Your subscription ends on "
+                                        : "Renews automatically on "}
+                                    <span className="font-medium">
+                                        {new Date(status.subscription.currentPeriodEnd).toLocaleDateString()}
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* Plan cards */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {orderedPlans.map((plan) => (
+                                    <PlanCard
+                                        key={plan}
+                                        plan={plan}
+                                        isCurrentPlan={plan === status.plan}
+                                        currentUserPlan={status.plan}
+                                        onManageSubscription={confirmCancel}
+                                        onUpgrade={handleUpgrade}
+                                        onDowngrade={confirmDowngrade}
+                                        onReactivate={handleReactivate}
+                                        isManaging={isManaging}
+                                        isCancelPending={status.subscription?.cancelAtPeriodEnd || false}
+                                    />
+                                ))}
+                            </div>
+
+                            {/* Help text */}
+                            <p className="text-xs text-center text-muted-foreground">
+                                Need help? Contact us at{" "}
+                                <a href="mailto:help@trakzi.com" className="text-primary hover:underline">
+                                    help@trakzi.com
+                                </a>
+                            </p>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Cancel Confirmation Dialog */}
+            <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Cancel Subscription?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Your subscription will remain active until the end of your billing period.
+                            You will lose access to premium features after that date.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Keep Subscription</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={() => {
+                                setShowCancelConfirm(false);
+                                handleManageSubscription();
+                            }}
+                        >
+                            Yes, Cancel
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Downgrade Confirmation Dialog */}
+            <AlertDialog open={!!showDowngradeConfirm} onOpenChange={(open) => !open && setShowDowngradeConfirm(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Downgrade to {showDowngradeConfirm?.toUpperCase()}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {showDowngradeConfirm === 'free'
+                                ? "You will lose access to all premium features. This is the same as canceling your subscription."
+                                : "You will lose access to MAX features. The change will take effect at your next billing cycle."
+                            }
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Keep Current Plan</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                if (showDowngradeConfirm) {
+                                    if (showDowngradeConfirm === 'free') {
+                                        handleManageSubscription();
+                                    } else {
+                                        handleDowngrade(showDowngradeConfirm);
+                                    }
+                                }
+                                setShowDowngradeConfirm(null);
+                            }}
+                        >
+                            Yes, Downgrade
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </>
     );
 }
