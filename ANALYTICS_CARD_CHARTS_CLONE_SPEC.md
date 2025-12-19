@@ -37,7 +37,7 @@ So the **grid-item outer height** is: `h * 70px` (before CSS adjustments).
 
 ---
 
-## 1) Where the Analytics card-charts live (source of truth)
+## 1) Where the Analytics card-charts live (source of truth).
 
 - Page: `app/analytics/page.tsx`
   - Chart order: `analyticsChartOrder`
