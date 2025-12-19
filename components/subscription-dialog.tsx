@@ -297,6 +297,7 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
     // Confirmation dialog states
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
     const [showDowngradeConfirm, setShowDowngradeConfirm] = useState<PlanType | null>(null);
+    const [showUpgradeConfirm, setShowUpgradeConfirm] = useState<PlanType | null>(null);
 
     useEffect(() => {
         if (!open) return;
@@ -316,6 +317,18 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
         }
         fetchStatus();
     }, [open]);
+
+    // Format date for display
+    const formatDate = (dateStr: string | null | undefined) => {
+        if (!dateStr) return "Unknown";
+        const date = new Date(dateStr);
+        return date.toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+        });
+    };
 
     const handleManageSubscription = async () => {
         if (status?.plan === "free") {
@@ -490,11 +503,26 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
         setShowDowngradeConfirm(plan);
     };
 
+    const confirmUpgrade = (plan: PlanType) => {
+        // For free users, go directly to checkout (no confirmation needed)
+        if (!status || status.plan === 'free' || !status.subscription) {
+            handleUpgrade(plan);
+        } else {
+            // For paid users upgrading, show confirmation
+            setShowUpgradeConfirm(plan);
+        }
+    };
+
     // Order plans with current plan first
     const allPlans: PlanType[] = ["free", "pro", "max"];
     const orderedPlans: PlanType[] = status
         ? [status.plan, ...allPlans.filter((p) => p !== status.plan)]
         : allPlans;
+
+    // Get current billing date
+    const billingDate = status?.subscription?.currentPeriodEnd
+        ? formatDate(status.subscription.currentPeriodEnd)
+        : "your next billing date";
 
     return (
         <>
@@ -576,7 +604,7 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                                         isCurrentPlan={plan === status.plan}
                                         currentUserPlan={status.plan}
                                         onManageSubscription={confirmCancel}
-                                        onUpgrade={handleUpgrade}
+                                        onUpgrade={confirmUpgrade}
                                         onDowngrade={confirmDowngrade}
                                         onReactivate={handleReactivate}
                                         isManaging={isManaging}
@@ -597,18 +625,52 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                 </DialogContent>
             </Dialog>
 
-            {/* Cancel Confirmation Dialog */}
+            {/* Cancel Confirmation Dialog - Enhanced */}
             <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
-                <AlertDialogContent>
+                <AlertDialogContent className="max-w-md">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Cancel Subscription?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Your subscription will remain active until the end of your billing period.
-                            You will lose access to premium features after that date.
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 rounded-full bg-destructive/10">
+                                <AlertCircle className="h-6 w-6 text-destructive" />
+                            </div>
+                            <AlertDialogTitle className="text-xl">Cancel Subscription?</AlertDialogTitle>
+                        </div>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-4">
+                                <p className="text-sm text-muted-foreground">
+                                    We're sad to see you go! Here's what will happen:
+                                </p>
+
+                                <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                                    <div className="flex items-start gap-3">
+                                        <Check className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-sm font-medium">Keep access until</p>
+                                            <p className="text-sm text-muted-foreground">{billingDate}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-3">
+                                        <X className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-sm font-medium">After this date, you'll lose:</p>
+                                            <ul className="text-sm text-muted-foreground list-disc list-inside mt-1">
+                                                <li>Unlimited AI chat access</li>
+                                                <li>Extra transaction capacity</li>
+                                                <li>CSV export feature</li>
+                                                <li>Priority support</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <p className="text-xs text-muted-foreground">
+                                    You can reactivate anytime before {billingDate} to keep your benefits.
+                                </p>
+                            </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Keep Subscription</AlertDialogCancel>
+                    <AlertDialogFooter className="gap-2 sm:gap-0">
+                        <AlertDialogCancel className="font-semibold">Keep My Subscription</AlertDialogCancel>
                         <AlertDialogAction
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                             onClick={() => {
@@ -616,26 +678,155 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                                 handleManageSubscription();
                             }}
                         >
-                            Yes, Cancel
+                            Yes, Cancel Subscription
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
 
-            {/* Downgrade Confirmation Dialog */}
-            <AlertDialog open={!!showDowngradeConfirm} onOpenChange={(open) => !open && setShowDowngradeConfirm(null)}>
-                <AlertDialogContent>
+            {/* Upgrade Confirmation Dialog - New */}
+            <AlertDialog open={!!showUpgradeConfirm} onOpenChange={(open) => !open && setShowUpgradeConfirm(null)}>
+                <AlertDialogContent className="max-w-md">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Downgrade to {showDowngradeConfirm?.toUpperCase()}?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {showDowngradeConfirm === 'free'
-                                ? "You will lose access to all premium features. This is the same as canceling your subscription."
-                                : "You will lose access to MAX features. The change will take effect at your next billing cycle."
-                            }
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className={`p-2 rounded-full ${showUpgradeConfirm === 'max' ? 'bg-amber-500/10' : 'bg-primary/10'}`}>
+                                <ArrowUp className={`h-6 w-6 ${showUpgradeConfirm === 'max' ? 'text-amber-500' : 'text-primary'}`} />
+                            </div>
+                            <AlertDialogTitle className="text-xl">
+                                Upgrade to {showUpgradeConfirm?.toUpperCase()}?
+                            </AlertDialogTitle>
+                        </div>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-4">
+                                <p className="text-sm text-muted-foreground">
+                                    Great choice! Here's what happens next:
+                                </p>
+
+                                <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                                    <div className="flex items-start gap-3">
+                                        <CreditCard className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-sm font-medium">New rate starts</p>
+                                            <p className="text-sm text-muted-foreground">{billingDate}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-3">
+                                        <Check className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-sm font-medium">New price</p>
+                                            <p className="text-sm text-muted-foreground">
+                                                {showUpgradeConfirm ? PLAN_INFO[showUpgradeConfirm].price : ""} (billed monthly)
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-3">
+                                        <Sparkles className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-sm font-medium">Immediate access to:</p>
+                                            <ul className="text-sm text-muted-foreground list-disc list-inside mt-1">
+                                                {showUpgradeConfirm && PLAN_INFO[showUpgradeConfirm].features.slice(0, 3).map((f, i) => (
+                                                    <li key={i}>{f}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <p className="text-xs text-muted-foreground">
+                                    Your payment method on file will be charged on {billingDate}.
+                                </p>
+                            </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Keep Current Plan</AlertDialogCancel>
+                    <AlertDialogFooter className="gap-2 sm:gap-0">
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            className={showUpgradeConfirm === 'max'
+                                ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+                                : "bg-primary hover:bg-primary/90"}
+                            onClick={() => {
+                                if (showUpgradeConfirm) {
+                                    handleUpgrade(showUpgradeConfirm);
+                                }
+                                setShowUpgradeConfirm(null);
+                            }}
+                        >
+                            Confirm Upgrade
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Downgrade Confirmation Dialog - Enhanced */}
+            <AlertDialog open={!!showDowngradeConfirm} onOpenChange={(open) => !open && setShowDowngradeConfirm(null)}>
+                <AlertDialogContent className="max-w-md">
+                    <AlertDialogHeader>
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 rounded-full bg-muted">
+                                <ArrowDown className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                            <AlertDialogTitle className="text-xl">
+                                Downgrade to {showDowngradeConfirm?.toUpperCase()}?
+                            </AlertDialogTitle>
+                        </div>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-4">
+                                <p className="text-sm text-muted-foreground">
+                                    {showDowngradeConfirm === 'free'
+                                        ? "This will cancel your subscription."
+                                        : "Your plan will change at the end of your billing period."}
+                                </p>
+
+                                <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                                    <div className="flex items-start gap-3">
+                                        <Check className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-sm font-medium">Keep current benefits until</p>
+                                            <p className="text-sm text-muted-foreground">{billingDate}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-3">
+                                        <CreditCard className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-sm font-medium">New rate after that</p>
+                                            <p className="text-sm text-muted-foreground">
+                                                {showDowngradeConfirm ? PLAN_INFO[showDowngradeConfirm].price : ""} (billed monthly)
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {status && showDowngradeConfirm && (
+                                        <div className="flex items-start gap-3">
+                                            <X className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="text-sm font-medium">Features you'll lose:</p>
+                                                <ul className="text-sm text-muted-foreground list-disc list-inside mt-1">
+                                                    {showDowngradeConfirm === 'free' ? (
+                                                        <>
+                                                            <li>Extra transaction capacity</li>
+                                                            <li>Unlimited AI chat</li>
+                                                            <li>CSV export</li>
+                                                        </>
+                                                    ) : showDowngradeConfirm === 'pro' && status.plan === 'max' ? (
+                                                        <>
+                                                            <li>Unlimited transactions</li>
+                                                            <li>Priority support</li>
+                                                            <li>Early access features</li>
+                                                        </>
+                                                    ) : null}
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <p className="text-xs text-muted-foreground">
+                                    You can upgrade again anytime to restore these features.
+                                </p>
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="gap-2 sm:gap-0">
+                        <AlertDialogCancel className="font-semibold">Keep Current Plan</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={() => {
                                 if (showDowngradeConfirm) {
