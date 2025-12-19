@@ -847,7 +847,16 @@ export default function DataLibraryPage() {
         setTransactionCount(count)
 
         // Track if AI was used for this parse
-        setWasAIParsed(aiParsingUsed === "true")
+        const aiUsed = aiParsingUsed === "true"
+        setWasAIParsed(aiUsed)
+
+        if (aiUsed) {
+          setShowReparsePanel(true)
+          toast.info("AI-Powered Parsing Used", {
+            description: `We used AI to process this file (${aiParsingReason || "automatic fallback"}). Review the results below.`,
+            duration: 5000,
+          })
+        }
 
         // Store original CSV for potential reparsing (read from the dropped file)
         if (file) {
