@@ -76,15 +76,19 @@ Date\tDescription\tAmount\tBalance
 2025-01-15,ISO Format,-10
 15/01/2025,Slash Format,-20
 01/15/2025,US Format,-30
-20250115,Compact,-40`
+20250115,Compact,-40
+15/01/25,Short Year Slash,-50
+15-01-25,Short Year Dash,-60`
 
     const rows = parseCsvToRows(csv)
 
-    expect(rows).toHaveLength(4)
+    expect(rows).toHaveLength(6)
     expect(rows[0].date).toBe('2025-01-15')
     expect(rows[1].date).toBe('2025-01-15')
     expect(rows[2].date).toBe('2025-01-15')
     expect(rows[3].date).toBe('2025-01-15')
+    expect(rows[4].date).toBe('2025-01-15')
+    expect(rows[5].date).toBe('2025-01-15')
   })
 
   it('handles negative amounts with different formats', () => {

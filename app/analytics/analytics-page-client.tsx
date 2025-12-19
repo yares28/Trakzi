@@ -38,6 +38,7 @@ import { ChartDayOfWeekCategory } from "@/components/chart-day-of-week-category"
 import { SectionCards } from "@/components/section-cards"
 import { SiteHeader } from "@/components/site-header"
 import { SortableAnalyticsChart } from "@/components/SortableAnalyticsChart"
+import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import {
   SidebarInset,
@@ -103,6 +104,7 @@ const MemoizedTableRow = memo(function MemoizedTableRow({
   onCategoryChange: (value: string) => void
   onDelete: () => void
 }) {
+  const { formatCurrency } = useCurrency()
   return (
     <TableRow>
       <TableCell className="w-28 flex-shrink-0">
@@ -119,7 +121,7 @@ const MemoizedTableRow = memo(function MemoizedTableRow({
         </div>
       </TableCell>
       <TableCell className={cn("text-right font-medium w-24 flex-shrink-0", amount < 0 ? "text-red-500" : "text-green-500")}>
-        {amount.toFixed(2)}Ôé¼
+        {formatCurrency(amount)}
       </TableCell>
       <TableCell className="w-[140px] flex-shrink-0">
         <CategorySelect
@@ -525,6 +527,9 @@ export default function AnalyticsPage() {
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([])
   const [fileId, setFileId] = useState<string | null>(null)
   const [parseError, setParseError] = useState<string | null>(null)
+  const [isAiReparseOpen, setIsAiReparseOpen] = useState(false)
+  const [aiReparseContext, setAiReparseContext] = useState("")
+  const [isAiReparsing, setIsAiReparsing] = useState(false)
   const [transactionCount, setTransactionCount] = useState<number>(0)
   const dragCounterRef = useRef(0)
   const csvRegenerationTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -909,6 +914,179 @@ export default function AnalyticsPage() {
     e.stopPropagation()
   }, [])
 
+  const parseFile = useCallback(async (file: File, options?: { parseMode?: "auto" | "ai"; aiContext?: string }) => {
+    const parseMode = options?.parseMode ?? "auto"
+    const aiContext = options?.aiContext?.trim()
+
+    setDroppedFile(file)
+    setIsDialogOpen(true)
+    setIsParsing(true)
+    setParsingProgress(0)
+    setParseError(null)
+    setParsedCsv(null)
+    setFileId(null)
+    setTransactionCount(0)
+
+    setParsingProgress(5)
+
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("bankName", "Unknown")
+      formData.append("parseMode", parseMode)
+      if (aiContext) {
+        formData.append("aiContext", aiContext)
+      }
+
+      let currentCategories = DEFAULT_CATEGORIES
+      try {
+        const categoriesResponse = await fetch("/api/categories")
+        if (categoriesResponse.ok) {
+          const payload = await categoriesResponse.json()
+          const categoriesArray: Array<{ name?: string }> = Array.isArray(payload) ? payload : []
+          const names = categoriesArray
+            .map((cat) => cat?.name)
+            .filter((name): name is string => typeof name === "string" && name.trim().length > 0)
+          if (names.length > 0) {
+            currentCategories = names
+          }
+        }
+      } catch (categoriesError) {
+        console.warn("[ANALYTICS] Failed to load categories from API. Using defaults.", categoriesError)
+      }
+
+      setParsingProgress(20)
+
+      const response = await fetch("/api/statements/parse", {
+        method: "POST",
+        headers: {
+          "X-Custom-Categories": JSON.stringify(currentCategories),
+        },
+        body: formData,
+      })
+
+      const contentType = response.headers.get("content-type") || ""
+      const fileIdHeader = response.headers.get("X-File-Id")
+      const categorizationError = response.headers.get("X-Categorization-Error")
+      const categorizationWarning = response.headers.get("X-Categorization-Warning")
+
+      if (!response.ok) {
+        let errorMessage = `HTTP error! status: ${response.status}`
+        const responseText = await response.text()
+
+        try {
+          const errorData = JSON.parse(responseText)
+          errorMessage = errorData.error || errorMessage
+        } catch {
+          errorMessage = responseText || errorMessage
+        }
+
+        throw new Error(errorMessage)
+      }
+
+      let responseText = ""
+
+      if (response.body) {
+        const reader = response.body.getReader()
+        const contentLength = response.headers.get("content-length")
+        const total = contentLength ? parseInt(contentLength, 10) : 0
+        let received = 0
+        const decoder = new TextDecoder()
+        const chunks: string[] = []
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = decoder.decode(value, { stream: true })
+          chunks.push(chunk)
+          received += value.length
+
+          if (total > 0) {
+            const downloadProgress = (received / total) * 65
+            setParsingProgress(25 + downloadProgress)
+          } else {
+            const estimatedTotal = file.size * 1.2
+            const estimatedProgress = Math.min(25 + (received / estimatedTotal) * 65, 90)
+            setParsingProgress(estimatedProgress)
+          }
+        }
+
+        responseText = chunks.join("")
+      } else {
+        setParsingProgress(60)
+        responseText = await response.text()
+        setParsingProgress(90)
+      }
+
+      setParsingProgress(95)
+
+      if (contentType.includes("application/json")) {
+        try {
+          const data = JSON.parse(responseText)
+          if (!data.parseable) {
+            setParseError(data.message || "File format not supported for parsing")
+            setIsParsing(false)
+            setParsingProgress(0)
+            return
+          }
+        } catch {
+          throw new Error("Invalid response from server")
+        }
+      }
+
+      const csv = responseText
+      setParsingProgress(100)
+
+      const lines = csv.trim().split("\n")
+      const count = lines.length > 1 ? lines.length - 1 : 0
+
+      setParsedCsv(csv)
+      setFileId(fileIdHeader)
+      setTransactionCount(count)
+
+      if (categorizationWarning === "true" && categorizationError) {
+        const decodedError = decodeURIComponent(categorizationError)
+        console.warn("AI categorization failed:", decodedError)
+        toast.warning("Categorization Warning", {
+          description: `AI categorization failed. All transactions defaulted to "Other". Error: ${decodedError.substring(0, 100)}`,
+          duration: 10000,
+        })
+      }
+    } catch (error) {
+      setParsingProgress(0)
+      console.error("Parse error:", error)
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to parse file. Please try again."
+      setParseError(errorMessage)
+
+      if (errorMessage.includes("DEMO_USER_ID") || errorMessage.includes("Authentication")) {
+        toast.error("Configuration Error", {
+          description: "Please configure DEMO_USER_ID in your environment variables.",
+          duration: 10000,
+        })
+      } else if (errorMessage.includes("No transactions found")) {
+        toast.error("No Transactions Found", {
+          description: "The file was parsed but no transactions were detected. Please check the file format.",
+          duration: 8000,
+        })
+      } else if (errorMessage.includes("Failed to parse") || errorMessage.includes("Parsing quality")) {
+        toast.error("Parse Error", {
+          description: errorMessage,
+          duration: 8000,
+        })
+      } else {
+        toast.error("Upload Error", {
+          description: errorMessage,
+          duration: 8000,
+        })
+      }
+      setParsingProgress(0)
+    } finally {
+      setIsParsing(false)
+    }
+  }, [])
+
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -917,172 +1095,27 @@ export default function AnalyticsPage() {
 
     const files = Array.from(e.dataTransfer.files)
     if (files && files.length > 0) {
-      const file = files[0]
-      setDroppedFile(file)
-      setIsDialogOpen(true)
-      setIsParsing(true)
-      setParsingProgress(0)
-      setParseError(null)
-      setParsedCsv(null)
-      setFileId(null)
-      setTransactionCount(0)
-
-      setParsingProgress(5)
-
-      try {
-        const formData = new FormData()
-        formData.append("file", file)
-        formData.append("bankName", "Unknown")
-
-        let currentCategories = DEFAULT_CATEGORIES
-        try {
-          const categoriesResponse = await fetch("/api/categories")
-          if (categoriesResponse.ok) {
-            const payload = await categoriesResponse.json()
-            const categoriesArray: Array<{ name?: string }> = Array.isArray(payload) ? payload : []
-            const names = categoriesArray
-              .map((cat) => cat?.name)
-              .filter((name): name is string => typeof name === "string" && name.trim().length > 0)
-            if (names.length > 0) {
-              currentCategories = names
-            }
-          }
-        } catch (categoriesError) {
-          console.warn("[ANALYTICS] Failed to load categories from API. Using defaults.", categoriesError)
-        }
-
-        setParsingProgress(20)
-
-        const response = await fetch("/api/statements/parse", {
-          method: "POST",
-          headers: {
-            "X-Custom-Categories": JSON.stringify(currentCategories),
-          },
-          body: formData,
-        })
-
-        const contentType = response.headers.get("content-type") || ""
-        const fileIdHeader = response.headers.get("X-File-Id")
-        const categorizationError = response.headers.get("X-Categorization-Error")
-        const categorizationWarning = response.headers.get("X-Categorization-Warning")
-
-        if (!response.ok) {
-          let errorMessage = `HTTP error! status: ${response.status}`
-          const responseText = await response.text()
-
-          try {
-            const errorData = JSON.parse(responseText)
-            errorMessage = errorData.error || errorMessage
-          } catch {
-            errorMessage = responseText || errorMessage
-          }
-
-          throw new Error(errorMessage)
-        }
-
-        let responseText = ""
-
-        if (response.body) {
-          const reader = response.body.getReader()
-          const contentLength = response.headers.get("content-length")
-          const total = contentLength ? parseInt(contentLength, 10) : 0
-          let received = 0
-          const decoder = new TextDecoder()
-          const chunks: string[] = []
-
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-
-            const chunk = decoder.decode(value, { stream: true })
-            chunks.push(chunk)
-            received += value.length
-
-            if (total > 0) {
-              const downloadProgress = (received / total) * 65
-              setParsingProgress(25 + downloadProgress)
-            } else {
-              const estimatedTotal = file.size * 1.2
-              const estimatedProgress = Math.min(25 + (received / estimatedTotal) * 65, 90)
-              setParsingProgress(estimatedProgress)
-            }
-          }
-
-          responseText = chunks.join("")
-        } else {
-          setParsingProgress(60)
-          responseText = await response.text()
-          setParsingProgress(90)
-        }
-
-        setParsingProgress(95)
-
-        if (contentType.includes("application/json")) {
-          try {
-            const data = JSON.parse(responseText)
-            if (!data.parseable) {
-              setParseError(data.message || "File format not supported for parsing")
-              setIsParsing(false)
-              setParsingProgress(0)
-              return
-            }
-          } catch {
-            throw new Error("Invalid response from server")
-          }
-        }
-
-        const csv = responseText
-        setParsingProgress(100)
-
-        const lines = csv.trim().split("\n")
-        const count = lines.length > 1 ? lines.length - 1 : 0
-
-        setParsedCsv(csv)
-        setFileId(fileIdHeader)
-        setTransactionCount(count)
-
-        if (categorizationWarning === "true" && categorizationError) {
-          const decodedError = decodeURIComponent(categorizationError)
-          console.warn("AI categorization failed:", decodedError)
-          toast.warning("Categorization Warning", {
-            description: `AI categorization failed. All transactions defaulted to "Other". Error: ${decodedError.substring(0, 100)}`,
-            duration: 10000,
-          })
-        }
-      } catch (error) {
-        setParsingProgress(0)
-        console.error("Parse error:", error)
-        const errorMessage =
-          error instanceof Error ? error.message : "Failed to parse file. Please try again."
-        setParseError(errorMessage)
-
-        if (errorMessage.includes("DEMO_USER_ID") || errorMessage.includes("Authentication")) {
-          toast.error("Configuration Error", {
-            description: "Please configure DEMO_USER_ID in your environment variables.",
-            duration: 10000,
-          })
-        } else if (errorMessage.includes("No transactions found")) {
-          toast.error("No Transactions Found", {
-            description: "The file was parsed but no transactions were detected. Please check the file format.",
-            duration: 8000,
-          })
-        } else if (errorMessage.includes("Failed to parse")) {
-          toast.error("Parse Error", {
-            description: errorMessage,
-            duration: 8000,
-          })
-        } else {
-          toast.error("Upload Error", {
-            description: errorMessage,
-            duration: 8000,
-          })
-        }
-        setParsingProgress(0)
-      } finally {
-        setIsParsing(false)
-      }
+      await parseFile(files[0], { parseMode: "auto" })
     }
-  }, [])
+  }, [parseFile])
+
+  const handleAiReparse = useCallback(async () => {
+    if (!droppedFile) {
+      toast.error("Missing file", {
+        description: "Please drop a file before reparsing with AI.",
+        duration: 6000,
+      })
+      return
+    }
+
+    setIsAiReparseOpen(false)
+    setIsAiReparsing(true)
+    try {
+      await parseFile(droppedFile, { parseMode: "ai", aiContext: aiReparseContext })
+    } finally {
+      setIsAiReparsing(false)
+    }
+  }, [aiReparseContext, droppedFile, parseFile])
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes"
@@ -3050,6 +3083,42 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Modern Confirmation Dialog */}
+        <Dialog open={isAiReparseOpen} onOpenChange={setIsAiReparseOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Reparse with AI</DialogTitle>
+              <DialogDescription>
+                Add any context that helps the parser (bank name, column meanings, or date format).
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="ai-reparse-context-analytics-client">
+                Context (optional)
+              </label>
+              <textarea
+                id="ai-reparse-context-analytics-client"
+                className="min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                placeholder="Example: Date column is DD/MM/YY, amounts are negative for debits."
+                value={aiReparseContext}
+                onChange={(event) => setAiReparseContext(event.target.value)}
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsAiReparseOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAiReparse}
+                disabled={isAiReparsing || !droppedFile}
+              >
+                {isAiReparsing ? "Reparsing..." : "Reparse with AI"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="sm:max-w-[95vw] lg:max-w-[1200px] w-full max-h-[90vh] flex flex-col p-0 gap-0">
             <div className="px-6 pt-6 pb-4 flex-shrink-0">
@@ -3145,6 +3214,16 @@ export default function AnalyticsPage() {
                           <p className="text-xs text-muted-foreground mt-1">{parseError}</p>
                         </div>
                       </div>
+                      <div className="mt-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsAiReparseOpen(true)}
+                          disabled={!droppedFile || isAiReparsing}
+                        >
+                          Reparse with AI
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 )}
@@ -3176,10 +3255,22 @@ export default function AnalyticsPage() {
                 {parsedCsv && !isParsing && !parseError && !isImporting && (
                   <Card className="border-2 overflow-hidden flex flex-col min-h-0">
                     <CardHeader className="flex-shrink-0 px-4 pt-4 pb-2">
-                      <CardTitle className="text-sm">Preview ({transactionCount} transactions)</CardTitle>
-                      <CardDescription className="text-xs">
-                        Review and edit categories before importing
-                      </CardDescription>
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <CardTitle className="text-sm">Preview ({transactionCount} transactions)</CardTitle>
+                          <CardDescription className="text-xs">
+                            Review and edit categories before importing
+                          </CardDescription>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsAiReparseOpen(true)}
+                          disabled={!droppedFile || isAiReparsing}
+                        >
+                          Reparse with AI
+                        </Button>
+                      </div>
                     </CardHeader>
                     <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
                       <div className="h-full max-h-[500px] overflow-auto relative">

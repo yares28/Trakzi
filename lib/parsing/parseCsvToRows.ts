@@ -15,14 +15,6 @@ export type CsvDiagnostics = {
     softValidatedCount: number;
     duplicatesDetected: number;
     warnings: string[];
-    // Parsing quality metrics
-    parsingQuality: {
-        validDatePercent: number;      // Percentage of rows with valid dates (0-100)
-        validAmountPercent: number;    // Percentage of rows with valid amounts (0-100)
-        validDescriptionPercent: number; // Percentage of rows with non-empty descriptions (0-100)
-        overallScore: number;          // Combined quality score (0-100)
-        needsAiAssist: boolean;        // True if quality is too low and AI parsing is recommended
-    };
 };
 
 type ParseCsvOptions =
@@ -39,6 +31,8 @@ const HEADER_KEYWORDS = [
     "transactions", "debit", "credit", "value", "montant", "solde",
     "libelle", "details", "memo", "note", "category", "categorie"
 ];
+
+const DELIMITER_CANDIDATES = [",", ";", "\t", "|"];
 
 const DATE_COLUMN_NAMES = [
     "date", "Date", "DATE", "tx_date", "TxDate", "TX_DATE",
@@ -74,34 +68,15 @@ function excelSerialToDate(serial: number): string | null {
     return `${year}-${month}-${day}`;
 }
 
-// Month name mappings for natural language date parsing
-const MONTH_NAMES: Record<string, number> = {
-    jan: 1, january: 1, ene: 1, enero: 1,
-    feb: 2, february: 2, febr: 2, febrero: 2,
-    mar: 3, march: 3, marzo: 3,
-    apr: 4, april: 4, abr: 4, abril: 4,
-    may: 5, mayo: 5,
-    jun: 6, june: 6, junio: 6,
-    jul: 7, july: 7, julio: 7,
-    aug: 8, august: 8, ago: 8, agosto: 8,
-    sep: 9, sept: 9, september: 9, septiembre: 9,
-    oct: 10, october: 10, octubre: 10,
-    nov: 11, november: 11, noviembre: 11,
-    dec: 12, december: 12, dic: 12, diciembre: 12,
-};
-
 function looksLikeDate(value: string): boolean {
     return (
-        /^\d{4}-\d{2}-\d{2}/.test(value) ||                    // YYYY-MM-DD
-        /^\d{4}\/\d{2}\/\d{2}/.test(value) ||                  // YYYY/MM/DD
-        /^\d{2}[\/-]\d{2}[\/-]\d{4}/.test(value) ||            // DD/MM/YYYY or MM/DD/YYYY
-        /^\d{2}[\/-]\d{2}[\/-]\d{2}(?!\d)/.test(value) ||      // DD/MM/YY or MM/DD/YY
-        /^\d{1,2}\s[a-zA-Z]{3,}\s\d{4}/.test(value) ||         // 1 Jan 2025 or 1 January 2025
-        /^[a-zA-Z]{3,}\s\d{1,2},?\s\d{4}/.test(value) ||       // Jan 1, 2025 or January 1 2025
-        /^\d{8}$/.test(value) ||                                // YYYYMMDD or DDMMYYYY
-        /^\d{2}\.\d{2}\.\d{4}/.test(value) ||                  // DD.MM.YYYY
-        /^\d{2}-\d{2}-\d{4}/.test(value) ||                    // DD-MM-YYYY
-        /^\d{4}\.\d{2}\.\d{2}/.test(value)                     // YYYY.MM.DD
+        /^\d{4}-\d{2}-\d{2}/.test(value) ||
+        /^\d{4}[\/-]\d{1,2}[\/-]\d{1,2}/.test(value) ||
+        /^\d{4}\/\d{2}\/\d{2}/.test(value) ||
+        /^\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/.test(value) ||
+        /^\d{1,2}\.\d{1,2}\.\d{2,4}/.test(value) ||
+        /^\d{1,2}\s[a-zA-Z]{3}\s\d{4}/.test(value) ||
+        /^\d{8}$/.test(value)
     );
 }
 
@@ -110,166 +85,76 @@ function normalizeDate(dateStr: string): string {
     const trimmed = String(dateStr).trim();
     if (trimmed === "") return "";
 
-    // Handle Excel serial numbers (numbers > 31 are likely dates)
     if (/^\d+(\.\d+)?$/.test(trimmed) && Number(trimmed) > 31) {
         const excelDate = excelSerialToDate(Number(trimmed));
         if (excelDate) return excelDate;
     }
 
-    // Already in ISO format
     if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
         return trimmed;
     }
 
     let datePart = trimmed;
-
-    // Strip pipe-separated time or extra info
     if (datePart.includes('|')) {
         datePart = datePart.split('|')[0].trim();
     }
 
-    // Strip "T" timestamp suffix (ISO 8601)
-    if (datePart.includes('T')) {
-        datePart = datePart.split('T')[0].trim();
-    }
-
-    // Strip space-separated time at end (e.g., "2024-12-15 14:30:00")
-    const spaceTimeMatch = datePart.match(/^(.+?)\s+\d{1,2}:\d{2}(:\d{2})?/);
-    if (spaceTimeMatch) {
-        datePart = spaceTimeMatch[1].trim();
-    }
-
-    // ISO format extraction: YYYY-MM-DD (possibly with time)
     const isoDateMatch = datePart.match(/^(\d{4}-\d{2}-\d{2})/);
     if (isoDateMatch) return isoDateMatch[1];
 
-    // Compact 8-digit format: YYYYMMDD
+    const isoSlashMatch = datePart.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+    if (isoSlashMatch) {
+        const [, year, month, day] = isoSlashMatch;
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+
     if (/^\d{8}$/.test(datePart)) {
-        // Detect if it's YYYYMMDD or DDMMYYYY
-        const asYmd = {
-            year: datePart.slice(0, 4),
-            month: datePart.slice(4, 6),
-            day: datePart.slice(6, 8)
-        };
-        const asDmy = {
-            day: datePart.slice(0, 2),
-            month: datePart.slice(2, 4),
-            year: datePart.slice(4, 8)
-        };
-
-        const ymdMonthNum = parseInt(asYmd.month, 10);
-        const ymdDayNum = parseInt(asYmd.day, 10);
-        const dmyMonthNum = parseInt(asDmy.month, 10);
-        const dmyDayNum = parseInt(asDmy.day, 10);
-
-        // Prefer YYYYMMDD if it's a valid date
-        if (ymdMonthNum >= 1 && ymdMonthNum <= 12 && ymdDayNum >= 1 && ymdDayNum <= 31) {
-            return `${asYmd.year}-${asYmd.month}-${asYmd.day}`;
-        }
-        // Fallback to DDMMYYYY
-        if (dmyMonthNum >= 1 && dmyMonthNum <= 12 && dmyDayNum >= 1 && dmyDayNum <= 31) {
-            return `${asDmy.year}-${asDmy.month}-${asDmy.day}`;
-        }
-        // Default to YYYYMMDD interpretation
-        return `${asYmd.year}-${asYmd.month}-${asYmd.day}`;
+        const year = datePart.slice(0, 4);
+        const month = datePart.slice(4, 6);
+        const day = datePart.slice(6, 8);
+        return `${year}-${month}-${day}`;
     }
 
-    // Handle DD/MM/YYYY, MM/DD/YYYY, DD-MM-YYYY, MM-DD-YYYY formats
-    const slashDashMatch = datePart.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
-    if (slashDashMatch) {
-        const [, part1, part2, year] = slashDashMatch;
+    const slashMatch = datePart.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+    if (slashMatch) {
+        const [, part1, part2, year] = slashMatch;
         const num1 = parseInt(part1, 10);
         const num2 = parseInt(part2, 10);
-
-        // If first number > 12, it must be a day (European format DD/MM/YYYY)
-        if (num1 > 12 && num1 <= 31 && num2 <= 12) {
-            return `${year}-${part2.padStart(2, '0')}-${part1.padStart(2, '0')}`;
-        }
-        // If second number > 12, it must be a day (US format MM/DD/YYYY)
-        if (num2 > 12 && num2 <= 31 && num1 <= 12) {
-            return `${year}-${part1.padStart(2, '0')}-${part2.padStart(2, '0')}`;
-        }
-        // Ambiguous case: default to European DD/MM/YYYY for most bank formats
-        if (num1 <= 31 && num2 <= 12) {
-            return `${year}-${part2.padStart(2, '0')}-${part1.padStart(2, '0')}`;
-        }
-        // Fallback US format if European doesn't work
-        if (num1 <= 12 && num2 <= 31) {
-            return `${year}-${part1.padStart(2, '0')}-${part2.padStart(2, '0')}`;
-        }
-    }
-
-    // Handle DD/MM/YY, MM/DD/YY (2-digit year)
-    const shortYearMatch = datePart.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2})(?!\d)/);
-    if (shortYearMatch) {
-        const [, part1, part2, shortYear] = shortYearMatch;
-        const num1 = parseInt(part1, 10);
-        const num2 = parseInt(part2, 10);
-        const yearNum = parseInt(shortYear, 10);
-        // Assume years 00-50 are 2000s, 51-99 are 1900s
-        const fullYear = yearNum <= 50 ? `20${shortYear}` : `19${shortYear}`;
-
-        // European format DD/MM/YY
-        if (num1 > 12 && num1 <= 31 && num2 <= 12) {
+        const fullYear = year.length === 2 ? `20${year}` : year;
+        if (num1 > 12) {
             return `${fullYear}-${part2.padStart(2, '0')}-${part1.padStart(2, '0')}`;
         }
-        // US format MM/DD/YY
-        if (num2 > 12 && num2 <= 31 && num1 <= 12) {
+        if (num2 > 12) {
             return `${fullYear}-${part1.padStart(2, '0')}-${part2.padStart(2, '0')}`;
         }
-        // Default to European for ambiguous
-        if (num1 <= 31 && num2 <= 12) {
-            return `${fullYear}-${part2.padStart(2, '0')}-${part1.padStart(2, '0')}`;
-        }
+        return `${fullYear}-${part2.padStart(2, '0')}-${part1.padStart(2, '0')}`;
     }
 
-    // Handle DD.MM.YYYY or YYYY.MM.DD (European dot format)
     const dotMatch = datePart.match(/^(\d{1,4})\.(\d{1,2})\.(\d{1,4})$/);
     if (dotMatch) {
         const [, a, b, c] = dotMatch;
-        // YYYY.MM.DD
         if (a.length === 4) {
             return `${a}-${b.padStart(2, '0')}-${c.padStart(2, '0')}`;
         }
-        // DD.MM.YYYY
-        return `${c.padStart(4, '0')}-${b.padStart(2, '0')}-${a.padStart(2, '0')}`;
+        const fullYear = c.length === 2 ? `20${c}` : c.padStart(4, '0');
+        return `${fullYear}-${b.padStart(2, '0')}-${a.padStart(2, '0')}`;
     }
 
-    // Handle natural language: "1 Jan 2025", "15 December 2024"
-    const dayMonthYearMatch = datePart.match(/^(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})/i);
-    if (dayMonthYearMatch) {
-        const [, day, monthStr, year] = dayMonthYearMatch;
-        const monthNum = MONTH_NAMES[monthStr.toLowerCase()];
-        if (monthNum) {
-            return `${year}-${String(monthNum).padStart(2, '0')}-${day.padStart(2, '0')}`;
+    const dashMatch = datePart.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})/);
+    if (dashMatch) {
+        const [, part1, part2, year] = dashMatch;
+        const num1 = parseInt(part1, 10);
+        const num2 = parseInt(part2, 10);
+        const fullYear = year.length === 2 ? `20${year}` : year;
+        if (num1 > 12) {
+            return `${fullYear}-${part2.padStart(2, '0')}-${part1.padStart(2, '0')}`;
         }
-    }
-
-    // Handle natural language: "Jan 1, 2025", "December 15, 2024"
-    const monthDayYearMatch = datePart.match(/^([a-zA-Z]+)\s+(\d{1,2}),?\s+(\d{4})/i);
-    if (monthDayYearMatch) {
-        const [, monthStr, day, year] = monthDayYearMatch;
-        const monthNum = MONTH_NAMES[monthStr.toLowerCase()];
-        if (monthNum) {
-            return `${year}-${String(monthNum).padStart(2, '0')}-${day.padStart(2, '0')}`;
+        if (num2 > 12) {
+            return `${fullYear}-${part1.padStart(2, '0')}-${part2.padStart(2, '0')}`;
         }
+        return `${fullYear}-${part2.padStart(2, '0')}-${part1.padStart(2, '0')}`;
     }
 
-    // Handle DD-Mon-YYYY or DD-Mon-YY (e.g., "15-Dec-2024")
-    const dashMonthMatch = datePart.match(/^(\d{1,2})-([a-zA-Z]+)-(\d{2,4})/i);
-    if (dashMonthMatch) {
-        const [, day, monthStr, yearPart] = dashMonthMatch;
-        const monthNum = MONTH_NAMES[monthStr.toLowerCase()];
-        if (monthNum) {
-            const yearNum = parseInt(yearPart, 10);
-            const fullYear = yearPart.length === 2
-                ? (yearNum <= 50 ? `20${yearPart}` : `19${yearPart}`)
-                : yearPart;
-            return `${fullYear}-${String(monthNum).padStart(2, '0')}-${day.padStart(2, '0')}`;
-        }
-    }
-
-    // Last resort: try native Date parsing (handles many formats)
     try {
         const date = new Date(datePart);
         if (!isNaN(date.getTime())) {
@@ -323,6 +208,40 @@ function extractTime(value: string): string | null {
     const match = trimmed.match(/(\d{1,2}:\d{2}(?::\d{2})?\s*(?:[AaPp][Mm])?)/);
     if (!match) return null;
     return normalizeTime(match[1]);
+}
+
+function detectDelimiter(csv: string): string {
+    const lines = csv.split(/\r?\n/).filter(line => line.trim() !== "").slice(0, 10);
+    if (lines.length === 0) return ",";
+
+    let bestDelimiter = ",";
+    let bestScore = 0;
+
+    for (const delimiter of DELIMITER_CANDIDATES) {
+        let totalSeparators = 0;
+        let matchedLines = 0;
+
+        for (const line of lines) {
+            const count = line.split(delimiter).length - 1;
+            if (count > 0) {
+                totalSeparators += count;
+                matchedLines += 1;
+            }
+        }
+
+        if (matchedLines === 0) continue;
+
+        const avgSeparators = totalSeparators / matchedLines;
+        const coverageBonus = matchedLines / lines.length;
+        const score = avgSeparators + coverageBonus;
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestDelimiter = delimiter;
+        }
+    }
+
+    return bestDelimiter;
 }
 
 function preprocessCsv(csv: string, delimiterHint?: string): { csv: string; delimiter: string; headerRowIndex: number | null } {
@@ -577,12 +496,18 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
         throw new Error("Empty file: The CSV file contains no data.");
     }
 
-    const hasTabs = csv.includes('\t');
-    const initialDelimiter = hasTabs ? '\t' : ',';
+    const detectedDelimiter = detectDelimiter(csv);
+    const delimiterLabel = detectedDelimiter === "\t"
+        ? "TAB"
+        : detectedDelimiter === ";"
+            ? "SEMICOLON"
+            : detectedDelimiter === "|"
+                ? "PIPE"
+                : "COMMA";
 
-    console.log(`[CSV Parser] Delimiter: ${hasTabs ? 'TAB' : 'COMMA'}, Length: ${csv.length}`);
+    console.log(`[CSV Parser] Delimiter: ${delimiterLabel}, Length: ${csv.length}`);
 
-    const { csv: cleanedCsv, delimiter, headerRowIndex } = preprocessCsv(csv, initialDelimiter);
+    const { csv: cleanedCsv, delimiter, headerRowIndex } = preprocessCsv(csv, detectedDelimiter);
     console.log(`[CLIENT] Cleaned CSV length: ${cleanedCsv.length}, first 500 chars:`, cleanedCsv.substring(0, 500));
 
     let parsed = Papa.parse(cleanedCsv, {
@@ -622,14 +547,7 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
         filteredOutSamples: [],
         softValidatedCount: 0,
         duplicatesDetected: 0,
-        warnings: [],
-        parsingQuality: {
-            validDatePercent: 0,
-            validAmountPercent: 0,
-            validDescriptionPercent: 0,
-            overallScore: 0,
-            needsAiAssist: false
-        }
+        warnings: []
     };
 
     // Helper function to find numeric columns (excluding dates)
@@ -820,33 +738,6 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
     }
 
     diagnostics.rowsAfterFiltering = validRows.length;
-
-    // Calculate parsing quality metrics
-    if (validRows.length > 0) {
-        const validDateCount = validRows.filter(r => /^\d{4}-\d{2}-\d{2}$/.test(r.date || '')).length;
-        const validAmountCount = validRows.filter(r => typeof r.amount === 'number' && !isNaN(r.amount)).length;
-        const validDescCount = validRows.filter(r => r.description && r.description.trim().length > 0).length;
-
-        diagnostics.parsingQuality.validDatePercent = Math.round((validDateCount / validRows.length) * 100);
-        diagnostics.parsingQuality.validAmountPercent = Math.round((validAmountCount / validRows.length) * 100);
-        diagnostics.parsingQuality.validDescriptionPercent = Math.round((validDescCount / validRows.length) * 100);
-
-        // Overall score: weighted average (dates are most important for financial data)
-        diagnostics.parsingQuality.overallScore = Math.round(
-            (diagnostics.parsingQuality.validDatePercent * 0.5) +
-            (diagnostics.parsingQuality.validAmountPercent * 0.3) +
-            (diagnostics.parsingQuality.validDescriptionPercent * 0.2)
-        );
-
-        // Recommend AI assist if overall quality is below 60% or dates are below 50%
-        diagnostics.parsingQuality.needsAiAssist =
-            diagnostics.parsingQuality.overallScore < 60 ||
-            diagnostics.parsingQuality.validDatePercent < 50;
-
-        if (diagnostics.parsingQuality.needsAiAssist) {
-            diagnostics.warnings.push(`Low parsing quality (${diagnostics.parsingQuality.overallScore}%). Consider using AI-assisted parsing.`);
-        }
-    }
 
     if (validRows.length === 0) {
         console.error(`[CSV Parser] No valid rows found. Columns:`, columns);

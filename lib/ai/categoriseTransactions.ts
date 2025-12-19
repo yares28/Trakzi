@@ -380,6 +380,7 @@ You MUST include ALL ${items.length} transactions. Each entry needs:
 
         return {
             date: r.date,
+            time: r.time ?? null,
             description: r.description,
             amount: r.amount,
             balance: r.balance,

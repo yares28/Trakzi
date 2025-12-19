@@ -26,6 +26,7 @@ import { ChartTransactionCalendar } from "@/components/chart-transaction-calenda
 import { DataTable } from "@/components/data-table"
 import { SectionCards } from "@/components/section-cards"
 import { SiteHeader } from "@/components/site-header"
+import { useCurrency } from "@/components/currency-provider"
 import {
   SidebarInset,
   SidebarProvider,
@@ -354,6 +355,7 @@ const MemoizedTableRow = memo(function MemoizedTableRow({
   onCategoryChange: (value: string) => void
   onDelete: () => void
 }) {
+  const { formatCurrency } = useCurrency()
   return (
     <TableRow>
       <TableCell className="w-28 flex-shrink-0">
@@ -370,7 +372,7 @@ const MemoizedTableRow = memo(function MemoizedTableRow({
         </div>
       </TableCell>
       <TableCell className={cn("text-right font-medium w-24 flex-shrink-0", amount < 0 ? "text-red-500" : "text-green-500")}>
-        {amount.toFixed(2)}€
+        {formatCurrency(amount)}
       </TableCell>
       <TableCell className="w-[140px] flex-shrink-0">
         <CategorySelect
@@ -428,6 +430,9 @@ export default function Page() {
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([])
   const [fileId, setFileId] = useState<string | null>(null)
   const [parseError, setParseError] = useState<string | null>(null)
+  const [isAiReparseOpen, setIsAiReparseOpen] = useState(false)
+  const [aiReparseContext, setAiReparseContext] = useState("")
+  const [isAiReparsing, setIsAiReparsing] = useState(false)
   const [transactionCount, setTransactionCount] = useState<number>(0)
   const [hiddenCategories, setHiddenCategories] = useState<string[]>([])
   const dragCounterRef = useRef(0)
@@ -1774,6 +1779,218 @@ export default function Page() {
     e.stopPropagation()
   }, [])
 
+  const parseFile = useCallback(async (file: File, options?: { parseMode?: "auto" | "ai"; aiContext?: string }) => {
+    const parseMode = options?.parseMode ?? "auto"
+    const aiContext = options?.aiContext?.trim()
+
+    setDroppedFile(file)
+    setIsDialogOpen(true)
+    setIsParsing(true)
+    setParsingProgress(0)
+    setParseError(null)
+    setParsedCsv(null)
+    setFileId(null)
+    setTransactionCount(0)
+
+    // Track parsing progress based on actual CSV parsing stages
+    // Stage 1: File upload (0-15%)
+    setParsingProgress(5)
+
+    try {
+      // Parse the file
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("bankName", "Unknown")
+      formData.append("parseMode", parseMode)
+      if (aiContext) {
+        formData.append("aiContext", aiContext)
+      }
+
+      // Get current categories to send to API (fallback to defaults)
+      let currentCategories = DEFAULT_CATEGORIES
+      try {
+        const categoriesResponse = await fetch("/api/categories")
+        if (categoriesResponse.ok) {
+          const payload = await categoriesResponse.json()
+          const categoriesArray: Array<{ name?: string }> = Array.isArray(payload) ? payload : []
+          const names = categoriesArray
+            .map((cat) => cat?.name)
+            .filter((name): name is string => typeof name === "string" && name.trim().length > 0)
+          if (names.length > 0) {
+            currentCategories = names
+          }
+        }
+      } catch (categoriesError) {
+        console.warn("[HOME] Failed to load categories from API. Using defaults.", categoriesError)
+      }
+
+      // Stage 2: Uploading file (15-25%)
+      setParsingProgress(20)
+
+      const response = await fetch("/api/statements/parse", {
+        method: "POST",
+        headers: {
+          "X-Custom-Categories": JSON.stringify(currentCategories),
+        },
+        body: formData,
+      })
+
+      // Check content type and headers first
+      const contentType = response.headers.get("content-type") || ""
+      const fileIdHeader = response.headers.get("X-File-Id")
+      const categorizationError = response.headers.get("X-Categorization-Error")
+      const categorizationWarning = response.headers.get("X-Categorization-Warning")
+
+      if (!response.ok) {
+        // Read response body once - try JSON first, fallback to text
+        let errorMessage = `HTTP error! status: ${response.status}`
+        const responseText = await response.text()
+
+        try {
+          const errorData = JSON.parse(responseText)
+          errorMessage = errorData.error || errorMessage
+        } catch {
+          // If not JSON, use text as error message
+          errorMessage = responseText || errorMessage
+        }
+
+        throw new Error(errorMessage)
+      }
+
+      // Stage 3: Server processing - track response stream progress (25-90%)
+      // This reflects actual CSV parsing progress as data streams in
+      let responseText = ""
+
+      if (response.body) {
+        const reader = response.body.getReader()
+        const contentLength = response.headers.get("content-length")
+        const total = contentLength ? parseInt(contentLength, 10) : 0
+        let received = 0
+        const decoder = new TextDecoder()
+        const chunks: string[] = []
+
+        // Read the stream and track progress based on actual bytes received
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = decoder.decode(value, { stream: true })
+          chunks.push(chunk)
+          received += value.length
+
+          // Update progress: 25% (upload) + 65% (processing/download) based on bytes received
+          // This matches the actual CSV parsing progress as data streams in
+          if (total > 0) {
+            const downloadProgress = (received / total) * 65 // 65% of total progress
+            setParsingProgress(25 + downloadProgress)
+          } else {
+            // If no content-length, estimate based on received bytes
+            // Estimate total size based on file size (CSV output is usually similar to input)
+            const estimatedTotal = file.size * 1.2 // CSV might be slightly larger
+            const estimatedProgress = Math.min(25 + (received / estimatedTotal) * 65, 90)
+            setParsingProgress(estimatedProgress)
+          }
+        }
+
+        // Combine all chunks
+        responseText = chunks.join("")
+      } else {
+        // Fallback: if no stream, read normally
+        setParsingProgress(60)
+        responseText = await response.text()
+        setParsingProgress(90)
+      }
+
+      // Stage 4: Processing complete (90-100%)
+      setParsingProgress(95)
+
+      if (contentType.includes("application/json")) {
+        // File is not parseable - it's a JSON response
+        try {
+          const data = JSON.parse(responseText)
+          if (!data.parseable) {
+            setParseError(data.message || "File format not supported for parsing")
+            setIsParsing(false)
+            setParsingProgress(0)
+            return
+          }
+        } catch {
+          // If JSON parsing fails, treat as parse error
+          throw new Error("Invalid response from server")
+        }
+      }
+
+      // File is parseable - use the CSV content we already read
+      const csv = responseText
+      setParsingProgress(100)
+
+      // Debug: Log CSV to see if categories are present
+      console.log("[HOME] Received CSV, length:", csv.length);
+      const csvLines = csv.trim().split("\n");
+      console.log("[HOME] CSV header:", csvLines[0]);
+      console.log("[HOME] CSV first data row:", csvLines[1]);
+      console.log("[HOME] CSV second data row:", csvLines[2]);
+
+      // Check if category column exists
+      const header = csvLines[0].toLowerCase();
+      if (!header.includes('category')) {
+        console.error("[HOME] ERROR: Category column missing from CSV header!");
+      } else {
+        console.log("[HOME] Category column found in CSV");
+      }
+
+      // Count transactions (lines minus header)
+      const lines = csv.trim().split("\n")
+      const count = lines.length > 1 ? lines.length - 1 : 0
+
+      setParsedCsv(csv)
+      setFileId(fileIdHeader)
+      setTransactionCount(count)
+
+      // Show warning if categorization failed
+      if (categorizationWarning === "true" && categorizationError) {
+        const decodedError = decodeURIComponent(categorizationError)
+        console.warn("AI categorization failed:", decodedError)
+        toast.warning("Categorization Warning", {
+          description: `AI categorization failed. All transactions defaulted to "Other". Error: ${decodedError.substring(0, 100)}`,
+          duration: 10000,
+        })
+      }
+    } catch (error) {
+      setParsingProgress(0)
+      console.error("Parse error:", error)
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to parse file. Please try again."
+      setParseError(errorMessage)
+
+      // Show more specific error messages
+      if (errorMessage.includes("DEMO_USER_ID") || errorMessage.includes("Authentication")) {
+        toast.error("Configuration Error", {
+          description: "Please configure DEMO_USER_ID in your environment variables.",
+          duration: 10000,
+        })
+      } else if (errorMessage.includes("No transactions found")) {
+        toast.error("No Transactions Found", {
+          description: "The file was parsed but no transactions were detected. Please check the file format.",
+          duration: 8000,
+        })
+      } else if (errorMessage.includes("Failed to parse") || errorMessage.includes("Parsing quality")) {
+        toast.error("Parse Error", {
+          description: errorMessage,
+          duration: 8000,
+        })
+      } else {
+        toast.error("Upload Error", {
+          description: errorMessage,
+          duration: 8000,
+        })
+      }
+      setParsingProgress(0)
+    } finally {
+      setIsParsing(false)
+    }
+  }, [])
+
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -1782,211 +1999,27 @@ export default function Page() {
 
     const files = Array.from(e.dataTransfer.files)
     if (files && files.length > 0) {
-      const file = files[0]
-      setDroppedFile(file)
-      setIsDialogOpen(true)
-      setIsParsing(true)
-      setParsingProgress(0)
-      setParseError(null)
-      setParsedCsv(null)
-      setFileId(null)
-      setTransactionCount(0)
-
-      // Track parsing progress based on actual CSV parsing stages
-      // Stage 1: File upload (0-15%)
-      setParsingProgress(5)
-
-      try {
-        // Parse the file
-        const formData = new FormData()
-        formData.append("file", file)
-        formData.append("bankName", "Unknown")
-
-        // Get current categories to send to API (fallback to defaults)
-        let currentCategories = DEFAULT_CATEGORIES
-        try {
-          const categoriesResponse = await fetch("/api/categories")
-          if (categoriesResponse.ok) {
-            const payload = await categoriesResponse.json()
-            const categoriesArray: Array<{ name?: string }> = Array.isArray(payload) ? payload : []
-            const names = categoriesArray
-              .map((cat) => cat?.name)
-              .filter((name): name is string => typeof name === "string" && name.trim().length > 0)
-            if (names.length > 0) {
-              currentCategories = names
-            }
-          }
-        } catch (categoriesError) {
-          console.warn("[HOME] Failed to load categories from API. Using defaults.", categoriesError)
-        }
-
-        // Stage 2: Uploading file (15-25%)
-        setParsingProgress(20)
-
-        const response = await fetch("/api/statements/parse", {
-          method: "POST",
-          headers: {
-            "X-Custom-Categories": JSON.stringify(currentCategories),
-          },
-          body: formData,
-        })
-
-        // Check content type and headers first
-        const contentType = response.headers.get("content-type") || ""
-        const fileIdHeader = response.headers.get("X-File-Id")
-        const categorizationError = response.headers.get("X-Categorization-Error")
-        const categorizationWarning = response.headers.get("X-Categorization-Warning")
-
-        if (!response.ok) {
-          // Read response body once - try JSON first, fallback to text
-          let errorMessage = `HTTP error! status: ${response.status}`
-          const responseText = await response.text()
-
-          try {
-            const errorData = JSON.parse(responseText)
-            errorMessage = errorData.error || errorMessage
-          } catch {
-            // If not JSON, use text as error message
-            errorMessage = responseText || errorMessage
-          }
-
-          throw new Error(errorMessage)
-        }
-
-        // Stage 3: Server processing - track response stream progress (25-90%)
-        // This reflects actual CSV parsing progress as data streams in
-        let responseText = ""
-
-        if (response.body) {
-          const reader = response.body.getReader()
-          const contentLength = response.headers.get("content-length")
-          const total = contentLength ? parseInt(contentLength, 10) : 0
-          let received = 0
-          const decoder = new TextDecoder()
-          const chunks: string[] = []
-
-          // Read the stream and track progress based on actual bytes received
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-
-            const chunk = decoder.decode(value, { stream: true })
-            chunks.push(chunk)
-            received += value.length
-
-            // Update progress: 25% (upload) + 65% (processing/download) based on bytes received
-            // This matches the actual CSV parsing progress as data streams in
-            if (total > 0) {
-              const downloadProgress = (received / total) * 65 // 65% of total progress
-              setParsingProgress(25 + downloadProgress)
-            } else {
-              // If no content-length, estimate based on received bytes
-              // Estimate total size based on file size (CSV output is usually similar to input)
-              const estimatedTotal = file.size * 1.2 // CSV might be slightly larger
-              const estimatedProgress = Math.min(25 + (received / estimatedTotal) * 65, 90)
-              setParsingProgress(estimatedProgress)
-            }
-          }
-
-          // Combine all chunks
-          responseText = chunks.join("")
-        } else {
-          // Fallback: if no stream, read normally
-          setParsingProgress(60)
-          responseText = await response.text()
-          setParsingProgress(90)
-        }
-
-        // Stage 4: Processing complete (90-100%)
-        setParsingProgress(95)
-
-        if (contentType.includes("application/json")) {
-          // File is not parseable - it's a JSON response
-          try {
-            const data = JSON.parse(responseText)
-            if (!data.parseable) {
-              setParseError(data.message || "File format not supported for parsing")
-              setIsParsing(false)
-              setParsingProgress(0)
-              return
-            }
-          } catch {
-            // If JSON parsing fails, treat as parse error
-            throw new Error("Invalid response from server")
-          }
-        }
-
-        // File is parseable - use the CSV content we already read
-        const csv = responseText
-        setParsingProgress(100)
-
-        // Debug: Log CSV to see if categories are present
-        console.log("[HOME] Received CSV, length:", csv.length);
-        const csvLines = csv.trim().split("\n");
-        console.log("[HOME] CSV header:", csvLines[0]);
-        console.log("[HOME] CSV first data row:", csvLines[1]);
-        console.log("[HOME] CSV second data row:", csvLines[2]);
-
-        // Check if category column exists
-        const header = csvLines[0].toLowerCase();
-        if (!header.includes('category')) {
-          console.error("[HOME] ERROR: Category column missing from CSV header!");
-        } else {
-          console.log("[HOME] Category column found in CSV");
-        }
-
-        // Count transactions (lines minus header)
-        const lines = csv.trim().split("\n")
-        const count = lines.length > 1 ? lines.length - 1 : 0
-
-        setParsedCsv(csv)
-        setFileId(fileIdHeader)
-        setTransactionCount(count)
-
-        // Show warning if categorization failed
-        if (categorizationWarning === "true" && categorizationError) {
-          const decodedError = decodeURIComponent(categorizationError)
-          console.warn("AI categorization failed:", decodedError)
-          toast.warning("Categorization Warning", {
-            description: `AI categorization failed. All transactions defaulted to "Other". Error: ${decodedError.substring(0, 100)}`,
-            duration: 10000,
-          })
-        }
-      } catch (error) {
-        setParsingProgress(0)
-        console.error("Parse error:", error)
-        const errorMessage =
-          error instanceof Error ? error.message : "Failed to parse file. Please try again."
-        setParseError(errorMessage)
-
-        // Show more specific error messages
-        if (errorMessage.includes("DEMO_USER_ID") || errorMessage.includes("Authentication")) {
-          toast.error("Configuration Error", {
-            description: "Please configure DEMO_USER_ID in your environment variables.",
-            duration: 10000,
-          })
-        } else if (errorMessage.includes("No transactions found")) {
-          toast.error("No Transactions Found", {
-            description: "The file was parsed but no transactions were detected. Please check the file format.",
-            duration: 8000,
-          })
-        } else if (errorMessage.includes("Failed to parse")) {
-          toast.error("Parse Error", {
-            description: errorMessage,
-            duration: 8000,
-          })
-        } else {
-          toast.error("Upload Error", {
-            description: errorMessage,
-            duration: 8000,
-          })
-        }
-        setParsingProgress(0)
-      } finally {
-        setIsParsing(false)
-      }
+      await parseFile(files[0], { parseMode: "auto" })
     }
-  }, [])
+  }, [parseFile])
+
+  const handleAiReparse = useCallback(async () => {
+    if (!droppedFile) {
+      toast.error("Missing file", {
+        description: "Please drop a file before reparsing with AI.",
+        duration: 6000,
+      })
+      return
+    }
+
+    setIsAiReparseOpen(false)
+    setIsAiReparsing(true)
+    try {
+      await parseFile(droppedFile, { parseMode: "ai", aiContext: aiReparseContext })
+    } finally {
+      setIsAiReparsing(false)
+    }
+  }, [aiReparseContext, droppedFile, parseFile])
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes"
@@ -2912,6 +2945,42 @@ export default function Page() {
       </SidebarInset>
 
       {/* Modern Confirmation Dialog */}
+      <Dialog open={isAiReparseOpen} onOpenChange={setIsAiReparseOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Reparse with AI</DialogTitle>
+            <DialogDescription>
+              Add any context that helps the parser (bank name, column meanings, or date format).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="ai-reparse-context-home">
+              Context (optional)
+            </label>
+            <textarea
+              id="ai-reparse-context-home"
+              className="min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              placeholder="Example: Date column is DD/MM/YY, amounts are negative for debits."
+              value={aiReparseContext}
+              onChange={(event) => setAiReparseContext(event.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsAiReparseOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAiReparse}
+              disabled={isAiReparsing || !droppedFile}
+            >
+              {isAiReparsing ? "Reparsing..." : "Reparse with AI"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[95vw] lg:max-w-[1200px] w-full max-h-[90vh] flex flex-col p-0 gap-0">
           <div className="px-6 pt-6 pb-4 flex-shrink-0">
@@ -3007,6 +3076,16 @@ export default function Page() {
                         <p className="text-xs text-muted-foreground mt-1">{parseError}</p>
                       </div>
                     </div>
+                    <div className="mt-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsAiReparseOpen(true)}
+                        disabled={!droppedFile || isAiReparsing}
+                      >
+                        Reparse with AI
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               )}
@@ -3038,10 +3117,22 @@ export default function Page() {
               {parsedCsv && !isParsing && !parseError && !isImporting && (
                 <Card className="border-2 overflow-hidden flex flex-col min-h-0">
                   <CardHeader className="flex-shrink-0 px-4 pt-4 pb-2">
-                    <CardTitle className="text-sm">Preview ({transactionCount} transactions)</CardTitle>
-                    <CardDescription className="text-xs">
-                      Review and edit categories before importing
-                    </CardDescription>
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <CardTitle className="text-sm">Preview ({transactionCount} transactions)</CardTitle>
+                        <CardDescription className="text-xs">
+                          Review and edit categories before importing
+                        </CardDescription>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsAiReparseOpen(true)}
+                        disabled={!droppedFile || isAiReparsing}
+                      >
+                        Reparse with AI
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
                     <div className="h-full max-h-[500px] overflow-auto relative">
