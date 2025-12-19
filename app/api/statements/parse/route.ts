@@ -1,7 +1,7 @@
 // app/api/statements/parse/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { saveFileToNeon } from "@/lib/files/saveFileToNeon";
-import { parseCsvToRowsWithAIFallback } from "@/lib/parsing/parseCsvToRows";
+import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows";
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv";
 import { categoriseTransactions } from "@/lib/ai/categoriseTransactions";
 import { TxRow } from "@/lib/types/transactions";
@@ -54,12 +54,9 @@ export const POST = async (req: NextRequest) => {
             throw new Error(`Failed to save file: ${err.message}`);
         }
 
-        // 2) Parse CSV to rows with AI fallback for problematic files
+        // 2) Parse CSV to rows
         const buffer = Buffer.from(await file.arrayBuffer());
         let rows: TxRow[] = [];
-        let aiUsed = false;
-        let aiReason: string | undefined;
-        let aiError: string | undefined;
 
         try {
             // Handle UTF-8 BOM if present
@@ -68,41 +65,20 @@ export const POST = async (req: NextRequest) => {
                 csvContent = csvContent.slice(1);
             }
 
-            // Use AI-enhanced parser with fallback
-            const parseResult = await parseCsvToRowsWithAIFallback(csvContent, {
-                fileName: file.name,
-                enableAIFallback: true
-            });
-
-            rows = parseResult.rows;
-            aiUsed = parseResult.aiUsed;
-            aiReason = parseResult.aiReason;
-            aiError = parseResult.aiError;
-
-            if (aiUsed) {
-                console.log(`[PARSE API] AI fallback was used. Reason: ${aiReason || "Unknown"}`);
-                if (aiError) {
-                    console.warn(`[PARSE API] AI had an error: ${aiError}`);
-                }
-            }
-
-            // Log parsing diagnostics
-            if (parseResult.diagnostics.warnings.length > 0) {
-                console.log(`[PARSE API] Parser warnings:`, parseResult.diagnostics.warnings);
-            }
+            rows = parseCsvToRows(csvContent);
         } catch (parseErr: any) {
             console.error("Parse error:", parseErr);
             const errorMessage = parseErr.message || "Unknown parsing error";
 
             // Provide more helpful error messages
-            if (errorMessage.includes("No transactions found") || errorMessage.includes("Both regular parser and AI fallback failed")) {
+            if (errorMessage.includes("No transactions found")) {
                 return NextResponse.json({
                     error: `Parse Error: ${errorMessage}`
                 }, { status: 400 });
             }
 
             return NextResponse.json({
-                error: `Parse Error: Failed to parse CSV file. Please check the file format. Details: ${errorMessage.substring(0, 200)}`
+                error: `Parse Error: Failed to parse CSV file. Please check the file format.`
             }, { status: 500 });
         }
 
@@ -145,17 +121,6 @@ export const POST = async (req: NextRequest) => {
             "Content-Type": "text/csv",
             "X-File-Id": String(savedFile.id)
         };
-
-        // Add AI fallback headers
-        if (aiUsed) {
-            headers["X-AI-Parsing-Used"] = "true";
-            if (aiReason) {
-                headers["X-AI-Parsing-Reason"] = encodeURIComponent(aiReason);
-            }
-            if (aiError) {
-                headers["X-AI-Parsing-Error"] = encodeURIComponent(aiError);
-            }
-        }
 
         // Add warning header if categorization failed
         if (categorizationError) {

@@ -33,7 +33,6 @@ import {
   IconChevronRight,
   IconChevronsLeft,
   IconChevronsRight,
-  IconChevronDown,
 } from "@tabler/icons-react"
 
 import { AppSidebar } from "@/components/app-sidebar"
@@ -62,7 +61,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { CategorySelect } from "@/components/category-select"
-import { Textarea } from "@/components/ui/textarea"
 import { DataTable } from "@/components/data-table"
 import { DEFAULT_CATEGORIES } from "@/lib/categories"
 import {
@@ -109,38 +107,30 @@ import posthog from "posthog-js"
 
 type ParsedRow = TxRow & { id: number }
 
-// Helper to format date with optional time
-const formatDateWithTime = (date: string, time?: string): string => {
-  if (!date) return "";
-  if (!time) return date;
-  return `${date} ${time}`;
-}
-
 // Memoized table row component to prevent unnecessary re-renders
 const MemoizedTableRow = memo(function MemoizedTableRow({
   row,
   amount,
+  balance,
   category,
+  hasBalance,
   onCategoryChange,
   onDelete,
   formatCurrency
 }: {
   row: ParsedRow
   amount: number
+  balance: number | null
   category: string
+  hasBalance: boolean
   onCategoryChange: (value: string) => void
   onDelete: () => void
   formatCurrency: (amount: number) => string
 }) {
   return (
     <TableRow>
-      <TableCell className="w-40 flex-shrink-0">
-        <div className="flex flex-col">
-          <span>{row.date}</span>
-          {row.time && (
-            <span className="text-xs text-muted-foreground">{row.time}</span>
-          )}
-        </div>
+      <TableCell className="w-28 flex-shrink-0">
+        {row.date}
       </TableCell>
       <TableCell className="min-w-[350px] max-w-[600px]">
         <div className="truncate" title={row.description}>
@@ -156,6 +146,11 @@ const MemoizedTableRow = memo(function MemoizedTableRow({
           onValueChange={onCategoryChange}
         />
       </TableCell>
+      {hasBalance && (
+        <TableCell className="text-right w-32 flex-shrink-0">
+          {balance !== null ? formatCurrency(balance) : "-"}
+        </TableCell>
+      )}
       <TableCell className="w-12 flex-shrink-0">
         <Button
           variant="ghost"
@@ -386,14 +381,6 @@ export default function DataLibraryPage() {
   const dragCounterRef = useRef(0)
   const csvRegenerationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const latestParsedRowsRef = useRef<ParsedRow[]>([])
-
-  // AI Reparse state
-  const [wasAIParsed, setWasAIParsed] = useState(false)
-  const [isReparsing, setIsReparsing] = useState(false)
-  const [reparseDirective, setReparseDirective] = useState("")
-  const [parseTips, setParseTips] = useState<string[]>([])
-  const [originalCsvContent, setOriginalCsvContent] = useState<string | null>(null)
-  const [showReparsePanel, setShowReparsePanel] = useState(false)
 
   const CATEGORY_TIER_STORAGE_KEY = "needsWantsCategoryTier"
 
@@ -722,13 +709,6 @@ export default function DataLibraryPage() {
       setParsedCsv(null)
       setFileId(null)
       setTransactionCount(0)
-      // Reset AI reparse state
-      setWasAIParsed(false)
-      setIsReparsing(false)
-      setReparseDirective("")
-      setParseTips([])
-      setOriginalCsvContent(null)
-      setShowReparsePanel(false)
 
       setParsingProgress(5)
 
@@ -768,8 +748,6 @@ export default function DataLibraryPage() {
         const fileIdHeader = response.headers.get("X-File-Id")
         const categorizationError = response.headers.get("X-Categorization-Error")
         const categorizationWarning = response.headers.get("X-Categorization-Warning")
-        const aiParsingUsed = response.headers.get("X-AI-Parsing-Used")
-        const aiParsingReason = response.headers.get("X-AI-Parsing-Reason")
 
         if (!response.ok) {
           let errorMessage = `HTTP error! status: ${response.status}`
@@ -846,38 +824,6 @@ export default function DataLibraryPage() {
         setFileId(fileIdHeader)
         setTransactionCount(count)
 
-        // Track if AI was used for this parse
-        const aiUsed = aiParsingUsed === "true"
-        setWasAIParsed(aiUsed)
-
-        if (aiUsed) {
-          setShowReparsePanel(true)
-          toast.info("AI-Powered Parsing Used", {
-            description: `We used AI to process this file (${aiParsingReason || "automatic fallback"}). Review the results below.`,
-            duration: 5000,
-          })
-        }
-
-        // Store original CSV for potential reparsing (read from the dropped file)
-        if (file) {
-          const reader = new FileReader()
-          reader.onload = (e) => {
-            setOriginalCsvContent(e.target?.result as string)
-          }
-          reader.readAsText(file)
-        }
-
-        // Show AI parsing notification if AI was used
-        if (aiParsingUsed === "true") {
-          const decodedReason = aiParsingReason ? decodeURIComponent(aiParsingReason) : "unusual file format"
-          toast.info("AI Parsing Used", {
-            description: `Your file had an unusual format. AI was used to parse it successfully. Reason: ${decodedReason.substring(0, 80)}`,
-            duration: 8000,
-          })
-          // Show reparse panel since AI was used
-          setShowReparsePanel(true)
-        }
-
         if (categorizationWarning === "true" && categorizationError) {
           const decodedError = decodeURIComponent(categorizationError)
           console.warn("AI categorization failed:", decodedError)
@@ -892,37 +838,6 @@ export default function DataLibraryPage() {
         const errorMessage =
           error instanceof Error ? error.message : "Failed to parse file. Please try again."
         setParseError(errorMessage)
-
-        // Store original CSV for potential AI reparse
-        if (file) {
-          const reader = new FileReader()
-          reader.onload = (e) => {
-            setOriginalCsvContent(e.target?.result as string)
-          }
-          reader.readAsText(file)
-        }
-
-        // Generate helpful tips based on the error
-        const tips: string[] = []
-        if (errorMessage.includes("No transactions found")) {
-          tips.push("Make sure your CSV has clear column headers (Date, Description, Amount)")
-          tips.push("Check that the file contains actual transaction data, not just headers")
-          tips.push("Your file may use a different format - try the 'Reparse with AI' option below")
-        } else if (errorMessage.includes("invalid date")) {
-          tips.push("Your dates may be in an unusual format")
-          tips.push("Common formats: MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD")
-          tips.push("Try 'Reparse with AI' and specify your date format")
-        } else if (errorMessage.includes("Both regular parser and AI fallback failed")) {
-          tips.push("This file format wasn't recognized automatically")
-          tips.push("Try providing more context about your bank or file structure")
-          tips.push("Make sure the file is a valid CSV (not PDF or Excel)")
-        } else {
-          tips.push("Check that your file is a valid CSV file")
-          tips.push("Make sure the file has Date, Description, and Amount columns")
-          tips.push("Try 'Reparse with AI' for unusual file formats")
-        }
-        setParseTips(tips)
-        setShowReparsePanel(true)
 
         if (errorMessage.includes("DEMO_USER_ID") || errorMessage.includes("Authentication")) {
           toast.error("Configuration Error", {
@@ -958,105 +873,6 @@ export default function DataLibraryPage() {
     const sizes = ["Bytes", "KB", "MB", "GB"]
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i]
-  }
-
-  // Handle AI reparsing with user directive
-  const handleReparseWithAI = async () => {
-    if (!originalCsvContent && !droppedFile) {
-      toast.error("No CSV content", {
-        description: "Please upload a file first.",
-      })
-      return
-    }
-
-    setIsReparsing(true)
-    setParseTips([])
-    setParseError(null)
-
-    try {
-      // Get CSV content
-      let csvContent = originalCsvContent
-      if (!csvContent && droppedFile) {
-        csvContent = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = (e) => resolve(e.target?.result as string)
-          reader.onerror = reject
-          reader.readAsText(droppedFile)
-        })
-      }
-
-      if (!csvContent) {
-        throw new Error("Could not read file content")
-      }
-
-      // Get custom categories
-      let customCategories: string[] = []
-      try {
-        const categoriesResponse = await fetch("/api/categories")
-        if (categoriesResponse.ok) {
-          const payload = await categoriesResponse.json()
-          const categoriesArray: Array<{ name?: string }> = Array.isArray(payload) ? payload : []
-          customCategories = categoriesArray
-            .map((cat) => cat?.name)
-            .filter((name): name is string => typeof name === "string" && name.trim().length > 0)
-        }
-      } catch {
-        // Use defaults
-      }
-
-      const response = await fetch("/api/statements/reparse-ai", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Custom-Categories": JSON.stringify(customCategories),
-        },
-        body: JSON.stringify({
-          csvContent,
-          fileName: droppedFile?.name,
-          userDirective: reparseDirective,
-          wasAlreadyAIParsed: wasAIParsed,
-          previousIssues: parseError
-        }),
-      })
-
-      const result = await response.json()
-
-      if (!result.success) {
-        setParseError(result.error || "AI reparsing failed")
-        if (result.tips && Array.isArray(result.tips)) {
-          setParseTips(result.tips)
-        }
-        toast.error("AI Reparse Failed", {
-          description: result.error || "Could not parse the file with AI",
-          duration: 8000,
-        })
-        return
-      }
-
-      // Success - update the parsed CSV
-      setParsedCsv(result.csv)
-      setTransactionCount(result.transactionCount)
-      setWasAIParsed(true)
-      setParseError(null)
-      setParseTips([])
-      setReparseDirective("")
-
-      toast.success("AI Reparse Successful", {
-        description: `Successfully parsed ${result.transactionCount} transactions using AI.`,
-        duration: 5000,
-      })
-
-    } catch (error) {
-      console.error("AI reparse error:", error)
-      const errorMessage = error instanceof Error ? error.message : "AI reparsing failed"
-      setParseError(errorMessage)
-      toast.error("AI Reparse Error", {
-        description: errorMessage,
-        duration: 8000,
-      })
-    } finally {
-      setIsReparsing(false)
-    }
   }
 
   const handleConfirm = async () => {
@@ -3727,73 +3543,16 @@ export default function DataLibraryPage() {
                   </Card>
                 )}
 
-                {/* Parse Error with Tips and Reparse Option */}
+                {/* Parse Error */}
                 {parseError && !isParsing && (
                   <Card className="border-2 border-destructive/20 bg-destructive/5">
                     <CardContent className="pt-6">
-                      <div className="space-y-4">
-                        <div className="flex items-start gap-3">
-                          <IconAlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-destructive">Parse Error</p>
-                            <p className="text-xs text-muted-foreground mt-1">{parseError}</p>
-                          </div>
+                      <div className="flex items-start gap-3">
+                        <IconAlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-destructive">Parse Error</p>
+                          <p className="text-xs text-muted-foreground mt-1">{parseError}</p>
                         </div>
-
-                        {/* Tips */}
-                        {parseTips.length > 0 && (
-                          <div className="bg-background/50 rounded-lg p-3 border">
-                            <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-2">
-                              <IconAlertCircle className="w-4 h-4" />
-                              Suggestions to fix this:
-                            </p>
-                            <ul className="text-xs text-muted-foreground space-y-1">
-                              {parseTips.map((tip, i) => (
-                                <li key={i} className="flex items-start gap-2">
-                                  <span className="text-primary">•</span>
-                                  {tip}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Reparse with AI Panel */}
-                        {showReparsePanel && originalCsvContent && (
-                          <div className="bg-primary/5 rounded-lg p-4 border border-primary/20 space-y-3">
-                            <div className="flex items-center gap-2">
-                              <IconRefresh className="w-4 h-4 text-primary" />
-                              <p className="text-sm font-medium">Try AI Parsing</p>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              Our AI can often parse unusual file formats. Optionally describe your file format or any issues:
-                            </p>
-                            <Textarea
-                              placeholder="e.g., 'This is a Revolut statement with dates in DD/MM/YYYY format' or 'The amounts use comma as decimal separator'"
-                              value={reparseDirective}
-                              onChange={(e) => setReparseDirective(e.target.value)}
-                              className="text-sm min-h-[60px] resize-none"
-                            />
-                            <Button
-                              onClick={handleReparseWithAI}
-                              disabled={isReparsing}
-                              className="w-full"
-                              variant="default"
-                            >
-                              {isReparsing ? (
-                                <>
-                                  <IconLoader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  Reparsing with AI...
-                                </>
-                              ) : (
-                                <>
-                                  <IconRefresh className="w-4 h-4 mr-2" />
-                                  Reparse with AI
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -3836,31 +3595,40 @@ export default function DataLibraryPage() {
                         <Table>
                           <TableHeader className="sticky top-0 z-20 bg-muted border-b">
                             <TableRow>
-                              <TableHead className="sticky top-0 z-20 bg-muted w-40">Date</TableHead>
+                              <TableHead className="sticky top-0 z-20 bg-muted">Date</TableHead>
                               <TableHead className="sticky top-0 z-20 bg-muted">Description</TableHead>
                               <TableHead className="sticky top-0 z-20 bg-muted text-right">Amount</TableHead>
                               <TableHead className="sticky top-0 z-20 bg-muted">Category</TableHead>
+                              {parsedRows.some((row) => row.balance !== null && row.balance !== undefined) && (
+                                <TableHead className="sticky top-0 z-20 bg-muted text-right">Balance</TableHead>
+                              )}
                               <TableHead className="sticky top-0 z-20 bg-muted w-12"></TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {parsedRows.length === 0 ? (
                               <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center">
+                                <TableCell colSpan={6} className="h-24 text-center">
                                   No transactions found
                                 </TableCell>
                               </TableRow>
                             ) : (
                               parsedRows.map((row) => {
                                 const amount = typeof row.amount === 'number' ? row.amount : parseFloat(row.amount) || 0
+                                const balance = row.balance !== null && row.balance !== undefined
+                                  ? (typeof row.balance === 'number' ? row.balance : parseFloat(row.balance))
+                                  : null
                                 const category = row.category || 'Other'
+                                const hasBalance = parsedRows.some((r) => r.balance !== null && r.balance !== undefined)
 
                                 return (
                                   <MemoizedTableRow
                                     key={row.id ?? `${row.date}-${row.description}`}
                                     row={row}
                                     amount={amount}
+                                    balance={balance}
                                     category={category}
+                                    hasBalance={hasBalance}
                                     onCategoryChange={(value) => handleCategoryChange(row.id, value)}
                                     onDelete={() => handleDeleteRow(row.id)}
                                     formatCurrency={formatCurrency}
@@ -3872,63 +3640,6 @@ export default function DataLibraryPage() {
                         </Table>
                       </div>
                     </CardContent>
-
-                    {/* Data looks wrong? Reparse option */}
-                    <div className="px-4 pb-4 pt-2 border-t bg-muted/30">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {wasAIParsed && (
-                            <Badge variant="secondary" className="text-xs">
-                              <IconRefresh className="w-3 h-3 mr-1" />
-                              AI Parsed
-                            </Badge>
-                          )}
-                          <button
-                            onClick={() => setShowReparsePanel(!showReparsePanel)}
-                            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                          >
-                            Data looks wrong?
-                            <IconChevronDown className={cn("w-3 h-3 transition-transform", showReparsePanel && "rotate-180")} />
-                          </button>
-                        </div>
-                      </div>
-
-                      {showReparsePanel && originalCsvContent && (
-                        <div className="mt-3 p-3 bg-background rounded-lg border space-y-3">
-                          <p className="text-xs text-muted-foreground">
-                            {wasAIParsed
-                              ? "The AI parsed this file but the results don't look right. Describe what's wrong to try again:"
-                              : "If the parsed data looks incorrect, our AI can try to parse it differently. Describe the issue:"}
-                          </p>
-                          <Textarea
-                            placeholder={wasAIParsed
-                              ? "e.g., 'The amounts are wrong - negative should be positive' or 'The date column shows the wrong dates'"
-                              : "e.g., 'This is a Revolut statement' or 'Dates should be in European format (DD/MM/YYYY)'"}
-                            value={reparseDirective}
-                            onChange={(e) => setReparseDirective(e.target.value)}
-                            className="text-sm min-h-[50px] resize-none"
-                          />
-                          <Button
-                            onClick={handleReparseWithAI}
-                            disabled={isReparsing}
-                            size="sm"
-                            className="w-full"
-                          >
-                            {isReparsing ? (
-                              <>
-                                <IconLoader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Reparsing with AI...
-                              </>
-                            ) : (
-                              <>
-                                <IconRefresh className="w-4 h-4 mr-2" />
-                                {wasAIParsed ? "Try AI Again" : "Reparse with AI"}
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
                   </Card>
                 )}
               </div>

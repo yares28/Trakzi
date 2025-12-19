@@ -62,6 +62,7 @@ export const POST = async (req: NextRequest) => {
 
     let rows: TxRow[] = (parsed.data as any[]).map((r) => ({
         date: String(r.date),
+        time: r.time ? String(r.time) : null,
         description: String(r.description),
         amount: Number(r.amount),
         balance: r.balance != null ? Number(r.balance) : null,
@@ -225,6 +226,7 @@ export const POST = async (req: NextRequest) => {
         user_id: userId,
         statement_id: statementId,
         tx_date: r.date,
+        tx_time: r.time ?? null,
         description: r.description,
         amount: r.amount,
         balance: r.balance,

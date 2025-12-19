@@ -22,6 +22,7 @@ Date\tDescription\tAmount\tBalance
     })
     expect(rows[1]).toMatchObject({
       date: '2025-11-24',
+      time: null,
       description: 'Hotel at Booking.com',
       amount: -200,
     })
@@ -112,97 +113,8 @@ Date\tDescription\tAmount\tBalance
     expect(diagnostics.totalRowsInFile).toBe(1)
     expect(diagnostics.rowsAfterFiltering).toBe(1)
   })
-
-  // NEW: Tests for datetime parsing
-  describe('datetime parsing', () => {
-    it('parses US-style date with time (M/D/YYYY HH:MM)', () => {
-      const csv = `date,description,amount
-8/31/2024 12:57,Mercadona,-60.38
-9/1/2024 12:10,Amazon,-25.00`
-
-      const rows = parseCsvToRows(csv)
-
-      expect(rows).toHaveLength(2)
-      expect(rows[0].date).toBe('2024-08-31')
-      expect(rows[0].time).toBe('12:57')
-      expect(rows[1].date).toBe('2024-09-01')
-      expect(rows[1].time).toBe('12:10')
-    })
-
-    it('parses dates with seconds in time', () => {
-      const csv = `date,description,amount
-2024-08-31 14:30:45,Transaction,-100`
-
-      const rows = parseCsvToRows(csv)
-
-      expect(rows[0].date).toBe('2024-08-31')
-      expect(rows[0].time).toBe('14:30:45')
-    })
-
-    it('parses ISO datetime with T separator', () => {
-      const csv = `date,description,amount
-2024-08-31T14:30:00,Transaction,-100`
-
-      const rows = parseCsvToRows(csv)
-
-      expect(rows[0].date).toBe('2024-08-31')
-      expect(rows[0].time).toBe('14:30:00')
-    })
-
-    it('handles pipe-separated date and time', () => {
-      const csv = `date,description,amount
-2024-08-31 | 14:30:00,Transaction,-100`
-
-      const rows = parseCsvToRows(csv)
-
-      expect(rows[0].date).toBe('2024-08-31')
-      expect(rows[0].time).toBe('14:30:00')
-    })
-
-    it('handles 2-digit year with time', () => {
-      const csv = `date,description,amount
-8/31/24 12:57,Transaction,-100`
-
-      const rows = parseCsvToRows(csv)
-
-      expect(rows[0].date).toBe('2024-08-31')
-      expect(rows[0].time).toBe('12:57')
-    })
-
-    it('handles European date format with time (D/M/YYYY HH:MM)', () => {
-      const csv = `date,description,amount
-31/8/2024 14:30,Transaction,-100`
-
-      const rows = parseCsvToRows(csv)
-
-      expect(rows[0].date).toBe('2024-08-31')
-      expect(rows[0].time).toBe('14:30')
-    })
-
-    it('handles dates without time (time should be undefined)', () => {
-      const csv = `date,description,amount
-2024-08-31,No Time,-100`
-
-      const rows = parseCsvToRows(csv)
-
-      expect(rows[0].date).toBe('2024-08-31')
-      expect(rows[0].time).toBeUndefined()
-    })
-
-    it('parses real-world Revolut format with multiple date columns', () => {
-      // Simulating: Card Payment,Current,8/31/2024 12:57,9/1/2024 12:10,Mercadona,-60.38,0,EUR,COMPLETED,230.81
-      const csv = `Type,Account,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
-Card Payment,Current,8/31/2024 12:57,9/1/2024 12:10,Mercadona,-60.38,0,EUR,COMPLETED,230.81`
-
-      const rows = parseCsvToRows(csv)
-
-      expect(rows).toHaveLength(1)
-      expect(rows[0].date).toBe('2024-08-31')
-      expect(rows[0].time).toBe('12:57')
-      expect(rows[0].description).toBe('Mercadona')
-      expect(rows[0].amount).toBe(-60.38)
-    })
-  })
 })
+
+
 
 

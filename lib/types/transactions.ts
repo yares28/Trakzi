@@ -1,7 +1,7 @@
 // lib/types/transactions.ts
 export type TxRow = {
     date: string;          // ISO: YYYY-MM-DD
-    time?: string;         // Optional time in HH:MM or HH:MM:SS format
+    time?: string | null;  // Optional time (HH:MM[:SS]) from CSV import
     description: string;
     amount: number;
     balance: number | null;

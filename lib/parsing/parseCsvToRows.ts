@@ -1,4 +1,4 @@
-﻿// lib/parsing/parseCsvToRows.ts
+// lib/parsing/parseCsvToRows.ts
 import Papa from "papaparse";
 import { TxRow } from "../types/transactions";
 
@@ -41,6 +41,14 @@ const DATE_COLUMN_NAMES = [
     "booking_date", "BookingDate", "BOOKING_DATE"
 ];
 
+const TIME_COLUMN_NAMES = [
+    "time", "Time", "TIME", "tx_time", "TxTime", "TX_TIME",
+    "transaction_time", "TransactionTime", "TRANSACTION_TIME",
+    "transaction time", "Transaction Time", "TRANSACTION TIME",
+    "posted_time", "PostedTime", "POSTED_TIME",
+    "posting_time", "PostingTime", "POSTING_TIME"
+];
+
 const DESCRIPTION_REGEX = /description|desc|memo|note|details|narration|particulars|concept|libelle/i;
 const AMOUNT_REGEX = /amount|amt|value|debit|credit|importe|montant/i;
 const BALANCE_REGEX = /balance|bal|running.*balance|saldo|solde/i;
@@ -60,200 +68,66 @@ function excelSerialToDate(serial: number): string | null {
 
 function looksLikeDate(value: string): boolean {
     return (
-        /^\d{4}-\d{2}-\d{2}/.test(value) ||                    // ISO: 2024-08-31
-        /^\d{4}\/\d{2}\/\d{2}/.test(value) ||                  // 2024/08/31
-        /^\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/.test(value) ||      // M/D/YY, M/D/YYYY, DD-MM-YY, DD-MM-YYYY
-        /^\d{1,2}\s[a-zA-Z]{3}\s\d{4}/.test(value) ||          // 1 Jan 2024
-        /^\d{8}$/.test(value) ||                               // 20240831
-        /^[a-zA-Z]{3}\s\d{1,2},?\s\d{4}/.test(value) ||        // Jan 1, 2024 or Jan 1 2024
-        /^\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}\s+\d{1,2}:\d{2}/.test(value) // M/D/YYYY HH:MM
+        /^\d{4}-\d{2}-\d{2}/.test(value) ||
+        /^\d{4}\/\d{2}\/\d{2}/.test(value) ||
+        /^\d{2}[\/-]\d{2}[\/-]\d{4}/.test(value) ||
+        /^\d{1,2}\s[a-zA-Z]{3}\s\d{4}/.test(value) ||
+        /^\d{8}$/.test(value)
     );
 }
 
-type DateTimeResult = {
-    date: string;
-    time?: string;
-};
-
-/**
- * Normalizes a date/time string into ISO date format (YYYY-MM-DD) and optional time (HH:MM or HH:MM:SS)
- * Handles many edge cases:
- * - Date with time: "8/31/2024 12:57" -> { date: "2024-08-31", time: "12:57" }
- * - European format: "31/08/2024 14:30" -> { date: "2024-08-31", time: "14:30" }
- * - ISO format: "2024-08-31" -> { date: "2024-08-31" }
- * - ISO with time: "2024-08-31T12:30:00" -> { date: "2024-08-31", time: "12:30:00" }
- * - 2-digit year: "8/31/24 12:57" -> { date: "2024-08-31", time: "12:57" }
- * - Dot format: "31.08.2024" -> { date: "2024-08-31" }
- * - Space/pipe separated: "2024-08-31 | 12:30:00" -> { date: "2024-08-31", time: "12:30:00" }
- * - Month name: "Aug 31, 2024" -> { date: "2024-08-31" }
- * - Excel serial: "45535" -> { date: "2024-08-31" }
- */
-function normalizeDatetime(dateStr: string): DateTimeResult {
-    if (dateStr == null) return { date: "" };
+function normalizeDate(dateStr: string): string {
+    if (dateStr == null) return "";
     const trimmed = String(dateStr).trim();
-    if (trimmed === "") return { date: "" };
+    if (trimmed === "") return "";
 
-    let extractedTime: string | undefined;
-
-    // Handle Excel serial numbers (large numbers that represent dates)
     if (/^\d+(\.\d+)?$/.test(trimmed) && Number(trimmed) > 31) {
         const excelDate = excelSerialToDate(Number(trimmed));
-        if (excelDate) return { date: excelDate };
+        if (excelDate) return excelDate;
     }
 
-    // Already in ISO format (YYYY-MM-DD)
     if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-        return { date: trimmed };
+        return trimmed;
     }
 
     let datePart = trimmed;
-
-    // Handle pipe separator (e.g., "2024-08-31 | 12:30:00")
     if (datePart.includes('|')) {
-        const parts = datePart.split('|').map(p => p.trim());
-        datePart = parts[0];
-        if (parts[1] && /^\d{1,2}:\d{2}(:\d{2})?$/.test(parts[1])) {
-            extractedTime = parts[1];
-        }
+        datePart = datePart.split('|')[0].trim();
     }
 
-    // Handle ISO datetime with T separator (e.g., "2024-08-31T12:30:00Z")
-    const isoWithTimeMatch = datePart.match(/^(\d{4}-\d{2}-\d{2})[T\s](\d{1,2}:\d{2}(?::\d{2})?)/);
-    if (isoWithTimeMatch) {
-        return { date: isoWithTimeMatch[1], time: isoWithTimeMatch[2] };
-    }
-
-    // Pure ISO date
     const isoDateMatch = datePart.match(/^(\d{4}-\d{2}-\d{2})/);
-    if (isoDateMatch) return { date: isoDateMatch[1], time: extractedTime };
+    if (isoDateMatch) return isoDateMatch[1];
 
-    // Compact format: YYYYMMDD
     if (/^\d{8}$/.test(datePart)) {
         const year = datePart.slice(0, 4);
         const month = datePart.slice(4, 6);
         const day = datePart.slice(6, 8);
-        return { date: `${year}-${month}-${day}`, time: extractedTime };
+        return `${year}-${month}-${day}`;
     }
 
-    // Handle M/D/YYYY or D/M/YYYY with optional time (e.g., "8/31/2024 12:57" or "31/8/2024 14:30")
-    // Match: 1-2 digits, slash or dash, 1-2 digits, slash or dash, 2-4 digits, optional space + time
-    const slashWithTimeMatch = datePart.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})(?:\s+(\d{1,2}:\d{2}(?::\d{2})?))?/);
-    if (slashWithTimeMatch) {
-        let [, part1, part2, yearStr, timeStr] = slashWithTimeMatch;
-        let year = parseInt(yearStr, 10);
-
-        // Handle 2-digit years (assume 2000s for years < 50, 1900s for years >= 50)
-        if (year < 100) {
-            year = year < 50 ? 2000 + year : 1900 + year;
-        }
-
+    const slashMatch = datePart.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (slashMatch) {
+        const [, part1, part2, year] = slashMatch;
         const num1 = parseInt(part1, 10);
         const num2 = parseInt(part2, 10);
-
-        let month: string;
-        let day: string;
-
-        // Determine if M/D/YYYY or D/M/YYYY format
-        if (num1 > 12 && num2 <= 12) {
-            // num1 > 12 means it must be day (D/M/YYYY - European)
-            day = part1.padStart(2, '0');
-            month = part2.padStart(2, '0');
-        } else if (num2 > 12 && num1 <= 12) {
-            // num2 > 12 means it must be day (M/D/YYYY - US)
-            month = part1.padStart(2, '0');
-            day = part2.padStart(2, '0');
-        } else if (num1 > 31) {
-            // num1 is clearly not a day, so must be year in weird format? Skip for now
-            return { date: "" };
-        } else {
-            // Both could be month or day - assume US format (M/D/YYYY)
-            // This works for cases like 8/31/2024 where 31 > 12 would have been caught above
-            month = part1.padStart(2, '0');
-            day = part2.padStart(2, '0');
+        if (num1 > 12) {
+            return `${year}-${part2.padStart(2, '0')}-${part1.padStart(2, '0')}`;
         }
-
-        // Validate month and day
-        const monthNum = parseInt(month, 10);
-        const dayNum = parseInt(day, 10);
-        if (monthNum < 1 || monthNum > 12 || dayNum < 1 || dayNum > 31) {
-            return { date: "" };
+        if (num2 > 12) {
+            return `${year}-${part1.padStart(2, '0')}-${part2.padStart(2, '0')}`;
         }
-
-        return {
-            date: `${year}-${month}-${day}`,
-            time: timeStr || extractedTime
-        };
+        return `${year}-${part2.padStart(2, '0')}-${part1.padStart(2, '0')}`;
     }
 
-    // Dot format: DD.MM.YYYY or YYYY.MM.DD (with optional time)
-    const dotMatch = datePart.match(/^(\d{1,4})\.(\d{1,2})\.(\d{1,4})(?:\s+(\d{1,2}:\d{2}(?::\d{2})?))?$/);
+    const dotMatch = datePart.match(/^(\d{1,4})\.(\d{1,2})\.(\d{1,4})$/);
     if (dotMatch) {
-        const [, a, b, c, timeStr] = dotMatch;
+        const [, a, b, c] = dotMatch;
         if (a.length === 4) {
-            // YYYY.MM.DD
-            return {
-                date: `${a}-${b.padStart(2, '0')}-${c.padStart(2, '0')}`,
-                time: timeStr || extractedTime
-            };
+            return `${a}-${b.padStart(2, '0')}-${c.padStart(2, '0')}`;
         }
-        // DD.MM.YYYY
-        let year = parseInt(c, 10);
-        if (year < 100) {
-            year = year < 50 ? 2000 + year : 1900 + year;
-        }
-        return {
-            date: `${String(year).padStart(4, '0')}-${b.padStart(2, '0')}-${a.padStart(2, '0')}`,
-            time: timeStr || extractedTime
-        };
+        return `${c.padStart(4, '0')}-${b.padStart(2, '0')}-${a.padStart(2, '0')}`;
     }
 
-    // Dash format: DD-MM-YYYY or YYYY-MM-DD with time (but we already handled ISO above)
-    const dashWithTimeMatch = datePart.match(/^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{1,2}:\d{2}(?::\d{2})?))?$/);
-    if (dashWithTimeMatch) {
-        const [, day, month, year, timeStr] = dashWithTimeMatch;
-        return {
-            date: `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`,
-            time: timeStr || extractedTime
-        };
-    }
-
-    // Month name formats: "Aug 31, 2024" or "31 Aug 2024" or "August 31, 2024"
-    const monthNames: Record<string, string> = {
-        'jan': '01', 'january': '01',
-        'feb': '02', 'february': '02',
-        'mar': '03', 'march': '03',
-        'apr': '04', 'april': '04',
-        'may': '05',
-        'jun': '06', 'june': '06',
-        'jul': '07', 'july': '07',
-        'aug': '08', 'august': '08',
-        'sep': '09', 'sept': '09', 'september': '09',
-        'oct': '10', 'october': '10',
-        'nov': '11', 'november': '11',
-        'dec': '12', 'december': '12',
-    };
-
-    // "Aug 31, 2024" or "Aug 31 2024"
-    const monthFirstMatch = datePart.match(/^([a-zA-Z]+)\s+(\d{1,2}),?\s+(\d{4})/i);
-    if (monthFirstMatch) {
-        const [, monthName, day, year] = monthFirstMatch;
-        const month = monthNames[monthName.toLowerCase()];
-        if (month) {
-            return { date: `${year}-${month}-${day.padStart(2, '0')}`, time: extractedTime };
-        }
-    }
-
-    // "31 Aug 2024"
-    const dayFirstMonthMatch = datePart.match(/^(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})/i);
-    if (dayFirstMonthMatch) {
-        const [, day, monthName, year] = dayFirstMonthMatch;
-        const month = monthNames[monthName.toLowerCase()];
-        if (month) {
-            return { date: `${year}-${month}-${day.padStart(2, '0')}`, time: extractedTime };
-        }
-    }
-
-    // Fallback: try JavaScript Date parsing
     try {
         const date = new Date(datePart);
         if (!isNaN(date.getTime())) {
@@ -261,24 +135,52 @@ function normalizeDatetime(dateStr: string): DateTimeResult {
             if (year >= 1900 && year <= 2100) {
                 const month = String(date.getMonth() + 1).padStart(2, '0');
                 const day = String(date.getDate()).padStart(2, '0');
-                // If the original string had time info, try to extract it
-                const timeMatch = trimmed.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
-                return {
-                    date: `${year}-${month}-${day}`,
-                    time: timeMatch?.[1] || extractedTime
-                };
+                return `${year}-${month}-${day}`;
             }
         }
     } catch {
         // ignore
     }
 
-    return { date: "" };
+    return "";
 }
 
-// Backwards-compatible wrapper that returns just the date string
-function normalizeDate(dateStr: string): string {
-    return normalizeDatetime(dateStr).date;
+function normalizeTime(timeStr: string): string | null {
+    if (timeStr == null) return null;
+    const trimmed = String(timeStr).trim();
+    if (trimmed === "") return null;
+
+    const match = trimmed.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?$/);
+    if (!match) return null;
+
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const seconds = match[3] ? parseInt(match[3], 10) : 0;
+    const meridiem = match[4]?.toLowerCase();
+
+    if (minutes > 59 || seconds > 59) return null;
+
+    if (meridiem) {
+        if (hours < 1 || hours > 12) return null;
+        if (meridiem === "am") {
+            hours = hours === 12 ? 0 : hours;
+        } else {
+            hours = hours === 12 ? 12 : hours + 12;
+        }
+    } else if (hours > 23) {
+        return null;
+    }
+
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function extractTime(value: string): string | null {
+    if (value == null) return null;
+    const trimmed = String(value).trim();
+    if (trimmed === "") return null;
+    const match = trimmed.match(/(\d{1,2}:\d{2}(?::\d{2})?\s*(?:[AaPp][Mm])?)/);
+    if (!match) return null;
+    return normalizeTime(match[1]);
 }
 
 function preprocessCsv(csv: string, delimiterHint?: string): { csv: string; delimiter: string; headerRowIndex: number | null } {
@@ -628,17 +530,43 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
             rawDate = String(r[dateColumns[0]] ?? "");
         }
 
-        const { date: normalizedDate, time: normalizedTime } = normalizeDatetime(rawDate);
+        // Find time column (if separate) or extract from date string
+        let rawTime = "";
+        let timeColumn: string | undefined;
+        for (const colName of TIME_COLUMN_NAMES) {
+            if (r[colName] != null && String(r[colName]).trim() !== "") {
+                timeColumn = colName;
+                break;
+            }
+        }
+        if (!timeColumn) {
+            for (const col of columns) {
+                if (dateColumns.includes(col)) continue;
+                const value = r[col];
+                if (value != null && String(value).trim() !== "") {
+                    if (normalizeTime(String(value))) {
+                        timeColumn = col;
+                        break;
+                    }
+                }
+            }
+        }
+        if (timeColumn) {
+            rawTime = String(r[timeColumn] ?? "");
+        }
+
+        const normalizedDate = normalizeDate(rawDate);
+        const normalizedTime = normalizeTime(rawTime) ?? extractTime(rawDate);
         if (!normalizedDate && rawDate && diagnostics.invalidDateSamples.length < 5) {
             diagnostics.invalidDateSamples.push({ index, value: rawDate });
         }
 
         // Find description column - exclude date columns
-        let descColumn = columns.find(col => !dateColumns.includes(col) && DESCRIPTION_REGEX.test(col));
+        let descColumn = columns.find(col => !dateColumns.includes(col) && col !== timeColumn && DESCRIPTION_REGEX.test(col));
         if (!descColumn) {
             // Try to find a column with text (not date, not number)
             for (const col of columns) {
-                if (dateColumns.includes(col)) continue;
+                if (dateColumns.includes(col) || col === timeColumn) continue;
                 const value = r[col];
                 if (value != null) {
                     const strValue = String(value).trim();
@@ -652,10 +580,10 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
         const rawDescription = descColumn ? (r[descColumn] ?? "") : (r.description ?? r.Description ?? r.DESCRIPTION ?? "");
 
         // Find amount column - exclude date columns and description column
-        let amountColumn = columns.find(col => !dateColumns.includes(col) && col !== descColumn && AMOUNT_REGEX.test(col));
+        let amountColumn = columns.find(col => !dateColumns.includes(col) && col !== descColumn && col !== timeColumn && AMOUNT_REGEX.test(col));
         if (!amountColumn) {
             // Try to find numeric column (excluding dates and description)
-            const excludeCols = [...dateColumns, descColumn].filter(
+            const excludeCols = [...dateColumns, descColumn, timeColumn].filter(
                 (col): col is string => Boolean(col)
             );
             amountColumn = findNumericColumn(r, columns, excludeCols);
@@ -667,10 +595,10 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
         const rawAmount = amountColumn && r[amountColumn] != null ? r[amountColumn] : (r.amount ?? r.Amount ?? r.AMOUNT ?? 0);
 
         // Find balance column - exclude date columns, description, and amount columns
-        let balanceColumn = columns.find(col => !dateColumns.includes(col) && col !== descColumn && col !== amountColumn && BALANCE_REGEX.test(col));
+        let balanceColumn = columns.find(col => !dateColumns.includes(col) && col !== descColumn && col !== amountColumn && col !== timeColumn && BALANCE_REGEX.test(col));
         if (!balanceColumn) {
             // Try to find another numeric column
-            const excludeCols = [...dateColumns, descColumn, amountColumn].filter(
+            const excludeCols = [...dateColumns, descColumn, amountColumn, timeColumn].filter(
                 (col): col is string => Boolean(col)
             );
             balanceColumn = findNumericColumn(r, columns, excludeCols);
@@ -682,7 +610,7 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
 
         return {
             date: normalizedDate || "",
-            time: normalizedTime,
+            time: normalizedTime ?? null,
             description: String(rawDescription ?? "").trim(),
             amount: parsedAmount ?? 0,
             balance: parsedBalance ?? null,
@@ -761,204 +689,3 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
 
     return validRows as ParseCsvReturn<T>;
 }
-
-// ============================================================================
-// AI FALLBACK PARSING
-// ============================================================================
-
-export type ParseCsvWithAIOptions = {
-    fileName?: string;
-    enableAIFallback?: boolean;
-};
-
-export type ParseCsvWithAIResult = {
-    rows: TxRow[];
-    diagnostics: CsvDiagnostics;
-    aiUsed: boolean;
-    aiReason?: string;
-    aiError?: string;
-};
-
-/**
- * Parse CSV with automatic AI fallback for problematic files
- * This function first tries the regular parser, then falls back to AI if:
- * - The parser throws an error
- * - Too many invalid dates are detected
- * - The parsed data looks wrong (all amounts 0, no descriptions, etc.)
- */
-export async function parseCsvToRowsWithAIFallback(
-    csv: string,
-    options?: ParseCsvWithAIOptions
-): Promise<ParseCsvWithAIResult> {
-    const { fileName, enableAIFallback = true } = options ?? {};
-
-    let regularResult: { rows: TxRow[]; diagnostics: CsvDiagnostics } | null = null;
-    let regularError: Error | null = null;
-
-    // First, try the regular parser
-    try {
-        regularResult = parseCsvToRows(csv, { returnDiagnostics: true });
-    } catch (err) {
-        regularError = err instanceof Error ? err : new Error(String(err));
-        console.warn("[CSV Parser] Regular parser failed:", regularError.message);
-    }
-
-    // If regular parsing succeeded, check if results look good
-    if (regularResult) {
-        const { rows, diagnostics } = regularResult;
-
-        // Check for issues that suggest we should try AI
-        const issues: string[] = [];
-
-        // Issue 1: High invalid date ratio
-        const invalidDateRatio = diagnostics.invalidDateSamples.length / Math.max(diagnostics.totalRowsInFile, 1);
-        if (invalidDateRatio > 0.3) {
-            issues.push(`High invalid date ratio: ${(invalidDateRatio * 100).toFixed(0)}%`);
-        }
-
-        // Issue 2: Low extraction rate
-        const extractionRate = rows.length / Math.max(diagnostics.totalRowsInFile, 1);
-        if (diagnostics.totalRowsInFile > 5 && extractionRate < 0.3) {
-            issues.push(`Low extraction rate: ${rows.length}/${diagnostics.totalRowsInFile} rows`);
-        }
-
-        // Issue 3: All amounts are 0
-        const nonZeroAmounts = rows.filter(r => r.amount !== 0);
-        if (rows.length > 3 && nonZeroAmounts.length === 0) {
-            issues.push("All amounts are 0 (possible parsing error)");
-        }
-
-        // Issue 4: All descriptions are empty or too short
-        const validDescriptions = rows.filter(r => r.description && r.description.trim().length > 3);
-        if (rows.length > 3 && validDescriptions.length < rows.length * 0.3) {
-            issues.push("Most descriptions are empty or too short");
-        }
-
-        // Issue 5: All dates are invalid
-        const validDates = rows.filter(r => /^\d{4}-\d{2}-\d{2}$/.test(r.date));
-        if (rows.length > 3 && validDates.length === 0) {
-            issues.push("No valid dates found");
-        }
-
-        // If no issues, return regular result
-        if (issues.length === 0) {
-            return {
-                rows,
-                diagnostics,
-                aiUsed: false
-            };
-        }
-
-        // If AI fallback is disabled, return regular result with warning
-        if (!enableAIFallback) {
-            diagnostics.warnings.push(...issues);
-            return {
-                rows,
-                diagnostics,
-                aiUsed: false,
-                aiReason: `Issues detected but AI fallback disabled: ${issues.join("; ")}`
-            };
-        }
-
-        // Issues detected - try AI fallback
-        console.log(`[CSV Parser] Issues detected, trying AI fallback: ${issues.join("; ")}`);
-
-        try {
-            // Dynamic import to avoid circular dependencies
-            const { parseCsvWithAI } = await import("../ai/parseCsvWithAI");
-            const aiResult = await parseCsvWithAI(csv, fileName);
-
-            if (aiResult.rows.length > 0) {
-                // AI succeeded - return AI results
-                console.log(`[CSV Parser] AI fallback successful: ${aiResult.rows.length} transactions`);
-                return {
-                    rows: aiResult.rows,
-                    diagnostics: {
-                        ...diagnostics,
-                        rowsAfterFiltering: aiResult.rows.length,
-                        warnings: [...diagnostics.warnings, `AI fallback used: ${issues.join("; ")}`]
-                    },
-                    aiUsed: true,
-                    aiReason: issues.join("; ")
-                };
-            } else {
-                // AI failed - return regular result with AI error
-                console.warn("[CSV Parser] AI fallback returned 0 rows:", aiResult.diagnostics.error);
-                diagnostics.warnings.push(...issues);
-                return {
-                    rows,
-                    diagnostics,
-                    aiUsed: true,
-                    aiReason: issues.join("; "),
-                    aiError: aiResult.diagnostics.error || "AI returned no results"
-                };
-            }
-        } catch (aiErr) {
-            // AI threw an error - return regular result
-            const aiErrorMsg = aiErr instanceof Error ? aiErr.message : String(aiErr);
-            console.error("[CSV Parser] AI fallback error:", aiErrorMsg);
-            diagnostics.warnings.push(...issues);
-            return {
-                rows,
-                diagnostics,
-                aiUsed: true,
-                aiReason: issues.join("; "),
-                aiError: aiErrorMsg
-            };
-        }
-    }
-
-    // Regular parser failed completely - try AI if enabled
-    if (!enableAIFallback) {
-        throw regularError || new Error("Parsing failed and AI fallback is disabled");
-    }
-
-    console.log("[CSV Parser] Regular parser failed, trying AI fallback...");
-
-    try {
-        const { parseCsvWithAI } = await import("../ai/parseCsvWithAI");
-        const aiResult = await parseCsvWithAI(csv, fileName);
-
-        if (aiResult.rows.length > 0) {
-            console.log(`[CSV Parser] AI fallback successful: ${aiResult.rows.length} transactions`);
-            return {
-                rows: aiResult.rows,
-                diagnostics: {
-                    delimiter: ",",
-                    headerRowIndex: null,
-                    availableColumns: [],
-                    sampleRawRows: [],
-                    totalRowsInFile: 0,
-                    rowsAfterPreprocess: 0,
-                    rowsAfterFiltering: aiResult.rows.length,
-                    invalidDateSamples: [],
-                    filteredOutSamples: [],
-                    softValidatedCount: 0,
-                    duplicatesDetected: 0,
-                    warnings: [
-                        `Regular parser failed: ${regularError?.message || "Unknown error"}`,
-                        "AI fallback used successfully"
-                    ]
-                },
-                aiUsed: true,
-                aiReason: `Regular parser error: ${regularError?.message || "Unknown"}`
-            };
-        } else {
-            // Both parsers failed
-            throw new Error(
-                `Both regular parser and AI fallback failed. ` +
-                `Regular error: ${regularError?.message || "Unknown"}. ` +
-                `AI error: ${aiResult.diagnostics.error || "No results"}`
-            );
-        }
-    } catch (aiErr) {
-        // AI also failed - throw combined error
-        const aiErrorMsg = aiErr instanceof Error ? aiErr.message : String(aiErr);
-        throw new Error(
-            `Both regular parser and AI fallback failed. ` +
-            `Regular error: ${regularError?.message || "Unknown"}. ` +
-            `AI error: ${aiErrorMsg}`
-        );
-    }
-}
-

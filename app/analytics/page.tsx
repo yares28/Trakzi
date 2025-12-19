@@ -88,17 +88,13 @@ type ParsedRow = TxRow & { id: number }
 const MemoizedTableRow = memo(function MemoizedTableRow({
   row,
   amount,
-  balance,
   category,
-  hasBalance,
   onCategoryChange,
   onDelete
 }: {
   row: ParsedRow
   amount: number
-  balance: number | null
   category: string
-  hasBalance: boolean
   onCategoryChange: (value: string) => void
   onDelete: () => void
 }) {
@@ -106,7 +102,12 @@ const MemoizedTableRow = memo(function MemoizedTableRow({
   return (
     <TableRow>
       <TableCell className="w-28 flex-shrink-0">
-        {row.date}
+        <div className="flex flex-col">
+          <span>{row.date}</span>
+          {row.time ? (
+            <span className="text-xs text-muted-foreground">{row.time}</span>
+          ) : null}
+        </div>
       </TableCell>
       <TableCell className="min-w-[350px] max-w-[600px]">
         <div className="truncate" title={row.description}>
@@ -122,11 +123,6 @@ const MemoizedTableRow = memo(function MemoizedTableRow({
           onValueChange={onCategoryChange}
         />
       </TableCell>
-      {hasBalance && (
-        <TableCell className="text-right w-32 flex-shrink-0">
-          {balance !== null ? formatCurrency(balance) : "-"}
-        </TableCell>
-      )}
       <TableCell className="w-12 flex-shrink-0">
         <Button
           variant="ghost"
@@ -4021,36 +4017,27 @@ export default function AnalyticsPage() {
                               <TableHead className="sticky top-0 z-20 bg-muted">Description</TableHead>
                               <TableHead className="sticky top-0 z-20 bg-muted text-right">Amount</TableHead>
                               <TableHead className="sticky top-0 z-20 bg-muted">Category</TableHead>
-                              {parsedRows.some((row) => row.balance !== null && row.balance !== undefined) && (
-                                <TableHead className="sticky top-0 z-20 bg-muted text-right">Balance</TableHead>
-                              )}
                               <TableHead className="sticky top-0 z-20 bg-muted w-12"></TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {parsedRows.length === 0 ? (
                               <TableRow>
-                                <TableCell colSpan={6} className="h-24 text-center">
+                                <TableCell colSpan={5} className="h-24 text-center">
                                   No transactions found
                                 </TableCell>
                               </TableRow>
                             ) : (
                               parsedRows.map((row) => {
                                 const amount = typeof row.amount === 'number' ? row.amount : parseFloat(row.amount) || 0
-                                const balance = row.balance !== null && row.balance !== undefined
-                                  ? (typeof row.balance === 'number' ? row.balance : parseFloat(row.balance))
-                                  : null
                                 const category = row.category || 'Other'
-                                const hasBalance = parsedRows.some((r) => r.balance !== null && r.balance !== undefined)
 
                                 return (
                                   <MemoizedTableRow
                                     key={row.id ?? `${row.date}-${row.description}`}
                                     row={row}
                                     amount={amount}
-                                    balance={balance}
                                     category={category}
-                                    hasBalance={hasBalance}
                                     onCategoryChange={(value) => handleCategoryChange(row.id, value)}
                                     onDelete={() => handleDeleteRow(row.id)}
                                   />
