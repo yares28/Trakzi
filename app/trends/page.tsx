@@ -13,6 +13,7 @@ import {
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import { useDateFilter } from "@/components/date-filter-provider"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
+import { attachGridStackAutoScroll } from "@/lib/gridstack-auto-scroll"
 import { ChartCategoryTrend } from "@/components/chart-category-trend"
 import { ChartCardSkeleton } from "@/components/chart-loading-state"
 import { ShimmeringText } from "@/components/ui/shimmering-text"
@@ -135,6 +136,7 @@ export default function TrendsPage() {
 
   const gridRef = useRef<HTMLDivElement | null>(null)
   const gridStackRef = useRef<GridStack | null>(null)
+  const autoScrollCleanupRef = useRef<(() => void) | null>(null)
 
   // Save card sizes to localStorage
   const saveCardSizes = (sizes: Record<string, { w: number; h: number; x: number; y: number }>) => {
@@ -271,6 +273,10 @@ export default function TrendsPage() {
       disableOneColumnMode: true,
     }
     const instance = GridStack.init(gridOptions, container)
+    if (autoScrollCleanupRef.current) {
+      autoScrollCleanupRef.current()
+    }
+    autoScrollCleanupRef.current = attachGridStackAutoScroll(instance)
 
     // Remove all items first to prevent GridStack from reading DOM attributes
     instance.removeAll(false)
@@ -517,6 +523,10 @@ export default function TrendsPage() {
 
     return () => {
       window.removeEventListener('gridstackReorganize', handleReorganize)
+      if (autoScrollCleanupRef.current) {
+        autoScrollCleanupRef.current()
+        autoScrollCleanupRef.current = null
+      }
       gridStackRef.current?.destroy(false)
       gridStackRef.current = null
     }

@@ -28,12 +28,12 @@ function isSupportedReceiptPdf(file: File): boolean {
 }
 
 async function extractTextFromPdf(buffer: Buffer): Promise<string> {
-  // Use dynamic import to avoid module loading issues in production
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pdfParseModule = await import("pdf-parse") as any
-  const pdfParse = pdfParseModule.default || pdfParseModule
-  const data = await pdfParse(buffer)
-  return data.text || ""
+  // Use unpdf which is designed for serverless environments (no DOM dependencies)
+  const { extractText } = await import("unpdf")
+  const result = await extractText(buffer)
+  // unpdf returns text as an array of strings (one per page), join them
+  const pages = result.text || []
+  return Array.isArray(pages) ? pages.join("\n") : String(pages)
 }
 
 const MAX_RECEIPT_FILE_BYTES = 10 * 1024 * 1024

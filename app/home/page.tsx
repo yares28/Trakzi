@@ -73,6 +73,7 @@ import { useFavorites } from "@/components/favorites-provider"
 import { useDateFilter } from "@/components/date-filter-provider"
 import { getChartMetadata } from "@/lib/chart-metadata"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
+import { attachGridStackAutoScroll } from "@/lib/gridstack-auto-scroll"
 import { useTheme } from "next-themes"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
@@ -426,6 +427,7 @@ export default function Page() {
   // GridStack refs for favorites section
   const favoritesGridRef = useRef<HTMLDivElement>(null)
   const favoritesGridStackRef = useRef<GridStack | null>(null)
+  const autoScrollCleanupRef = useRef<(() => void) | null>(null)
 
   // Saved chart sizes for favorites
   const [savedFavoriteSizes, setSavedFavoriteSizes] = useState<Record<string, { w: number; h: number; x?: number; y?: number }>>({})
@@ -552,6 +554,12 @@ export default function Page() {
         disableOneColumnMode: true,
       }
       favoritesGridStackRef.current = GridStack.init(gridOptions, favoritesGridRef.current)
+      if (favoritesGridStackRef.current) {
+        if (autoScrollCleanupRef.current) {
+          autoScrollCleanupRef.current()
+        }
+        autoScrollCleanupRef.current = attachGridStackAutoScroll(favoritesGridStackRef.current)
+      }
 
       if (favoritesGridStackRef.current && items.length > 0) {
         // Collect widget data
@@ -725,6 +733,10 @@ export default function Page() {
       if (items.length === 0) return
 
       if (favoritesGridStackRef.current) {
+        if (autoScrollCleanupRef.current) {
+          autoScrollCleanupRef.current()
+          autoScrollCleanupRef.current = null
+        }
         favoritesGridStackRef.current.destroy(false)
         favoritesGridStackRef.current = null
       }
@@ -741,6 +753,10 @@ export default function Page() {
     return () => {
       clearTimeout(timer)
       if (favoritesGridStackRef.current) {
+        if (autoScrollCleanupRef.current) {
+          autoScrollCleanupRef.current()
+          autoScrollCleanupRef.current = null
+        }
         favoritesGridStackRef.current.destroy(false)
         favoritesGridStackRef.current = null
       }

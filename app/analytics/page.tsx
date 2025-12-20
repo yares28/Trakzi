@@ -81,6 +81,7 @@ import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv"
 import { TxRow } from "@/lib/types/transactions"
 import { DEFAULT_CATEGORIES } from "@/lib/categories"
+import { attachGridStackAutoScroll } from "@/lib/gridstack-auto-scroll"
 import posthog from "posthog-js"
 
 type ParsedRow = TxRow & { id: number }
@@ -500,6 +501,7 @@ export default function AnalyticsPage() {
   // GridStack ref and instance
   const gridRef = useRef<HTMLDivElement>(null)
   const gridStackRef = useRef<GridStack | null>(null)
+  const autoScrollCleanupRef = useRef<(() => void) | null>(null)
 
   // Chart order for rendering
   const analyticsChartOrder = useMemo(
@@ -696,6 +698,12 @@ export default function AnalyticsPage() {
         // Per-item min/max will be set when loading widgets
       }
       gridStackRef.current = GridStack.init(gridOptions, gridRef.current)
+      if (gridStackRef.current) {
+        if (autoScrollCleanupRef.current) {
+          autoScrollCleanupRef.current()
+        }
+        autoScrollCleanupRef.current = attachGridStackAutoScroll(gridStackRef.current)
+      }
 
       // Now explicitly load all items with correct sizes from data attributes or saved sizes
       if (gridStackRef.current && items.length > 0) {
@@ -986,6 +994,10 @@ export default function AnalyticsPage() {
 
         // Destroy existing instance if it exists
         if (gridStackRef.current) {
+          if (autoScrollCleanupRef.current) {
+            autoScrollCleanupRef.current()
+            autoScrollCleanupRef.current = null
+          }
           gridStackRef.current.destroy(false)
           gridStackRef.current = null
         }
@@ -1029,6 +1041,10 @@ export default function AnalyticsPage() {
         cancelAnimationFrame(rafId)
       }
       if (gridStackRef.current) {
+        if (autoScrollCleanupRef.current) {
+          autoScrollCleanupRef.current()
+          autoScrollCleanupRef.current = null
+        }
         gridStackRef.current.destroy(false)
         gridStackRef.current = null
       }

@@ -37,10 +37,43 @@ export function attachGridStackAutoScroll(
   let rafId: number | null = null
   let isDragging = false
   let lastEvent: DragEventWithClient | null = null
+  let lastClientY: number | null = null
+  let listenersAttached = false
+
+  const updateFromMouse = (event: MouseEvent) => {
+    lastClientY = event.clientY
+  }
+
+  const updateFromPointer = (event: PointerEvent) => {
+    lastClientY = event.clientY
+  }
+
+  const updateFromTouch = (event: TouchEvent) => {
+    if (event.touches.length === 0) return
+    lastClientY = event.touches[0].clientY
+  }
+
+  const attachMoveListeners = () => {
+    if (listenersAttached) return
+    listenersAttached = true
+    document.addEventListener("mousemove", updateFromMouse, { passive: true })
+    document.addEventListener("pointermove", updateFromPointer, { passive: true })
+    document.addEventListener("touchmove", updateFromTouch, { passive: true })
+  }
+
+  const detachMoveListeners = () => {
+    if (!listenersAttached) return
+    listenersAttached = false
+    document.removeEventListener("mousemove", updateFromMouse)
+    document.removeEventListener("pointermove", updateFromPointer)
+    document.removeEventListener("touchmove", updateFromTouch)
+  }
 
   const stop = () => {
     isDragging = false
     lastEvent = null
+    lastClientY = null
+    detachMoveListeners()
     if (rafId !== null) {
       cancelAnimationFrame(rafId)
       rafId = null
@@ -61,7 +94,8 @@ export function attachGridStackAutoScroll(
       scrollContainer === document.scrollingElement
         ? 0
         : scrollContainer.getBoundingClientRect().top
-    const clientY = (lastEvent.clientY ?? viewportHeight / 2) - containerTop
+    const clientY =
+      (lastClientY ?? lastEvent?.clientY ?? viewportHeight / 2) - containerTop
     let delta = 0
 
     if (clientY < edgeThreshold) {
@@ -84,6 +118,10 @@ export function attachGridStackAutoScroll(
   const handleDragStart = (event: Event) => {
     isDragging = true
     lastEvent = toDragEvent(event)
+    if (lastEvent?.clientY !== undefined) {
+      lastClientY = lastEvent.clientY
+    }
+    attachMoveListeners()
     if (rafId === null) {
       rafId = requestAnimationFrame(tick)
     }
@@ -92,6 +130,9 @@ export function attachGridStackAutoScroll(
   const handleDrag = (event: Event) => {
     if (!isDragging) return
     lastEvent = toDragEvent(event)
+    if (lastEvent?.clientY !== undefined) {
+      lastClientY = lastEvent.clientY
+    }
     if (rafId === null) {
       rafId = requestAnimationFrame(tick)
     }
@@ -106,9 +147,9 @@ export function attachGridStackAutoScroll(
   grid.on("dragstop", handleDragStop)
 
   return () => {
-    grid.off("dragstart", handleDragStart)
-    grid.off("drag", handleDrag)
-    grid.off("dragstop", handleDragStop)
+    grid.off("dragstart")
+    grid.off("drag")
+    grid.off("dragstop")
     stop()
   }
 }
