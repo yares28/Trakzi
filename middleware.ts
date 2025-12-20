@@ -32,6 +32,9 @@ const isProtectedRoute = createRouteMatcher([
 ])
 
 export default clerkMiddleware(async (auth, req) => {
+  // DEBUG: Log env variable value
+  console.log('[DEBUG] BYPASS_CLERK_AUTH value:', process.env.BYPASS_CLERK_AUTH, '| BYPASS_AUTH:', BYPASS_AUTH)
+
   // BYPASS: Skip all auth checks in development when enabled
   if (BYPASS_AUTH) {
     console.log('[DEV] Auth bypass enabled - skipping authentication')
