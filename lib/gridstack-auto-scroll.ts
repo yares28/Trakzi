@@ -49,6 +49,7 @@ export function attachGridStackAutoScroll(
   let startClientX: number | null = null
   let startClientY: number | null = null
   let listenersAttached = false
+  let wheelListenerAttached = false
 
   const maybeStart = (clientX: number, clientY: number) => {
     if (!pendingStart || isDragging) return
@@ -79,12 +80,39 @@ export function attachGridStackAutoScroll(
     maybeStart(touch.clientX, touch.clientY)
   }
 
+  // Handle wheel events during drag - prevent the wheel scroll from
+  // interfering with the drag operation. When the user scrolls with the
+  // wheel during drag, it causes the card to lose sync with the cursor
+  // position because GridStack's drag tracking doesn't account for scroll
+  // position changes. By preventing the wheel event during drag, we force
+  // users to use the edge auto-scroll feature instead.
+  const handleWheel = (event: WheelEvent) => {
+    if (!isDragging) return
+    // Prevent wheel scroll during drag to maintain cursor-card sync
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
   const attachMoveListeners = () => {
     if (listenersAttached) return
     listenersAttached = true
     document.addEventListener("mousemove", updateFromMouse, { passive: true })
     document.addEventListener("pointermove", updateFromPointer, { passive: true })
     document.addEventListener("touchmove", updateFromTouch, { passive: true })
+  }
+
+  const attachWheelListener = () => {
+    if (wheelListenerAttached) return
+    wheelListenerAttached = true
+    // Use capture phase to intercept wheel events early
+    // Must NOT be passive since we call preventDefault
+    document.addEventListener("wheel", handleWheel, { passive: false, capture: true })
+  }
+
+  const detachWheelListener = () => {
+    if (!wheelListenerAttached) return
+    wheelListenerAttached = false
+    document.removeEventListener("wheel", handleWheel, true)
   }
 
   const detachMoveListeners = () => {
@@ -104,6 +132,7 @@ export function attachGridStackAutoScroll(
     startClientX = null
     startClientY = null
     detachMoveListeners()
+    detachWheelListener()
     if (rafId !== null) {
       cancelAnimationFrame(rafId)
       rafId = null
@@ -115,6 +144,7 @@ export function attachGridStackAutoScroll(
     isDragging = true
     pendingStart = false
     attachMoveListeners()
+    attachWheelListener()
     if (rafId === null) {
       rafId = requestAnimationFrame(tick)
     }
@@ -229,6 +259,7 @@ export function attachGridStackAutoScroll(
     document.removeEventListener("mouseup", handlePointerUp, true)
     document.removeEventListener("touchend", handlePointerUp, true)
     document.removeEventListener("touchcancel", handlePointerUp, true)
+    detachWheelListener()
     stop()
   }
 }
