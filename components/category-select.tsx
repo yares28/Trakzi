@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useEffect, memo, useCallback, useMemo, useRef } from "react"
+import { useState, useEffect, memo, useCallback, useMemo } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DEFAULT_CATEGORIES, DEFAULT_CATEGORY_GROUPS, type CategoryGroup } from "@/lib/categories"
 import { toast } from "sonner"
 import { ChevronDown, Plus } from "lucide-react"
@@ -36,7 +37,8 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
   const [, setCategories] = useState<string[]>(DEFAULT_CATEGORIES)
   const [newCategory, setNewCategory] = useState("")
   const [newCategoryTier, setNewCategoryTier] = useState<SpendingTier>("Wants")
-  const [isAdding, setIsAdding] = useState(false)
+  const [isSelectOpen, setIsSelectOpen] = useState(false)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [groupedOptions, setGroupedOptions] = useState<CategoryGroup[]>(DEFAULT_CATEGORY_GROUPS)
@@ -201,7 +203,7 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
 
       setNewCategory("")
       setNewCategoryTier("Wants")
-      setIsAdding(false)
+      setIsCreateDialogOpen(false)
       onValueChange(createdName)
       onCategoryAdded?.(createdName)
       // Persist the chosen tier locally for Needs vs Wants classification
@@ -221,7 +223,7 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
       e.preventDefault()
       handleAddCategory()
     } else if (e.key === "Escape") {
-      setIsAdding(false)
+      setIsCreateDialogOpen(false)
       setNewCategory("")
     }
   }, [handleAddCategory])
@@ -233,6 +235,19 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
 
   const handleInputPointerDown = useCallback((event: React.PointerEvent<HTMLInputElement>) => {
     event.stopPropagation()
+  }, [])
+
+  const handleCreateDialogChange = useCallback((open: boolean) => {
+    setIsCreateDialogOpen(open)
+    if (!open) {
+      setNewCategory("")
+      setNewCategoryTier("Wants")
+    }
+  }, [])
+
+  const handleOpenCreateDialog = useCallback(() => {
+    setIsSelectOpen(false)
+    setIsCreateDialogOpen(true)
   }, [])
 
   // Find which group contains the selected value
@@ -278,135 +293,131 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
   }, [onValueChange])
 
   return (
-    <Select
-      value={selectValue}
-      onValueChange={handleValueChange}
-      disabled={isLoading || isSubmitting}
-    >
-      <SelectTrigger className="w-[140px] h-8">
-        <SelectValue placeholder="Select category" />
-      </SelectTrigger>
-      <SelectContent>
-        {isLoading ? (
-          <div className="px-2 py-2 text-xs text-muted-foreground">
-            Loading categories...
-          </div>
-        ) : (
-          <>
-            {groupedOptions
-              ? groupedOptions.map((group) => {
-                  const isOpen = openGroups[group.label] ?? false
-                  const containsSelectedValue = selectedValueGroup === group.label
-                  
-                  return (
-                    <div key={group.label} className="py-1">
-                      <button
-                        type="button"
-                        className="flex w-full items-center justify-between px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground"
-                        onPointerDown={(event) => event.preventDefault()}
-                        onClick={() => toggleGroup(group.label)}
-                      >
-                        <span>{group.label}</span>
-                        <ChevronDown
-                          className={`h-3.5 w-3.5 transition-transform ${isOpen ? "rotate-0" : "-rotate-90"}`}
-                        />
-                      </button>
-                      {isOpen && (
-                        <div className="mt-1 space-y-0.5 pl-4">
-                          {group.categories.map((cat) => (
-                            <SelectItem key={`${group.label}-${cat}`} value={cat}>
-                              {cat}
-                            </SelectItem>
-                          ))}
-                        </div>
-                      )}
-                      {/* Always render the selected value's SelectItem, even if group is closed */}
-                      {!isOpen && containsSelectedValue && selectValue && (
-                        <SelectItem key={`${group.label}-${selectValue}-hidden`} value={selectValue} className="hidden">
-                          {selectValue}
-                        </SelectItem>
-                      )}
-                    </div>
-                  )
-                })
-              : null}
-            {/* Render selected value if it's not in any group (custom category) */}
-            {selectValue && selectedValueGroup === null && (
-              <SelectItem key={`custom-${selectValue}`} value={selectValue} className="hidden">
-                {selectValue}
-              </SelectItem>
-            )}
-            <Separator className="my-1" />
-            {isAdding ? (
-              <div className="px-2 py-1.5 space-y-2">
-                <Input
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                  onKeyDown={handleInputKeyDown}
-                  onPointerDown={handleInputPointerDown}
-                  onClick={(event) => event.stopPropagation()}
-                  placeholder="Enter category name"
-                  className="h-8 text-sm"
-                  autoFocus
-                  disabled={isSubmitting}
-                />
-                <div className="flex items-center justify-between gap-2 text-[0.7rem] text-muted-foreground">
-                  <span className="whitespace-nowrap">Treat as:</span>
-                  <Select
-                    value={newCategoryTier}
-                    onValueChange={(value) => setNewCategoryTier(value as SpendingTier)}
-                    disabled={isSubmitting}
-                  >
-                    <SelectTrigger className="h-7 w-[150px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Essentials">Essentials (needs)</SelectItem>
-                      <SelectItem value="Mandatory">Mandatory</SelectItem>
-                      <SelectItem value="Wants">Wants</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex gap-1">
-                  <Button
-                    size="sm"
-                    variant="default"
-                    className="h-7 flex-1 text-xs"
-                    onClick={handleAddCategory}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? "Saving..." : "Add"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 flex-1 text-xs"
-                    onClick={() => {
-                      setIsAdding(false)
-                      setNewCategory("")
-                    }}
-                    disabled={isSubmitting}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : (
+    <>
+      <Select
+        value={selectValue}
+        onValueChange={handleValueChange}
+        open={isSelectOpen}
+        onOpenChange={setIsSelectOpen}
+        disabled={isLoading || isSubmitting}
+      >
+        <SelectTrigger className="w-[140px] h-8">
+          <SelectValue placeholder="Select category" />
+        </SelectTrigger>
+        <SelectContent>
+          {isLoading ? (
+            <div className="px-2 py-2 text-xs text-muted-foreground">
+              Loading categories...
+            </div>
+          ) : (
+            <>
+              {groupedOptions
+                ? groupedOptions.map((group) => {
+                    const isOpen = openGroups[group.label] ?? false
+                    const containsSelectedValue = selectedValueGroup === group.label
+                    
+                    return (
+                      <div key={group.label} className="py-1">
+                        <button
+                          type="button"
+                          className="flex w-full items-center justify-between px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                          onPointerDown={(event) => event.preventDefault()}
+                          onClick={() => toggleGroup(group.label)}
+                        >
+                          <span>{group.label}</span>
+                          <ChevronDown
+                            className={`h-3.5 w-3.5 transition-transform ${isOpen ? "rotate-0" : "-rotate-90"}`}
+                          />
+                        </button>
+                        {isOpen && (
+                          <div className="mt-1 space-y-0.5 pl-4">
+                            {group.categories.map((cat) => (
+                              <SelectItem key={`${group.label}-${cat}`} value={cat}>
+                                {cat}
+                              </SelectItem>
+                            ))}
+                          </div>
+                        )}
+                        {/* Always render the selected value's SelectItem, even if group is closed */}
+                        {!isOpen && containsSelectedValue && selectValue && (
+                          <SelectItem key={`${group.label}-${selectValue}-hidden`} value={selectValue} className="hidden">
+                            {selectValue}
+                          </SelectItem>
+                        )}
+                      </div>
+                    )
+                  })
+                : null}
+              {/* Render selected value if it's not in any group (custom category) */}
+              {selectValue && selectedValueGroup === null && (
+                <SelectItem key={`custom-${selectValue}`} value={selectValue} className="hidden">
+                  {selectValue}
+                </SelectItem>
+              )}
+              <Separator className="my-1" />
               <div className="px-2 py-1">
                 <Button
                   size="sm"
                   variant="ghost"
                   className="w-full h-8 text-xs justify-start gap-2"
-                  onClick={() => setIsAdding(true)}
+                  onClick={handleOpenCreateDialog}
                 >
                   <Plus className="h-3 w-3" />
                   Add custom category
                 </Button>
               </div>
-            )}
-          </>
-        )}
-      </SelectContent>
-    </Select>
+            </>
+          )}
+        </SelectContent>
+      </Select>
+      <Dialog open={isCreateDialogOpen} onOpenChange={handleCreateDialogChange}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create category</DialogTitle>
+            <DialogDescription>Add a custom category for your transactions.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              onKeyDown={handleInputKeyDown}
+              onPointerDown={handleInputPointerDown}
+              placeholder="Enter category name"
+              autoFocus
+              disabled={isSubmitting}
+            />
+            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span className="whitespace-nowrap">Treat as:</span>
+              <Select
+                value={newCategoryTier}
+                onValueChange={(value) => setNewCategoryTier(value as SpendingTier)}
+                disabled={isSubmitting}
+              >
+                <SelectTrigger className="h-8 w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Essentials">Essentials (needs)</SelectItem>
+                  <SelectItem value="Mandatory">Mandatory</SelectItem>
+                  <SelectItem value="Wants">Wants</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => handleCreateDialogChange(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleAddCategory} disabled={isSubmitting}>
+              {isSubmitting ? "Saving..." : "Add category"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 })
