@@ -90,6 +90,7 @@ export const GET = async (request: Request) => {
         // Get filter from query params
         const { searchParams } = new URL(request.url);
         const filter = searchParams.get("filter");
+        const categoryFilter = searchParams.get("category"); // Optional category filter
 
         // Get date range based on filter
         const { startDate, endDate } = getDateRange(filter);
@@ -112,8 +113,14 @@ export const GET = async (request: Request) => {
         const params: any[] = [userId];
 
         if (startDate && endDate) {
-            query += ` AND t.tx_date >= $2 AND t.tx_date <= $3`;
+            query += ` AND t.tx_date >= $${params.length + 1} AND t.tx_date <= $${params.length + 2}`;
             params.push(startDate, endDate);
+        }
+
+        // Filter by category name (case-insensitive)
+        if (categoryFilter) {
+            query += ` AND LOWER(c.name) = LOWER($${params.length + 1})`;
+            params.push(categoryFilter);
         }
 
         // Use index-friendly ordering (matches idx_transactions_user_date_desc_covering)

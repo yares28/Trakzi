@@ -64,6 +64,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
+import { setupGridStackDragScroll } from "@/lib/gridstack-drag-scroll"
 import { getReceiptCategoryByName, getReceiptBroadTypes } from "@/lib/receipt-categories"
 import { cn } from "@/lib/utils"
 
@@ -1367,6 +1368,7 @@ export function FridgePageClient() {
   // GridStack refs
   const gridRef = useRef<HTMLDivElement>(null)
   const gridStackRef = useRef<GridStack | null>(null)
+  const dragScrollCleanupRef = useRef<(() => void) | null>(null)
 
   const loadChartSizes = useCallback((): Record<string, { w: number; h: number; x?: number; y?: number }> => {
     if (typeof window === "undefined") return {}
@@ -1454,6 +1456,10 @@ export function FridgePageClient() {
       }
 
       gridStackRef.current = GridStack.init(gridOptions, gridRef.current)
+      if (gridStackRef.current) {
+        dragScrollCleanupRef.current?.()
+        dragScrollCleanupRef.current = setupGridStackDragScroll(gridStackRef.current)
+      }
 
       if (gridStackRef.current && items.length > 0) {
         const currentSavedChartSizes = savedChartSizesRef.current
@@ -1656,6 +1662,8 @@ export function FridgePageClient() {
 
         // Destroy existing instance if it exists
         if (gridStackRef.current) {
+          dragScrollCleanupRef.current?.()
+          dragScrollCleanupRef.current = null
           gridStackRef.current.destroy(false)
           gridStackRef.current = null
         }
@@ -1684,6 +1692,8 @@ export function FridgePageClient() {
         cancelAnimationFrame(rafId)
       }
       if (gridStackRef.current) {
+        dragScrollCleanupRef.current?.()
+        dragScrollCleanupRef.current = null
         gridStackRef.current.destroy(false)
         gridStackRef.current = null
       }

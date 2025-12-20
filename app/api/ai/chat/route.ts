@@ -5,6 +5,43 @@ import { neonQuery } from "@/lib/neonClient";
 import { getSiteUrl, getSiteName } from "@/lib/env";
 import { checkAiChatLimit } from "@/lib/feature-access";
 
+// Currency configuration - mirrors frontend currency-provider.tsx
+const CURRENCY_CONFIG: Record<string, { symbol: string; position: "before" | "after"; locale: string }> = {
+    USD: { symbol: "$", position: "before", locale: "en-US" },
+    EUR: { symbol: "€", position: "after", locale: "de-DE" },
+    GBP: { symbol: "£", position: "before", locale: "en-GB" },
+    JPY: { symbol: "¥", position: "before", locale: "ja-JP" },
+    CAD: { symbol: "C$", position: "before", locale: "en-CA" },
+    AUD: { symbol: "A$", position: "before", locale: "en-AU" },
+    CHF: { symbol: "Fr", position: "after", locale: "de-CH" },
+    CNY: { symbol: "¥", position: "before", locale: "zh-CN" },
+    INR: { symbol: "₹", position: "before", locale: "en-IN" },
+    BRL: { symbol: "R$", position: "before", locale: "pt-BR" },
+    MXN: { symbol: "$", position: "before", locale: "es-MX" },
+    KRW: { symbol: "₩", position: "before", locale: "ko-KR" },
+};
+
+// Format currency with commas in "20,000.00symbol" format
+function formatCurrency(amount: number, currencyCode: string = "USD"): string {
+    const config = CURRENCY_CONFIG[currencyCode] || CURRENCY_CONFIG.USD;
+    const absAmount = Math.abs(amount);
+
+    // Format with thousands separators and 2 decimal places
+    const formatted = absAmount.toLocaleString(config.locale, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+
+    const sign = amount < 0 ? "-" : "";
+
+    // Position symbol based on currency convention
+    if (config.position === "after") {
+        return `${sign}${formatted}${config.symbol}`;
+    } else {
+        return `${sign}${config.symbol}${formatted}`;
+    }
+}
+
 interface ChatMessage {
     role: "user" | "assistant" | "system";
     content: string;
@@ -118,7 +155,7 @@ async function getUserFinancialContext(userId: string): Promise<TransactionSumma
     }
 }
 
-function buildSystemPrompt(context: TransactionSummary | null): string {
+function buildSystemPrompt(context: TransactionSummary | null, currency: string = "USD"): string {
     const basePrompt = `
 You are a friendly and knowledgeable personal finance assistant. You help users understand their spending habits, budget better, and make smart financial decisions.
 
@@ -130,6 +167,7 @@ CRITICAL RULES:
 5. Use the user's actual data to personalize responses
 6. Use skimmable, well-structured formatting (see below)
 7. Keep responses easy to scan (avoid walls of text)
+8. ALWAYS format monetary amounts with the user's currency (${currency}) - use format like "20,000.00${CURRENCY_CONFIG[currency]?.symbol || "$"}" with comma separators for thousands
 
 OUTPUT STYLE (MANDATORY):
 - Use Markdown.
@@ -146,6 +184,7 @@ OUTPUT STYLE (MANDATORY):
 - Use bullets and bold labels like **Income:**, **Biggest category:**, **Recommendation:**.
 - Avoid Markdown tables; use bullets instead.
 - If you make an assumption or estimate, label it clearly as an estimate.
+- Format all monetary values with thousands separators (commas) like: 20,000.00
 
 TOPICS YOU CAN HELP WITH:
 - Analyzing spending patterns and trends
@@ -175,25 +214,25 @@ USER DATA STATUS: No transaction data available yet. Encourage the user to impor
     const topCategories = context.categoryBreakdown.slice(0, 5).map(c => {
         const pct = safeExpensesTotal > 0 ? (c.total / safeExpensesTotal) * 100 : 0;
         const pctText = safeExpensesTotal > 0 ? ` (~${pct.toFixed(0)}%)` : "";
-        return `- ${c.name}: $${c.total.toFixed(2)}${pctText}`;
+        return `- ${c.name}: ${formatCurrency(c.total, currency)}${pctText}`;
     }).join('\n');
 
     return basePrompt + `
 
 USER FINANCIAL DATA:
-- Total Income: $${context.totalIncome.toFixed(2)}
-- Total Expenses: $${context.totalExpenses.toFixed(2)}
-- Net Savings: $${context.netSavings.toFixed(2)}
+- Total Income: ${formatCurrency(context.totalIncome, currency)}
+- Total Expenses: ${formatCurrency(context.totalExpenses, currency)}
+- Net Savings: ${formatCurrency(context.netSavings, currency)}
 - Total Transactions: ${context.transactionCount}
 
 TOP SPENDING CATEGORIES (share of expenses):
 ${topCategories}
 
 MONTHLY TRENDS (Last 6 months):
-${context.monthlyTrends.map(m => `- ${m.month}: Income $${m.income.toFixed(2)}, Expenses $${m.expenses.toFixed(2)}`).join('\n')}
+${context.monthlyTrends.map(m => `- ${m.month}: Income ${formatCurrency(m.income, currency)}, Expenses ${formatCurrency(m.expenses, currency)}`).join('\n')}
 
 RECENT TRANSACTIONS (Last 20):
-${context.recentTransactions.slice(0, 10).map(t => `- ${t.date}: ${t.description.substring(0, 40)} | $${t.amount.toFixed(2)} | ${t.category}`).join('\n')}
+${context.recentTransactions.slice(0, 10).map(t => `- ${t.date}: ${t.description.substring(0, 40)} | ${formatCurrency(t.amount, currency)} | ${t.category}`).join('\n')}
 
 Use this data to provide personalized, specific insights when the user asks about their finances.
 `;
@@ -237,7 +276,10 @@ export const POST = async (req: NextRequest) => {
         }
 
         const body = await req.json();
-        const { messages } = body as { messages: ChatMessage[] };
+        const { messages, currency } = body as { messages: ChatMessage[]; currency?: string };
+
+        // Use the provided currency or default to USD
+        const userCurrency = currency && CURRENCY_CONFIG[currency] ? currency : "USD";
 
         if (!messages || !Array.isArray(messages) || messages.length === 0) {
             return NextResponse.json(
@@ -256,7 +298,7 @@ export const POST = async (req: NextRequest) => {
 
         // Fetch user's financial context
         const userContext = await getUserFinancialContext(userId);
-        const systemPrompt = buildSystemPrompt(userContext);
+        const systemPrompt = buildSystemPrompt(userContext, userCurrency);
 
         // Build messages array for the API
         const apiMessages = [

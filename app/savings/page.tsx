@@ -26,19 +26,24 @@ export default function Page() {
   // Date filter state
   const [dateFilter, setDateFilter] = useState<string | null>(null)
 
-  // Fetch transactions for charts
+  // Fetch transactions for charts - filter for savings category only
   const fetchTransactions = useCallback(async () => {
     try {
-      const url = dateFilter
-        ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
-        : "/api/transactions"
+      // Build URL with both date filter and category filter for savings
+      const params = new URLSearchParams()
+      if (dateFilter) {
+        params.append("filter", dateFilter)
+      }
+      params.append("category", "Savings") // Only show savings category transactions
+
+      const url = `/api/transactions?${params.toString()}`
       console.log("[Savings] Fetching transactions from:", url)
       const response = await fetch(url)
       const data = await response.json()
 
       if (response.ok) {
         if (Array.isArray(data)) {
-          console.log(`[Savings] Setting ${data.length} transactions`)
+          console.log(`[Savings] Setting ${data.length} savings transactions`)
           setTransactions(normalizeTransactions(data) as Array<{
             id: number
             date: string

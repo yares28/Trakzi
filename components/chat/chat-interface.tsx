@@ -22,6 +22,7 @@ import {
 import { PromptInput, PromptInputTextarea, PromptInputSubmit } from "@/components/ai-elements/prompt-input"
 import { Reasoning, ReasoningTrigger, ReasoningContent } from "@/components/ai-elements/reasoning"
 import { ChatMessage } from "@/components/chat/chat-message"
+import { useCurrency } from "@/components/currency-provider"
 
 interface Message {
   id: string
@@ -107,6 +108,9 @@ export function ChatInterface() {
 
   const searchParams = useSearchParams()
   const initialPromptSent = useRef(false)
+
+  // Get user's currency setting
+  const { currency } = useCurrency()
 
   // Hydrate from localStorage
   useEffect(() => {
@@ -199,7 +203,7 @@ export function ChatInterface() {
       const response = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: buildPayload(baseMessages) }),
+        body: JSON.stringify({ messages: buildPayload(baseMessages), currency }),
         signal: controller.signal,
       })
 
@@ -240,7 +244,7 @@ export function ChatInterface() {
         }
       }
     },
-    [buildPayload]
+    [buildPayload, currency]
   )
 
   const sendMessage = useCallback(
@@ -510,7 +514,6 @@ export function ChatInterface() {
                         <StatPill label="Analytics" value={`${stats.analytics.score}%`} score={stats.analytics.score} />
                         <StatPill label="Savings" value={`${stats.savings.savingsRate}%`} score={stats.savings.score} />
                         <StatPill label="Fridge" value={`${stats.fridge.score}%`} score={stats.fridge.score} />
-                        <StatPill label="Trends" value={`${stats.trends.score}%`} score={stats.trends.score} />
                       </div>
                     ) : (
                       <div className="mt-5 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 px-4 py-3 text-center">

@@ -7,6 +7,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
+import { setupGridStackDragScroll } from "@/lib/gridstack-drag-scroll"
 import {
     SidebarInset,
     SidebarProvider,
@@ -102,6 +103,7 @@ export default function TestChartsPage() {
     // GridStack ref and instance
     const gridRef = useRef<HTMLDivElement>(null)
     const gridStackRef = useRef<GridStack | null>(null)
+    const dragScrollCleanupRef = useRef<(() => void) | null>(null)
 
     // Chart order for rendering (31 charts total)
     const testChartsOrder = useMemo(
@@ -388,6 +390,10 @@ export default function TestChartsPage() {
                 disableOneColumnMode: true,
             }
             gridStackRef.current = GridStack.init(gridOptions, gridRef.current)
+            if (gridStackRef.current) {
+                dragScrollCleanupRef.current?.()
+                dragScrollCleanupRef.current = setupGridStackDragScroll(gridStackRef.current)
+            }
 
             if (gridStackRef.current && items.length > 0) {
                 const currentSavedChartSizes = savedChartSizesRef.current
@@ -523,6 +529,8 @@ export default function TestChartsPage() {
             requestAnimationFrame(() => {
                 if (!gridRef.current) return
                 if (gridStackRef.current) {
+                    dragScrollCleanupRef.current?.()
+                    dragScrollCleanupRef.current = null
                     gridStackRef.current.destroy(false)
                     gridStackRef.current = null
                 }
@@ -533,6 +541,8 @@ export default function TestChartsPage() {
         return () => {
             clearTimeout(timer)
             if (gridStackRef.current) {
+                dragScrollCleanupRef.current?.()
+                dragScrollCleanupRef.current = null
                 gridStackRef.current.destroy(false)
                 gridStackRef.current = null
             }

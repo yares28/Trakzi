@@ -7,7 +7,7 @@ export const GET = async () => {
     try {
         const userId = await getCurrentUserId();
 
-        // Fetch statements - using actual column names from the database
+        // Fetch statements - only show successfully imported files (not canceled midway)
         const statementsQuery = `
             SELECT 
                 s.id,
@@ -19,6 +19,7 @@ export const GET = async () => {
                 'Income/Expenses' as type
             FROM statements s
             WHERE s.user_id = $1
+              AND s.imported_count > 0
             ORDER BY s.created_at DESC
         `;
 

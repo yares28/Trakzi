@@ -81,6 +81,7 @@ import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv"
 import { TxRow } from "@/lib/types/transactions"
 import { DEFAULT_CATEGORIES } from "@/lib/categories"
+import { setupGridStackDragScroll } from "@/lib/gridstack-drag-scroll"
 import posthog from "posthog-js"
 
 type ParsedRow = TxRow & { id: number }
@@ -492,6 +493,7 @@ export default function AnalyticsPage() {
   const [selectedParsedRowIds, setSelectedParsedRowIds] = useState<Set<number>>(new Set())
   const [transactionCount, setTransactionCount] = useState<number>(0)
   const dragCounterRef = useRef(0)
+  const dragScrollCleanupRef = useRef<(() => void) | null>(null)
   const csvRegenerationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const latestParsedRowsRef = useRef<ParsedRow[]>([])
   const preferenceUpdateTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -695,6 +697,10 @@ export default function AnalyticsPage() {
         // Per-item min/max will be set when loading widgets
       }
       gridStackRef.current = GridStack.init(gridOptions, gridRef.current)
+      if (gridStackRef.current) {
+        dragScrollCleanupRef.current?.()
+        dragScrollCleanupRef.current = setupGridStackDragScroll(gridStackRef.current)
+      }
 
       // Now explicitly load all items with correct sizes from data attributes or saved sizes
       if (gridStackRef.current && items.length > 0) {
@@ -985,6 +991,8 @@ export default function AnalyticsPage() {
 
         // Destroy existing instance if it exists
         if (gridStackRef.current) {
+          dragScrollCleanupRef.current?.()
+          dragScrollCleanupRef.current = null
           gridStackRef.current.destroy(false)
           gridStackRef.current = null
         }
@@ -1028,6 +1036,8 @@ export default function AnalyticsPage() {
         cancelAnimationFrame(rafId)
       }
       if (gridStackRef.current) {
+        dragScrollCleanupRef.current?.()
+        dragScrollCleanupRef.current = null
         gridStackRef.current.destroy(false)
         gridStackRef.current = null
       }
