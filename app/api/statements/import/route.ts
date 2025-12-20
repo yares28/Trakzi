@@ -31,6 +31,7 @@ type ImportResponse = {
     inserted: number;
     skipped?: number;
     duplicatesSkipped?: number;
+    skippedInvalidDates?: number;
     partialImport?: boolean;
     reachedCap?: boolean;
     capacity?: {
@@ -40,6 +41,20 @@ type ImportResponse = {
         remaining: number;
     };
 };
+
+function isValidIsoDate(value: string | null | undefined): boolean {
+    if (!value) return false;
+    const trimmed = value.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return false;
+    const [year, month, day] = trimmed.split("-").map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return (
+        Number.isFinite(date.getTime()) &&
+        date.getUTCFullYear() === year &&
+        date.getUTCMonth() + 1 === month &&
+        date.getUTCDate() === day
+    );
+}
 
 export const POST = async (req: NextRequest) => {
     const body = (await req.json()) as ImportBody;
@@ -71,6 +86,17 @@ export const POST = async (req: NextRequest) => {
 
     if (rows.length === 0) {
         return NextResponse.json({ error: "No rows in CSV" }, { status: 400 });
+    }
+
+    const invalidDateCount = rows.filter((row) => !isValidIsoDate(row.date)).length;
+    if (invalidDateCount > 0) {
+        rows = rows.filter((row) => isValidIsoDate(row.date));
+        if (rows.length === 0) {
+            return NextResponse.json(
+                { error: "All transactions are missing valid dates. Please fix the Date column." },
+                { status: 400 }
+            );
+        }
     }
 
     // Apply date filter if provided
@@ -252,6 +278,10 @@ export const POST = async (req: NextRequest) => {
             remaining: capacity.remaining - rowsToInsert.length,
         },
     };
+
+    if (invalidDateCount > 0) {
+        response.skippedInvalidDates = invalidDateCount;
+    }
 
     if (skippedCount > 0) {
         response.skipped = skippedCount;

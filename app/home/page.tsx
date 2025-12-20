@@ -2199,6 +2199,11 @@ export default function Page() {
       toast.success("File Imported Successfully", {
         description: `${data.inserted} transactions imported from ${droppedFile.name}`,
       })
+      if (data.skippedInvalidDates) {
+        toast.warning("Some rows were skipped", {
+          description: `${data.skippedInvalidDates} transaction(s) had missing or invalid dates and were not imported.`,
+        })
+      }
 
       // Reset state
       setIsDialogOpen(false)
