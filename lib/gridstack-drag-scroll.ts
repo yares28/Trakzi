@@ -8,7 +8,11 @@ type GridStackDragScrollOptions = {
 }
 
 type DragCallback = (event: MouseEvent, ui: DDUIData) => void
-type DragInstance = DDDraggable & { ui?: () => DDUIData }
+type DragInstance = DDDraggable & {
+  ui?: () => DDUIData
+  el?: HTMLElement
+  helper?: HTMLElement
+}
 
 const DEFAULT_EDGE_THRESHOLD = 80
 const DEFAULT_MAX_SPEED = 24
@@ -66,13 +70,21 @@ export const setupGridStackDragScroll = (
   let lastDragEvent: MouseEvent | null = null
   let lastDragUi: DDUIData | null = null
   let dragTarget: HTMLElement | null = null
+  let helperElement: HTMLElement | null = null
+  // Track cumulative scroll offset during this drag session
+  let scrollOffsetY = 0
+  let scrollOffsetX = 0
+  // Store the initial helper transform
+  let initialHelperTransform = ""
+
   const wrappedDrags = new WeakSet<DDDraggable>()
   const originalDragCallbacks = new WeakMap<DDDraggable, DragCallback>()
+
   const shuffle = <T,>(items: T[]) => {
     const result = [...items]
     for (let i = result.length - 1; i > 0; i -= 1) {
       const j = Math.floor(Math.random() * (i + 1))
-      ;[result[i], result[j]] = [result[j], result[i]]
+        ;[result[i], result[j]] = [result[j], result[i]]
     }
     return result
   }
@@ -165,47 +177,139 @@ export const setupGridStackDragScroll = (
     lastDragUi = instance.ui()
   }
 
+  /**
+   * Find the helper element being dragged - it's typically the element with 
+   * ui-draggable-dragging class or the grid item being dragged
+   */
+  const findHelperElement = (instance: DragInstance | null): HTMLElement | null => {
+    // First check DDManager for the current drag element
+    const ddManager = DDManager as { dragElement?: DragInstance }
+    if (ddManager.dragElement?.helper instanceof HTMLElement) {
+      return ddManager.dragElement.helper
+    }
+    if (ddManager.dragElement?.el instanceof HTMLElement) {
+      return ddManager.dragElement.el
+    }
+
+    // Try the instance
+    if (instance?.helper instanceof HTMLElement) {
+      return instance.helper
+    }
+    if (instance?.el instanceof HTMLElement) {
+      return instance.el
+    }
+
+    // Look for the dragging class
+    const dragging = document.querySelector(".ui-draggable-dragging, .grid-stack-item-dragging")
+    if (dragging instanceof HTMLElement) {
+      return dragging
+    }
+
+    return null
+  }
+
+  /**
+   * Update the helper element's position to compensate for scroll
+   * This is the key function that makes the dragged element follow the scroll
+   */
+  const updateHelperPosition = () => {
+    if (!helperElement || (scrollOffsetX === 0 && scrollOffsetY === 0)) return
+
+    // Parse the current transform or use stored initial
+    const currentTransform = helperElement.style.transform || initialHelperTransform
+
+    // Check if there's an existing translate in the transform
+    const translateMatch = currentTransform.match(/translate(?:3d)?\s*\(([^)]+)\)/)
+
+    if (translateMatch) {
+      // Parse existing translate values
+      const parts = translateMatch[1].split(",").map(s => parseFloat(s.trim()) || 0)
+      const existingX = parts[0] || 0
+      const existingY = parts[1] || 0
+      const existingZ = parts[2] || 0
+
+      // Apply scroll compensation
+      const newX = existingX + scrollOffsetX
+      const newY = existingY + scrollOffsetY
+
+      // Rebuild transform with new translate
+      const newTranslate = existingZ !== 0
+        ? `translate3d(${newX}px, ${newY}px, ${existingZ}px)`
+        : `translate(${newX}px, ${newY}px)`
+
+      // Replace the translate in the transform string
+      const newTransform = currentTransform.replace(/translate(?:3d)?\s*\([^)]+\)/, newTranslate)
+      helperElement.style.transform = newTransform
+    } else {
+      // No existing translate, add one
+      const translateValue = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`
+      helperElement.style.transform = currentTransform
+        ? `${currentTransform} ${translateValue}`
+        : translateValue
+    }
+
+    // Reset the offsets after applying
+    scrollOffsetX = 0
+    scrollOffsetY = 0
+  }
+
   const applyScrollDelta = (deltaTop: number, deltaLeft: number) => {
-    if (!lastDragUi?.position) return false
-    if (!dragCallback && dragInstance) {
-      dragCallback = resolveDragCallback(dragInstance)
-    }
-    if (!dragCallback) return false
+    if (!isDragging) return false
 
-    if (typeof lastDragUi.position.top === "number") {
-      lastDragUi.position.top += deltaTop
-    }
-    if (typeof lastDragUi.position.left === "number") {
-      lastDragUi.position.left += deltaLeft
+    // Accumulate the scroll offsets
+    scrollOffsetY += deltaTop
+    scrollOffsetX += deltaLeft
+
+    // Update the UI data position if available
+    if (lastDragUi?.position) {
+      if (typeof lastDragUi.position.top === "number") {
+        lastDragUi.position.top += deltaTop
+      }
+      if (typeof lastDragUi.position.left === "number") {
+        lastDragUi.position.left += deltaLeft
+      }
     }
 
-    const baseEvent = lastDragEvent as Partial<MouseEvent> | null
-    const target = dragTarget ?? (baseEvent?.target as HTMLElement | null) ?? null
-    const syntheticEvent = {
-      ...(baseEvent ?? {}),
-      type: "drag",
-      target,
-      clientX: lastPointer?.x ?? baseEvent?.clientX ?? 0,
-      clientY: lastPointer?.y ?? baseEvent?.clientY ?? 0,
-      pageX: baseEvent?.pageX ?? lastPointer?.x ?? 0,
-      pageY: baseEvent?.pageY ?? lastPointer?.y ?? 0,
-    } as MouseEvent
+    // Update helper element position visually
+    updateHelperPosition()
 
-    dragCallback(syntheticEvent, lastDragUi)
+    // Trigger a synthetic drag event to update GridStack's internal state
+    if (dragCallback && lastDragUi) {
+      const baseEvent = lastDragEvent as Partial<MouseEvent> | null
+      const target = dragTarget ?? (baseEvent?.target as HTMLElement | null) ?? null
+
+      // Compute page coordinates that account for scroll
+      const scrollX = scrollElement?.scrollLeft ?? window.scrollX ?? 0
+      const scrollY = scrollElement?.scrollTop ?? window.scrollY ?? 0
+
+      const syntheticEvent = {
+        ...(baseEvent ?? {}),
+        type: "drag",
+        target,
+        clientX: lastPointer?.x ?? baseEvent?.clientX ?? 0,
+        clientY: lastPointer?.y ?? baseEvent?.clientY ?? 0,
+        pageX: (lastPointer?.x ?? 0) + scrollX,
+        pageY: (lastPointer?.y ?? 0) + scrollY,
+      } as MouseEvent
+
+      dragCallback(syntheticEvent, lastDragUi)
+    }
+
     return true
   }
 
   const syncScrollState = () => {
-    if (!scrollElement) return
+    if (!scrollElement) return false
     const nextScrollTop = scrollElement.scrollTop
     const nextScrollLeft = scrollElement.scrollLeft
     const deltaTop = nextScrollTop - lastScrollTop
     const deltaLeft = nextScrollLeft - lastScrollLeft
     if (deltaTop === 0 && deltaLeft === 0) return false
-    applyScrollDelta(deltaTop, deltaLeft)
+
     lastScrollTop = nextScrollTop
     lastScrollLeft = nextScrollLeft
-    return true
+
+    return applyScrollDelta(deltaTop, deltaLeft)
   }
 
   const handleScroll = () => {
@@ -222,6 +326,7 @@ export const setupGridStackDragScroll = (
     rafId = null
     if (!isDragging || !lastPointer || !scrollElement) return
 
+    // Sync any scroll changes that happened
     syncScrollState()
 
     const rect = getScrollRect(scrollElement)
@@ -240,12 +345,16 @@ export const setupGridStackDragScroll = (
     if (deltaY !== 0) {
       const previousScrollTop = scrollElement.scrollTop
       scrollElement.scrollTop = previousScrollTop + deltaY
+
+      // The scroll event handler will take care of updating the position
+      // But we need to sync immediately for smooth feedback
       if (scrollElement.scrollTop !== previousScrollTop) {
-        const deltaTop = scrollElement.scrollTop - previousScrollTop
-        applyScrollDelta(deltaTop, 0)
+        const actualDelta = scrollElement.scrollTop - previousScrollTop
         lastScrollTop = scrollElement.scrollTop
+        applyScrollDelta(actualDelta, 0)
       }
     }
+
     if (isDragging) {
       schedule()
     }
@@ -285,16 +394,32 @@ export const setupGridStackDragScroll = (
     updatePointer(event)
     scrollElement = options?.scrollElement ?? resolveScrollElement(grid.el)
     scrollTarget = scrollElement ? (isViewportScroll(scrollElement) ? window : scrollElement) : null
+
     if (scrollElement) {
       lastScrollTop = scrollElement.scrollTop
       lastScrollLeft = scrollElement.scrollLeft
     }
+
+    // Reset scroll offsets for this drag session
+    scrollOffsetX = 0
+    scrollOffsetY = 0
+
     dragInstance =
       resolveDragInstance(el) ?? ((DDManager.dragElement as DragInstance | undefined) || null)
     dragCallback = resolveDragCallback(dragInstance)
     dragTarget = resolveDraggedElement(el) ?? dragInstance?.el ?? null
     lastDragEvent = event as MouseEvent
     syncDragUi(dragInstance)
+
+    // Find and store the helper element
+    // Use a small delay to ensure the helper is created
+    requestAnimationFrame(() => {
+      helperElement = findHelperElement(dragInstance)
+      if (helperElement) {
+        initialHelperTransform = helperElement.style.transform || ""
+      }
+    })
+
     if (scrollTarget) {
       scrollTarget.addEventListener("scroll", handleScroll, { passive: true })
     }
@@ -304,6 +429,15 @@ export const setupGridStackDragScroll = (
   const handleDrag = (event: Event) => {
     updatePointer(event)
     lastDragEvent = event as MouseEvent
+
+    // Update helper reference in case it changed
+    if (!helperElement) {
+      helperElement = findHelperElement(dragInstance)
+      if (helperElement) {
+        initialHelperTransform = helperElement.style.transform || ""
+      }
+    }
+
     schedule()
   }
 
@@ -315,6 +449,11 @@ export const setupGridStackDragScroll = (
     lastDragEvent = null
     lastDragUi = null
     dragTarget = null
+    helperElement = null
+    initialHelperTransform = ""
+    scrollOffsetX = 0
+    scrollOffsetY = 0
+
     if (rafId !== null) {
       cancelAnimationFrame(rafId)
       rafId = null
