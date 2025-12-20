@@ -216,7 +216,7 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
     }
   }, [newCategory, newCategoryTier, onValueChange, onCategoryAdded, collator, updateGroups])
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault()
       handleAddCategory()
@@ -224,7 +224,16 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
       setIsAdding(false)
       setNewCategory("")
     }
-  }
+  }, [handleAddCategory])
+
+  const handleInputKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    event.stopPropagation()
+    handleKeyDown(event)
+  }, [handleKeyDown])
+
+  const handleInputPointerDown = useCallback((event: React.PointerEvent<HTMLInputElement>) => {
+    event.stopPropagation()
+  }, [])
 
   // Find which group contains the selected value
   const selectedValueGroup = useMemo(() => {
@@ -333,7 +342,9 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
                 <Input
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
-                  onKeyDown={handleKeyDown}
+                  onKeyDown={handleInputKeyDown}
+                  onPointerDown={handleInputPointerDown}
+                  onClick={(event) => event.stopPropagation()}
                   placeholder="Enter category name"
                   className="h-8 text-sm"
                   autoFocus
@@ -399,4 +410,3 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
     </Select>
   )
 })
-
