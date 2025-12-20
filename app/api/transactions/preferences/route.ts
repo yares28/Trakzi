@@ -20,14 +20,14 @@ export const POST = async (req: NextRequest) => {
     const rawEntries = Array.isArray(body?.entries) ? body.entries : []
 
     const cleanedEntries = rawEntries
-      .map((entry) => {
+      .map((entry: Record<string, unknown>) => {
         const description = typeof entry?.description === "string" ? entry.description.trim() : ""
         const categoryName = typeof entry?.category === "string"
           ? entry.category.trim()
           : (typeof entry?.categoryName === "string" ? entry.categoryName.trim() : "")
         return { description, categoryName }
       })
-      .filter((entry) => entry.description.length > 0 && entry.categoryName.length > 0)
+      .filter((entry: { description: string; categoryName: string }) => entry.description.length > 0 && entry.categoryName.length > 0)
       .slice(0, 200)
 
     if (cleanedEntries.length === 0) {
@@ -35,7 +35,7 @@ export const POST = async (req: NextRequest) => {
     }
 
     const categoryNames = Array.from(
-      new Set(cleanedEntries.map((entry) => normalizeName(entry.categoryName).toLowerCase()))
+      new Set(cleanedEntries.map((entry: { description: string; categoryName: string }) => normalizeName(entry.categoryName).toLowerCase()))
     )
 
     const categoryRows = await neonQuery<CategoryRow>(
@@ -54,12 +54,12 @@ export const POST = async (req: NextRequest) => {
     })
 
     const resolvedEntries = cleanedEntries
-      .map((entry) => {
+      .map((entry: { description: string; categoryName: string }) => {
         const normalized = normalizeName(entry.categoryName).toLowerCase()
         const categoryId = idByNameLower.get(normalized) ?? null
         return categoryId ? { description: entry.description, categoryId } : null
       })
-      .filter((entry): entry is { description: string; categoryId: number } => Boolean(entry))
+      .filter((entry: { description: string; categoryId: number } | null): entry is { description: string; categoryId: number } => Boolean(entry))
 
     if (resolvedEntries.length > 0) {
       await upsertTransactionCategoryPreferences({

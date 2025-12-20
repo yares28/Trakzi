@@ -164,7 +164,7 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
       clearTimeout(timeoutId)
       resizeObserver.disconnect()
     }
-  }, [schedulePreferenceUpdate])
+  }, [])
 
   const width = containerSize.width
   const height = containerSize.height
