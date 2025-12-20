@@ -1,126 +1,156 @@
 import type { GridStack } from "gridstack"
 
-type GridStackAutoScrollOptions = {
-  edgeThreshold?: number
-  maxScrollStep?: number
-  dragHandleSelector?: string
-}
+/**
+ * Custom auto-scroll for GridStack drag operations.
+ * 
+ * GridStack's native `draggable.scroll: true` doesn't work reliably in v6+.
+ * This module provides:
+ * 1. Auto-scrolling when dragging near screen edges
+ * 2. Prevention of wheel scroll during drag (which causes cursor-card desync)
+ * 
+ * Key insight: We listen to GridStack's own drag events, NOT mouse events.
+ * This ensures we only activate during actual GridStack drags and the
+ * dragged element position updates correctly as the page scrolls.
+ */
+export function attachGridStackAutoScroll(grid: GridStack) {
+  const EDGE_THRESHOLD = 100 // pixels from edge to start scrolling
+  const MAX_SCROLL_SPEED = 15 // max pixels per frame
+  const MIN_SCROLL_SPEED = 3 // min pixels per frame when at threshold edge
 
-export function attachGridStackAutoScroll(
-  grid: GridStack,
-  options: GridStackAutoScrollOptions = {}
-) {
-  const dragHandleSelector =
-    options.dragHandleSelector ??
-    grid.opts.draggable?.handle ??
-    ".grid-stack-item-content"
-  const edgeThreshold = options.edgeThreshold ?? 100 // Increased from 80
-  const maxScrollStep = options.maxScrollStep ?? 20
-
-  let rafId: number | null = null
   let isDragging = false
-  let lastMouseY: number = 0
-  let wheelListenerAttached = false
+  let animationFrameId: number | null = null
+  let currentMouseY = 0
 
-  // Handle wheel events during drag - prevent the wheel scroll from
-  // interfering with the drag operation
+  /**
+   * Scroll the page based on cursor position near edges.
+   * Called in an animation frame loop during drag.
+   */
+  const scrollTick = () => {
+    if (!isDragging) {
+      animationFrameId = null
+      return
+    }
+
+    const viewportHeight = window.innerHeight
+    let scrollDelta = 0
+
+    // Near top edge - scroll up
+    if (currentMouseY < EDGE_THRESHOLD) {
+      const distanceFromEdge = currentMouseY
+      const progress = 1 - (distanceFromEdge / EDGE_THRESHOLD)
+      scrollDelta = -Math.round(MIN_SCROLL_SPEED + (MAX_SCROLL_SPEED - MIN_SCROLL_SPEED) * progress)
+    }
+    // Near bottom edge - scroll down  
+    else if (currentMouseY > viewportHeight - EDGE_THRESHOLD) {
+      const distanceFromEdge = viewportHeight - currentMouseY
+      const progress = 1 - (distanceFromEdge / EDGE_THRESHOLD)
+      scrollDelta = Math.round(MIN_SCROLL_SPEED + (MAX_SCROLL_SPEED - MIN_SCROLL_SPEED) * progress)
+    }
+
+    if (scrollDelta !== 0) {
+      window.scrollBy(0, scrollDelta)
+    }
+
+    // Continue the loop
+    animationFrameId = requestAnimationFrame(scrollTick)
+  }
+
+  /**
+   * Track mouse position during drag.
+   * We need this because GridStack drag events don't always include coordinates.
+   */
+  const handleMouseMove = (event: MouseEvent) => {
+    currentMouseY = event.clientY
+  }
+
+  /**
+   * Prevent wheel scroll during drag.
+   * When user scrolls with wheel during drag, the card loses sync with cursor.
+   */
   const handleWheel = (event: WheelEvent) => {
     if (!isDragging) return
     event.preventDefault()
     event.stopPropagation()
   }
 
-  const attachWheelListener = () => {
-    if (wheelListenerAttached) return
-    wheelListenerAttached = true
-    document.addEventListener("wheel", handleWheel, { passive: false, capture: true })
-  }
-
-  const detachWheelListener = () => {
-    if (!wheelListenerAttached) return
-    wheelListenerAttached = false
-    document.removeEventListener("wheel", handleWheel, true)
-  }
-
-  // Track mouse position globally during drag
-  const handleMouseMove = (event: MouseEvent) => {
-    if (!isDragging) return
-    lastMouseY = event.clientY
-  }
-
-  const tick = () => {
-    if (!isDragging) {
-      rafId = null
-      return
-    }
-
-    const viewportHeight = window.innerHeight
-    const mouseY = lastMouseY
-
-    let delta = 0
-
-    // Near top edge - scroll up
-    if (mouseY < edgeThreshold && mouseY > 0) {
-      // Calculate scroll speed based on distance to edge
-      const distanceToEdge = mouseY
-      const speedFactor = 1 - (distanceToEdge / edgeThreshold)
-      delta = -Math.round(maxScrollStep * speedFactor)
-    }
-    // Near bottom edge - scroll down
-    else if (mouseY > viewportHeight - edgeThreshold && mouseY < viewportHeight) {
-      const distanceToEdge = viewportHeight - mouseY
-      const speedFactor = 1 - (distanceToEdge / edgeThreshold)
-      delta = Math.round(maxScrollStep * speedFactor)
-    }
-
-    if (delta !== 0) {
-      window.scrollBy({ top: delta, left: 0, behavior: "auto" })
-    }
-
-    rafId = requestAnimationFrame(tick)
-  }
-
-  const startAutoScroll = () => {
-    if (isDragging) return
-    isDragging = true
-    attachWheelListener()
-    document.addEventListener("mousemove", handleMouseMove, { passive: true })
-    if (rafId === null) {
-      rafId = requestAnimationFrame(tick)
-    }
-  }
-
-  const stopAutoScroll = () => {
-    isDragging = false
-    detachWheelListener()
-    document.removeEventListener("mousemove", handleMouseMove)
-    if (rafId !== null) {
-      cancelAnimationFrame(rafId)
-      rafId = null
-    }
-  }
-
-  // GridStack drag events
+  /**
+   * Called when GridStack starts a drag operation.
+   */
   const handleDragStart = (event: Event) => {
-    // Get initial mouse position from event if available
-    if ("clientY" in event) {
-      lastMouseY = (event as MouseEvent).clientY
+    isDragging = true
+
+    // Get initial cursor position from the event if available
+    const mouseEvent = event as MouseEvent
+    if (typeof mouseEvent.clientY === 'number') {
+      currentMouseY = mouseEvent.clientY
     }
-    startAutoScroll()
+
+    // Start tracking mouse movement
+    document.addEventListener("mousemove", handleMouseMove, { passive: true })
+
+    // Block wheel scroll during drag
+    document.addEventListener("wheel", handleWheel, { passive: false, capture: true })
+
+    // Start the scroll animation loop
+    if (animationFrameId === null) {
+      animationFrameId = requestAnimationFrame(scrollTick)
+    }
   }
 
+  /**
+   * Called when GridStack ends a drag operation.
+   */
   const handleDragStop = () => {
-    stopAutoScroll()
+    isDragging = false
+
+    // Stop tracking mouse
+    document.removeEventListener("mousemove", handleMouseMove)
+
+    // Remove wheel block
+    document.removeEventListener("wheel", handleWheel, true)
+
+    // Stop animation loop
+    if (animationFrameId !== null) {
+      cancelAnimationFrame(animationFrameId)
+      animationFrameId = null
+    }
   }
 
-  // Attach GridStack event listeners
+  /**
+   * Fallback: ensure drag state is cleaned up on any mouseup.
+   * Sometimes GridStack's dragstop event doesn't fire properly.
+   */
+  const handleMouseUp = () => {
+    if (isDragging) {
+      // Small delay to let GridStack's dragstop fire first if it will
+      setTimeout(() => {
+        if (isDragging) {
+          handleDragStop()
+        }
+      }, 50)
+    }
+  }
+
+  // Subscribe to GridStack's drag events
   grid.on("dragstart", handleDragStart)
   grid.on("dragstop", handleDragStop)
 
-  // Cleanup function
+  // Backup mouseup listener
+  document.addEventListener("mouseup", handleMouseUp, { passive: true })
+
+  // Return cleanup function
   return () => {
     grid.off("dragstart")
     grid.off("dragstop")
-    stopAutoScroll()
+    document.removeEventListener("mouseup", handleMouseUp)
+    document.removeEventListener("mousemove", handleMouseMove)
+    document.removeEventListener("wheel", handleWheel, true)
+
+    if (animationFrameId !== null) {
+      cancelAnimationFrame(animationFrameId)
+      animationFrameId = null
+    }
+
+    isDragging = false
   }
 }
