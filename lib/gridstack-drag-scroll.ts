@@ -1,4 +1,5 @@
-import type { GridStack } from "gridstack"
+import { DDManager, Utils } from "gridstack"
+import type { DDDraggable, DDUIData, GridStack } from "gridstack"
 
 type GridStackDragScrollOptions = {
   edgeThreshold?: number
@@ -6,11 +7,21 @@ type GridStackDragScrollOptions = {
   scrollElement?: HTMLElement | null
 }
 
+type DragCallback = (event: MouseEvent, ui: DDUIData) => void
+type DragInstance = DDDraggable & { ui?: () => DDUIData }
+
 const DEFAULT_EDGE_THRESHOLD = 80
 const DEFAULT_MAX_SPEED = 24
 const SCROLL_REGEX = /(auto|scroll)/
 
-const getScrollParent = (el?: HTMLElement | null) => {
+const resolveScrollElement = (el?: HTMLElement | null) => {
+  const utils = Utils as typeof Utils & {
+    getScrollElement?: (element?: HTMLElement | null) => HTMLElement
+  }
+  if (typeof utils.getScrollElement === "function") {
+    return utils.getScrollElement(el)
+  }
+
   let current = el ?? null
   while (current && current !== document.body) {
     const style = window.getComputedStyle(current)
@@ -50,10 +61,13 @@ export const setupGridStackDragScroll = (
   let scrollTarget: HTMLElement | Window | null = null
   let lastScrollTop = 0
   let lastScrollLeft = 0
-  let dragInstance: {
-    dragOffset?: { offsetTop?: number; offsetLeft?: number; top?: number; left?: number }
-    dragTransform?: { xScale?: number; yScale?: number }
-  } | null = null
+  let dragInstance: DragInstance | null = null
+  let dragCallback: DragCallback | null = null
+  let lastDragEvent: MouseEvent | null = null
+  let lastDragUi: DDUIData | null = null
+  let dragTarget: HTMLElement | null = null
+  const wrappedDrags = new WeakSet<DDDraggable>()
+  const originalDragCallbacks = new WeakMap<DDDraggable, DragCallback>()
   const shuffle = <T,>(items: T[]) => {
     const result = [...items]
     for (let i = result.length - 1; i > 0; i -= 1) {
@@ -124,42 +138,61 @@ export const setupGridStackDragScroll = (
     }
   }
 
-  const dispatchMouseMove = () => {
-    if (!lastPointer) return
-
-    document.dispatchEvent(
-      new MouseEvent("mousemove", {
-        clientX: lastPointer.x,
-        clientY: lastPointer.y,
-        bubbles: true,
-        cancelable: true,
-        view: window,
-        buttons: 1,
-      }),
+  const resolveDragCallback = (instance: DragInstance | null) => {
+    if (!instance) return null
+    if (!wrappedDrags.has(instance)) {
+      const originalDrag = (instance as DDDraggable & { option?: { drag?: DragCallback } }).option
+        ?.drag
+      if (originalDrag) {
+        wrappedDrags.add(instance)
+        originalDragCallbacks.set(instance, originalDrag)
+        instance.option.drag = (event, ui) => {
+          lastDragEvent = event as MouseEvent
+          lastDragUi = ui
+          originalDrag(event as MouseEvent, ui)
+        }
+      }
+    }
+    return (
+      originalDragCallbacks.get(instance) ??
+      (instance as DDDraggable & { option?: { drag?: DragCallback } }).option?.drag ??
+      null
     )
   }
 
-  const applyScrollDelta = (deltaTop: number, deltaLeft: number) => {
-    if (!dragInstance?.dragOffset) return
-    const scaleX = dragInstance.dragTransform?.xScale ?? 1
-    const scaleY = dragInstance.dragTransform?.yScale ?? 1
-    const safeScaleX = scaleX === 0 ? 1 : scaleX
-    const safeScaleY = scaleY === 0 ? 1 : scaleY
-    const scaledDeltaTop = deltaTop / safeScaleY
-    const scaledDeltaLeft = deltaLeft / safeScaleX
+  const syncDragUi = (instance: DragInstance | null) => {
+    if (!instance || typeof instance.ui !== "function") return
+    lastDragUi = instance.ui()
+  }
 
-    if (typeof dragInstance.dragOffset.offsetTop === "number") {
-      dragInstance.dragOffset.offsetTop -= scaledDeltaTop
+  const applyScrollDelta = (deltaTop: number, deltaLeft: number) => {
+    if (!lastDragUi?.position) return false
+    if (!dragCallback && dragInstance) {
+      dragCallback = resolveDragCallback(dragInstance)
     }
-    if (typeof dragInstance.dragOffset.offsetLeft === "number") {
-      dragInstance.dragOffset.offsetLeft -= scaledDeltaLeft
+    if (!dragCallback) return false
+
+    if (typeof lastDragUi.position.top === "number") {
+      lastDragUi.position.top += deltaTop
     }
-    if (typeof dragInstance.dragOffset.top === "number") {
-      dragInstance.dragOffset.top -= scaledDeltaTop
+    if (typeof lastDragUi.position.left === "number") {
+      lastDragUi.position.left += deltaLeft
     }
-    if (typeof dragInstance.dragOffset.left === "number") {
-      dragInstance.dragOffset.left -= scaledDeltaLeft
-    }
+
+    const baseEvent = lastDragEvent as Partial<MouseEvent> | null
+    const target = dragTarget ?? (baseEvent?.target as HTMLElement | null) ?? null
+    const syntheticEvent = {
+      ...(baseEvent ?? {}),
+      type: "drag",
+      target,
+      clientX: lastPointer?.x ?? baseEvent?.clientX ?? 0,
+      clientY: lastPointer?.y ?? baseEvent?.clientY ?? 0,
+      pageX: baseEvent?.pageX ?? lastPointer?.x ?? 0,
+      pageY: baseEvent?.pageY ?? lastPointer?.y ?? 0,
+    } as MouseEvent
+
+    dragCallback(syntheticEvent, lastDragUi)
+    return true
   }
 
   const syncScrollState = () => {
@@ -176,10 +209,8 @@ export const setupGridStackDragScroll = (
   }
 
   const handleScroll = () => {
-    if (!isDragging || !lastPointer) return
-    if (syncScrollState()) {
-      dispatchMouseMove()
-    }
+    if (!isDragging) return
+    syncScrollState()
   }
 
   const schedule = () => {
@@ -191,9 +222,7 @@ export const setupGridStackDragScroll = (
     rafId = null
     if (!isDragging || !lastPointer || !scrollElement) return
 
-    if (syncScrollState()) {
-      dispatchMouseMove()
-    }
+    syncScrollState()
 
     const rect = getScrollRect(scrollElement)
     const distanceTop = lastPointer.y - rect.top
@@ -215,7 +244,6 @@ export const setupGridStackDragScroll = (
         const deltaTop = scrollElement.scrollTop - previousScrollTop
         applyScrollDelta(deltaTop, 0)
         lastScrollTop = scrollElement.scrollTop
-        dispatchMouseMove()
       }
     }
     if (isDragging) {
@@ -242,15 +270,12 @@ export const setupGridStackDragScroll = (
     return null
   }
 
-  const resolveDragInstance = (candidate?: unknown) => {
+  const resolveDragInstance = (candidate?: unknown): DragInstance | null => {
     const element = resolveDraggedElement(candidate)
     if (!element) return null
-    const ddElement = (element as { ddElement?: { ddDraggable?: unknown } }).ddElement
-    if (ddElement?.ddDraggable && typeof ddElement.ddDraggable === "object") {
-      return ddElement.ddDraggable as {
-        dragOffset?: { offsetTop?: number; offsetLeft?: number; top?: number; left?: number }
-        dragTransform?: { xScale?: number; yScale?: number }
-      }
+    const ddElement = (element as { ddElement?: { ddDraggable?: DDDraggable } }).ddElement
+    if (ddElement?.ddDraggable) {
+      return ddElement.ddDraggable as DragInstance
     }
     return null
   }
@@ -258,13 +283,18 @@ export const setupGridStackDragScroll = (
   const handleDragStart = (event: Event, el?: unknown) => {
     isDragging = true
     updatePointer(event)
-    scrollElement = options?.scrollElement ?? getScrollParent(grid.el)
+    scrollElement = options?.scrollElement ?? resolveScrollElement(grid.el)
     scrollTarget = scrollElement ? (isViewportScroll(scrollElement) ? window : scrollElement) : null
     if (scrollElement) {
       lastScrollTop = scrollElement.scrollTop
       lastScrollLeft = scrollElement.scrollLeft
     }
-    dragInstance = resolveDragInstance(el)
+    dragInstance =
+      resolveDragInstance(el) ?? ((DDManager.dragElement as DragInstance | undefined) || null)
+    dragCallback = resolveDragCallback(dragInstance)
+    dragTarget = resolveDraggedElement(el) ?? dragInstance?.el ?? null
+    lastDragEvent = event as MouseEvent
+    syncDragUi(dragInstance)
     if (scrollTarget) {
       scrollTarget.addEventListener("scroll", handleScroll, { passive: true })
     }
@@ -273,6 +303,7 @@ export const setupGridStackDragScroll = (
 
   const handleDrag = (event: Event) => {
     updatePointer(event)
+    lastDragEvent = event as MouseEvent
     schedule()
   }
 
@@ -280,6 +311,10 @@ export const setupGridStackDragScroll = (
     isDragging = false
     lastPointer = null
     dragInstance = null
+    dragCallback = null
+    lastDragEvent = null
+    lastDragUi = null
+    dragTarget = null
     if (rafId !== null) {
       cancelAnimationFrame(rafId)
       rafId = null
