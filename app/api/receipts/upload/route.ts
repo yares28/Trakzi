@@ -78,35 +78,8 @@ function nowIsoTime(): string {
   return `${hh}:${mm}:${ss}`
 }
 
-async function extractReceiptWithAi(params: {
-  base64DataUrl: string
-  fileName: string
-  allowedCategories: string[]
-}): Promise<{ extracted: ExtractedReceipt; rawText: string }> {
-  const apiKey = process.env.OPENROUTER_API_KEY
-  const siteUrl = getSiteUrl()
-  const siteName = getSiteName()
-
-  if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY is not set")
-  }
-
-  const allowed = params.allowedCategories.length ? params.allowedCategories : ["Other"]
-
-  const prompt = [
-    "You extract structured data from a grocery store receipt image.",
-    "Return ONLY valid JSON (no markdown, no code fences).",
-    "",
-    "Rules:",
-    "- receipt_date must be YYYY-MM-DD.",
-    "- receipt_time must be HH:MM or HH:MM:SS (24h).",
-    "- All money values must be numbers (use . as decimal separator).",
-    `- For item.category, choose exactly one from this list: ${allowed.join(", ")}.`,
-    "- Choose the closest matching category based on the item description (what the item is).",
-    "- ONLY choose a drinks category for beverages/liquids meant to drink (water, soda, juice, coffee, tea, beer, wine, energy drinks).",
-    "- Food staples like rice/pasta/bread are NOT drinks.",
-    "- If you are unsure, choose \"Other\" instead of guessing.",
-    "",
+function buildReceiptSchemaPrompt() {
+  return [
     "JSON schema to return:",
     "{",
     '  "store_name": string | null,',
@@ -124,6 +97,153 @@ async function extractReceiptWithAi(params: {
     "    }",
     "  ]",
     "}",
+  ].join("\n")
+}
+
+function normalizeJsonCandidate(rawText: string) {
+  return rawText
+    .replace(/```json/gi, "")
+    .replace(/```/g, "")
+    .trim()
+}
+
+function tryParseReceiptJson(rawText: string): ExtractedReceipt | null {
+  const cleaned = normalizeJsonCandidate(rawText)
+  const candidates: string[] = [cleaned]
+  const first = cleaned.indexOf("{")
+  const last = cleaned.lastIndexOf("}")
+  if (first !== -1 && last > first) {
+    candidates.push(cleaned.slice(first, last + 1))
+  }
+
+  for (const candidate of candidates) {
+    const trimmed = candidate.trim()
+    const withoutTrailingCommas = trimmed.replace(/,\s*([}\]])/g, "$1")
+    try {
+      return JSON.parse(withoutTrailingCommas) as ExtractedReceipt
+    } catch {
+      // Try next candidate
+    }
+  }
+
+  return null
+}
+
+async function repairReceiptJsonWithAi(params: {
+  rawText: string
+  fileName: string
+  allowedCategories: string[]
+}): Promise<ExtractedReceipt> {
+  const apiKey = process.env.OPENROUTER_API_KEY
+  const siteUrl = getSiteUrl()
+  const siteName = getSiteName()
+
+  if (!apiKey) {
+    throw new Error("OPENROUTER_API_KEY is not set")
+  }
+
+  const allowed = params.allowedCategories.length ? params.allowedCategories : ["Other"]
+  const schemaPrompt = buildReceiptSchemaPrompt()
+
+  const prompt = [
+    "The following receipt extraction output is not valid JSON.",
+    "Fix it and return ONLY valid JSON (no markdown, no code fences).",
+    "",
+    "Rules:",
+    "- receipt_date must be YYYY-MM-DD.",
+    "- receipt_time must be HH:MM or HH:MM:SS (24h).",
+    "- All money values must be numbers (use . as decimal separator).",
+    `- For item.category, choose exactly one from this list: ${allowed.join(", ")}.`,
+    "- Choose the closest matching category based on the item description (what the item is).",
+    "- ONLY choose a drinks category for beverages/liquids meant to drink (water, soda, juice, coffee, tea, beer, wine, energy drinks).",
+    "- Food staples like rice/pasta/bread are NOT drinks.",
+    "- If you are unsure, choose \"Other\" instead of guessing.",
+    "",
+    schemaPrompt,
+    "",
+    `Receipt file name: ${params.fileName}`,
+    "",
+    "Invalid output:",
+    params.rawText,
+  ].join("\n")
+
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "HTTP-Referer": siteUrl,
+      "X-Title": siteName,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: RECEIPT_MODEL,
+      temperature: 0,
+      max_tokens: 1200,
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      response_format: { type: "json_object" },
+      provider: { sort: "throughput" },
+    }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`OpenRouter error ${response.status}: ${errorText.substring(0, 500)}`)
+  }
+
+  const payload = await response.json()
+  const rawText =
+    payload?.choices?.[0]?.message?.content ||
+    payload?.choices?.[0]?.delta?.content ||
+    ""
+
+  if (typeof rawText !== "string" || rawText.trim().length === 0) {
+    throw new Error("AI repair response was empty")
+  }
+
+  const parsed = tryParseReceiptJson(rawText)
+  if (!parsed) {
+    throw new Error("AI repair response was not valid JSON")
+  }
+
+  return parsed
+}
+
+async function extractReceiptWithAi(params: {
+  base64DataUrl: string
+  fileName: string
+  allowedCategories: string[]
+}): Promise<{ extracted: ExtractedReceipt; rawText: string }> {
+  const apiKey = process.env.OPENROUTER_API_KEY
+  const siteUrl = getSiteUrl()
+  const siteName = getSiteName()
+
+  if (!apiKey) {
+    throw new Error("OPENROUTER_API_KEY is not set")
+  }
+
+  const allowed = params.allowedCategories.length ? params.allowedCategories : ["Other"]
+
+  const schemaPrompt = buildReceiptSchemaPrompt()
+  const prompt = [
+    "You extract structured data from a grocery store receipt image.",
+    "Return ONLY valid JSON (no markdown, no code fences).",
+    "",
+    "Rules:",
+    "- receipt_date must be YYYY-MM-DD.",
+    "- receipt_time must be HH:MM or HH:MM:SS (24h).",
+    "- All money values must be numbers (use . as decimal separator).",
+    `- For item.category, choose exactly one from this list: ${allowed.join(", ")}.`,
+    "- Choose the closest matching category based on the item description (what the item is).",
+    "- ONLY choose a drinks category for beverages/liquids meant to drink (water, soda, juice, coffee, tea, beer, wine, energy drinks).",
+    "- Food staples like rice/pasta/bread are NOT drinks.",
+    "- If you are unsure, choose \"Other\" instead of guessing.",
+    "",
+    schemaPrompt,
     "",
     `Receipt file name: ${params.fileName}`,
   ].join("\n")
@@ -149,6 +269,8 @@ async function extractReceiptWithAi(params: {
           ],
         },
       ],
+      response_format: { type: "json_object" },
+      provider: { sort: "throughput" },
     }),
   })
 
@@ -168,16 +290,21 @@ async function extractReceiptWithAi(params: {
   }
 
   const trimmed = rawText.trim()
+  const parsed = tryParseReceiptJson(trimmed)
+  if (parsed) {
+    return { extracted: parsed, rawText: trimmed }
+  }
+
   try {
-    return { extracted: JSON.parse(trimmed) as ExtractedReceipt, rawText: trimmed }
-  } catch {
-    const first = trimmed.indexOf("{")
-    const last = trimmed.lastIndexOf("}")
-    if (first === -1 || last === -1 || last <= first) {
-      throw new Error("AI response was not valid JSON")
-    }
-    const sliced = trimmed.slice(first, last + 1)
-    return { extracted: JSON.parse(sliced) as ExtractedReceipt, rawText: trimmed }
+    const repaired = await repairReceiptJsonWithAi({
+      rawText: trimmed,
+      fileName: params.fileName,
+      allowedCategories: allowed,
+    })
+    return { extracted: repaired, rawText: trimmed }
+  } catch (repairError) {
+    const message = repairError instanceof Error ? repairError.message : String(repairError)
+    throw new Error(`AI response was not valid JSON (repair failed: ${message})`)
   }
 }
 
