@@ -265,6 +265,7 @@ export const POST = async (req: NextRequest) => {
         }
 
         // 6) Build transactions rows for Neon with proper category_id
+        const timestamp = new Date().toISOString();
         const txRows = rowsToInsert.map((r) => ({
             user_id: userId,
             statement_id: statementId,
@@ -277,7 +278,9 @@ export const POST = async (req: NextRequest) => {
             category_id: r.category && categoryNameToId.has(r.category)
                 ? categoryNameToId.get(r.category)!
                 : null,
-            raw_csv_row: JSON.stringify(r)
+            raw_csv_row: JSON.stringify(r),
+            created_at: timestamp,
+            updated_at: timestamp
         }));
 
         await neonInsert("transactions", txRows, {
