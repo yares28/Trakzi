@@ -2189,8 +2189,15 @@ export default function Page() {
       setImportProgress(95)
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Failed to import" }))
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+        let errorMessage = `HTTP error! status: ${response.status}`
+        const responseText = await response.text()
+        try {
+          const errorData = JSON.parse(responseText)
+          errorMessage = errorData.error || errorMessage
+        } catch {
+          errorMessage = responseText || errorMessage
+        }
+        throw new Error(errorMessage)
       }
 
       const data = await response.json()
@@ -3330,7 +3337,7 @@ export default function Page() {
               <Button
                 onClick={handleConfirm}
                 className="gap-2"
-                disabled={isParsing || isImporting || !!parseError || !parsedCsv}
+                disabled={isParsing || isAiReparsing || isImporting || !!parseError || !parsedCsv}
               >
                 {isImporting ? (
                   <>
