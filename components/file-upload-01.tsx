@@ -58,6 +58,7 @@ function formatFileSize(bytes: number) {
 function getFileIcon(filename: string) {
   const ext = filename.split(".").pop()?.toLowerCase()
   if (ext && ["png", "jpg", "jpeg", "webp", "heic", "heif"].includes(ext)) return ImageIcon
+  if (ext === "pdf") return File
   return File
 }
 
@@ -73,7 +74,7 @@ export function FileUpload01({
   projectName,
   onProjectNameChange,
   projectLead,
-  accept = "image/*,.png,.jpg,.jpeg,.webp,.heic,.heif",
+  accept = "image/*,.png,.jpg,.jpeg,.webp,.heic,.heif,.pdf,application/pdf",
   onFilesChange,
   onCancel,
   onContinue,
@@ -141,7 +142,7 @@ export function FileUpload01({
               <Label htmlFor="projectLead" className="mb-2">
                 Project lead
               </Label>
-              <Select value={leadValue} onValueChange={() => {}} disabled>
+              <Select value={leadValue} onValueChange={() => { }} disabled>
                 <SelectTrigger id="projectLead" className="ps-2 w-full">
                   <SelectValue placeholder="Select project lead" />
                 </SelectTrigger>
@@ -191,7 +192,7 @@ export function FileUpload01({
               >
                 click to browse
               </label>{" "}
-              (PNG, JPG, WEBP)
+              (PNG, JPG, WEBP, PDF)
             </p>
             <input
               type="file"
@@ -272,7 +273,7 @@ export function FileUpload01({
                 <div className="space-y-1">
                   <p className="text-[13px] font-medium">Receipt uploads</p>
                   <p className="text-muted-foreground dark:text-muted-background text-xs max-w-[220px]">
-                    Drop receipt photos (PNG/JPG/WEBP). We'll extract line items and refresh your grocery shopping dashboard.
+                    Drop receipt photos or PDFs. We'll extract line items and refresh your grocery shopping dashboard.
                   </p>
                 </div>
               </TooltipContent>

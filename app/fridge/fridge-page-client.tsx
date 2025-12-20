@@ -853,7 +853,7 @@ export function FridgePageClient() {
 
     const filesToUpload = uploadFiles.filter(isSupportedReceiptFile)
     if (filesToUpload.length === 0) {
-      setUploadError("Add a receipt image (PNG/JPG/WEBP) to upload.")
+      setUploadError("Add a receipt image or PDF to upload.")
       return
     }
 
