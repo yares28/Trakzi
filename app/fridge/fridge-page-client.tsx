@@ -251,10 +251,12 @@ function formatMonthLabel(yyyyMm: string, includeYear: boolean) {
   return includeYear ? `${month} '${String(y).slice(-2)}` : month
 }
 
-const RECEIPT_FILE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif"])
+const RECEIPT_FILE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif", "pdf"])
 
 function isSupportedReceiptFile(file: File) {
-  if ((file.type || "").toLowerCase().startsWith("image/")) return true
+  const mime = (file.type || "").toLowerCase()
+  if (mime.startsWith("image/")) return true
+  if (mime === "application/pdf") return true
   const extension = file.name.split(".").pop()?.toLowerCase() ?? ""
   return RECEIPT_FILE_EXTENSIONS.has(extension)
 }

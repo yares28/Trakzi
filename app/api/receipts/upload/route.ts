@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import * as pdfParseModule from "pdf-parse"
 
 import { getCurrentUserId } from "@/lib/auth"
 import { saveFileToNeon } from "@/lib/files/saveFileToNeon"
@@ -17,6 +18,23 @@ function isSupportedReceiptImage(file: File): boolean {
 
   const ext = file.name.split(".").pop()?.toLowerCase() ?? ""
   return ["png", "jpg", "jpeg", "webp", "heic", "heif"].includes(ext)
+}
+
+function isSupportedReceiptPdf(file: File): boolean {
+  const mime = (file.type || "").toLowerCase()
+  if (mime === "application/pdf") return true
+
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? ""
+  return ext === "pdf"
+}
+
+async function extractTextFromPdf(buffer: Buffer): Promise<string> {
+  // pdf-parse can export default differently depending on bundler
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mod = pdfParseModule as any
+  const pdfParse = mod.default || mod
+  const data = await pdfParse(buffer)
+  return data.text || ""
 }
 
 const MAX_RECEIPT_FILE_BYTES = 10 * 1024 * 1024
@@ -390,6 +408,101 @@ async function extractReceiptWithAi(params: {
   }
 }
 
+async function extractReceiptFromPdfText(params: {
+  pdfText: string
+  fileName: string
+  allowedCategories: string[]
+}): Promise<{ extracted: ExtractedReceipt; rawText: string }> {
+  const apiKey = process.env.OPENROUTER_API_KEY
+  const siteUrl = getSiteUrl()
+  const siteName = getSiteName()
+
+  if (!apiKey) {
+    throw new Error("OPENROUTER_API_KEY is not set")
+  }
+
+  const allowed = params.allowedCategories.length ? params.allowedCategories : ["Other"]
+
+  const schemaPrompt = buildReceiptSchemaPrompt()
+  const prompt = [
+    "You extract structured data from the text content of a grocery store receipt.",
+    "Return ONLY valid JSON (no markdown, no code fences).",
+    "",
+    "Rules:",
+    "- receipt_date must be YYYY-MM-DD.",
+    "- receipt_time must be HH:MM or HH:MM:SS (24h).",
+    "- All money values must be numbers (use . as decimal separator).",
+    `- For item.category, choose exactly one from this list: ${allowed.join(", ")}.`,
+    "- Choose the closest matching category based on the item description (what the item is).",
+    "- ONLY choose a drinks category for beverages/liquids meant to drink (water, soda, juice, coffee, tea, beer, wine, energy drinks).",
+    "- Food staples like rice/pasta/bread are NOT drinks.",
+    "- If you are unsure, choose \"Other\" instead of guessing.",
+    "",
+    schemaPrompt,
+    "",
+    `Receipt file name: ${params.fileName}`,
+    "",
+    "Receipt text content:",
+    params.pdfText,
+  ].join("\n")
+
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "HTTP-Referer": siteUrl,
+      "X-Title": siteName,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: RECEIPT_MODEL,
+      temperature: 0,
+      max_tokens: 1200,
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      response_format: { type: "json_object" },
+      provider: { sort: "throughput" },
+    }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`OpenRouter error ${response.status}: ${errorText.substring(0, 500)}`)
+  }
+
+  const payload = await response.json()
+  const rawText =
+    payload?.choices?.[0]?.message?.content ||
+    payload?.choices?.[0]?.delta?.content ||
+    ""
+
+  if (typeof rawText !== "string" || rawText.trim().length === 0) {
+    throw new Error("AI response was empty")
+  }
+
+  const trimmed = rawText.trim()
+  const parsed = tryParseReceiptJson(trimmed)
+  if (parsed) {
+    return { extracted: parsed, rawText: trimmed }
+  }
+
+  try {
+    const repaired = await repairReceiptJsonWithAi({
+      rawText: trimmed,
+      fileName: params.fileName,
+      allowedCategories: allowed,
+    })
+    return { extracted: repaired, rawText: trimmed }
+  } catch (repairError) {
+    const message = repairError instanceof Error ? repairError.message : String(repairError)
+    throw new Error(`AI response was not valid JSON (repair failed: ${message})`)
+  }
+}
+
 export const POST = async (req: NextRequest) => {
   try {
     const userId = await getCurrentUserId()
@@ -456,8 +569,11 @@ export const POST = async (req: NextRequest) => {
     const rejected: Array<{ fileName: string; reason: string }> = []
 
     for (const file of incoming) {
-      if (!isSupportedReceiptImage(file)) {
-        rejected.push({ fileName: file.name, reason: "Unsupported file type (upload an image)" })
+      const isPdf = isSupportedReceiptPdf(file)
+      const isImage = isSupportedReceiptImage(file)
+
+      if (!isPdf && !isImage) {
+        rejected.push({ fileName: file.name, reason: "Unsupported file type (upload an image or PDF)" })
         continue
       }
 
@@ -471,14 +587,33 @@ export const POST = async (req: NextRequest) => {
 
         const arrayBuffer = await file.arrayBuffer()
         const buffer = Buffer.from(arrayBuffer)
-        const mimeType = (file.type || stored.mime_type || "image/jpeg").toLowerCase()
-        const base64DataUrl = `data:${mimeType};base64,${buffer.toString("base64")}`
 
-        const { extracted } = await extractReceiptWithAi({
-          base64DataUrl,
-          fileName: file.name,
-          allowedCategories: allowedCategoryNames,
-        })
+        let extracted: ExtractedReceipt
+
+        if (isPdf) {
+          // Extract text from PDF and send to AI
+          const pdfText = await extractTextFromPdf(buffer)
+          if (!pdfText.trim()) {
+            rejected.push({ fileName: file.name, reason: "PDF appears to be empty or unreadable" })
+            continue
+          }
+          const result = await extractReceiptFromPdfText({
+            pdfText,
+            fileName: file.name,
+            allowedCategories: allowedCategoryNames,
+          })
+          extracted = result.extracted
+        } else {
+          // Send image to AI
+          const mimeType = (file.type || stored.mime_type || "image/jpeg").toLowerCase()
+          const base64DataUrl = `data:${mimeType};base64,${buffer.toString("base64")}`
+          const result = await extractReceiptWithAi({
+            base64DataUrl,
+            fileName: file.name,
+            allowedCategories: allowedCategoryNames,
+          })
+          extracted = result.extracted
+        }
 
         const receiptDate = normalizeDate(extracted.receipt_date) || todayIsoDate()
         const receiptTime = normalizeTime(extracted.receipt_time) || nowIsoTime()
