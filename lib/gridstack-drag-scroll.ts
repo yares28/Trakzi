@@ -144,8 +144,8 @@ export const setupGridStackDragScroll = (
 
   return () => {
     handleDragStop()
-    grid.off("dragstart", handleDragStart)
-    grid.off("drag", handleDrag)
-    grid.off("dragstop", handleDragStop)
+    grid.off("dragstart")
+    grid.off("drag")
+    grid.off("dragstop")
   }
 }
