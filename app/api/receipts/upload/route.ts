@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import * as pdfParseModule from "pdf-parse"
 
 import { getCurrentUserId } from "@/lib/auth"
 import { saveFileToNeon } from "@/lib/files/saveFileToNeon"
@@ -29,10 +28,10 @@ function isSupportedReceiptPdf(file: File): boolean {
 }
 
 async function extractTextFromPdf(buffer: Buffer): Promise<string> {
-  // pdf-parse can export default differently depending on bundler
+  // Use dynamic import to avoid module loading issues in production
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mod = pdfParseModule as any
-  const pdfParse = mod.default || mod
+  const pdfParseModule = await import("pdf-parse") as any
+  const pdfParse = pdfParseModule.default || pdfParseModule
   const data = await pdfParse(buffer)
   return data.text || ""
 }
