@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Moon, Sun, CreditCard } from "lucide-react"
+import { Moon, Sun, CreditCard, Shuffle, ArrowUp } from "lucide-react"
 import { IconPalette, IconCheck, IconCurrencyDollar, IconCalendar } from "@tabler/icons-react"
 import { useTheme } from "next-themes"
 import { useColorScheme } from "@/components/color-scheme-provider"
@@ -114,6 +114,14 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
   const toggleTheme = () => {
     const nextTheme = resolvedTheme === "dark" ? "light" : "dark"
     setTheme(nextTheme)
+  }
+
+  const handleRandomizeLayout = () => {
+    window.dispatchEvent(new CustomEvent("gridstack:randomize"))
+  }
+
+  const handleGravityLayout = () => {
+    window.dispatchEvent(new CustomEvent("gridstack:compact"))
   }
 
   if (!mounted) {
@@ -237,6 +245,29 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
             </Select>
             <p className="text-xs text-muted-foreground">
               Set the default time range for charts and data
+            </p>
+          </div>
+
+          <Separator />
+
+          {/* Layout Actions */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Shuffle className="h-4 w-4" />
+              <span>Layout</span>
+            </div>
+            <div className="grid gap-2">
+              <Button variant="outline" size="sm" onClick={handleRandomizeLayout}>
+                <Shuffle className="h-4 w-4 mr-2" />
+                Randomize cards
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleGravityLayout}>
+                <ArrowUp className="h-4 w-4 mr-2" />
+                Gravitate up
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Applies to the current draggable grid.
             </p>
           </div>
 

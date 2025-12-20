@@ -52,7 +52,51 @@ export const setupGridStackDragScroll = (
   let lastScrollLeft = 0
   let dragInstance: {
     dragOffset?: { offsetTop?: number; offsetLeft?: number; top?: number; left?: number }
+    dragTransform?: { xScale?: number; yScale?: number }
   } | null = null
+  const shuffle = <T,>(items: T[]) => {
+    const result = [...items]
+    for (let i = result.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[result[i], result[j]] = [result[j], result[i]]
+    }
+    return result
+  }
+
+  const applyRandomLayout = () => {
+    const items = grid.getGridItems?.() ?? []
+    const nodes = items
+      .map((item) => item.gridstackNode)
+      .filter((node): node is NonNullable<typeof node> => Boolean(node && node.el))
+    if (nodes.length === 0) return
+
+    const columns = grid.getColumn?.() ?? 12
+    const shuffledNodes = shuffle(nodes)
+    let cursorX = 0
+    let cursorY = 0
+    let rowHeight = 0
+
+    grid.batchUpdate(true)
+    shuffledNodes.forEach((node) => {
+      const width = Math.min(node.w || 1, columns)
+      const height = node.h || 1
+      if (cursorX + width > columns) {
+        cursorX = 0
+        cursorY += rowHeight
+        rowHeight = 0
+      }
+      if (node.el) {
+        grid.update(node.el, { x: cursorX, y: cursorY })
+      }
+      cursorX += width
+      rowHeight = Math.max(rowHeight, height)
+    })
+    grid.batchUpdate(false)
+  }
+
+  const applyGravityUp = () => {
+    grid.compact("list")
+  }
 
   const updatePointer = (event: Event | null) => {
     const pointerEvent = event as MouseEvent & { clientX?: number; clientY?: number }
@@ -78,17 +122,24 @@ export const setupGridStackDragScroll = (
 
   const applyScrollDelta = (deltaTop: number, deltaLeft: number) => {
     if (!dragInstance?.dragOffset) return
+    const scaleX = dragInstance.dragTransform?.xScale ?? 1
+    const scaleY = dragInstance.dragTransform?.yScale ?? 1
+    const safeScaleX = scaleX === 0 ? 1 : scaleX
+    const safeScaleY = scaleY === 0 ? 1 : scaleY
+    const scaledDeltaTop = deltaTop / safeScaleY
+    const scaledDeltaLeft = deltaLeft / safeScaleX
+
     if (typeof dragInstance.dragOffset.offsetTop === "number") {
-      dragInstance.dragOffset.offsetTop -= deltaTop
+      dragInstance.dragOffset.offsetTop -= scaledDeltaTop
     }
     if (typeof dragInstance.dragOffset.offsetLeft === "number") {
-      dragInstance.dragOffset.offsetLeft -= deltaLeft
+      dragInstance.dragOffset.offsetLeft -= scaledDeltaLeft
     }
     if (typeof dragInstance.dragOffset.top === "number") {
-      dragInstance.dragOffset.top -= deltaTop
+      dragInstance.dragOffset.top -= scaledDeltaTop
     }
     if (typeof dragInstance.dragOffset.left === "number") {
-      dragInstance.dragOffset.left -= deltaLeft
+      dragInstance.dragOffset.left -= scaledDeltaLeft
     }
   }
 
@@ -98,17 +149,18 @@ export const setupGridStackDragScroll = (
     const nextScrollLeft = scrollElement.scrollLeft
     const deltaTop = nextScrollTop - lastScrollTop
     const deltaLeft = nextScrollLeft - lastScrollLeft
-    if (deltaTop !== 0 || deltaLeft !== 0) {
-      applyScrollDelta(deltaTop, deltaLeft)
-      lastScrollTop = nextScrollTop
-      lastScrollLeft = nextScrollLeft
-    }
+    if (deltaTop === 0 && deltaLeft === 0) return false
+    applyScrollDelta(deltaTop, deltaLeft)
+    lastScrollTop = nextScrollTop
+    lastScrollLeft = nextScrollLeft
+    return true
   }
 
   const handleScroll = () => {
     if (!isDragging || !lastPointer) return
-    syncScrollState()
-    dispatchMouseMove()
+    if (syncScrollState()) {
+      dispatchMouseMove()
+    }
   }
 
   const schedule = () => {
@@ -119,6 +171,10 @@ export const setupGridStackDragScroll = (
   const tick = () => {
     rafId = null
     if (!isDragging || !lastPointer || !scrollElement) return
+
+    if (syncScrollState()) {
+      dispatchMouseMove()
+    }
 
     const rect = getScrollRect(scrollElement)
     const distanceTop = lastPointer.y - rect.top
@@ -142,6 +198,8 @@ export const setupGridStackDragScroll = (
         lastScrollTop = scrollElement.scrollTop
         dispatchMouseMove()
       }
+    }
+    if (isDragging) {
       schedule()
     }
   }
@@ -172,6 +230,7 @@ export const setupGridStackDragScroll = (
     if (ddElement?.ddDraggable && typeof ddElement.ddDraggable === "object") {
       return ddElement.ddDraggable as {
         dragOffset?: { offsetTop?: number; offsetLeft?: number; top?: number; left?: number }
+        dragTransform?: { xScale?: number; yScale?: number }
       }
     }
     return null
@@ -213,14 +272,26 @@ export const setupGridStackDragScroll = (
     scrollElement = null
   }
 
+  const handleRandomize = () => {
+    applyRandomLayout()
+  }
+
+  const handleGravity = () => {
+    applyGravityUp()
+  }
+
   grid.on("dragstart", handleDragStart)
   grid.on("drag", handleDrag)
   grid.on("dragstop", handleDragStop)
+  window.addEventListener("gridstack:randomize", handleRandomize)
+  window.addEventListener("gridstack:compact", handleGravity)
 
   return () => {
     handleDragStop()
     grid.off("dragstart")
     grid.off("drag")
     grid.off("dragstop")
+    window.removeEventListener("gridstack:randomize", handleRandomize)
+    window.removeEventListener("gridstack:compact", handleGravity)
   }
 }
