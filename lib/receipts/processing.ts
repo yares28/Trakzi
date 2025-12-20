@@ -132,20 +132,78 @@ function normalizeJsonCandidate(rawText: string) {
     .trim()
 }
 
-function tryParseReceiptJson(rawText: string): ExtractedReceipt | null {
+function insertMissingCommas(rawText: string) {
+  let result = ""
+  let inString = false
+  let escape = false
+
+  for (let i = 0; i < rawText.length; i += 1) {
+    const char = rawText[i]
+    result += char
+
+    if (inString) {
+      if (escape) {
+        escape = false
+      } else if (char === "\\") {
+        escape = true
+      } else if (char === "\"") {
+        inString = false
+      }
+      continue
+    }
+
+    if (char === "\"") {
+      inString = true
+      continue
+    }
+
+    if (char === "}" || char === "]") {
+      let j = i + 1
+      while (j < rawText.length && /\s/.test(rawText[j])) {
+        j += 1
+      }
+      const next = rawText[j]
+      if (next && next !== "," && next !== "}" && next !== "]") {
+        if (next === "{" || next === "[" || next === "\"" || next === "-" || (next >= "0" && next <= "9")) {
+          result += ","
+        }
+      }
+    }
+  }
+
+  return result
+}
+
+function buildJsonCandidates(rawText: string) {
   const cleaned = normalizeJsonCandidate(rawText)
-  const candidates: string[] = [cleaned]
+  const candidates = new Set<string>()
+  const bases: string[] = [cleaned]
   const first = cleaned.indexOf("{")
   const last = cleaned.lastIndexOf("}")
   if (first !== -1 && last > first) {
-    candidates.push(cleaned.slice(first, last + 1))
+    bases.push(cleaned.slice(first, last + 1))
   }
 
-  for (const candidate of candidates) {
-    const trimmed = candidate.trim()
+  for (const base of bases) {
+    if (!base) continue
+    const trimmed = base.trim()
     const withoutTrailingCommas = trimmed.replace(/,\s*([}\]])/g, "$1")
+    const withInsertedCommas = insertMissingCommas(trimmed)
+    const withInsertedAndTrimmed = insertMissingCommas(withoutTrailingCommas)
+    candidates.add(trimmed)
+    candidates.add(withoutTrailingCommas)
+    candidates.add(withInsertedCommas)
+    candidates.add(withInsertedAndTrimmed)
+  }
+
+  return Array.from(candidates)
+}
+
+function tryParseReceiptJson(rawText: string): ExtractedReceipt | null {
+  const candidates = buildJsonCandidates(rawText)
+  for (const candidate of candidates) {
     try {
-      return JSON.parse(withoutTrailingCommas) as ExtractedReceipt
+      return JSON.parse(candidate) as ExtractedReceipt
     } catch {
       // Try next candidate
     }
