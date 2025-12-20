@@ -85,6 +85,34 @@ import posthog from "posthog-js"
 
 type ParsedRow = TxRow & { id: number }
 
+type AnalyticsTransaction = {
+  id: number
+  date: string
+  description: string
+  amount: number
+  balance: number | null
+  category: string
+}
+
+type AnalyticsCacheEntry = {
+  transactions: AnalyticsTransaction[]
+  ringLimits: Record<string, number>
+  fetchedAt: number
+}
+
+const ANALYTICS_CACHE_TTL_MS = 5 * 60 * 1000
+const analyticsDataCache = new Map<string, AnalyticsCacheEntry>()
+
+const getAnalyticsCacheKey = (filter?: string | null) => filter ?? "all"
+
+const getAnalyticsCacheEntry = (filter?: string | null) => {
+  const cacheKey = getAnalyticsCacheKey(filter)
+  return analyticsDataCache.get(cacheKey) || null
+}
+
+const isAnalyticsCacheFresh = (entry: AnalyticsCacheEntry) =>
+  Date.now() - entry.fetchedAt < ANALYTICS_CACHE_TTL_MS
+
 // Memoized table row component to prevent unnecessary re-renders
 const MemoizedTableRow = memo(function MemoizedTableRow({
   row,
@@ -653,7 +681,7 @@ export default function AnalyticsPage() {
         cellHeight: 70,
         margin: 0, // match analytics (cards fill entire item)
         minRow: 1,
-        float: false, // match analytics (strict grid)
+        float: true, // preserve user-placed gaps/positions
         animate: true, // Enable smooth animations
         resizable: {
           handles: 'se', // Only bottom-right resize handle (matching trends page style)
@@ -811,8 +839,7 @@ export default function AnalyticsPage() {
           }
         }, 100)
 
-        // Force a layout update to ensure sizes are applied
-        gridStackRef.current.compact()
+        // Keep saved positions intact; don't auto-compact after loading.
 
         // Enforce constraints during resize (not just after)
         gridStackRef.current.on('resize', (event, item) => {
@@ -1007,25 +1034,24 @@ export default function AnalyticsPage() {
     }
   }, [analyticsChartOrder, snapToAllowedSize, saveChartSizes, hasLoadedChartSizes])
 
-  // Transactions state
-  const [rawTransactions, setRawTransactions] = useState<Array<{
-    id: number
-    date: string
-    description: string
-    amount: number
-    balance: number | null
-    category: string
-  }>>([])
-  const [isLoadingTransactions, setIsLoadingTransactions] = useState(true)
-
-  // Date filter state
   // Date filter state
   const { filter: dateFilter, setFilter: setDateFilter } = useDateFilter()
+  const analyticsCacheEntry = getAnalyticsCacheEntry(dateFilter)
+
+  // Transactions state
+  const [rawTransactions, setRawTransactions] = useState<AnalyticsTransaction[]>(
+    () => analyticsCacheEntry?.transactions ?? [],
+  )
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(
+    () => !analyticsCacheEntry,
+  )
 
   const [ringCategories, setRingCategories] = useState<string[]>([])
   const [allExpenseCategories, setAllExpenseCategories] = useState<string[]>([])
   // Independent limits used ONLY for Spending Activity Rings card
-  const [ringLimits, setRingLimits] = useState<Record<string, number>>({})
+  const [ringLimits, setRingLimits] = useState<Record<string, number>>(
+    () => analyticsCacheEntry?.ringLimits ?? {},
+  )
   const [ringCategoryPopoverIndex, setRingCategoryPopoverIndex] = useState<number | null>(null)
   const [ringCategoryPopoverValue, setRingCategoryPopoverValue] = useState<string | null>(null)
   const [ringLimitPopoverValue, setRingLimitPopoverValue] = useState<string>("")
@@ -1183,7 +1209,21 @@ export default function AnalyticsPage() {
 
   // Fetch ALL analytics data in parallel for maximum performance
   const fetchAllAnalyticsData = useCallback(async () => {
-    setIsLoadingTransactions(true)
+    const cacheKey = getAnalyticsCacheKey(dateFilter)
+    const cachedEntry = getAnalyticsCacheEntry(dateFilter)
+    const hasFreshCache = cachedEntry ? isAnalyticsCacheFresh(cachedEntry) : false
+
+    if (cachedEntry) {
+      setRawTransactions(cachedEntry.transactions)
+      setRingLimits(cachedEntry.ringLimits)
+      setIsLoadingTransactions(false)
+      if (hasFreshCache) {
+        return
+      }
+    } else {
+      setIsLoadingTransactions(true)
+    }
+
     try {
       const startTime = performance.now()
       console.log("[Analytics] Starting parallel data fetch...")
@@ -1255,21 +1295,26 @@ export default function AnalyticsPage() {
       console.log(`[Analytics] All data fetched in ${(endTime - startTime).toFixed(2)}ms`)
 
       // Set transactions
+      let nextTransactions = cachedEntry?.transactions ?? []
       if (Array.isArray(transactionsData)) {
+        nextTransactions = normalizeTransactions(transactionsData) as AnalyticsTransaction[]
         console.log(`[Analytics] Setting ${transactionsData.length} transactions`)
-        setRawTransactions(normalizeTransactions(transactionsData) as Array<{
-          id: number
-          date: string
-          description: string
-          amount: number
-          balance: number | null
-          category: string
-        }>)
+        setRawTransactions(nextTransactions)
       }
 
       // Set budgets
+      let nextRingLimits = cachedEntry?.ringLimits ?? {}
       if (budgetsData && typeof budgetsData === "object") {
-        setRingLimits(budgetsData as Record<string, number>)
+        nextRingLimits = budgetsData as Record<string, number>
+        setRingLimits(nextRingLimits)
+      }
+
+      if (Array.isArray(transactionsData)) {
+        analyticsDataCache.set(cacheKey, {
+          transactions: nextTransactions,
+          ringLimits: nextRingLimits,
+          fetchedAt: Date.now(),
+        })
       }
 
     } catch (error) {

@@ -29,7 +29,7 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
-import { deduplicatedFetch } from "@/lib/request-deduplication"
+import { deduplicatedFetch, getCachedResponse } from "@/lib/request-deduplication"
 
 const LIGHT_CATEGORY_TEXT = "oklch(0.556 0 0)"
 const DARK_CATEGORY_TEXT = "oklch(0.708 0 0)"
@@ -56,10 +56,17 @@ export function ChartRadar({ categoryControls }: ChartRadarProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
-  const [chartData, setChartData] = useState<RadarDatum[]>([])
-  const [yearSummaries, setYearSummaries] = useState<FinancialHealthYearSummary[]>([])
-  // Initialize loading to true since we always fetch data on mount
-  const [isLoading, setIsLoading] = useState(true)
+  const cachedFinancialHealth = getCachedResponse<FinancialHealthResponse>(
+    "/api/financial-health",
+    { cache: "no-store" },
+  )
+  const [chartData, setChartData] = useState<RadarDatum[]>(
+    () => cachedFinancialHealth?.data ?? [],
+  )
+  const [yearSummaries, setYearSummaries] = useState<FinancialHealthYearSummary[]>(
+    () => cachedFinancialHealth?.years ?? [],
+  )
+  const [isLoading, setIsLoading] = useState(() => !cachedFinancialHealth)
   const [error, setError] = useState<string | null>(null)
   const [visibleCapabilities, setVisibleCapabilities] = useState<string[]>([])
   const [isCategorySelectorOpen, setIsCategorySelectorOpen] = useState(false)
@@ -75,6 +82,20 @@ export function ChartRadar({ categoryControls }: ChartRadarProps) {
     let isMounted = true
 
     async function loadNeonData() {
+      const cached = getCachedResponse<FinancialHealthResponse>(
+        "/api/financial-health",
+        { cache: "no-store" },
+      )
+      if (cached) {
+        if (isMounted) {
+          setChartData(cached.data as RadarDatum[])
+          setYearSummaries(cached.years as FinancialHealthYearSummary[])
+          setError(null)
+          setIsLoading(false)
+        }
+        return
+      }
+
       console.log("[ChartRadar] Starting data fetch...")
       setIsLoading(true)
       setError(null)
@@ -662,4 +683,3 @@ export function ChartRadar({ categoryControls }: ChartRadarProps) {
     </Card>
   )
 }
-

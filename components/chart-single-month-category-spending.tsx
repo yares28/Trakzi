@@ -8,7 +8,7 @@ import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
-import { deduplicatedFetch } from "@/lib/request-deduplication"
+import { deduplicatedFetch, getCachedResponse } from "@/lib/request-deduplication"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
   Card,
@@ -52,15 +52,53 @@ const MONTH_NAMES = [
   "December",
 ]
 
+const buildMonthlyCategoryUrl = (params: URLSearchParams) =>
+  `/api/analytics/monthly-category-duplicate?${params.toString()}`
+
 export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMonthCategorySpendingProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
+  const buildMonthParams = React.useCallback(
+    (month?: number | null) => {
+      const params = new URLSearchParams()
+      if (dateFilter) {
+        params.append("filter", dateFilter)
+      }
+      if (typeof month === "number") {
+        params.append("month", month.toString())
+      }
+      return params
+    },
+    [dateFilter],
+  )
+  const availableUrl = buildMonthlyCategoryUrl(buildMonthParams())
+  const cachedAvailable = getCachedResponse<{
+    data: Array<{ category: string; month: number; total: number }>
+    availableMonths: number[]
+  }>(availableUrl)
+  const initialAvailableMonths = cachedAvailable?.availableMonths ?? []
+  const initialSelectedMonth =
+    initialAvailableMonths.length > 0 ? initialAvailableMonths[0] : null
+  const cachedSelected = initialSelectedMonth !== null
+    ? getCachedResponse<{
+        data: Array<{ category: string; month: number; total: number }>
+        availableMonths: number[]
+      }>(buildMonthlyCategoryUrl(buildMonthParams(initialSelectedMonth)))
+    : undefined
   const [mounted, setMounted] = React.useState(false)
-  const [data, setData] = React.useState<MonthData[]>([])
-  const [availableMonths, setAvailableMonths] = React.useState<number[]>([])
-  const [selectedMonth, setSelectedMonth] = React.useState<number | null>(null)
-  const [loading, setLoading] = React.useState(true)
+  const [data, setData] = React.useState<MonthData[]>(
+    () => cachedSelected?.data ?? [],
+  )
+  const [availableMonths, setAvailableMonths] = React.useState<number[]>(
+    () => initialAvailableMonths,
+  )
+  const [selectedMonth, setSelectedMonth] = React.useState<number | null>(
+    () => initialSelectedMonth,
+  )
+  const [loading, setLoading] = React.useState(
+    () => initialAvailableMonths.length > 0 && cachedSelected === undefined,
+  )
   const chartRef = React.useRef<any>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
   const [tooltip, setTooltip] = React.useState<{ label: string; value: number; color: string } | null>(null)
@@ -75,13 +113,29 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
   React.useEffect(() => {
     const fetchAvailableMonths = async () => {
       try {
-        const params = new URLSearchParams()
-        if (dateFilter) {
-          params.append("filter", dateFilter)
+        const cached = getCachedResponse<{ data: Array<{ category: string; month: number; total: number }>; availableMonths: number[] }>(
+          availableUrl,
+        )
+        if (cached) {
+          const months = cached.availableMonths || []
+          setAvailableMonths(months)
+
+          if (months.length > 0) {
+            setSelectedMonth((prev) => {
+              if (prev === null || !months.includes(prev)) {
+                return months[0]
+              }
+              return prev
+            })
+          } else {
+            setSelectedMonth(null)
+            setLoading(false)
+          }
+          return
         }
 
         const result = await deduplicatedFetch<{ data: Array<{ category: string; month: number; total: number }>; availableMonths: number[] }>(
-          `/api/analytics/monthly-category-duplicate?${params.toString()}`
+          availableUrl
         )
         const months = result.availableMonths || []
         setAvailableMonths(months)
@@ -112,7 +166,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
       fetchAvailableMonths()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFilter, mounted])
+  }, [dateFilter, mounted, availableUrl])
 
   // Fetch data when selectedMonth changes
   React.useEffect(() => {
@@ -123,16 +177,20 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
         return
       }
 
+      const dataUrl = buildMonthlyCategoryUrl(buildMonthParams(selectedMonth))
+      const cached = getCachedResponse<{ data: Array<{ category: string; month: number; total: number }>; availableMonths: number[] }>(
+        dataUrl,
+      )
+      if (cached) {
+        setData(cached.data || [])
+        setLoading(false)
+        return
+      }
+
       setLoading(true)
       try {
-        const params = new URLSearchParams()
-        if (dateFilter) {
-          params.append("filter", dateFilter)
-        }
-        params.append("month", selectedMonth.toString())
-
         const result = await deduplicatedFetch<{ data: Array<{ category: string; month: number; total: number }>; availableMonths: number[] }>(
-          `/api/analytics/monthly-category-duplicate?${params.toString()}`
+          dataUrl
         )
         const fetchedData = result.data || []
 
@@ -142,14 +200,19 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
           for (const month of availableMonths) {
             if (month === selectedMonth) continue
 
-            const altParams = new URLSearchParams()
-            if (dateFilter) {
-              altParams.append("filter", dateFilter)
+            const altUrl = buildMonthlyCategoryUrl(buildMonthParams(month))
+            const cachedAlt = getCachedResponse<{ data: Array<{ category: string; month: number; total: number }>; availableMonths: number[] }>(
+              altUrl,
+            )
+            if (cachedAlt?.data && cachedAlt.data.length > 0) {
+              setSelectedMonth(month)
+              setData(cachedAlt.data)
+              setLoading(false)
+              return
             }
-            altParams.append("month", month.toString())
 
             const altResult = await deduplicatedFetch<{ data: Array<{ category: string; month: number; total: number }>; availableMonths: number[] }>(
-              `/api/analytics/monthly-category-duplicate?${altParams.toString()}`
+              altUrl
             )
 
             if (altResult.data && altResult.data.length > 0) {
@@ -173,7 +236,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
     if (mounted && selectedMonth !== null) {
       fetchData()
     }
-  }, [selectedMonth, dateFilter, mounted, availableMonths])
+  }, [selectedMonth, dateFilter, mounted, availableMonths, buildMonthParams])
 
   const palette = React.useMemo(() => {
     const base = getPalette().filter((color) => color !== "#c3c3c3")

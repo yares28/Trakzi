@@ -9,7 +9,7 @@ import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { formatDateForDisplay } from "@/lib/date"
-import { deduplicatedFetch } from "@/lib/request-deduplication"
+import { deduplicatedFetch, getCachedResponse } from "@/lib/request-deduplication"
 import {
   Card,
   CardAction,
@@ -122,10 +122,20 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
   const { colorScheme, getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const [mounted, setMounted] = useState(false)
-  const [allData, setAllData] = useState<Array<{ day: string; value: number }>>(propData || [])
-  const [isLoading, setIsLoading] = useState(!propData)
-  const [error, setError] = useState<string | null>(null)
   const [dateFilter, setDateFilter] = useState<string | null>(null)
+  const dailyUrl = dateFilter
+    ? `/api/transactions/daily?filter=${encodeURIComponent(dateFilter)}`
+    : "/api/transactions/daily"
+  const cachedDaily = propData
+    ? undefined
+    : getCachedResponse<Array<{ day: string; value: number }>>(dailyUrl)
+  const [allData, setAllData] = useState<Array<{ day: string; value: number }>>(
+    () => propData ?? cachedDaily ?? [],
+  )
+  const [isLoading, setIsLoading] = useState(
+    () => !propData && cachedDaily === undefined,
+  )
+  const [error, setError] = useState<string | null>(null)
   const chartRef = React.useRef<any>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
   const [tooltip, setTooltip] = useState<{ date: string; value: number; color: string } | null>(null)
@@ -168,13 +178,18 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
     }
 
     const fetchDailyTransactions = async () => {
+      const cached = getCachedResponse<Array<{ day: string; value: number }>>(dailyUrl)
+      if (cached !== undefined) {
+        setAllData(cached)
+        setError(null)
+        setIsLoading(false)
+        return
+      }
+
       try {
         setIsLoading(true)
         setError(null)
-        const url = dateFilter
-          ? `/api/transactions/daily?filter=${encodeURIComponent(dateFilter)}`
-          : "/api/transactions/daily"
-        const data = await deduplicatedFetch<Array<{ day: string; value: number }>>(url)
+        const data = await deduplicatedFetch<Array<{ day: string; value: number }>>(dailyUrl)
         if (Array.isArray(data)) {
           setAllData(data)
           if (data.length === 0) {
@@ -195,7 +210,7 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
     }
 
     fetchDailyTransactions()
-  }, [propData, dateFilter])
+  }, [propData, dateFilter, dailyUrl])
 
   useEffect(() => {
     // Mark as mounted to avoid rendering chart on server

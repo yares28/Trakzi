@@ -6,9 +6,36 @@ type PendingRequest<T> = {
   timestamp: number;
 };
 
+type CachedResponse<T> = {
+  data: T;
+  timestamp: number;
+};
+
 class RequestDeduplicator {
   private pendingRequests = new Map<string, PendingRequest<any>>();
+  private responseCache = new Map<string, CachedResponse<any>>();
   private readonly CACHE_TTL = 5000; // 5 seconds cache for deduplication
+  private readonly RESPONSE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes for in-memory responses
+
+  getCachedResponse<T>(key: string): T | undefined {
+    const cached = this.responseCache.get(key);
+    if (!cached) {
+      return undefined;
+    }
+    const age = Date.now() - cached.timestamp;
+    if (age > this.RESPONSE_CACHE_TTL) {
+      this.responseCache.delete(key);
+      return undefined;
+    }
+    return cached.data as T;
+  }
+
+  setCachedResponse<T>(key: string, data: T) {
+    this.responseCache.set(key, {
+      data,
+      timestamp: Date.now(),
+    });
+  }
 
   async deduplicate<T>(
     key: string,
@@ -44,17 +71,34 @@ class RequestDeduplicator {
 
   clear() {
     this.pendingRequests.clear();
+    this.responseCache.clear();
   }
 }
 
 export const requestDeduplicator = new RequestDeduplicator();
+
+function buildCacheKey(url: string, options?: RequestInit) {
+  return `fetch:${url}:${JSON.stringify(options || {})}`;
+}
+
+export function getCachedResponse<T>(
+  url: string,
+  options?: RequestInit,
+): T | undefined {
+  const cacheKey = buildCacheKey(url, options);
+  return requestDeduplicator.getCachedResponse<T>(cacheKey);
+}
 
 // Helper function for deduplicated fetch
 export async function deduplicatedFetch<T>(
   url: string,
   options?: RequestInit
 ): Promise<T> {
-  const cacheKey = `fetch:${url}:${JSON.stringify(options || {})}`;
+  const cacheKey = buildCacheKey(url, options);
+  const cached = requestDeduplicator.getCachedResponse<T>(cacheKey);
+  if (cached !== undefined) {
+    return cached;
+  }
 
   return requestDeduplicator.deduplicate(cacheKey, async () => {
     const response = await fetch(url, options);
@@ -81,7 +125,9 @@ export async function deduplicatedFetch<T>(
 
     // Fallback: parse JSON safely, with a more descriptive error if parsing fails
     try {
-      return (await response.json()) as T;
+      const data = (await response.json()) as T;
+      requestDeduplicator.setCachedResponse(cacheKey, data);
+      return data;
     } catch (err: any) {
       const text = await response
         .clone()
@@ -95,7 +141,6 @@ export async function deduplicatedFetch<T>(
     }
   });
 }
-
 
 
 

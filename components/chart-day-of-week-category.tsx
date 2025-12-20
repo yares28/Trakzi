@@ -7,7 +7,7 @@ import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
-import { deduplicatedFetch } from "@/lib/request-deduplication"
+import { deduplicatedFetch, getCachedResponse } from "@/lib/request-deduplication"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
   Card,
@@ -39,15 +39,53 @@ type DayOfWeekData = {
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
+const buildDayOfWeekUrl = (params: URLSearchParams) =>
+  `/api/analytics/day-of-week-category?${params.toString()}`
+
 export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette, colorScheme } = useColorScheme()
   const { formatCurrency } = useCurrency()
+  const buildDayParams = React.useCallback(
+    (day?: number | null) => {
+      const params = new URLSearchParams()
+      if (dateFilter) {
+        params.append("filter", dateFilter)
+      }
+      if (typeof day === "number") {
+        params.append("dayOfWeek", day.toString())
+      }
+      return params
+    },
+    [dateFilter],
+  )
+  const availableUrl = buildDayOfWeekUrl(buildDayParams())
+  const cachedAvailable = getCachedResponse<{
+    data: Array<{ category: string; dayOfWeek: number; total: number }>
+    availableDays: number[]
+  }>(availableUrl)
+  const initialAvailableDays = cachedAvailable?.availableDays ?? []
+  const initialSelectedDay =
+    initialAvailableDays.length > 0 ? initialAvailableDays[0] : null
+  const cachedSelected = initialSelectedDay !== null
+    ? getCachedResponse<{
+        data: Array<{ category: string; dayOfWeek: number; total: number }>
+        availableDays: number[]
+      }>(buildDayOfWeekUrl(buildDayParams(initialSelectedDay)))
+    : undefined
   const [mounted, setMounted] = React.useState(false)
-  const [data, setData] = React.useState<DayOfWeekData[]>([])
-  const [availableDays, setAvailableDays] = React.useState<number[]>([])
-  const [selectedDay, setSelectedDay] = React.useState<number | null>(null)
-  const [loading, setLoading] = React.useState(true)
+  const [data, setData] = React.useState<DayOfWeekData[]>(
+    () => cachedSelected?.data ?? [],
+  )
+  const [availableDays, setAvailableDays] = React.useState<number[]>(
+    () => initialAvailableDays,
+  )
+  const [selectedDay, setSelectedDay] = React.useState<number | null>(
+    () => initialSelectedDay,
+  )
+  const [loading, setLoading] = React.useState(
+    () => initialAvailableDays.length > 0 && cachedSelected === undefined,
+  )
   const chartRef = React.useRef<any>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
   const [tooltip, setTooltip] = React.useState<{ label: string; value: number; color: string } | null>(null)
@@ -63,13 +101,29 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
   React.useEffect(() => {
     const fetchAvailableDays = async () => {
       try {
-        const params = new URLSearchParams()
-        if (dateFilter) {
-          params.append("filter", dateFilter)
+        const cached = getCachedResponse<{ data: Array<{ category: string; dayOfWeek: number; total: number }>; availableDays: number[] }>(
+          availableUrl,
+        )
+        if (cached) {
+          const days = cached.availableDays || []
+          setAvailableDays(days)
+
+          if (days.length > 0) {
+            setSelectedDay((prev) => {
+              if (prev === null || !days.includes(prev)) {
+                return days[0]
+              }
+              return prev
+            })
+          } else {
+            setSelectedDay(null)
+            setLoading(false)
+          }
+          return
         }
 
         const result = await deduplicatedFetch<{ data: Array<{ category: string; dayOfWeek: number; total: number }>; availableDays: number[] }>(
-          `/api/analytics/day-of-week-category?${params.toString()}`
+          availableUrl
         )
         const days = result.availableDays || []
         setAvailableDays(days)
@@ -100,7 +154,7 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
       fetchAvailableDays()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFilter, mounted])
+  }, [dateFilter, mounted, availableUrl])
 
   // Fetch data when selectedDay changes
   React.useEffect(() => {
@@ -111,16 +165,20 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
         return
       }
 
+      const dataUrl = buildDayOfWeekUrl(buildDayParams(selectedDay))
+      const cached = getCachedResponse<{ data: Array<{ category: string; dayOfWeek: number; total: number }>; availableDays: number[] }>(
+        dataUrl,
+      )
+      if (cached) {
+        setData(cached.data || [])
+        setLoading(false)
+        return
+      }
+
       setLoading(true)
       try {
-        const params = new URLSearchParams()
-        if (dateFilter) {
-          params.append("filter", dateFilter)
-        }
-        params.append("dayOfWeek", selectedDay.toString())
-
         const result = await deduplicatedFetch<{ data: Array<{ category: string; dayOfWeek: number; total: number }>; availableDays: number[] }>(
-          `/api/analytics/day-of-week-category?${params.toString()}`
+          dataUrl
         )
         const fetchedData = result.data || []
 
@@ -131,14 +189,19 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
           for (const day of availableDays) {
             if (day === selectedDay) continue
 
-            const altParams = new URLSearchParams()
-            if (dateFilter) {
-              altParams.append("filter", dateFilter)
+            const altUrl = buildDayOfWeekUrl(buildDayParams(day))
+            const cachedAlt = getCachedResponse<{ data: Array<{ category: string; dayOfWeek: number; total: number }>; availableDays: number[] }>(
+              altUrl,
+            )
+            if (cachedAlt?.data && cachedAlt.data.length > 0) {
+              setSelectedDay(day)
+              setData(cachedAlt.data)
+              setLoading(false)
+              return
             }
-            altParams.append("dayOfWeek", day.toString())
 
             const altResult = await deduplicatedFetch<{ data: Array<{ category: string; dayOfWeek: number; total: number }>; availableDays: number[] }>(
-              `/api/analytics/day-of-week-category?${altParams.toString()}`
+              altUrl
             )
 
             if (altResult.data && altResult.data.length > 0) {
@@ -162,7 +225,7 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
     if (mounted && selectedDay !== null) {
       fetchData()
     }
-  }, [selectedDay, dateFilter, mounted, availableDays])
+  }, [selectedDay, dateFilter, mounted, availableDays, buildDayParams])
 
   const palette = React.useMemo(() => {
     let base = getPalette().filter((color) => color !== "#c3c3c3")

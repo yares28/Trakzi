@@ -71,6 +71,33 @@ import {
     ChartMonthlyInsights,
 } from "@/components/test-charts"
 
+type TestChartsTransaction = {
+    id: number
+    date: string
+    description: string
+    amount: number
+    balance: number | null
+    category: string
+}
+
+type TestChartsCacheEntry = {
+    transactions: TestChartsTransaction[]
+    fetchedAt: number
+}
+
+const TEST_CHARTS_CACHE_TTL_MS = 5 * 60 * 1000
+const testChartsDataCache = new Map<string, TestChartsCacheEntry>()
+
+const getTestChartsCacheKey = (filter?: string | null) => filter ?? "all"
+
+const getTestChartsCacheEntry = (filter?: string | null) => {
+    const cacheKey = getTestChartsCacheKey(filter)
+    return testChartsDataCache.get(cacheKey) || null
+}
+
+const isTestChartsCacheFresh = (entry: TestChartsCacheEntry) =>
+    Date.now() - entry.fetchedAt < TEST_CHARTS_CACHE_TTL_MS
+
 export default function TestChartsPage() {
     // GridStack ref and instance
     const gridRef = useRef<HTMLDivElement>(null)
@@ -350,7 +377,7 @@ export default function TestChartsPage() {
                 cellHeight: 70,
                 margin: 0,
                 minRow: 1,
-                float: false,
+                float: true,
                 animate: true,
                 resizable: {
                     handles: 'se',
@@ -438,7 +465,7 @@ export default function TestChartsPage() {
                     }
                 }, 100)
 
-                gridStackRef.current.compact()
+                // Keep saved positions intact; don't auto-compact after loading.
 
                 // Handle resize events
                 gridStackRef.current.on('resizestop', (event, item) => {
@@ -512,23 +539,34 @@ export default function TestChartsPage() {
         }
     }, [testChartsOrder, snapToAllowedSize, saveChartSizes, hasLoadedChartSizes])
 
-    // Transactions state
-    const [rawTransactions, setRawTransactions] = useState<Array<{
-        id: number
-        date: string
-        description: string
-        amount: number
-        balance: number | null
-        category: string
-    }>>([])
-    const [isLoadingTransactions, setIsLoadingTransactions] = useState(true)
-
     // Date filter state
     const { filter: dateFilter, setFilter: setDateFilter } = useDateFilter()
+    const testChartsCacheEntry = getTestChartsCacheEntry(dateFilter)
+
+    // Transactions state
+    const [rawTransactions, setRawTransactions] = useState<TestChartsTransaction[]>(
+        () => testChartsCacheEntry?.transactions ?? [],
+    )
+    const [isLoadingTransactions, setIsLoadingTransactions] = useState(
+        () => !testChartsCacheEntry,
+    )
 
     // Fetch all data
     const fetchAllData = useCallback(async () => {
-        setIsLoadingTransactions(true)
+        const cacheKey = getTestChartsCacheKey(dateFilter)
+        const cachedEntry = getTestChartsCacheEntry(dateFilter)
+        const hasFreshCache = cachedEntry ? isTestChartsCacheFresh(cachedEntry) : false
+
+        if (cachedEntry) {
+            setRawTransactions(cachedEntry.transactions)
+            setIsLoadingTransactions(false)
+            if (hasFreshCache) {
+                return
+            }
+        } else {
+            setIsLoadingTransactions(true)
+        }
+
         try {
             const transactionsData = await deduplicatedFetch<any[]>(
                 dateFilter
@@ -540,14 +578,12 @@ export default function TestChartsPage() {
             })
 
             if (Array.isArray(transactionsData)) {
-                setRawTransactions(normalizeTransactions(transactionsData) as Array<{
-                    id: number
-                    date: string
-                    description: string
-                    amount: number
-                    balance: number | null
-                    category: string
-                }>)
+                const normalized = normalizeTransactions(transactionsData) as TestChartsTransaction[]
+                setRawTransactions(normalized)
+                testChartsDataCache.set(cacheKey, {
+                    transactions: normalized,
+                    fetchedAt: Date.now(),
+                })
             }
         } catch (error) {
             console.error("Error fetching data:", error)

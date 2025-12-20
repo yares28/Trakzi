@@ -15,7 +15,7 @@ import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
-import { deduplicatedFetch } from "@/lib/request-deduplication"
+import { deduplicatedFetch, getCachedResponse } from "@/lib/request-deduplication"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 interface ChartAllMonthsCategorySpendingProps {
   data?: Array<{
@@ -47,6 +47,34 @@ const monthNames = [
 
 const monthNamesShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
+const ALL_MONTHS_QUERY = "1,2,3,4,5,6,7,8,9,10,11,12"
+
+const buildMonthTotals = (
+  result?: {
+    data?: Record<number, Array<{ category: string; month: number; total: number }>>
+  },
+) => {
+  const totals = new Map<number, number>()
+  monthNames.forEach((_, monthIndex) => {
+    totals.set(monthIndex, 0)
+  })
+
+  if (result?.data && typeof result.data === "object") {
+    Object.entries(result.data).forEach(([monthStr, monthData]: [string, any]) => {
+      const monthNum = parseInt(monthStr, 10) - 1
+      if (!isNaN(monthNum) && Array.isArray(monthData)) {
+        const monthTotal = monthData.reduce(
+          (sum: number, item: { total: number }) => sum + (item.total || 0),
+          0,
+        )
+        totals.set(monthNum, monthTotal)
+      }
+    })
+  }
+
+  return totals
+}
+
 export function ChartAllMonthsCategorySpending({ data = [], categoryControls: propCategoryControls, isLoading = false }: ChartAllMonthsCategorySpendingProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
@@ -57,7 +85,13 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
   )
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const [actualMonthTotals, setActualMonthTotals] = useState<Map<number, number>>(new Map())
+  const cachedTotals = getCachedResponse<{
+    data: Record<number, Array<{ category: string; month: number; total: number }>>
+    availableMonths: number[]
+  }>(`/api/analytics/monthly-category-duplicate?months=${ALL_MONTHS_QUERY}`)
+  const [actualMonthTotals, setActualMonthTotals] = useState<Map<number, number>>(
+    () => buildMonthTotals(cachedTotals),
+  )
   const [tooltip, setTooltip] = useState<{ month: string; category: string; amount: number; isTotal: boolean; breakdown?: Array<{ category: string; amount: number }>; color?: string } | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
   // Small card size: always full width within its grid column
@@ -82,34 +116,26 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
   useEffect(() => {
     const fetchActualTotals = async () => {
       try {
-        // Calculate totals for all 12 months using batch API call
-        const totals = new Map<number, number>()
-        monthNames.forEach((_, monthIndex) => {
-          totals.set(monthIndex, 0)
-        })
+        const cacheKey = `/api/analytics/monthly-category-duplicate?months=${ALL_MONTHS_QUERY}`
+        const cached = getCachedResponse<{
+          data: Record<number, Array<{ category: string; month: number; total: number }>>
+          availableMonths: number[]
+        }>(cacheKey)
+        if (cached) {
+          setActualMonthTotals(buildMonthTotals(cached))
+          return
+        }
 
-        // Use batch API to fetch all 12 months in a single request
-        const allMonths = Array.from({ length: 12 }, (_, i) => i + 1).join(',')
         try {
           const result = await deduplicatedFetch<{ data: Record<number, Array<{ category: string; month: number; total: number }>>; availableMonths: number[] }>(
-            `/api/analytics/monthly-category-duplicate?months=${allMonths}`
+            cacheKey
           )
 
           // Result is now an object with month numbers as keys
-          if (result.data && typeof result.data === 'object') {
-            Object.entries(result.data).forEach(([monthStr, monthData]: [string, any]) => {
-              const monthNum = parseInt(monthStr, 10) - 1 // Convert 1-12 to 0-11
-              if (!isNaN(monthNum) && Array.isArray(monthData)) {
-                const monthTotal = monthData.reduce((sum: number, item: { total: number }) => sum + (item.total || 0), 0)
-                totals.set(monthNum, monthTotal)
-              }
-            })
-          }
+          setActualMonthTotals(buildMonthTotals(result))
         } catch (err) {
           console.warn(`[All Months Category Spending] Error fetching batch months:`, err)
         }
-
-        setActualMonthTotals(totals)
       } catch (error) {
         console.error('[All Months Category Spending] Error fetching actual totals:', error)
       }
