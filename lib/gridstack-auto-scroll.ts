@@ -6,28 +6,6 @@ type GridStackAutoScrollOptions = {
   dragHandleSelector?: string
 }
 
-type DragEventWithClient = Event & { clientX?: number; clientY?: number }
-
-function findScrollContainer(element: HTMLElement | null) {
-  const overflowRegex = /(auto|scroll)/
-  let current: HTMLElement | null = element
-
-  while (current) {
-    const style = getComputedStyle(current)
-    if (overflowRegex.test(`${style.overflow}${style.overflowY}`)) {
-      return current
-    }
-    current = current.parentElement
-  }
-
-  return document.scrollingElement || document.documentElement
-}
-
-function toDragEvent(event: Event): DragEventWithClient | null {
-  if ("clientY" in event) return event as DragEventWithClient
-  return null
-}
-
 export function attachGridStackAutoScroll(
   grid: GridStack,
   options: GridStackAutoScrollOptions = {}
@@ -36,76 +14,25 @@ export function attachGridStackAutoScroll(
     options.dragHandleSelector ??
     grid.opts.draggable?.handle ??
     ".grid-stack-item-content"
-  const edgeThreshold = options.edgeThreshold ?? 80
-  const maxScrollStep = options.maxScrollStep ?? 28
-  const scrollContainer = findScrollContainer(grid.el)
-  const moveThreshold = 3
+  const edgeThreshold = options.edgeThreshold ?? 100 // Increased from 80
+  const maxScrollStep = options.maxScrollStep ?? 20
+
   let rafId: number | null = null
   let isDragging = false
-  let pendingStart = false
-  let lastEvent: DragEventWithClient | null = null
-  let lastClientX: number | null = null
-  let lastClientY: number | null = null
-  let startClientX: number | null = null
-  let startClientY: number | null = null
-  let listenersAttached = false
+  let lastMouseY: number = 0
   let wheelListenerAttached = false
 
-  const maybeStart = (clientX: number, clientY: number) => {
-    if (!pendingStart || isDragging) return
-    if (startClientX === null || startClientY === null) return
-    const distance =
-      Math.abs(clientX - startClientX) + Math.abs(clientY - startClientY)
-    if (distance <= moveThreshold) return
-    start()
-  }
-
-  const updateFromMouse = (event: MouseEvent) => {
-    lastClientX = event.clientX
-    lastClientY = event.clientY
-    maybeStart(event.clientX, event.clientY)
-  }
-
-  const updateFromPointer = (event: PointerEvent) => {
-    lastClientX = event.clientX
-    lastClientY = event.clientY
-    maybeStart(event.clientX, event.clientY)
-  }
-
-  const updateFromTouch = (event: TouchEvent) => {
-    if (event.touches.length === 0) return
-    const touch = event.touches[0]
-    lastClientX = touch.clientX
-    lastClientY = touch.clientY
-    maybeStart(touch.clientX, touch.clientY)
-  }
-
   // Handle wheel events during drag - prevent the wheel scroll from
-  // interfering with the drag operation. When the user scrolls with the
-  // wheel during drag, it causes the card to lose sync with the cursor
-  // position because GridStack's drag tracking doesn't account for scroll
-  // position changes. By preventing the wheel event during drag, we force
-  // users to use the edge auto-scroll feature instead.
+  // interfering with the drag operation
   const handleWheel = (event: WheelEvent) => {
     if (!isDragging) return
-    // Prevent wheel scroll during drag to maintain cursor-card sync
     event.preventDefault()
     event.stopPropagation()
-  }
-
-  const attachMoveListeners = () => {
-    if (listenersAttached) return
-    listenersAttached = true
-    document.addEventListener("mousemove", updateFromMouse, { passive: true })
-    document.addEventListener("pointermove", updateFromPointer, { passive: true })
-    document.addEventListener("touchmove", updateFromTouch, { passive: true })
   }
 
   const attachWheelListener = () => {
     if (wheelListenerAttached) return
     wheelListenerAttached = true
-    // Use capture phase to intercept wheel events early
-    // Must NOT be passive since we call preventDefault
     document.addEventListener("wheel", handleWheel, { passive: false, capture: true })
   }
 
@@ -115,151 +42,85 @@ export function attachGridStackAutoScroll(
     document.removeEventListener("wheel", handleWheel, true)
   }
 
-  const detachMoveListeners = () => {
-    if (!listenersAttached) return
-    listenersAttached = false
-    document.removeEventListener("mousemove", updateFromMouse)
-    document.removeEventListener("pointermove", updateFromPointer)
-    document.removeEventListener("touchmove", updateFromTouch)
+  // Track mouse position globally during drag
+  const handleMouseMove = (event: MouseEvent) => {
+    if (!isDragging) return
+    lastMouseY = event.clientY
   }
 
-  const stop = () => {
+  const tick = () => {
+    if (!isDragging) {
+      rafId = null
+      return
+    }
+
+    const viewportHeight = window.innerHeight
+    const mouseY = lastMouseY
+
+    let delta = 0
+
+    // Near top edge - scroll up
+    if (mouseY < edgeThreshold && mouseY > 0) {
+      // Calculate scroll speed based on distance to edge
+      const distanceToEdge = mouseY
+      const speedFactor = 1 - (distanceToEdge / edgeThreshold)
+      delta = -Math.round(maxScrollStep * speedFactor)
+    }
+    // Near bottom edge - scroll down
+    else if (mouseY > viewportHeight - edgeThreshold && mouseY < viewportHeight) {
+      const distanceToEdge = viewportHeight - mouseY
+      const speedFactor = 1 - (distanceToEdge / edgeThreshold)
+      delta = Math.round(maxScrollStep * speedFactor)
+    }
+
+    if (delta !== 0) {
+      window.scrollBy({ top: delta, left: 0, behavior: "auto" })
+    }
+
+    rafId = requestAnimationFrame(tick)
+  }
+
+  const startAutoScroll = () => {
+    if (isDragging) return
+    isDragging = true
+    attachWheelListener()
+    document.addEventListener("mousemove", handleMouseMove, { passive: true })
+    if (rafId === null) {
+      rafId = requestAnimationFrame(tick)
+    }
+  }
+
+  const stopAutoScroll = () => {
     isDragging = false
-    pendingStart = false
-    lastEvent = null
-    lastClientX = null
-    lastClientY = null
-    startClientX = null
-    startClientY = null
-    detachMoveListeners()
     detachWheelListener()
+    document.removeEventListener("mousemove", handleMouseMove)
     if (rafId !== null) {
       cancelAnimationFrame(rafId)
       rafId = null
     }
   }
 
-  const start = () => {
-    if (isDragging) return
-    isDragging = true
-    pendingStart = false
-    attachMoveListeners()
-    attachWheelListener()
-    if (rafId === null) {
-      rafId = requestAnimationFrame(tick)
-    }
-  }
-
-  const tick = () => {
-    if (!isDragging || (lastEvent === null && lastClientY === null)) {
-      stop()
-      return
-    }
-
-    const viewportHeight =
-      scrollContainer === document.scrollingElement
-        ? window.innerHeight || document.documentElement.clientHeight
-        : scrollContainer.clientHeight
-    const containerTop =
-      scrollContainer === document.scrollingElement
-        ? 0
-        : scrollContainer.getBoundingClientRect().top
-    const clientY =
-      (lastClientY ?? lastEvent?.clientY ?? viewportHeight / 2) - containerTop
-    let delta = 0
-
-    if (clientY < edgeThreshold) {
-      delta = -Math.min(maxScrollStep, edgeThreshold - clientY)
-    } else if (clientY > viewportHeight - edgeThreshold) {
-      delta = Math.min(maxScrollStep, clientY - (viewportHeight - edgeThreshold))
-    }
-
-    if (delta !== 0) {
-      if (scrollContainer === document.scrollingElement) {
-        window.scrollBy({ top: delta, left: 0, behavior: "auto" })
-      } else {
-        scrollContainer.scrollTop += delta
-      }
-    }
-
-    rafId = requestAnimationFrame(tick)
-  }
-
+  // GridStack drag events
   const handleDragStart = (event: Event) => {
-    lastEvent = toDragEvent(event)
-    if (lastEvent?.clientX !== undefined) {
-      lastClientX = lastEvent.clientX
+    // Get initial mouse position from event if available
+    if ("clientY" in event) {
+      lastMouseY = (event as MouseEvent).clientY
     }
-    if (lastEvent?.clientY !== undefined) {
-      lastClientY = lastEvent.clientY
-    }
-    start()
-  }
-
-  const handleDrag = (event: Event) => {
-    if (!isDragging) return
-    lastEvent = toDragEvent(event)
-    if (lastEvent?.clientX !== undefined) {
-      lastClientX = lastEvent.clientX
-    }
-    if (lastEvent?.clientY !== undefined) {
-      lastClientY = lastEvent.clientY
-    }
-    if (rafId === null) {
-      rafId = requestAnimationFrame(tick)
-    }
+    startAutoScroll()
   }
 
   const handleDragStop = () => {
-    stop()
+    stopAutoScroll()
   }
 
-  const handlePointerDown = (event: MouseEvent | TouchEvent) => {
-    if ("button" in event && event.button !== 0) return
-    const target = event.target as HTMLElement | null
-    if (!target) return
-    if (dragHandleSelector && !target.closest(dragHandleSelector)) return
-
-    pendingStart = true
-    if ("touches" in event) {
-      if (event.touches.length === 0) return
-      const touch = event.touches[0]
-      startClientX = touch.clientX
-      startClientY = touch.clientY
-      lastClientX = touch.clientX
-      lastClientY = touch.clientY
-    } else {
-      startClientX = event.clientX
-      startClientY = event.clientY
-      lastClientX = event.clientX
-      lastClientY = event.clientY
-    }
-    attachMoveListeners()
-  }
-
-  const handlePointerUp = () => {
-    stop()
-  }
-
+  // Attach GridStack event listeners
   grid.on("dragstart", handleDragStart)
-  grid.on("drag", handleDrag)
   grid.on("dragstop", handleDragStop)
-  grid.el.addEventListener("mousedown", handlePointerDown)
-  grid.el.addEventListener("touchstart", handlePointerDown, { passive: true })
-  document.addEventListener("mouseup", handlePointerUp, true)
-  document.addEventListener("touchend", handlePointerUp, true)
-  document.addEventListener("touchcancel", handlePointerUp, true)
 
+  // Cleanup function
   return () => {
     grid.off("dragstart")
-    grid.off("drag")
     grid.off("dragstop")
-    grid.el.removeEventListener("mousedown", handlePointerDown)
-    grid.el.removeEventListener("touchstart", handlePointerDown)
-    document.removeEventListener("mouseup", handlePointerUp, true)
-    document.removeEventListener("touchend", handlePointerUp, true)
-    document.removeEventListener("touchcancel", handlePointerUp, true)
-    detachWheelListener()
-    stop()
+    stopAutoScroll()
   }
 }
