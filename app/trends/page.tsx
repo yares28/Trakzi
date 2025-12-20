@@ -13,7 +13,6 @@ import {
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import { useDateFilter } from "@/components/date-filter-provider"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
-import { setupGridStackDragScroll } from "@/lib/gridstack-drag-scroll"
 import { ChartCategoryTrend } from "@/components/chart-category-trend"
 import { ChartCardSkeleton } from "@/components/chart-loading-state"
 import { ShimmeringText } from "@/components/ui/shimmering-text"
@@ -136,7 +135,6 @@ export default function TrendsPage() {
 
   const gridRef = useRef<HTMLDivElement | null>(null)
   const gridStackRef = useRef<GridStack | null>(null)
-  const dragScrollCleanupRef = useRef<(() => void) | null>(null)
 
   // Save card sizes to localStorage
   const saveCardSizes = (sizes: Record<string, { w: number; h: number; x: number; y: number }>) => {
@@ -265,6 +263,7 @@ export default function TrendsPage() {
       animate: true,  // Enable smooth animations
       draggable: {
         handle: ".grid-stack-item-content",
+        scroll: true  // Enable native auto-scroll during drag
       },
       resizable: {
         handles: 'se', // Only bottom-right resize handle
@@ -445,8 +444,6 @@ export default function TrendsPage() {
     })
 
     gridStackRef.current = instance
-    dragScrollCleanupRef.current?.()
-    dragScrollCleanupRef.current = setupGridStackDragScroll(instance)
 
     // Listen for reorganize events to compact the grid
     const handleReorganize = () => {
@@ -520,8 +517,6 @@ export default function TrendsPage() {
 
     return () => {
       window.removeEventListener('gridstackReorganize', handleReorganize)
-      dragScrollCleanupRef.current?.()
-      dragScrollCleanupRef.current = null
       gridStackRef.current?.destroy(false)
       gridStackRef.current = null
     }

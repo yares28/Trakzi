@@ -107,6 +107,24 @@ function normalizeJsonCandidate(rawText: string) {
     .trim()
 }
 
+function insertMissingCommasBetweenFields(rawText: string) {
+  let fixed = rawText
+  const patterns = [
+    /(:\s*(?:"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?|true|false|null))(\s*(?:\r?\n)\s*")/g,
+    /(:\s*(?:"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?|true|false|null))(\s*(?:\r?\n)\s*\{)/g,
+    /(:\s*(?:"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?|true|false|null))(\s*(?:\r?\n)\s*\[)/g,
+    /("(?:(?:[^"\\]|\\.)*)")(\s*(?:\r?\n)\s*")/g,
+    /(-?\d+(?:\.\d+)?)(\s*(?:\r?\n)\s*(?=["{\[\d-]))/g,
+    /(true|false|null)(\s*(?:\r?\n)\s*(?=["{\[\d-]))/g,
+  ]
+
+  for (const pattern of patterns) {
+    fixed = fixed.replace(pattern, "$1,$2")
+  }
+
+  return fixed
+}
+
 function insertMissingCommas(rawText: string) {
   let result = ""
   let inString = false
@@ -163,12 +181,18 @@ function buildJsonCandidates(rawText: string) {
     if (!base) continue
     const trimmed = base.trim()
     const withoutTrailingCommas = trimmed.replace(/,\s*([}\]])/g, "$1")
+    const withFieldCommas = insertMissingCommasBetweenFields(trimmed)
+    const withFieldAndTrailing = withFieldCommas.replace(/,\s*([}\]])/g, "$1")
     const withInsertedCommas = insertMissingCommas(trimmed)
     const withInsertedAndTrimmed = insertMissingCommas(withoutTrailingCommas)
+    const withAllFixes = insertMissingCommas(insertMissingCommasBetweenFields(withoutTrailingCommas))
     candidates.add(trimmed)
     candidates.add(withoutTrailingCommas)
+    candidates.add(withFieldCommas)
+    candidates.add(withFieldAndTrailing)
     candidates.add(withInsertedCommas)
     candidates.add(withInsertedAndTrimmed)
+    candidates.add(withAllFixes)
   }
 
   return Array.from(candidates)
@@ -316,7 +340,7 @@ async function extractReceiptWithAi(params: {
     },
     body: JSON.stringify({
       model: RECEIPT_MODEL,
-      temperature: 0.2,
+      temperature: 0,
       max_tokens: 1200,
       messages: [
         {

@@ -73,7 +73,6 @@ import { useFavorites } from "@/components/favorites-provider"
 import { useDateFilter } from "@/components/date-filter-provider"
 import { getChartMetadata } from "@/lib/chart-metadata"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
-import { setupGridStackDragScroll } from "@/lib/gridstack-drag-scroll"
 import { useTheme } from "next-themes"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
@@ -427,7 +426,6 @@ export default function Page() {
   // GridStack refs for favorites section
   const favoritesGridRef = useRef<HTMLDivElement>(null)
   const favoritesGridStackRef = useRef<GridStack | null>(null)
-  const favoritesDragScrollCleanupRef = useRef<(() => void) | null>(null)
 
   // Saved chart sizes for favorites
   const [savedFavoriteSizes, setSavedFavoriteSizes] = useState<Record<string, { w: number; h: number; x?: number; y?: number }>>({})
@@ -548,17 +546,12 @@ export default function Page() {
           handles: 'se', // Only bottom-right resize handle
         },
         draggable: {
-          handle: ".grid-stack-item-content"
+          handle: ".grid-stack-item-content",
+          scroll: true  // Enable native auto-scroll during drag
         },
         disableOneColumnMode: true,
       }
       favoritesGridStackRef.current = GridStack.init(gridOptions, favoritesGridRef.current)
-      if (favoritesGridStackRef.current) {
-        favoritesDragScrollCleanupRef.current?.()
-        favoritesDragScrollCleanupRef.current = setupGridStackDragScroll(
-          favoritesGridStackRef.current,
-        )
-      }
 
       if (favoritesGridStackRef.current && items.length > 0) {
         // Collect widget data
@@ -732,8 +725,6 @@ export default function Page() {
       if (items.length === 0) return
 
       if (favoritesGridStackRef.current) {
-        favoritesDragScrollCleanupRef.current?.()
-        favoritesDragScrollCleanupRef.current = null
         favoritesGridStackRef.current.destroy(false)
         favoritesGridStackRef.current = null
       }
@@ -750,8 +741,6 @@ export default function Page() {
     return () => {
       clearTimeout(timer)
       if (favoritesGridStackRef.current) {
-        favoritesDragScrollCleanupRef.current?.()
-        favoritesDragScrollCleanupRef.current = null
         favoritesGridStackRef.current.destroy(false)
         favoritesGridStackRef.current = null
       }
