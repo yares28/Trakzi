@@ -1565,6 +1565,62 @@ export default function Page() {
     }
   }, [transactions])
 
+  const transactionSummary = useMemo(() => {
+    if (!transactions || transactions.length === 0) {
+      return { count: 0, timeSpan: "No data", trend: [] as { date: string; value: number }[] }
+    }
+
+    const count = transactions.length
+    const dates = transactions
+      .map((t) => new Date(t.date).getTime())
+      .filter((t) => !isNaN(t))
+
+    if (dates.length === 0) {
+      return { count, timeSpan: "0 days", trend: [] as { date: string; value: number }[] }
+    }
+
+    const minDate = new Date(Math.min(...dates))
+    const maxDate = new Date(Math.max(...dates))
+
+    let years = maxDate.getFullYear() - minDate.getFullYear()
+    let months = maxDate.getMonth() - minDate.getMonth()
+    let days = maxDate.getDate() - minDate.getDate()
+
+    if (days < 0) {
+      months--
+      days += 30
+    }
+    if (months < 0) {
+      years--
+      months += 12
+    }
+
+    let timeSpan = ""
+    if (years > 0) {
+      timeSpan = `${years} year${years > 1 ? "s" : ""}`
+      if (months > 0) timeSpan += ` and ${months} month${months > 1 ? "s" : ""}`
+    } else if (months > 0) {
+      timeSpan = `${months} month${months > 1 ? "s" : ""}`
+      if (days > 0) timeSpan += ` and ${days} day${days > 1 ? "s" : ""}`
+    } else {
+      timeSpan = `${days} day${days !== 1 ? "s" : ""}`
+    }
+
+    const monthCounts = new Map<string, number>()
+    transactions.forEach((tx) => {
+      const d = new Date(tx.date)
+      if (isNaN(d.getTime())) return
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+      monthCounts.set(key, (monthCounts.get(key) || 0) + 1)
+    })
+
+    const trend = Array.from(monthCounts.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, value]) => ({ date, value }))
+
+    return { count, timeSpan, trend }
+  }, [transactions])
+
   // Fetch transactions for charts
   const fetchTransactions = useCallback(async (bypassCache = false) => {
     try {
@@ -2330,6 +2386,9 @@ export default function Page() {
                 incomeTrend={statsTrends.incomeTrend}
                 expensesTrend={statsTrends.expensesTrend}
                 netWorthTrend={statsTrends.netWorthTrend}
+                transactionCount={transactionSummary.count}
+                transactionTimeSpan={transactionSummary.timeSpan}
+                transactionTrend={transactionSummary.trend}
               />
               {/* Favorite Charts Section */}
               {Array.from(favorites).length > 0 && (

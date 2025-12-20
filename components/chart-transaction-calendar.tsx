@@ -290,11 +290,35 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
     }
   }, [dateFilter, chartData, allData, availableYears, currentYear, selectedYear])
 
-  // Calculate max value for visualMap
-  const maxValue = useMemo(() => {
-    if (chartData.length === 0) return 10000
-    return Math.max(...chartData.map(([, value]) => value as number), 100)
+  const values = useMemo(() => {
+    return chartData
+      .map(([, value]) => Number(value))
+      .filter((value) => Number.isFinite(value) && value > 0)
   }, [chartData])
+
+  const rawMaxValue = useMemo(() => {
+    if (values.length === 0) return 0
+    return Math.max(...values)
+  }, [values])
+
+  // Use a percentile-based max to avoid a single outlier flattening the colors
+  const colorScaleMax = useMemo(() => {
+    if (values.length === 0) return 1
+    const sorted = [...values].sort((a, b) => a - b)
+    if (sorted.length < 4) {
+      return Math.max(sorted[sorted.length - 1], 1)
+    }
+    const pickPercentile = (percentile: number) => {
+      const index = Math.min(
+        sorted.length - 1,
+        Math.max(0, Math.floor(percentile * (sorted.length - 1)))
+      )
+      return sorted[index]
+    }
+    const p95 = pickPercentile(0.95)
+    if (p95 <= 0) return Math.max(rawMaxValue, 1)
+    return Math.max(p95, 1)
+  }, [values, rawMaxValue])
 
   const isDark = resolvedTheme === "dark"
 
@@ -315,9 +339,9 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
   // Get color for a value based on the palette
   const getColorForValue = (value: number): string => {
     if (palette.length === 0) return "#c3c3c3"
-    if (maxValue === 0) return palette[0]
+    if (colorScaleMax === 0) return palette[0]
 
-    const normalizedValue = Math.min(value / maxValue, 1)
+    const normalizedValue = Math.min(value / colorScaleMax, 1)
 
     if (palette.length === 1) return palette[0]
     if (palette.length === 2) {
@@ -369,11 +393,22 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
     })
 
     // Extract data from params
-    if (params.data && Array.isArray(params.data) && params.data.length >= 2) {
-      const date = params.data[0] as string
-      const value = params.data[1] as number
-      const color = getColorForValue(value)
+    if (!params.data) return
 
+    let date: string | null = null
+    let value: number | null = null
+
+    if (Array.isArray(params.data) && params.data.length >= 2) {
+      date = params.data[0] as string
+      value = Number(params.data[1])
+    } else if (params.data && Array.isArray(params.data.value)) {
+      date = params.data.value[0] as string
+      const raw = params.data.raw
+      value = typeof raw === "number" ? raw : Number(params.data.value[1])
+    }
+
+    if (date && value !== null && Number.isFinite(value)) {
+      const color = getColorForValue(value)
       setTooltip({
         date,
         value,
@@ -416,7 +451,7 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
     },
     visualMap: {
       min: 0,
-      max: maxValue,
+      max: colorScaleMax,
       show: false, // Hide the default legend
       inRange: {
         color: palette
@@ -446,9 +481,15 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
     series: {
       type: 'heatmap',
       coordinateSystem: 'calendar',
-      data: chartData
+      data: chartData.map(([day, value]) => {
+        const raw = Number(value) || 0
+        return {
+          value: [day, Math.min(raw, colorScaleMax)],
+          raw
+        }
+      })
     }
-  }), [chartData, maxValue, fromDate, toDate, isDark, palette])
+  }), [chartData, colorScaleMax, fromDate, toDate, isDark, palette])
 
   if (!mounted || isLoading) {
     return (

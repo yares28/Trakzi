@@ -14,6 +14,7 @@ import { deduplicatedFetch } from "@/lib/request-deduplication"
 import { useDateFilter } from "@/components/date-filter-provider"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { ChartCategoryTrend } from "@/components/chart-category-trend"
+import { ChartCardSkeleton } from "@/components/chart-loading-state"
 import { ShimmeringText } from "@/components/ui/shimmering-text"
 import { TrendingUp, Upload, ArrowRight } from "lucide-react"
 import { IconChartLine } from "@tabler/icons-react"
@@ -555,7 +556,22 @@ export default function TrendsPage() {
           </section>
 
           {isLoading && (
-            <p className="text-sm text-muted-foreground">Loading categories…</p>
+            <section className="px-4 lg:px-6">
+              <div className="flex items-center justify-between">
+                <ShimmeringText
+                  text="Loading trend charts"
+                  className="text-sm font-medium text-muted-foreground"
+                  duration={1.6}
+                  repeatDelay={0.4}
+                  spread={2.2}
+                />
+              </div>
+              <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <ChartCardSkeleton key={`trend-skeleton-${index}`} height="h-[260px]" />
+                ))}
+              </div>
+            </section>
           )}
 
           {error && !isLoading && (
@@ -651,4 +667,3 @@ export default function TrendsPage() {
     </SidebarProvider>
   )
 }
-

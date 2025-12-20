@@ -23,6 +23,11 @@ type CategoryRule = {
     amountSign?: "positive" | "negative" | "any";
 };
 
+type CategoryKeywordRule = {
+    keywords: string[];
+    amountSign?: "positive" | "negative" | "any";
+};
+
 const CATEGORY_DEFINITIONS: Record<string, string> = {
     "Groceries": "Supermarkets and grocery stores.",
     "Restaurants": "Restaurants, cafes, and food delivery.",
@@ -180,6 +185,7 @@ const CATEGORY_RULES: CategoryRule[] = [
     { category: "Rent", amountSign: "negative", patterns: [/alquiler|rent\b|arrendamiento/] },
     { category: "Mortgage", amountSign: "negative", patterns: [/hipoteca|mortgage|prestamo\s*hipotecario/] },
     { category: "Utilities", amountSign: "negative", patterns: [/electric|luz|energia|gas\s*natural|agua|water|internet|fibra|telefono|movistar|vodafone|orange|yoigo|digi\b|masmovil|jazztel|o2\b|pepephone|lowi|simyo|iberdrola|endesa|naturgy|edp\b|holaluz|agbar|canal\s*isabel|aigues/] },
+    { category: "Insurance", amountSign: "negative", patterns: [/insurance|seguro|poliza|mapfre|axa\b|allianz|sanitas|asisa|dkv|mutua/] },
     { category: "Subscriptions", amountSign: "negative", patterns: [/subscription|suscrip|netflix|spotify|disney|hbo\s*max|hbomax|prime\s*video|amazon\s*prime|apple\.com\/bill|itunes|app\s*store|google\s*play|youtube\s*premium|adobe|dropbox|microsoft\s*365|office\s*365/] },
     { category: "Fuel", amountSign: "negative", patterns: [/repsol|cepsa|galp|bp\b|shell|petronor|gasolinera|combustible|gasoil|diesel/] },
     { category: "Groceries", amountSign: "negative", patterns: [/supermercad|grocer|mercadona|carrefour|lidl|aldi|eroski|alcampo|hipercor|supercor|consum|bonpreu|condis|caprabo|ahorramas|froiz|gadis|hiperdino|coviran|spar|kaufland|auchan/] },
@@ -194,6 +200,81 @@ const CATEGORY_RULES: CategoryRule[] = [
     { category: "Services", amountSign: "negative", patterns: [/peluqueria|barberia|lavanderia|limpieza|reparacion|taller|mecanico|servicio\s*tecnico|gestoria|notaria|abogado|consultoria|mudanza|pintura/] },
     { category: "Savings", amountSign: "any", patterns: [/ahorro|savings|plan\s*ahorro/] },
 ];
+
+const CATEGORY_KEYWORDS: Record<string, CategoryKeywordRule> = {
+    "Groceries": {
+        amountSign: "negative",
+        keywords: ["grocery", "groceries", "supermarket", "supermercado", "market", "mercado", "alimentacion", "fruteria", "carniceria", "panaderia", "bakery", "deli", "hiper"]
+    },
+    "Restaurants": {
+        amountSign: "negative",
+        keywords: ["restaurant", "restaurante", "cafe", "cafeteria", "bistro", "tapas", "diner", "burger", "pizzeria", "pizza", "kebab", "sushi", "delivery", "takeaway", "comida"]
+    },
+    "Bars": {
+        amountSign: "negative",
+        keywords: ["bar", "pub", "club", "discoteca", "copas", "cocktail", "cerveceria"]
+    },
+    "Rent": { amountSign: "negative", keywords: ["rent", "alquiler", "arrendamiento"] },
+    "Mortgage": { amountSign: "negative", keywords: ["mortgage", "hipoteca"] },
+    "Utilities": {
+        amountSign: "negative",
+        keywords: ["utility", "utilities", "electric", "electricity", "luz", "energia", "gas", "agua", "water", "internet", "fibra", "telefono", "phone", "telecom", "broadband"]
+    },
+    "Fuel": { amountSign: "negative", keywords: ["fuel", "gasolinera", "gasolina", "diesel", "gasoil", "petrol"] },
+    "Transport": {
+        amountSign: "negative",
+        keywords: ["transport", "transit", "bus", "train", "metro", "subway", "taxi", "cab", "parking", "toll", "peaje", "autopista", "uber", "cabify", "bolt", "lyft", "renfe"]
+    },
+    "Insurance": { amountSign: "negative", keywords: ["insurance", "seguro", "poliza", "policy"] },
+    "Taxes & Fees": {
+        amountSign: "negative",
+        keywords: ["tax", "taxes", "impuesto", "iva", "fee", "fees", "comision", "commission", "multa", "cuota", "charge", "maintenance"]
+    },
+    "Shopping": {
+        amountSign: "negative",
+        keywords: ["shopping", "tienda", "store", "retail", "clothes", "clothing", "ropa", "shoes", "calzado", "electronics", "electronica", "gadget", "furniture", "muebles", "home", "hogar"]
+    },
+    "Entertainment": {
+        amountSign: "negative",
+        keywords: ["entertainment", "ocio", "cinema", "cine", "concert", "concierto", "festival", "event", "ticket", "gaming", "game"]
+    },
+    "Education": {
+        amountSign: "negative",
+        keywords: ["education", "escuela", "colegio", "universidad", "curso", "class", "tuition", "academia"]
+    },
+    "Health & Fitness": {
+        amountSign: "negative",
+        keywords: ["health", "medical", "doctor", "hospital", "clinic", "clinica", "dentist", "dentista", "pharmacy", "farmacia", "gym", "gimnasio", "fitness"]
+    },
+    "Subscriptions": {
+        amountSign: "negative",
+        keywords: ["subscription", "suscripcion", "membership", "streaming", "prime", "netflix", "spotify", "disney"]
+    },
+    "Travel": {
+        amountSign: "negative",
+        keywords: ["travel", "hotel", "hostel", "vuelo", "flight", "airline", "aeropuerto", "booking", "airbnb", "trip", "vacation", "turismo"]
+    },
+    "Services": {
+        amountSign: "negative",
+        keywords: ["service", "servicio", "repair", "reparacion", "taller", "peluqueria", "barberia", "laundry", "lavanderia", "cleaning", "limpieza", "plumber", "electricista", "gestoria", "notaria", "abogado", "consultoria"]
+    },
+    "Income": {
+        amountSign: "positive",
+        keywords: ["salary", "payroll", "nomina", "sueldo", "income", "pension", "dividend", "interest"]
+    },
+    "Transfers": {
+        amountSign: "any",
+        keywords: ["transfer", "transferencia", "bizum", "paypal", "sepa", "p2p", "trf"]
+    },
+    "Refunds": {
+        amountSign: "positive",
+        keywords: ["refund", "reembolso", "devolucion", "chargeback", "reintegro"]
+    },
+    "Savings": {
+        amountSign: "any",
+        keywords: ["savings", "ahorro", "deposit", "investment", "fondo"]
+    },
+};
 
 function normalizeText(value: string): string {
     return value
@@ -296,6 +377,34 @@ function getCategoryFromPattern(description: string, categories: string[]): stri
     return normalizeCategoryName(matched.category, categories);
 }
 
+function getCategoryFromKeywords(description: string, categories: string[], amount: number): string | null {
+    const normalized = normalizeText(description);
+    let bestMatch: { category: string; score: number } | null = null;
+
+    for (const [category, rule] of Object.entries(CATEGORY_KEYWORDS)) {
+        const normalizedCategory = normalizeCategoryName(category, categories);
+        if (!normalizedCategory) continue;
+
+        const sign = rule.amountSign ?? "any";
+        if (sign === "positive" && amount <= 0) continue;
+        if (sign === "negative" && amount >= 0) continue;
+
+        let score = 0;
+        for (const keyword of rule.keywords) {
+            if (!keyword) continue;
+            if (normalized.includes(keyword)) {
+                score += keyword.length >= 6 ? 2 : 1;
+            }
+        }
+
+        if (score > 0 && (!bestMatch || score > bestMatch.score)) {
+            bestMatch = { category: normalizedCategory, score };
+        }
+    }
+
+    return bestMatch ? bestMatch.category : null;
+}
+
 export async function categoriseTransactions(
     rows: TxRow[],
     customCategories?: string[],
@@ -377,7 +486,7 @@ CLASSIFICATION RULES:
 5. Use Subscriptions for streaming or digital SaaS; Utilities for electricity, water, gas, internet, and phone.
 6. Use Fuel for gas stations; Transport for taxis/ride-hailing/public transit/parking/tolls; Travel for flights/hotels/booking.
 7. Bars are for bars/pubs/nightlife; Restaurants for restaurants/cafes/delivery.
-8. If ambiguous, choose Other rather than guessing.
+8. If ambiguous, choose the closest category; use Other only if there is truly no signal.
 
 ${spainHints}
 
@@ -476,14 +585,28 @@ You MUST include ALL ${items.length} transactions. Each entry needs:
                 if (normalized) return normalized;
             }
         }
+        const keywordCategory = getCategoryFromKeywords(`${row.summary ?? ""} ${row.description}`, CATEGORIES, row.amount);
+        if (keywordCategory) return keywordCategory;
         return normalizeCategoryName("Other", CATEGORIES) || CATEGORIES[CATEGORIES.length - 1] || "Other";
     };
 
     // Combine all categorization sources
     const result = enrichedRows.map(r => {
         // Priority: 1) Pattern match, 2) AI, 3) Fallback
-        let category = r._preferenceCategory || r._patternCategory || aiMapping.get(r._index) || applyFallbackCategory(r);
-        const normalizedCategory = normalizeCategoryName(category, CATEGORIES);
+        const hasPreference = Boolean(r._preferenceCategory);
+        const hasPattern = Boolean(r._patternCategory);
+        const aiCategory = aiMapping.get(r._index);
+        let category = r._preferenceCategory || r._patternCategory || aiCategory || applyFallbackCategory(r);
+        let normalizedCategory = normalizeCategoryName(category, CATEGORIES);
+
+        if (!hasPreference && !hasPattern && normalizedCategory === "Other") {
+            const keywordCategory = getCategoryFromKeywords(`${r.summary ?? ""} ${r.description}`, CATEGORIES, r.amount);
+            if (keywordCategory) {
+                normalizedCategory = keywordCategory;
+                category = keywordCategory;
+            }
+        }
+
         if (normalizedCategory) {
             category = normalizedCategory;
         } else {

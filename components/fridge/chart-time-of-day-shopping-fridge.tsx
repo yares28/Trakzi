@@ -45,33 +45,34 @@ interface ChartTimeOfDayShoppingFridgeProps {
     isLoading?: boolean
 }
 
-// Mock data for time of day shopping - will be replaced with real data when DB fetches hour info
-const MOCK_TIME_DATA: { hour: number; trips: number; spending: number }[] = [
-    { hour: 6, trips: 2, spending: 45.50 },
-    { hour: 7, trips: 5, spending: 112.30 },
-    { hour: 8, trips: 8, spending: 185.20 },
-    { hour: 9, trips: 12, spending: 298.75 },
-    { hour: 10, trips: 18, spending: 456.80 },
-    { hour: 11, trips: 22, spending: 587.40 },
-    { hour: 12, trips: 15, spending: 376.50 },
-    { hour: 13, trips: 10, spending: 245.80 },
-    { hour: 14, trips: 8, spending: 198.60 },
-    { hour: 15, trips: 14, spending: 342.90 },
-    { hour: 16, trips: 20, spending: 512.40 },
-    { hour: 17, trips: 28, spending: 725.80 },
-    { hour: 18, trips: 32, spending: 845.60 },
-    { hour: 19, trips: 25, spending: 678.30 },
-    { hour: 20, trips: 18, spending: 456.20 },
-    { hour: 21, trips: 10, spending: 268.40 },
-    { hour: 22, trips: 4, spending: 98.50 },
-]
-
 const HOUR_LABELS = [
     "12AM", "1AM", "2AM", "3AM", "4AM", "5AM",
     "6AM", "7AM", "8AM", "9AM", "10AM", "11AM",
     "12PM", "1PM", "2PM", "3PM", "4PM", "5PM",
     "6PM", "7PM", "8PM", "9PM", "10PM", "11PM"
 ]
+
+function parseReceiptHour(value?: string | null) {
+    if (!value) return null
+    const normalized = value.trim().toLowerCase()
+    if (!normalized) return null
+
+    const match = normalized.match(/(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?\s*(am|pm)?/)
+    if (!match) return null
+
+    let hour = parseInt(match[1], 10)
+    if (Number.isNaN(hour)) return null
+
+    const meridiem = match[4]
+    if (meridiem) {
+        if (meridiem === "pm" && hour < 12) hour += 12
+        if (meridiem === "am" && hour === 12) hour = 0
+    }
+
+    if (hour === 24) hour = 0
+    if (hour < 0 || hour > 23) return null
+    return hour
+}
 
 export function ChartTimeOfDayShoppingFridge({ receiptTransactions = [], isLoading = false }: ChartTimeOfDayShoppingFridgeProps) {
     const { resolvedTheme } = useTheme()
@@ -89,27 +90,55 @@ export function ChartTimeOfDayShoppingFridge({ receiptTransactions = [], isLoadi
         setMounted(true)
     }, [])
 
-    // Process data - using mock data for now since DB doesn't have hour info yet
-    // In the future, this will parse receiptTime from receiptTransactions
     const processedData = useMemo(() => {
-        // TODO: When database provides hour data, replace this with actual processing:
-        // receiptTransactions.forEach((item) => {
-        //   if (!item.receiptTime) return
-        //   const hour = parseInt(item.receiptTime.split(":")[0], 10)
-        //   // aggregate by hour...
-        // })
+        const fullDayData: { hour: number; trips: number; spending: number }[] = Array.from(
+            { length: 24 },
+            (_, hour) => ({ hour, trips: 0, spending: 0 })
+        )
 
-        // For now, use mock data
-        // Create full 24-hour array with zeros for missing hours
-        const fullDayData: { hour: number; trips: number; spending: number }[] = []
-        for (let h = 0; h < 24; h++) {
-            const existing = MOCK_TIME_DATA.find(d => d.hour === h)
-            if (existing) {
-                fullDayData.push(existing)
-            } else {
-                fullDayData.push({ hour: h, trips: 0, spending: 0 })
-            }
+        if (!Array.isArray(receiptTransactions) || receiptTransactions.length === 0) {
+            return fullDayData
         }
+
+        const receiptBuckets = new Map<string, { hour: number | null; receiptTotal: number; lineTotal: number; hasReceiptTotal: boolean }>()
+
+        receiptTransactions.forEach((item) => {
+            const receiptId = item.receiptId || String(item.id)
+            if (!receiptId) return
+
+            const hour = parseReceiptHour(item.receiptTime)
+            const receiptTotal = Number(item.receiptTotalAmount) || 0
+            const lineTotal = Number(item.totalPrice) || 0
+
+            const existing = receiptBuckets.get(receiptId)
+            if (existing) {
+                if (existing.hour === null && hour !== null) {
+                    existing.hour = hour
+                }
+                if (!existing.hasReceiptTotal && receiptTotal > 0) {
+                    existing.receiptTotal = receiptTotal
+                    existing.hasReceiptTotal = true
+                }
+                if (!existing.hasReceiptTotal) {
+                    existing.lineTotal += lineTotal
+                }
+            } else {
+                receiptBuckets.set(receiptId, {
+                    hour,
+                    receiptTotal: receiptTotal > 0 ? receiptTotal : 0,
+                    lineTotal: receiptTotal > 0 ? 0 : lineTotal,
+                    hasReceiptTotal: receiptTotal > 0
+                })
+            }
+        })
+
+        receiptBuckets.forEach(({ hour, receiptTotal, lineTotal, hasReceiptTotal }) => {
+            if (hour === null) return
+            const total = hasReceiptTotal ? receiptTotal : lineTotal
+            fullDayData[hour].trips += 1
+            fullDayData[hour].spending += total
+        })
+
         return fullDayData
     }, [receiptTransactions])
 
@@ -122,9 +151,9 @@ export function ChartTimeOfDayShoppingFridge({ receiptTransactions = [], isLoadi
                     "This chart shows your shopping trip frequency by hour of day.",
                     "Taller bars indicate more frequent shopping times.",
                     "Hover to see trip count and total spending for each hour.",
-                    "Note: Currently using sample data - will show real data when available.",
+                    "Only receipts with time data are included in the distribution.",
                 ]}
-                ignoredFootnote="Data will be computed from receipt timestamps when available."
+                ignoredFootnote="Receipt times are extracted from your uploads."
             />
             <ChartAiInsightButton
                 chartId="fridge:time-of-day-spending"
@@ -371,6 +400,8 @@ export function ChartTimeOfDayShoppingFridge({ receiptTransactions = [], isLoadi
         }
     }, [processedData, isDark, textColor, gridColor, axisColor, barColor, barHoverColor, mounted])
 
+    const hasTimeData = processedData.some((entry) => entry.trips > 0 || entry.spending > 0)
+
     if (!mounted || isLoading) {
         return (
             <Card className="@container/card">
@@ -387,6 +418,29 @@ export function ChartTimeOfDayShoppingFridge({ receiptTransactions = [], isLoadi
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
                     <div className="h-full w-full min-h-[250px]">
                         <ChartLoadingState isLoading={isLoading} />
+                    </div>
+                </CardContent>
+            </Card>
+        )
+    }
+
+    if (!hasTimeData) {
+        return (
+            <Card className="@container/card">
+                <CardHeader>
+                    <div className="flex items-center gap-2">
+                        <GridStackCardDragHandle />
+                        <ChartFavoriteButton chartId="fridge:time-of-day-spending" chartTitle="Time of Day Shopping" size="md" />
+                        <CardTitle>Time of Day Shopping</CardTitle>
+                    </div>
+                    <CardDescription>See when you typically go grocery shopping</CardDescription>
+                    <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+                        {renderInfoTrigger()}
+                    </CardAction>
+                </CardHeader>
+                <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
+                    <div className="h-full w-full min-h-[250px]">
+                        <ChartLoadingState isLoading={false} />
                     </div>
                 </CardContent>
             </Card>
