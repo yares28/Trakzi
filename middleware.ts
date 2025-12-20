@@ -1,6 +1,13 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 
+// ============================================================================
+// DEVELOPMENT AUTH BYPASS
+// Set BYPASS_CLERK_AUTH=true in your .env file to skip authentication
+// See DEV_AUTH_BYPASS.md for more details
+// ============================================================================
+const BYPASS_AUTH = process.env.BYPASS_CLERK_AUTH === 'true'
+
 // Public routes that don't require authentication
 const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
@@ -25,6 +32,12 @@ const isProtectedRoute = createRouteMatcher([
 ])
 
 export default clerkMiddleware(async (auth, req) => {
+  // BYPASS: Skip all auth checks in development when enabled
+  if (BYPASS_AUTH) {
+    console.log('[DEV] Auth bypass enabled - skipping authentication')
+    return NextResponse.next()
+  }
+
   const { userId } = await auth()
 
   // If user is signed in and trying to access sign-in/sign-up, redirect to home
