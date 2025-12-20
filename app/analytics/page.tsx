@@ -466,6 +466,8 @@ export default function AnalyticsPage() {
   const dragCounterRef = useRef(0)
   const csvRegenerationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const latestParsedRowsRef = useRef<ParsedRow[]>([])
+  const preferenceUpdateTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const pendingPreferenceEntriesRef = useRef<Array<{ description: string; category: string }>>([])
 
   // GridStack ref and instance
   const gridRef = useRef<HTMLDivElement>(null)
@@ -1306,6 +1308,40 @@ export default function AnalyticsPage() {
     latestParsedRowsRef.current = parsedRows
   }, [parsedRows])
 
+  useEffect(() => {
+    return () => {
+      if (preferenceUpdateTimerRef.current) {
+        clearTimeout(preferenceUpdateTimerRef.current)
+      }
+    }
+  }, [])
+
+  const flushPreferenceUpdates = useCallback(async () => {
+    const pending = pendingPreferenceEntriesRef.current
+    if (pending.length === 0) return
+    pendingPreferenceEntriesRef.current = []
+
+    try {
+      await fetch("/api/transactions/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries: pending }),
+      })
+    } catch (error) {
+      console.warn("[Analytics] Failed to store category preferences", error)
+    }
+  }, [])
+
+  const schedulePreferenceUpdate = useCallback((entry: { description: string; category: string }) => {
+    pendingPreferenceEntriesRef.current.push(entry)
+    if (preferenceUpdateTimerRef.current) {
+      clearTimeout(preferenceUpdateTimerRef.current)
+    }
+    preferenceUpdateTimerRef.current = setTimeout(() => {
+      void flushPreferenceUpdates()
+    }, 800)
+  }, [flushPreferenceUpdates])
+
   const handleCategoryChange = useCallback((rowId: number, newCategory: string) => {
     flushSync(() => {
       setParsedRows((prevRows) => {
@@ -1320,6 +1356,11 @@ export default function AnalyticsPage() {
       })
     })
 
+    const updatedRow = latestParsedRowsRef.current.find((row) => row.id === rowId)
+    if (updatedRow && updatedRow.description.trim() && newCategory.trim()) {
+      schedulePreferenceUpdate({ description: updatedRow.description, category: newCategory })
+    }
+
     if (csvRegenerationTimerRef.current) {
       clearTimeout(csvRegenerationTimerRef.current)
     }
@@ -1333,7 +1374,7 @@ export default function AnalyticsPage() {
       const newCsv = rowsToCanonicalCsv(rowsForCsv)
       setParsedCsv(newCsv)
     }, 300)
-  }, [])
+  }, [schedulePreferenceUpdate])
 
   const handleToggleParsedRow = useCallback((rowId: number, value: boolean) => {
     setSelectedParsedRowIds((prev) => {
@@ -1454,6 +1495,11 @@ export default function AnalyticsPage() {
     setFileId(null)
     setTransactionCount(0)
     setSelectedParsedRowIds(new Set())
+    pendingPreferenceEntriesRef.current = []
+    if (preferenceUpdateTimerRef.current) {
+      clearTimeout(preferenceUpdateTimerRef.current)
+      preferenceUpdateTimerRef.current = null
+    }
 
     setParsingProgress(5)
 

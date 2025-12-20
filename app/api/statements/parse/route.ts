@@ -6,6 +6,8 @@ import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv";
 import { categoriseTransactions } from "@/lib/ai/categoriseTransactions";
 import { TxRow } from "@/lib/types/transactions";
 import { getSiteName, getSiteUrl } from "@/lib/env";
+import { getCurrentUserId } from "@/lib/auth";
+import { getTransactionCategoryPreferences } from "@/lib/transactions/transaction-category-preferences";
 import Papa from "papaparse";
 
 // Maximum file size: 10MB
@@ -344,9 +346,28 @@ export const POST = async (req: NextRequest) => {
             // Get custom categories from request if provided (from frontend localStorage)
             const customCategoriesHeader = req.headers.get("X-Custom-Categories");
             const customCategories = customCategoriesHeader ? JSON.parse(customCategoriesHeader) : undefined;
+            const categorySet = new Set(
+                Array.isArray(customCategories)
+                    ? customCategories.map((category) => String(category).toLowerCase())
+                    : []
+            );
+
+            let preferencesByKey: Map<string, string> | undefined;
+            try {
+                const userId = await getCurrentUserId();
+                const preferenceRows = await getTransactionCategoryPreferences({ userId }).catch(() => []);
+                if (preferenceRows.length > 0) {
+                    const filtered = preferenceRows
+                        .filter((row) => row.category_name)
+                        .filter((row) => categorySet.size === 0 || categorySet.has(String(row.category_name).toLowerCase()));
+                    preferencesByKey = new Map(filtered.map((row) => [row.description_key, String(row.category_name)]));
+                }
+            } catch (preferenceError) {
+                console.warn("[PARSE API] Failed to load category preferences:", preferenceError);
+            }
 
             console.log(`[PARSE API] Calling categoriseTransactions with ${rows.length} rows`);
-            withCategories = await categoriseTransactions(rows, customCategories);
+            withCategories = await categoriseTransactions(rows, customCategories, { preferencesByKey });
             const categorizedCount = withCategories.filter(r => r.category && r.category !== "Other").length;
             console.log(`[PARSE API] Categorization complete: ${categorizedCount}/${withCategories.length} have non-Other categories`);
             console.log(`[PARSE API] Sample categories:`, withCategories.slice(0, 5).map(r => ({ desc: r.description.substring(0, 30), cat: r.category })));

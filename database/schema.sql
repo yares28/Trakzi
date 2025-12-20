@@ -34,6 +34,25 @@ CREATE TABLE IF NOT EXISTS categories (
 CREATE INDEX idx_categories_user ON categories(user_id);
 
 -- ============================================================================
+-- TRANSACTION CATEGORY PREFERENCES (user learning for categorization)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS transaction_category_preferences (
+    id SERIAL PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    description_key TEXT NOT NULL,
+    example_description TEXT NULL,
+    category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+    use_count INTEGER NOT NULL DEFAULT 0,
+    last_used_at TIMESTAMPTZ NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS transaction_category_preferences_unique
+    ON transaction_category_preferences (user_id, description_key);
+CREATE INDEX idx_transaction_category_preferences_user ON transaction_category_preferences(user_id);
+
+-- ============================================================================
 -- STATEMENTS TABLE (uploaded bank statements)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS statements (

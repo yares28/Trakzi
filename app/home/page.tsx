@@ -164,7 +164,7 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
       clearTimeout(timeoutId)
       resizeObserver.disconnect()
     }
-  }, [])
+  }, [schedulePreferenceUpdate])
 
   const width = containerSize.width
   const height = containerSize.height
@@ -1702,11 +1702,47 @@ export default function Page() {
   // Debounce timer for CSV regeneration
   const csvRegenerationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const latestParsedRowsRef = useRef<ParsedRow[]>(parsedRows)
+  const preferenceUpdateTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const pendingPreferenceEntriesRef = useRef<Array<{ description: string; category: string }>>([])
 
   // Keep ref in sync with parsedRows
   useEffect(() => {
     latestParsedRowsRef.current = parsedRows
   }, [parsedRows])
+
+  useEffect(() => {
+    return () => {
+      if (preferenceUpdateTimerRef.current) {
+        clearTimeout(preferenceUpdateTimerRef.current)
+      }
+    }
+  }, [])
+
+  const flushPreferenceUpdates = useCallback(async () => {
+    const pending = pendingPreferenceEntriesRef.current
+    if (pending.length === 0) return
+    pendingPreferenceEntriesRef.current = []
+
+    try {
+      await fetch("/api/transactions/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries: pending }),
+      })
+    } catch (error) {
+      console.warn("[Home] Failed to store category preferences", error)
+    }
+  }, [])
+
+  const schedulePreferenceUpdate = useCallback((entry: { description: string; category: string }) => {
+    pendingPreferenceEntriesRef.current.push(entry)
+    if (preferenceUpdateTimerRef.current) {
+      clearTimeout(preferenceUpdateTimerRef.current)
+    }
+    preferenceUpdateTimerRef.current = setTimeout(() => {
+      void flushPreferenceUpdates()
+    }, 800)
+  }, [flushPreferenceUpdates])
 
   const handleCategoryChange = useCallback((rowId: number, newCategory: string) => {
     // Use flushSync to force immediate DOM update for instant UI feedback
@@ -1723,6 +1759,11 @@ export default function Page() {
         return updatedRows
       })
     })
+
+    const updatedRow = latestParsedRowsRef.current.find((row) => row.id === rowId)
+    if (updatedRow && updatedRow.description.trim() && newCategory.trim()) {
+      schedulePreferenceUpdate({ description: updatedRow.description, category: newCategory })
+    }
 
     // Debounce CSV regeneration to avoid expensive operations on every change
     if (csvRegenerationTimerRef.current) {
@@ -1860,6 +1901,11 @@ export default function Page() {
     setFileId(null)
     setTransactionCount(0)
     setSelectedParsedRowIds(new Set())
+    pendingPreferenceEntriesRef.current = []
+    if (preferenceUpdateTimerRef.current) {
+      clearTimeout(preferenceUpdateTimerRef.current)
+      preferenceUpdateTimerRef.current = null
+    }
 
     // Track parsing progress based on actual CSV parsing stages
     // Stage 1: File upload (0-15%)
