@@ -48,11 +48,11 @@ export const setupGridStackDragScroll = (
   let lastPointer: { x: number; y: number } | null = null
   let scrollElement: HTMLElement | null = null
   let scrollTarget: HTMLElement | Window | null = null
-  let draggedEl: HTMLElement | null = null
-  let baseTransform = ""
   let lastScrollTop = 0
   let lastScrollLeft = 0
-  let scrollCompensation = { x: 0, y: 0 }
+  let dragInstance: {
+    dragOffset?: { offsetTop?: number; offsetLeft?: number; top?: number; left?: number }
+  } | null = null
 
   const updatePointer = (event: Event | null) => {
     const pointerEvent = event as MouseEvent & { clientX?: number; clientY?: number }
@@ -76,30 +76,38 @@ export const setupGridStackDragScroll = (
     )
   }
 
-  const handleScroll = () => {
-    if (!isDragging || !lastPointer) return
-    if (scrollElement) {
-      const nextScrollTop = scrollElement.scrollTop
-      const nextScrollLeft = scrollElement.scrollLeft
-      const deltaTop = nextScrollTop - lastScrollTop
-      const deltaLeft = nextScrollLeft - lastScrollLeft
+  const applyScrollDelta = (deltaTop: number, deltaLeft: number) => {
+    if (!dragInstance?.dragOffset) return
+    if (typeof dragInstance.dragOffset.offsetTop === "number") {
+      dragInstance.dragOffset.offsetTop -= deltaTop
+    }
+    if (typeof dragInstance.dragOffset.offsetLeft === "number") {
+      dragInstance.dragOffset.offsetLeft -= deltaLeft
+    }
+    if (typeof dragInstance.dragOffset.top === "number") {
+      dragInstance.dragOffset.top -= deltaTop
+    }
+    if (typeof dragInstance.dragOffset.left === "number") {
+      dragInstance.dragOffset.left -= deltaLeft
+    }
+  }
 
+  const syncScrollState = () => {
+    if (!scrollElement) return
+    const nextScrollTop = scrollElement.scrollTop
+    const nextScrollLeft = scrollElement.scrollLeft
+    const deltaTop = nextScrollTop - lastScrollTop
+    const deltaLeft = nextScrollLeft - lastScrollLeft
+    if (deltaTop !== 0 || deltaLeft !== 0) {
+      applyScrollDelta(deltaTop, deltaLeft)
       lastScrollTop = nextScrollTop
       lastScrollLeft = nextScrollLeft
-
-      if (deltaTop !== 0 || deltaLeft !== 0) {
-        scrollCompensation.x -= deltaLeft
-        scrollCompensation.y -= deltaTop
-        if (draggedEl) {
-          const base = baseTransform && baseTransform !== "none" ? baseTransform : ""
-          const hasOffset = scrollCompensation.x !== 0 || scrollCompensation.y !== 0
-          const translate = hasOffset
-            ? `translate3d(${scrollCompensation.x}px, ${scrollCompensation.y}px, 0)`
-            : ""
-          draggedEl.style.transform = [base, translate].filter(Boolean).join(" ")
-        }
-      }
     }
+  }
+
+  const handleScroll = () => {
+    if (!isDragging || !lastPointer) return
+    syncScrollState()
     dispatchMouseMove()
   }
 
@@ -129,6 +137,9 @@ export const setupGridStackDragScroll = (
       const previousScrollTop = scrollElement.scrollTop
       scrollElement.scrollTop = previousScrollTop + deltaY
       if (scrollElement.scrollTop !== previousScrollTop) {
+        const deltaTop = scrollElement.scrollTop - previousScrollTop
+        applyScrollDelta(deltaTop, 0)
+        lastScrollTop = scrollElement.scrollTop
         dispatchMouseMove()
       }
       schedule()
@@ -154,6 +165,18 @@ export const setupGridStackDragScroll = (
     return null
   }
 
+  const resolveDragInstance = (candidate?: unknown) => {
+    const element = resolveDraggedElement(candidate)
+    if (!element) return null
+    const ddElement = (element as { ddElement?: { ddDraggable?: unknown } }).ddElement
+    if (ddElement?.ddDraggable && typeof ddElement.ddDraggable === "object") {
+      return ddElement.ddDraggable as {
+        dragOffset?: { offsetTop?: number; offsetLeft?: number; top?: number; left?: number }
+      }
+    }
+    return null
+  }
+
   const handleDragStart = (event: Event, el?: unknown) => {
     isDragging = true
     updatePointer(event)
@@ -163,16 +186,7 @@ export const setupGridStackDragScroll = (
       lastScrollTop = scrollElement.scrollTop
       lastScrollLeft = scrollElement.scrollLeft
     }
-    scrollCompensation = { x: 0, y: 0 }
-    const helperEl = document.querySelector(".ui-draggable-dragging")
-    draggedEl = (helperEl instanceof HTMLElement ? helperEl : null) || resolveDraggedElement(el)
-    if (draggedEl) {
-      const computedTransform = window.getComputedStyle(draggedEl).transform
-      baseTransform = draggedEl.style.transform || (computedTransform !== "none" ? computedTransform : "")
-      if (baseTransform) {
-        draggedEl.style.transform = baseTransform
-      }
-    }
+    dragInstance = resolveDragInstance(el)
     if (scrollTarget) {
       scrollTarget.addEventListener("scroll", handleScroll, { passive: true })
     }
@@ -187,9 +201,7 @@ export const setupGridStackDragScroll = (
   const handleDragStop = () => {
     isDragging = false
     lastPointer = null
-    draggedEl = null
-    baseTransform = ""
-    scrollCompensation = { x: 0, y: 0 }
+    dragInstance = null
     if (rafId !== null) {
       cancelAnimationFrame(rafId)
       rafId = null
