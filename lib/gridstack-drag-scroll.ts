@@ -48,6 +48,11 @@ export const setupGridStackDragScroll = (
   let lastPointer: { x: number; y: number } | null = null
   let scrollElement: HTMLElement | null = null
   let scrollTarget: HTMLElement | Window | null = null
+  let draggedEl: HTMLElement | null = null
+  let baseTransform = ""
+  let lastScrollTop = 0
+  let lastScrollLeft = 0
+  let scrollCompensation = { x: 0, y: 0 }
 
   const updatePointer = (event: Event | null) => {
     const pointerEvent = event as MouseEvent & { clientX?: number; clientY?: number }
@@ -73,6 +78,28 @@ export const setupGridStackDragScroll = (
 
   const handleScroll = () => {
     if (!isDragging || !lastPointer) return
+    if (scrollElement) {
+      const nextScrollTop = scrollElement.scrollTop
+      const nextScrollLeft = scrollElement.scrollLeft
+      const deltaTop = nextScrollTop - lastScrollTop
+      const deltaLeft = nextScrollLeft - lastScrollLeft
+
+      lastScrollTop = nextScrollTop
+      lastScrollLeft = nextScrollLeft
+
+      if (deltaTop !== 0 || deltaLeft !== 0) {
+        scrollCompensation.x -= deltaLeft
+        scrollCompensation.y -= deltaTop
+        if (draggedEl) {
+          const base = baseTransform && baseTransform !== "none" ? baseTransform : ""
+          const hasOffset = scrollCompensation.x !== 0 || scrollCompensation.y !== 0
+          const translate = hasOffset
+            ? `translate3d(${scrollCompensation.x}px, ${scrollCompensation.y}px, 0)`
+            : ""
+          draggedEl.style.transform = [base, translate].filter(Boolean).join(" ")
+        }
+      }
+    }
     dispatchMouseMove()
   }
 
@@ -108,11 +135,44 @@ export const setupGridStackDragScroll = (
     }
   }
 
-  const handleDragStart = (event: Event) => {
+  const resolveDraggedElement = (candidate?: unknown) => {
+    if (candidate instanceof HTMLElement) {
+      return candidate
+    }
+    if (Array.isArray(candidate)) {
+      const first = candidate[0] as { el?: HTMLElement } | undefined
+      if (first?.el instanceof HTMLElement) {
+        return first.el
+      }
+    }
+    if (candidate && typeof candidate === "object") {
+      const maybeEl = (candidate as { el?: HTMLElement }).el
+      if (maybeEl instanceof HTMLElement) {
+        return maybeEl
+      }
+    }
+    return null
+  }
+
+  const handleDragStart = (event: Event, el?: unknown) => {
     isDragging = true
     updatePointer(event)
     scrollElement = options?.scrollElement ?? getScrollParent(grid.el)
     scrollTarget = scrollElement ? (isViewportScroll(scrollElement) ? window : scrollElement) : null
+    if (scrollElement) {
+      lastScrollTop = scrollElement.scrollTop
+      lastScrollLeft = scrollElement.scrollLeft
+    }
+    scrollCompensation = { x: 0, y: 0 }
+    const helperEl = document.querySelector(".ui-draggable-dragging")
+    draggedEl = (helperEl instanceof HTMLElement ? helperEl : null) || resolveDraggedElement(el)
+    if (draggedEl) {
+      const computedTransform = window.getComputedStyle(draggedEl).transform
+      baseTransform = draggedEl.style.transform || (computedTransform !== "none" ? computedTransform : "")
+      if (baseTransform) {
+        draggedEl.style.transform = baseTransform
+      }
+    }
     if (scrollTarget) {
       scrollTarget.addEventListener("scroll", handleScroll, { passive: true })
     }
@@ -127,6 +187,9 @@ export const setupGridStackDragScroll = (
   const handleDragStop = () => {
     isDragging = false
     lastPointer = null
+    draggedEl = null
+    baseTransform = ""
+    scrollCompensation = { x: 0, y: 0 }
     if (rafId !== null) {
       cancelAnimationFrame(rafId)
       rafId = null
