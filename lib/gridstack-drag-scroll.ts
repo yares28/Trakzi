@@ -63,6 +63,25 @@ export const setupGridStackDragScroll = (
     return result
   }
 
+  const packNodes = (nodes: Array<{ el?: HTMLElement; w?: number; h?: number }>) => {
+    if (!grid.engine) return new Map<HTMLElement, { x: number; y: number }>()
+    const columns = grid.getColumn?.() ?? 12
+    const placements = new Map<HTMLElement, { x: number; y: number }>()
+    const placed: Array<{ x: number; y: number; w: number; h: number }> = []
+
+    nodes.forEach((node) => {
+      if (!node.el) return
+      const width = Math.min(node.w || 1, columns)
+      const height = node.h || 1
+      const temp = { x: 0, y: 0, w: width, h: height }
+      grid.engine.findEmptyPosition(temp, placed as any, columns)
+      placed.push(temp)
+      placements.set(node.el, { x: temp.x, y: temp.y })
+    })
+
+    return placements
+  }
+
   const applyRandomLayout = () => {
     const items = grid.getGridItems?.() ?? []
     const nodes = items
@@ -70,32 +89,32 @@ export const setupGridStackDragScroll = (
       .filter((node): node is NonNullable<typeof node> => Boolean(node && node.el))
     if (nodes.length === 0) return
 
-    const columns = grid.getColumn?.() ?? 12
-    const shuffledNodes = shuffle(nodes)
-    let cursorX = 0
-    let cursorY = 0
-    let rowHeight = 0
-
+    const placements = packNodes(shuffle(nodes))
     grid.batchUpdate(true)
-    shuffledNodes.forEach((node) => {
-      const width = Math.min(node.w || 1, columns)
-      const height = node.h || 1
-      if (cursorX + width > columns) {
-        cursorX = 0
-        cursorY += rowHeight
-        rowHeight = 0
-      }
-      if (node.el) {
-        grid.update(node.el, { x: cursorX, y: cursorY })
-      }
-      cursorX += width
-      rowHeight = Math.max(rowHeight, height)
+    placements.forEach((pos, el) => {
+      grid.update(el, { x: pos.x, y: pos.y })
     })
     grid.batchUpdate(false)
   }
 
   const applyGravityUp = () => {
-    grid.compact("list")
+    const items = grid.getGridItems?.() ?? []
+    const nodes = items
+      .map((item) => item.gridstackNode)
+      .filter((node): node is NonNullable<typeof node> => Boolean(node && node.el))
+    if (nodes.length === 0) return
+
+    const ordered = [...nodes].sort((a, b) => {
+      const yDiff = (a.y ?? 0) - (b.y ?? 0)
+      if (yDiff !== 0) return yDiff
+      return (a.x ?? 0) - (b.x ?? 0)
+    })
+    const placements = packNodes(ordered)
+    grid.batchUpdate(true)
+    placements.forEach((pos, el) => {
+      grid.update(el, { x: pos.x, y: pos.y })
+    })
+    grid.batchUpdate(false)
   }
 
   const updatePointer = (event: Event | null) => {
