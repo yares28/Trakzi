@@ -73,7 +73,7 @@ import { useFavorites } from "@/components/favorites-provider"
 import { useDateFilter } from "@/components/date-filter-provider"
 import { getChartMetadata } from "@/lib/chart-metadata"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
-import { attachGridStackAutoScroll } from "@/lib/gridstack-auto-scroll"
+import { setupGridStackDragScroll } from "@/lib/gridstack-drag-scroll"
 import { useTheme } from "next-themes"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
@@ -558,7 +558,7 @@ export default function Page() {
         if (autoScrollCleanupRef.current) {
           autoScrollCleanupRef.current()
         }
-        autoScrollCleanupRef.current = attachGridStackAutoScroll(favoritesGridStackRef.current)
+        autoScrollCleanupRef.current = setupGridStackDragScroll(favoritesGridStackRef.current, { edgeThreshold: 80, maxSpeed: 24 })
       }
 
       if (favoritesGridStackRef.current && items.length > 0) {

@@ -13,7 +13,7 @@ import {
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import { useDateFilter } from "@/components/date-filter-provider"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
-import { attachGridStackAutoScroll } from "@/lib/gridstack-auto-scroll"
+import { setupGridStackDragScroll } from "@/lib/gridstack-drag-scroll"
 import { ChartCategoryTrend } from "@/components/chart-category-trend"
 import { ChartCardSkeleton } from "@/components/chart-loading-state"
 import { ShimmeringText } from "@/components/ui/shimmering-text"
@@ -276,7 +276,7 @@ export default function TrendsPage() {
     if (autoScrollCleanupRef.current) {
       autoScrollCleanupRef.current()
     }
-    autoScrollCleanupRef.current = attachGridStackAutoScroll(instance)
+    autoScrollCleanupRef.current = setupGridStackDragScroll(instance, { edgeThreshold: 80, maxSpeed: 24 })
 
     // Remove all items first to prevent GridStack from reading DOM attributes
     instance.removeAll(false)

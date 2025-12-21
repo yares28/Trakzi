@@ -81,7 +81,7 @@ import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv"
 import { TxRow } from "@/lib/types/transactions"
 import { DEFAULT_CATEGORIES } from "@/lib/categories"
-import { attachGridStackAutoScroll } from "@/lib/gridstack-auto-scroll"
+import { setupGridStackDragScroll } from "@/lib/gridstack-drag-scroll"
 import posthog from "posthog-js"
 
 type ParsedRow = TxRow & { id: number }
@@ -690,7 +690,7 @@ export default function AnalyticsPage() {
         },
         draggable: {
           handle: ".gridstack-drag-handle",
-          scroll: true  // Enable native auto-scroll during drag
+          // Note: scroll:true doesn't work reliably in GridStack v6+
         },
         // Constrain to allowed sizes
         disableOneColumnMode: true,
@@ -702,7 +702,7 @@ export default function AnalyticsPage() {
         if (autoScrollCleanupRef.current) {
           autoScrollCleanupRef.current()
         }
-        autoScrollCleanupRef.current = attachGridStackAutoScroll(gridStackRef.current)
+        autoScrollCleanupRef.current = setupGridStackDragScroll(gridStackRef.current, { edgeThreshold: 80, maxSpeed: 24 })
       }
 
       // Now explicitly load all items with correct sizes from data attributes or saved sizes

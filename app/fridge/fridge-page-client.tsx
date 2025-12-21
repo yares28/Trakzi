@@ -65,7 +65,7 @@ import {
 } from "@/components/ui/table"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { getReceiptCategoryByName, getReceiptBroadTypes } from "@/lib/receipt-categories"
-import { attachGridStackAutoScroll } from "@/lib/gridstack-auto-scroll"
+import { setupGridStackDragScroll } from "@/lib/gridstack-drag-scroll"
 import { cn } from "@/lib/utils"
 
 type ReceiptTransactionRow = {
@@ -1462,7 +1462,7 @@ export function FridgePageClient() {
         if (autoScrollCleanupRef.current) {
           autoScrollCleanupRef.current()
         }
-        autoScrollCleanupRef.current = attachGridStackAutoScroll(gridStackRef.current)
+        autoScrollCleanupRef.current = setupGridStackDragScroll(gridStackRef.current, { edgeThreshold: 80, maxSpeed: 24 })
       }
 
       if (gridStackRef.current && items.length > 0) {

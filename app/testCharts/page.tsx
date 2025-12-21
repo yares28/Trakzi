@@ -7,7 +7,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
-import { attachGridStackAutoScroll } from "@/lib/gridstack-auto-scroll"
+import { setupGridStackDragScroll } from "@/lib/gridstack-drag-scroll"
 import {
     SidebarInset,
     SidebarProvider,
@@ -395,7 +395,7 @@ export default function TestChartsPage() {
                 if (autoScrollCleanupRef.current) {
                     autoScrollCleanupRef.current()
                 }
-                autoScrollCleanupRef.current = attachGridStackAutoScroll(gridStackRef.current)
+                autoScrollCleanupRef.current = setupGridStackDragScroll(gridStackRef.current, { edgeThreshold: 80, maxSpeed: 24 })
             }
 
             if (gridStackRef.current && items.length > 0) {
