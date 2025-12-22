@@ -44,6 +44,7 @@ export type ChartId =
   | "budgetDistribution"
   | "categoryTrend"
   | "cashFlowSankey"
+  | "savingsAccumulation"
   | "fridge:day-of-week-spending"
   | "fridge:time-of-day-spending"
   | "fridge:emptyVsNutritious"
@@ -284,6 +285,14 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 8,
     maxH: 16,
+  },
+
+  // Savings Accumulation
+  savingsAccumulation: {
+    minW: 6,
+    maxW: 12,
+    minH: 6,
+    maxH: 10,
   },
 
   // Fridge: Day of Week Spending

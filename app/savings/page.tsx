@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useCallback, useEffect, useMemo } from "react"
+// @dnd-kit for drag-and-drop with auto-scroll (for future charts)
+import { SortableGridProvider, SortableGridItem } from "@/components/sortable-grid"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ChartSavingsAccumulation } from "@/components/chart-savings-accumulation"
 import { SectionCards } from "@/components/section-cards"
@@ -11,6 +13,7 @@ import {
 } from "@/components/ui/sidebar"
 import { toast } from "sonner"
 import { normalizeTransactions } from "@/lib/utils"
+import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 
 export default function Page() {
   // Transactions state
@@ -333,8 +336,25 @@ export default function Page() {
                 expensesTrend={statsTrends.expensesTrend}
                 netWorthTrend={statsTrends.netWorthTrend}
               />
+              {/* @dnd-kit chart grid (single chart for now, expandable) */}
               <div className="px-4 lg:px-6">
-                <ChartSavingsAccumulation data={chartData} />
+                <SortableGridProvider
+                  chartOrder={['savingsAccumulation']}
+                  onOrderChange={() => { }}
+                >
+                  <SortableGridItem
+                    id="savingsAccumulation"
+                    w={12}
+                    h={getChartCardSize('savingsAccumulation').minH}
+                    resizable
+                    minW={getChartCardSize('savingsAccumulation').minW}
+                    maxW={getChartCardSize('savingsAccumulation').maxW}
+                    minH={getChartCardSize('savingsAccumulation').minH}
+                    maxH={getChartCardSize('savingsAccumulation').maxH}
+                  >
+                    <ChartSavingsAccumulation data={chartData} />
+                  </SortableGridItem>
+                </SortableGridProvider>
               </div>
             </div>
           </div>

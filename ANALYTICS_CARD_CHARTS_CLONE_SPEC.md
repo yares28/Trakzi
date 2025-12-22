@@ -599,3 +599,269 @@ If you keep using this as the single "truth spec" for cloning charts, add:
    - currently `disableOneColumnMode: true` preserves desktop layout; document what should happen on small screens.
 4. A shared `ChartCardShell` component suggestion:
    - unify header layout (drag + star + title + actions) so every chart isn't duplicating the same JSX.
+
+---
+
+## 11) @dnd-kit Implementation (Replaces GridStack)
+
+As of December 2024, the drag-and-drop system has been migrated from **GridStack** to **@dnd-kit** due to reliability issues with GridStack's auto-scroll in v6+.
+
+### 11.1 Why @dnd-kit?
+
+- **Reliable auto-scroll**: Works correctly when dragging items near viewport edges
+- **No cursor desync**: The dragged element stays in sync with the cursor during scroll
+- **Simpler initialization**: No complex useEffect lifecycle management
+- **React-first**: Designed for React from the ground up
+
+### 11.2 Core Components
+
+The implementation lives in:
+
+- `components/sortable-grid.tsx` - Core components:
+  - `SortableGridProvider` - Wraps the entire chart grid
+  - `SortableGridItem` - Wraps each chart card
+  - `useDragHandle` - Hook for drag handle integration
+
+- `components/gridstack-card-drag-handle.tsx` - Compatible with both GridStack and @dnd-kit
+
+### 11.3 SortableGridProvider Props
+
+```tsx
+interface SortableGridProviderProps {
+  children: React.ReactNode
+  chartOrder: string[]  // Array of chart IDs in current order
+  onOrderChange: (newOrder: string[]) => void  // Called when order changes
+  className?: string
+}
+```
+
+Features:
+- Built-in **auto-scroll** (15% from edge triggers scroll)
+- Uses `closestCenter` collision detection
+- Smooth drop animations
+
+### 11.4 SortableGridItem Props
+
+```tsx
+interface SortableGridItemProps {
+  id: string           // Chart ID (must match chartOrder)
+  children: ReactNode  // The chart component
+  w?: 6 | 12          // Width: 6 = half, 12 = full
+  h?: number           // Height in grid units (70px each)
+  className?: string
+}
+```
+
+Features:
+- **Size preservation during drag**: Cards maintain their original width/height
+- Y-axis only transform (X positioning handled by flexbox)
+- Provides drag handle context to children
+
+### 11.5 Migration Pattern
+
+**Before (GridStack):**
+```tsx
+// Imports
+import { GridStack } from "gridstack"
+import "gridstack/dist/gridstack.min.css"
+
+// Refs
+const gridRef = useRef<HTMLDivElement>(null)
+const gridStackRef = useRef<GridStack | null>(null)
+
+// Complex useEffect for initialization (~400 lines)
+useEffect(() => {
+  // GridStack.init(), event handlers, cleanup...
+}, [dependencies])
+
+// Render
+<div ref={gridRef} className="grid-stack">
+  {chartOrder.map(chartId => (
+    <div className="grid-stack-item" data-gs-w={w} ...>
+      <div className="grid-stack-item-content">
+        <ChartComponent />
+      </div>
+    </div>
+  ))}
+</div>
+```
+
+**After (@dnd-kit):**
+```tsx
+// Imports
+import { SortableGridProvider, SortableGridItem } from "@/components/sortable-grid"
+
+// State for order persistence
+const [chartOrder, setChartOrder] = useState<string[]>(defaultOrder)
+
+// Load from localStorage on mount
+useEffect(() => {
+  const saved = localStorage.getItem('chart-order-key')
+  if (saved) setChartOrder(JSON.parse(saved))
+}, [])
+
+// Order change handler
+const handleOrderChange = useCallback((newOrder: string[]) => {
+  setChartOrder(newOrder)
+  localStorage.setItem('chart-order-key', JSON.stringify(newOrder))
+}, [])
+
+// Render
+<SortableGridProvider chartOrder={chartOrder} onOrderChange={handleOrderChange}>
+  {chartOrder.map(chartId => (
+    <SortableGridItem key={chartId} id={chartId} w={6} h={6}>
+      <ChartComponent />
+    </SortableGridItem>
+  ))}
+</SortableGridProvider>
+```
+
+### 11.6 Drag Handle Integration
+
+The `GridStackCardDragHandle` component works with both systems:
+
+```tsx
+import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
+
+// In your card header:
+<CardHeader>
+  <GridStackCardDragHandle />
+  <CardTitle>Chart Title</CardTitle>
+</CardHeader>
+```
+
+It automatically:
+- Detects if it's inside a `SortableGridItem` (via context)
+- Attaches the correct drag listeners
+- Shows grab/grabbing cursor
+- Includes proper accessibility attributes
+
+### 11.7 Order Persistence
+
+Each page should persist its chart order separately:
+
+| Page | Storage Key | Description |
+|------|-------------|-------------|
+| Analytics | `analytics-chart-order` | Main dashboard charts |
+| Trends | `trends-category-order` | Category trend cards |
+| Home | `home-favorites-order` | Favorite charts section |
+| Fridge | `fridge-item-order` | Fridge items |
+
+### 11.8 Size Preservation During Drag
+
+The `SortableGridItem` prevents size switching when dragging different-sized cards:
+
+```tsx
+// Only Y-axis transform (flexbox handles X)
+const adjustedTransform = transform ? {
+  x: 0,  // Don't translate X
+  y: transform.y,
+  scaleX: 1,
+  scaleY: 1,
+} : null
+```
+
+This ensures a half-width card (w=6) doesn't visually swap sizes with a full-width card (w=12) during drag.
+
+### 11.9 Pages Using @dnd-kit
+
+All chart pages are now migrated to @dnd-kit:
+
+- ✅ `/analytics` - Migrated (19 charts)
+- ✅ `/trends` - Migrated (category cards with preserved user order)
+- ✅ `/savings` - Migrated (single chart with full card header: drag handle, favorite, info, AI insights)
+- ✅ `/fridge` - Migrated (18 grocery-specific charts)
+- ✅ `/home` - Migrated (favorites section with dynamic chart order)
+- ✅ `/testCharts` - Migrated (51 test charts with order persistence)
+- ✅ `/test-dndkit` - Demo/test page for @dnd-kit
+
+### 11.10 CSS Grid Layout
+
+The @dnd-kit system uses **CSS Grid with dense auto-flow** for automatic gap filling:
+
+```tsx
+// Container - 12-column grid with dense packing
+<div style={{
+  gridTemplateColumns: 'repeat(12, 1fr)',
+  gridAutoFlow: 'row dense',  // Fills gaps automatically
+  gridAutoRows: '70px',       // Fixed row height for 2D packing
+}}>
+
+// Items use column AND row spans
+<div style={{
+  gridColumn: `span ${w}`,  // Width: 3-12 columns
+  gridRow: `span ${h}`,     // Height: based on grid units
+}}>
+```
+
+**Width Options (GridWidth type):**
+| Columns | Percentage |
+|---------|------------|
+| 3 | 25% |
+| 4 | 33% |
+| 6 | 50% |
+| 8 | 67% |
+| 9 | 75% |
+| 12 | 100% |
+
+### 11.11 Resize Functionality
+
+Cards support resize via a handle in the bottom-right corner:
+
+```tsx
+<SortableGridItem
+  id={chartId}
+  w={savedSizes[chartId]?.w ?? defaultW}
+  h={savedSizes[chartId]?.h ?? defaultH}
+  resizable
+  minW={3} maxW={12}
+  minH={4} maxH={12}
+  onResize={handleChartResize}
+>
+```
+
+**Animations:**
+- Grid position changes: 400ms cubic-bezier(0.4, 0, 0.2, 1)
+- Drag: scale(1.02) + shadow
+- Resize: pulsing border + shadow
+
+The `grid-stack-item-content` wrapper inside each item is kept for compatibility with existing chart components.
+
+### 11.11 Order Preservation (Trends Page Example)
+
+The trends page demonstrates how to preserve user-specified order over automatic sorting:
+
+**Problem**: Categories are sorted by spending (most spent first) when loaded from API.
+**Solution**: Only use spending order as the initial default; preserve user order after first drag.
+
+```tsx
+// Load saved order from localStorage on mount
+useEffect(() => {
+  const saved = localStorage.getItem('trends-category-order')
+  if (saved) setCategoryOrder(JSON.parse(saved))
+}, [])
+
+// Sync with categories - PRESERVE user order if exists
+useEffect(() => {
+  if (categories.length > 0 && categoryOrder.length === 0) {
+    // No saved order - use spending sort as initial order
+    setCategoryOrder(categories)
+  } else if (categories.length > 0 && categoryOrder.length > 0) {
+    // User has saved order - keep it!
+    const existingInOrder = categoryOrder.filter(c => categories.includes(c))
+    const newCategories = categories.filter(c => !categoryOrder.includes(c))
+    
+    if (newCategories.length > 0 || existingInOrder.length !== categoryOrder.length) {
+      // Append new categories at end, remove deleted ones
+      setCategoryOrder([...existingInOrder, ...newCategories])
+    }
+  }
+}, [categories, categoryOrder.length])
+```
+
+Key points:
+- The `categoryOrder.length` dependency ensures we don't reset when categories haven't changed
+- New categories are appended at the end (in spending order since that's how they come from API)
+- Deleted categories are automatically removed
+- User's custom order is preserved across page reloads and data refreshes
+

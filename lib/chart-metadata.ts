@@ -112,6 +112,11 @@ export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
     title: "Category Trend",
     description: "Trend analysis for specific categories",
   },
+  savingsAccumulation: {
+    id: "savingsAccumulation",
+    title: "Savings Accumulation",
+    description: "Track your cumulative savings over time",
+  },
   "fridge:day-of-week-spending": {
     id: "fridge:day-of-week-spending",
     title: "Fridge: Day of Week Spending",

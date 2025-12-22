@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo, memo, useRef, startTransition } from "react"
 import { flushSync } from "react-dom"
-import { GridStack, type GridStackOptions } from "gridstack"
-import "gridstack/dist/gridstack.min.css"
+// @dnd-kit for drag-and-drop with auto-scroll (replaces GridStack)
+import { SortableGridProvider, SortableGridItem } from "@/components/sortable-grid"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
@@ -81,7 +81,7 @@ import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv"
 import { TxRow } from "@/lib/types/transactions"
 import { DEFAULT_CATEGORIES } from "@/lib/categories"
-import { setupGridStackDragScroll } from "@/lib/gridstack-drag-scroll"
+// @dnd-kit handles auto-scroll natively
 import posthog from "posthog-js"
 
 type ParsedRow = TxRow & { id: number }
@@ -498,36 +498,83 @@ export default function AnalyticsPage() {
   const preferenceUpdateTimerRef = useRef<NodeJS.Timeout | null>(null)
   const pendingPreferenceEntriesRef = useRef<Array<{ description: string; category: string }>>([])
 
-  // GridStack ref and instance
-  const gridRef = useRef<HTMLDivElement>(null)
-  const gridStackRef = useRef<GridStack | null>(null)
-  const autoScrollCleanupRef = useRef<(() => void) | null>(null)
+  // @dnd-kit: Chart order state with persistence (replaces GridStack refs)
+  const defaultChartOrder = [
+    "incomeExpensesTracking1",
+    "incomeExpensesTracking2",
+    "spendingCategoryRankings",
+    "netWorthAllocation",
+    "moneyFlow",
+    "needsWantsBreakdown",
+    "expenseBreakdown",
+    "categoryBubbleMap",
+    "householdSpendMix",
+    "financialHealthScore",
+    "spendingActivityRings",
+    "spendingStreamgraph",
+    "transactionHistory",
+    "dailyTransactionActivity",
+    "dayOfWeekSpending",
+    "allMonthsCategorySpending",
+    "singleMonthCategorySpending",
+    "dayOfWeekCategory",
+    "cashFlowSankey",
+  ]
 
-  // Chart order for rendering
-  const analyticsChartOrder = useMemo(
-    () => [
-      "incomeExpensesTracking1",
-      "incomeExpensesTracking2",
-      "spendingCategoryRankings",
-      "netWorthAllocation",
-      "moneyFlow",
-      "needsWantsBreakdown",
-      "expenseBreakdown",
-      "categoryBubbleMap",
-      "householdSpendMix",
-      "financialHealthScore",
-      "spendingActivityRings",
-      "spendingStreamgraph",
-      "transactionHistory",
-      "dailyTransactionActivity",
-      "dayOfWeekSpending",
-      "allMonthsCategorySpending",
-      "singleMonthCategorySpending",
-      "dayOfWeekCategory",
-      "cashFlowSankey",
-    ],
-    [],
-  )
+  const CHART_ORDER_STORAGE_KEY = 'analytics-chart-order'
+  const [analyticsChartOrder, setAnalyticsChartOrder] = useState<string[]>(defaultChartOrder)
+
+  // Load chart order from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(CHART_ORDER_STORAGE_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length === defaultChartOrder.length) {
+          setAnalyticsChartOrder(parsed)
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load chart order:", e)
+    }
+  }, [])
+
+  // Handle chart order change from drag-and-drop
+  const handleChartOrderChange = useCallback((newOrder: string[]) => {
+    setAnalyticsChartOrder(newOrder)
+    try {
+      localStorage.setItem(CHART_ORDER_STORAGE_KEY, JSON.stringify(newOrder))
+    } catch (e) {
+      console.error("Failed to save chart order:", e)
+    }
+  }, [])
+
+  // Handle chart resize from drag
+  const [savedSizes, setSavedSizes] = useState<Record<string, { w: number; h: number }>>({})
+
+  const handleChartResize = useCallback((chartId: string, w: number, h: number) => {
+    setSavedSizes(prev => {
+      const next = { ...prev, [chartId]: { w, h } }
+      try {
+        localStorage.setItem('analytics-chart-sizes-user', JSON.stringify(next))
+      } catch (e) {
+        console.error("Failed to save chart size:", e)
+      }
+      return next
+    })
+  }, [])
+
+  // Load saved sizes on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('analytics-chart-sizes-user')
+      if (saved) {
+        setSavedSizes(JSON.parse(saved))
+      }
+    } catch {
+      // Ignore
+    }
+  }, [])
 
   // Default chart sizes and positions - these are the initial sizes for new users
   // Update these values to match your current chart layout
@@ -666,390 +713,8 @@ export default function AnalyticsPage() {
     setHasLoadedChartSizes(true)
   }, [loadChartSizes])
 
-  // Initialize GridStack - wait for items to be rendered
-  useEffect(() => {
-    if (!hasLoadedChartSizes) return
-    if (!gridRef.current) return
-
-    // Define initialization function
-    const initializeGridStack = () => {
-      if (!gridRef.current) return
-      const items = gridRef.current.querySelectorAll('.grid-stack-item')
-      if (items.length === 0) return
-
-      // Initialize GridStack with empty grid first (don't let it auto-read attributes)
-      const gridOptions: GridStackOptions & { disableOneColumnMode?: boolean } = {
-        column: 12,
-        cellHeight: 70,
-        margin: 0, // match analytics (cards fill entire item)
-        minRow: 1,
-        float: true, // preserve user-placed gaps/positions
-        animate: true, // Enable smooth animations
-        resizable: {
-          handles: 'se', // Only bottom-right resize handle (matching trends page style)
-        },
-        draggable: {
-          handle: ".gridstack-drag-handle",
-          // Note: scroll:true doesn't work reliably in GridStack v6+
-        },
-        // Constrain to allowed sizes
-        disableOneColumnMode: true,
-        // Don't set global min/max - let per-item constraints handle it
-        // Per-item min/max will be set when loading widgets
-      }
-      gridStackRef.current = GridStack.init(gridOptions, gridRef.current)
-      if (gridStackRef.current) {
-        if (autoScrollCleanupRef.current) {
-          autoScrollCleanupRef.current()
-        }
-        autoScrollCleanupRef.current = setupGridStackDragScroll(gridStackRef.current, { edgeThreshold: 80, maxSpeed: 24 })
-      }
-
-      // Now explicitly load all items with correct sizes from data attributes or saved sizes
-      if (gridStackRef.current && items.length > 0) {
-        const currentSavedChartSizes = savedChartSizesRef.current
-
-        // First pass: collect all widget data with saved positions
-        const widgetData = Array.from(items).map((item) => {
-          const el = item as HTMLElement
-          // Get chartId from data attribute
-          const chartId = el.getAttribute('data-chart-id') || ''
-
-          // Try to load saved size and position first, then fall back to data attribute, then default
-          let w = 12
-          let h = 6
-          let x = 0
-          let y = 0
-
-          if (chartId && currentSavedChartSizes[chartId]) {
-            // Use saved size and position, but ensure width is exactly 6 or 12
-            const saved = currentSavedChartSizes[chartId]
-            const snapped = snapToAllowedSize(saved.w, saved.h)
-            w = snapped.w
-            h = saved.h
-            // Use saved position if available
-            if (typeof saved.x === 'number') x = saved.x
-            if (typeof saved.y === 'number') y = saved.y
-          } else {
-            // Use default size and position from DEFAULT_CHART_SIZES if available
-            const defaultSize = DEFAULT_CHART_SIZES[chartId]
-            if (defaultSize) {
-              const snapped = snapToAllowedSize(defaultSize.w, defaultSize.h)
-              w = snapped.w
-              h = defaultSize.h
-              if (typeof defaultSize.x === 'number') x = defaultSize.x
-              if (typeof defaultSize.y === 'number') y = defaultSize.y
-            } else {
-              // Fallback: Read from data attribute
-              w = parseInt(el.getAttribute('data-gs-w') || '12', 10)
-              h = parseInt(el.getAttribute('data-gs-h') || '6', 10)
-              x = parseInt(el.getAttribute('data-gs-x') || '0', 10)
-              y = parseInt(el.getAttribute('data-gs-y') || '0', 10)
-              // Snap width to exactly 6 or 12
-              const snapped = snapToAllowedSize(w, h)
-              w = snapped.w
-            }
-          }
-
-          // Get chart-specific constraints from config
-          const sizeConfig = getChartCardSize(chartId as ChartId)
-
-          // Ensure height is within chart-specific valid range
-          h = Math.max(sizeConfig.minH, Math.min(sizeConfig.maxH, h))
-          // Ensure width is within chart-specific valid range
-          w = Math.max(sizeConfig.minW, Math.min(sizeConfig.maxW, w))
-
-          return { el, w, h, x, y, chartId, minW: sizeConfig.minW, maxW: sizeConfig.maxW, minH: sizeConfig.minH, maxH: sizeConfig.maxH }
-        })
-
-        // Second pass: use saved positions, default positions, or stack vertically for new items
-        let currentY = 0
-        const widgets = widgetData.map((data) => {
-          // If position was saved, use it; otherwise use default position or stack vertically
-          let finalY = data.y
-          let finalX = data.x
-
-          if (!currentSavedChartSizes[data.chartId]) {
-            // No saved position, check for default position
-            const defaultSize = DEFAULT_CHART_SIZES[data.chartId]
-            if (defaultSize) {
-              if (typeof defaultSize.x === 'number') finalX = defaultSize.x
-              if (typeof defaultSize.y === 'number') finalY = defaultSize.y
-            } else {
-              // No default position either, stack vertically
-              finalY = currentY
-              currentY += data.h
-            }
-          } else {
-            // Use saved position (already set in data.y and data.x)
-            finalY = data.y
-            finalX = data.x
-          }
-
-          const widget = {
-            el: data.el,
-            w: data.w,
-            h: data.h,
-            x: finalX,  // Use saved x position, default position, or 0
-            y: finalY,
-            minW: data.minW || 6,
-            maxW: data.maxW || 12,
-            minH: data.minH || 4,
-            maxH: data.maxH || 20,
-            chartId: data.chartId, // Store chartId for constraint enforcement
-          }
-          // Store chartId on the element for later reference
-          if (data.chartId) {
-            data.el.setAttribute('data-chart-id', data.chartId)
-          }
-          return widget
-        })
-
-        // Clear any existing items first, then load with correct sizes
-        gridStackRef.current.removeAll(false)
-        gridStackRef.current.load(widgets)
-
-        // After loading, set constraints directly on GridStack nodes
-        // GridStack needs constraints set on the node object itself, not just the widget
-        setTimeout(() => {
-          if (gridStackRef.current) {
-            gridStackRef.current.engine.nodes.forEach((node) => {
-              if (node.el) {
-                const chartId = node.el.getAttribute('data-chart-id')
-                if (chartId) {
-                  const sizeConfig = getChartCardSize(chartId as ChartId)
-
-                  // Set constraints directly on the node (this is what GridStack uses)
-                  node.minW = sizeConfig.minW
-                  node.maxW = sizeConfig.maxW
-                  node.minH = sizeConfig.minH
-                  node.maxH = sizeConfig.maxH
-
-                  // Also set on the DOM element for persistence
-                  node.el.setAttribute('gs-min-w', sizeConfig.minW.toString())
-                  node.el.setAttribute('gs-max-w', sizeConfig.maxW.toString())
-                  node.el.setAttribute('gs-min-h', sizeConfig.minH.toString())
-                  node.el.setAttribute('gs-max-h', sizeConfig.maxH.toString())
-
-                  // Clamp current size to constraints
-                  const clampedW = Math.max(sizeConfig.minW, Math.min(sizeConfig.maxW, node.w || 6))
-                  const clampedH = Math.max(sizeConfig.minH, Math.min(sizeConfig.maxH, node.h || 6))
-
-                  // Update if size needs to be clamped
-                  if (node.w !== clampedW || node.h !== clampedH) {
-                    gridStackRef.current!.update(node.el, {
-                      w: clampedW,
-                      h: clampedH,
-                    })
-                  }
-                }
-              }
-            })
-          }
-        }, 100)
-
-        // Keep saved positions intact; don't auto-compact after loading.
-
-        // Enforce constraints during resize (not just after)
-        gridStackRef.current.on('resize', (event, item) => {
-          if (item && gridStackRef.current) {
-            const chartId = item.getAttribute('data-chart-id')
-            if (chartId) {
-              // Get the node to access its constraints and current size
-              const node = gridStackRef.current.engine.nodes.find(n => n.el === item)
-              if (node) {
-                // Use node's constraints (which we set after loading)
-                const minH = node.minH ?? 4
-                const maxH = node.maxH ?? 20
-                const minW = node.minW ?? 6
-                const maxW = node.maxW ?? 12
-
-                const clampedW = Math.max(minW, Math.min(maxW, node.w || 6))
-                const clampedH = Math.max(minH, Math.min(maxH, node.h || 6))
-
-                // If size exceeds constraints, clamp it immediately
-                if (node.w !== clampedW || node.h !== clampedH) {
-                  gridStackRef.current.update(item, {
-                    w: clampedW,
-                    h: clampedH,
-                  })
-                }
-              }
-            }
-          }
-        })
-
-        // Handle vertical resize (GridStack handles this)
-        gridStackRef.current.on('resizestop', (event, item) => {
-          if (item && gridStackRef.current) {
-            const chartId = item.getAttribute('data-chart-id')
-            if (chartId) {
-              // Get the node to access its constraints and current size
-              const node = gridStackRef.current.engine.nodes.find(n => n.el === item)
-              if (node) {
-                // Use node's constraints (which we set after loading)
-                const minH = node.minH ?? 4
-                const maxH = node.maxH ?? 20
-                const minW = node.minW ?? 6
-                const maxW = node.maxW ?? 12
-
-                const clampedW = Math.max(minW, Math.min(maxW, node.w || 6))
-                const clampedH = Math.max(minH, Math.min(maxH, node.h || 6))
-
-                // If size was clamped, update the GridStack item
-                if (node.w !== clampedW || node.h !== clampedH) {
-                  gridStackRef.current.update(item, {
-                    w: clampedW,
-                    h: clampedH,
-                  })
-                }
-
-                const newSizes = { ...savedChartSizesRef.current }
-                newSizes[chartId] = {
-                  w: clampedW,
-                  h: clampedH,
-                  x: node.x || 0,
-                  y: node.y || 0
-                }
-                saveChartSizes(newSizes)
-              }
-            }
-          }
-        })
-
-        // Also save on change event (for drag operations that might affect layout)
-        gridStackRef.current.on('change', (event, items) => {
-          if (items && gridStackRef.current) {
-            const itemsArray = Array.isArray(items) ? items : [items]
-            if (itemsArray.length > 0) {
-              const newSizes = { ...savedChartSizesRef.current }
-              itemsArray.forEach((item) => {
-                // item might be a DOM element or a GridStack node
-                const el = (item as any).el || item
-                const node = gridStackRef.current!.engine.nodes.find(n => n.el === el)
-                if (node) {
-                  const chartId = el.getAttribute('data-chart-id')
-                  if (chartId && node.w && node.h) {
-                    // Get chart-specific constraints
-                    const sizeConfig = getChartCardSize(chartId as ChartId)
-                    // Ensure width is snapped to 6 or 12, then clamp to chart constraints
-                    const snapped = snapToAllowedSize(node.w, node.h)
-                    const clampedW = Math.max(sizeConfig.minW, Math.min(sizeConfig.maxW, snapped.w))
-                    const clampedH = Math.max(sizeConfig.minH, Math.min(sizeConfig.maxH, snapped.h))
-                    newSizes[chartId] = {
-                      w: clampedW,
-                      h: clampedH,
-                      x: node.x || 0,
-                      y: node.y || 0
-                    }
-                  }
-                }
-              })
-              if (Object.keys(newSizes).length > 0) {
-                saveChartSizes(newSizes)
-              }
-            }
-          }
-        })
-
-        // Save on drag stop to preserve positions
-        gridStackRef.current.on('dragstop', (event, items) => {
-          if (items && gridStackRef.current) {
-            const itemsArray = Array.isArray(items) ? items : [items]
-            if (itemsArray.length > 0) {
-              const newSizes = { ...savedChartSizesRef.current }
-              itemsArray.forEach((item) => {
-                // item might be a DOM element or a GridStack node
-                const el = (item as any).el || item
-                const node = gridStackRef.current!.engine.nodes.find(n => n.el === el)
-                if (node) {
-                  const chartId = el.getAttribute('data-chart-id')
-                  if (chartId && node.w && node.h) {
-                    const snapped = snapToAllowedSize(node.w, node.h)
-                    newSizes[chartId] = {
-                      w: snapped.w,
-                      h: snapped.h,
-                      x: node.x || 0,
-                      y: node.y || 0
-                    }
-                  }
-                }
-              })
-              if (Object.keys(newSizes).length > 0) {
-                saveChartSizes(newSizes)
-              }
-            }
-          }
-        })
-      }
-    };
-
-    // Use requestAnimationFrame to ensure DOM is fully rendered and layout is calculated
-    let rafId: number | null = null
-    const timer = setTimeout(() => {
-      if (!gridRef.current) return
-
-      rafId = requestAnimationFrame(() => {
-        if (!gridRef.current) return
-
-        // Destroy existing instance if it exists
-        if (gridStackRef.current) {
-          if (autoScrollCleanupRef.current) {
-            autoScrollCleanupRef.current()
-            autoScrollCleanupRef.current = null
-          }
-          gridStackRef.current.destroy(false)
-          gridStackRef.current = null
-        }
-
-        // Check if items exist in DOM
-        const items = gridRef.current!.querySelectorAll('.grid-stack-item')
-        if (items.length === 0) {
-          // Items not ready yet, try again
-          return
-        }
-
-        // Ensure container has width calculated before initializing GridStack
-        const containerWidth = gridRef.current!.offsetWidth
-        if (containerWidth === 0) {
-          // Container width not calculated yet, try again with another frame
-          rafId = requestAnimationFrame(() => {
-            if (!gridRef.current || gridRef.current.offsetWidth === 0) return
-            initializeGridStack()
-          })
-          return
-        }
-
-        // Force recalculation to ensure symmetrical spacing
-        if (gridRef.current) {
-          const computedStyle = window.getComputedStyle(gridRef.current)
-          const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0
-          const paddingRight = parseFloat(computedStyle.paddingRight) || 0
-          // Ensure padding is symmetrical
-          if (paddingLeft !== paddingRight && paddingLeft > 0) {
-            gridRef.current.style.paddingRight = computedStyle.paddingLeft
-          }
-        }
-
-        initializeGridStack()
-      })
-    }, 100)
-
-    return () => {
-      clearTimeout(timer)
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId)
-      }
-      if (gridStackRef.current) {
-        if (autoScrollCleanupRef.current) {
-          autoScrollCleanupRef.current()
-          autoScrollCleanupRef.current = null
-        }
-        gridStackRef.current.destroy(false)
-        gridStackRef.current = null
-      }
-    }
-  }, [analyticsChartOrder, snapToAllowedSize, saveChartSizes, hasLoadedChartSizes])
+  // NOTE: GridStack initialization removed - now using @dnd-kit for drag-and-drop
+  // The SortableGridProvider handles all drag-and-drop functionality with built-in auto-scroll
 
   // Date filter state
   const { filter: dateFilter, setFilter: setDateFilter } = useDateFilter()
@@ -3195,9 +2860,12 @@ export default function AnalyticsPage() {
                 transactionTrend={transactionSummary.trend}
               />
 
-              {/* GridStack analytics chart section */}
-              <div className="w-full mb-4">
-                <div ref={gridRef} className="grid-stack w-full px-4 lg:px-6">
+              {/* @dnd-kit analytics chart section */}
+              <div className="w-full mb-4 px-4 lg:px-6">
+                <SortableGridProvider
+                  chartOrder={analyticsChartOrder}
+                  onOrderChange={handleChartOrderChange}
+                >
                   {analyticsChartOrder.map((chartId, index) => {
                     // Determine default size and position for a chart
                     const getDefaultSize = (id: string) => {
@@ -3213,7 +2881,7 @@ export default function AnalyticsPage() {
 
                     if (chartId === "transactionHistory") {
                       return (
-                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartSwarmPlot
                               data={useMemo(() => {
@@ -3315,13 +2983,13 @@ export default function AnalyticsPage() {
                               }, [rawTransactions])}
                             />
                           </div>
-                        </div>
+                        </SortableGridItem>
                       )
                     }
 
                     if (chartId === "dayOfWeekSpending") {
                       return (
-                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartDayOfWeekSpending
                               data={rawTransactions}
@@ -3337,13 +3005,13 @@ export default function AnalyticsPage() {
                               isLoading={isLoadingTransactions}
                             />
                           </div>
-                        </div>
+                        </SortableGridItem>
                       )
                     }
 
                     if (chartId === "allMonthsCategorySpending") {
                       return (
-                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartAllMonthsCategorySpending
                               data={rawTransactions}
@@ -3366,25 +3034,13 @@ export default function AnalyticsPage() {
                               isLoading={isLoadingTransactions}
                             />
                           </div>
-                        </div>
+                        </SortableGridItem>
                       )
                     }
 
                     if (chartId === "incomeExpensesTracking1") {
                       return (
-                        <div
-                          key={chartId}
-                          className="grid-stack-item overflow-visible"
-                          data-chart-id={chartId}
-                          data-gs-w={initialW}
-                          data-gs-h={initialH}
-                          data-gs-x={defaultSize.x ?? 0}
-                          data-gs-y={defaultSize.y ?? 0}
-                          data-gs-min-w={sizeConfig.minW}
-                          data-gs-max-w={sizeConfig.maxW}
-                          data-gs-min-h={sizeConfig.minH}
-                          data-gs-max-h={sizeConfig.maxH}
-                        >
+                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartAreaInteractive
                               chartId="incomeExpensesTracking1"
@@ -3438,25 +3094,13 @@ export default function AnalyticsPage() {
                               }, [rawTransactions, incomeExpenseTopVisibility.hiddenCategorySet, normalizeCategoryName])}
                             />
                           </div>
-                        </div>
+                        </SortableGridItem>
                       )
                     }
 
                     if (chartId === "incomeExpensesTracking2") {
                       return (
-                        <div
-                          key={chartId}
-                          className="grid-stack-item overflow-visible"
-                          data-chart-id={chartId}
-                          data-gs-w={initialW}
-                          data-gs-h={initialH}
-                          data-gs-x={defaultSize.x ?? 0}
-                          data-gs-y={defaultSize.y ?? 0}
-                          data-gs-min-w={sizeConfig.minW}
-                          data-gs-max-w={sizeConfig.maxW}
-                          data-gs-min-h={sizeConfig.minH}
-                          data-gs-max-h={sizeConfig.maxH}
-                        >
+                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartAreaInteractive
                               chartId="incomeExpensesTracking2"
@@ -3465,13 +3109,13 @@ export default function AnalyticsPage() {
                               data={incomeExpenseChart.data}
                             />
                           </div>
-                        </div>
+                        </SortableGridItem>
                       )
                     }
 
                     if (chartId === "spendingCategoryRankings") {
                       return (
-                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartCategoryFlow
                               categoryControls={categoryFlowControls}
@@ -3479,13 +3123,13 @@ export default function AnalyticsPage() {
                               isLoading={isLoadingTransactions}
                             />
                           </div>
-                        </div>
+                        </SortableGridItem>
                       )
                     }
 
                     if (chartId === "netWorthAllocation") {
                       return (
-                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartTreeMap
                               categoryControls={treeMapControls}
@@ -3556,23 +3200,13 @@ export default function AnalyticsPage() {
                               isLoading={isLoadingTransactions}
                             />
                           </div>
-                        </div>
+                        </SortableGridItem>
                       )
                     }
 
                     if (chartId === "moneyFlow") {
                       return (
-                        <div
-                          key={chartId}
-                          className="grid-stack-item overflow-visible"
-                          data-chart-id={chartId}
-                          data-gs-w={initialW}
-                          data-gs-h={initialH}
-                          data-gs-min-w={sizeConfig.minW}
-                          data-gs-max-w={sizeConfig.maxW}
-                          data-gs-min-h={sizeConfig.minH}
-                          data-gs-max-h={sizeConfig.maxH}
-                        >
+                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartSpendingFunnel
                               categoryControls={spendingFunnelControls}
@@ -3581,13 +3215,13 @@ export default function AnalyticsPage() {
                               isLoading={isLoadingTransactions}
                             />
                           </div>
-                        </div>
+                        </SortableGridItem>
                       )
                     }
 
                     if (chartId === "expenseBreakdown") {
                       return (
-                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartExpensesPie
                               categoryControls={expensesPieControls}
@@ -3595,23 +3229,13 @@ export default function AnalyticsPage() {
                               isLoading={isLoadingTransactions}
                             />
                           </div>
-                        </div>
+                        </SortableGridItem>
                       )
                     }
 
                     if (chartId === "needsWantsBreakdown") {
                       return (
-                        <div
-                          key={chartId}
-                          className="grid-stack-item overflow-visible"
-                          data-chart-id={chartId}
-                          data-gs-w={initialW}
-                          data-gs-h={initialH}
-                          data-gs-min-w={sizeConfig.minW}
-                          data-gs-max-w={sizeConfig.maxW}
-                          data-gs-min-h={sizeConfig.minH}
-                          data-gs-max-h={sizeConfig.maxH}
-                        >
+                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartNeedsWantsPie
                               categoryControls={needsWantsControls}
@@ -3619,26 +3243,26 @@ export default function AnalyticsPage() {
                               isLoading={isLoadingTransactions}
                             />
                           </div>
-                        </div>
+                        </SortableGridItem>
                       )
                     }
 
                     if (chartId === "categoryBubbleMap") {
                       return (
-                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartCategoryBubble
                               data={rawTransactions}
                               isLoading={isLoadingTransactions}
                             />
                           </div>
-                        </div>
+                        </SortableGridItem>
                       )
                     }
 
                     if (chartId === "householdSpendMix") {
                       return (
-                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartPolarBar
                               categoryControls={polarBarControls}
@@ -3647,24 +3271,24 @@ export default function AnalyticsPage() {
                               isLoading={isLoadingTransactions}
                             />
                           </div>
-                        </div>
+                        </SortableGridItem>
                       )
                     }
 
                     if (chartId === "financialHealthScore") {
                       return (
-                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartRadar
                             />
                           </div>
-                        </div>
+                        </SortableGridItem>
                       )
                     }
 
                     if (chartId === "spendingActivityRings") {
                       return (
-                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <Card className="h-full flex flex-col">
                               <CardHeader className="relative flex flex-row items-start justify-between gap-2 flex-1 min-h-[420px] pb-6">
@@ -3919,13 +3543,13 @@ export default function AnalyticsPage() {
                               </CardHeader>
                             </Card>
                           </div>
-                        </div>
+                        </SortableGridItem>
                       )
                     }
 
                     if (chartId === "spendingStreamgraph") {
                       return (
-                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartSpendingStreamgraph
                               categoryControls={streamgraphControls}
@@ -3934,31 +3558,31 @@ export default function AnalyticsPage() {
                               isLoading={isLoadingTransactions}
                             />
                           </div>
-                        </div>
+                        </SortableGridItem>
                       )
                     }
 
                     if (chartId === "singleMonthCategorySpending") {
                       return (
-                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartSingleMonthCategorySpending
                               dateFilter={dateFilter}
                             />
                           </div>
-                        </div>
+                        </SortableGridItem>
                       )
                     }
 
                     if (chartId === "dayOfWeekCategory") {
                       return (
-                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartDayOfWeekCategory
                               dateFilter={dateFilter}
                             />
                           </div>
-                        </div>
+                        </SortableGridItem>
                       )
                     }
 
@@ -3966,7 +3590,7 @@ export default function AnalyticsPage() {
 
                     if (chartId === "transactionHistory") {
                       return (
-                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartSwarmPlot
                               data={useMemo(() => {
@@ -4062,23 +3686,23 @@ export default function AnalyticsPage() {
                               }, [rawTransactions])}
                             />
                           </div>
-                        </div>
+                        </SortableGridItem>
                       )
                     }
 
                     if (chartId === "dailyTransactionActivity") {
                       return (
-                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartTransactionCalendar />
                           </div>
-                        </div>
+                        </SortableGridItem>
                       )
                     }
 
                     if (chartId === "cashFlowSankey") {
                       return (
-                        <div key={chartId} className="grid-stack-item overflow-visible" data-chart-id={chartId} data-gs-w={initialW} data-gs-h={initialH} data-gs-min-w={sizeConfig.minW} data-gs-max-w={sizeConfig.maxW} data-gs-min-h={sizeConfig.minH} data-gs-max-h={sizeConfig.maxH}>
+                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartSankey
                               data={sankeyData.graph}
@@ -4086,13 +3710,13 @@ export default function AnalyticsPage() {
                               isLoading={isLoadingTransactions}
                             />
                           </div>
-                        </div>
+                        </SortableGridItem>
                       )
                     }
 
                     return null
                   })}
-                </div>
+                </SortableGridProvider>
               </div>
             </div>
           </div>

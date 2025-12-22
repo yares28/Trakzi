@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
-import { GridStack, type GridStackOptions } from "gridstack"
-import "gridstack/dist/gridstack.min.css"
+// @dnd-kit for drag-and-drop (replaces GridStack)
+import { SortableGridProvider, SortableGridItem } from "@/components/sortable-grid"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
-import { setupGridStackDragScroll } from "@/lib/gridstack-drag-scroll"
+// @dnd-kit has built-in auto-scroll
 import {
     SidebarInset,
     SidebarProvider,
@@ -100,10 +100,9 @@ const isTestChartsCacheFresh = (entry: TestChartsCacheEntry) =>
     Date.now() - entry.fetchedAt < TEST_CHARTS_CACHE_TTL_MS
 
 export default function TestChartsPage() {
-    // GridStack ref and instance
-    const gridRef = useRef<HTMLDivElement>(null)
-    const gridStackRef = useRef<GridStack | null>(null)
-    const autoScrollCleanupRef = useRef<(() => void) | null>(null)
+    // @dnd-kit: Chart order state (replaces GridStack refs)
+    const TEST_CHARTS_ORDER_STORAGE_KEY = 'testCharts-order'
+    const [chartOrder, setChartOrder] = useState<string[]>([])
 
     // Chart order for rendering (31 charts total)
     const testChartsOrder = useMemo(
@@ -364,197 +363,33 @@ export default function TestChartsPage() {
         setHasLoadedChartSizes(true)
     }, [loadChartSizes])
 
-    // Initialize GridStack
+    // @dnd-kit: Sync chartOrder with testChartsOrder and load from localStorage
     useEffect(() => {
-        if (!hasLoadedChartSizes) return
-        if (!gridRef.current) return
-
-        const initializeGridStack = () => {
-            if (!gridRef.current) return
-            const items = gridRef.current.querySelectorAll('.grid-stack-item')
-            if (items.length === 0) return
-
-            const gridOptions: GridStackOptions & { disableOneColumnMode?: boolean } = {
-                column: 12,
-                cellHeight: 70,
-                margin: 0,
-                minRow: 1,
-                float: true,
-                animate: true,
-                resizable: {
-                    handles: 'se',
-                },
-                draggable: {
-                    handle: ".gridstack-drag-handle",
-                    scroll: true  // Enable native auto-scroll during drag
-                },
-                disableOneColumnMode: true,
+        try {
+            const saved = localStorage.getItem(TEST_CHARTS_ORDER_STORAGE_KEY)
+            if (saved) {
+                const parsed = JSON.parse(saved)
+                // Keep saved order, add new charts at end, remove deleted ones
+                const validCharts = parsed.filter((id: string) => testChartsOrder.includes(id as ChartId))
+                const newCharts = testChartsOrder.filter((id) => !parsed.includes(id))
+                setChartOrder([...validCharts, ...newCharts])
+            } else {
+                setChartOrder([...testChartsOrder])
             }
-            gridStackRef.current = GridStack.init(gridOptions, gridRef.current)
-            if (gridStackRef.current) {
-                if (autoScrollCleanupRef.current) {
-                    autoScrollCleanupRef.current()
-                }
-                autoScrollCleanupRef.current = setupGridStackDragScroll(gridStackRef.current, { edgeThreshold: 80, maxSpeed: 24 })
-            }
-
-            if (gridStackRef.current && items.length > 0) {
-                const currentSavedChartSizes = savedChartSizesRef.current
-
-                const widgetData = Array.from(items).map((item) => {
-                    const el = item as HTMLElement
-                    const chartId = el.getAttribute('data-chart-id') || ''
-
-                    let w = 12
-                    let h = 6
-                    let x = 0
-                    let y = 0
-
-                    if (chartId && currentSavedChartSizes[chartId]) {
-                        const saved = currentSavedChartSizes[chartId]
-                        const snapped = snapToAllowedSize(saved.w, saved.h)
-                        w = snapped.w
-                        h = saved.h
-                        if (typeof saved.x === 'number') x = saved.x
-                        if (typeof saved.y === 'number') y = saved.y
-                    } else {
-                        const defaultSize = DEFAULT_CHART_SIZES[chartId]
-                        if (defaultSize) {
-                            const snapped = snapToAllowedSize(defaultSize.w, defaultSize.h)
-                            w = snapped.w
-                            h = defaultSize.h
-                            if (typeof defaultSize.x === 'number') x = defaultSize.x
-                            if (typeof defaultSize.y === 'number') y = defaultSize.y
-                        }
-                    }
-
-                    const sizeConfig = getChartCardSize(chartId as ChartId)
-                    h = Math.max(sizeConfig.minH, Math.min(sizeConfig.maxH, h))
-                    w = Math.max(sizeConfig.minW, Math.min(sizeConfig.maxW, w))
-
-                    return { el, w, h, x, y, chartId, minW: sizeConfig.minW, maxW: sizeConfig.maxW, minH: sizeConfig.minH, maxH: sizeConfig.maxH }
-                })
-
-                const widgets = widgetData.map((data) => {
-                    const widget = {
-                        el: data.el,
-                        w: data.w,
-                        h: data.h,
-                        x: data.x,
-                        y: data.y,
-                        minW: data.minW || 6,
-                        maxW: data.maxW || 12,
-                        minH: data.minH || 4,
-                        maxH: data.maxH || 20,
-                        chartId: data.chartId,
-                    }
-                    if (data.chartId) {
-                        data.el.setAttribute('data-chart-id', data.chartId)
-                    }
-                    return widget
-                })
-
-                gridStackRef.current.removeAll(false)
-                gridStackRef.current.load(widgets)
-
-                setTimeout(() => {
-                    if (gridStackRef.current) {
-                        gridStackRef.current.engine.nodes.forEach((node) => {
-                            if (node.el) {
-                                const chartId = node.el.getAttribute('data-chart-id')
-                                if (chartId) {
-                                    const sizeConfig = getChartCardSize(chartId as ChartId)
-                                    node.minW = sizeConfig.minW
-                                    node.maxW = sizeConfig.maxW
-                                    node.minH = sizeConfig.minH
-                                    node.maxH = sizeConfig.maxH
-                                }
-                            }
-                        })
-                    }
-                }, 100)
-
-                // Keep saved positions intact; don't auto-compact after loading.
-
-                // Handle resize events
-                gridStackRef.current.on('resizestop', (event, item) => {
-                    if (item && gridStackRef.current) {
-                        const chartId = item.getAttribute('data-chart-id')
-                        if (chartId) {
-                            const node = gridStackRef.current.engine.nodes.find(n => n.el === item)
-                            if (node) {
-                                const minH = node.minH ?? 4
-                                const maxH = node.maxH ?? 20
-                                const clampedH = Math.max(minH, Math.min(maxH, node.h || 6))
-                                const snapped = snapToAllowedSize(node.w || 6, clampedH)
-
-                                const newSizes = { ...savedChartSizesRef.current }
-                                newSizes[chartId] = {
-                                    w: snapped.w,
-                                    h: clampedH,
-                                    x: node.x || 0,
-                                    y: node.y || 0
-                                }
-                                saveChartSizes(newSizes)
-                            }
-                        }
-                    }
-                })
-
-                gridStackRef.current.on('dragstop', (event, items) => {
-                    if (items && gridStackRef.current) {
-                        const itemsArray = Array.isArray(items) ? items : [items]
-                        const newSizes = { ...savedChartSizesRef.current }
-                        itemsArray.forEach((item) => {
-                            const el = (item as any).el || item
-                            const node = gridStackRef.current!.engine.nodes.find(n => n.el === el)
-                            if (node) {
-                                const chartId = el.getAttribute('data-chart-id')
-                                if (chartId && node.w && node.h) {
-                                    const snapped = snapToAllowedSize(node.w, node.h)
-                                    newSizes[chartId] = {
-                                        w: snapped.w,
-                                        h: snapped.h,
-                                        x: node.x || 0,
-                                        y: node.y || 0
-                                    }
-                                }
-                            }
-                        })
-                        saveChartSizes(newSizes)
-                    }
-                })
-            }
+        } catch {
+            setChartOrder([...testChartsOrder])
         }
+    }, [testChartsOrder])
 
-        const timer = setTimeout(() => {
-            if (!gridRef.current) return
-            requestAnimationFrame(() => {
-                if (!gridRef.current) return
-                if (gridStackRef.current) {
-                    if (autoScrollCleanupRef.current) {
-                        autoScrollCleanupRef.current()
-                        autoScrollCleanupRef.current = null
-                    }
-                    gridStackRef.current.destroy(false)
-                    gridStackRef.current = null
-                }
-                initializeGridStack()
-            })
-        }, 100)
-
-        return () => {
-            clearTimeout(timer)
-            if (gridStackRef.current) {
-                if (autoScrollCleanupRef.current) {
-                    autoScrollCleanupRef.current()
-                    autoScrollCleanupRef.current = null
-                }
-                gridStackRef.current.destroy(false)
-                gridStackRef.current = null
-            }
+    // @dnd-kit: Handle chart order change from drag-and-drop
+    const handleChartOrderChange = useCallback((newOrder: string[]) => {
+        setChartOrder(newOrder)
+        try {
+            localStorage.setItem(TEST_CHARTS_ORDER_STORAGE_KEY, JSON.stringify(newOrder))
+        } catch (e) {
+            console.error("Failed to save testCharts order:", e)
         }
-    }, [testChartsOrder, snapToAllowedSize, saveChartSizes, hasLoadedChartSizes])
+    }, [])
 
     // Date filter state
     const { filter: dateFilter, setFilter: setDateFilter } = useDateFilter()
@@ -769,34 +604,29 @@ export default function TestChartsPage() {
                         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
                             {/* GridStack test charts section */}
                             <div className="w-full mb-4">
-                                <div ref={gridRef} className="grid-stack w-full px-4 lg:px-6">
-                                    {testChartsOrder.map((chartId) => {
+                                <SortableGridProvider
+                                    chartOrder={chartOrder}
+                                    onOrderChange={handleChartOrderChange}
+                                    className="w-full px-4 lg:px-6"
+                                >
+                                    {chartOrder.length > 0 && chartOrder.map((chartId) => {
                                         const defaultSize = DEFAULT_CHART_SIZES[chartId] || { w: 12, h: 6, x: 0, y: 0 }
                                         const sizeConfig = getChartCardSize(chartId as ChartId)
                                         const initialW = defaultSize.w
                                         const initialH = defaultSize.h
 
                                         return (
-                                            <div
+                                            <SortableGridItem
                                                 key={chartId}
-                                                className="grid-stack-item overflow-visible"
-                                                data-chart-id={chartId}
-                                                data-gs-w={initialW}
-                                                data-gs-h={initialH}
-                                                data-gs-x={defaultSize.x ?? 0}
-                                                data-gs-y={defaultSize.y ?? 0}
-                                                data-gs-min-w={sizeConfig.minW}
-                                                data-gs-max-w={sizeConfig.maxW}
-                                                data-gs-min-h={sizeConfig.minH}
-                                                data-gs-max-h={sizeConfig.maxH}
+                                                id={chartId}
+                                                w={(initialW === 6 || initialW === 12) ? initialW : 12}
+                                                h={initialH}
                                             >
-                                                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                                                    {renderChart(chartId)}
-                                                </div>
-                                            </div>
+                                                {renderChart(chartId as ChartId)}
+                                            </SortableGridItem>
                                         )
                                     })}
-                                </div>
+                                </SortableGridProvider>
                             </div>
                         </div>
                     </div>

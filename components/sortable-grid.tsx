@@ -1,0 +1,429 @@
+"use client"
+
+/**
+ * Sortable Chart Grid - @dnd-kit based replacement for GridStack
+ * 
+ * This file provides the components needed to migrate from GridStack to @dnd-kit
+ * while keeping the same card structure and visual appearance.
+ * 
+ * Key features:
+ * - Built-in auto-scroll that works reliably (unlike GridStack v6+)
+ * - Same drag handle behavior (via GridStackCardDragHandle)
+ * - Same card sizing pattern (w: 6|12, h: grid units)
+ * - Same persistence pattern (localStorage)
+ * 
+ * Migration guide:
+ * 1. Replace GridStack imports with these imports
+ * 2. Wrap chart grid with <SortableGridProvider>
+ * 3. Wrap each chart with <SortableGridItem>
+ * 4. Remove GridStack initialization useEffect
+ * 5. Keep everything else the same
+ */
+
+import * as React from "react"
+import {
+    DndContext,
+    closestCenter,
+    MouseSensor,
+    TouchSensor,
+    useSensor,
+    useSensors,
+    type DragEndEvent,
+    type DragStartEvent,
+    MeasuringStrategy,
+    type UniqueIdentifier,
+    DragOverlay,
+    defaultDropAnimationSideEffects,
+    type DropAnimation,
+} from "@dnd-kit/core"
+import {
+    SortableContext,
+    arrayMove,
+    useSortable,
+    rectSortingStrategy,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
+
+// ============================================================================
+// Types
+// ============================================================================
+
+// Width can be 3-12 grid units (3=25%, 4=33%, 6=50%, 8=66%, 9=75%, 12=100%)
+export type GridWidth = 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12
+
+export interface ChartSize {
+    w: GridWidth
+    h: number
+    x?: number
+    y?: number
+}
+
+export interface SortableGridProviderProps {
+    children: React.ReactNode
+    chartOrder: string[]
+    onOrderChange: (newOrder: string[]) => void
+    className?: string
+}
+
+export interface SortableGridItemProps {
+    id: string
+    children: React.ReactNode
+    /** Width in grid units: 3=25%, 4=33%, 6=50%, 8=66%, 9=75%, 12=100% */
+    w?: GridWidth
+    /** Height in grid units (each unit = ~70px) */
+    h?: number
+    className?: string
+    /** Enable resize handle (default: false) */
+    resizable?: boolean
+    /** Min width constraint */
+    minW?: number
+    /** Max width constraint */
+    maxW?: number
+    /** Min height in grid units */
+    minH?: number
+    /** Max height in grid units */
+    maxH?: number
+    /** Callback when resize completes */
+    onResize?: (id: string, w: GridWidth, h: number) => void
+}
+
+// ============================================================================
+// Context for drag handle
+// ============================================================================
+
+interface DragHandleContextValue {
+    setActivatorNodeRef: (element: HTMLElement | null) => void
+    listeners: Record<string, Function> | undefined
+    attributes: Record<string, any>
+    isDragging: boolean
+}
+
+const DragHandleContext = React.createContext<DragHandleContextValue | null>(null)
+
+export function useDragHandle() {
+    const context = React.useContext(DragHandleContext)
+    return context || {
+        setActivatorNodeRef: () => { },
+        listeners: {},
+        attributes: {},
+        isDragging: false,
+    }
+}
+
+// ============================================================================
+// SortableGridProvider - wraps the entire chart grid
+// ============================================================================
+
+export function SortableGridProvider({
+    children,
+    chartOrder,
+    onOrderChange,
+    className = "",
+}: SortableGridProviderProps) {
+    const [activeId, setActiveId] = React.useState<UniqueIdentifier | null>(null)
+
+    // Sensors for mouse and touch with small activation threshold
+    const mouseSensor = useSensor(MouseSensor, {
+        activationConstraint: {
+            distance: 8,
+        },
+    })
+
+    const touchSensor = useSensor(TouchSensor, {
+        activationConstraint: {
+            delay: 200,
+            tolerance: 8,
+        },
+    })
+
+    const sensors = useSensors(mouseSensor, touchSensor)
+
+    const handleDragStart = React.useCallback((event: DragStartEvent) => {
+        setActiveId(event.active.id)
+    }, [])
+
+    const handleDragEnd = React.useCallback((event: DragEndEvent) => {
+        const { active, over } = event
+        setActiveId(null)
+
+        if (over && active.id !== over.id) {
+            const oldIndex = chartOrder.indexOf(String(active.id))
+            const newIndex = chartOrder.indexOf(String(over.id))
+
+            if (oldIndex !== -1 && newIndex !== -1) {
+                const newOrder = arrayMove(chartOrder, oldIndex, newIndex)
+                onOrderChange(newOrder)
+            }
+        }
+    }, [chartOrder, onOrderChange])
+
+    const handleDragCancel = React.useCallback(() => {
+        setActiveId(null)
+    }, [])
+
+    return (
+        <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
+            // Auto-scroll configuration - this is the key feature!
+            autoScroll={{
+                enabled: true,
+                threshold: {
+                    x: 0.1,
+                    y: 0.15, // 15% from edge triggers scroll
+                },
+                acceleration: 15,
+                interval: 5,
+            }}
+            measuring={{
+                droppable: {
+                    strategy: MeasuringStrategy.Always,
+                },
+            }}
+        >
+            <SortableContext items={chartOrder} strategy={rectSortingStrategy}>
+                {/* CSS Grid with 12 columns, dense auto-flow fills gaps automatically */}
+                <div
+                    className={`grid gap-4 ${className}`}
+                    style={{
+                        gridTemplateColumns: 'repeat(12, 1fr)',
+                        gridAutoFlow: 'row dense', // Pack items densely row by row
+                        gridAutoRows: '70px', // Fixed row height for 2D packing
+                    }}
+                >
+                    {children}
+                </div>
+            </SortableContext>
+        </DndContext>
+    )
+}
+
+// ============================================================================
+// SortableGridItem - wraps each chart card with optional resize
+// ============================================================================
+
+const CELL_HEIGHT = 70 // px per grid unit
+
+export function SortableGridItem({
+    id,
+    children,
+    w = 12,
+    h = 6,
+    className = "",
+    resizable = false,
+    minW = 6,
+    maxW = 12,
+    minH = 4,
+    maxH = 12,
+    onResize,
+}: SortableGridItemProps) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        setActivatorNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id })
+
+    // Resize state
+    const [isResizing, setIsResizing] = React.useState(false)
+    const [resizeHeight, setResizeHeight] = React.useState<number | null>(null)
+    const [resizeWidth, setResizeWidth] = React.useState<GridWidth | null>(null)
+    const containerRef = React.useRef<HTMLDivElement>(null)
+    const startPosRef = React.useRef<{ x: number; y: number; w: number; h: number } | null>(null)
+
+    // Current dimensions (resize state or props)
+    const currentH = resizeHeight ?? h
+    const currentW = resizeWidth ?? w
+
+    // Handle resize start
+    const handleResizeStart = React.useCallback((e: React.MouseEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+
+        const rect = containerRef.current?.getBoundingClientRect()
+        if (!rect) return
+
+        startPosRef.current = {
+            x: e.clientX,
+            y: e.clientY,
+            w: currentW,
+            h: currentH,
+        }
+        setIsResizing(true)
+    }, [currentW, currentH])
+
+    // Handle resize move
+    React.useEffect(() => {
+        if (!isResizing) return
+
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!startPosRef.current) return
+
+            const deltaY = e.clientY - startPosRef.current.y
+            const deltaX = e.clientX - startPosRef.current.x
+
+            // Calculate new height in grid units
+            const newHPx = startPosRef.current.h * CELL_HEIGHT + deltaY
+            let newH = Math.round(newHPx / CELL_HEIGHT)
+            newH = Math.max(minH, Math.min(maxH, newH))
+
+            // Calculate width change - granular from 3 to 12
+            // Each grid unit is ~8.33% of container width
+            // Use deltaX to calculate proportional width change
+            const containerWidth = containerRef.current?.parentElement?.offsetWidth || 800
+            const widthPerUnit = containerWidth / 12
+            const unitChange = Math.round(deltaX / widthPerUnit)
+            let newW = Math.max(3, Math.min(12, startPosRef.current.w + unitChange)) as GridWidth
+
+            // Apply constraints
+            if (newW < minW) newW = Math.max(3, minW) as GridWidth
+            if (newW > maxW) newW = Math.min(12, maxW) as GridWidth
+
+            setResizeHeight(newH)
+            setResizeWidth(newW)
+        }
+
+        const handleMouseUp = () => {
+            setIsResizing(false)
+
+            // Notify parent of final size
+            if (onResize && (resizeHeight !== null || resizeWidth !== null)) {
+                onResize(id, resizeWidth ?? w, resizeHeight ?? h)
+            }
+
+            // Reset resize state - the parent should update w/h props
+            startPosRef.current = null
+        }
+
+        document.addEventListener('mousemove', handleMouseMove)
+        document.addEventListener('mouseup', handleMouseUp)
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove)
+            document.removeEventListener('mouseup', handleMouseUp)
+        }
+    }, [isResizing, id, w, h, minH, maxH, minW, maxW, onResize, resizeHeight, resizeWidth])
+
+    // Apply full transform (both X and Y) during drag
+    // Size preservation is handled by locking width class and flexShrink
+    const adjustedTransform = transform ? {
+        x: transform.x,
+        y: transform.y,
+        scaleX: 1, // Prevent scaling
+        scaleY: 1, // Prevent scaling
+    } : null
+
+    // Smooth transform during drag, with resize/reposition animation
+    const style: React.CSSProperties = {
+        transform: adjustedTransform ? CSS.Transform.toString(adjustedTransform) : undefined,
+        // Always include grid transitions for smooth repositioning when other cards resize
+        transition: isDragging
+            ? transition
+            : isResizing
+                ? 'grid-row 300ms ease-out, grid-column 300ms ease-out'
+                : `${transition || ''}, grid-row 300ms ease-out, grid-column 300ms ease-out`.replace(/^, /, ''),
+        opacity: isDragging ? 0.5 : 1,
+        zIndex: isDragging ? 1000 : isResizing ? 999 : undefined,
+        // Height based on grid units - use row span for grid
+        gridRow: `span ${currentH}`,
+        // Width using CSS Grid column span
+        gridColumn: `span ${currentW}`,
+    }
+
+    // No extra width class needed - CSS Grid handles it
+
+    // Provide drag handle context to children
+    const handleContext: DragHandleContextValue = {
+        setActivatorNodeRef,
+        listeners,
+        attributes,
+        isDragging,
+    }
+
+    return (
+        <DragHandleContext.Provider value={handleContext}>
+            <div
+                ref={(node) => {
+                    setNodeRef(node)
+                    if (containerRef) {
+                        (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node
+                    }
+                }}
+                style={{
+                    ...style,
+                    // Enhanced animations - smooth transitions for all position changes
+                    transition: isDragging
+                        ? 'transform 200ms cubic-bezier(0.2, 0, 0, 1), opacity 200ms ease'
+                        : `
+                            grid-row 400ms cubic-bezier(0.4, 0, 0.2, 1),
+                            grid-column 400ms cubic-bezier(0.4, 0, 0.2, 1),
+                            transform 300ms cubic-bezier(0.4, 0, 0.2, 1),
+                            box-shadow 200ms ease,
+                            opacity 200ms ease
+                        `.replace(/\s+/g, ' ').trim(),
+                    // Shadow effect based on state
+                    boxShadow: isDragging
+                        ? '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 2px rgba(var(--primary), 0.3)'
+                        : isResizing
+                            ? '0 10px 25px -5px rgba(0, 0, 0, 0.15)'
+                            : undefined,
+                    // Slight scale when dragging
+                    transform: isDragging
+                        ? `${style.transform || ''} scale(1.02)`.trim()
+                        : style.transform,
+                }}
+                className={`${className} relative group`}
+                data-chart-id={id}
+            >
+                {children}
+
+                {/* Resize handle - southeast corner - always visible with animation */}
+                {resizable && (
+                    <div
+                        className={`absolute bottom-1 right-1 w-5 h-5 cursor-se-resize z-50 
+                                   transition-all duration-200 ease-out
+                                   hover:scale-125 hover:opacity-100
+                                   ${isResizing ? 'scale-150 opacity-100' : 'opacity-60'}`}
+                        onMouseDown={handleResizeStart}
+                        title="Drag to resize"
+                    >
+                        {/* Three diagonal lines like standard resize handle */}
+                        <svg
+                            width="100%"
+                            height="100%"
+                            viewBox="0 0 20 20"
+                            className="text-muted-foreground/70"
+                        >
+                            <line x1="14" y1="20" x2="20" y2="14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                            <line x1="10" y1="20" x2="20" y2="10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                            <line x1="6" y1="20" x2="20" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                    </div>
+                )}
+
+                {/* Resize indicator while resizing - animated border */}
+                {isResizing && (
+                    <div
+                        className="absolute inset-0 border-2 border-primary/60 rounded-lg pointer-events-none z-40 
+                                   animate-pulse"
+                        style={{
+                            boxShadow: '0 0 0 4px rgba(var(--primary), 0.1)',
+                        }}
+                    />
+                )}
+            </div>
+        </DragHandleContext.Provider>
+    )
+}
+
+// ============================================================================
+// Export arrayMove for convenience
+// ============================================================================
+
+export { arrayMove }

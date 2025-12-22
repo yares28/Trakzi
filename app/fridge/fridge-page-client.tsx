@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { useUser } from "@clerk/nextjs"
-import { GridStack, type GridStackOptions } from "gridstack"
-import "gridstack/dist/gridstack.min.css"
+// @dnd-kit for drag-and-drop with auto-scroll (replaces GridStack)
+import { SortableGridProvider, SortableGridItem } from "@/components/sortable-grid"
 import { ChevronDown, Minus, Plus, Upload } from "lucide-react"
 import { toast } from "sonner"
 import {
@@ -65,7 +65,7 @@ import {
 } from "@/components/ui/table"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { getReceiptCategoryByName, getReceiptBroadTypes } from "@/lib/receipt-categories"
-import { setupGridStackDragScroll } from "@/lib/gridstack-drag-scroll"
+// @dnd-kit handles auto-scroll natively
 import { cn } from "@/lib/utils"
 
 type ReceiptTransactionRow = {
@@ -1367,10 +1367,34 @@ export function FridgePageClient() {
       })
   }, [receiptLineItems])
 
-  // GridStack refs
-  const gridRef = useRef<HTMLDivElement>(null)
-  const gridStackRef = useRef<GridStack | null>(null)
-  const autoScrollCleanupRef = useRef<(() => void) | null>(null)
+  // @dnd-kit: Chart order state with persistence (replaces GridStack refs)
+  const CHART_ORDER_STORAGE_KEY = 'fridge-chart-order'
+  const [chartOrder, setChartOrder] = useState<FridgeChartId[]>(FRIDGE_CHART_ORDER)
+
+  // Load chart order from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(CHART_ORDER_STORAGE_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length === FRIDGE_CHART_ORDER.length) {
+          setChartOrder(parsed)
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load chart order:", e)
+    }
+  }, [])
+
+  // Handle chart order change from drag-and-drop
+  const handleChartOrderChange = useCallback((newOrder: string[]) => {
+    setChartOrder(newOrder as FridgeChartId[])
+    try {
+      localStorage.setItem(CHART_ORDER_STORAGE_KEY, JSON.stringify(newOrder))
+    } catch (e) {
+      console.error("Failed to save chart order:", e)
+    }
+  }, [])
 
   const loadChartSizes = useCallback((): Record<string, { w: number; h: number; x?: number; y?: number }> => {
     if (typeof window === "undefined") return {}
@@ -1435,278 +1459,8 @@ export function FridgePageClient() {
     setHasLoadedChartSizes(true)
   }, [loadChartSizes])
 
-  // Initialize GridStack
-  useEffect(() => {
-    if (!hasLoadedChartSizes) return
-    if (!gridRef.current) return
-
-    const initializeGridStack = () => {
-      if (!gridRef.current) return
-      const items = gridRef.current.querySelectorAll(".grid-stack-item")
-      if (items.length === 0) return
-
-      const gridOptions: GridStackOptions & { disableOneColumnMode?: boolean } = {
-        column: 12,
-        cellHeight: 70,
-        margin: 0, // match analytics (cards fill entire item)
-        minRow: 1,
-        float: false, // match analytics (strict grid)
-        animate: true, // Enable smooth animations
-        resizable: { handles: "se" },
-        draggable: { handle: ".gridstack-drag-handle", scroll: true },
-        disableOneColumnMode: true,
-      }
-
-      gridStackRef.current = GridStack.init(gridOptions, gridRef.current)
-      if (gridStackRef.current) {
-        if (autoScrollCleanupRef.current) {
-          autoScrollCleanupRef.current()
-        }
-        autoScrollCleanupRef.current = setupGridStackDragScroll(gridStackRef.current, { edgeThreshold: 80, maxSpeed: 24 })
-      }
-
-      if (gridStackRef.current && items.length > 0) {
-        const currentSavedChartSizes = savedChartSizesRef.current
-
-        // First pass: collect widget sizes, applying saved sizes and per-chart constraints
-        const widgetData = Array.from(items).map((item) => {
-          const el = item as HTMLElement
-          const chartId = (el.getAttribute("data-chart-id") || "") as FridgeChartId
-
-          let w = 12
-          let h = 6
-          let x = 0
-          let y = 0
-
-          if (chartId && currentSavedChartSizes[chartId]) {
-            const saved = currentSavedChartSizes[chartId]
-            const snapped = snapToAllowedSize(saved.w, saved.h)
-            w = snapped.w
-            h = saved.h
-            if (typeof saved.x === "number") x = saved.x
-            if (typeof saved.y === "number") y = saved.y
-          } else {
-            const defaultSize = DEFAULT_CHART_SIZES[chartId]
-            if (defaultSize) {
-              const snapped = snapToAllowedSize(defaultSize.w, defaultSize.h)
-              w = snapped.w
-              h = defaultSize.h
-              if (typeof defaultSize.x === "number") x = defaultSize.x
-              if (typeof defaultSize.y === "number") y = defaultSize.y
-            } else {
-              w = parseInt(el.getAttribute("data-gs-w") || "12", 10)
-              h = parseInt(el.getAttribute("data-gs-h") || "6", 10)
-              x = parseInt(el.getAttribute("data-gs-x") || "0", 10)
-              y = parseInt(el.getAttribute("data-gs-y") || "0", 10)
-              const snapped = snapToAllowedSize(w, h)
-              w = snapped.w
-            }
-          }
-
-          const sizeConfig = getChartCardSize(FRIDGE_CHART_TO_ANALYTICS_CHART[chartId])
-          h = Math.max(sizeConfig.minH, Math.min(sizeConfig.maxH, h))
-          w = Math.max(sizeConfig.minW, Math.min(sizeConfig.maxW, w))
-
-          return { el, w, h, x, y, chartId, minW: sizeConfig.minW, maxW: sizeConfig.maxW, minH: sizeConfig.minH, maxH: sizeConfig.maxH }
-        })
-
-        // Second pass: preserve saved/default positions, stack new items if needed
-        let currentY = 0
-        const widgets = widgetData.map((data) => {
-          let finalY = data.y
-          let finalX = data.x
-
-          if (!currentSavedChartSizes[data.chartId]) {
-            const defaultSize = DEFAULT_CHART_SIZES[data.chartId]
-            if (defaultSize) {
-              if (typeof defaultSize.x === "number") finalX = defaultSize.x
-              if (typeof defaultSize.y === "number") finalY = defaultSize.y
-            } else {
-              finalY = currentY
-              currentY += data.h
-            }
-          }
-
-          if (data.chartId) {
-            data.el.setAttribute("data-chart-id", data.chartId)
-          }
-
-          return {
-            el: data.el,
-            w: data.w,
-            h: data.h,
-            x: finalX,
-            y: finalY,
-            minW: data.minW,
-            maxW: data.maxW,
-            minH: data.minH,
-            maxH: data.maxH,
-            chartId: data.chartId,
-          }
-        })
-
-        // Clear any existing items first, then load with correct sizes
-        gridStackRef.current.removeAll(false)
-        gridStackRef.current.load(widgets)
-
-        // After loading, set constraints directly on GridStack nodes
-        setTimeout(() => {
-          if (!gridStackRef.current) return
-          gridStackRef.current.engine.nodes.forEach((node) => {
-            if (!node.el) return
-            const chartId = node.el.getAttribute("data-chart-id") as FridgeChartId | null
-            if (!chartId) return
-            const sizeConfig = getChartCardSize(FRIDGE_CHART_TO_ANALYTICS_CHART[chartId])
-            node.minW = sizeConfig.minW
-            node.maxW = sizeConfig.maxW
-            node.minH = sizeConfig.minH
-            node.maxH = sizeConfig.maxH
-          })
-        }, 100)
-
-        // Force a layout update to ensure sizes are applied
-        gridStackRef.current.compact()
-
-        // Enforce constraints during resize (not just after)
-        gridStackRef.current.on("resize", (event, item) => {
-          if (!item || !gridStackRef.current) return
-          const node = gridStackRef.current.engine.nodes.find((n) => n.el === item)
-          if (!node) return
-          const minH = node.minH ?? 4
-          const maxH = node.maxH ?? 20
-          const minW = node.minW ?? 6
-          const maxW = node.maxW ?? 12
-
-          const clampedW = Math.max(minW, Math.min(maxW, node.w || 6))
-          const clampedH = Math.max(minH, Math.min(maxH, node.h || 6))
-
-          if (node.w !== clampedW || node.h !== clampedH) {
-            gridStackRef.current.update(item, { w: clampedW, h: clampedH })
-          }
-        })
-
-        gridStackRef.current.on("resizestop", (event, item) => {
-          if (!item || !gridStackRef.current) return
-          const chartId = item.getAttribute("data-chart-id") as FridgeChartId | null
-          if (!chartId) return
-
-          const node = gridStackRef.current.engine.nodes.find((n) => n.el === item)
-          if (!node) return
-
-          const sizeConfig = getChartCardSize(FRIDGE_CHART_TO_ANALYTICS_CHART[chartId])
-          const snapped = snapToAllowedSize(node.w || 6, node.h || 6)
-          const clampedW = Math.max(sizeConfig.minW, Math.min(sizeConfig.maxW, snapped.w))
-          const clampedH = Math.max(sizeConfig.minH, Math.min(sizeConfig.maxH, snapped.h))
-
-          if (node.w !== clampedW || node.h !== clampedH) {
-            gridStackRef.current.update(item, { w: clampedW, h: clampedH })
-          }
-
-          const newSizes = { ...savedChartSizesRef.current }
-          newSizes[chartId] = { w: clampedW, h: clampedH, x: node.x || 0, y: node.y || 0 }
-          saveChartSizes(newSizes)
-        })
-
-        gridStackRef.current.on("change", (event, items) => {
-          if (!items || !gridStackRef.current) return
-          const itemsArray = Array.isArray(items) ? items : [items]
-          if (itemsArray.length === 0) return
-
-          const newSizes = { ...savedChartSizesRef.current }
-          itemsArray.forEach((item) => {
-            const el = (item as any).el || item
-            const node = gridStackRef.current!.engine.nodes.find((n) => n.el === el)
-            if (!node) return
-            const chartId = el.getAttribute("data-chart-id") as FridgeChartId | null
-            if (!chartId || !node.w || !node.h) return
-
-            const sizeConfig = getChartCardSize(FRIDGE_CHART_TO_ANALYTICS_CHART[chartId])
-            const snapped = snapToAllowedSize(node.w, node.h)
-            const clampedW = Math.max(sizeConfig.minW, Math.min(sizeConfig.maxW, snapped.w))
-            const clampedH = Math.max(sizeConfig.minH, Math.min(sizeConfig.maxH, snapped.h))
-
-            newSizes[chartId] = { w: clampedW, h: clampedH, x: node.x || 0, y: node.y || 0 }
-          })
-
-          if (Object.keys(newSizes).length > 0) {
-            saveChartSizes(newSizes)
-          }
-        })
-
-        gridStackRef.current.on("dragstop", (event, items) => {
-          if (!items || !gridStackRef.current) return
-          const itemsArray = Array.isArray(items) ? items : [items]
-          if (itemsArray.length === 0) return
-
-          const newSizes = { ...savedChartSizesRef.current }
-          itemsArray.forEach((item) => {
-            const el = (item as any).el || item
-            const node = gridStackRef.current!.engine.nodes.find((n) => n.el === el)
-            if (!node) return
-            const chartId = el.getAttribute("data-chart-id") as FridgeChartId | null
-            if (!chartId || !node.w || !node.h) return
-
-            const snapped = snapToAllowedSize(node.w, node.h)
-            newSizes[chartId] = { w: snapped.w, h: snapped.h, x: node.x || 0, y: node.y || 0 }
-          })
-
-          if (Object.keys(newSizes).length > 0) {
-            saveChartSizes(newSizes)
-          }
-        })
-      }
-    }
-
-    let rafId: number | null = null
-    const timer = window.setTimeout(() => {
-      if (!gridRef.current) return
-
-      rafId = requestAnimationFrame(() => {
-        if (!gridRef.current) return
-
-        // Destroy existing instance if it exists
-        if (gridStackRef.current) {
-          if (autoScrollCleanupRef.current) {
-            autoScrollCleanupRef.current()
-            autoScrollCleanupRef.current = null
-          }
-          gridStackRef.current.destroy(false)
-          gridStackRef.current = null
-        }
-
-        const items = gridRef.current.querySelectorAll(".grid-stack-item")
-        if (items.length === 0) {
-          return
-        }
-
-        const containerWidth = gridRef.current.offsetWidth
-        if (containerWidth === 0) {
-          rafId = requestAnimationFrame(() => {
-            if (!gridRef.current || gridRef.current.offsetWidth === 0) return
-            initializeGridStack()
-          })
-          return
-        }
-
-        initializeGridStack()
-      })
-    }, 100)
-
-    return () => {
-      clearTimeout(timer)
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId)
-      }
-      if (gridStackRef.current) {
-        if (autoScrollCleanupRef.current) {
-          autoScrollCleanupRef.current()
-          autoScrollCleanupRef.current = null
-        }
-        gridStackRef.current.destroy(false)
-        gridStackRef.current = null
-      }
-    }
-  }, [saveChartSizes, hasLoadedChartSizes])
+  // NOTE: GridStack initialization removed - now using @dnd-kit for drag-and-drop
+  // The SortableGridProvider handles all drag-and-drop functionality with built-in auto-scroll
 
   const renderChart = useCallback(
     (chartId: FridgeChartId) => {
@@ -1820,31 +1574,35 @@ export function FridgePageClient() {
                 tripsFrequencyTrend={metricsTrends.tripsFrequencyTrend}
               />
 
-              <div className="w-full mb-4">
-                <div ref={gridRef} className="grid-stack w-full px-4 lg:px-6">
-                  {FRIDGE_CHART_ORDER.map((chartId) => {
+              {/* @dnd-kit chart section */}
+              <div className="w-full mb-4 px-4 lg:px-6">
+                <SortableGridProvider
+                  chartOrder={chartOrder}
+                  onOrderChange={handleChartOrderChange}
+                >
+                  {chartOrder.map((chartId) => {
                     const defaultSize = DEFAULT_CHART_SIZES[chartId]
                     const sizeConfig = getChartCardSize(FRIDGE_CHART_TO_ANALYTICS_CHART[chartId])
 
                     return (
-                      <div
+                      <SortableGridItem
                         key={chartId}
-                        className="grid-stack-item overflow-visible"
-                        data-chart-id={chartId}
-                        data-gs-w={defaultSize.w}
-                        data-gs-h={defaultSize.h}
-                        data-gs-min-w={sizeConfig.minW}
-                        data-gs-max-w={sizeConfig.maxW}
-                        data-gs-min-h={sizeConfig.minH}
-                        data-gs-max-h={sizeConfig.maxH}
+                        id={chartId}
+                        w={defaultSize.w as 6 | 12}
+                        h={defaultSize.h}
+                        resizable
+                        minW={sizeConfig.minW}
+                        maxW={sizeConfig.maxW}
+                        minH={sizeConfig.minH}
+                        maxH={sizeConfig.maxH}
                       >
                         <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                           {renderChart(chartId)}
                         </div>
-                      </div>
+                      </SortableGridItem>
                     )
                   })}
-                </div>
+                </SortableGridProvider>
               </div>
 
               <DataTableFridge

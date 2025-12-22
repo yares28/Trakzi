@@ -1748,10 +1748,24 @@ export default function DataLibraryPage() {
                     </p>
                   </div>
                 </div>
-                {error && (
+                {error && !error.toLowerCase().includes("authentication") && (
                   <div className="mt-4 flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                     <IconAlertTriangle className="size-4" />
-                    <span>{error}</span>
+                    <span>
+                      {(() => {
+                        // Try to parse JSON error messages
+                        try {
+                          const parsed = JSON.parse(error)
+                          return parsed.error || parsed.message || "Something went wrong"
+                        } catch {
+                          // If not JSON, show as-is but clean up common technical messages
+                          if (error.includes("DEMO_USER_ID")) {
+                            return "Please sign in to access your data"
+                          }
+                          return error
+                        }
+                      })()}
+                    </span>
                   </div>
                 )}
               </section>
@@ -3736,26 +3750,26 @@ export default function DataLibraryPage() {
                 {parseError && !isParsing && (
                   <Card className="border-2 border-destructive/20 bg-destructive/5">
                     <CardContent className="pt-6">
-                    <div className="flex items-start gap-3">
-                      <IconAlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium text-destructive">Parse Error</p>
-                        <p className="text-xs text-muted-foreground mt-1">{parseError}</p>
+                      <div className="flex items-start gap-3">
+                        <IconAlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-destructive">Parse Error</p>
+                          <p className="text-xs text-muted-foreground mt-1">{parseError}</p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="mt-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsAiReparseOpen(true)}
-                        disabled={!droppedFile || isAiReparsing}
-                      >
-                        Reparse with AI
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+                      <div className="mt-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsAiReparseOpen(true)}
+                          disabled={!droppedFile || isAiReparsing}
+                        >
+                          Reparse with AI
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Import Progress */}
                 {isImporting && (
@@ -3785,77 +3799,77 @@ export default function DataLibraryPage() {
                   <Card className="border-2 overflow-hidden flex flex-col min-h-0 max-w-[1200px] w-full mx-auto">
                     <CardHeader className="flex-shrink-0 px-4 pt-4 pb-2">
                       <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <CardTitle className="text-sm">Preview ({transactionCount} transactions)</CardTitle>
-                        <CardDescription className="text-xs">
-                          Review and edit categories before importing
-                        </CardDescription>
+                        <div>
+                          <CardTitle className="text-sm">Preview ({transactionCount} transactions)</CardTitle>
+                          <CardDescription className="text-xs">
+                            Review and edit categories before importing
+                          </CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={handleDeleteSelectedRows}
+                            disabled={selectedParsedRowIds.size === 0}
+                          >
+                            Delete selected
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsAiReparseOpen(true)}
+                            disabled={!droppedFile || isAiReparsing}
+                          >
+                            Reparse with AI
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={handleDeleteSelectedRows}
-                          disabled={selectedParsedRowIds.size === 0}
-                        >
-                          Delete selected
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setIsAiReparseOpen(true)}
-                          disabled={!droppedFile || isAiReparsing}
-                        >
-                          Reparse with AI
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
-                    <div className="h-full max-h-[500px] overflow-auto rounded-lg border">
-                      <Table>
-                        <TableHeader className="bg-muted sticky top-0 z-10">
-                          <TableRow>
-                            <TableHead className="w-12">
-                              <Checkbox
-                                checked={parsedRows.length > 0 && selectedParsedRowIds.size === parsedRows.length}
-                                onCheckedChange={(checked) => handleSelectAllParsedRows(checked === true)}
-                                aria-label="Select all transactions"
-                              />
-                            </TableHead>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Description</TableHead>
-                            <TableHead className="text-right">Amount</TableHead>
-                            <TableHead>Category</TableHead>
-                            <TableHead className="w-12"></TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {parsedRows.length === 0 ? (
+                    </CardHeader>
+                    <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
+                      <div className="h-full max-h-[500px] overflow-auto rounded-lg border">
+                        <Table>
+                          <TableHeader className="bg-muted sticky top-0 z-10">
                             <TableRow>
-                              <TableCell colSpan={6} className="h-24 text-center">
-                                No transactions found
-                              </TableCell>
-                            </TableRow>
-                          ) : (
-                            parsedRows.map((row) => {
-                              const amount = typeof row.amount === 'number' ? row.amount : parseFloat(row.amount) || 0
-                              const category = row.category || 'Other'
-
-                              return (
-                                <MemoizedTableRow
-                                  key={row.id ?? `${row.date}-${row.description}`}
-                                  row={row}
-                                  amount={amount}
-                                  category={category}
-                                  isSelected={selectedParsedRowIds.has(row.id)}
-                                  onSelectChange={(value) => handleToggleParsedRow(row.id, value)}
-                                  onCategoryChange={(value) => handleCategoryChange(row.id, value)}
-                                  onDelete={() => handleDeleteRow(row.id)}
-                                  formatCurrency={formatCurrency}
+                              <TableHead className="w-12">
+                                <Checkbox
+                                  checked={parsedRows.length > 0 && selectedParsedRowIds.size === parsedRows.length}
+                                  onCheckedChange={(checked) => handleSelectAllParsedRows(checked === true)}
+                                  aria-label="Select all transactions"
                                 />
-                              )
-                            })
+                              </TableHead>
+                              <TableHead>Date</TableHead>
+                              <TableHead>Description</TableHead>
+                              <TableHead className="text-right">Amount</TableHead>
+                              <TableHead>Category</TableHead>
+                              <TableHead className="w-12"></TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {parsedRows.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={6} className="h-24 text-center">
+                                  No transactions found
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              parsedRows.map((row) => {
+                                const amount = typeof row.amount === 'number' ? row.amount : parseFloat(row.amount) || 0
+                                const category = row.category || 'Other'
+
+                                return (
+                                  <MemoizedTableRow
+                                    key={row.id ?? `${row.date}-${row.description}`}
+                                    row={row}
+                                    amount={amount}
+                                    category={category}
+                                    isSelected={selectedParsedRowIds.has(row.id)}
+                                    onSelectChange={(value) => handleToggleParsedRow(row.id, value)}
+                                    onCategoryChange={(value) => handleCategoryChange(row.id, value)}
+                                    onDelete={() => handleDeleteRow(row.id)}
+                                    formatCurrency={formatCurrency}
+                                  />
+                                )
+                              })
                             )}
                           </TableBody>
                         </Table>

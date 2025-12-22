@@ -3247,7 +3247,7 @@ export default function AnalyticsPage() {
           </DialogContent>
         </Dialog>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[95vw] lg:max-w-[1400px] w-full max-h-[90vh] flex flex-col p-0 gap-0">
+          <DialogContent className="sm:max-w-[95vw] lg:max-w-[1400px] w-full max-h-[90vh] flex flex-col p-0 gap-0">
             <div className="px-6 pt-6 pb-4 flex-shrink-0">
               <DialogHeader>
                 <div className="flex items-center gap-3 mb-2">
@@ -3383,76 +3383,76 @@ export default function AnalyticsPage() {
                   <Card className="border-2 overflow-hidden flex flex-col min-h-0 max-w-[1200px] w-full mx-auto">
                     <CardHeader className="flex-shrink-0 px-4 pt-4 pb-2">
                       <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <CardTitle className="text-sm">Preview ({transactionCount} transactions)</CardTitle>
-                        <CardDescription className="text-xs">
-                          Review and edit categories before importing
-                        </CardDescription>
+                        <div>
+                          <CardTitle className="text-sm">Preview ({transactionCount} transactions)</CardTitle>
+                          <CardDescription className="text-xs">
+                            Review and edit categories before importing
+                          </CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={handleDeleteSelectedRows}
+                            disabled={selectedParsedRowIds.size === 0}
+                          >
+                            Delete selected
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsAiReparseOpen(true)}
+                            disabled={!droppedFile || isAiReparsing}
+                          >
+                            Reparse with AI
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={handleDeleteSelectedRows}
-                          disabled={selectedParsedRowIds.size === 0}
-                        >
-                          Delete selected
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setIsAiReparseOpen(true)}
-                          disabled={!droppedFile || isAiReparsing}
-                        >
-                          Reparse with AI
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
-                    <div className="h-full max-h-[500px] overflow-auto rounded-lg border">
-                      <Table>
-                        <TableHeader className="bg-muted sticky top-0 z-10">
-                          <TableRow>
-                            <TableHead className="w-12">
-                              <Checkbox
-                                checked={parsedRows.length > 0 && selectedParsedRowIds.size === parsedRows.length}
-                                onCheckedChange={(checked) => handleSelectAllParsedRows(checked === true)}
-                                aria-label="Select all transactions"
-                              />
-                            </TableHead>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Description</TableHead>
-                            <TableHead className="text-right">Amount</TableHead>
-                            <TableHead>Category</TableHead>
-                            <TableHead className="w-12"></TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {parsedRows.length === 0 ? (
+                    </CardHeader>
+                    <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
+                      <div className="h-full max-h-[500px] overflow-auto rounded-lg border">
+                        <Table>
+                          <TableHeader className="bg-muted sticky top-0 z-10">
                             <TableRow>
-                              <TableCell colSpan={6} className="h-24 text-center">
-                                No transactions found
-                              </TableCell>
-                            </TableRow>
-                          ) : (
-                            parsedRows.map((row) => {
-                              const amount = typeof row.amount === 'number' ? row.amount : parseFloat(row.amount) || 0
-                              const category = row.category || 'Other'
-
-                              return (
-                                <MemoizedTableRow
-                                  key={row.id ?? `${row.date}-${row.description}`}
-                                  row={row}
-                                  amount={amount}
-                                  category={category}
-                                  isSelected={selectedParsedRowIds.has(row.id)}
-                                  onSelectChange={(value) => handleToggleParsedRow(row.id, value)}
-                                  onCategoryChange={(value) => handleCategoryChange(row.id, value)}
-                                  onDelete={() => handleDeleteRow(row.id)}
+                              <TableHead className="w-12">
+                                <Checkbox
+                                  checked={parsedRows.length > 0 && selectedParsedRowIds.size === parsedRows.length}
+                                  onCheckedChange={(checked) => handleSelectAllParsedRows(checked === true)}
+                                  aria-label="Select all transactions"
                                 />
-                              )
-                            })
+                              </TableHead>
+                              <TableHead>Date</TableHead>
+                              <TableHead>Description</TableHead>
+                              <TableHead className="text-right">Amount</TableHead>
+                              <TableHead>Category</TableHead>
+                              <TableHead className="w-12"></TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {parsedRows.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={6} className="h-24 text-center">
+                                  No transactions found
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              parsedRows.map((row) => {
+                                const amount = typeof row.amount === 'number' ? row.amount : parseFloat(row.amount) || 0
+                                const category = row.category || 'Other'
+
+                                return (
+                                  <MemoizedTableRow
+                                    key={row.id ?? `${row.date}-${row.description}`}
+                                    row={row}
+                                    amount={amount}
+                                    category={category}
+                                    isSelected={selectedParsedRowIds.has(row.id)}
+                                    onSelectChange={(value) => handleToggleParsedRow(row.id, value)}
+                                    onCategoryChange={(value) => handleCategoryChange(row.id, value)}
+                                    onDelete={() => handleDeleteRow(row.id)}
+                                  />
+                                )
+                              })
                             )}
                           </TableBody>
                         </Table>

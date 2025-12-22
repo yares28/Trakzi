@@ -3,8 +3,8 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react"
 import { flushSync } from "react-dom"
 import { useSearchParams, useRouter } from "next/navigation"
-import { GridStack, type GridStackOptions } from "gridstack"
-import "gridstack/dist/gridstack.min.css"
+// @dnd-kit for drag-and-drop (replaces GridStack)
+import { SortableGridProvider, SortableGridItem } from "@/components/sortable-grid"
 import { AppSidebar } from "@/components/app-sidebar"
 import { useTransactionDialog } from "@/components/transaction-dialog-provider"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
@@ -22,6 +22,7 @@ import { ChartAllMonthsCategorySpending } from "@/components/chart-all-months-ca
 import { ChartSingleMonthCategorySpending } from "@/components/chart-single-month-category-spending"
 import { ChartSwarmPlot } from "@/components/chart-swarm-plot"
 import { ChartSpendingStreamgraph } from "@/components/chart-spending-streamgraph"
+import { ChartSankey } from "@/components/chart-sankey"
 import { ChartTransactionCalendar } from "@/components/chart-transaction-calendar"
 import { DataTable } from "@/components/data-table"
 import { SectionCards } from "@/components/section-cards"
@@ -73,7 +74,7 @@ import { useFavorites } from "@/components/favorites-provider"
 import { useDateFilter } from "@/components/date-filter-provider"
 import { getChartMetadata } from "@/lib/chart-metadata"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
-import { setupGridStackDragScroll } from "@/lib/gridstack-drag-scroll"
+// @dnd-kit has built-in auto-scroll
 import { useTheme } from "next-themes"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
@@ -424,10 +425,68 @@ export default function Page() {
   // Handle pending checkout after signup (if user selected a paid plan before signing up)
   const { isProcessing: isCheckoutProcessing } = usePendingCheckout()
 
-  // GridStack refs for favorites section
-  const favoritesGridRef = useRef<HTMLDivElement>(null)
-  const favoritesGridStackRef = useRef<GridStack | null>(null)
-  const autoScrollCleanupRef = useRef<(() => void) | null>(null)
+  // @dnd-kit: Chart order state for favorites section (replaces GridStack refs)
+  const FAVORITES_ORDER_STORAGE_KEY = 'home-favorites-order'
+  const [favoritesOrder, setFavoritesOrder] = useState<string[]>([])
+
+  // Sync favoritesOrder with favorites set
+  useEffect(() => {
+    const favoritesArray = Array.from(favorites)
+    if (favoritesArray.length === 0) {
+      setFavoritesOrder([])
+      return
+    }
+    // Load saved order from localStorage
+    try {
+      const saved = localStorage.getItem(FAVORITES_ORDER_STORAGE_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        // Keep existing order, add new favorites at end, remove deleted ones
+        const existingInOrder = parsed.filter((id: string) => favoritesArray.includes(id as ChartId))
+        const newFavorites = favoritesArray.filter((id) => !parsed.includes(id))
+        setFavoritesOrder([...existingInOrder, ...newFavorites])
+      } else {
+        setFavoritesOrder(favoritesArray)
+      }
+    } catch {
+      setFavoritesOrder(favoritesArray)
+    }
+  }, [favorites])
+
+  // Handle favorites order change from drag-and-drop
+  const handleFavoritesOrderChange = useCallback((newOrder: string[]) => {
+    setFavoritesOrder(newOrder)
+    try {
+      localStorage.setItem(FAVORITES_ORDER_STORAGE_KEY, JSON.stringify(newOrder))
+    } catch (e) {
+      console.error("Failed to save favorites order:", e)
+    }
+  }, [])
+
+  // Handle favorites resize from drag
+  const handleFavoritesResize = useCallback((chartId: string, w: number, h: number) => {
+    setSavedFavoriteSizes(prev => {
+      const next = { ...prev, [chartId]: { w, h } }
+      try {
+        localStorage.setItem('home-favorites-sizes-user', JSON.stringify(next))
+      } catch (e) {
+        console.error("Failed to save favorites size:", e)
+      }
+      return next
+    })
+  }, [])
+
+  // Load saved favorite sizes on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('home-favorites-sizes-user')
+      if (saved) {
+        setSavedFavoriteSizes(JSON.parse(saved))
+      }
+    } catch {
+      // Ignore
+    }
+  }, [])
 
   // Saved chart sizes for favorites
   const [savedFavoriteSizes, setSavedFavoriteSizes] = useState<Record<string, { w: number; h: number; x?: number; y?: number }>>({})
@@ -526,242 +585,8 @@ export default function Page() {
     savedFavoriteSizesRef.current = loaded
   }, [loadFavoriteSizes])
 
-  // Initialize GridStack for favorites
-  useEffect(() => {
-    if (!favoritesGridRef.current) return
-    if (Array.from(favorites).length === 0) return
-
-    const initializeGridStack = () => {
-      if (!favoritesGridRef.current) return
-      const items = favoritesGridRef.current.querySelectorAll('.grid-stack-item')
-      if (items.length === 0) return
-
-      // Initialize GridStack
-      const gridOptions: GridStackOptions & { disableOneColumnMode?: boolean } = {
-        column: 12,
-        cellHeight: 70,
-        margin: 0,
-        minRow: 1,
-        float: true,  // Allow placing items anywhere without magnetizing to top
-        animate: true,  // Enable smooth animations
-        resizable: {
-          handles: 'se', // Only bottom-right resize handle
-        },
-        draggable: {
-          handle: ".grid-stack-item-content",
-          scroll: true  // Enable native auto-scroll during drag
-        },
-        disableOneColumnMode: true,
-      }
-      favoritesGridStackRef.current = GridStack.init(gridOptions, favoritesGridRef.current)
-      if (favoritesGridStackRef.current) {
-        if (autoScrollCleanupRef.current) {
-          autoScrollCleanupRef.current()
-        }
-        autoScrollCleanupRef.current = setupGridStackDragScroll(favoritesGridStackRef.current, { edgeThreshold: 80, maxSpeed: 24 })
-      }
-
-      if (favoritesGridStackRef.current && items.length > 0) {
-        // Collect widget data
-        const widgetData = Array.from(items).map((item) => {
-          const el = item as HTMLElement
-          const chartId = el.getAttribute('data-chart-id') || ''
-
-          let w = 12
-          let h = 6
-          let x = 0
-          let y = 0
-
-          if (chartId && savedFavoriteSizesRef.current[chartId]) {
-            const saved = savedFavoriteSizesRef.current[chartId]
-            const snapped = snapToAllowedSize(saved.w, saved.h)
-            w = snapped.w
-            h = saved.h
-            if (typeof saved.x === 'number') x = saved.x
-            if (typeof saved.y === 'number') y = saved.y
-          } else {
-            const defaultSize = DEFAULT_FAVORITE_SIZES[chartId]
-            if (defaultSize) {
-              const snapped = snapToAllowedSize(defaultSize.w, defaultSize.h)
-              w = snapped.w
-              h = defaultSize.h
-              if (typeof defaultSize.x === 'number') x = defaultSize.x
-              if (typeof defaultSize.y === 'number') y = defaultSize.y
-            } else {
-              w = parseInt(el.getAttribute('data-gs-w') || '12', 10)
-              h = parseInt(el.getAttribute('data-gs-h') || '6', 10)
-              x = parseInt(el.getAttribute('data-gs-x') || '0', 10)
-              y = parseInt(el.getAttribute('data-gs-y') || '0', 10)
-              const snapped = snapToAllowedSize(w, h)
-              w = snapped.w
-            }
-          }
-
-          const sizeConfig = getChartCardSize(chartId as ChartId)
-          h = Math.max(sizeConfig.minH, Math.min(sizeConfig.maxH, h))
-          w = Math.max(sizeConfig.minW, Math.min(sizeConfig.maxW, w))
-
-          return { el, w, h, x, y, chartId, minW: sizeConfig.minW, maxW: sizeConfig.maxW, minH: sizeConfig.minH, maxH: sizeConfig.maxH }
-        })
-
-        // Use saved positions or auto-position new items
-        const widgets = widgetData.map((data) => {
-          let finalY = data.y
-          let finalX = data.x
-          let autoPosition = false
-
-          if (!savedFavoriteSizesRef.current[data.chartId]) {
-            // New favorite without saved position: auto-position it
-            // We intentionally ignore DEFAULT_FAVORITE_SIZES x/y which are for the Analytics page layout
-            // and often cause items to appear in random spaces (e.g. y=94).
-            autoPosition = true
-            // Undefine x/y to ensure autoPosition takes effect
-            finalX = undefined as unknown as number
-            finalY = undefined as unknown as number
-          }
-
-          return {
-            el: data.el,
-            w: data.w,
-            h: data.h,
-            x: finalX,
-            y: finalY,
-            autoPosition,
-            minW: data.minW || 6,
-            maxW: data.maxW || 12,
-            minH: data.minH || 4,
-            maxH: data.maxH || 20,
-            chartId: data.chartId,
-          }
-        })
-
-        favoritesGridStackRef.current.removeAll(false)
-        favoritesGridStackRef.current.load(widgets)
-
-        // Set constraints on nodes
-        setTimeout(() => {
-          if (favoritesGridStackRef.current) {
-            favoritesGridStackRef.current.engine.nodes.forEach((node) => {
-              if (node.el) {
-                const chartId = node.el.getAttribute('data-chart-id')
-                if (chartId) {
-                  const sizeConfig = getChartCardSize(chartId as ChartId)
-                  node.minW = sizeConfig.minW
-                  node.maxW = sizeConfig.maxW
-                  node.minH = sizeConfig.minH
-                  node.maxH = sizeConfig.maxH
-                }
-              }
-            })
-          }
-        }, 100)
-
-        // Note: No compact() - cards stay where user places them
-
-        // Save on resize
-        favoritesGridStackRef.current.on('resizestop', (event, item) => {
-          if (item && favoritesGridStackRef.current) {
-            const chartId = item.getAttribute('data-chart-id')
-            if (chartId) {
-              const node = favoritesGridStackRef.current.engine.nodes.find(n => n.el === item)
-              if (node) {
-                const minH = node.minH ?? 4
-                const maxH = node.maxH ?? 20
-                const minW = node.minW ?? 6
-                const maxW = node.maxW ?? 12
-
-                const clampedW = Math.max(minW, Math.min(maxW, node.w || 6))
-                const clampedH = Math.max(minH, Math.min(maxH, node.h || 6))
-
-                if (node.w !== clampedW || node.h !== clampedH) {
-                  favoritesGridStackRef.current.update(item, {
-                    w: clampedW,
-                    h: clampedH,
-                  })
-                }
-
-                const newSizes = { ...savedFavoriteSizesRef.current }
-                newSizes[chartId] = {
-                  w: clampedW,
-                  h: clampedH,
-                  x: node.x || 0,
-                  y: node.y || 0
-                }
-                saveFavoriteSizes(newSizes)
-              }
-            }
-          }
-        })
-
-        // Save on drag
-        favoritesGridStackRef.current.on('dragstop', (event, items) => {
-          if (items && favoritesGridStackRef.current) {
-            const itemsArray = Array.isArray(items) ? items : [items]
-            if (itemsArray.length > 0) {
-              const newSizes = { ...savedFavoriteSizesRef.current }
-              itemsArray.forEach((item) => {
-                // item might be a DOM element or a GridStack node
-                const el = (item as any).el || item
-                const node = favoritesGridStackRef.current!.engine.nodes.find(n => n.el === el)
-                if (node) {
-                  const chartId = el.getAttribute('data-chart-id')
-                  if (chartId && node.w && node.h) {
-                    const snapped = snapToAllowedSize(node.w, node.h)
-                    newSizes[chartId] = {
-                      w: snapped.w,
-                      h: snapped.h,
-                      x: node.x || 0,
-                      y: node.y || 0
-                    }
-                  }
-                }
-              })
-              if (Object.keys(newSizes).length > 0) {
-                saveFavoriteSizes(newSizes)
-              }
-            }
-          }
-        })
-      }
-    }
-
-    // Delay GridStack initialization to allow components to mount and start fetching data
-    // This prevents GridStack from unmounting components before they can fetch data
-    const timer = setTimeout(() => {
-      if (!favoritesGridRef.current) return
-      const items = favoritesGridRef.current.querySelectorAll('.grid-stack-item')
-      if (items.length === 0) return
-
-      if (favoritesGridStackRef.current) {
-        if (autoScrollCleanupRef.current) {
-          autoScrollCleanupRef.current()
-          autoScrollCleanupRef.current = null
-        }
-        favoritesGridStackRef.current.destroy(false)
-        favoritesGridStackRef.current = null
-      }
-
-      // Use requestAnimationFrame to ensure DOM is stable before GridStack manipulates it
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (!favoritesGridRef.current) return
-          initializeGridStack()
-        })
-      })
-    }, 300) // Increased delay to give components time to mount and start fetching
-
-    return () => {
-      clearTimeout(timer)
-      if (favoritesGridStackRef.current) {
-        if (autoScrollCleanupRef.current) {
-          autoScrollCleanupRef.current()
-          autoScrollCleanupRef.current = null
-        }
-        favoritesGridStackRef.current.destroy(false)
-        favoritesGridStackRef.current = null
-      }
-    }
-  }, [favorites, snapToAllowedSize, saveFavoriteSizes])
+  // NOTE: GridStack initialization removed - now using @dnd-kit for drag-and-drop
+  // The SortableGridProvider handles all drag-and-drop functionality with built-in auto-scroll
 
   // Transactions state for charts
   const [transactions, setTransactions] = useState<Array<{
@@ -2416,8 +2241,12 @@ export default function Page() {
                       <Badge variant="secondary">{Array.from(favorites).length}</Badge>
                     </div>
                   </div>
-                  <div ref={favoritesGridRef} className="grid-stack w-full px-4 lg:px-6">
-                    {Array.from(favorites).map((chartId) => {
+                  <SortableGridProvider
+                    chartOrder={favoritesOrder}
+                    onOrderChange={handleFavoritesOrderChange}
+                    className="w-full px-4 lg:px-6"
+                  >
+                    {favoritesOrder.length > 0 && favoritesOrder.map((chartId) => {
                       const sizeConfig = getChartCardSize(chartId as ChartId)
                       const savedSize = savedFavoriteSizes[chartId]
                       const defaultSize = DEFAULT_FAVORITE_SIZES[chartId] || { w: 12, h: 6, x: 0, y: 0 }
@@ -2425,16 +2254,17 @@ export default function Page() {
                       const initialH = savedSize?.h ?? defaultSize.h
 
                       return (
-                        <div
+                        <SortableGridItem
                           key={chartId}
-                          className="grid-stack-item overflow-visible"
-                          data-chart-id={chartId}
-                          data-gs-w={initialW}
-                          data-gs-h={initialH}
-                          data-gs-min-w={sizeConfig.minW}
-                          data-gs-max-w={sizeConfig.maxW}
-                          data-gs-min-h={sizeConfig.minH}
-                          data-gs-max-h={sizeConfig.maxH}
+                          id={chartId}
+                          w={(savedFavoriteSizes[chartId]?.w ?? initialW) as any}
+                          h={savedFavoriteSizes[chartId]?.h ?? initialH}
+                          resizable
+                          minW={sizeConfig.minW}
+                          maxW={sizeConfig.maxW}
+                          minH={sizeConfig.minH}
+                          maxH={sizeConfig.maxH}
+                          onResize={handleFavoritesResize}
                         >
                           {chartId === "financialHealthScore" ? (
                             // ChartRadar renders its own Card component, so render it directly
@@ -2718,6 +2548,13 @@ export default function Page() {
                                     />
                                   )
                                 }
+                                if (chartId === "cashFlowSankey") {
+                                  // Note: Sankey chart requires complex data transformation
+                                  // Show empty state until data transformation is implemented
+                                  return (
+                                    <ChartSankey />
+                                  )
+                                }
                                 if (chartId === "expenseBreakdown") {
                                   return (
                                     <ChartExpensesPie
@@ -2819,10 +2656,10 @@ export default function Page() {
                               })()}
                             </div>
                           )}
-                        </div>
+                        </SortableGridItem>
                       )
                     })}
-                  </div>
+                  </SortableGridProvider>
                 </div>
               )}
               {Array.from(favorites).length === 0 && (
