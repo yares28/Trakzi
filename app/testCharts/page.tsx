@@ -13,8 +13,10 @@ import {
     SidebarProvider,
 } from "@/components/ui/sidebar"
 import { toast } from "sonner"
-import { normalizeTransactions } from "@/lib/utils"
+import { normalizeTransactions, cn } from "@/lib/utils"
 import { useDateFilter } from "@/components/date-filter-provider"
+import { Button } from "@/components/ui/button"
+import { Activity, Wallet, Refrigerator, ChevronRight } from "lucide-react"
 
 // Import all test chart components
 import {
@@ -72,6 +74,13 @@ import {
     ChartMonthlyInsights,
 } from "@/components/test-charts"
 
+// Fridge charts
+import { ChartAreaInteractiveFridge } from "@/components/fridge/chart-area-interactive-fridge"
+import { ChartCategoryFlowFridge } from "@/components/fridge/chart-category-flow-fridge"
+import { ChartExpenseBreakdownFridge } from "@/components/fridge/chart-expense-breakdown-fridge"
+import { ChartMacronutrientBreakdownFridge } from "@/components/fridge/chart-macronutrient-breakdown-fridge"
+import { ChartSnackPercentageFridge } from "@/components/fridge/chart-snack-percentage-fridge"
+
 type TestChartsTransaction = {
     id: number
     date: string
@@ -81,509 +90,209 @@ type TestChartsTransaction = {
     category: string
 }
 
-type TestChartsCacheEntry = {
-    transactions: TestChartsTransaction[]
-    fetchedAt: number
+type ReceiptTransaction = {
+    id: number
+    date: string
+    description: string
+    amount: number
+    category: string
+    spend?: number // For ChartAreaInteractiveFridge
 }
-
-const TEST_CHARTS_CACHE_TTL_MS = 5 * 60 * 1000
-const testChartsDataCache = new Map<string, TestChartsCacheEntry>()
-
-const getTestChartsCacheKey = (filter?: string | null) => filter ?? "all"
-
-const getTestChartsCacheEntry = (filter?: string | null) => {
-    const cacheKey = getTestChartsCacheKey(filter)
-    return testChartsDataCache.get(cacheKey) || null
-}
-
-const isTestChartsCacheFresh = (entry: TestChartsCacheEntry) =>
-    Date.now() - entry.fetchedAt < TEST_CHARTS_CACHE_TTL_MS
 
 export default function TestChartsPage() {
-    // @dnd-kit: Chart order state (replaces GridStack refs)
-    const TEST_CHARTS_ORDER_STORAGE_KEY = 'testCharts-order'
-    const [chartOrder, setChartOrder] = useState<string[]>([])
+    // @dnd-kit: Chart order state for each section
+    const [analyticsOrder, setAnalyticsOrder] = useState<string[]>([
+        "testCharts:quickStats", "testCharts:spendingScore", "testCharts:cashFlowIndicator",
+        "testCharts:incomeExpenseRatio", "testCharts:weekendVsWeekday", "testCharts:hourlySpending",
+        "testCharts:cumulativeSpending", "testCharts:budgetBurndown", "testCharts:monthlyBudgetPace",
+        "testCharts:spendingVelocity", "testCharts:spendingStreak", "testCharts:topCategoriesPie",
+        "testCharts:categoryBubbles", "testCharts:smallVsLargePurchases", "testCharts:recurringVsOneTime",
+        "testCharts:categoryRanking", "testCharts:categoryGrowth", "testCharts:weeklyComparison",
+        "testCharts:seasonalSpending", "testCharts:categoryDiversity", "testCharts:momGrowth",
+        "testCharts:avgTransactionTrend", "testCharts:transactionCountTrend", "testCharts:rolling7DayAvg",
+        "testCharts:transactionHeatmap", "testCharts:paydayImpact", "testCharts:topMerchantsRace",
+        "testCharts:incomeSources", "testCharts:spendingDistribution", "testCharts:largestTransactions",
+        "testCharts:expenseVelocityGauge", "testCharts:monthCompare", "testCharts:dailyHighLow",
+        "testCharts:financialSummary", "testCharts:monthlyTrend", "testCharts:weekdayRadar",
+        "testCharts:spendingByHourHeatmap", "testCharts:categoryProgress",
+        "testCharts:needsVsWantsDonut", "testCharts:spendingByMerchant", "testCharts:yearOverYear",
+        "testCharts:quarterlyComparison", "testCharts:dailyAverageByMonth", "testCharts:paymentMethods",
+        "testCharts:biggestExpenseCategories", "testCharts:spendingAlerts", "testCharts:balanceHistory",
+        "testCharts:monthlyInsights"
+    ])
 
-    // Chart order for rendering (31 charts total)
-    const testChartsOrder = useMemo(
-        () => [
-            // Row 1: Quick overview cards
-            "testCharts:quickStats",
-            "testCharts:spendingScore",
-            // Row 2: Cash flow
-            "testCharts:cashFlowIndicator",
-            "testCharts:incomeExpenseRatio",
-            // Row 3: Spending patterns
-            "testCharts:weekendVsWeekday",
-            "testCharts:hourlySpending",
-            // Row 4: Trends
-            "testCharts:savingsRateTrend",
-            "testCharts:cumulativeSpending",
-            // Row 5: Budget tracking
-            "testCharts:budgetBurndown",
-            "testCharts:monthlyBudgetPace",
-            // Row 6: Velocity and streaks
-            "testCharts:spendingVelocity",
-            "testCharts:spendingStreak",
-            // Row 7: Categories
-            "testCharts:topCategoriesPie",
-            "testCharts:categoryBubbles",
-            // Row 8: Purchase analysis
-            "testCharts:smallVsLargePurchases",
-            "testCharts:recurringVsOneTime",
-            // Row 9: Rankings
-            "testCharts:categoryRanking",
-            "testCharts:categoryGrowth",
-            // Row 10: Comparisons
-            "testCharts:weeklyComparison",
-            "testCharts:seasonalSpending",
-            // Row 11: Diversity and trends
-            "testCharts:categoryDiversity",
-            "testCharts:momGrowth",
-            // Row 12: Time-based
-            "testCharts:avgTransactionTrend",
-            "testCharts:transactionCountTrend",
-            // Row 13: Full width charts
-            "testCharts:rolling7DayAvg",
-            // Row 14: Heatmap and payday
-            "testCharts:transactionHeatmap",
-            "testCharts:paydayImpact",
-            // Row 15: Merchants and sources
-            "testCharts:topMerchantsRace",
-            "testCharts:incomeSources",
-            // Row 16: Distribution
-            "testCharts:spendingDistribution",
-            "testCharts:largestTransactions",
-            // NEW CHARTS (20 additional)
-            // Row 17: Gauges and comparisons
-            "testCharts:expenseVelocityGauge",
-            "testCharts:monthCompare",
-            // Row 18: Daily stats
-            "testCharts:dailyHighLow",
-            "testCharts:financialSummary",
-            // Row 19: Trends
-            "testCharts:monthlyTrend",
-            "testCharts:netWorthTrend",
-            // Row 20: Radar and heatmap
-            "testCharts:weekdayRadar",
-            "testCharts:spendingByHourHeatmap",
-            // Row 21: Budgets
-            "testCharts:budgetMilestone",
-            "testCharts:categoryProgress",
-            // Row 22: Needs and merchants
-            "testCharts:needsVsWantsDonut",
-            "testCharts:spendingByMerchant",
-            // Row 23: Year comparisons
-            "testCharts:yearOverYear",
-            "testCharts:quarterlyComparison",
-            // Row 24: Averages and payments
-            "testCharts:dailyAverageByMonth",
-            "testCharts:paymentMethods",
-            // Row 25: Categories and alerts
-            "testCharts:biggestExpenseCategories",
-            "testCharts:spendingAlerts",
-            // Row 26: History and insights
-            "testCharts:balanceHistory",
-            "testCharts:monthlyInsights",
-        ] as ChartId[],
-        [],
-    )
+    const [savingsOrder, setSavingsOrder] = useState<string[]>([
+        "testCharts:savingsRateTrend", "testCharts:netWorthTrend", "testCharts:budgetMilestone"
+    ])
 
-    // Default chart sizes and positions
-    const DEFAULT_CHART_SIZES: Record<string, { w: number; h: number; x?: number; y?: number }> = {
-        // Row 1
-        "testCharts:quickStats": { w: 6, h: 6, x: 0, y: 0 },
-        "testCharts:spendingScore": { w: 6, h: 8, x: 6, y: 0 },
-        // Row 2
-        "testCharts:cashFlowIndicator": { w: 6, h: 7, x: 0, y: 6 },
-        "testCharts:incomeExpenseRatio": { w: 6, h: 8, x: 6, y: 8 },
-        // Row 3
-        "testCharts:weekendVsWeekday": { w: 6, h: 8, x: 0, y: 13 },
-        "testCharts:hourlySpending": { w: 6, h: 8, x: 6, y: 16 },
-        // Row 4
-        "testCharts:savingsRateTrend": { w: 6, h: 7, x: 0, y: 21 },
-        "testCharts:cumulativeSpending": { w: 6, h: 7, x: 6, y: 24 },
-        // Row 5
-        "testCharts:budgetBurndown": { w: 6, h: 7, x: 0, y: 28 },
-        "testCharts:monthlyBudgetPace": { w: 6, h: 7, x: 6, y: 31 },
-        // Row 6
-        "testCharts:spendingVelocity": { w: 6, h: 8, x: 0, y: 35 },
-        "testCharts:spendingStreak": { w: 6, h: 7, x: 6, y: 38 },
-        // Row 7
-        "testCharts:topCategoriesPie": { w: 6, h: 8, x: 0, y: 43 },
-        "testCharts:categoryBubbles": { w: 6, h: 8, x: 6, y: 45 },
-        // Row 8
-        "testCharts:smallVsLargePurchases": { w: 6, h: 8, x: 0, y: 51 },
-        "testCharts:recurringVsOneTime": { w: 6, h: 8, x: 6, y: 53 },
-        // Row 9
-        "testCharts:categoryRanking": { w: 6, h: 8, x: 0, y: 59 },
-        "testCharts:categoryGrowth": { w: 6, h: 8, x: 6, y: 61 },
-        // Row 10
-        "testCharts:weeklyComparison": { w: 6, h: 7, x: 0, y: 67 },
-        "testCharts:seasonalSpending": { w: 6, h: 7, x: 6, y: 68 },
-        // Row 11
-        "testCharts:categoryDiversity": { w: 6, h: 10, x: 0, y: 74 },
-        "testCharts:momGrowth": { w: 6, h: 8, x: 6, y: 75 },
-        // Row 12
-        "testCharts:avgTransactionTrend": { w: 6, h: 8, x: 0, y: 84 },
-        "testCharts:transactionCountTrend": { w: 6, h: 7, x: 6, y: 83 },
-        // Row 13
-        "testCharts:rolling7DayAvg": { w: 12, h: 8, x: 0, y: 90 },
-        // Row 14
-        "testCharts:transactionHeatmap": { w: 6, h: 10, x: 0, y: 98 },
-        "testCharts:paydayImpact": { w: 6, h: 8, x: 6, y: 98 },
-        // Row 15
-        "testCharts:topMerchantsRace": { w: 6, h: 10, x: 0, y: 108 },
-        "testCharts:incomeSources": { w: 6, h: 8, x: 6, y: 106 },
-        // Row 16
-        "testCharts:spendingDistribution": { w: 6, h: 8, x: 0, y: 118 },
-        "testCharts:largestTransactions": { w: 12, h: 10, x: 0, y: 126 },
-        // NEW CHARTS - Row 17
-        "testCharts:expenseVelocityGauge": { w: 6, h: 6, x: 0, y: 136 },
-        "testCharts:monthCompare": { w: 6, h: 7, x: 6, y: 136 },
-        // Row 18
-        "testCharts:dailyHighLow": { w: 6, h: 6, x: 0, y: 143 },
-        "testCharts:financialSummary": { w: 6, h: 7, x: 6, y: 143 },
-        // Row 19
-        "testCharts:monthlyTrend": { w: 6, h: 8, x: 0, y: 150 },
-        "testCharts:netWorthTrend": { w: 6, h: 8, x: 6, y: 150 },
-        // Row 20
-        "testCharts:weekdayRadar": { w: 6, h: 8, x: 0, y: 158 },
-        "testCharts:spendingByHourHeatmap": { w: 6, h: 8, x: 6, y: 158 },
-        // Row 21
-        "testCharts:budgetMilestone": { w: 6, h: 6, x: 0, y: 166 },
-        "testCharts:categoryProgress": { w: 6, h: 8, x: 6, y: 166 },
-        // Row 22
-        "testCharts:needsVsWantsDonut": { w: 6, h: 8, x: 0, y: 174 },
-        "testCharts:spendingByMerchant": { w: 6, h: 8, x: 6, y: 174 },
-        // Row 23
-        "testCharts:yearOverYear": { w: 6, h: 8, x: 0, y: 182 },
-        "testCharts:quarterlyComparison": { w: 6, h: 8, x: 6, y: 182 },
-        // Row 24
-        "testCharts:dailyAverageByMonth": { w: 6, h: 8, x: 0, y: 190 },
-        "testCharts:paymentMethods": { w: 6, h: 8, x: 6, y: 190 },
-        // Row 25
-        "testCharts:biggestExpenseCategories": { w: 6, h: 8, x: 0, y: 198 },
-        "testCharts:spendingAlerts": { w: 6, h: 6, x: 6, y: 198 },
-        // Row 26
-        "testCharts:balanceHistory": { w: 6, h: 8, x: 0, y: 206 },
-        "testCharts:monthlyInsights": { w: 6, h: 7, x: 6, y: 206 },
+    const [fridgeOrder, setFridgeOrder] = useState<string[]>([
+        "fridge:spend-trend", "fridge:category-flow", "fridge:expense-breakdown",
+        "fridge:macronutrient-breakdown", "fridge:snack-percentage"
+    ])
+
+    // Load saved orders from localStorage
+    useEffect(() => {
+        const savedAnalytics = localStorage.getItem('testCharts-analytics-order')
+        if (savedAnalytics) setAnalyticsOrder(JSON.parse(savedAnalytics))
+
+        const savedSavings = localStorage.getItem('testCharts-savings-order')
+        if (savedSavings) setSavingsOrder(JSON.parse(savedSavings))
+
+        const savedFridge = localStorage.getItem('testCharts-fridge-order')
+        if (savedFridge) setFridgeOrder(JSON.parse(savedFridge))
+    }, [])
+
+    const handleAnalyticsOrderChange = (newOrder: string[]) => {
+        setAnalyticsOrder(newOrder)
+        localStorage.setItem('testCharts-analytics-order', JSON.stringify(newOrder))
     }
 
-    // Snap to nearest allowed size (snap width, keep height as-is)
-    const snapToAllowedSize = useCallback((w: number, h: number) => {
-        const widthDistanceToSmall = Math.abs(w - 6)
-        const widthDistanceToLarge = Math.abs(w - 12)
-        const snappedWidth = widthDistanceToSmall <= widthDistanceToLarge ? 6 : 12
-        const clampedHeight = Math.max(4, Math.min(20, h))
-        return { w: snappedWidth, h: clampedHeight }
-    }, [])
+    const handleSavingsOrderChange = (newOrder: string[]) => {
+        setSavingsOrder(newOrder)
+        localStorage.setItem('testCharts-savings-order', JSON.stringify(newOrder))
+    }
 
-    // localStorage key for chart sizes and positions
-    const CHART_SIZES_STORAGE_KEY = 'testcharts-chart-sizes'
-    const CHART_SIZES_VERSION_KEY = 'testcharts-chart-sizes-version'
-    const DEFAULT_SIZES_VERSION = '3' // Increment to reset layout with new charts
-
-    // Load saved chart sizes and positions from localStorage
-    const loadChartSizes = useCallback((): Record<string, { w: number; h: number; x?: number; y?: number }> => {
-        if (typeof window === 'undefined') return {}
-        try {
-            const saved = localStorage.getItem(CHART_SIZES_STORAGE_KEY)
-            const savedSizes = saved ? JSON.parse(saved) : {}
-            const savedVersion = localStorage.getItem(CHART_SIZES_VERSION_KEY)
-            const needsUpdate = savedVersion !== DEFAULT_SIZES_VERSION
-
-            const result: Record<string, { w: number; h: number; x?: number; y?: number }> = {}
-            let hasChanges = false
-
-            Object.keys(DEFAULT_CHART_SIZES).forEach(chartId => {
-                const defaultSize = DEFAULT_CHART_SIZES[chartId]
-                const savedSize = savedSizes[chartId]
-
-                const finalSize = needsUpdate || !savedSize
-                    ? {
-                        w: defaultSize.w,
-                        h: defaultSize.h,
-                        x: savedSize?.x ?? defaultSize.x,
-                        y: savedSize?.y ?? defaultSize.y
-                    }
-                    : {
-                        w: savedSize.w,
-                        h: savedSize.h,
-                        x: savedSize.x ?? defaultSize.x,
-                        y: savedSize.y ?? defaultSize.y
-                    }
-
-                result[chartId] = finalSize
-
-                if (needsUpdate && (!savedSize || savedSize.w !== defaultSize.w || savedSize.h !== defaultSize.h)) {
-                    hasChanges = true
-                }
-            })
-
-            if (needsUpdate || hasChanges) {
-                localStorage.setItem(CHART_SIZES_STORAGE_KEY, JSON.stringify(result))
-                localStorage.setItem(CHART_SIZES_VERSION_KEY, DEFAULT_SIZES_VERSION)
-            }
-
-            return result
-        } catch (error) {
-            console.error('Failed to load chart sizes from localStorage:', error)
-        }
-        return {}
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [DEFAULT_SIZES_VERSION])
-
-    const [savedChartSizes, setSavedChartSizes] = useState<Record<string, { w: number; h: number; x?: number; y?: number }>>({})
-    const savedChartSizesRef = useRef<Record<string, { w: number; h: number; x?: number; y?: number }>>({})
-    const [hasLoadedChartSizes, setHasLoadedChartSizes] = useState(false)
-
-    // Save chart sizes and positions to localStorage AND React state
-    const saveChartSizes = useCallback(
-        (sizes: Record<string, { w: number; h: number; x?: number; y?: number }>) => {
-            savedChartSizesRef.current = sizes
-            setSavedChartSizes(sizes)
-
-            if (typeof window === "undefined") return
-            try {
-                localStorage.setItem(CHART_SIZES_STORAGE_KEY, JSON.stringify(sizes))
-                localStorage.setItem(CHART_SIZES_VERSION_KEY, DEFAULT_SIZES_VERSION)
-            } catch (error) {
-                console.error("Failed to save chart sizes to localStorage:", error)
-            }
-        },
-        [],
-    )
-
-    // Load saved sizes after mount (client-side only)
-    useEffect(() => {
-        const loaded = loadChartSizes()
-        savedChartSizesRef.current = loaded
-        setSavedChartSizes(loaded)
-        setHasLoadedChartSizes(true)
-    }, [loadChartSizes])
-
-    // @dnd-kit: Sync chartOrder with testChartsOrder and load from localStorage
-    useEffect(() => {
-        try {
-            const saved = localStorage.getItem(TEST_CHARTS_ORDER_STORAGE_KEY)
-            if (saved) {
-                const parsed = JSON.parse(saved)
-                // Keep saved order, add new charts at end, remove deleted ones
-                const validCharts = parsed.filter((id: string) => testChartsOrder.includes(id as ChartId))
-                const newCharts = testChartsOrder.filter((id) => !parsed.includes(id))
-                setChartOrder([...validCharts, ...newCharts])
-            } else {
-                setChartOrder([...testChartsOrder])
-            }
-        } catch {
-            setChartOrder([...testChartsOrder])
-        }
-    }, [testChartsOrder])
-
-    // @dnd-kit: Handle chart order change from drag-and-drop
-    const handleChartOrderChange = useCallback((newOrder: string[]) => {
-        setChartOrder(newOrder)
-        try {
-            localStorage.setItem(TEST_CHARTS_ORDER_STORAGE_KEY, JSON.stringify(newOrder))
-        } catch (e) {
-            console.error("Failed to save testCharts order:", e)
-        }
-    }, [])
+    const handleFridgeOrderChange = (newOrder: string[]) => {
+        setFridgeOrder(newOrder)
+        localStorage.setItem('testCharts-fridge-order', JSON.stringify(newOrder))
+    }
 
     // Date filter state
     const { filter: dateFilter, setFilter: setDateFilter } = useDateFilter()
-    const testChartsCacheEntry = getTestChartsCacheEntry(dateFilter)
 
-    // Transactions state
-    const [rawTransactions, setRawTransactions] = useState<TestChartsTransaction[]>(
-        () => testChartsCacheEntry?.transactions ?? [],
-    )
-    const [isLoadingTransactions, setIsLoadingTransactions] = useState(
-        () => !testChartsCacheEntry,
-    )
+    // Data state
+    const [rawTransactions, setRawTransactions] = useState<TestChartsTransaction[]>([])
+    const [receiptTransactions, setReceiptTransactions] = useState<ReceiptTransaction[]>([])
+    const [isLoading, setIsLoading] = useState(true)
+
+    // Memoized data for specific charts (like Fridge Breakdown)
+    const fridgeBreakdownData = useMemo(() => {
+        const totals = new Map<string, number>()
+        receiptTransactions.forEach((item) => {
+            const category = item.category || "Other"
+            const spend = Number(item.amount) || 0
+            totals.set(category, (totals.get(category) || 0) + spend)
+        })
+
+        return Array.from(totals.entries())
+            .sort((a, b) => b[1] - a[1])
+            .map(([category, value]) => ({
+                id: category,
+                label: category,
+                value: Number(value.toFixed(2)),
+            }))
+    }, [receiptTransactions])
+
+    const fridgeSpendTrendData = useMemo(() => {
+        const dailyTotals = new Map<string, number>()
+        receiptTransactions.forEach(item => {
+            const date = item.date
+            if (!date) return
+            dailyTotals.set(date, (dailyTotals.get(date) || 0) + (item.amount || 0))
+        })
+        return Array.from(dailyTotals.entries())
+            .map(([date, spend]) => ({ date, spend: Number(spend.toFixed(2)) }))
+            .sort((a, b) => a.date.localeCompare(b.date))
+    }, [receiptTransactions])
 
     // Fetch all data
     const fetchAllData = useCallback(async () => {
-        const cacheKey = getTestChartsCacheKey(dateFilter)
-        const cachedEntry = getTestChartsCacheEntry(dateFilter)
-        const hasFreshCache = cachedEntry ? isTestChartsCacheFresh(cachedEntry) : false
-
-        if (cachedEntry) {
-            setRawTransactions(cachedEntry.transactions)
-            setIsLoadingTransactions(false)
-            if (hasFreshCache) {
-                return
-            }
-        } else {
-            setIsLoadingTransactions(true)
-        }
-
+        setIsLoading(true)
         try {
-            const transactionsData = await deduplicatedFetch<any[]>(
-                dateFilter
-                    ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
-                    : "/api/transactions"
-            ).catch(err => {
-                console.error("[TestCharts] Transactions fetch error:", err)
-                return []
-            })
+            const [txData, rxData] = await Promise.all([
+                deduplicatedFetch<any[]>(dateFilter ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}` : "/api/transactions"),
+                deduplicatedFetch<any[]>(dateFilter ? `/api/fridge?filter=${encodeURIComponent(dateFilter)}&limit=5000` : "/api/fridge?limit=5000")
+            ]).catch(() => [[], []])
 
-            if (Array.isArray(transactionsData)) {
-                const normalized = normalizeTransactions(transactionsData) as TestChartsTransaction[]
-                setRawTransactions(normalized)
-                testChartsDataCache.set(cacheKey, {
-                    transactions: normalized,
-                    fetchedAt: Date.now(),
-                })
+            if (Array.isArray(txData)) setRawTransactions(normalizeTransactions(txData) as TestChartsTransaction[])
+            if (Array.isArray(rxData)) {
+                // Map rxData to what charts expect
+                const normalizedRx = rxData.map((tx: any) => ({
+                    ...tx,
+                    id: tx.id || Math.random(),
+                    date: tx.date || tx.receiptDate || "",
+                    amount: tx.amount || tx.totalPrice || 0,
+                    category: tx.category || tx.categoryName || "Other"
+                }))
+                setReceiptTransactions(normalizedRx)
             }
         } catch (error) {
             console.error("Error fetching data:", error)
-            toast.error("Network Error", {
-                description: "Failed to fetch data. Check your database connection.",
-                duration: 8000,
-            })
         } finally {
-            setIsLoadingTransactions(false)
+            setIsLoading(false)
         }
     }, [dateFilter])
 
-    // Fetch all data on mount and when filter changes
     useEffect(() => {
         fetchAllData()
     }, [fetchAllData])
 
-    // Listen for date filter changes from SiteHeader
-    useEffect(() => {
-        const handleFilterChange = (event: CustomEvent) => {
-            setDateFilter(event.detail)
-        }
-
-        window.addEventListener("dateFilterChanged", handleFilterChange as EventListener)
-
-        const savedFilter = localStorage.getItem("dateFilter")
-        if (savedFilter) {
-            setDateFilter(savedFilter)
-        }
-
-        return () => {
-            window.removeEventListener("dateFilterChanged", handleFilterChange as EventListener)
-        }
-    }, [])
-
     // Render chart based on chartId
-    const renderChart = (chartId: ChartId) => {
+    const renderChart = (chartId: string) => {
         const chartProps = {
             data: rawTransactions,
-            isLoading: isLoadingTransactions,
+            isLoading: isLoading,
         }
 
         switch (chartId) {
-            case "testCharts:weekendVsWeekday":
-                return <ChartWeekendVsWeekday {...chartProps} />
-            case "testCharts:avgTransactionTrend":
-                return <ChartAvgTransactionTrend {...chartProps} />
-            case "testCharts:spendingVelocity":
-                return <ChartSpendingVelocity {...chartProps} />
-            case "testCharts:categoryDiversity":
-                return <ChartCategoryDiversity {...chartProps} />
-            case "testCharts:momGrowth":
-                return <ChartMoMGrowth {...chartProps} />
-            case "testCharts:transactionHeatmap":
-                return <ChartTransactionHeatmap {...chartProps} />
-            case "testCharts:spendingDistribution":
-                return <ChartSpendingDistribution {...chartProps} />
-            case "testCharts:incomeExpenseRatio":
-                return <ChartIncomeExpenseRatio {...chartProps} />
-            case "testCharts:rolling7DayAvg":
-                return <ChartRolling7DayAvg {...chartProps} />
-            case "testCharts:topMerchantsRace":
-                return <ChartTopMerchantsRace {...chartProps} />
-            case "testCharts:largestTransactions":
-                return <ChartLargestTransactions {...chartProps} />
-            case "testCharts:recurringVsOneTime":
-                return <ChartRecurringVsOneTime {...chartProps} />
-            case "testCharts:hourlySpending":
-                return <ChartHourlySpending {...chartProps} />
-            case "testCharts:cumulativeSpending":
-                return <ChartCumulativeSpending {...chartProps} />
-            case "testCharts:categoryGrowth":
-                return <ChartCategoryGrowth {...chartProps} />
-            case "testCharts:spendingStreak":
-                return <ChartSpendingStreak {...chartProps} />
-            case "testCharts:paydayImpact":
-                return <ChartPaydayImpact {...chartProps} />
-            case "testCharts:savingsRateTrend":
-                return <ChartSavingsRateTrend {...chartProps} />
-            case "testCharts:spendingScore":
-                return <ChartSpendingScore {...chartProps} />
-            case "testCharts:smallVsLargePurchases":
-                return <ChartSmallVsLargePurchases {...chartProps} />
-            case "testCharts:categoryBubbles":
-                return <ChartCategoryBubbles {...chartProps} />
-            case "testCharts:weeklyComparison":
-                return <ChartWeeklyComparison {...chartProps} />
-            case "testCharts:monthlyBudgetPace":
-                return <ChartMonthlyBudgetPace {...chartProps} />
-            case "testCharts:transactionCountTrend":
-                return <ChartTransactionCountTrend {...chartProps} />
-            case "testCharts:quickStats":
-                return <ChartQuickStats {...chartProps} />
-            case "testCharts:topCategoriesPie":
-                return <ChartTopCategoriesPie {...chartProps} />
-            case "testCharts:seasonalSpending":
-                return <ChartSeasonalSpending {...chartProps} />
-            case "testCharts:budgetBurndown":
-                return <ChartBudgetBurndown {...chartProps} />
-            case "testCharts:cashFlowIndicator":
-                return <ChartCashFlowIndicator {...chartProps} />
-            case "testCharts:categoryRanking":
-                return <ChartCategoryRanking {...chartProps} />
-            case "testCharts:incomeSources":
-                return <ChartIncomeSources {...chartProps} />
-            // NEW CHARTS (20 additional)
-            case "testCharts:expenseVelocityGauge":
-                return <ChartExpenseVelocityGauge {...chartProps} />
-            case "testCharts:spendingByMerchant":
-                return <ChartSpendingByMerchant {...chartProps} />
-            case "testCharts:dailyHighLow":
-                return <ChartDailyHighLow {...chartProps} />
-            case "testCharts:monthlyTrend":
-                return <ChartMonthlyTrend {...chartProps} />
-            case "testCharts:weekdayRadar":
-                return <ChartWeekdayRadar {...chartProps} />
-            case "testCharts:monthCompare":
-                return <ChartMonthCompare {...chartProps} />
-            case "testCharts:needsVsWantsDonut":
-                return <ChartNeedsVsWantsDonut {...chartProps} />
-            case "testCharts:budgetMilestone":
-                return <ChartBudgetMilestone {...chartProps} />
-            case "testCharts:yearOverYear":
-                return <ChartYearOverYear {...chartProps} />
-            case "testCharts:spendingByHourHeatmap":
-                return <ChartSpendingByHourHeatmap {...chartProps} />
-            case "testCharts:categoryProgress":
-                return <ChartCategoryProgress {...chartProps} />
-            case "testCharts:netWorthTrend":
-                return <ChartNetWorthTrend {...chartProps} />
-            case "testCharts:financialSummary":
-                return <ChartFinancialSummary {...chartProps} />
-            case "testCharts:dailyAverageByMonth":
-                return <ChartDailyAverageByMonth {...chartProps} />
-            case "testCharts:paymentMethods":
-                return <ChartPaymentMethods {...chartProps} />
-            case "testCharts:biggestExpenseCategories":
-                return <ChartBiggestExpenseCategories {...chartProps} />
-            case "testCharts:spendingAlerts":
-                return <ChartSpendingAlerts {...chartProps} />
-            case "testCharts:quarterlyComparison":
-                return <ChartQuarterlyComparison {...chartProps} />
-            case "testCharts:balanceHistory":
-                return <ChartBalanceHistory {...chartProps} />
-            case "testCharts:monthlyInsights":
-                return <ChartMonthlyInsights {...chartProps} />
-            default:
-                return null
+            case "testCharts:weekendVsWeekday": return <ChartWeekendVsWeekday {...chartProps} />
+            case "testCharts:avgTransactionTrend": return <ChartAvgTransactionTrend {...chartProps} />
+            case "testCharts:spendingVelocity": return <ChartSpendingVelocity {...chartProps} />
+            case "testCharts:categoryDiversity": return <ChartCategoryDiversity {...chartProps} />
+            case "testCharts:momGrowth": return <ChartMoMGrowth {...chartProps} />
+            case "testCharts:transactionHeatmap": return <ChartTransactionHeatmap {...chartProps} />
+            case "testCharts:spendingDistribution": return <ChartSpendingDistribution {...chartProps} />
+            case "testCharts:incomeExpenseRatio": return <ChartIncomeExpenseRatio {...chartProps} />
+            case "testCharts:rolling7DayAvg": return <ChartRolling7DayAvg {...chartProps} />
+            case "testCharts:topMerchantsRace": return <ChartTopMerchantsRace {...chartProps} />
+            case "testCharts:largestTransactions": return <ChartLargestTransactions {...chartProps} />
+            case "testCharts:recurringVsOneTime": return <ChartRecurringVsOneTime {...chartProps} />
+            case "testCharts:hourlySpending": return <ChartHourlySpending {...chartProps} />
+            case "testCharts:cumulativeSpending": return <ChartCumulativeSpending {...chartProps} />
+            case "testCharts:categoryGrowth": return <ChartCategoryGrowth {...chartProps} />
+            case "testCharts:spendingStreak": return <ChartSpendingStreak {...chartProps} />
+            case "testCharts:paydayImpact": return <ChartPaydayImpact {...chartProps} />
+            case "testCharts:savingsRateTrend": return <ChartSavingsRateTrend {...chartProps} />
+            case "testCharts:spendingScore": return <ChartSpendingScore {...chartProps} />
+            case "testCharts:smallVsLargePurchases": return <ChartSmallVsLargePurchases {...chartProps} />
+            case "testCharts:categoryBubbles": return <ChartCategoryBubbles {...chartProps} />
+            case "testCharts:weeklyComparison": return <ChartWeeklyComparison {...chartProps} />
+            case "testCharts:monthlyBudgetPace": return <ChartMonthlyBudgetPace {...chartProps} />
+            case "testCharts:transactionCountTrend": return <ChartTransactionCountTrend {...chartProps} />
+            case "testCharts:quickStats": return <ChartQuickStats {...chartProps} />
+            case "testCharts:topCategoriesPie": return <ChartTopCategoriesPie {...chartProps} />
+            case "testCharts:seasonalSpending": return <ChartSeasonalSpending {...chartProps} />
+            case "testCharts:budgetBurndown": return <ChartBudgetBurndown {...chartProps} />
+            case "testCharts:cashFlowIndicator": return <ChartCashFlowIndicator {...chartProps} />
+            case "testCharts:categoryRanking": return <ChartCategoryRanking {...chartProps} />
+            case "testCharts:incomeSources": return <ChartIncomeSources {...chartProps} />
+            case "testCharts:expenseVelocityGauge": return <ChartExpenseVelocityGauge {...chartProps} />
+            case "testCharts:spendingByMerchant": return <ChartSpendingByMerchant {...chartProps} />
+            case "testCharts:dailyHighLow": return <ChartDailyHighLow {...chartProps} />
+            case "testCharts:monthlyTrend": return <ChartMonthlyTrend {...chartProps} />
+            case "testCharts:weekdayRadar": return <ChartWeekdayRadar {...chartProps} />
+            case "testCharts:monthCompare": return <ChartMonthCompare {...chartProps} />
+            case "testCharts:needsVsWantsDonut": return <ChartNeedsVsWantsDonut {...chartProps} />
+            case "testCharts:budgetMilestone": return <ChartBudgetMilestone {...chartProps} />
+            case "testCharts:yearOverYear": return <ChartYearOverYear {...chartProps} />
+            case "testCharts:spendingByHourHeatmap": return <ChartSpendingByHourHeatmap {...chartProps} />
+            case "testCharts:categoryProgress": return <ChartCategoryProgress {...chartProps} />
+            case "testCharts:netWorthTrend": return <ChartNetWorthTrend {...chartProps} />
+            case "testCharts:financialSummary": return <ChartFinancialSummary {...chartProps} />
+            case "testCharts:dailyAverageByMonth": return <ChartDailyAverageByMonth {...chartProps} />
+            case "testCharts:paymentMethods": return <ChartPaymentMethods {...chartProps} />
+            case "testCharts:biggestExpenseCategories": return <ChartBiggestExpenseCategories {...chartProps} />
+            case "testCharts:spendingAlerts": return <ChartSpendingAlerts {...chartProps} />
+            case "testCharts:quarterlyComparison": return <ChartQuarterlyComparison {...chartProps} />
+            case "testCharts:balanceHistory": return <ChartBalanceHistory {...chartProps} />
+            case "testCharts:monthlyInsights": return <ChartMonthlyInsights {...chartProps} />
+            // Fridge charts
+            case "fridge:spend-trend": return <ChartAreaInteractiveFridge data={fridgeSpendTrendData} />
+            case "fridge:category-flow": return <ChartCategoryFlowFridge receiptTransactions={receiptTransactions.map(tx => ({ ...tx, totalPrice: tx.amount, categoryName: tx.category, receiptDate: tx.date })) as any} isLoading={isLoading} />
+            case "fridge:expense-breakdown": return <ChartExpenseBreakdownFridge data={fridgeBreakdownData} isLoading={isLoading} />
+            case "fridge:macronutrient-breakdown": return <ChartMacronutrientBreakdownFridge receiptTransactions={receiptTransactions.map(tx => ({ ...tx, totalPrice: tx.amount, categoryName: tx.category, receiptDate: tx.date })) as any} isLoading={isLoading} />
+            case "fridge:snack-percentage": return <ChartSnackPercentageFridge receiptTransactions={receiptTransactions.map(tx => ({ ...tx, totalPrice: tx.amount, categoryName: tx.category, receiptDate: tx.date })) as any} isLoading={isLoading} />
+            default: return null
         }
     }
 
@@ -599,36 +308,119 @@ export default function TestChartsPage() {
             <AppSidebar variant="inset" />
             <SidebarInset>
                 <SiteHeader />
-                <main className="flex-1 space-y-4 p-4 pt-0 lg:p-6 lg:pt-2">
-                    <div className="@container/main flex flex-1 flex-col gap-2">
-                        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-                            {/* GridStack test charts section */}
-                            <div className="w-full mb-4">
-                                <SortableGridProvider
-                                    chartOrder={chartOrder}
-                                    onOrderChange={handleChartOrderChange}
-                                    className="w-full px-4 lg:px-6"
-                                >
-                                    {chartOrder.length > 0 && chartOrder.map((chartId) => {
-                                        const defaultSize = DEFAULT_CHART_SIZES[chartId] || { w: 12, h: 6, x: 0, y: 0 }
-                                        const sizeConfig = getChartCardSize(chartId as ChartId)
-                                        const initialW = defaultSize.w
-                                        const initialH = defaultSize.h
-
-                                        return (
-                                            <SortableGridItem
-                                                key={chartId}
-                                                id={chartId}
-                                                w={(initialW === 6 || initialW === 12) ? initialW : 12}
-                                                h={initialH}
-                                            >
-                                                {renderChart(chartId as ChartId)}
-                                            </SortableGridItem>
-                                        )
-                                    })}
-                                </SortableGridProvider>
+                <main className="flex-1 space-y-8 p-4 pt-0 lg:p-6 lg:pt-2">
+                    {/* Sticky Navigation Bar */}
+                    <div className="sticky top-[var(--header-height)] z-30 -mx-4 px-4 py-3 bg-background/80 backdrop-blur-md border-b border-border/40 lg:-mx-6 lg:px-6">
+                        <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-full bg-background/50 border-border/60 hover:border-primary/50 transition-all gap-2 shrink-0 shadow-sm"
+                                onClick={() => document.getElementById('analytics-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                            >
+                                <Activity className="w-3.5 h-3.5 text-primary" />
+                                <span className="text-xs font-semibold">Analytics</span>
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-full bg-background/50 border-border/60 hover:border-primary/50 transition-all gap-2 shrink-0 shadow-sm"
+                                onClick={() => document.getElementById('savings-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                            >
+                                <Wallet className="w-3.5 h-3.5 text-emerald-500" />
+                                <span className="text-xs font-semibold">Savings</span>
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-full bg-background/50 border-border/60 hover:border-primary/50 transition-all gap-2 shrink-0 shadow-sm"
+                                onClick={() => document.getElementById('fridge-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                            >
+                                <Refrigerator className="w-3.5 h-3.5 text-amber-500" />
+                                <span className="text-xs font-semibold">Fridge</span>
+                            </Button>
+                            <div className="ml-auto flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 px-2">
+                                <span>Playground</span>
+                                <ChevronRight className="w-3 h-3" />
                             </div>
                         </div>
+                    </div>
+
+                    <div className="flex flex-col gap-8 pb-12">
+                        {/* Analytics Section */}
+                        <section id="analytics-section" className="space-y-4 scroll-mt-24">
+                            <div className="px-4 lg:px-6">
+                                <h2 className="text-2xl font-bold tracking-tight">Analytics Playground</h2>
+                                <p className="text-muted-foreground text-sm">General spending analysis and trend components.</p>
+                            </div>
+                            <SortableGridProvider
+                                chartOrder={analyticsOrder}
+                                onOrderChange={handleAnalyticsOrderChange}
+                                className="w-full px-4 lg:px-6"
+                            >
+                                {analyticsOrder.map((chartId) => (
+                                    <SortableGridItem
+                                        key={chartId}
+                                        id={chartId}
+                                        w={getChartCardSize(chartId as ChartId).minW as any}
+                                        h={getChartCardSize(chartId as ChartId).minH}
+                                        resizable
+                                    >
+                                        {renderChart(chartId)}
+                                    </SortableGridItem>
+                                ))}
+                            </SortableGridProvider>
+                        </section>
+
+                        {/* Savings Section */}
+                        <section id="savings-section" className="space-y-4 scroll-mt-24">
+                            <div className="px-4 lg:px-6 pt-8 border-t">
+                                <h2 className="text-2xl font-bold tracking-tight">Savings & Wealth</h2>
+                                <p className="text-muted-foreground text-sm">Components for tracking net worth, savings rates, and goals.</p>
+                            </div>
+                            <SortableGridProvider
+                                chartOrder={savingsOrder}
+                                onOrderChange={handleSavingsOrderChange}
+                                className="w-full px-4 lg:px-6"
+                            >
+                                {savingsOrder.map((chartId) => (
+                                    <SortableGridItem
+                                        key={chartId}
+                                        id={chartId}
+                                        w={getChartCardSize(chartId as ChartId).minW as any}
+                                        h={getChartCardSize(chartId as ChartId).minH}
+                                        resizable
+                                    >
+                                        {renderChart(chartId)}
+                                    </SortableGridItem>
+                                ))}
+                            </SortableGridProvider>
+                        </section>
+
+                        {/* Fridge Section */}
+                        <section id="fridge-section" className="space-y-4 scroll-mt-24">
+                            <div className="px-4 lg:px-6 pt-8 border-t">
+                                <h2 className="text-2xl font-bold tracking-tight">Fridge & Groceries</h2>
+                                <p className="text-muted-foreground text-sm">Specialized components for food spending and nutrition data.</p>
+                            </div>
+                            <SortableGridProvider
+                                chartOrder={fridgeOrder}
+                                onOrderChange={handleFridgeOrderChange}
+                                className="w-full px-4 lg:px-6"
+                            >
+                                {fridgeOrder.map((chartId) => (
+                                    <SortableGridItem
+                                        key={chartId}
+                                        id={chartId}
+                                        w={getChartCardSize(chartId as ChartId).minW as any}
+                                        h={getChartCardSize(chartId as ChartId).minH}
+                                        resizable
+                                    >
+                                        {renderChart(chartId)}
+                                    </SortableGridItem>
+                                ))}
+                            </SortableGridProvider>
+                        </section>
                     </div>
                 </main>
             </SidebarInset>

@@ -15,6 +15,7 @@ const isPublicRoute = createRouteMatcher([
   '/sso-callback(.*)',
   '/', // Landing page is public
   '/api/webhooks(.*)',
+  '/testCharts(.*)',
 ])
 
 // Protected routes that require authentication
@@ -28,7 +29,6 @@ const isProtectedRoute = createRouteMatcher([
   '/savings(.*)',
   '/trends(.*)',
   '/chat(.*)',
-  '/testCharts(.*)',
 ])
 
 export default clerkMiddleware(async (auth, req) => {
