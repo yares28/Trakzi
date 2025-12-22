@@ -9,6 +9,7 @@ import {
   normalizeReceiptStoreKey,
 } from "@/lib/receipts/item-category-preferences"
 import { suggestReceiptCategoryNameFromDescription } from "@/lib/receipts/receipt-category-heuristics"
+import { extractReceiptFromPdfTextWithParsers } from "@/lib/receipts/parsers"
 import { getSiteUrl, getSiteName } from "@/lib/env"
 
 function isSupportedReceiptImage(file: File): boolean {
@@ -608,10 +609,16 @@ export const POST = async (req: NextRequest) => {
               rejected.push({ fileName: file.name, reason: "PDF appears to be empty or unreadable" })
               continue
             }
-            const result = await extractReceiptFromPdfText({
+            // Use parser dispatcher: tries Mercadona parser first, falls back to AI
+            const result = await extractReceiptFromPdfTextWithParsers({
               pdfText,
               fileName: file.name,
               allowedCategories: allowedCategoryNames,
+              aiFallback: () => extractReceiptFromPdfText({
+                pdfText,
+                fileName: file.name,
+                allowedCategories: allowedCategoryNames,
+              }),
             })
             extracted = result.extracted
           }
@@ -627,7 +634,24 @@ export const POST = async (req: NextRequest) => {
           extracted = result.extracted
         }
 
-        const receiptDate = normalizeDate(extracted.receipt_date) || todayIsoDate()
+        // Handle date: prefer receipt_date_iso (from deterministic parsers), 
+        // fall back to receipt_date (from AI), convert DD-MM-YYYY if needed
+        let receiptDate: string
+        const extractedAny = extracted as Record<string, unknown>
+        if (typeof extractedAny.receipt_date_iso === "string" && /^\d{4}-\d{2}-\d{2}$/.test(extractedAny.receipt_date_iso)) {
+          receiptDate = extractedAny.receipt_date_iso
+        } else if (typeof extracted.receipt_date === "string") {
+          // Try to parse DD-MM-YYYY or DD/MM/YYYY format from deterministic parser
+          const ddmmMatch = extracted.receipt_date.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/)
+          if (ddmmMatch) {
+            const [, day, month, year] = ddmmMatch
+            receiptDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+          } else {
+            receiptDate = normalizeDate(extracted.receipt_date) || todayIsoDate()
+          }
+        } else {
+          receiptDate = todayIsoDate()
+        }
         const receiptTime = normalizeTime(extracted.receipt_time) || nowIsoTime()
         const currency =
           typeof extracted.currency === "string" && extracted.currency.trim().length > 0

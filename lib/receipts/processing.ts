@@ -6,6 +6,7 @@ import {
   normalizeReceiptStoreKey,
 } from "@/lib/receipts/item-category-preferences"
 import { suggestReceiptCategoryNameFromDescription } from "@/lib/receipts/receipt-category-heuristics"
+import { extractReceiptFromPdfTextWithParsers } from "@/lib/receipts/parsers"
 import { getSiteUrl, getSiteName } from "@/lib/env"
 
 const RECEIPT_MODEL = "google/gemini-2.0-flash-001"
@@ -491,15 +492,47 @@ export async function processReceiptNow({ receiptId, userId }: EnqueueParams) {
 
   let extracted: ExtractedReceipt
   let rawText: string
+  const isPdf = mimeType === "application/pdf" || receiptFile.file_name.toLowerCase().endsWith(".pdf")
 
   try {
-    const result = await extractReceiptWithAi({
-      base64DataUrl,
-      fileName: receiptFile.file_name,
-      allowedCategories: categories.map((c) => c.name),
-    })
-    extracted = result.extracted
-    rawText = result.rawText
+    if (isPdf) {
+      // For PDFs: Try deterministic parser first, fall back to AI
+      const { extractText } = await import("unpdf")
+      const pdfData = new Uint8Array(receiptFile.data)
+      const textResult = await extractText(pdfData)
+      const pages = textResult.text || []
+      const pdfText = Array.isArray(pages) ? pages.join("\n") : String(pages)
+
+      if (!pdfText.trim()) {
+        throw new Error("PDF appears to be empty or unreadable")
+      }
+
+      const result = await extractReceiptFromPdfTextWithParsers({
+        pdfText,
+        fileName: receiptFile.file_name,
+        allowedCategories: categories.map((c) => c.name),
+        aiFallback: async () => {
+          // Fall back to vision-based AI extraction
+          const aiResult = await extractReceiptWithAi({
+            base64DataUrl,
+            fileName: receiptFile.file_name,
+            allowedCategories: categories.map((c) => c.name),
+          })
+          return aiResult
+        },
+      })
+      extracted = result.extracted
+      rawText = result.rawText
+    } else {
+      // For images: Use AI extraction directly
+      const result = await extractReceiptWithAi({
+        base64DataUrl,
+        fileName: receiptFile.file_name,
+        allowedCategories: categories.map((c) => c.name),
+      })
+      extracted = result.extracted
+      rawText = result.rawText
+    }
   } catch (error: any) {
     await updateReceiptFailure({
       receiptId,
@@ -510,7 +543,24 @@ export async function processReceiptNow({ receiptId, userId }: EnqueueParams) {
     return
   }
 
-  const receiptDate = normalizeDate(extracted.receipt_date) || todayIsoDate()
+  // Handle date: prefer receipt_date_iso (from deterministic parsers), 
+  // fall back to receipt_date (from AI), convert DD-MM-YYYY if needed
+  let receiptDate: string
+  const extractedAny = extracted as Record<string, unknown>
+  if (typeof extractedAny.receipt_date_iso === "string" && /^\d{4}-\d{2}-\d{2}$/.test(extractedAny.receipt_date_iso)) {
+    receiptDate = extractedAny.receipt_date_iso
+  } else if (typeof extracted.receipt_date === "string") {
+    // Try to parse DD-MM-YYYY or DD/MM/YYYY format from deterministic parser
+    const ddmmMatch = extracted.receipt_date.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/)
+    if (ddmmMatch) {
+      const [, day, month, year] = ddmmMatch
+      receiptDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+    } else {
+      receiptDate = normalizeDate(extracted.receipt_date) || todayIsoDate()
+    }
+  } else {
+    receiptDate = todayIsoDate()
+  }
   const receiptTime = normalizeTime(extracted.receipt_time) || nowIsoTime()
   const currency = typeof extracted.currency === "string" && extracted.currency.trim().length > 0
     ? extracted.currency.trim().toUpperCase()
@@ -596,9 +646,16 @@ export async function processReceiptNow({ receiptId, userId }: EnqueueParams) {
   const summedTotal = items.reduce((sum, item) => sum + (Number(item.total_price) || 0), 0)
   const totalAmount = Math.max(parseNumber(extracted.total_amount), summedTotal)
 
+  // Extract taxes_total_cuota if present (from deterministic parsers)
+  const taxesTotalCuota = typeof extractedAny.taxes_total_cuota === "number"
+    ? extractedAny.taxes_total_cuota
+    : typeof extractedAny.taxes_total_cuota === "string"
+      ? parseFloat(extractedAny.taxes_total_cuota)
+      : null
+
   const aiExtractionData = {
     status: "completed",
-    model: RECEIPT_MODEL,
+    model: isPdf ? "deterministic-parser-or-ai" : RECEIPT_MODEL,
     rawText,
     extracted,
     normalized: {
@@ -609,6 +666,10 @@ export async function processReceiptNow({ receiptId, userId }: EnqueueParams) {
       totalAmount,
       itemCount: items.length,
     },
+    // Store additional Mercadona parser data
+    taxes_total_cuota: Number.isFinite(taxesTotalCuota) ? taxesTotalCuota : null,
+    receipt_date_display: typeof extractedAny.receipt_date === "string" ? extractedAny.receipt_date : null,
+    receipt_date_iso: receiptDate,
     processedAt: new Date().toISOString(),
   }
 
