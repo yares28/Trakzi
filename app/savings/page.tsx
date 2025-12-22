@@ -15,6 +15,11 @@ import { toast } from "sonner"
 import { normalizeTransactions } from "@/lib/utils"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 
+// Persistence keys
+const SAVINGS_ORDER_STORAGE_KEY = "savings-chart-order"
+const SAVINGS_SIZES_STORAGE_KEY = "savings-chart-sizes"
+const DEFAULT_SAVINGS_ORDER = ["savingsAccumulation"]
+
 export default function Page() {
   // Transactions state
   const [transactions, setTransactions] = useState<Array<{
@@ -28,6 +33,49 @@ export default function Page() {
 
   // Date filter state
   const [dateFilter, setDateFilter] = useState<string | null>(null)
+
+  // @dnd-kit: Chart order and sizes state
+  const [chartOrder, setChartOrder] = useState<string[]>(DEFAULT_SAVINGS_ORDER)
+  const [savedChartSizes, setSavedChartSizes] = useState<Record<string, { w: number; h: number }>>({})
+
+  // Load saved order and sizes on mount
+  useEffect(() => {
+    try {
+      const savedOrder = localStorage.getItem(SAVINGS_ORDER_STORAGE_KEY)
+      if (savedOrder) {
+        setChartOrder(JSON.parse(savedOrder))
+      }
+
+      const savedSizes = localStorage.getItem(SAVINGS_SIZES_STORAGE_KEY)
+      if (savedSizes) {
+        setSavedChartSizes(JSON.parse(savedSizes))
+      }
+    } catch (e) {
+      console.error("[Savings] Failed to load layout from localStorage:", e)
+    }
+  }, [])
+
+  // Handlers for persistence
+  const handleOrderChange = useCallback((newOrder: string[]) => {
+    setChartOrder(newOrder)
+    try {
+      localStorage.setItem(SAVINGS_ORDER_STORAGE_KEY, JSON.stringify(newOrder))
+    } catch (e) {
+      console.error("[Savings] Failed to save chart order:", e)
+    }
+  }, [])
+
+  const handleResize = useCallback((id: string, w: number, h: number) => {
+    setSavedChartSizes(prev => {
+      const next = { ...prev, [id]: { w, h } }
+      try {
+        localStorage.setItem(SAVINGS_SIZES_STORAGE_KEY, JSON.stringify(next))
+      } catch (e) {
+        console.error("[Savings] Failed to save chart sizes:", e)
+      }
+      return next
+    })
+  }, [])
 
   // Fetch transactions for charts - filter for savings category only
   const fetchTransactions = useCallback(async () => {
@@ -336,24 +384,34 @@ export default function Page() {
                 expensesTrend={statsTrends.expensesTrend}
                 netWorthTrend={statsTrends.netWorthTrend}
               />
-              {/* @dnd-kit chart grid (single chart for now, expandable) */}
+              {/* @dnd-kit chart grid */}
               <div className="px-4 lg:px-6">
                 <SortableGridProvider
-                  chartOrder={['savingsAccumulation']}
-                  onOrderChange={() => { }}
+                  chartOrder={chartOrder}
+                  onOrderChange={handleOrderChange}
                 >
-                  <SortableGridItem
-                    id="savingsAccumulation"
-                    w={12}
-                    h={getChartCardSize('savingsAccumulation').minH}
-                    resizable
-                    minW={getChartCardSize('savingsAccumulation').minW}
-                    maxW={getChartCardSize('savingsAccumulation').maxW}
-                    minH={getChartCardSize('savingsAccumulation').minH}
-                    maxH={getChartCardSize('savingsAccumulation').maxH}
-                  >
-                    <ChartSavingsAccumulation data={chartData} />
-                  </SortableGridItem>
+                  {chartOrder.map((chartId) => {
+                    const sizeConfig = getChartCardSize(chartId as ChartId)
+                    const savedSize = savedChartSizes[chartId]
+                    return (
+                      <SortableGridItem
+                        key={chartId}
+                        id={chartId}
+                        w={(savedSize?.w ?? 12) as any}
+                        h={savedSize?.h ?? sizeConfig.minH}
+                        resizable
+                        minW={sizeConfig.minW}
+                        maxW={sizeConfig.maxW}
+                        minH={sizeConfig.minH}
+                        maxH={sizeConfig.maxH}
+                        onResize={handleResize}
+                      >
+                        {chartId === 'savingsAccumulation' && (
+                          <ChartSavingsAccumulation data={chartData} />
+                        )}
+                      </SortableGridItem>
+                    )
+                  })}
                 </SortableGridProvider>
               </div>
             </div>

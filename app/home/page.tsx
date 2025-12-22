@@ -416,6 +416,10 @@ const MemoizedTableRow = memo(function MemoizedTableRow({
   )
 })
 
+// Storage keys for persistence
+const FAVORITES_ORDER_STORAGE_KEY = 'home-favorites-order'
+const FAVORITE_SIZES_STORAGE_KEY = 'home-favorites-chart-sizes'
+
 export default function Page() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -425,8 +429,7 @@ export default function Page() {
   // Handle pending checkout after signup (if user selected a paid plan before signing up)
   const { isProcessing: isCheckoutProcessing } = usePendingCheckout()
 
-  // @dnd-kit: Chart order state for favorites section (replaces GridStack refs)
-  const FAVORITES_ORDER_STORAGE_KEY = 'home-favorites-order'
+  // @dnd-kit: Chart order state for favorites section
   const [favoritesOrder, setFavoritesOrder] = useState<string[]>([])
 
   // Sync favoritesOrder with favorites set
@@ -468,25 +471,13 @@ export default function Page() {
     setSavedFavoriteSizes(prev => {
       const next = { ...prev, [chartId]: { w, h } }
       try {
-        localStorage.setItem('home-favorites-sizes-user', JSON.stringify(next))
+        localStorage.setItem(FAVORITE_SIZES_STORAGE_KEY, JSON.stringify(next))
       } catch (e) {
         console.error("Failed to save favorites size:", e)
       }
       return next
     })
-  }, [])
-
-  // Load saved favorite sizes on mount
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('home-favorites-sizes-user')
-      if (saved) {
-        setSavedFavoriteSizes(JSON.parse(saved))
-      }
-    } catch {
-      // Ignore
-    }
-  }, [])
+  }, [FAVORITE_SIZES_STORAGE_KEY])
 
   // Saved chart sizes for favorites
   const [savedFavoriteSizes, setSavedFavoriteSizes] = useState<Record<string, { w: number; h: number; x?: number; y?: number }>>({})
@@ -547,9 +538,6 @@ export default function Page() {
     const clampedHeight = Math.max(4, Math.min(20, h))
     return { w: snappedWidth, h: clampedHeight }
   }, [])
-
-  // localStorage key for favorite chart sizes
-  const FAVORITE_SIZES_STORAGE_KEY = 'home-favorites-chart-sizes'
 
   // Load saved favorite chart sizes
   const loadFavoriteSizes = useCallback((): Record<string, { w: number; h: number; x?: number; y?: number }> => {

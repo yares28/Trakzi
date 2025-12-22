@@ -1459,6 +1459,12 @@ export function FridgePageClient() {
     setHasLoadedChartSizes(true)
   }, [loadChartSizes])
 
+  const handleChartResize = useCallback((id: string, w: number, h: number) => {
+    const currentSizes = savedChartSizesRef.current
+    const newSizes = { ...currentSizes, [id]: { ...currentSizes[id], w, h } }
+    saveChartSizes(newSizes)
+  }, [saveChartSizes])
+
   // NOTE: GridStack initialization removed - now using @dnd-kit for drag-and-drop
   // The SortableGridProvider handles all drag-and-drop functionality with built-in auto-scroll
 
@@ -1521,7 +1527,7 @@ export function FridgePageClient() {
       <SidebarInset>
         <SiteHeader />
         <main
-          className="flex-1 space-y-4 p-4 pt-0 lg:p-6 lg:pt-2"
+          className="flex-1 space-y-4 pt-0 lg:pt-2"
           onDragEnter={handleUploadDragEnter}
           onDragLeave={handleUploadDragLeave}
           onDragOver={handleUploadDragOver}
@@ -1559,8 +1565,8 @@ export function FridgePageClient() {
               </>,
               document.body
             )}
-          <div className="@container/main flex flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+          <div className="@container/main flex flex-1 flex-col gap-2 min-w-0">
+            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 min-w-0 w-full">
               <SectionCardsFridge
                 totalSpent={metrics.totalSpent}
                 shoppingTrips={metrics.shoppingTrips}
@@ -1575,10 +1581,11 @@ export function FridgePageClient() {
               />
 
               {/* @dnd-kit chart section */}
-              <div className="w-full mb-4 px-4 lg:px-6">
+              <div className="w-full mb-4">
                 <SortableGridProvider
                   chartOrder={chartOrder}
                   onOrderChange={handleChartOrderChange}
+                  className="px-4 lg:px-6"
                 >
                   {chartOrder.map((chartId) => {
                     const defaultSize = DEFAULT_CHART_SIZES[chartId]
@@ -1588,13 +1595,14 @@ export function FridgePageClient() {
                       <SortableGridItem
                         key={chartId}
                         id={chartId}
-                        w={defaultSize.w as 6 | 12}
-                        h={defaultSize.h}
+                        w={(savedChartSizes[chartId]?.w ?? defaultSize.w) as any}
+                        h={savedChartSizes[chartId]?.h ?? defaultSize.h}
                         resizable
                         minW={sizeConfig.minW}
                         maxW={sizeConfig.maxW}
                         minH={sizeConfig.minH}
                         maxH={sizeConfig.maxH}
+                        onResize={handleChartResize}
                       >
                         <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                           {renderChart(chartId)}
@@ -1605,14 +1613,16 @@ export function FridgePageClient() {
                 </SortableGridProvider>
               </div>
 
-              <DataTableFridge
-                key={dateFilter ?? "all"}
-                data={tableData}
-                onReceiptsChanged={() => setReceiptsRefreshNonce((n) => n + 1)}
-              />
+              <div className="w-full">
+                <DataTableFridge
+                  key={dateFilter ?? "all"}
+                  data={tableData}
+                  onReceiptsChanged={() => setReceiptsRefreshNonce((n) => n + 1)}
+                />
+              </div>
 
               {/* Price & Store Analysis Cards */}
-              <div className="grid gap-4 md:grid-cols-2 px-4 lg:px-6 py-4">
+              <div className="grid gap-4 md:grid-cols-2 px-4 lg:px-6 py-4 min-w-0">
                 <CardPriceComparisonFridge
                   data={receiptTransactions.map(tx => ({
                     id: tx.id,

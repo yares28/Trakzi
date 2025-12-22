@@ -189,7 +189,7 @@ export function SortableGridProvider({
                 <div
                     className={`grid gap-4 ${className}`}
                     style={{
-                        gridTemplateColumns: 'repeat(12, 1fr)',
+                        gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
                         gridAutoFlow: 'row dense', // Pack items densely row by row
                         gridAutoRows: '70px', // Fixed row height for 2D packing
                     }}

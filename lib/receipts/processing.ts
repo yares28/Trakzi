@@ -357,7 +357,7 @@ async function extractReceiptWithAi(params: {
 
   const schemaPrompt = buildReceiptSchemaPrompt()
   const prompt = [
-    "You extract structured data from a grocery store receipt image.",
+    "You extract structured data from a grocery store receipt image or PDF.",
     "Return ONLY valid JSON (no markdown, no code fences).",
     "",
     "Rules:",

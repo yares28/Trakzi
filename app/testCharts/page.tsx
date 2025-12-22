@@ -130,16 +130,29 @@ export default function TestChartsPage() {
         "fridge:macronutrient-breakdown", "fridge:snack-percentage"
     ])
 
-    // Load saved orders from localStorage
+    // Load saved orders and sizes from localStorage
+    const [analyticsSizes, setAnalyticsSizes] = useState<Record<string, { w: number; h: number }>>({})
+    const [savingsSizes, setSavingsSizes] = useState<Record<string, { w: number; h: number }>>({})
+    const [fridgeSizes, setFridgeSizes] = useState<Record<string, { w: number; h: number }>>({})
+
     useEffect(() => {
         const savedAnalytics = localStorage.getItem('testCharts-analytics-order')
         if (savedAnalytics) setAnalyticsOrder(JSON.parse(savedAnalytics))
 
+        const savedAnalyticsSizes = localStorage.getItem('testCharts-analytics-sizes')
+        if (savedAnalyticsSizes) setAnalyticsSizes(JSON.parse(savedAnalyticsSizes))
+
         const savedSavings = localStorage.getItem('testCharts-savings-order')
         if (savedSavings) setSavingsOrder(JSON.parse(savedSavings))
 
+        const savedSavingsSizes = localStorage.getItem('testCharts-savings-sizes')
+        if (savedSavingsSizes) setSavingsSizes(JSON.parse(savedSavingsSizes))
+
         const savedFridge = localStorage.getItem('testCharts-fridge-order')
         if (savedFridge) setFridgeOrder(JSON.parse(savedFridge))
+
+        const savedFridgeSizes = localStorage.getItem('testCharts-fridge-sizes')
+        if (savedFridgeSizes) setFridgeSizes(JSON.parse(savedFridgeSizes))
     }, [])
 
     const handleAnalyticsOrderChange = (newOrder: string[]) => {
@@ -147,15 +160,40 @@ export default function TestChartsPage() {
         localStorage.setItem('testCharts-analytics-order', JSON.stringify(newOrder))
     }
 
+    const handleAnalyticsResize = (id: string, w: number, h: number) => {
+        setAnalyticsSizes(prev => {
+            const next = { ...prev, [id]: { w, h } }
+            localStorage.setItem('testCharts-analytics-sizes', JSON.stringify(next))
+            return next
+        })
+    }
+
     const handleSavingsOrderChange = (newOrder: string[]) => {
         setSavingsOrder(newOrder)
         localStorage.setItem('testCharts-savings-order', JSON.stringify(newOrder))
+    }
+
+    const handleSavingsResize = (id: string, w: number, h: number) => {
+        setSavingsSizes(prev => {
+            const next = { ...prev, [id]: { w, h } }
+            localStorage.setItem('testCharts-savings-sizes', JSON.stringify(next))
+            return next
+        })
     }
 
     const handleFridgeOrderChange = (newOrder: string[]) => {
         setFridgeOrder(newOrder)
         localStorage.setItem('testCharts-fridge-order', JSON.stringify(newOrder))
     }
+
+    const handleFridgeResize = (id: string, w: number, h: number) => {
+        setFridgeSizes(prev => {
+            const next = { ...prev, [id]: { w, h } }
+            localStorage.setItem('testCharts-fridge-sizes', JSON.stringify(next))
+            return next
+        })
+    }
+
 
     // Date filter state
     const { filter: dateFilter, setFilter: setDateFilter } = useDateFilter()
@@ -358,17 +396,22 @@ export default function TestChartsPage() {
                                 onOrderChange={handleAnalyticsOrderChange}
                                 className="w-full px-4 lg:px-6"
                             >
-                                {analyticsOrder.map((chartId) => (
-                                    <SortableGridItem
-                                        key={chartId}
-                                        id={chartId}
-                                        w={getChartCardSize(chartId as ChartId).minW as any}
-                                        h={getChartCardSize(chartId as ChartId).minH}
-                                        resizable
-                                    >
-                                        {renderChart(chartId)}
-                                    </SortableGridItem>
-                                ))}
+                                {analyticsOrder.map((chartId) => {
+                                    const sizeConfig = getChartCardSize(chartId as ChartId)
+                                    const savedSize = analyticsSizes[chartId]
+                                    return (
+                                        <SortableGridItem
+                                            key={chartId}
+                                            id={chartId}
+                                            w={(savedSize?.w ?? sizeConfig.minW) as any}
+                                            h={savedSize?.h ?? sizeConfig.minH}
+                                            resizable
+                                            onResize={handleAnalyticsResize}
+                                        >
+                                            {renderChart(chartId)}
+                                        </SortableGridItem>
+                                    )
+                                })}
                             </SortableGridProvider>
                         </section>
 
@@ -383,17 +426,22 @@ export default function TestChartsPage() {
                                 onOrderChange={handleSavingsOrderChange}
                                 className="w-full px-4 lg:px-6"
                             >
-                                {savingsOrder.map((chartId) => (
-                                    <SortableGridItem
-                                        key={chartId}
-                                        id={chartId}
-                                        w={getChartCardSize(chartId as ChartId).minW as any}
-                                        h={getChartCardSize(chartId as ChartId).minH}
-                                        resizable
-                                    >
-                                        {renderChart(chartId)}
-                                    </SortableGridItem>
-                                ))}
+                                {savingsOrder.map((chartId) => {
+                                    const sizeConfig = getChartCardSize(chartId as ChartId)
+                                    const savedSize = savingsSizes[chartId]
+                                    return (
+                                        <SortableGridItem
+                                            key={chartId}
+                                            id={chartId}
+                                            w={(savedSize?.w ?? sizeConfig.minW) as any}
+                                            h={savedSize?.h ?? sizeConfig.minH}
+                                            resizable
+                                            onResize={handleSavingsResize}
+                                        >
+                                            {renderChart(chartId)}
+                                        </SortableGridItem>
+                                    )
+                                })}
                             </SortableGridProvider>
                         </section>
 
@@ -408,17 +456,22 @@ export default function TestChartsPage() {
                                 onOrderChange={handleFridgeOrderChange}
                                 className="w-full px-4 lg:px-6"
                             >
-                                {fridgeOrder.map((chartId) => (
-                                    <SortableGridItem
-                                        key={chartId}
-                                        id={chartId}
-                                        w={getChartCardSize(chartId as ChartId).minW as any}
-                                        h={getChartCardSize(chartId as ChartId).minH}
-                                        resizable
-                                    >
-                                        {renderChart(chartId)}
-                                    </SortableGridItem>
-                                ))}
+                                {fridgeOrder.map((chartId) => {
+                                    const sizeConfig = getChartCardSize(chartId as ChartId)
+                                    const savedSize = fridgeSizes[chartId]
+                                    return (
+                                        <SortableGridItem
+                                            key={chartId}
+                                            id={chartId}
+                                            w={(savedSize?.w ?? sizeConfig.minW) as any}
+                                            h={savedSize?.h ?? sizeConfig.minH}
+                                            resizable
+                                            onResize={handleFridgeResize}
+                                        >
+                                            {renderChart(chartId)}
+                                        </SortableGridItem>
+                                    )
+                                })}
                             </SortableGridProvider>
                         </section>
                     </div>

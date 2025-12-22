@@ -27,10 +27,10 @@ function isSupportedReceiptPdf(file: File): boolean {
   return ext === "pdf"
 }
 
-async function extractTextFromPdf(buffer: Buffer): Promise<string> {
+async function extractTextFromPdf(data: Uint8Array): Promise<string> {
   // Use unpdf which is designed for serverless environments (no DOM dependencies)
   const { extractText } = await import("unpdf")
-  const result = await extractText(buffer)
+  const result = await extractText(data)
   // unpdf returns text as an array of strings (one per page), join them
   const pages = result.text || []
   return Array.isArray(pages) ? pages.join("\n") : String(pages)
@@ -329,7 +329,7 @@ async function extractReceiptWithAi(params: {
 
   const schemaPrompt = buildReceiptSchemaPrompt()
   const prompt = [
-    "You extract structured data from a grocery store receipt image.",
+    "You extract structured data from a grocery store receipt image or PDF.",
     "Return ONLY valid JSON (no markdown, no code fences).",
     "",
     "Rules:",
@@ -585,23 +585,36 @@ export const POST = async (req: NextRequest) => {
         const stored = await saveFileToNeon({ file, source: "Receipt" })
 
         const arrayBuffer = await file.arrayBuffer()
+        const uint8Array = new Uint8Array(arrayBuffer)
         const buffer = Buffer.from(arrayBuffer)
 
         let extracted: ExtractedReceipt
 
         if (isPdf) {
-          // Extract text from PDF and send to AI
-          const pdfText = await extractTextFromPdf(buffer)
-          if (!pdfText.trim()) {
-            rejected.push({ fileName: file.name, reason: "PDF appears to be empty or unreadable" })
-            continue
+          // Attempt Vision-based extraction first (Perfect approach for Gemini 2.0)
+          try {
+            const base64DataUrl = `data:application/pdf;base64,${buffer.toString("base64")}`
+            const result = await extractReceiptWithAi({
+              base64DataUrl,
+              fileName: file.name,
+              allowedCategories: allowedCategoryNames,
+            })
+            extracted = result.extracted
+          } catch (visionError) {
+            console.error("[Receipts Upload] PDF Vision failed, falling back to text extraction:", visionError)
+            // Fallback to text extraction using unpdf (fixed to pass Uint8Array)
+            const pdfText = await extractTextFromPdf(uint8Array)
+            if (!pdfText.trim()) {
+              rejected.push({ fileName: file.name, reason: "PDF appears to be empty or unreadable" })
+              continue
+            }
+            const result = await extractReceiptFromPdfText({
+              pdfText,
+              fileName: file.name,
+              allowedCategories: allowedCategoryNames,
+            })
+            extracted = result.extracted
           }
-          const result = await extractReceiptFromPdfText({
-            pdfText,
-            fileName: file.name,
-            allowedCategories: allowedCategoryNames,
-          })
-          extracted = result.extracted
         } else {
           // Send image to AI
           const mimeType = (file.type || stored.mime_type || "image/jpeg").toLowerCase()
