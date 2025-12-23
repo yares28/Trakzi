@@ -19,7 +19,7 @@ export const DEFAULT_RECEIPT_CATEGORY_TYPES: ReceiptCategoryType[] = [
   { name: "Carbs", color: "#f59e0b" }, // Amber
   { name: "Fat", color: "#eab308" }, // Yellow
   { name: "Fiber", color: "#10b981" }, // Green
-  { name: "Vitamins/Minerals", color: "#3b82f6" }, // Blue
+  { name: "None", color: "#3b82f6" }, // Blue (no macronutrient value)
   { name: "Other", color: "#64748b" }, // Slate
 ]
 
@@ -34,7 +34,6 @@ export const DEFAULT_RECEIPT_CATEGORIES: ReceiptCategory[] = [
 
   // CARBS
   { name: "Bread & Bakery", type: "Carbs", color: "#d97706", broadType: "Food" }, // Bread, tortillas, pies, muffins, bagels, cookies, etc.
-  { name: "Pasta, Rice & Potato", type: "Carbs", color: "#b45309", broadType: "Food" }, // Oats, granola, brown rice, white rice, macaroni, noodles, potatoes, etc.
   { name: "Snacks", type: "Carbs", color: "#92400e", broadType: "Food" }, // Chips, pretzels, popcorn, crackers, etc.
   { name: "Baking", type: "Carbs", color: "#78350f", broadType: "Food" }, // Flour, powdered sugar, baking powder, cocoa, etc.
   { name: "Soda & Cola", type: "Carbs", color: "#1d4ed8", broadType: "Drinks" }, // Cola, soda, fizzy drinks, etc. (sugar-based)
@@ -54,13 +53,13 @@ export const DEFAULT_RECEIPT_CATEGORIES: ReceiptCategory[] = [
   { name: "Vegetables", type: "Fiber", color: "#047857", broadType: "Food" }, // Onions, carrots, salad greens, broccoli, peppers, tomatoes, cucumbers, etc.
   { name: "Canned Goods", type: "Fiber", color: "#065f46", broadType: "Food" }, // Soup, tuna, fruit, beans, vegetables, pasta sauce, etc.
 
-  // VITAMINS/MINERALS
-  { name: "Frozen Foods", type: "Vitamins/Minerals", color: "#2563eb", broadType: "Food" }, // Pizza, fish, potatoes, ready meals, ice cream, etc.
-  { name: "Prepared Foods", type: "Vitamins/Minerals", color: "#4f46e5", broadType: "Food" }, // Ready-to-eat meals, pre-made salads, rotisserie chicken, etc.
-  { name: "Water", type: "Vitamins/Minerals", color: "#0ea5e9", broadType: "Drinks" }, // Bottled water, sparkling water, etc.
-  { name: "Coffee & Tea", type: "Vitamins/Minerals", color: "#6b7280", broadType: "Drinks" }, // Coffee, tea, teabags, etc.
+  // NONE (No macronutrient value)
+  { name: "Frozen Foods", type: "None", color: "#2563eb", broadType: "Food" }, // Pizza, fish, potatoes, ready meals, ice cream, etc.
+  { name: "Prepared Foods", type: "None", color: "#4f46e5", broadType: "Food" }, // Ready-to-eat meals, pre-made salads, rotisserie chicken, etc.
+  { name: "Water", type: "None", color: "#0ea5e9", broadType: "Drinks" }, // Bottled water, sparkling water, etc.
+  { name: "Coffee & Tea", type: "None", color: "#6b7280", broadType: "Drinks" }, // Coffee, tea, teabags, etc.
   { name: "Alcohol", type: "Carbs", color: "#9333ea", broadType: "Drinks" }, // Beer, wine, spirits, etc. (carbs from alcohol)
-  { name: "Health Care", type: "Vitamins/Minerals", color: "#1e3a8a", broadType: "Health Care" }, // Saline, band-aid, cleaning alcohol, pain killers, antacids, etc.
+  { name: "Health Care", type: "None", color: "#1e3a8a", broadType: "Health Care" }, // Saline, band-aid, cleaning alcohol, pain killers, antacids, etc.
 
   // OTHER (No specific macronutrient)
   { name: "Personal Care", type: "Other", color: "#1e40af", broadType: "Personal Care" }, // Shampoo, conditioner, deodorant, toothpaste, dental floss, etc.
