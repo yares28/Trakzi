@@ -26,6 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ChartExpandButton } from "@/components/chart-expand-button"
+import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 
 interface ChartSingleMonthCategorySpendingProps {
   dateFilter?: string | null
@@ -82,9 +84,9 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
     initialAvailableMonths.length > 0 ? initialAvailableMonths[0] : null
   const cachedSelected = initialSelectedMonth !== null
     ? getCachedResponse<{
-        data: Array<{ category: string; month: number; total: number }>
-        availableMonths: number[]
-      }>(buildMonthlyCategoryUrl(buildMonthParams(initialSelectedMonth)))
+      data: Array<{ category: string; month: number; total: number }>
+      availableMonths: number[]
+    }>(buildMonthlyCategoryUrl(buildMonthParams(initialSelectedMonth)))
     : undefined
   const [mounted, setMounted] = React.useState(false)
   const [data, setData] = React.useState<MonthData[]>(
@@ -103,6 +105,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
   const containerRef = React.useRef<HTMLDivElement>(null)
   const [tooltip, setTooltip] = React.useState<{ label: string; value: number; color: string } | null>(null)
   const [tooltipPosition, setTooltipPosition] = React.useState<{ x: number; y: number } | null>(null)
+  const [isFullscreen, setIsFullscreen] = React.useState(false)
 
   React.useEffect(() => {
     // Mark as mounted to avoid rendering chart on server
@@ -324,8 +327,8 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
     }
   }, [tooltip])
 
-  const renderInfoTrigger = () => (
-    <div className="flex flex-col items-center gap-2">
+  const renderInfoTrigger = (forFullscreen = false) => (
+    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
         title="Single Month Category Spending"
         description="Compare spending across categories for a selected month."
@@ -510,89 +513,104 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
   }
 
   return (
-    <Card className="@container/card">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <GridStackCardDragHandle />
-          <ChartFavoriteButton
-            chartId="singleMonthCategorySpending"
-            chartTitle="Single Month Category Spending"
-            size="md"
-          />
-          <CardTitle>Single Month Category Spending</CardTitle>
+    <>
+      <ChartFullscreenModal
+        isOpen={isFullscreen}
+        onClose={() => setIsFullscreen(false)}
+        title="Single Month Category Spending"
+        description="Compare spending across categories for a selected month"
+        headerActions={renderInfoTrigger(true)}
+      >
+        <div className="h-full w-full min-h-[400px] text-center flex items-center justify-center text-muted-foreground">
+          Fullscreen view - Select a month to see category breakdown
         </div>
-        <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          {renderInfoTrigger()}
-          <Select
-            value={selectedMonth !== null ? selectedMonth.toString() : ""}
-            onValueChange={(value) => setSelectedMonth(parseInt(value, 10))}
-          >
-            <SelectTrigger
-              className="w-32 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
-              size="sm"
-              aria-label="Select month"
-            >
-              <SelectValue placeholder="Select month" />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              {availableMonths.map((month) => (
-                <SelectItem key={month} value={month.toString()} className="rounded-lg">
-                  {MONTH_NAMES[month - 1]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardAction>
-      </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-        {option && data.length > 0 ? (
-          <div className="h-full w-full flex flex-col">
-            <div className="mb-2 text-sm font-medium text-foreground text-center">
-              Total: {formatCurrency(data.reduce((sum, item) => sum + item.total, 0))}
-            </div>
-            <div ref={containerRef} className="relative flex-1 min-h-0" style={{ minHeight: 0, minWidth: 0 }}>
-              {option && (
-                <ReactECharts
-                  ref={chartRef}
-                  option={option}
-                  style={{ height: "100%", width: "100%" }}
-                  opts={{ renderer: "svg" }}
-                  notMerge={true}
-                  onEvents={{
-                    mouseover: handleChartMouseOver,
-                    mouseout: handleChartMouseOut,
-                  }}
-                />
-              )}
-              {tooltip && tooltipPosition && (
-                <div
-                  className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
-                  style={{
-                    left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
-                    top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full border border-border/50"
-                      style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
-                    />
-                    <span className="font-medium text-foreground whitespace-nowrap">{tooltip.label}</span>
-                  </div>
-                  <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                    {formatCurrency(tooltip.value)}
-                  </div>
-                </div>
-              )}
-            </div>
+      </ChartFullscreenModal>
+
+      <Card className="@container/card">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
+            <ChartExpandButton onClick={() => setIsFullscreen(true)} />
+            <ChartFavoriteButton
+              chartId="singleMonthCategorySpending"
+              chartTitle="Single Month Category Spending"
+              size="md"
+            />
+            <CardTitle>Single Month Category Spending</CardTitle>
           </div>
-        ) : (
-          <ChartLoadingState
-            emptyTitle="No spending data"
-            emptyDescription="No transactions recorded for this month yet"
-          />
-        )}
-      </CardContent>
-    </Card>
+          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            {renderInfoTrigger()}
+            <Select
+              value={selectedMonth !== null ? selectedMonth.toString() : ""}
+              onValueChange={(value) => setSelectedMonth(parseInt(value, 10))}
+            >
+              <SelectTrigger
+                className="w-32 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
+                size="sm"
+                aria-label="Select month"
+              >
+                <SelectValue placeholder="Select month" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                {availableMonths.map((month) => (
+                  <SelectItem key={month} value={month.toString()} className="rounded-lg">
+                    {MONTH_NAMES[month - 1]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+          {option && data.length > 0 ? (
+            <div className="h-full w-full flex flex-col">
+              <div className="mb-2 text-sm font-medium text-foreground text-center">
+                Total: {formatCurrency(data.reduce((sum, item) => sum + item.total, 0))}
+              </div>
+              <div ref={containerRef} className="relative flex-1 min-h-0" style={{ minHeight: 0, minWidth: 0 }}>
+                {option && (
+                  <ReactECharts
+                    ref={chartRef}
+                    option={option}
+                    style={{ height: "100%", width: "100%" }}
+                    opts={{ renderer: "svg" }}
+                    notMerge={true}
+                    onEvents={{
+                      mouseover: handleChartMouseOver,
+                      mouseout: handleChartMouseOut,
+                    }}
+                  />
+                )}
+                {tooltip && tooltipPosition && (
+                  <div
+                    className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+                    style={{
+                      left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
+                      top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full border border-border/50"
+                        style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
+                      />
+                      <span className="font-medium text-foreground whitespace-nowrap">{tooltip.label}</span>
+                    </div>
+                    <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
+                      {formatCurrency(tooltip.value)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <ChartLoadingState
+              emptyTitle="No spending data"
+              emptyDescription="No transactions recorded for this month yet"
+            />
+          )}
+        </CardContent>
+      </Card>
+    </>
   )
 }
