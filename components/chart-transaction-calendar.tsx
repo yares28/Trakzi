@@ -27,6 +27,8 @@ import {
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { ChartLoadingState } from "@/components/chart-loading-state"
+import { ChartExpandButton } from "@/components/chart-expand-button"
+import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 
 interface ChartTransactionCalendarProps {
   data?: Array<{
@@ -99,9 +101,10 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
   const currentYear = new Date().getFullYear()
   const [selectedYear, setSelectedYear] = useState(currentYear.toString())
   const { resolvedTheme } = useTheme()
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
-  const renderInfoTrigger = () => (
-    <div className="flex flex-col items-center gap-2">
+  const renderInfoTrigger = (forFullscreen = false) => (
+    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
         title="Daily Transaction Activity"
         description="Your spending patterns throughout the year - darker means more transactions"
@@ -619,105 +622,120 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
   }
 
   return (
-    <Card className="@container/card">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <GridStackCardDragHandle />
-          <ChartFavoriteButton
-            chartId="dailyTransactionActivity"
-            chartTitle="Daily Transaction Activity"
-            size="md"
-          />
-          <CardTitle>Daily Transaction Activity</CardTitle>
+    <>
+      <ChartFullscreenModal
+        isOpen={isFullscreen}
+        onClose={() => setIsFullscreen(false)}
+        title="Daily Transaction Activity"
+        description="Spending patterns throughout the year"
+        headerActions={renderInfoTrigger(true)}
+      >
+        <div className="h-full w-full min-h-[400px] text-center flex items-center justify-center text-muted-foreground">
+          Fullscreen view - Calendar heatmap shows spending intensity
         </div>
-        <CardAction className="flex flex-wrap items-center gap-2">
-          {renderInfoTrigger()}
-          <Select
-            value={selectedYear}
-            onValueChange={setSelectedYear}
-            disabled={isGlobalFilterActive}
-          >
-            <SelectTrigger
-              className="w-32 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
-              size="sm"
-              aria-label="Select year"
-            >
-              <SelectValue placeholder={selectedYear === "YTD" ? "YTD" : selectedYear || currentYear.toString()} />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              <SelectItem value="YTD" className="rounded-lg">
-                YTD
-              </SelectItem>
-              {availableYears.map((year) => (
-                <SelectItem key={year} value={year.toString()} className="rounded-lg">
-                  {year}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {isGlobalFilterActive && (
-            <span className="text-xs text-muted-foreground">
-              Showing {formatFilterLabel(dateFilter)}
-            </span>
-          )}
-        </CardAction>
-      </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-        <div ref={containerRef} className="relative h-[250px] w-full" style={{ minHeight: 0, minWidth: 0 }}>
-          <ReactECharts
-            ref={chartRef}
-            option={option}
-            style={{ height: '100%', width: '100%' }}
-            opts={{ renderer: 'svg' }}
-            notMerge={true}
-            onEvents={{
-              mouseover: handleChartMouseOver,
-              mouseout: handleChartMouseOut,
-            }}
-          />
-          {tooltip && tooltipPosition && (
-            <div
-              className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
-              style={{
-                left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
-                top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
-              }}
-            >
-              <div className="flex items-center gap-2">
-                <span
-                  className="h-2.5 w-2.5 rounded-full border border-border/50"
-                  style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
-                />
-                <span className="font-medium text-foreground whitespace-nowrap">
-                  {formatDateForDisplay(tooltip.date, "en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </span>
-              </div>
-              <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                {formatCurrency(tooltip.value)}
-              </div>
-            </div>
-          )}
-        </div>
-        {/* Color Legend - Only 3 colors */}
-        <div className="mt-4 flex items-center justify-center gap-3 px-2 sm:px-6">
-          <span className="text-xs text-muted-foreground">Less</span>
-          <div className="flex h-4 items-center gap-0.5">
-            {palette.slice(0, 3).map((color, index) => (
-              <div
-                key={index}
-                className="h-full w-3 rounded-sm"
-                style={{ backgroundColor: color }}
-                title={`Expense level ${index + 1}`}
-              />
-            ))}
+      </ChartFullscreenModal>
+
+      <Card className="@container/card">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
+            <ChartExpandButton onClick={() => setIsFullscreen(true)} />
+            <ChartFavoriteButton
+              chartId="dailyTransactionActivity"
+              chartTitle="Daily Transaction Activity"
+              size="md"
+            />
+            <CardTitle>Daily Transaction Activity</CardTitle>
           </div>
-          <span className="text-xs text-muted-foreground">More</span>
-        </div>
-      </CardContent>
-    </Card>
+          <CardAction className="flex flex-wrap items-center gap-2">
+            {renderInfoTrigger()}
+            <Select
+              value={selectedYear}
+              onValueChange={setSelectedYear}
+              disabled={isGlobalFilterActive}
+            >
+              <SelectTrigger
+                className="w-32 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
+                size="sm"
+                aria-label="Select year"
+              >
+                <SelectValue placeholder={selectedYear === "YTD" ? "YTD" : selectedYear || currentYear.toString()} />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="YTD" className="rounded-lg">
+                  YTD
+                </SelectItem>
+                {availableYears.map((year) => (
+                  <SelectItem key={year} value={year.toString()} className="rounded-lg">
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {isGlobalFilterActive && (
+              <span className="text-xs text-muted-foreground">
+                Showing {formatFilterLabel(dateFilter)}
+              </span>
+            )}
+          </CardAction>
+        </CardHeader>
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+          <div ref={containerRef} className="relative h-[250px] w-full" style={{ minHeight: 0, minWidth: 0 }}>
+            <ReactECharts
+              ref={chartRef}
+              option={option}
+              style={{ height: '100%', width: '100%' }}
+              opts={{ renderer: 'svg' }}
+              notMerge={true}
+              onEvents={{
+                mouseover: handleChartMouseOver,
+                mouseout: handleChartMouseOut,
+              }}
+            />
+            {tooltip && tooltipPosition && (
+              <div
+                className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+                style={{
+                  left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
+                  top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full border border-border/50"
+                    style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
+                  />
+                  <span className="font-medium text-foreground whitespace-nowrap">
+                    {formatDateForDisplay(tooltip.date, "en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </span>
+                </div>
+                <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
+                  {formatCurrency(tooltip.value)}
+                </div>
+              </div>
+            )}
+          </div>
+          {/* Color Legend - Only 3 colors */}
+          <div className="mt-4 flex items-center justify-center gap-3 px-2 sm:px-6">
+            <span className="text-xs text-muted-foreground">Less</span>
+            <div className="flex h-4 items-center gap-0.5">
+              {palette.slice(0, 3).map((color, index) => (
+                <div
+                  key={index}
+                  className="h-full w-3 rounded-sm"
+                  style={{ backgroundColor: color }}
+                  title={`Expense level ${index + 1}`}
+                />
+              ))}
+            </div>
+            <span className="text-xs text-muted-foreground">More</span>
+          </div>
+        </CardContent>
+      </Card>
+    </>
   )
 }
