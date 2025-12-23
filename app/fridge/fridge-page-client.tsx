@@ -95,6 +95,8 @@ type UploadedReceiptTransaction = {
   pricePerUnit: number
   totalPrice: number
   categoryName: string | null
+  broadType?: string | null
+  categoryTypeName?: string | null
 }
 
 type UploadedReceipt = {
@@ -829,6 +831,32 @@ export function FridgePageClient() {
     )
   }, [])
 
+  const updateReviewItemBroadType = useCallback((itemId: string, value: string) => {
+    const broadType = value === "" ? null : value
+
+    setReviewReceipts((prev) =>
+      prev.map((receipt) => ({
+        ...receipt,
+        transactions: receipt.transactions.map((item) =>
+          item.id === itemId ? { ...item, broadType } : item
+        ),
+      }))
+    )
+  }, [])
+
+  const updateReviewItemCategoryType = useCallback((itemId: string, value: string) => {
+    const categoryTypeName = value === "" ? null : value
+
+    setReviewReceipts((prev) =>
+      prev.map((receipt) => ({
+        ...receipt,
+        transactions: receipt.transactions.map((item) =>
+          item.id === itemId ? { ...item, categoryTypeName } : item
+        ),
+      }))
+    )
+  }, [])
+
   const updateReviewItemQuantity = useCallback((itemId: string, quantity: number) => {
     const safeQuantity = Number.isFinite(quantity) && quantity > 0 ? quantity : 1
 
@@ -983,6 +1011,8 @@ export function FridgePageClient() {
               pricePerUnit: item.pricePerUnit,
               totalPrice: item.totalPrice,
               categoryName: item.categoryName,
+              broadType: item.broadType,
+              categoryTypeName: item.categoryTypeName,
             })),
           })),
         }),
@@ -1716,11 +1746,13 @@ export function FridgePageClient() {
                   <Table className="w-full table-fixed">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[36%]">Item</TableHead>
-                        <TableHead className="w-[28%]">Category</TableHead>
+                        <TableHead className="w-[22%]">Item</TableHead>
+                        <TableHead className="w-[14%]">Category</TableHead>
+                        <TableHead className="w-[12%]">Broad Type</TableHead>
+                        <TableHead className="w-[12%]">Macronutrient</TableHead>
                         <TableHead className="w-[12%] text-right">Qty</TableHead>
                         <TableHead className="w-[12%] text-right">Unit</TableHead>
-                        <TableHead className="w-[12%] text-right">Total</TableHead>
+                        <TableHead className="w-[16%] text-right">Total</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1865,6 +1897,46 @@ export function FridgePageClient() {
                                       Create new category
                                     </span>
                                   </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell className="truncate">
+                              <Select
+                                value={item.broadType ?? selectedBroadType ?? ""}
+                                onValueChange={(value) => {
+                                  updateReviewItemBroadType(item.id, value)
+                                }}
+                                disabled={isCommittingReview}
+                              >
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Select type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {availableBroadTypes.map((broadType) => (
+                                    <SelectItem key={broadType} value={broadType}>
+                                      {broadType}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell className="truncate">
+                              <Select
+                                value={item.categoryTypeName ?? matchedCategory?.typeName ?? ""}
+                                onValueChange={(value) => {
+                                  updateReviewItemCategoryType(item.id, value)
+                                }}
+                                disabled={isCommittingReview}
+                              >
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Select macro" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {receiptCategoryTypes.map((type) => (
+                                    <SelectItem key={type.id} value={type.name}>
+                                      {type.name}
+                                    </SelectItem>
+                                  ))}
                                 </SelectContent>
                               </Select>
                             </TableCell>

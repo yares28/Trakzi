@@ -11,6 +11,8 @@ type CommitReceiptTransaction = {
   pricePerUnit?: number | string | null
   totalPrice?: number | string | null
   categoryName?: string | null
+  broadType?: string | null
+  categoryTypeName?: string | null
 }
 
 type CommitReceipt = {
