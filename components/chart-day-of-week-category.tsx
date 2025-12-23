@@ -26,6 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ChartExpandButton } from "@/components/chart-expand-button"
+import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 
 interface ChartDayOfWeekCategoryProps {
   dateFilter?: string | null
@@ -69,9 +71,9 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
     initialAvailableDays.length > 0 ? initialAvailableDays[0] : null
   const cachedSelected = initialSelectedDay !== null
     ? getCachedResponse<{
-        data: Array<{ category: string; dayOfWeek: number; total: number }>
-        availableDays: number[]
-      }>(buildDayOfWeekUrl(buildDayParams(initialSelectedDay)))
+      data: Array<{ category: string; dayOfWeek: number; total: number }>
+      availableDays: number[]
+    }>(buildDayOfWeekUrl(buildDayParams(initialSelectedDay)))
     : undefined
   const [mounted, setMounted] = React.useState(false)
   const [data, setData] = React.useState<DayOfWeekData[]>(
@@ -91,6 +93,7 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
   const [tooltip, setTooltip] = React.useState<{ label: string; value: number; color: string } | null>(null)
   const [tooltipPosition, setTooltipPosition] = React.useState<{ x: number; y: number } | null>(null)
   const mousePositionRef = React.useRef<{ x: number; y: number } | null>(null)
+  const [isFullscreen, setIsFullscreen] = React.useState(false)
 
   React.useEffect(() => {
     // Mark as mounted to avoid rendering chart on server
@@ -353,8 +356,8 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
     }
   }, [tooltip])
 
-  const renderInfoTrigger = () => (
-    <div className="flex flex-col items-center gap-2">
+  const renderInfoTrigger = (forFullscreen = false) => (
+    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
         title="Day of Week Category Spending"
         description="Compare spending across categories for a selected day of the week."
@@ -578,78 +581,93 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
   }
 
   return (
-    <Card className="@container/card">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <GridStackCardDragHandle />
-          <ChartFavoriteButton
-            chartId="dayOfWeekCategory"
-            chartTitle="Day of Week Category Spending"
-            size="md"
-          />
-          <CardTitle>Day of Week Category Spending</CardTitle>
+    <>
+      <ChartFullscreenModal
+        isOpen={isFullscreen}
+        onClose={() => setIsFullscreen(false)}
+        title="Day of Week Category Spending"
+        description="Compare spending across categories by day"
+        headerActions={renderInfoTrigger(true)}
+      >
+        <div className="h-full w-full min-h-[400px] text-center flex items-center justify-center text-muted-foreground">
+          Fullscreen view - Select a day to see category spending
         </div>
-        <CardDescription>Compare spending across categories by day</CardDescription>
-        <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          {renderInfoTrigger()}
-          <Select
-            value={selectedDay !== null ? selectedDay.toString() : ""}
-            onValueChange={(value) => setSelectedDay(parseInt(value, 10))}
-          >
-            <SelectTrigger
-              className="w-32 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
-              size="sm"
-              aria-label="Select day of week"
-            >
-              <SelectValue placeholder="Select day" />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              {availableDays.map((day) => (
-                <SelectItem key={day} value={day.toString()} className="rounded-lg">
-                  {DAY_NAMES[day]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardAction>
-      </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-        {option && data.length > 0 ? (
-          <div className="h-full w-full flex flex-col">
-            <div className="mb-2 text-sm font-medium text-foreground text-center">
-              Total: {formatCurrency(data.reduce((sum, item) => sum + item.total, 0))}
-            </div>
-            <div ref={containerRef} className="relative flex-1 min-h-0" style={{ minHeight: 0, minWidth: 0 }}>
-              {chartElement}
-              {tooltip && tooltipPosition && (
-                <div
-                  className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
-                  style={{
-                    left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
-                    top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full border border-border/50"
-                      style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
-                    />
-                    <span className="font-medium text-foreground whitespace-nowrap">{tooltip.label}</span>
-                  </div>
-                  <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                    {formatCurrency(tooltip.value)}
-                  </div>
-                </div>
-              )}
-            </div>
+      </ChartFullscreenModal>
+
+      <Card className="@container/card">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
+            <ChartExpandButton onClick={() => setIsFullscreen(true)} />
+            <ChartFavoriteButton
+              chartId="dayOfWeekCategory"
+              chartTitle="Day of Week Category Spending"
+              size="md"
+            />
+            <CardTitle>Day of Week Category Spending</CardTitle>
           </div>
-        ) : (
-          <ChartLoadingState
-            emptyTitle="No spending data"
-            emptyDescription="No transactions recorded for this day yet"
-          />
-        )}
-      </CardContent>
-    </Card>
+          <CardDescription>Compare spending across categories by day</CardDescription>
+          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            {renderInfoTrigger()}
+            <Select
+              value={selectedDay !== null ? selectedDay.toString() : ""}
+              onValueChange={(value) => setSelectedDay(parseInt(value, 10))}
+            >
+              <SelectTrigger
+                className="w-32 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
+                size="sm"
+                aria-label="Select day of week"
+              >
+                <SelectValue placeholder="Select day" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                {availableDays.map((day) => (
+                  <SelectItem key={day} value={day.toString()} className="rounded-lg">
+                    {DAY_NAMES[day]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+          {option && data.length > 0 ? (
+            <div className="h-full w-full flex flex-col">
+              <div className="mb-2 text-sm font-medium text-foreground text-center">
+                Total: {formatCurrency(data.reduce((sum, item) => sum + item.total, 0))}
+              </div>
+              <div ref={containerRef} className="relative flex-1 min-h-0" style={{ minHeight: 0, minWidth: 0 }}>
+                {chartElement}
+                {tooltip && tooltipPosition && (
+                  <div
+                    className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+                    style={{
+                      left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
+                      top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full border border-border/50"
+                        style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
+                      />
+                      <span className="font-medium text-foreground whitespace-nowrap">{tooltip.label}</span>
+                    </div>
+                    <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
+                      {formatCurrency(tooltip.value)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <ChartLoadingState
+              emptyTitle="No spending data"
+              emptyDescription="No transactions recorded for this day yet"
+            />
+          )}
+        </CardContent>
+      </Card>
+    </>
   )
 }
