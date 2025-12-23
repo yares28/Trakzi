@@ -28,14 +28,10 @@ export function NavUser() {
   const { user, isLoaded } = useUser()
   const { isMobile, setOpenMobile } = useSidebar()
 
-  // Close mobile sidebar when clicking on user button area
-  // This needs to happen BEFORE Clerk opens its popup
-  const handleUserAreaPointerDown = (e: React.PointerEvent) => {
+  // Close mobile sidebar when clicking on user button to prevent click-through issues
+  const handleUserButtonClick = () => {
     if (isMobile) {
-      // Close the sidebar first
       setOpenMobile(false)
-      // Prevent the event from bubbling to the Sheet overlay
-      e.stopPropagation()
     }
   }
 
@@ -85,20 +81,20 @@ export function NavUser() {
         <SignedIn>
           {isLoaded && user ? (
             <div className="flex w-full items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1">
-              {/* Wrap UserButton area to capture pointer down and close sidebar first */}
-              <div
-                className="flex flex-1 min-w-0 items-center gap-2 p-2 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:p-0"
-                onPointerDown={handleUserAreaPointerDown}
-              >
+              <div className="flex flex-1 min-w-0 items-center gap-2 p-2 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:p-0">
                 <UserButton
                   afterSignOutUrl="/"
                   appearance={{
                     elements: {
                       avatarBox: "h-8 w-8 rounded-lg",
-                      userButtonPopoverCard: "shadow-lg",
+                      userButtonPopoverCard: "shadow-lg !z-[99999]",
+                      userButtonPopoverActions: "!z-[99999]",
                       userButtonPopoverActionButton: "min-h-[44px] min-w-[44px]",
                       userButtonPopoverActionButtonIcon: "w-5 h-5",
                       userButtonPopoverFooter: "hidden",
+                      rootBox: "!z-[99999]",
+                      card: "!z-[99999]",
+                      popoverBox: "!z-[99999]",
                     },
                   }}
                 />
@@ -128,4 +124,3 @@ export function NavUser() {
     </SidebarMenu>
   )
 }
-
