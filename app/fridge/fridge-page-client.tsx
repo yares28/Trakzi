@@ -332,6 +332,7 @@ export function FridgePageClient() {
     })
   }, [reviewCategories])
   const [activeReviewCategoryBroadType, setActiveReviewCategoryBroadType] = useState<string>("")
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
 
   const reviewCategoryByLowerName = useMemo(() => {
     const map = new Map<string, ReceiptCategoryOption>()
@@ -1700,13 +1701,17 @@ export function FridgePageClient() {
         </Dialog>
 
         <Dialog open={isReviewDialogOpen} onOpenChange={handleReviewDialogOpenChange}>
-          <DialogContent className="border bg-background sm:max-w-[95vw] md:max-w-[1000px] max-h-[90vh] overflow-hidden">
+          <DialogContent className="border bg-background sm:max-w-[95vw] md:max-w-[1400px] max-h-[90vh] overflow-hidden">
             <div className="flex flex-col max-h-[85vh] overflow-hidden">
               <div className="flex flex-col gap-3 pb-4 border-b border-border/60">
-                <div>
-                  <h2 className="text-lg font-semibold">Review receipt data</h2>
-                  <p className="text-sm text-muted-foreground">
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold tracking-tight">Review Receipt Data</h2>
+                  <p className="text-sm text-muted-foreground mt-2">
                     Adjust categories and quantities before your grocery insights update.
+                  </p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center justify-center gap-1.5">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    AI extraction may not be perfect — please double-check for better tracking
                   </p>
                 </div>
 
@@ -1741,7 +1746,7 @@ export function FridgePageClient() {
                 ) : null}
               </div>
 
-              <div className="flex-1 overflow-y-auto overflow-x-hidden pt-4">
+              <div className="flex-1 overflow-y-auto overflow-x-hidden pt-4 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/30">
                 {activeReviewReceipt ? (
                   <Table className="w-full table-fixed">
                     <TableHeader>
@@ -1750,7 +1755,7 @@ export function FridgePageClient() {
                         <TableHead className="w-[14%]">Category</TableHead>
                         <TableHead className="w-[12%]">Broad Type</TableHead>
                         <TableHead className="w-[12%]">Macronutrient</TableHead>
-                        <TableHead className="w-[12%] text-right">Qty</TableHead>
+                        <TableHead className="w-[12%] text-center">Qty</TableHead>
                         <TableHead className="w-[12%] text-right">Unit</TableHead>
                         <TableHead className="w-[16%] text-right">Total</TableHead>
                       </TableRow>
@@ -1779,11 +1784,16 @@ export function FridgePageClient() {
                             <TableCell className="truncate">
                               <Select
                                 value={categoryValue}
+                                open={openDropdownId === `category-${item.id}`}
                                 onOpenChange={(open) => {
-                                  if (!open) return
-                                  const nextBroadType = matchedCategory?.broadType
-                                  if (nextBroadType) {
-                                    setActiveReviewCategoryBroadType(nextBroadType)
+                                  if (open) {
+                                    setOpenDropdownId(`category-${item.id}`)
+                                    const nextBroadType = matchedCategory?.broadType
+                                    if (nextBroadType) {
+                                      setActiveReviewCategoryBroadType(nextBroadType)
+                                    }
+                                  } else {
+                                    setOpenDropdownId(null)
                                   }
                                 }}
                                 onValueChange={(value) => {
@@ -1799,6 +1809,7 @@ export function FridgePageClient() {
                                   } else {
                                     updateReviewItemCategory(item.id, value)
                                   }
+                                  setOpenDropdownId(null)
                                 }}
                                 disabled={isCommittingReview}
                               >
@@ -1903,8 +1914,17 @@ export function FridgePageClient() {
                             <TableCell className="truncate">
                               <Select
                                 value={item.broadType ?? selectedBroadType ?? ""}
+                                open={openDropdownId === `broadtype-${item.id}`}
+                                onOpenChange={(open) => {
+                                  if (open) {
+                                    setOpenDropdownId(`broadtype-${item.id}`)
+                                  } else {
+                                    setOpenDropdownId(null)
+                                  }
+                                }}
                                 onValueChange={(value) => {
                                   updateReviewItemBroadType(item.id, value)
+                                  setOpenDropdownId(null)
                                 }}
                                 disabled={isCommittingReview}
                               >
@@ -1923,8 +1943,17 @@ export function FridgePageClient() {
                             <TableCell className="truncate">
                               <Select
                                 value={item.categoryTypeName ?? matchedCategory?.typeName ?? ""}
+                                open={openDropdownId === `macrotype-${item.id}`}
+                                onOpenChange={(open) => {
+                                  if (open) {
+                                    setOpenDropdownId(`macrotype-${item.id}`)
+                                  } else {
+                                    setOpenDropdownId(null)
+                                  }
+                                }}
                                 onValueChange={(value) => {
                                   updateReviewItemCategoryType(item.id, value)
+                                  setOpenDropdownId(null)
                                 }}
                                 disabled={isCommittingReview}
                               >
@@ -1940,34 +1969,34 @@ export function FridgePageClient() {
                                 </SelectContent>
                               </Select>
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-center">
                               {(() => {
                                 const quantityValue = Number.isFinite(item.quantity) && item.quantity > 0 ? item.quantity : 1
                                 const formattedQuantity = Number.isInteger(quantityValue) ? String(quantityValue) : quantityValue.toFixed(2)
                                 return (
-                                  <div className="flex items-center justify-end gap-1 group/qty">
+                                  <div className="flex items-center justify-center gap-0.5 group/qty">
                                     <Button
                                       type="button"
                                       variant="ghost"
                                       size="icon"
-                                      className="h-8 w-8 opacity-0 pointer-events-none group-hover/qty:opacity-100 group-hover/qty:pointer-events-auto transition-opacity"
+                                      className="h-7 w-7 shrink-0 opacity-0 pointer-events-none group-hover/qty:opacity-100 group-hover/qty:pointer-events-auto transition-opacity"
                                       onClick={() => updateReviewItemQuantity(item.id, Math.max(1, quantityValue - 1))}
                                       disabled={isCommittingReview || quantityValue <= 1}
                                       aria-label="Decrease quantity"
                                     >
-                                      <Minus className="h-4 w-4" />
+                                      <Minus className="h-3.5 w-3.5" />
                                     </Button>
-                                    <span className="w-10 text-right tabular-nums">{formattedQuantity}</span>
+                                    <span className="w-8 text-center tabular-nums font-medium">{formattedQuantity}</span>
                                     <Button
                                       type="button"
                                       variant="ghost"
                                       size="icon"
-                                      className="h-8 w-8 opacity-0 pointer-events-none group-hover/qty:opacity-100 group-hover/qty:pointer-events-auto transition-opacity"
+                                      className="h-7 w-7 shrink-0 opacity-0 pointer-events-none group-hover/qty:opacity-100 group-hover/qty:pointer-events-auto transition-opacity"
                                       onClick={() => updateReviewItemQuantity(item.id, quantityValue + 1)}
                                       disabled={isCommittingReview}
                                       aria-label="Increase quantity"
                                     >
-                                      <Plus className="h-4 w-4" />
+                                      <Plus className="h-3.5 w-3.5" />
                                     </Button>
                                   </div>
                                 )
