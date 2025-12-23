@@ -23,7 +23,8 @@ function LineChartAnimation() {
   const [animate, setAnimate] = useState(false)
   const [isHovering, setIsHovering] = useState(false)
   const ref = useRef(null)
-  const isInView = useInView(ref, { once: false, margin: "-50px" })
+  // Reduced margin to trigger earlier and prevent perceived lag
+  const isInView = useInView(ref, { once: false, margin: "-20px" })
 
   useEffect(() => {
     if (isInView) {
@@ -106,10 +107,10 @@ function LineChartAnimation() {
             animate={
               animate
                 ? {
-                    scale: 1,
-                    r: isHovering ? 5 : 3,
-                    y: isHovering ? point.y - 3 : point.y,
-                  }
+                  scale: 1,
+                  r: isHovering ? 5 : 3,
+                  y: isHovering ? point.y - 3 : point.y,
+                }
                 : { scale: 0 }
             }
             transition={{ delay: isHovering ? i * 0.05 : 0.3 + i * 0.1, duration: 0.3 }}
@@ -130,7 +131,7 @@ function BarChartAnimation() {
   const [animate, setAnimate] = useState(false)
   const [isHovering, setIsHovering] = useState(false)
   const ref = useRef(null)
-  const isInView = useInView(ref, { once: false, margin: "-50px" })
+  const isInView = useInView(ref, { once: false, margin: "-20px" })
 
   useEffect(() => {
     if (isInView) {
@@ -176,9 +177,9 @@ function BarChartAnimation() {
                 animate={
                   animate
                     ? {
-                        height: isHovering ? item.groceries + 10 : item.groceries,
-                        scaleX: isHovering ? 1.1 : 1,
-                      }
+                      height: isHovering ? item.groceries + 10 : item.groceries,
+                      scaleX: isHovering ? 1.1 : 1,
+                    }
                     : { height: 0 }
                 }
                 transition={{ duration: 0.4, delay: monthIndex * 0.15, ease: "easeOut" }}
@@ -190,9 +191,9 @@ function BarChartAnimation() {
                 animate={
                   animate
                     ? {
-                        height: isHovering ? item.utilities + 10 : item.utilities,
-                        scaleX: isHovering ? 1.1 : 1,
-                      }
+                      height: isHovering ? item.utilities + 10 : item.utilities,
+                      scaleX: isHovering ? 1.1 : 1,
+                    }
                     : { height: 0 }
                 }
                 transition={{ duration: 0.4, delay: monthIndex * 0.15 + 0.1, ease: "easeOut" }}
@@ -204,9 +205,9 @@ function BarChartAnimation() {
                 animate={
                   animate
                     ? {
-                        height: isHovering ? item.transport + 10 : item.transport,
-                        scaleX: isHovering ? 1.1 : 1,
-                      }
+                      height: isHovering ? item.transport + 10 : item.transport,
+                      scaleX: isHovering ? 1.1 : 1,
+                    }
                     : { height: 0 }
                 }
                 transition={{ duration: 0.4, delay: monthIndex * 0.15 + 0.2, ease: "easeOut" }}
@@ -290,9 +291,9 @@ function PieChartAnimation() {
                 animate={
                   animate
                     ? {
-                        opacity: 1,
-                        scale: isHovering ? 1.05 : 1,
-                      }
+                      opacity: 1,
+                      scale: isHovering ? 1.05 : 1,
+                    }
                     : { opacity: 0, scale: 0.8 }
                 }
                 transition={{ duration: 0.6, delay: index * 0.15, ease: "easeOut" }}
@@ -384,10 +385,10 @@ function ScatterChartAnimation() {
               animate={
                 animate
                   ? {
-                      scale: 1,
-                      opacity: 0.85,
-                      r: isHovering ? [4, 6, 4] : 4,
-                    }
+                    scale: 1,
+                    opacity: 0.85,
+                    r: isHovering ? [4, 6, 4] : 4,
+                  }
                   : { scale: 0, opacity: 0 }
               }
               transition={{
@@ -468,10 +469,10 @@ function AreaChartAnimation() {
             animate={
               animate
                 ? {
-                    opacity: 1,
-                    scaleY: 1,
-                    points: isHovering ? area.hoverPoints : area.points,
-                  }
+                  opacity: 1,
+                  scaleY: 1,
+                  points: isHovering ? area.hoverPoints : area.points,
+                }
                 : { opacity: 0, scaleY: 0 }
             }
             style={{ transformOrigin: "bottom" }}
@@ -605,7 +606,8 @@ function ChartCard({
 
 export function ChartsShowcase() {
   const ref = useRef(null)
-  const isInView = useInView(ref, { once: true, margin: "-100px" })
+  // Use a smaller margin to trigger sooner and prevent jank
+  const isInView = useInView(ref, { once: true, margin: "-50px" })
 
   const charts = [
     {

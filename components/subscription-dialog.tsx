@@ -32,8 +32,8 @@ const planIcons = {
         dark: "/Trakzi/subs/freeiconB.png",
     },
     pro: {
-        light: "/Trakzi/subs/TrakziProIcon.png",
-        dark: "/Trakzi/subs/TrakziProIconB.png",
+        light: "/Trakzi/subs/TrakziProLogo.png",
+        dark: "/Trakzi/subs/TrakziProLogoB.png",
     },
     max: {
         light: "/Trakzi/subs/trakziMaxIcon.png",
