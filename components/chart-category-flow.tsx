@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveAreaBump } from "@nivo/bump"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
@@ -17,6 +18,8 @@ import {
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
+import { ChartExpandButton } from "@/components/chart-expand-button"
+import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 interface ChartCategoryFlowProps {
   data?: Array<{
     id: string
@@ -32,6 +35,7 @@ interface ChartCategoryFlowProps {
 export function ChartCategoryFlow({ data = [], categoryControls, isLoading = false }: ChartCategoryFlowProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   const isDark = resolvedTheme === "dark"
   // Use muted-foreground color to match ChartAreaInteractive
@@ -58,8 +62,8 @@ export function ChartCategoryFlow({ data = [], categoryControls, isLoading = fal
   }
   colorConfig = colorConfig.slice(0, numCategories)
 
-  const renderInfoTrigger = () => (
-    <div className="flex flex-col items-center gap-2">
+  const renderInfoTrigger = (forFullscreen = false) => (
+    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
         title="Spending Category Rankings"
         description="This chart tracks how your spending categories rank relative to each other over time."
@@ -90,6 +94,7 @@ export function ChartCategoryFlow({ data = [], categoryControls, isLoading = fal
         <CardHeader>
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
+            <ChartExpandButton onClick={() => setIsFullscreen(true)} />
             <ChartFavoriteButton
               chartId="spendingCategoryRankings"
               chartTitle="Spending Category Rankings"
@@ -110,111 +115,108 @@ export function ChartCategoryFlow({ data = [], categoryControls, isLoading = fal
     )
   }
 
-  return (
-    <Card className="@container/card">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <GridStackCardDragHandle />
-          <ChartFavoriteButton
-            chartId="spendingCategoryRankings"
-            chartTitle="Spending Category Rankings"
-            size="md"
-          />
-          <CardTitle>Spending Category Rankings</CardTitle>
-        </div>
-        <CardDescription>
-          <span className="hidden @[540px]/card:block">
-            Track how your spending priorities shift over time
-          </span>
-          <span className="@[540px]/card:hidden">Category flow over 6 months</span>
-        </CardDescription>
-        <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          {renderInfoTrigger()}
-        </CardAction>
-      </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
-        <div className="relative h-full w-full min-h-[250px]">
-          <ResponsiveAreaBump
-            data={data}
-            margin={{ top: 40, right: 120, bottom: 40, left: 140 }}
-            spacing={12}
-            colors={colorConfig}
-            blendMode="normal"
-            startLabel={(serie) => serie.id}
-            endLabel={(serie) => serie.id}
-            startLabelTextColor={textColor}
-            endLabelTextColor={textColor}
-            startLabelPadding={12}
-            endLabelPadding={12}
-            interpolation="smooth"
-            axisTop={{
-              tickSize: 5,
-              tickPadding: 5,
-              tickRotation: 0,
-              legend: "",
-              legendPosition: "middle",
-              legendOffset: -36,
-            }}
-            axisBottom={{
-              tickSize: 5,
-              tickPadding: 5,
-              tickRotation: 0,
-              legend: "",
-              legendPosition: "middle",
-              legendOffset: 32,
-            }}
-            theme={{
-              text: {
-                fill: textColor,
-                fontSize: 12,
-                fontFamily: 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
-              },
-              axis: {
-                domain: {
-                  line: {
-                    stroke: borderColor,
-                    strokeWidth: 1,
-                  },
-                },
-                ticks: {
-                  line: {
-                    stroke: borderColor,
-                    strokeWidth: 1,
-                  },
-                },
-              },
-              grid: {
-                line: {
-                  stroke: borderColor,
-                  strokeWidth: 0.5,
-                },
-              },
-            }}
-            tooltip={({ serie }) => {
-              const originalSerie = data.find((d) => d.id === serie.id)
-              const lastPoint = originalSerie?.data[originalSerie.data.length - 1]
-              const share = lastPoint?.y ?? 0
+  // Chart render function for reuse
+  const renderChart = () => (
+    <ResponsiveAreaBump
+      data={data}
+      margin={{ top: 40, right: 120, bottom: 40, left: 140 }}
+      spacing={12}
+      colors={colorConfig}
+      blendMode="normal"
+      startLabel={(serie) => serie.id}
+      endLabel={(serie) => serie.id}
+      startLabelTextColor={textColor}
+      endLabelTextColor={textColor}
+      startLabelPadding={12}
+      endLabelPadding={12}
+      interpolation="smooth"
+      axisTop={{
+        tickSize: 5,
+        tickPadding: 5,
+        tickRotation: 0,
+        legend: "",
+        legendPosition: "middle",
+        legendOffset: -36,
+      }}
+      axisBottom={{
+        tickSize: 5,
+        tickPadding: 5,
+        tickRotation: 0,
+        legend: "",
+        legendPosition: "middle",
+        legendOffset: 32,
+      }}
+      theme={{
+        text: {
+          fill: textColor,
+          fontSize: 12,
+          fontFamily: 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
+        },
+        axis: {
+          domain: { line: { stroke: borderColor, strokeWidth: 1 } },
+          ticks: { line: { stroke: borderColor, strokeWidth: 1 } },
+        },
+        grid: { line: { stroke: borderColor, strokeWidth: 0.5 } },
+      }}
+      tooltip={({ serie }) => {
+        const originalSerie = data.find((d) => d.id === serie.id)
+        const lastPoint = originalSerie?.data[originalSerie.data.length - 1]
+        const share = lastPoint?.y ?? 0
+        return (
+          <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full border border-border/50" style={{ backgroundColor: serie.color, borderColor: serie.color }} />
+              <span className="font-medium text-foreground whitespace-nowrap">{serie.id}</span>
+            </div>
+            <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">{share.toFixed(1)}% of spending</div>
+          </div>
+        )
+      }}
+    />
+  )
 
-              return (
-                <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full border border-border/50"
-                      style={{ backgroundColor: serie.color, borderColor: serie.color }}
-                    />
-                    <span className="font-medium text-foreground whitespace-nowrap">
-                      {serie.id}
-                    </span>
-                  </div>
-                  <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                    {share.toFixed(1)}% of spending
-                  </div>
-                </div>
-              )
-            }}
-          />
+  return (
+    <>
+      <ChartFullscreenModal
+        isOpen={isFullscreen}
+        onClose={() => setIsFullscreen(false)}
+        title="Spending Category Rankings"
+        description="Track how your spending priorities shift over time"
+        headerActions={renderInfoTrigger(true)}
+      >
+        <div className="h-full w-full min-h-[400px]">
+          {renderChart()}
         </div>
-      </CardContent>
-    </Card>
+      </ChartFullscreenModal>
+
+      <Card className="@container/card">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
+            <ChartExpandButton onClick={() => setIsFullscreen(true)} />
+            <ChartFavoriteButton
+              chartId="spendingCategoryRankings"
+              chartTitle="Spending Category Rankings"
+              size="md"
+            />
+            <CardTitle>Spending Category Rankings</CardTitle>
+          </div>
+          <CardDescription>
+            <span className="hidden @[540px]/card:block">
+              Track how your spending priorities shift over time
+            </span>
+            <span className="@[540px]/card:hidden">Category flow over 6 months</span>
+          </CardDescription>
+          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            {renderInfoTrigger()}
+          </CardAction>
+        </CardHeader>
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
+          <div className="relative h-full w-full min-h-[250px]">
+            {renderChart()}
+          </div>
+        </CardContent>
+      </Card>
+    </>
   )
 }

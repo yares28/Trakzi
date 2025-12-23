@@ -8,6 +8,8 @@ import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
+import { ChartExpandButton } from "@/components/chart-expand-button"
+import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { type ChartId } from "@/lib/chart-card-sizes.config"
@@ -44,6 +46,7 @@ export function ChartAreaInteractive({ data = [], categoryControls, chartId = "i
   const { resolvedTheme } = useTheme()
   const [tooltip, setTooltip] = useState<{ date: string; income: number; expenses: number } | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number | undefined; y: number | undefined } | null>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const mousePositionRef = useRef<{ x: number; y: number } | null>(null)
@@ -143,8 +146,8 @@ export function ChartAreaInteractive({ data = [], categoryControls, chartId = "i
     }
   }, [tooltip])
 
-  const renderInfoAction = () => (
-    <div className="flex flex-col items-center gap-2">
+  const renderInfoAction = (forFullscreen = false) => (
+    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
         title="Income & Expenses Tracking"
         description="This chart visualizes your cash flow over time."
@@ -183,6 +186,7 @@ export function ChartAreaInteractive({ data = [], categoryControls, chartId = "i
         <CardHeader>
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
+            <ChartExpandButton onClick={() => setIsFullscreen(true)} />
             <ChartFavoriteButton
               chartId={chartId}
               chartTitle="Income & Expenses Tracking"
@@ -204,172 +208,211 @@ export function ChartAreaInteractive({ data = [], categoryControls, chartId = "i
   }
 
   return (
-    <Card className="@container/card">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <GridStackCardDragHandle />
-          <ChartFavoriteButton
-            chartId={chartId}
-            chartTitle="Income & Expenses Tracking"
-            size="md"
-          />
-          <CardTitle>Income & Expenses Tracking</CardTitle>
+    <>
+      <ChartFullscreenModal
+        isOpen={isFullscreen}
+        onClose={() => setIsFullscreen(false)}
+        title="Income & Expenses Tracking"
+        description="Cash flow over time"
+        headerActions={renderInfoAction(true)}
+      >
+        <div className="h-full w-full min-h-[400px]">
+          <ChartContainer config={chartConfig} className="h-full w-full">
+            <AreaChart data={filteredData}>
+              <defs>
+                <linearGradient id="fillDesktopFS" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--color-desktop)" stopOpacity={1.0} />
+                  <stop offset="95%" stopColor="var(--color-desktop)" stopOpacity={0.1} />
+                </linearGradient>
+                <linearGradient id="fillMobileFS" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--color-mobile)" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="var(--color-mobile)" stopOpacity={0.1} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} stroke={gridStrokeColor} strokeDasharray="3 3" opacity={0.3} />
+              <XAxis
+                dataKey="date"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                minTickGap={32}
+                tickFormatter={(value) => formatDateForDisplay(String(value), "en-US", { month: "short", day: "numeric" })}
+              />
+              <Area dataKey="desktop" type="natural" fill="url(#fillDesktopFS)" stroke={incomeBorderColor} strokeWidth={1} />
+              <Area dataKey="mobile" type="natural" fill="url(#fillMobileFS)" stroke={expensesBorderColor} strokeWidth={1} />
+            </AreaChart>
+          </ChartContainer>
         </div>
-        <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          {renderInfoAction()}
-        </CardAction>
-      </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 min-w-0 overflow-hidden">
-        <div ref={containerRef} className="relative">
-          <div ref={chartContainerRef}>
-            <ChartContainer
-              config={chartConfig}
-              className="aspect-auto h-[250px] w-full min-w-0"
-            >
-              <AreaChart
-                data={filteredData}
+      </ChartFullscreenModal>
+
+      <Card className="@container/card">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
+            <ChartExpandButton onClick={() => setIsFullscreen(true)} />
+            <ChartFavoriteButton
+              chartId={chartId}
+              chartTitle="Income & Expenses Tracking"
+              size="md"
+            />
+            <CardTitle>Income & Expenses Tracking</CardTitle>
+          </div>
+          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            {renderInfoAction()}
+          </CardAction>
+        </CardHeader>
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 min-w-0 overflow-hidden">
+          <div ref={containerRef} className="relative">
+            <div ref={chartContainerRef}>
+              <ChartContainer
+                config={chartConfig}
+                className="aspect-auto h-[250px] w-full min-w-0"
               >
-                <defs>
-                  <linearGradient id="fillDesktop" x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="5%"
-                      stopColor="var(--color-desktop)"
-                      stopOpacity={1.0}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor="var(--color-desktop)"
-                      stopOpacity={0.1}
-                    />
-                  </linearGradient>
-                  <linearGradient id="fillMobile" x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="5%"
-                      stopColor="var(--color-mobile)"
-                      stopOpacity={0.8}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor="var(--color-mobile)"
-                      stopOpacity={0.1}
-                    />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid vertical={false} stroke={gridStrokeColor} strokeDasharray="3 3" opacity={0.3} />
-                <XAxis
-                  dataKey="date"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  minTickGap={32}
-                  tickFormatter={(value) => {
-                    return formatDateForDisplay(String(value), "en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })
-                  }}
-                />
-                <Tooltip
-                  cursor={false}
-                  content={(props: TooltipProps<number, string>) => {
-                    const { active, payload, coordinate } = props
-
-                    // Avoid calling setState while React is in the render phase.
-                    // Recharts tooltip `content` sometimes runs during render,
-                    // which can trigger "Cannot update a component while rendering"
-                    // warnings if we call setTooltip / setTooltipPosition here.
-                    if (!active || !payload || !payload.length || !coordinate) {
-                      // Defer clearing tooltip to the microtask queue so it
-                      // happens after the current render commit.
-                      queueMicrotask(() => {
-                        setTooltip(null)
-                        setTooltipPosition(null)
+                <AreaChart
+                  data={filteredData}
+                >
+                  <defs>
+                    <linearGradient id="fillDesktop" x1="0" y1="0" x2="0" y2="1">
+                      <stop
+                        offset="5%"
+                        stopColor="var(--color-desktop)"
+                        stopOpacity={1.0}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor="var(--color-desktop)"
+                        stopOpacity={0.1}
+                      />
+                    </linearGradient>
+                    <linearGradient id="fillMobile" x1="0" y1="0" x2="0" y2="1">
+                      <stop
+                        offset="5%"
+                        stopColor="var(--color-mobile)"
+                        stopOpacity={0.8}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor="var(--color-mobile)"
+                        stopOpacity={0.1}
+                      />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} stroke={gridStrokeColor} strokeDasharray="3 3" opacity={0.3} />
+                  <XAxis
+                    dataKey="date"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    minTickGap={32}
+                    tickFormatter={(value) => {
+                      return formatDateForDisplay(String(value), "en-US", {
+                        month: "short",
+                        day: "numeric",
                       })
-                      return null
-                    }
+                    }}
+                  />
+                  <Tooltip
+                    cursor={false}
+                    content={(props: TooltipProps<number, string>) => {
+                      const { active, payload, coordinate } = props
 
-                    const data = payload[0].payload
-                    const date = data.date
-                    const income = data.desktop || 0
-                    const expenses = data.mobile || 0
-
-                    if (containerRef.current && coordinate) {
-                      const basePosition = mousePositionRef.current ?? {
-                        x: coordinate.x,
-                        y: coordinate.y,
+                      // Avoid calling setState while React is in the render phase.
+                      // Recharts tooltip `content` sometimes runs during render,
+                      // which can trigger "Cannot update a component while rendering"
+                      // warnings if we call setTooltip / setTooltipPosition here.
+                      if (!active || !payload || !payload.length || !coordinate) {
+                        // Defer clearing tooltip to the microtask queue so it
+                        // happens after the current render commit.
+                        queueMicrotask(() => {
+                          setTooltip(null)
+                          setTooltipPosition(null)
+                        })
+                        return null
                       }
 
-                      // Defer state updates to avoid violating React's render rules.
-                      queueMicrotask(() => {
-                        setTooltipPosition(basePosition)
-                        setTooltip({
-                          date,
-                          income,
-                          expenses,
-                        })
-                      })
-                    }
+                      const data = payload[0].payload
+                      const date = data.date
+                      const income = data.desktop || 0
+                      const expenses = data.mobile || 0
 
-                    return null
-                  }}
-                />
-                <Area
-                  dataKey="desktop"
-                  type="natural"
-                  fill="url(#fillDesktop)"
-                  stroke={incomeBorderColor}
-                  strokeWidth={1}
-                />
-                <Area
-                  dataKey="mobile"
-                  type="natural"
-                  fill="url(#fillMobile)"
-                  stroke={expensesBorderColor}
-                  strokeWidth={1}
-                />
-              </AreaChart>
-            </ChartContainer>
-          </div>
-          {tooltip && tooltipPosition && (
-            <div
-              className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
-              style={{
-                left: `${(tooltipPosition.x ?? 0) + 16}px`,
-                top: `${(tooltipPosition.y ?? 0) - 16}px`,
-                transform: 'translate(0, -100%)',
-              }}
-            >
-              <div className="font-medium text-foreground mb-2 whitespace-nowrap">
-                {formatDateForDisplay(tooltip.date, "en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-              </div>
-              <div className="flex items-center gap-2 mb-1">
-                <span
-                  className="h-2.5 w-2.5 rounded-full border border-border/50"
-                  style={{ backgroundColor: incomeBorderColor, borderColor: incomeBorderColor }}
-                />
-                <span className="text-foreground/80">Income:</span>
-                <span className="font-mono text-[0.7rem] text-foreground font-medium">
-                  {valueFormatter.format(tooltip.income)}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span
-                  className="h-2.5 w-2.5 rounded-full border border-border/50"
-                  style={{ backgroundColor: expensesBorderColor, borderColor: expensesBorderColor }}
-                />
-                <span className="text-foreground/80">Expenses:</span>
-                <span className="font-mono text-[0.7rem] text-foreground font-medium">
-                  {valueFormatter.format(tooltip.expenses)}
-                </span>
-              </div>
+                      if (containerRef.current && coordinate) {
+                        const basePosition = mousePositionRef.current ?? {
+                          x: coordinate.x,
+                          y: coordinate.y,
+                        }
+
+                        // Defer state updates to avoid violating React's render rules.
+                        queueMicrotask(() => {
+                          setTooltipPosition(basePosition)
+                          setTooltip({
+                            date,
+                            income,
+                            expenses,
+                          })
+                        })
+                      }
+
+                      return null
+                    }}
+                  />
+                  <Area
+                    dataKey="desktop"
+                    type="natural"
+                    fill="url(#fillDesktop)"
+                    stroke={incomeBorderColor}
+                    strokeWidth={1}
+                  />
+                  <Area
+                    dataKey="mobile"
+                    type="natural"
+                    fill="url(#fillMobile)"
+                    stroke={expensesBorderColor}
+                    strokeWidth={1}
+                  />
+                </AreaChart>
+              </ChartContainer>
             </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+            {tooltip && tooltipPosition && (
+              <div
+                className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+                style={{
+                  left: `${(tooltipPosition.x ?? 0) + 16}px`,
+                  top: `${(tooltipPosition.y ?? 0) - 16}px`,
+                  transform: 'translate(0, -100%)',
+                }}
+              >
+                <div className="font-medium text-foreground mb-2 whitespace-nowrap">
+                  {formatDateForDisplay(tooltip.date, "en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full border border-border/50"
+                    style={{ backgroundColor: incomeBorderColor, borderColor: incomeBorderColor }}
+                  />
+                  <span className="text-foreground/80">Income:</span>
+                  <span className="font-mono text-[0.7rem] text-foreground font-medium">
+                    {valueFormatter.format(tooltip.income)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full border border-border/50"
+                    style={{ backgroundColor: expensesBorderColor, borderColor: expensesBorderColor }}
+                  />
+                  <span className="text-foreground/80">Expenses:</span>
+                  <span className="font-mono text-[0.7rem] text-foreground font-medium">
+                    {valueFormatter.format(tooltip.expenses)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </>
   )
 }
