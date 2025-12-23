@@ -6,6 +6,8 @@ import { ResponsiveSwarmPlot } from "@nivo/swarmplot"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
+import { ChartExpandButton } from "@/components/chart-expand-button"
+import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 import {
   Card,
   CardAction,
@@ -63,6 +65,7 @@ export function ChartSwarmPlot({ data }: ChartSwarmPlotProps) {
   const [categoryOptions, setCategoryOptions] = useState<string[]>([])
   const [visibleGroups, setVisibleGroups] = useState<string[]>([])
   const [isGroupSelectorOpen, setIsGroupSelectorOpen] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const chartVisibility = useChartCategoryVisibility({
     chartId: "analytics:transaction-history",
     storageScope: "analytics",
@@ -371,8 +374,8 @@ export function ChartSwarmPlot({ data }: ChartSwarmPlotProps) {
     "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 w-40"
 
 
-  const renderInfoTrigger = () => (
-    <div className="flex flex-col items-center gap-2">
+  const renderInfoTrigger = (forFullscreen = false) => (
+    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
         title="Transaction History"
         description="Recent transactions by category"
@@ -392,13 +395,63 @@ export function ChartSwarmPlot({ data }: ChartSwarmPlotProps) {
     </div>
   )
 
-  // Check loading state first, before checking for empty data
+  // Render chart content - reused in card and fullscreen modal
+  const renderChartContent = () => (
+    <ResponsiveSwarmPlot
+      data={filteredData}
+      colors={chartColors}
+      groups={visibleGroups.length ? visibleGroups : chartGroups}
+      value="price"
+      valueScale={dynamicValueScale}
+      size={{ key: "volume", values: [4, 20], sizes: [6, 20] }}
+      forceStrength={4}
+      simulationIterations={100}
+      margin={{ top: 80, right: 100, bottom: 80, left: 100 }}
+      axisBottom={{ legend: "category vs. amount", legendOffset: 40 }}
+      axisLeft={{ legend: "amount ($)", legendOffset: -60 }}
+      theme={swarmTheme}
+      tooltip={(node) => {
+        const datum = node.data as EnhancedChartDatum
+        const category = datum.categoryLabel || datum.group || "Other"
+        const color = (datum.color || node.color || chartColors[0]) as string
+
+        return (
+          <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
+            <div className="flex items-center gap-2">
+              <span
+                className="h-2.5 w-2.5 rounded-full border border-border/50"
+                style={{ backgroundColor: color, borderColor: color }}
+              />
+              <span className="font-medium text-foreground whitespace-nowrap">
+                {category}
+              </span>
+            </div>
+            <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
+              {formatCurrency(datum.price || 0)}
+            </div>
+            {datum.date && (
+              <div className="mt-0.5 text-[0.7rem] text-foreground/60">
+                {formatDateForDisplay(datum.date, undefined, {})}
+              </div>
+            )}
+            {datum.description && (
+              <div className="mt-1 text-[0.7rem] text-foreground/60 max-w-[200px]">
+                {datum.description}
+              </div>
+            )}
+          </div>
+        )
+      }}
+    />
+  )
+
   if (isLoading && (!filteredData || filteredData.length === 0)) {
     return (
       <Card className="@container/card col-span-full">
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
+            <ChartExpandButton onClick={() => setIsFullscreen(true)} />
             <ChartFavoriteButton
               chartId="transactionHistory"
               chartTitle="Transaction History"
@@ -423,6 +476,7 @@ export function ChartSwarmPlot({ data }: ChartSwarmPlotProps) {
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
+            <ChartExpandButton onClick={() => setIsFullscreen(true)} />
             <ChartFavoriteButton
               chartId="transactionHistory"
               chartTitle="Transaction History"
@@ -447,6 +501,7 @@ export function ChartSwarmPlot({ data }: ChartSwarmPlotProps) {
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
+            <ChartExpandButton onClick={() => setIsFullscreen(true)} />
             <ChartFavoriteButton
               chartId="transactionHistory"
               chartTitle="Transaction History"
@@ -466,131 +521,101 @@ export function ChartSwarmPlot({ data }: ChartSwarmPlotProps) {
   }
 
   return (
-    <Card className="col-span-full">
-      <CardHeader className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div className="flex items-center gap-2">
-          <GridStackCardDragHandle />
-          <ChartFavoriteButton
-            chartId="transactionHistory"
-            chartTitle="Transaction History"
-            size="md"
-          />
-          <CardTitle>Transaction History</CardTitle>
+    <>
+      <ChartFullscreenModal
+        isOpen={isFullscreen}
+        onClose={() => setIsFullscreen(false)}
+        title="Transaction History"
+        description="Recent transactions by category"
+        headerActions={renderInfoTrigger(true)}
+      >
+        <div className="h-full w-full min-h-[400px]">
+          {renderChartContent()}
         </div>
-        <CardDescription>Recent transactions by category</CardDescription>
-        <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          {renderInfoTrigger()}
-          {chartGroups.length > 0 && (
-            <DropdownMenu open={isGroupSelectorOpen} onOpenChange={setIsGroupSelectorOpen}>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className={triggerClassName}
-                  aria-label="Select categories to display"
-                >
-                  <span className="truncate">{selectionSummary}</span>
-                  <ChevronDownIcon className="h-4 w-4 text-muted-foreground" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="w-56"
-              >
-                <p className="px-2 pb-1 pt-1.5 text-xs font-medium text-muted-foreground">
-                  Select categories to display
-                </p>
-                <DropdownMenuItem
-                  onSelect={(e) => {
-                    e.preventDefault()
-                    selectAllGroups()
-                  }}
-                  className="cursor-pointer font-medium"
-                >
-                  {visibleGroups.length === chartGroups.length &&
-                    chartGroups.every(group => visibleGroups.includes(group))
-                    ? "Deselect all"
-                    : "Select all"}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <div className="max-h-64 overflow-y-auto">
-                  {chartGroups.map(group => {
-                    const checked = visibleGroups.includes(group)
-                    return (
-                      <DropdownMenuCheckboxItem
-                        key={group}
-                        checked={checked}
-                        onCheckedChange={() => toggleGroup(group)}
-                        onSelect={(event) => event.preventDefault()}
-                        className="capitalize"
-                      >
-                        <span className="truncate">{group}</span>
-                      </DropdownMenuCheckboxItem>
-                    )
-                  })}
-                  {chartGroups.length === 0 && (
-                    <div className="px-2 py-4 text-sm text-muted-foreground">No categories</div>
-                  )}
-                </div>
-                <div className="border-t px-2 py-1 text-xs text-muted-foreground">
-                  {visibleGroups.length === chartGroups.length
-                    ? "All categories selected"
-                    : `${visibleGroups.length}/${chartGroups.length} selected`}
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </CardAction>
-      </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-        <div className="h-full w-full">
-          <ResponsiveSwarmPlot
-            data={filteredData}
-            colors={chartColors}
-            groups={visibleGroups.length ? visibleGroups : chartGroups}
-            value="price"
-            valueScale={dynamicValueScale}
-            size={{ key: "volume", values: [4, 20], sizes: [6, 20] }}
-            forceStrength={4}
-            simulationIterations={100}
-            margin={{ top: 80, right: 100, bottom: 80, left: 100 }}
-            axisBottom={{ legend: "category vs. amount", legendOffset: 40 }}
-            axisLeft={{ legend: "amount ($)", legendOffset: -60 }}
-            theme={swarmTheme}
-            tooltip={(node) => {
-              const datum = node.data as EnhancedChartDatum
-              const category = datum.categoryLabel || datum.group || "Other"
-              const color = (datum.color || node.color || chartColors[0]) as string
+      </ChartFullscreenModal>
 
-              return (
-                <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full border border-border/50"
-                      style={{ backgroundColor: color, borderColor: color }}
-                    />
-                    <span className="font-medium text-foreground whitespace-nowrap">
-                      {category}
-                    </span>
+      <Card className="col-span-full">
+        <CardHeader className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
+            <ChartExpandButton onClick={() => setIsFullscreen(true)} />
+            <ChartFavoriteButton
+              chartId="transactionHistory"
+              chartTitle="Transaction History"
+              size="md"
+            />
+            <CardTitle>Transaction History</CardTitle>
+          </div>
+          <CardDescription>Recent transactions by category</CardDescription>
+          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            {renderInfoTrigger()}
+            {chartGroups.length > 0 && (
+              <DropdownMenu open={isGroupSelectorOpen} onOpenChange={setIsGroupSelectorOpen}>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className={triggerClassName}
+                    aria-label="Select categories to display"
+                  >
+                    <span className="truncate">{selectionSummary}</span>
+                    <ChevronDownIcon className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-56"
+                >
+                  <p className="px-2 pb-1 pt-1.5 text-xs font-medium text-muted-foreground">
+                    Select categories to display
+                  </p>
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault()
+                      selectAllGroups()
+                    }}
+                    className="cursor-pointer font-medium"
+                  >
+                    {visibleGroups.length === chartGroups.length &&
+                      chartGroups.every(group => visibleGroups.includes(group))
+                      ? "Deselect all"
+                      : "Select all"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <div className="max-h-64 overflow-y-auto">
+                    {chartGroups.map(group => {
+                      const checked = visibleGroups.includes(group)
+                      return (
+                        <DropdownMenuCheckboxItem
+                          key={group}
+                          checked={checked}
+                          onCheckedChange={() => toggleGroup(group)}
+                          onSelect={(event) => event.preventDefault()}
+                          className="capitalize"
+                        >
+                          <span className="truncate">{group}</span>
+                        </DropdownMenuCheckboxItem>
+                      )
+                    })}
+                    {chartGroups.length === 0 && (
+                      <div className="px-2 py-4 text-sm text-muted-foreground">No categories</div>
+                    )}
                   </div>
-                  <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                    {formatCurrency(datum.price || 0)}
+                  <div className="border-t px-2 py-1 text-xs text-muted-foreground">
+                    {visibleGroups.length === chartGroups.length
+                      ? "All categories selected"
+                      : `${visibleGroups.length}/${chartGroups.length} selected`}
                   </div>
-                  {datum.date && (
-                    <div className="mt-0.5 text-[0.7rem] text-foreground/60">
-                      {formatDateForDisplay(datum.date, undefined, {})}
-                    </div>
-                  )}
-                  {datum.description && (
-                    <div className="mt-1 text-[0.7rem] text-foreground/60 max-w-[200px]">
-                      {datum.description}
-                    </div>
-                  )}
-                </div>
-              )
-            }}
-          />
-        </div>
-      </CardContent>
-    </Card>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </CardAction>
+        </CardHeader>
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+          <div className="h-full w-full">
+            {renderChartContent()}
+          </div>
+        </CardContent>
+      </Card>
+    </>
   )
 }

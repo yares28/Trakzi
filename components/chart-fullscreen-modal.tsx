@@ -23,16 +23,8 @@ export function ChartFullscreenModal({
     children,
     headerActions,
 }: ChartFullscreenModalProps) {
-    const [mounted, setMounted] = React.useState(false)
-
-    // Ensure we're mounted before accessing document
-    React.useEffect(() => {
-        setMounted(true)
-    }, [])
-
     // Lock body scroll when modal is open
     React.useEffect(() => {
-        if (!mounted) return
         if (isOpen) {
             document.body.style.overflow = "hidden"
         } else {
@@ -41,11 +33,10 @@ export function ChartFullscreenModal({
         return () => {
             document.body.style.overflow = ""
         }
-    }, [isOpen, mounted])
+    }, [isOpen])
 
     // Close on escape key
     React.useEffect(() => {
-        if (!mounted) return
         const handleEscape = (e: KeyboardEvent) => {
             if (e.key === "Escape" && isOpen) {
                 onClose()
@@ -53,10 +44,7 @@ export function ChartFullscreenModal({
         }
         window.addEventListener("keydown", handleEscape)
         return () => window.removeEventListener("keydown", handleEscape)
-    }, [isOpen, onClose, mounted])
-
-    // Don't render anything during SSR or before mount
-    if (!mounted) return null
+    }, [isOpen, onClose])
 
     return (
         <AnimatePresence>
