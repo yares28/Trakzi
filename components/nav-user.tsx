@@ -20,11 +20,20 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { SettingsPopover } from "@/components/settings-popover"
 
 export function NavUser() {
   const { user, isLoaded } = useUser()
+  const { isMobile, setOpenMobile } = useSidebar()
+
+  // Close mobile sidebar when clicking on user button to prevent click-through issues
+  const handleUserButtonClick = () => {
+    if (isMobile) {
+      setOpenMobile(false)
+    }
+  }
 
   const settingsButton = (
     <SettingsPopover>
@@ -72,7 +81,10 @@ export function NavUser() {
         <SignedIn>
           {isLoaded && user ? (
             <div className="flex w-full items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1">
-              <div className="flex flex-1 min-w-0 items-center gap-2 p-2 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:p-0">
+              <div
+                className="flex flex-1 min-w-0 items-center gap-2 p-2 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:p-0"
+                onClick={handleUserButtonClick}
+              >
                 <UserButton
                   afterSignOutUrl="/"
                   appearance={{
