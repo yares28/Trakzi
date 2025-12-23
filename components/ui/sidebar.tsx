@@ -147,7 +147,10 @@ function SidebarProvider({
             } as React.CSSProperties
           }
           className={cn(
-            "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex h-svh w-full overflow-hidden",
+            // Mobile: Allow window scroll (no overflow-hidden)
+            "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full",
+            // Desktop: Fixed height with overflow control
+            "md:h-svh md:overflow-hidden",
             className
           )}
           {...props}
@@ -330,10 +333,10 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
     <main
       data-slot="sidebar-inset"
       className={cn(
-        // Base mobile styles with background gradient for glass effect
-        "bg-background relative flex w-full flex-1 flex-col overflow-y-auto min-h-screen-mobile mobile-bg-gradient",
-        // Desktop styles
-        "md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 md:peer-data-[variant=inset]:h-[calc(100svh-1rem)]",
+        // Mobile: Let window scroll (enables iOS tap status bar scroll-to-top)
+        "bg-background relative flex w-full flex-1 flex-col min-h-screen-mobile mobile-bg-gradient",
+        // Desktop: Container scrolls for sticky header behavior
+        "md:overflow-y-auto md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 md:peer-data-[variant=inset]:h-[calc(100svh-1rem)]",
         className
       )}
       {...props}
