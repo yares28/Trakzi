@@ -295,9 +295,19 @@ button[data-active="true"] .icon-chat,
     min-width: 44px;
   }
 
-  /* Force all chart cards to full width on mobile (1 per row) */
+  /* Force all chart cards to full width and better height on mobile */
   [data-chart-id] {
     grid-column: span 1 !important;
+    grid-row: auto !important;
+    /* Override fixed row spans */
+    min-height: 350px !important;
+    /* Ensure readable chart height */
+    height: auto !important;
+  }
+
+  /* Chart cards containing tall charts need more height */
+  [data-chart-id]:has(.recharts-responsive-container) {
+    min-height: 380px !important;
   }
 }
 
