@@ -372,10 +372,10 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
                       alt="Trakzi"
                       width={180}
                       height={60}
-                      className="hidden h-16 w-auto object-contain group-data-[state=expanded]:block"
+                      className="h-16 w-auto object-contain block group-data-[state=collapsed]:hidden"
                     />
                   ) : (
-                    <div className="hidden h-16 w-[180px] group-data-[state=expanded]:block" />
+                    <div className="h-16 w-[180px] block group-data-[state=collapsed]:hidden" />
                   )}
                   {mounted ? (
                     <Image
