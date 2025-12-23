@@ -5,7 +5,7 @@ import { createPortal } from "react-dom"
 import { useUser } from "@clerk/nextjs"
 // @dnd-kit for drag-and-drop with auto-scroll (replaces GridStack)
 import { SortableGridProvider, SortableGridItem } from "@/components/sortable-grid"
-import { ChevronDown, Minus, Plus, Upload } from "lucide-react"
+import { ChevronDown, Minus, Plus, Trash2, Upload } from "lucide-react"
 import { toast } from "sonner"
 import {
   DialogHeader,
@@ -871,6 +871,16 @@ export function FridgePageClient() {
         }),
       }))
     )
+  }, [])
+
+  const deleteReviewItem = useCallback((itemId: string) => {
+    setReviewReceipts((prev) =>
+      prev.map((receipt) => ({
+        ...receipt,
+        transactions: receipt.transactions.filter((item) => item.id !== itemId),
+      })).filter((receipt) => receipt.transactions.length > 0)
+    )
+    setOpenDropdownId(null)
   }, [])
 
   const handleUploadContinue = useCallback(async () => {
@@ -1751,13 +1761,14 @@ export function FridgePageClient() {
                   <Table className="w-full table-fixed">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[22%]">Item</TableHead>
-                        <TableHead className="w-[14%]">Category</TableHead>
-                        <TableHead className="w-[12%]">Broad Type</TableHead>
-                        <TableHead className="w-[12%]">Macronutrient</TableHead>
-                        <TableHead className="w-[12%] text-center">Qty</TableHead>
-                        <TableHead className="w-[12%] text-right">Unit</TableHead>
-                        <TableHead className="w-[16%] text-right">Total</TableHead>
+                        <TableHead className="w-[20%]">Item</TableHead>
+                        <TableHead className="w-[16%]">Category</TableHead>
+                        <TableHead className="w-[14%]">Broad Type</TableHead>
+                        <TableHead className="w-[14%]">Macronutrient</TableHead>
+                        <TableHead className="w-[10%] text-center">Qty</TableHead>
+                        <TableHead className="w-[10%] text-right">Unit</TableHead>
+                        <TableHead className="w-[12%] text-right">Total</TableHead>
+                        <TableHead className="w-[4%]"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1861,11 +1872,6 @@ export function FridgePageClient() {
                                                   }}
                                                 />
                                                 <span className="truncate">{category.name}</span>
-                                                {category.typeName ? (
-                                                  <span className="ml-auto text-xs text-muted-foreground truncate">
-                                                    {category.typeName}
-                                                  </span>
-                                                ) : null}
                                               </span>
                                             </SelectItem>
                                           ))}
@@ -1887,11 +1893,6 @@ export function FridgePageClient() {
                                           }}
                                         />
                                         <span className="truncate">{matchedCategory.name}</span>
-                                        {matchedCategory.typeName ? (
-                                          <span className="ml-auto text-xs text-muted-foreground truncate">
-                                            {matchedCategory.typeName}
-                                          </span>
-                                        ) : null}
                                       </span>
                                     </SelectItem>
                                   ) : null}
@@ -2007,6 +2008,19 @@ export function FridgePageClient() {
                             </TableCell>
                             <TableCell className="text-right tabular-nums font-medium">
                               ${item.totalPrice.toFixed(2)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                onClick={() => deleteReviewItem(item.id)}
+                                disabled={isCommittingReview}
+                                aria-label="Delete item"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </TableCell>
                           </TableRow>
                         )
