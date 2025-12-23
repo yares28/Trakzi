@@ -185,11 +185,10 @@ export function SortableGridProvider({
             }}
         >
             <SortableContext items={chartOrder} strategy={rectSortingStrategy}>
-                {/* CSS Grid with 12 columns, dense auto-flow fills gaps automatically */}
+                {/* CSS Grid: 1 column on mobile, 12 columns on desktop */}
                 <div
-                    className={`grid gap-4 ${className}`}
+                    className={`grid gap-4 grid-cols-1 md:grid-cols-12 ${className}`}
                     style={{
-                        gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
                         gridAutoFlow: 'row dense', // Pack items densely row by row
                         gridAutoRows: '70px', // Fixed row height for 2D packing
                     }}
@@ -198,6 +197,7 @@ export function SortableGridProvider({
                 </div>
             </SortableContext>
         </DndContext>
+
     )
 }
 

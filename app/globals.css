@@ -294,6 +294,11 @@ button[data-active="true"] .icon-chat,
     min-height: 44px;
     min-width: 44px;
   }
+
+  /* Force all chart cards to full width on mobile (1 per row) */
+  [data-chart-id] {
+    grid-column: span 1 !important;
+  }
 }
 
 /* ============================================
