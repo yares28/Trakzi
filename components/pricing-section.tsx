@@ -13,7 +13,8 @@ import Image from "next/image"
 
 // Plan logos for landing page (these replace the plan name text)
 const planLogos = {
-  PRO: "/Trakzi/subs/TrakziProLogo.png",
+  Starter: "/Trakzi/subs/freeiconB.png",
+  PRO: "/Trakzi/subs/TrakziProLogoB.png",
   MAX: "/Trakzi/subs/TrakziMaxLogoB.png",
 } as const
 
@@ -301,12 +302,12 @@ export function PricingSection() {
 
               <div className="text-center mb-8">
                 <div className="flex items-center justify-center gap-2 mb-2 h-10">
-                  {/* Show plan logo for PRO and MAX, text for others */}
-                  {(plan.name === "PRO" || plan.name === "MAX") ? (
+                  {/* Show plan logo for all plans */}
+                  {(plan.name === "PRO" || plan.name === "MAX" || plan.name === "Starter") ? (
                     <Image
                       src={planLogos[plan.name as keyof typeof planLogos]}
                       alt={`${plan.name} plan`}
-                      width={120}
+                      width={plan.name === "Starter" ? 80 : 120}
                       height={40}
                       className="object-contain"
                     />
