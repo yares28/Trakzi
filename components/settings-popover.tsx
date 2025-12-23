@@ -133,7 +133,7 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
       <PopoverTrigger asChild>
         {children}
       </PopoverTrigger>
-      <PopoverContent className="w-80" align="end" side="right">
+      <PopoverContent className="w-80 z-[9999]" align="end" side="right">
         <div className="space-y-4">
           {/* Theme Switcher */}
           <div className="space-y-2">

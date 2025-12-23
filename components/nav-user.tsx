@@ -78,10 +78,14 @@ export function NavUser() {
                   appearance={{
                     elements: {
                       avatarBox: "h-8 w-8 rounded-lg",
-                      userButtonPopoverCard: "shadow-lg z-[9999]",
-                      userButtonPopoverActions: "z-[9999]",
-                      userButtonPopoverActionButton: "min-h-[44px]",
-                      rootBox: "z-[9999]",
+                      userButtonPopoverCard: "shadow-lg !z-[99999]",
+                      userButtonPopoverActions: "!z-[99999]",
+                      userButtonPopoverActionButton: "min-h-[44px] min-w-[44px]",
+                      userButtonPopoverActionButtonIcon: "w-5 h-5",
+                      userButtonPopoverFooter: "hidden",
+                      rootBox: "!z-[99999]",
+                      card: "!z-[99999]",
+                      popoverBox: "!z-[99999]",
                     },
                   }}
                 />

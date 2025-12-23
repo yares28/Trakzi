@@ -316,16 +316,16 @@ export function PricingSection() {
                   )}
                 </div>
                 <div className="flex items-baseline justify-center gap-1 mb-2">
-                  {plan.price ? (
+                  {plan.price && plan.name !== "Starter" ? (
                     <span className="text-4xl font-bold text-white">{plan.price}</span>
-                  ) : (
+                  ) : plan.monthlyPrice ? (
                     <>
                       <span className="text-4xl font-bold text-white">
                         €{isAnnual ? plan.annualPrice : plan.monthlyPrice}
                       </span>
                       <span className="text-white/60 text-lg">{isAnnual ? "/year" : "/month"}</span>
                     </>
-                  )}
+                  ) : null}
                 </div>
                 <p className="text-white/60 text-sm">{plan.description}</p>
               </div>
