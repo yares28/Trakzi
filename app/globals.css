@@ -195,6 +195,133 @@ button[data-active="true"] .icon-chat,
   }
 }
 
+/* ============================================
+   MOBILE-FIRST IPHONE OPTIMIZATIONS
+   ============================================ */
+
+/* Use 100dvh for proper iPhone viewport handling */
+@supports (height: 100dvh) {
+  .h-screen-mobile {
+    height: 100dvh;
+  }
+
+  .min-h-screen-mobile {
+    min-height: 100dvh;
+  }
+}
+
+/* Safe area insets for iPhone notch and home indicator */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .px-safe {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* ============================================
+   GLASSMORPHISM UTILITY CLASSES
+   ============================================ */
+
+/* Glass card effect - for floating UI elements */
+.glass-card {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.dark .glass-card {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* Glass button effect */
+.glass-button {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass-button {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Glass input/search effect */
+.glass-input {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.dark .glass-input {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ============================================
+   MOBILE LAYOUT UTILITIES
+   ============================================ */
+
+/* Edge-to-edge on mobile, constrained on desktop */
+@media (max-width: 767px) {
+  .mobile-edge-to-edge {
+    width: 100%;
+    max-width: none;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* Remove horizontal overflow on mobile */
+  .mobile-no-overflow {
+    overflow-x: hidden;
+  }
+
+  /* Ensure minimum touch targets */
+  .mobile-touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* ============================================
+   MOBILE BACKGROUND LAYER
+   ============================================ */
+
+/* Gradient background for mobile glass effect contrast */
+@media (max-width: 767px) {
+  .mobile-bg-gradient::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(ellipse at 20% 20%, rgba(231, 138, 83, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(231, 138, 83, 0.05) 0%, transparent 50%),
+      linear-gradient(180deg, var(--background) 0%, var(--background) 100%);
+    pointer-events: none;
+  }
+
+  .dark .mobile-bg-gradient::before {
+    background:
+      radial-gradient(ellipse at 20% 20%, rgba(231, 138, 83, 0.12) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(231, 138, 83, 0.08) 0%, transparent 50%),
+      linear-gradient(180deg, var(--background) 0%, var(--background) 100%);
+  }
+}
+
 /* While dragging files over the app we show a full-screen blur overlay. Browser scrollbars
    (especially horizontal) are not blur-able, so we hide them for the duration. */
 html[data-file-dragging="true"],

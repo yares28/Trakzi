@@ -52,21 +52,37 @@ export function SiteHeader() {
   }, [])
 
   return (
-    <header className="sticky top-0 z-40 bg-background flex h-[var(--header-height)] shrink-0 items-center gap-2 border-b transition-[width,height] duration-300 ease-in-out will-change-[width,height] group-has-data-[collapsible=icon]/sidebar-wrapper:h-[var(--header-height)] ml-[5px]">
-      <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
-        <SidebarTrigger className="-ml-1" />
-        <Separator
-          orientation="vertical"
-          className="mx-2 data-[orientation=vertical]:h-4"
-        />
-        <div className="ml-auto flex items-center gap-2">
-          <DateFilter
-            value={dateFilter}
-            onChange={setDateFilter}
-            availableYears={availableYears}
+    <>
+      {/* Mobile: Floating glass island header */}
+      <header className="
+        sticky top-0 z-40 
+        mx-2 mt-2 mb-1
+        rounded-2xl
+        bg-background/80 dark:bg-background/70
+        backdrop-blur-xl
+        border border-border/50 dark:border-white/10
+        shadow-lg shadow-black/5 dark:shadow-black/20
+        flex h-14 shrink-0 items-center gap-2
+        transition-all duration-300 ease-in-out
+        md:mx-0 md:mt-0 md:mb-0 md:rounded-none md:bg-background md:backdrop-blur-none md:border-0 md:border-b md:shadow-none md:h-[var(--header-height)]
+        will-change-[width,height] group-has-data-[collapsible=icon]/sidebar-wrapper:h-[var(--header-height)]
+      ">
+        <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
+          <SidebarTrigger className="-ml-1" />
+          <Separator
+            orientation="vertical"
+            className="mx-2 data-[orientation=vertical]:h-4 hidden md:block"
           />
+          <div className="ml-auto flex items-center gap-2">
+            <DateFilter
+              value={dateFilter}
+              onChange={setDateFilter}
+              availableYears={availableYears}
+            />
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+    </>
   )
 }
+
