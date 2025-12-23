@@ -299,18 +299,6 @@ button[data-active="true"] .icon-chat,
   [data-chart-id] {
     grid-column: span 1 !important;
   }
-
-  /* Horizontal scroll for charts that need more width on mobile */
-  [data-slot="chart"] {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-  }
-
-  /* Give charts minimum width for readability */
-  [data-slot="chart"]>.recharts-responsive-container {
-    min-width: 500px;
-  }
 }
 
 /* ============================================

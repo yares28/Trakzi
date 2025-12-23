@@ -383,10 +383,10 @@ export function SortableGridItem({
             >
                 {children}
 
-                {/* Resize handle - southeast corner - always visible with animation */}
+                {/* Resize handle - southeast corner - hidden on mobile */}
                 {resizable && (
                     <div
-                        className={`absolute bottom-1 right-1 w-5 h-5 cursor-se-resize z-50 
+                        className={`hidden md:block absolute bottom-1 right-1 w-5 h-5 cursor-se-resize z-50 
                                    transition-all duration-200 ease-out
                                    hover:scale-125 hover:opacity-100
                                    ${isResizing ? 'scale-150 opacity-100' : 'opacity-60'}`}
