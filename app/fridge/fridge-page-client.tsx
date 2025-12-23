@@ -1756,7 +1756,7 @@ export function FridgePageClient() {
                 ) : null}
               </div>
 
-              <div className="flex-1 overflow-y-auto overflow-x-hidden pt-4 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/30">
+              <div className="flex-1 overflow-y-auto overflow-x-hidden pt-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40">
                 {activeReviewReceipt ? (
                   <Table className="w-full table-fixed">
                     <TableHeader>
@@ -1825,7 +1825,19 @@ export function FridgePageClient() {
                                 disabled={isCommittingReview}
                               >
                                 <SelectTrigger className="w-full">
-                                  <SelectValue placeholder="Select category" />
+                                  <SelectValue placeholder="Select category">
+                                    {matchedCategory ? (
+                                      <span className="flex items-center gap-2">
+                                        <span
+                                          className="h-2 w-2 rounded-full shrink-0"
+                                          style={{ backgroundColor: matchedCategory.color ?? "#64748b" }}
+                                        />
+                                        <span className="truncate">{matchedCategory.name}</span>
+                                      </span>
+                                    ) : categoryValue && categoryValue !== "__uncategorized__" ? (
+                                      <span className="truncate">{categoryValue}</span>
+                                    ) : null}
+                                  </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="__uncategorized__">Uncategorized</SelectItem>
@@ -1974,19 +1986,23 @@ export function FridgePageClient() {
                               {(() => {
                                 const quantityValue = Number.isFinite(item.quantity) && item.quantity > 0 ? item.quantity : 1
                                 const formattedQuantity = Number.isInteger(quantityValue) ? String(quantityValue) : quantityValue.toFixed(2)
+                                const isAtMin = quantityValue <= 1
                                 return (
                                   <div className="flex items-center justify-center gap-0.5 group/qty">
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7 shrink-0 opacity-0 pointer-events-none group-hover/qty:opacity-100 group-hover/qty:pointer-events-auto transition-opacity"
-                                      onClick={() => updateReviewItemQuantity(item.id, Math.max(1, quantityValue - 1))}
-                                      disabled={isCommittingReview || quantityValue <= 1}
-                                      aria-label="Decrease quantity"
-                                    >
-                                      <Minus className="h-3.5 w-3.5" />
-                                    </Button>
+                                    {!isAtMin && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 shrink-0 opacity-0 pointer-events-none group-hover/qty:opacity-100 group-hover/qty:pointer-events-auto transition-opacity"
+                                        onClick={() => updateReviewItemQuantity(item.id, Math.max(1, quantityValue - 1))}
+                                        disabled={isCommittingReview}
+                                        aria-label="Decrease quantity"
+                                      >
+                                        <Minus className="h-3.5 w-3.5" />
+                                      </Button>
+                                    )}
+                                    {isAtMin && <div className="h-7 w-7 shrink-0" />}
                                     <span className="w-8 text-center tabular-nums font-medium">{formattedQuantity}</span>
                                     <Button
                                       type="button"
