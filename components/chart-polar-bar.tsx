@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { PolarBarTooltipProps, ResponsivePolarBar } from "@nivo/polar-bar"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
@@ -19,6 +19,8 @@ import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
+import { ChartExpandButton } from "@/components/chart-expand-button"
+import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 
 interface ChartPolarBarProps {
   data?: Array<Record<string, string | number>> | { data: Array<Record<string, string | number>>; keys: string[] }
@@ -31,6 +33,7 @@ export function ChartPolarBar({ data: dataProp = [], keys: keysProp, categoryCon
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const { resolvedTheme } = useTheme()
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   // In dark mode, use lighter colors (reverse the palette so lightest colors come first)
   const chartColors = useMemo(() => {
@@ -63,8 +66,8 @@ export function ChartPolarBar({ data: dataProp = [], keys: keysProp, categoryCon
       ? Object.keys(sanitizedChartData[0]).filter(key => key !== 'month')
       : [])
 
-  const renderInfoTrigger = () => (
-    <div className="flex flex-col items-center gap-2">
+  const renderInfoTrigger = (forFullscreen = false) => (
+    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
         title="Household Spend Mix"
         description="Track monthly expenses across your top categories in a circular stacked chart."
@@ -88,9 +91,9 @@ export function ChartPolarBar({ data: dataProp = [], keys: keysProp, categoryCon
       />
     </div>
   )
-  const infoButton = (
-    <div className="absolute top-3 right-3 z-20">
-      {renderInfoTrigger()}
+  const infoButton = (forFullscreen = false) => (
+    <div className={forFullscreen ? "flex items-center gap-2" : "absolute top-3 right-3 z-20 hidden md:block"}>
+      {renderInfoTrigger(forFullscreen)}
     </div>
   )
   const legendItemWidth = useMemo(() => {
@@ -124,10 +127,11 @@ export function ChartPolarBar({ data: dataProp = [], keys: keysProp, categoryCon
   if (!sanitizedChartData || sanitizedChartData.length === 0 || finalKeys.length === 0) {
     return (
       <Card className="@container/card relative">
-        {infoButton}
+        {infoButton()}
         <CardHeader>
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
+            <ChartExpandButton onClick={() => setIsFullscreen(true)} />
             <ChartFavoriteButton
               chartId="householdSpendMix"
               chartTitle="Household Spend Mix"
@@ -143,70 +147,72 @@ export function ChartPolarBar({ data: dataProp = [], keys: keysProp, categoryCon
     )
   }
 
+  // Render chart function for reuse
+  const renderChart = () => (
+    <ResponsivePolarBar
+      data={sanitizedChartData}
+      keys={finalKeys}
+      indexBy="month"
+      valueSteps={5}
+      valueFormat=">-$.0f"
+      margin={{ top: 30, right: 20, bottom: 70, left: 20 }}
+      innerRadius={0.25}
+      cornerRadius={4}
+      borderWidth={1}
+      borderColor={resolvedTheme === "dark" ? "#4b5563" : "#d1d5db"}
+      arcLabelsSkipRadius={28}
+      radialAxis={{ angle: 180, tickSize: 5, tickPadding: 5, tickRotation: 0, ticksPosition: 'after' }}
+      circularAxisOuter={{ tickSize: 5, tickPadding: 15, tickRotation: 0 }}
+      colors={chartColors}
+      tooltip={({ arc }) => (
+        <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full border border-border/50" style={{ backgroundColor: arc.color, borderColor: arc.color }} />
+            <span className="font-medium text-foreground whitespace-nowrap">{arc.key}</span>
+          </div>
+          <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">{formatCurrency(Number(arc.value))}</div>
+        </div>
+      )}
+      theme={polarTheme}
+      legends={[{ anchor: "bottom", direction: "row", translateY: 50, itemWidth: legendItemWidth, itemHeight: 16, symbolShape: "circle" }]}
+    />
+  )
+
   return (
-    <Card className="relative">
-      {infoButton}
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <GridStackCardDragHandle />
-          <ChartFavoriteButton
-            chartId="householdSpendMix"
-            chartTitle="Household Spend Mix"
-            size="md"
-          />
-          <CardTitle>Household Spend Mix</CardTitle>
+    <>
+      <ChartFullscreenModal
+        isOpen={isFullscreen}
+        onClose={() => setIsFullscreen(false)}
+        title="Household Spend Mix"
+        description="Track monthly expenses across key categories"
+        headerActions={renderInfoTrigger(true)}
+      >
+        <div className="h-full w-full min-h-[400px]">
+          {renderChart()}
         </div>
-        <CardDescription>Track monthly expenses across key categories</CardDescription>
-      </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 chart-polar-bar h-[250px]">
-        <div className="h-full w-full">
-          <ResponsivePolarBar
-            data={sanitizedChartData}
-            keys={finalKeys}
-            indexBy="month"
-            valueSteps={5}
-            valueFormat=">-$.0f"
-            margin={{ top: 30, right: 20, bottom: 70, left: 20 }}
-            innerRadius={0.25}
-            cornerRadius={4}
-            borderWidth={1}
-            borderColor={resolvedTheme === "dark" ? "#4b5563" : "#d1d5db"}
-            arcLabelsSkipRadius={28}
-            radialAxis={{ angle: 180, tickSize: 5, tickPadding: 5, tickRotation: 0, ticksPosition: 'after' }}
-            circularAxisOuter={{ tickSize: 5, tickPadding: 15, tickRotation: 0 }}
-            colors={chartColors}
-            tooltip={({ arc }) => {
-              return (
-                <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full border border-border/50"
-                      style={{ backgroundColor: arc.color, borderColor: arc.color }}
-                    />
-                    <span className="font-medium text-foreground whitespace-nowrap">
-                      {arc.key}
-                    </span>
-                  </div>
-                  <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                    {formatCurrency(Number(arc.value))}
-                  </div>
-                </div>
-              )
-            }}
-            theme={polarTheme}
-            legends={[
-              {
-                anchor: "bottom",
-                direction: "row",
-                translateY: 50,
-                itemWidth: legendItemWidth,
-                itemHeight: 16,
-                symbolShape: "circle",
-              },
-            ]}
-          />
-        </div>
-      </CardContent>
-    </Card>
+      </ChartFullscreenModal>
+
+      <Card className="relative">
+        {infoButton()}
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
+            <ChartExpandButton onClick={() => setIsFullscreen(true)} />
+            <ChartFavoriteButton
+              chartId="householdSpendMix"
+              chartTitle="Household Spend Mix"
+              size="md"
+            />
+            <CardTitle>Household Spend Mix</CardTitle>
+          </div>
+          <CardDescription>Track monthly expenses across key categories</CardDescription>
+        </CardHeader>
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 chart-polar-bar h-[250px]">
+          <div className="h-full w-full">
+            {renderChart()}
+          </div>
+        </CardContent>
+      </Card>
+    </>
   )
 }

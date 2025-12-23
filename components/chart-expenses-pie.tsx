@@ -19,6 +19,8 @@ import {
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
+import { ChartExpandButton } from "@/components/chart-expand-button"
+import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 interface ChartExpensesPieProps {
   data?: Array<{
     id: string
@@ -48,6 +50,7 @@ export function ChartExpensesPie({ data: baseData = [], categoryControls, isLoad
   const { colorScheme, getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const [mounted, setMounted] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const sanitizedBaseData = useMemo(() => baseData.map(item => ({
     ...item,
     value: toNumericValue(item.value)
@@ -95,8 +98,8 @@ export function ChartExpensesPie({ data: baseData = [], categoryControls, isLoad
     format: (value: number) => formatCurrency(value)
   }), [formatCurrency])
 
-  const renderInfoTrigger = () => (
-    <div className="flex flex-col items-center gap-2">
+  const renderInfoTrigger = (forFullscreen = false) => (
+    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
         title="Expense Breakdown"
         description="This pie chart shows how your total expenses are distributed across spending categories."
@@ -120,6 +123,41 @@ export function ChartExpensesPie({ data: baseData = [], categoryControls, isLoad
         size="sm"
       />
     </div>
+  )
+
+  // Render chart function for reuse
+  const renderChart = () => (
+    <ResponsivePie
+      data={data}
+      margin={{ top: 40, right: 80, bottom: 40, left: 80 }}
+      innerRadius={0.5}
+      padAngle={0.7}
+      cornerRadius={3}
+      activeOuterRadiusOffset={8}
+      borderWidth={0}
+      arcLinkLabelsSkipAngle={10}
+      arcLinkLabelsTextColor={arcLinkLabelColor}
+      arcLinkLabelsThickness={2}
+      arcLinkLabelsColor={{ from: "color" }}
+      arcLabelsSkipAngle={20}
+      arcLabelsTextColor={(d: { color: string }) => getTextColor(d.color, colorScheme)}
+      valueFormat={(value) => formatCurrency(value)}
+      colors={colorConfig}
+      tooltip={({ datum }) => {
+        const percentage = total > 0 ? (Number(datum.value) / total) * 100 : 0
+        return (
+          <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full border border-border/50" style={{ backgroundColor: datum.color as string, borderColor: datum.color as string }} />
+              <span className="font-medium text-foreground whitespace-nowrap">{datum.label as string}</span>
+            </div>
+            <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">{valueFormatter.format(Number(datum.value))}</div>
+            <div className="mt-0.5 text-[0.7rem] text-foreground/80">{percentage.toFixed(1)}%</div>
+          </div>
+        )
+      }}
+      theme={{ text: { fill: textColor, fontSize: 12 } }}
+    />
   )
 
   if (!mounted) {
@@ -174,72 +212,42 @@ export function ChartExpensesPie({ data: baseData = [], categoryControls, isLoad
   }
 
   return (
-    <Card className="@container/card">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <GridStackCardDragHandle />
-          <ChartFavoriteButton
-            chartId="expenseBreakdown"
-            chartTitle="Expense Breakdown"
-            size="md"
-          />
-          <CardTitle>Expense Breakdown</CardTitle>
+    <>
+      <ChartFullscreenModal
+        isOpen={isFullscreen}
+        onClose={() => setIsFullscreen(false)}
+        title="Expense Breakdown"
+        description="Expenses distributed across spending categories"
+        headerActions={renderInfoTrigger(true)}
+      >
+        <div className="h-full w-full min-h-[400px]" key={colorScheme}>
+          {renderChart()}
         </div>
-        <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          {renderInfoTrigger()}
-        </CardAction>
-      </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
-        <div className="h-full w-full min-h-[250px]" key={colorScheme}>
-          <ResponsivePie
-            data={data}
-            margin={{ top: 40, right: 80, bottom: 40, left: 80 }}
-            innerRadius={0.5}
-            padAngle={0.7}
-            cornerRadius={3}
-            activeOuterRadiusOffset={8}
-            borderWidth={0}
-            arcLinkLabelsSkipAngle={10}
-            arcLinkLabelsTextColor={arcLinkLabelColor}
-            arcLinkLabelsThickness={2}
-            arcLinkLabelsColor={{ from: "color" }}
-            arcLabelsSkipAngle={20}
-            arcLabelsTextColor={(d: { color: string }) => getTextColor(d.color, colorScheme)}
-            valueFormat={(value) => formatCurrency(value)}
-            colors={colorConfig}
-            tooltip={({ datum }) => {
-              const percentage = total > 0 ? (Number(datum.value) / total) * 100 : 0
+      </ChartFullscreenModal>
 
-              return (
-                <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full border border-border/50"
-                      style={{ backgroundColor: datum.color as string, borderColor: datum.color as string }}
-                    />
-                    <span className="font-medium text-foreground whitespace-nowrap">
-                      {datum.label as string}
-                    </span>
-                  </div>
-                  <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                    {valueFormatter.format(Number(datum.value))}
-                  </div>
-                  <div className="mt-0.5 text-[0.7rem] text-foreground/80">
-                    {percentage.toFixed(1)}%
-                  </div>
-                </div>
-              )
-            }}
-            theme={{
-              text: {
-                fill: textColor,
-                fontSize: 12,
-              },
-            }}
-          />
-        </div>
-      </CardContent>
-    </Card>
+      <Card className="@container/card">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
+            <ChartExpandButton onClick={() => setIsFullscreen(true)} />
+            <ChartFavoriteButton
+              chartId="expenseBreakdown"
+              chartTitle="Expense Breakdown"
+              size="md"
+            />
+            <CardTitle>Expense Breakdown</CardTitle>
+          </div>
+          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            {renderInfoTrigger()}
+          </CardAction>
+        </CardHeader>
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
+          <div className="h-full w-full min-h-[250px]" key={colorScheme}>
+            {renderChart()}
+          </div>
+        </CardContent>
+      </Card>
+    </>
   )
 }
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveTreeMap } from "@nivo/treemap"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
@@ -18,6 +18,8 @@ import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
+import { ChartExpandButton } from "@/components/chart-expand-button"
+import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 
 type TreeMapNode = {
   name: string
@@ -37,6 +39,7 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
   const { getPalette, colorScheme } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const { resolvedTheme } = useTheme()
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const isDark = resolvedTheme === "dark"
 
   // In dark mode, use lighter colors (reverse the palette so lightest colors come first)
@@ -96,8 +99,8 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
     return result
   }, [data])
 
-  const renderInfoTrigger = () => (
-    <div className="flex flex-col items-center gap-2">
+  const renderInfoTrigger = (forFullscreen = false) => (
+    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
         title="Net Worth Allocation"
         description="Breakdown of your total assets - Click on a category to see transactions"
@@ -119,6 +122,48 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
         size="sm"
       />
     </div>
+  )
+
+  // Render chart function for reuse
+  const renderChart = () => (
+    <ResponsiveTreeMap
+      data={sanitizedData}
+      colors={chartColors}
+      identity="name"
+      value="loc"
+      valueFormat=".02s"
+      margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
+      labelSkipSize={12}
+      labelTextColor={labelColor}
+      orientLabel={false}
+      label={(node) => {
+        if (node.width <= 28 || node.height <= 49) return ""
+        const name = node.data.name || ""
+        const words = name.trim().split(/\s+/)
+        return words.length > 1 ? words[0] : name
+      }}
+      parentLabelPosition="left"
+      parentLabelTextColor={labelColor}
+      parentLabel={(node) => {
+        if (node.width <= 28 || node.height <= 49) return ""
+        const name = node.data.name || ""
+        const words = name.trim().split(/\s+/)
+        return words.length > 1 ? words[0] : name
+      }}
+      borderColor={{ from: "color", modifiers: [["darker", 0.1]] }}
+      tooltip={({ node }) => {
+        const displayName = (node.data as { fullDescription?: string; name?: string }).fullDescription || node.data.name
+        return (
+          <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg max-w-[300px] break-words">
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full border border-border/50 shrink-0" style={{ backgroundColor: node.color, borderColor: node.color }} />
+              <span className="font-medium text-foreground">{displayName}</span>
+            </div>
+            <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">{formatCurrency(node.value)}</div>
+          </div>
+        )
+      }}
+    />
   )
 
   if (!sanitizedData || !sanitizedData.children || sanitizedData.children.length === 0) {
@@ -147,6 +192,7 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
         <CardHeader>
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
+            <ChartExpandButton onClick={() => setIsFullscreen(true)} />
             <ChartFavoriteButton
               chartId="netWorthAllocation"
               chartTitle="Net Worth Allocation"
@@ -166,75 +212,41 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
   }
 
   return (
-    <Card className="col-span-full">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <GridStackCardDragHandle />
-          <ChartFavoriteButton
-            chartId="netWorthAllocation"
-            chartTitle="Net Worth Allocation"
-            size="md"
-          />
-          <CardTitle>Net Worth Allocation</CardTitle>
+    <>
+      <ChartFullscreenModal
+        isOpen={isFullscreen}
+        onClose={() => setIsFullscreen(false)}
+        title="Net Worth Allocation"
+        description="Breakdown of total assets by category"
+        headerActions={renderInfoTrigger(true)}
+      >
+        <div className="h-full w-full min-h-[400px]">
+          {renderChart()}
         </div>
-        <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          {renderInfoTrigger()}
-        </CardAction>
-      </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-        <div className="h-full w-full">
-          <ResponsiveTreeMap
-            data={sanitizedData}
-            colors={chartColors}
-            identity="name"
-            value="loc"
-            valueFormat=".02s"
-            margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
-            labelSkipSize={12}
-            labelTextColor={labelColor}
-            orientLabel={false}
-            label={(node) => {
-              if (node.width <= 28 || node.height <= 49) {
-                return ""
-              }
-              const name = node.data.name || ""
-              const words = name.trim().split(/\s+/)
-              return words.length > 1 ? words[0] : name
-            }}
-            parentLabelPosition="left"
-            parentLabelTextColor={labelColor}
-            parentLabel={(node) => {
-              if (node.width <= 28 || node.height <= 49) {
-                return ""
-              }
-              const name = node.data.name || ""
-              const words = name.trim().split(/\s+/)
-              return words.length > 1 ? words[0] : name
-            }}
-            borderColor={{ from: "color", modifiers: [["darker", 0.1]] }}
-            tooltip={({ node }) => {
-              const displayName =
-                (node.data as { fullDescription?: string; name?: string }).fullDescription ||
-                node.data.name
+      </ChartFullscreenModal>
 
-              return (
-                <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg max-w-[300px] break-words">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full border border-border/50 shrink-0"
-                      style={{ backgroundColor: node.color, borderColor: node.color }}
-                    />
-                    <span className="font-medium text-foreground">{displayName}</span>
-                  </div>
-                  <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                    {formatCurrency(node.value)}
-                  </div>
-                </div>
-              )
-            }}
-          />
-        </div>
-      </CardContent>
-    </Card>
+      <Card className="col-span-full">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
+            <ChartExpandButton onClick={() => setIsFullscreen(true)} />
+            <ChartFavoriteButton
+              chartId="netWorthAllocation"
+              chartTitle="Net Worth Allocation"
+              size="md"
+            />
+            <CardTitle>Net Worth Allocation</CardTitle>
+          </div>
+          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            {renderInfoTrigger()}
+          </CardAction>
+        </CardHeader>
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+          <div className="h-full w-full">
+            {renderChart()}
+          </div>
+        </CardContent>
+      </Card>
+    </>
   )
 }
