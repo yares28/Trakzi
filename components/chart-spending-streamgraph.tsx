@@ -21,6 +21,8 @@ import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
+import { ChartExpandButton } from "@/components/chart-expand-button"
+import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 
 type ChartSpendingStreamgraphDatum = {
   month: string
@@ -64,6 +66,7 @@ export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControl
   const svgRef = useRef<SVGSVGElement | null>(null)
   const [tooltip, setTooltip] = useState<{ label: string; total: number; color: string } | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   const isDark = resolvedTheme === "dark"
 
@@ -211,8 +214,8 @@ export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControl
     setTooltipPosition(null)
   }
 
-  const renderInfoTrigger = () => (
-    <div className="flex flex-col items-center gap-2">
+  const renderInfoTrigger = (forFullscreen = false) => (
+    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
         title="Category Streamgraph"
         description="Stacked monthly expenses inspired by D3 streamgraphs"
@@ -238,6 +241,7 @@ export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControl
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
+            <ChartExpandButton onClick={() => setIsFullscreen(true)} />
             <ChartFavoriteButton
               chartId="spendingStreamgraph"
               chartTitle="Category Streamgraph"
@@ -259,156 +263,171 @@ export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControl
   const { width, height, margin, months, yTicks, zeroLine, layers, xScale, yScale } = chartGeometry
 
   return (
-    <Card className="col-span-full">
-      <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-center gap-2">
-          <GridStackCardDragHandle />
-          <ChartFavoriteButton
-            chartId="spendingStreamgraph"
-            chartTitle="Category Streamgraph"
-            size="md"
-          />
-          <CardTitle>Category Streamgraph</CardTitle>
+    <>
+      <ChartFullscreenModal
+        isOpen={isFullscreen}
+        onClose={() => setIsFullscreen(false)}
+        title="Category Streamgraph"
+        description="Stacked monthly expenses inspired by D3 streamgraphs"
+        headerActions={renderInfoTrigger(true)}
+      >
+        <div className="h-full w-full min-h-[400px] text-center flex items-center justify-center text-muted-foreground">
+          Fullscreen streamgraph view - Please expand card on desktop for better viewing
         </div>
-        <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          {renderInfoTrigger()}
-        </CardAction>
-      </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-        <div className="relative flex h-full flex-col gap-4">
-          <svg
-            ref={svgRef}
-            viewBox={`0 0 ${width} ${height}`}
-            role="img"
-            aria-label="Monthly spending streamgraph"
-            className="h-full w-full text-muted-foreground/70 [font-feature-settings:'tnum']"
-          >
-            {/* Horizontal grid */}
-            <g className="text-xs">
-              {yTicks.map((tickValue) => {
-                const y = yScale(tickValue)
-                return (
-                  <g key={`y-${tickValue}`}>
-                    <line
-                      x1={margin.left}
-                      x2={width - margin.right}
-                      y1={y}
-                      y2={y}
-                      stroke="currentColor"
-                      strokeDasharray="3 3"
-                      strokeOpacity={0.3}
-                    />
-                    <text
-                      x={margin.left - 12}
-                      y={y + 4}
-                      textAnchor="end"
-                      fill="currentColor"
-                      fontSize={11}
-                    >
-                      {axisFormatter.format(tickValue)}
-                    </text>
-                  </g>
-                )
-              })}
-            </g>
+      </ChartFullscreenModal>
 
-            {/* Baseline */}
-            {zeroLine >= margin.top && zeroLine <= height - margin.bottom && (
-              <line
-                x1={margin.left}
-                x2={width - margin.right}
-                y1={zeroLine}
-                y2={zeroLine}
-                stroke="currentColor"
-                strokeWidth={1}
-                strokeOpacity={0.4}
-              />
+      <Card className="col-span-full">
+        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-center gap-2">
+            <GridStackCardDragHandle />
+            <ChartExpandButton onClick={() => setIsFullscreen(true)} />
+            <ChartFavoriteButton
+              chartId="spendingStreamgraph"
+              chartTitle="Category Streamgraph"
+              size="md"
+            />
+            <CardTitle>Category Streamgraph</CardTitle>
+          </div>
+          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            {renderInfoTrigger()}
+          </CardAction>
+        </CardHeader>
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+          <div className="relative flex h-full flex-col gap-4">
+            <svg
+              ref={svgRef}
+              viewBox={`0 0 ${width} ${height}`}
+              role="img"
+              aria-label="Monthly spending streamgraph"
+              className="h-full w-full text-muted-foreground/70 [font-feature-settings:'tnum']"
+            >
+              {/* Horizontal grid */}
+              <g className="text-xs">
+                {yTicks.map((tickValue) => {
+                  const y = yScale(tickValue)
+                  return (
+                    <g key={`y-${tickValue}`}>
+                      <line
+                        x1={margin.left}
+                        x2={width - margin.right}
+                        y1={y}
+                        y2={y}
+                        stroke="currentColor"
+                        strokeDasharray="3 3"
+                        strokeOpacity={0.3}
+                      />
+                      <text
+                        x={margin.left - 12}
+                        y={y + 4}
+                        textAnchor="end"
+                        fill="currentColor"
+                        fontSize={11}
+                      >
+                        {axisFormatter.format(tickValue)}
+                      </text>
+                    </g>
+                  )
+                })}
+              </g>
+
+              {/* Baseline */}
+              {zeroLine >= margin.top && zeroLine <= height - margin.bottom && (
+                <line
+                  x1={margin.left}
+                  x2={width - margin.right}
+                  y1={zeroLine}
+                  y2={zeroLine}
+                  stroke="currentColor"
+                  strokeWidth={1}
+                  strokeOpacity={0.4}
+                />
+              )}
+
+              {/* Layers */}
+              <g className={isDark ? "" : "mix-blend-multiply"}>
+                {layers.map((layer) => (
+                  <path
+                    key={layer.key}
+                    d={layer.path ?? ""}
+                    fill={colorAssignments[layer.key] ?? FALLBACK_COLORS[0]}
+                    fillOpacity={isDark ? 0.8 : 0.9}
+                    stroke={isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}
+                    strokeWidth={0.5}
+                    onPointerMove={(event) => handleLayerPointerMove(event, layer.key)}
+                    onPointerLeave={handleLayerPointerLeave}
+                    style={{ cursor: "pointer" }}
+                  />
+                ))}
+              </g>
+
+              {/* X axis */}
+              <g className="text-xs" transform={`translate(0, ${height - margin.bottom})`}>
+                <line
+                  x1={margin.left}
+                  x2={width - margin.right}
+                  y1={0}
+                  y2={0}
+                  stroke="currentColor"
+                  strokeOpacity={0.35}
+                />
+                {months.map((month) => {
+                  const x = xScale(month) ?? margin.left
+                  return (
+                    <g key={month} transform={`translate(${x}, 0)`}>
+                      <line y2={6} stroke="currentColor" strokeWidth={0.75} />
+                      <text
+                        y={18}
+                        textAnchor="middle"
+                        fill="currentColor"
+                        fontSize={11}
+                        className="uppercase tracking-wide"
+                      >
+                        {monthFormatter(month)}
+                      </text>
+                    </g>
+                  )
+                })}
+              </g>
+            </svg>
+
+            {tooltip && tooltipPosition && (
+              <div
+                className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+                style={{
+                  left: Math.min(Math.max(tooltipPosition.x + 16, 8), DIMENSIONS.width - 8),
+                  top: Math.min(Math.max(tooltipPosition.y - 16, 8), DIMENSIONS.height - 8),
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full border border-border/50"
+                    style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
+                  />
+                  <span className="font-medium text-foreground whitespace-nowrap">{tooltip.label}</span>
+                </div>
+                <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
+                  {formatCurrency(tooltip.total)}
+                </div>
+              </div>
             )}
 
-            {/* Layers */}
-            <g className={isDark ? "" : "mix-blend-multiply"}>
-              {layers.map((layer) => (
-                <path
-                  key={layer.key}
-                  d={layer.path ?? ""}
-                  fill={colorAssignments[layer.key] ?? FALLBACK_COLORS[0]}
-                  fillOpacity={isDark ? 0.8 : 0.9}
-                  stroke={isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}
-                  strokeWidth={0.5}
-                  onPointerMove={(event) => handleLayerPointerMove(event, layer.key)}
-                  onPointerLeave={handleLayerPointerLeave}
-                  style={{ cursor: "pointer" }}
-                />
-              ))}
-            </g>
-
-            {/* X axis */}
-            <g className="text-xs" transform={`translate(0, ${height - margin.bottom})`}>
-              <line
-                x1={margin.left}
-                x2={width - margin.right}
-                y1={0}
-                y2={0}
-                stroke="currentColor"
-                strokeOpacity={0.35}
-              />
-              {months.map((month) => {
-                const x = xScale(month) ?? margin.left
-                return (
-                  <g key={month} transform={`translate(${x}, 0)`}>
-                    <line y2={6} stroke="currentColor" strokeWidth={0.75} />
-                    <text
-                      y={18}
-                      textAnchor="middle"
-                      fill="currentColor"
-                      fontSize={11}
-                      className="uppercase tracking-wide"
-                    >
-                      {monthFormatter(month)}
-                    </text>
-                  </g>
-                )
-              })}
-            </g>
-          </svg>
-
-          {tooltip && tooltipPosition && (
-            <div
-              className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
-              style={{
-                left: Math.min(Math.max(tooltipPosition.x + 16, 8), DIMENSIONS.width - 8),
-                top: Math.min(Math.max(tooltipPosition.y - 16, 8), DIMENSIONS.height - 8),
-              }}
-            >
-              <div className="flex items-center gap-2">
-                <span
-                  className="h-2.5 w-2.5 rounded-full border border-border/50"
-                  style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
-                />
-                <span className="font-medium text-foreground whitespace-nowrap">{tooltip.label}</span>
+            {activeKeys.length > 0 && (
+              <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
+                {activeKeys.map((key) => (
+                  <div key={key} className="flex items-center gap-1.5">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: colorAssignments[key] ?? FALLBACK_COLORS[0] }}
+                    />
+                    <span className="font-medium text-foreground">{key}</span>
+                  </div>
+                ))}
               </div>
-              <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                {formatCurrency(tooltip.total)}
-              </div>
-            </div>
-          )}
-
-          {activeKeys.length > 0 && (
-            <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
-              {activeKeys.map((key) => (
-                <div key={key} className="flex items-center gap-1.5">
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ backgroundColor: colorAssignments[key] ?? FALLBACK_COLORS[0] }}
-                  />
-                  <span className="font-medium text-foreground">{key}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </>
   )
 }
 
