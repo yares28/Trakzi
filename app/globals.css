@@ -426,3 +426,17 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
     }
   }
 }
+
+/* Clerk UserButton popover z-index fix for mobile sidebar */
+.cl-userButtonPopoverCard,
+.cl-userButtonPopoverActions,
+.cl-popoverBox,
+.cl-userButtonPopoverRootBox,
+.cl-rootBox {
+  z-index: 99999 !important;
+}
+
+/* Ensure Clerk portal is above everything */
+[data-clerk-portal] {
+  z-index: 99999 !important;
+}

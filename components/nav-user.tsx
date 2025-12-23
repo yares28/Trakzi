@@ -81,10 +81,7 @@ export function NavUser() {
         <SignedIn>
           {isLoaded && user ? (
             <div className="flex w-full items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1">
-              <div
-                className="flex flex-1 min-w-0 items-center gap-2 p-2 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:p-0"
-                onClick={handleUserButtonClick}
-              >
+              <div className="flex flex-1 min-w-0 items-center gap-2 p-2 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:p-0">
                 <UserButton
                   afterSignOutUrl="/"
                   appearance={{
