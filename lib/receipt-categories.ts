@@ -18,7 +18,7 @@ export const DEFAULT_RECEIPT_CATEGORY_TYPES: ReceiptCategoryType[] = [
   { name: "Protein", color: "#ef4444" }, // Red
   { name: "Carbs", color: "#f59e0b" }, // Amber
   { name: "Fat", color: "#eab308" }, // Yellow
-  { name: "Fiber", color: "#10b981" }, // Green
+  { name: "Mixed", color: "#8b5cf6" }, // Purple (mixed macronutrients - prepared/frozen foods)
   { name: "None", color: "#3b82f6" }, // Blue (no macronutrient value)
   { name: "Other", color: "#64748b" }, // Slate
 ]
@@ -48,14 +48,14 @@ export const DEFAULT_RECEIPT_CATEGORIES: ReceiptCategory[] = [
   { name: "Oils & Fats", type: "Fat", color: "#d97706", broadType: "Food" }, // Olive oil, vegetable oil, coconut oil, etc.
   { name: "Sauce", type: "Fat", color: "#ea580c", broadType: "Food" }, // Tomato sauce, pasta sauce, BBQ sauce, salsa, etc.
 
-  // FIBER
-  { name: "Fruits", type: "Fiber", color: "#059669", broadType: "Food" }, // Apples, bananas, grapes, oranges, strawberries, avocados, peaches, etc.
-  { name: "Vegetables", type: "Fiber", color: "#047857", broadType: "Food" }, // Onions, carrots, salad greens, broccoli, peppers, tomatoes, cucumbers, etc.
-  { name: "Canned Goods", type: "Fiber", color: "#065f46", broadType: "Food" }, // Soup, tuna, fruit, beans, vegetables, pasta sauce, etc.
+  // NONE (No macronutrient value) - Fruits, Vegetables, Canned Goods, etc.
+  { name: "Fruits", type: "None", color: "#059669", broadType: "Food" }, // Apples, bananas, grapes, oranges, strawberries, avocados, peaches, etc.
+  { name: "Vegetables", type: "None", color: "#047857", broadType: "Food" }, // Onions, carrots, salad greens, broccoli, peppers, tomatoes, cucumbers, etc.
+  { name: "Canned Goods", type: "None", color: "#065f46", broadType: "Food" }, // Soup, tuna, fruit, beans, vegetables, pasta sauce, etc.
 
-  // NONE (No macronutrient value)
-  { name: "Frozen Foods", type: "None", color: "#2563eb", broadType: "Food" }, // Pizza, fish, potatoes, ready meals, ice cream, etc.
-  { name: "Prepared Foods", type: "None", color: "#4f46e5", broadType: "Food" }, // Ready-to-eat meals, pre-made salads, rotisserie chicken, etc.
+  // MIXED (Multiple macronutrients - prepared/frozen foods)
+  { name: "Frozen Foods", type: "Mixed", color: "#8b5cf6", broadType: "Food" }, // Pizza, fish, potatoes, ready meals, ice cream, etc.
+  { name: "Prepared Foods", type: "Mixed", color: "#7c3aed", broadType: "Food" }, // Ready-to-eat meals, pre-made salads, rotisserie chicken, etc.
   { name: "Water", type: "None", color: "#0ea5e9", broadType: "Drinks" }, // Bottled water, sparkling water, etc.
   { name: "Coffee & Tea", type: "None", color: "#6b7280", broadType: "Drinks" }, // Coffee, tea, teabags, etc.
   { name: "Alcohol", type: "Carbs", color: "#9333ea", broadType: "Drinks" }, // Beer, wine, spirits, etc. (carbs from alcohol)

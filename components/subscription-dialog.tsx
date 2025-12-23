@@ -640,7 +640,7 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                 <DialogTrigger asChild>
                     {children}
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-3xl">
+                <DialogContent className="w-[calc(100vw-2rem)] max-w-3xl max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <CreditCard className="h-5 w-5 text-primary" />

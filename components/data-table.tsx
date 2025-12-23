@@ -680,223 +680,227 @@ export function DataTable<TData, TValue>({
         </Select>
       </div>
 
-      <div className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6">
+      <div className="relative flex flex-col gap-4 px-4 lg:px-6">
         {transactions && Array.isArray(transactions) && transactions.length > 0 ? (
           <>
-            <div className="overflow-hidden rounded-lg border">
-              <Table>
-                <TableHeader className="bg-muted sticky top-0 z-10">
-                  <TableRow>
-                    <TableHead className="w-12">
-                      <Checkbox
-                        checked={
-                          filteredTransactions.length > 0 &&
-                          (() => {
-                            const pageSize = transactionPagination.pageSize
-                            const maxItems = 10000
-                            const limitedTransactions = filteredTransactions.slice(0, maxItems)
-                            const currentPage = transactionPagination.pageIndex
-                            const startIndex = currentPage * pageSize
-                            const endIndex = startIndex + pageSize
-                            const pageData = limitedTransactions.slice(startIndex, endIndex)
-                            const pageIds = pageData.map(tx => tx.id)
-                            return pageIds.length > 0 && pageIds.every(id => selectedTransactionIds.has(id))
-                          })()
-                        }
-                        onCheckedChange={toggleAllTransactions}
-                        aria-label="Select all"
-                      />
-                    </TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Category</TableHead>
-                    {filteredTransactions.some(tx => tx.balance !== null) && (
-                      <TableHead className="text-right">Balance</TableHead>
-                    )}
-                    <TableHead className="w-12"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(() => {
-                    // Determine if balance column should be shown (check original transactions, not filtered)
-                    const hasBalanceColumn = transactions?.some(tx => tx.balance !== null) ?? false
-                    const baseColSpan = hasBalanceColumn ? 6 : 5
+            {/* Mobile scroll hint */}
+            <p className="text-xs text-muted-foreground md:hidden">← Swipe to see more →</p>
+            <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+              <div className="min-w-[600px] overflow-hidden rounded-lg border">
+                <Table>
+                  <TableHeader className="bg-muted sticky top-0 z-10">
+                    <TableRow>
+                      <TableHead className="w-12">
+                        <Checkbox
+                          checked={
+                            filteredTransactions.length > 0 &&
+                            (() => {
+                              const pageSize = transactionPagination.pageSize
+                              const maxItems = 10000
+                              const limitedTransactions = filteredTransactions.slice(0, maxItems)
+                              const currentPage = transactionPagination.pageIndex
+                              const startIndex = currentPage * pageSize
+                              const endIndex = startIndex + pageSize
+                              const pageData = limitedTransactions.slice(startIndex, endIndex)
+                              const pageIds = pageData.map(tx => tx.id)
+                              return pageIds.length > 0 && pageIds.every(id => selectedTransactionIds.has(id))
+                            })()
+                          }
+                          onCheckedChange={toggleAllTransactions}
+                          aria-label="Select all"
+                        />
+                      </TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead>Category</TableHead>
+                      {filteredTransactions.some(tx => tx.balance !== null) && (
+                        <TableHead className="text-right">Balance</TableHead>
+                      )}
+                      <TableHead className="w-12"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(() => {
+                      // Determine if balance column should be shown (check original transactions, not filtered)
+                      const hasBalanceColumn = transactions?.some(tx => tx.balance !== null) ?? false
+                      const baseColSpan = hasBalanceColumn ? 6 : 5
 
-                    if (!filteredTransactions || filteredTransactions.length === 0) {
-                      const colSpanWithCheckbox = baseColSpan + 1 // Add 1 for checkbox column
-                      return (
-                        <TableRow>
-                          <TableCell colSpan={colSpanWithCheckbox} className="h-24 text-center">
-                            {searchTerm || selectedCategory !== "all"
-                              ? "No transactions match your filters"
-                              : "No transactions found"}
+                      if (!filteredTransactions || filteredTransactions.length === 0) {
+                        const colSpanWithCheckbox = baseColSpan + 1 // Add 1 for checkbox column
+                        return (
+                          <TableRow>
+                            <TableCell colSpan={colSpanWithCheckbox} className="h-24 text-center">
+                              {searchTerm || selectedCategory !== "all"
+                                ? "No transactions match your filters"
+                                : "No transactions found"}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      }
+
+                      const pageSize = transactionPagination.pageSize
+                      const maxPages = 1000 // 10000 transactions / 10 per page = 1000 pages
+                      const maxItems = 10000 // Maximum 10000 transactions
+                      const limitedTransactions = filteredTransactions.slice(0, maxItems)
+                      const currentPage = transactionPagination.pageIndex
+                      const startIndex = currentPage * pageSize
+                      const endIndex = startIndex + pageSize
+                      const pageData = limitedTransactions.slice(startIndex, endIndex)
+                      const totalPages = Math.min(Math.ceil(limitedTransactions.length / pageSize), maxPages)
+
+                      if (pageData.length === 0) {
+                        const colSpanWithCheckbox = baseColSpan + 1 // Add 1 for checkbox column
+                        return (
+                          <TableRow>
+                            <TableCell colSpan={colSpanWithCheckbox} className="h-24 text-center">
+                              No transactions on this page
+                            </TableCell>
+                          </TableRow>
+                        )
+                      }
+
+                      return pageData.map((tx) => (
+                        <TableRow
+                          key={tx.id}
+                          className="group relative"
+                          data-state={selectedTransactionIds.has(tx.id) ? "selected" : undefined}
+                        >
+                          <TableCell className="w-12">
+                            <Checkbox
+                              checked={selectedTransactionIds.has(tx.id)}
+                              onCheckedChange={() => toggleTransactionSelection(tx.id)}
+                              aria-label={`Select transaction ${tx.id}`}
+                            />
+                          </TableCell>
+                          <TableCell className="w-28 flex-shrink-0">
+                            {formatDateForDisplay(tx.date, "en-US", {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </TableCell>
+                          <TableCell className="min-w-[150px] md:min-w-[250px] lg:min-w-[350px] max-w-[400px]">
+                            <div className="truncate" title={tx.description}>
+                              {tx.description}
+                            </div>
+                          </TableCell>
+                          <TableCell className={`text-right font-medium w-20 md:w-24 flex-shrink-0 ${tx.amount < 0 ? "text-red-500" : "text-green-500"}`}>
+                            {formatCurrency(tx.amount)}
+                          </TableCell>
+                          <TableCell className="w-[140px] flex-shrink-0">
+                            <Badge variant="outline">{tx.category}</Badge>
+                          </TableCell>
+                          {filteredTransactions.some(t => t.balance !== null) && (
+                            <TableCell className="text-right w-32 flex-shrink-0">
+                              {tx.balance !== null ? formatCurrency(tx.balance) : "-"}
+                            </TableCell>
+                          )}
+                          <TableCell className="w-12 flex-shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                              onClick={() => openDeleteDialog(tx.id)}
+                              disabled={deletingId === tx.id}
+                              title="Delete transaction"
+                            >
+                              {deletingId === tx.id ? (
+                                <IconLoader className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <IconTrash className="h-4 w-4" />
+                              )}
+                            </Button>
                           </TableCell>
                         </TableRow>
-                      )
-                    }
+                      ))
+                    })()}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="flex items-center justify-between mt-4">
+                {(() => {
+                  const pageSize = transactionPagination.pageSize
+                  const maxPages = 500 // 10000 transactions / 20 per page = 500 pages
+                  const maxItems = 10000 // Maximum 10000 transactions
+                  const limitedTransactions = filteredTransactions.slice(0, maxItems)
+                  const currentPage = transactionPagination.pageIndex
+                  const startIndex = currentPage * pageSize
+                  const endIndex = startIndex + pageSize
+                  const totalPages = Math.min(Math.ceil(limitedTransactions.length / pageSize), maxPages)
+                  const showingStart = Math.min(startIndex + 1, limitedTransactions.length)
+                  const showingEnd = Math.min(endIndex, limitedTransactions.length)
 
-                    const pageSize = transactionPagination.pageSize
-                    const maxPages = 1000 // 10000 transactions / 10 per page = 1000 pages
-                    const maxItems = 10000 // Maximum 10000 transactions
-                    const limitedTransactions = filteredTransactions.slice(0, maxItems)
-                    const currentPage = transactionPagination.pageIndex
-                    const startIndex = currentPage * pageSize
-                    const endIndex = startIndex + pageSize
-                    const pageData = limitedTransactions.slice(startIndex, endIndex)
-                    const totalPages = Math.min(Math.ceil(limitedTransactions.length / pageSize), maxPages)
-
-                    if (pageData.length === 0) {
-                      const colSpanWithCheckbox = baseColSpan + 1 // Add 1 for checkbox column
-                      return (
-                        <TableRow>
-                          <TableCell colSpan={colSpanWithCheckbox} className="h-24 text-center">
-                            No transactions on this page
-                          </TableCell>
-                        </TableRow>
-                      )
-                    }
-
-                    return pageData.map((tx) => (
-                      <TableRow
-                        key={tx.id}
-                        className="group relative"
-                        data-state={selectedTransactionIds.has(tx.id) ? "selected" : undefined}
-                      >
-                        <TableCell className="w-12">
-                          <Checkbox
-                            checked={selectedTransactionIds.has(tx.id)}
-                            onCheckedChange={() => toggleTransactionSelection(tx.id)}
-                            aria-label={`Select transaction ${tx.id}`}
-                          />
-                        </TableCell>
-                        <TableCell className="w-28 flex-shrink-0">
-                          {formatDateForDisplay(tx.date, "en-US", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </TableCell>
-                        <TableCell className="min-w-[350px] max-w-[600px]">
-                          <div className="truncate" title={tx.description}>
-                            {tx.description}
-                          </div>
-                        </TableCell>
-                        <TableCell className={`text-right font-medium w-24 flex-shrink-0 ${tx.amount < 0 ? "text-red-500" : "text-green-500"}`}>
-                          {formatCurrency(tx.amount)}
-                        </TableCell>
-                        <TableCell className="w-[140px] flex-shrink-0">
-                          <Badge variant="outline">{tx.category}</Badge>
-                        </TableCell>
-                        {filteredTransactions.some(t => t.balance !== null) && (
-                          <TableCell className="text-right w-32 flex-shrink-0">
-                            {tx.balance !== null ? formatCurrency(tx.balance) : "-"}
-                          </TableCell>
-                        )}
-                        <TableCell className="w-12 flex-shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-                            onClick={() => openDeleteDialog(tx.id)}
-                            disabled={deletingId === tx.id}
-                            title="Delete transaction"
-                          >
-                            {deletingId === tx.id ? (
-                              <IconLoader className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <IconTrash className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  })()}
-                </TableBody>
-              </Table>
-            </div>
-            <div className="flex items-center justify-between mt-4">
-              {(() => {
-                const pageSize = transactionPagination.pageSize
-                const maxPages = 500 // 10000 transactions / 20 per page = 500 pages
-                const maxItems = 10000 // Maximum 10000 transactions
-                const limitedTransactions = filteredTransactions.slice(0, maxItems)
-                const currentPage = transactionPagination.pageIndex
-                const startIndex = currentPage * pageSize
-                const endIndex = startIndex + pageSize
-                const totalPages = Math.min(Math.ceil(limitedTransactions.length / pageSize), maxPages)
-                const showingStart = Math.min(startIndex + 1, limitedTransactions.length)
-                const showingEnd = Math.min(endIndex, limitedTransactions.length)
-
-                return (
-                  <>
-                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                      <span>Rows per page:</span>
-                      <Select
-                        value={String(pageSize)}
-                        onValueChange={(value) => {
-                          setTransactionPagination({ pageIndex: 0, pageSize: Number(value) })
-                        }}
-                      >
-                        <SelectTrigger className="h-8 w-[70px]">
-                          <SelectValue placeholder={pageSize} />
-                        </SelectTrigger>
-                        <SelectContent side="top">
-                          {[10, 20, 30, 50, 100].map((size) => (
-                            <SelectItem key={size} value={String(size)}>
-                              {size}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <span className="ml-2">
-                        {limitedTransactions.length > 0
-                          ? `${showingStart}-${showingEnd} of ${limitedTransactions.length}`
-                          : "0 of 0"}
-                        {transactions && transactions.length > maxItems && ` (max ${maxItems})`}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="size-8"
-                        onClick={() => setTransactionPagination({ ...transactionPagination, pageIndex: 0 })}
-                        disabled={currentPage === 0}
-                      >
-                        <IconChevronsLeft className="size-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="size-8"
-                        onClick={() => setTransactionPagination({ ...transactionPagination, pageIndex: Math.max(0, currentPage - 1) })}
-                        disabled={currentPage === 0}
-                      >
-                        <IconChevronLeft className="size-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="size-8"
-                        onClick={() => setTransactionPagination({ ...transactionPagination, pageIndex: Math.min(totalPages - 1, currentPage + 1) })}
-                        disabled={currentPage >= totalPages - 1}
-                      >
-                        <IconChevronRight className="size-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="size-8"
-                        onClick={() => setTransactionPagination({ ...transactionPagination, pageIndex: totalPages - 1 })}
-                        disabled={currentPage >= totalPages - 1}
-                      >
-                        <IconChevronsRight className="size-4" />
-                      </Button>
-                    </div>
-                  </>
-                )
-              })()}
+                  return (
+                    <>
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <span>Rows per page:</span>
+                        <Select
+                          value={String(pageSize)}
+                          onValueChange={(value) => {
+                            setTransactionPagination({ pageIndex: 0, pageSize: Number(value) })
+                          }}
+                        >
+                          <SelectTrigger className="h-8 w-[70px]">
+                            <SelectValue placeholder={pageSize} />
+                          </SelectTrigger>
+                          <SelectContent side="top">
+                            {[10, 20, 30, 50, 100].map((size) => (
+                              <SelectItem key={size} value={String(size)}>
+                                {size}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <span className="ml-2">
+                          {limitedTransactions.length > 0
+                            ? `${showingStart}-${showingEnd} of ${limitedTransactions.length}`
+                            : "0 of 0"}
+                          {transactions && transactions.length > maxItems && ` (max ${maxItems})`}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="size-8"
+                          onClick={() => setTransactionPagination({ ...transactionPagination, pageIndex: 0 })}
+                          disabled={currentPage === 0}
+                        >
+                          <IconChevronsLeft className="size-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="size-8"
+                          onClick={() => setTransactionPagination({ ...transactionPagination, pageIndex: Math.max(0, currentPage - 1) })}
+                          disabled={currentPage === 0}
+                        >
+                          <IconChevronLeft className="size-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="size-8"
+                          onClick={() => setTransactionPagination({ ...transactionPagination, pageIndex: Math.min(totalPages - 1, currentPage + 1) })}
+                          disabled={currentPage >= totalPages - 1}
+                        >
+                          <IconChevronRight className="size-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="size-8"
+                          onClick={() => setTransactionPagination({ ...transactionPagination, pageIndex: totalPages - 1 })}
+                          disabled={currentPage >= totalPages - 1}
+                        >
+                          <IconChevronsRight className="size-4" />
+                        </Button>
+                      </div>
+                    </>
+                  )
+                })()}
+              </div>
             </div>
           </>
         ) : (
