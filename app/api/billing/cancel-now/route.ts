@@ -6,6 +6,7 @@ import { auth } from '@clerk/nextjs/server';
 import { getStripe } from '@/lib/stripe';
 import { getUserSubscription, upsertSubscription } from '@/lib/subscriptions';
 import { clerkClient } from '@clerk/nextjs/server';
+import { enforceTransactionCap, getTransactionCap } from '@/lib/limits/transactions-cap';
 
 export async function POST() {
     try {
@@ -48,6 +49,15 @@ export async function POST() {
                 status: 'canceled',
             });
 
+            // CRITICAL: Enforce transaction cap when downgrading to free plan
+            const freePlanCap = getTransactionCap('free');
+            console.log(`[Cancel Now] Enforcing free plan cap of ${freePlanCap} for user ${userId} (no Stripe subscription)`);
+            const capResult = await enforceTransactionCap(userId, freePlanCap);
+            
+            if (capResult.deleted > 0) {
+                console.log(`[Cancel Now] Auto-deleted ${capResult.deleted} oldest transactions for user ${userId} to fit free plan cap`);
+            }
+
             // Update Clerk metadata
             const client = await clerkClient();
             await client.users.updateUserMetadata(userId, {
@@ -57,9 +67,14 @@ export async function POST() {
                 },
             });
 
+            const message = capResult.deleted > 0
+                ? `Your subscription has been canceled. ${capResult.deleted} oldest transaction(s) were automatically deleted to fit the free plan limit of ${freePlanCap} transactions.`
+                : 'Your subscription has been canceled.';
+
             return NextResponse.json({
                 success: true,
-                message: 'Your subscription has been canceled.',
+                message,
+                deletedTransactions: capResult.deleted,
             });
         }
 
@@ -83,6 +98,16 @@ export async function POST() {
             cancelAtPeriodEnd: false,
         });
 
+        // CRITICAL: Enforce transaction cap when downgrading to free plan
+        // Delete oldest transactions if user exceeds the 400 transaction limit
+        const freePlanCap = getTransactionCap('free');
+        console.log(`[Cancel Now] Enforcing free plan cap of ${freePlanCap} for user ${userId}`);
+        const capResult = await enforceTransactionCap(userId, freePlanCap);
+        
+        if (capResult.deleted > 0) {
+            console.log(`[Cancel Now] Auto-deleted ${capResult.deleted} oldest transactions for user ${userId} to fit free plan cap`);
+        }
+
         // Update Clerk metadata
         const client = await clerkClient();
         await client.users.updateUserMetadata(userId, {
@@ -92,9 +117,14 @@ export async function POST() {
             },
         });
 
+        const message = capResult.deleted > 0
+            ? `Your subscription has been canceled immediately. You are now on the free plan. ${capResult.deleted} oldest transaction(s) were automatically deleted to fit the free plan limit of ${freePlanCap} transactions.`
+            : 'Your subscription has been canceled immediately. You are now on the free plan.';
+
         return NextResponse.json({
             success: true,
-            message: 'Your subscription has been canceled immediately. You are now on the free plan.',
+            message,
+            deletedTransactions: capResult.deleted,
         });
     } catch (error: any) {
         console.error('[Cancel Now] Error:', error);
