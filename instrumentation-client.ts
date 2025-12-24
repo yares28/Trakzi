@@ -16,9 +16,6 @@ if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_POSTHOG_KEY) {
   posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY, {
     api_host: "/ingest",
     ui_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
-    // Defaults option specifies PostHog SDK version defaults
-    // Using latest stable defaults as of 2024
-    defaults: '2024-12-01',
     // Enables capturing unhandled exceptions via Error Tracking
     capture_exceptions: true,
     // Turn on debug in development mode for detailed logging

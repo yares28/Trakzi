@@ -22,7 +22,7 @@ export const runtime = 'nodejs';
 interface StripeSubscriptionData {
     id: string;
     status: string;
-    customer: string;
+    customer: string | { id: string };
     items: { data: Array<{ price: { id: string } }> };
     current_period_end: number;
     cancel_at_period_end: boolean;
@@ -177,7 +177,8 @@ export async function POST(request: NextRequest) {
         console.error(`[Webhook] Error processing ${event.type} (${eventId}):`, error);
         
         // Mark event as failed (allows Stripe to retry)
-        await markEventAsFailed(eventId, error, {
+        const errorForLogging = error instanceof Error ? error : String(error);
+        await markEventAsFailed(eventId, errorForLogging, {
             customerId: typeof customerId === 'string' ? customerId : customerId?.id,
             subscriptionId: event.type.includes('subscription') ? subscriptionId : undefined,
         });

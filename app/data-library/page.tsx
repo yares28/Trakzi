@@ -1619,7 +1619,7 @@ export default function DataLibraryPage() {
       })
       if (response.ok) {
         // Track statement deleted
-        posthog.capture('statement_deleted', {
+        safeCapture('statement_deleted', {
           statement_name: statementToDelete.name,
           statement_type: statementToDelete.type,
           is_receipt: false,
