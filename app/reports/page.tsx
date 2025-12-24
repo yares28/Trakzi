@@ -34,8 +34,32 @@ export default function ReportsPage() {
         fetchReports()
     }, [fetchReports])
 
-    const handleDelete = useCallback(async (statementId: string) => {
+    const handleDelete = useCallback(async (report: any) => {
         try {
+            // Handle receipts differently from statements
+            if (report.type === "Receipts" && report.receiptId) {
+                console.log("[Reports Page] Deleting receipt with ID:", report.receiptId);
+                const response = await fetch(`/api/receipts/${report.receiptId}`, {
+                    method: "DELETE",
+                })
+                if (response.ok) {
+                    fetchReports()
+                } else {
+                    const errorData = await response.json().catch(() => ({}))
+                    console.error("Failed to delete receipt:", errorData.error || response.statusText)
+                    alert(`Failed to delete receipt: ${errorData.error || response.statusText}`)
+                }
+                return
+            }
+
+            // Handle statements
+            const statementId = report.statementId ?? (report.id && !isNaN(Number(report.id)) ? Number(report.id) : null);
+            if (!statementId) {
+                console.error("[Reports Page] Missing or invalid statement ID:", report);
+                alert("Invalid statement ID")
+                return
+            }
+
             console.log("[Reports Page] Deleting statement with ID:", statementId, typeof statementId);
             const response = await fetch(`/api/statements/${statementId}`, {
                 method: "DELETE",
@@ -49,8 +73,8 @@ export default function ReportsPage() {
                 alert(`Failed to delete statement: ${errorData.error || response.statusText}`)
             }
         } catch (error) {
-            console.error("Error deleting statement:", error)
-            alert(`Error deleting statement: ${error instanceof Error ? error.message : 'Unknown error'}`)
+            console.error("Error deleting:", error)
+            alert(`Error deleting: ${error instanceof Error ? error.message : 'Unknown error'}`)
         }
     }, [fetchReports])
 

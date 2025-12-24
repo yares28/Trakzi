@@ -271,7 +271,7 @@ function TransactionRow({
     );
 }
 
-const createColumns = (onDelete?: (statementId: string) => void): ColumnDef<z.infer<typeof reportSchema>>[] => [
+const createColumns = (onDelete?: (report: z.infer<typeof reportSchema> & { receiptId?: string | null }) => void): ColumnDef<z.infer<typeof reportSchema>>[] => [
     {
         id: "select",
         header: ({ table }) => (
@@ -350,7 +350,8 @@ const createColumns = (onDelete?: (statementId: string) => void): ColumnDef<z.in
 
             const handleDelete = () => {
                 if (onDelete) {
-                    onDelete(row.original.id);
+                    // Pass the entire report object so the handler can determine the type and use the correct ID
+                    onDelete(row.original as z.infer<typeof reportSchema> & { receiptId?: string | null });
                 }
             };
 
@@ -491,7 +492,7 @@ export function ReportsDataTable({
     loading = false,
 }: {
     data: z.infer<typeof reportSchema>[]
-    onDelete?: (statementId: string) => void
+    onDelete?: (report: z.infer<typeof reportSchema> & { receiptId?: string | null }) => void
     loading?: boolean
 }) {
     const [rowSelection, setRowSelection] = React.useState({})
