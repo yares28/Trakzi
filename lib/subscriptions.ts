@@ -141,6 +141,101 @@ export async function upsertSubscription(params: {
         pendingPlan,
     } = params;
 
+    // ============================================================================
+    // VALIDATION: Ensure data consistency and prevent invalid states
+    // ============================================================================
+
+    // Validation 1: Free plan should not have Stripe subscription ID
+    // (Free users don't have Stripe subscriptions)
+    // Auto-correct: Remove subscription ID for free plan
+    let correctedStripeSubscriptionId = stripeSubscriptionId;
+    if (plan === 'free' && stripeSubscriptionId) {
+        console.warn('[Subscriptions] Invalid: free plan with Stripe subscription ID - auto-correcting', {
+            userId,
+            plan,
+            stripeSubscriptionId,
+        });
+        correctedStripeSubscriptionId = undefined; // Remove subscription ID for free plan
+    }
+
+    // Validation 2: Active subscriptions should have a period end date
+    if (status === 'active' && plan !== 'free' && !currentPeriodEnd) {
+        console.warn('[Subscriptions] Invalid: active paid subscription without period end', {
+            userId,
+            plan,
+            status,
+        });
+        // Note: We allow this but log it - webhooks should always provide period end
+    }
+
+    // Validation 3: Period end should be in the future for active subscriptions
+    // Auto-correct: Change status to 'canceled' if period has passed
+    let correctedStatus = status;
+    if (status === 'active' && currentPeriodEnd && new Date(currentPeriodEnd) < new Date()) {
+        if (plan !== 'free') {
+            console.warn('[Subscriptions] Invalid: active subscription with past period end - auto-correcting to canceled', {
+                userId,
+                plan,
+                status,
+                currentPeriodEnd,
+            });
+            correctedStatus = 'canceled'; // Auto-correct expired subscriptions
+        }
+    }
+
+    // Validation 4: Paid plans should have Stripe subscription ID
+    // (This is a warning, not an error - free users upgrading might not have it yet)
+    if (plan !== 'free' && !stripeSubscriptionId) {
+        console.warn('[Subscriptions] Warning: paid plan without Stripe subscription ID', {
+            userId,
+            plan,
+            status,
+        });
+        // This is OK during checkout flow, but should be set by webhook
+    }
+
+    // Validation 5: Validate plan/price ID consistency (if price ID provided)
+    if (stripePriceId && plan !== 'free') {
+        const { getPlanFromPriceId } = await import('./stripe');
+        const pricePlan = getPlanFromPriceId(stripePriceId);
+        
+        // If price ID maps to a different plan, log warning
+        // Note: This could happen during plan transitions, so it's a warning not an error
+        if (pricePlan !== plan && pricePlan !== 'free') {
+            console.warn('[Subscriptions] Plan/price ID mismatch', {
+                userId,
+                plan,
+                pricePlan,
+                stripePriceId,
+            });
+            // Don't block - webhooks handle plan transitions
+        }
+    }
+
+    // Validation 6: Pending plan should be different from current plan
+    // Auto-correct: Clear pending plan if same as current
+    let correctedPendingPlan = pendingPlan;
+    if (pendingPlan && pendingPlan === plan) {
+        console.warn('[Subscriptions] Invalid: pending plan same as current plan - auto-correcting', {
+            userId,
+            plan,
+            pendingPlan,
+        });
+        correctedPendingPlan = null; // Clear pending plan
+    }
+
+    // Validation 7: Canceled subscriptions should not have cancel_at_period_end = true
+    // Auto-correct: Set cancelAtPeriodEnd to false
+    let correctedCancelAtPeriodEnd = cancelAtPeriodEnd;
+    if (correctedStatus === 'canceled' && cancelAtPeriodEnd) {
+        console.warn('[Subscriptions] Invalid: canceled subscription with cancel_at_period_end = true - auto-correcting', {
+            userId,
+            plan,
+            status: correctedStatus,
+        });
+        correctedCancelAtPeriodEnd = false; // If it's canceled, it's already canceled
+    }
+
     // Use ON CONFLICT DO UPDATE to handle both insert and update
     const rows = await neonQuery<SubscriptionRow>(
         `
@@ -173,13 +268,13 @@ export async function upsertSubscription(params: {
         [
             userId,
             plan,
-            status,
+            correctedStatus, // Use corrected status
             stripeCustomerId ?? null,
-            stripeSubscriptionId ?? null,
+            correctedStripeSubscriptionId ?? null, // Use corrected subscription ID
             stripePriceId ?? null,
             currentPeriodEnd ?? null,
-            cancelAtPeriodEnd,
-            pendingPlan ?? null,
+            correctedCancelAtPeriodEnd, // Use corrected cancel flag
+            correctedPendingPlan ?? null, // Use corrected pending plan
         ]
     );
 
