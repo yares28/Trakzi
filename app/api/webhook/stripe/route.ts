@@ -480,23 +480,35 @@ async function handleSubscriptionDeleted(subscription: StripeSubscriptionData) {
     const existingSub = await getSubscriptionByStripeCustomerId(customerId);
 
     if (existingSub) {
+        const userId = existingSub.userId;
+        
         await upsertSubscription({
-            userId: existingSub.userId,
+            userId,
             plan: 'free',
             status: 'canceled',
             currentPeriodEnd: periodEnd ?? undefined,
         });
 
+        // CRITICAL: Enforce transaction cap when downgrading to free plan
+        // Delete oldest transactions if user exceeds the 400 transaction limit
+        const freePlanCap = getTransactionCap('free');
+        console.log(`[Webhook] Subscription canceled - enforcing free plan cap of ${freePlanCap} for user ${userId}`);
+        const capResult = await enforceTransactionCap(userId, freePlanCap);
+        
+        if (capResult.deleted > 0) {
+            console.log(`[Webhook] Auto-deleted ${capResult.deleted} oldest transactions for user ${userId} to fit free plan cap`);
+        }
+
         // Sync to Clerk - mark as canceled/free
         await syncSubscriptionToClerk(
-            existingSub.userId,
+            userId,
             'free',
             'canceled',
             customerId,
             periodEnd
         );
 
-        console.log(`[Webhook] Subscription canceled for user ${existingSub.userId}`);
+        console.log(`[Webhook] Subscription canceled for user ${userId}`);
     }
 }
 
@@ -596,19 +608,31 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
         }
     }
 
+    const userId = existingSub.userId;
+    
     // Update our database - downgrade to free and mark as canceled
     await upsertSubscription({
-        userId: existingSub.userId,
+        userId,
         plan: 'free',
         status: 'canceled',
         cancelAtPeriodEnd: false,
         currentPeriodEnd: new Date(), // Access ends immediately on refund
     });
 
+    // CRITICAL: Enforce transaction cap when downgrading to free plan
+    // Delete oldest transactions if user exceeds the 400 transaction limit
+    const freePlanCap = getTransactionCap('free');
+    console.log(`[Webhook] Subscription canceled due to refund - enforcing free plan cap of ${freePlanCap} for user ${userId}`);
+    const capResult = await enforceTransactionCap(userId, freePlanCap);
+    
+    if (capResult.deleted > 0) {
+        console.log(`[Webhook] Auto-deleted ${capResult.deleted} oldest transactions for user ${userId} to fit free plan cap`);
+    }
+
     // Sync to Clerk - mark as canceled/free with refund flag
     try {
         const client = await clerkClient();
-        await client.users.updateUserMetadata(existingSub.userId, {
+        await client.users.updateUserMetadata(userId, {
             publicMetadata: {
                 subscription: {
                     plan: 'free',
@@ -622,7 +646,7 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
         console.error('[Webhook] Failed to sync refund to Clerk:', clerkError);
     }
 
-    console.log(`[Webhook] Subscription cancelled due to refund for user ${existingSub.userId}`);
+    console.log(`[Webhook] Subscription cancelled due to refund for user ${userId}`);
 }
 
 // Note: mapStripeStatus is now imported from lib/subscriptions.ts
