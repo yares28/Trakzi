@@ -54,7 +54,7 @@ export function TransactionProgressBar({
     const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Fetch subscription data on mount
+    // Fetch subscription data on mount and when subscription changes
     useEffect(() => {
         async function fetchSubscription() {
             try {
@@ -71,6 +71,16 @@ export function TransactionProgressBar({
             }
         }
         fetchSubscription();
+
+        // Listen for subscription change events
+        const handleSubscriptionChange = () => {
+            fetchSubscription();
+        };
+        window.addEventListener('subscription-changed', handleSubscriptionChange);
+
+        return () => {
+            window.removeEventListener('subscription-changed', handleSubscriptionChange);
+        };
     }, []);
 
     // Show loading skeleton while fetching

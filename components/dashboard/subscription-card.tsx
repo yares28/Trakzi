@@ -460,6 +460,8 @@ export function SubscriptionCard() {
                 });
                 // Refresh using /api/subscription/me
                 await refreshStatus();
+                // Trigger transaction count refresh in dashboard
+                window.dispatchEvent(new CustomEvent('subscription-changed'));
                 setShowCancelConfirm(false);
             } else if (data.error) {
                 toast.error(data.error);
