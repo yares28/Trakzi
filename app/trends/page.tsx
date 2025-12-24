@@ -105,12 +105,12 @@ export default function TrendsPage() {
         setError(null)
 
         // Fetch transactions and categories in parallel
-        // Use limit=all to fetch all transactions for charts
+        // Use limit=100 with pagination - category counts only need to find what categories exist
         const [transactionsResponse, categoriesData] = await Promise.all([
           deduplicatedFetch<any>(
             dateFilter
-              ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}&limit=all`
-              : "/api/transactions?limit=all"
+              ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}&limit=100`
+              : "/api/transactions?limit=100"
           ),
           deduplicatedFetch<Category[]>("/api/categories"),
         ])

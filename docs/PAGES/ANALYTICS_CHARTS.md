@@ -46,14 +46,24 @@ All charts include:
 
 ## Data Source Overview
 
-All analytics charts fetch transaction data from the Neon database via API endpoints:
-- **Primary endpoint:** `/api/transactions` - Returns all transactions with optional date filtering
-- **Specialized endpoints:**
-  - `/api/charts/transaction-history` - Formatted transaction history for swarm plots
-  - `/api/transactions/daily` - Daily aggregated transaction data
-  - `/api/analytics/monthly-category-duplicate` - Monthly category spending batch data
-  - `/api/analytics/day-of-week-category` - Day of week category breakdowns
-  - `/api/financial-health` - Financial health metrics and year summaries
-  - `/api/categories` - Available spending categories
+### Aggregated Endpoints (Preferred for Charts)
+For better performance and scalability, charts should use these pre-aggregated endpoints:
+- **`/api/charts/summary-stats`** - Pre-calculated totals, changes, and trends for SectionCards
+- **`/api/charts/income-expenses`** - Daily income/expense totals for area charts
+- **`/api/charts/category-totals`** - Spending by category with daily breakdown
 
-**Data Processing:** Most charts receive raw transaction arrays and perform client-side calculations (grouping, summing, filtering) using React `useMemo` hooks for performance. Date filters are applied at the API level when possible, with additional filtering on the client side for category visibility controls.
+### Transaction Endpoints (For Data Tables)
+- **`/api/transactions`** - Paginated transactions (max 100 per page) for data tables
+  - Use `?page=1&limit=50` for pagination
+  - Use `?filter=last30days` for date filtering
+  - Returns `{ data: [...], pagination: {...} }` format
+
+### Specialized Chart Endpoints
+- `/api/charts/transaction-history` - Formatted transaction history for swarm plots
+- `/api/transactions/daily` - Daily aggregated transaction data
+- `/api/analytics/monthly-category-duplicate` - Monthly category spending batch data
+- `/api/analytics/day-of-week-category` - Day of week category breakdowns
+- `/api/financial-health` - Financial health metrics and year summaries
+- `/api/categories` - Available spending categories
+
+**Data Processing:** SectionCards now use the aggregated `/api/charts/summary-stats` endpoint for pre-calculated stats. Other charts still perform client-side calculations but should migrate to aggregated endpoints for better scalability.

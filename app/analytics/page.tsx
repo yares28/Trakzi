@@ -728,6 +728,25 @@ export default function AnalyticsPage() {
     () => !analyticsCacheEntry,
   )
 
+  // Summary stats from aggregated API endpoint (for SectionCards)
+  const [summaryStats, setSummaryStats] = useState<{
+    totalIncome: number
+    totalExpenses: number
+    savingsRate: number
+    netWorth: number
+    incomeChange: number
+    expensesChange: number
+    savingsRateChange: number
+    netWorthChange: number
+    incomeTrend: Array<{ date: string; value: number }>
+    expensesTrend: Array<{ date: string; value: number }>
+    netWorthTrend: Array<{ date: string; value: number }>
+    transactionCount: number
+    transactionTimeSpan: string
+    transactionTrend: Array<{ date: string; value: number }>
+  } | null>(null)
+  const [isLoadingStats, setIsLoadingStats] = useState(true)
+
   const [ringCategories, setRingCategories] = useState<string[]>([])
   const [allExpenseCategories, setAllExpenseCategories] = useState<string[]>([])
   // Independent limits used ONLY for Spending Activity Rings card
@@ -922,11 +941,11 @@ export default function AnalyticsPage() {
         dayOfWeekCategoryData,
       ] = await Promise.all([
         // 1. Transactions - returns { data: [...], pagination: {...} } or fallback []
-        // Use limit=all to fetch all transactions for charts/analytics
+        // Use limit=100 for data table - charts use aggregated endpoints
         deduplicatedFetch<any>(
           dateFilter
-            ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}&limit=all`
-            : "/api/transactions?limit=all"
+            ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}&limit=100`
+            : "/api/transactions?limit=100"
         ).catch(err => {
           console.error("[Analytics] Transactions fetch error:", err)
           return []
@@ -1018,6 +1037,33 @@ export default function AnalyticsPage() {
   useEffect(() => {
     fetchAllAnalyticsData()
   }, [fetchAllAnalyticsData])
+
+  // Fetch summary stats from aggregated endpoint (for SectionCards)
+  useEffect(() => {
+    const fetchSummaryStats = async () => {
+      try {
+        setIsLoadingStats(true)
+        const url = dateFilter
+          ? `/api/charts/summary-stats?filter=${encodeURIComponent(dateFilter)}`
+          : "/api/charts/summary-stats"
+        console.log("[Analytics] Fetching summary stats from:", url)
+        const response = await fetch(url)
+        const data = await response.json()
+
+        if (response.ok) {
+          console.log("[Analytics] Summary stats received:", data)
+          setSummaryStats(data)
+        } else {
+          console.error("[Analytics] Failed to fetch summary stats:", data)
+        }
+      } catch (error) {
+        console.error("[Analytics] Error fetching summary stats:", error)
+      } finally {
+        setIsLoadingStats(false)
+      }
+    }
+    fetchSummaryStats()
+  }, [dateFilter])
 
   // Parse CSV when it changes
   useEffect(() => {
@@ -2853,20 +2899,20 @@ export default function AnalyticsPage() {
           <div className="@container/main flex flex-1 flex-col gap-2">
             <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
               <SectionCards
-                totalIncome={stats.totalIncome}
-                totalExpenses={stats.totalExpenses}
-                savingsRate={stats.savingsRate}
-                netWorth={stats.netWorth}
-                incomeChange={stats.incomeChange}
-                expensesChange={stats.expensesChange}
-                savingsRateChange={stats.savingsRateChange}
-                netWorthChange={stats.netWorthChange}
-                incomeTrend={statsTrends.incomeTrend}
-                expensesTrend={statsTrends.expensesTrend}
-                netWorthTrend={statsTrends.netWorthTrend}
-                transactionCount={transactionSummary.count}
-                transactionTimeSpan={transactionSummary.timeSpan}
-                transactionTrend={transactionSummary.trend}
+                totalIncome={summaryStats?.totalIncome ?? stats.totalIncome}
+                totalExpenses={summaryStats?.totalExpenses ?? stats.totalExpenses}
+                savingsRate={summaryStats?.savingsRate ?? stats.savingsRate}
+                netWorth={summaryStats?.netWorth ?? stats.netWorth}
+                incomeChange={summaryStats?.incomeChange ?? stats.incomeChange}
+                expensesChange={summaryStats?.expensesChange ?? stats.expensesChange}
+                savingsRateChange={summaryStats?.savingsRateChange ?? stats.savingsRateChange}
+                netWorthChange={summaryStats?.netWorthChange ?? stats.netWorthChange}
+                incomeTrend={summaryStats?.incomeTrend ?? statsTrends.incomeTrend}
+                expensesTrend={summaryStats?.expensesTrend ?? statsTrends.expensesTrend}
+                netWorthTrend={summaryStats?.netWorthTrend ?? statsTrends.netWorthTrend}
+                transactionCount={summaryStats?.transactionCount ?? transactionSummary.count}
+                transactionTimeSpan={summaryStats?.transactionTimeSpan ?? transactionSummary.timeSpan}
+                transactionTrend={summaryStats?.transactionTrend ?? transactionSummary.trend}
               />
 
               {/* @dnd-kit analytics chart section */}
