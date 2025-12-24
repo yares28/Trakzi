@@ -311,15 +311,39 @@ function extractItems(receiptText: string): ExtractedReceipt["items"] {
         const description = trimAndCollapseSpaces(afterQty.slice(0, firstMoneyMatch.index))
         if (!description) continue
 
-        // Get prices from the end
-        const totalPrice = moneyTokens[moneyTokens.length - 1]
+        // Determine prices - improved logic for qty > 1
+        let totalPrice: number
         let pricePerUnit: number
 
         if (moneyTokens.length >= 2) {
-            // We have explicit unit price
-            pricePerUnit = moneyTokens[moneyTokens.length - 2]
+            // Two prices: could be (unit_price, total_price) or misparsed
+            const price1 = moneyTokens[moneyTokens.length - 2]
+            const price2 = moneyTokens[moneyTokens.length - 1]
+
+            // Validate: if qty * price1 ≈ price2, then price1 is unit, price2 is total
+            const expectedTotal = quantity * price1
+            const tolerance = 0.02 // 2 cents tolerance for rounding
+
+            if (Math.abs(expectedTotal - price2) <= tolerance) {
+                // Correct order: unit_price, total_price
+                pricePerUnit = price1
+                totalPrice = price2
+            } else if (Math.abs(quantity * price2 - price1) <= tolerance) {
+                // Reversed order: total_price, unit_price (unlikely but check)
+                pricePerUnit = price2
+                totalPrice = price1
+            } else if (quantity === 1) {
+                // qty=1: both should be equal, take the last as total
+                pricePerUnit = price2
+                totalPrice = price2
+            } else {
+                // Can't determine relationship, use last as total and compute unit
+                totalPrice = price2
+                pricePerUnit = quantity > 0 ? totalPrice / quantity : totalPrice
+            }
         } else {
-            // Compute unit price from total / quantity
+            // Single price: it's the total, compute unit price
+            totalPrice = moneyTokens[0]
             pricePerUnit = quantity > 0 ? totalPrice / quantity : totalPrice
         }
 
@@ -363,6 +387,26 @@ function hasMinimalMercadonaFields(extracted: ExtractedReceipt): boolean {
 
     // Must have at least one item
     if (!Array.isArray(extracted.items) || extracted.items.length === 0) {
+        return false
+    }
+
+    // VALIDATION: Sum of item total_prices should match receipt total
+    // Allow 5% tolerance for rounding errors and missed items
+    const calculatedTotal = extracted.items.reduce((sum, item) => {
+        const itemTotal = typeof item.total_price === "number" ? item.total_price : 0
+        return sum + itemTotal
+    }, 0)
+
+    const tolerance = extracted.total_amount * 0.05 // 5% tolerance
+    const difference = Math.abs(calculatedTotal - extracted.total_amount)
+
+    if (difference > tolerance && difference > 0.50) {
+        // Large discrepancy - likely misparsed items
+        console.log("[Mercadona Parser] Total validation failed:", {
+            extractedTotal: extracted.total_amount,
+            calculatedTotal: calculatedTotal.toFixed(2),
+            difference: difference.toFixed(2),
+        })
         return false
     }
 

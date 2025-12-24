@@ -105,8 +105,8 @@ export default function TrendsPage() {
         setError(null)
 
         // Fetch transactions and categories in parallel
-        const [transactions, categoriesData] = await Promise.all([
-          deduplicatedFetch<Transaction[]>(
+        const [transactionsResponse, categoriesData] = await Promise.all([
+          deduplicatedFetch<any>(
             dateFilter
               ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
               : "/api/transactions"
@@ -115,6 +115,11 @@ export default function TrendsPage() {
         ])
 
         if (!isMounted) return
+
+        // Handle both old format (array) and new format (object with data property)
+        const transactions: Transaction[] = Array.isArray(transactionsResponse)
+          ? transactionsResponse
+          : (transactionsResponse?.data || [])
 
         // If there are no transactions, show empty state
         if (!transactions || transactions.length === 0) {

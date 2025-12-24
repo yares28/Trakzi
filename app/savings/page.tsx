@@ -90,7 +90,10 @@ export default function Page() {
       const url = `/api/transactions?${params.toString()}`
       console.log("[Savings] Fetching transactions from:", url)
       const response = await fetch(url)
-      const data = await response.json()
+      const responseData = await response.json()
+
+      // Handle both old format (array) and new format (object with data property)
+      const data = Array.isArray(responseData) ? responseData : (responseData.data || [])
 
       if (response.ok) {
         if (Array.isArray(data)) {
@@ -104,10 +107,10 @@ export default function Page() {
             category: string
           }>)
         } else {
-          console.error("[Savings] Response is not an array:", data)
-          if (data.error) {
+          console.error("[Savings] Response is not an array:", responseData)
+          if (responseData.error) {
             toast.error("API Error", {
-              description: data.error,
+              description: responseData.error,
               duration: 10000,
             })
           }

@@ -259,6 +259,12 @@ async function parseImageReceipt(params: ParseReceiptFileParams): Promise<Receip
         // Try deterministic parsing with OCR normalization
         const result = tryParseMercadonaFromText({ text: ocrText, source: "ocr" })
 
+        // Calculate sum of item totals for comparison
+        const calculatedTotal = result.extracted?.items?.reduce((sum, item) => {
+            const itemTotal = typeof item.total_price === "number" ? item.total_price : 0
+            return sum + itemTotal
+        }, 0) || 0
+
         // Add debug info to meta for production troubleshooting
         const debugInfo = {
             ocr_text_length: ocrText.length,
@@ -268,6 +274,7 @@ async function parseImageReceipt(params: ParseReceiptFileParams): Promise<Receip
                 store_name: result.extracted?.store_name,
                 date: result.extracted?.receipt_date_iso,
                 total: typeof result.extracted?.total_amount === "number" ? result.extracted.total_amount : null,
+                calculated_total: Number(calculatedTotal.toFixed(2)),
                 item_count: result.extracted?.items?.length || 0,
             },
         }
