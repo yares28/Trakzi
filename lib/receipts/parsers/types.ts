@@ -71,6 +71,18 @@ export type ReceiptParseMeta = {
     merchant_detected: "mercadona" | "unknown"
     extraction_method: "mercadona_deterministic" | "ai_fallback" | "ai_only"
     ocr_used?: boolean
+    // Debug info (temporary for troubleshooting)
+    debug?: {
+        ocr_text_length?: number
+        ocr_text_preview?: string
+        parse_result?: {
+            ok: boolean
+            store_name?: string | null
+            date?: string | null
+            total?: number | null
+            item_count?: number
+        }
+    }
 }
 
 /** Result from the unified receipt parse pipeline */

@@ -259,6 +259,23 @@ async function parseImageReceipt(params: ParseReceiptFileParams): Promise<Receip
         // Try deterministic parsing with OCR normalization
         const result = tryParseMercadonaFromText({ text: ocrText, source: "ocr" })
 
+        // Add debug info to meta for production troubleshooting
+        const debugInfo = {
+            ocr_text_length: ocrText.length,
+            ocr_text_preview: ocrText.substring(0, 500),
+            parse_result: {
+                ok: result.ok,
+                store_name: result.extracted?.store_name,
+                date: result.extracted?.receipt_date_iso,
+                total: typeof result.extracted?.total_amount === "number" ? result.extracted.total_amount : null,
+                item_count: result.extracted?.items?.length || 0,
+            },
+        }
+        meta.debug = debugInfo
+
+        // Log parsing result for debugging
+        console.log("[Receipt Parser] Mercadona OCR parse result:", debugInfo.parse_result)
+
         if (result.ok && result.extracted) {
             meta.extraction_method = "mercadona_deterministic"
             console.log("[Receipt Parser] Mercadona image parsed deterministically via OCR")
