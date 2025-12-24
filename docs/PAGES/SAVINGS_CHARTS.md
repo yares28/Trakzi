@@ -6,9 +6,9 @@ This document lists all chart components used on the Savings page.
 
 ## Charts (1 total - more planned for future)
 
-| # | Chart ID | Component File | Description |
-|---|----------|----------------|-------------|
-| 1 | savingsAccumulation | `chart-savings-accumulation.tsx` | Savings Accumulation Over Time |
+| # | Chart ID | Component File | Description | Data Fetching & Calculation |
+|---|----------|----------------|-------------|------------------------------|
+| 1 | savingsAccumulation | `chart-savings-accumulation.tsx` | Savings Accumulation Over Time - Tracks cumulative savings over time with daily aggregates and optional moving averages | **Fetched from:** `/api/transactions` filtered by "Savings" category (with optional date filter). **Calculated:** Transactions filtered to "Savings" category only. Grouped by date (`YYYY-MM-DD`). Daily aggregates: `income` = sum of positive amounts, `expenses` = sum of negative amounts (absolute values). Cumulative savings calculated: `savings = previousSavings + income - expenses`. Moving averages (7-day and 30-day) calculated from savings values. Data formatted as `{ date, income, expenses, savings, ma7?, ma30? }[]`, sorted chronologically. Supports time range filtering (7d, 30d, 90d) |
 
 ---
 
@@ -39,6 +39,20 @@ Savings charts filter transactions by the "Savings" category, showing:
 - Cumulative savings over time
 - Daily savings deposits/withdrawals
 - Income vs expenses within savings context
+
+**Primary endpoint:** `/api/transactions` (with client-side filtering by "Savings" category and optional date filter)
+
+**Data Processing:** 
+1. All transactions fetched from `/api/transactions` endpoint
+2. Client-side filtering: transactions where `category === "Savings"`
+3. Grouping by date: transactions aggregated by `date` field (YYYY-MM-DD format)
+4. Daily calculations:
+   - `income` = sum of positive transaction amounts for the day
+   - `expenses` = sum of absolute values of negative transaction amounts for the day
+5. Cumulative savings: running total calculated as `previousSavings + income - expenses`
+6. Moving averages: 7-day and 30-day moving averages calculated from savings values (optional, toggleable)
+
+**Time Range Filtering:** Chart supports filtering to last 7 days, 30 days, or 90 days. Filtering applied client-side after data fetch.
 
 ## Chart Libraries Used
 

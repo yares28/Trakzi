@@ -383,6 +383,22 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
             return;
         }
         userId = metaUserId;
+        
+        // Create new subscription record
+        await upsertSubscription({
+            userId,
+            plan: newPlan,
+            status,
+            stripeCustomerId: customerId,
+            stripeSubscriptionId: subscription.id,
+            stripePriceId: priceId,
+            currentPeriodEnd: periodEnd ?? undefined,
+            cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        });
+        
+        // Sync to Clerk
+        await syncSubscriptionToClerk(userId, newPlan, status, customerId, periodEnd);
+        console.log(`[Webhook] Subscription created for user ${userId}, plan: ${newPlan}`);
     } else {
         // SECURITY: Verify customer ID matches (defense in depth)
         // This ensures the subscription belongs to the user in our database
@@ -397,20 +413,6 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
         }
         userId = existingSub.userId;
 
-        await upsertSubscription({
-            userId,
-            plan: newPlan,
-            status,
-            stripeCustomerId: customerId,
-            stripeSubscriptionId: subscription.id,
-            stripePriceId: priceId,
-            currentPeriodEnd: periodEnd ?? undefined,
-            cancelAtPeriodEnd: subscription.cancel_at_period_end,
-        });
-
-        // Sync to Clerk
-        await syncSubscriptionToClerk(userId, newPlan, status, customerId, periodEnd);
-    } else {
         // userId already set above with customer ID verification
         const currentPlan = existingSub.plan;
 
