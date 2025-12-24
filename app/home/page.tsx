@@ -576,7 +576,7 @@ export default function Page() {
   // NOTE: GridStack initialization removed - now using @dnd-kit for drag-and-drop
   // The SortableGridProvider handles all drag-and-drop functionality with built-in auto-scroll
 
-  // Transactions state for charts
+  // Transactions state for DataTable (paginated, max 100)
   const [transactions, setTransactions] = useState<Array<{
     id: number
     date: string
@@ -585,6 +585,15 @@ export default function Page() {
     balance: number | null
     category: string
   }>>([])
+
+  // Chart transactions state (full data from /api/charts/transactions)
+  const [chartTransactions, setChartTransactions] = useState<Array<{
+    id: number
+    date: string
+    amount: number
+    category: string
+  }>>([])
+  const [isLoadingChartTransactions, setIsLoadingChartTransactions] = useState(true)
 
   // Summary stats from aggregated API endpoint (for SectionCards)
   const [summaryStats, setSummaryStats] = useState<{
@@ -727,8 +736,8 @@ export default function Page() {
     )
   })
 
-  // Use transactions for charts (same as transactions state)
-  const chartTransactions = transactions
+
+  // chartTransactions is now a separate state fetched from /api/charts/transactions
 
   // Get default ring limit based on date filter
   const getDefaultRingLimit = (filter: string | null): number => {
@@ -1523,6 +1532,30 @@ export default function Page() {
     }
   }, [dateFilter])
 
+  // Fetch full transactions for charts (all data, no pagination limit)
+  const fetchChartTransactions = useCallback(async () => {
+    try {
+      setIsLoadingChartTransactions(true)
+      const url = dateFilter
+        ? `/api/charts/transactions?filter=${encodeURIComponent(dateFilter)}`
+        : "/api/charts/transactions"
+      console.log("[Home] Fetching chart transactions from:", url)
+      const response = await fetch(url)
+      const data = await response.json()
+
+      if (response.ok && Array.isArray(data)) {
+        console.log("[Home] Chart transactions received:", data.length, "transactions")
+        setChartTransactions(data)
+      } else {
+        console.error("[Home] Failed to fetch chart transactions:", data)
+      }
+    } catch (error) {
+      console.error("[Home] Error fetching chart transactions:", error)
+    } finally {
+      setIsLoadingChartTransactions(false)
+    }
+  }, [dateFilter])
+
   // Fetch transactions for DataTable (paginated, NOT for charts)
   const fetchTransactions = useCallback(async (bypassCache = false) => {
     try {
@@ -1611,7 +1644,8 @@ export default function Page() {
   useEffect(() => {
     fetchSummaryStats()
     fetchChartData()
-  }, [fetchSummaryStats, fetchChartData])
+    fetchChartTransactions()
+  }, [fetchSummaryStats, fetchChartData, fetchChartTransactions])
 
   // Register refresh callback with the global transaction dialog provider
   // This ensures transactions are refreshed directly when a transaction is added

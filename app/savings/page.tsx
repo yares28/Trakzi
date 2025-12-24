@@ -80,58 +80,39 @@ export default function Page() {
   // Fetch transactions for charts - filter for savings category only
   const fetchTransactions = useCallback(async () => {
     try {
-      // Build URL with both date filter and category filter for savings
-      const params = new URLSearchParams()
-      if (dateFilter) {
-        params.append("filter", dateFilter)
-      }
-      params.append("category", "Savings") // Only show savings category transactions
-      params.append("limit", "100") // Pagination for data table
-
-      const url = `/api/transactions?${params.toString()}`
+      // Use /api/charts/transactions for full data, then filter for savings category
+      const url = dateFilter
+        ? `/api/charts/transactions?filter=${encodeURIComponent(dateFilter)}`
+        : "/api/charts/transactions"
       console.log("[Savings] Fetching transactions from:", url)
       const response = await fetch(url)
-      const responseData = await response.json()
+      const data = await response.json()
 
-      // Handle both old format (array) and new format (object with data property)
-      const data = Array.isArray(responseData) ? responseData : (responseData.data || [])
-
-      if (response.ok) {
-        if (Array.isArray(data)) {
-          console.log(`[Savings] Setting ${data.length} savings transactions`)
-          setTransactions(normalizeTransactions(data) as Array<{
-            id: number
-            date: string
-            description: string
-            amount: number
-            balance: number | null
-            category: string
-          }>)
-        } else {
-          console.error("[Savings] Response is not an array:", responseData)
-          if (responseData.error) {
-            toast.error("API Error", {
-              description: responseData.error,
-              duration: 10000,
-            })
-          }
-        }
+      if (response.ok && Array.isArray(data)) {
+        // Filter for savings category (case-insensitive)
+        const savingsTransactions = data.filter((tx: { category?: string }) =>
+          tx.category?.toLowerCase() === 'savings'
+        )
+        console.log(`[Savings] Setting ${savingsTransactions.length} savings transactions`)
+        setTransactions(savingsTransactions.map((tx: { id: number; date: string; amount: number; category: string }) => ({
+          id: tx.id,
+          date: tx.date,
+          description: '',
+          amount: tx.amount,
+          balance: null,
+          category: tx.category
+        })))
       } else {
-        console.error("Failed to fetch transactions: HTTP", response.status, data)
-        if (response.status === 401) {
-          toast.error("Authentication Error", {
-            description: "Please configure DEMO_USER_ID in .env.local",
-            duration: 10000,
-          })
-        } else {
+        console.error("[Savings] Failed to fetch transactions:", data)
+        if (data?.error) {
           toast.error("API Error", {
-            description: data.error || `HTTP ${response.status}`,
-            duration: 8000,
+            description: data.error,
+            duration: 10000,
           })
         }
       }
     } catch (error) {
-      console.error("Error fetching transactions:", error)
+      console.error("[Savings] Error fetching transactions:", error)
       toast.error("Network Error", {
         description: "Failed to fetch transactions. Check your database connection.",
         duration: 8000,
