@@ -146,7 +146,7 @@ if (existingSub.stripeCustomerId && existingSub.stripeCustomerId !== customerId)
 - Limit: ~10 requests per minute per user
 
 **Files to Modify:**
-- `middleware.ts` or individual route handlers
+- `middleware.ts` or individual route handlerss
 - Consider using `@upstash/ratelimit`
 
 ---
