@@ -1462,11 +1462,14 @@ export default function Page() {
         cache: bypassCache ? 'no-store' : 'default',
         headers: bypassCache ? { 'Cache-Control': 'no-cache' } : undefined
       })
-      const data = await response.json()
+      const responseData = await response.json()
       console.log("[Home] Response status:", response.status)
-      console.log("[Home] Response data:", data)
+      console.log("[Home] Response data:", responseData)
+
+      // Handle both old format (array) and new format (object with data property)
+      const data = Array.isArray(responseData) ? responseData : (responseData.data || [])
       console.log("[Home] Is array?", Array.isArray(data))
-      console.log("[Home] Data length:", Array.isArray(data) ? data.length : "N/A")
+      console.log("[Home] Data length:", data.length)
 
       if (response.ok) {
         if (Array.isArray(data)) {
@@ -1481,10 +1484,10 @@ export default function Page() {
             category: string
           }>)
         } else {
-          console.error("[Home] Response is not an array:", data)
-          if (data.error) {
+          console.error("[Home] Response is not an array:", responseData)
+          if (responseData.error) {
             toast.error("API Error", {
-              description: data.error,
+              description: responseData.error,
               duration: 10000,
             })
           }

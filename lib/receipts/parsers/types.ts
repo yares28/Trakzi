@@ -80,6 +80,7 @@ export type ReceiptParseMeta = {
             store_name?: string | null
             date?: string | null
             total?: number | null
+            calculated_total?: number | null
             item_count?: number
         }
     }

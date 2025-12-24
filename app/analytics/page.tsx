@@ -921,8 +921,8 @@ export default function AnalyticsPage() {
         dailyTransactionsData,
         dayOfWeekCategoryData,
       ] = await Promise.all([
-        // 1. Transactions
-        deduplicatedFetch<any[]>(
+        // 1. Transactions - returns { data: [...], pagination: {...} } or fallback []
+        deduplicatedFetch<any>(
           dateFilter
             ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
             : "/api/transactions"
@@ -976,11 +976,14 @@ export default function AnalyticsPage() {
       const endTime = performance.now()
       console.log(`[Analytics] All data fetched in ${(endTime - startTime).toFixed(2)}ms`)
 
-      // Set transactions
+      // Set transactions - handle both old format (array) and new format (object with data property)
       let nextTransactions = cachedEntry?.transactions ?? []
-      if (Array.isArray(transactionsData)) {
-        nextTransactions = normalizeTransactions(transactionsData) as AnalyticsTransaction[]
-        console.log(`[Analytics] Setting ${transactionsData.length} transactions`)
+      const transactionsArray = Array.isArray(transactionsData)
+        ? transactionsData
+        : (transactionsData?.data || [])
+      if (Array.isArray(transactionsArray) && transactionsArray.length > 0) {
+        nextTransactions = normalizeTransactions(transactionsArray) as AnalyticsTransaction[]
+        console.log(`[Analytics] Setting ${transactionsArray.length} transactions`)
         setRawTransactions(nextTransactions)
       }
 
@@ -991,7 +994,7 @@ export default function AnalyticsPage() {
         setRingLimits(nextRingLimits)
       }
 
-      if (Array.isArray(transactionsData)) {
+      if (Array.isArray(transactionsArray) && transactionsArray.length > 0) {
         analyticsDataCache.set(cacheKey, {
           transactions: nextTransactions,
           ringLimits: nextRingLimits,

@@ -84,7 +84,12 @@ export function ChartCategoryTrend({ categoryName }: ChartCategoryTrendProps) {
           ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
           : "/api/transactions"
 
-        const transactions = await deduplicatedFetch<Transaction[]>(url)
+        const response = await deduplicatedFetch<any>(url)
+
+        // Handle both old format (array) and new format (object with data property)
+        const transactions: Transaction[] = Array.isArray(response)
+          ? response
+          : (response?.data || [])
 
         if (!isMounted) return
 
