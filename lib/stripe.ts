@@ -38,12 +38,30 @@ export const STRIPE_PRICES = {
 
 // Map price IDs to plan names
 export function getPlanFromPriceId(priceId: string): 'pro' | 'max' | 'free' {
+    if (!priceId) {
+        console.warn('[Stripe] Empty price ID provided to getPlanFromPriceId');
+        return 'free';
+    }
+    
     if (priceId === STRIPE_PRICES.PRO_MONTHLY || priceId === STRIPE_PRICES.PRO_ANNUAL) {
         return 'pro';
     }
     if (priceId === STRIPE_PRICES.MAX_MONTHLY || priceId === STRIPE_PRICES.MAX_ANNUAL) {
         return 'max';
     }
+    
+    // Log unknown price ID for investigation (should not happen in production)
+    console.error('[Stripe] Unknown price ID:', priceId, {
+        knownPrices: {
+            PRO_MONTHLY: STRIPE_PRICES.PRO_MONTHLY,
+            PRO_ANNUAL: STRIPE_PRICES.PRO_ANNUAL,
+            MAX_MONTHLY: STRIPE_PRICES.MAX_MONTHLY,
+            MAX_ANNUAL: STRIPE_PRICES.MAX_ANNUAL,
+        },
+    });
+    
+    // Return 'free' as safe default, but log error for investigation
+    // Callers should validate this doesn't happen
     return 'free';
 }
 

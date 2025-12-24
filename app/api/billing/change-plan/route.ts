@@ -55,6 +55,30 @@ export async function POST(request: NextRequest) {
 
         const subscription = await getUserSubscription(userId);
 
+        // Validate priceId against allowed prices
+        const allowedPriceIds = [
+            STRIPE_PRICES.PRO_MONTHLY,
+            STRIPE_PRICES.PRO_ANNUAL,
+            STRIPE_PRICES.MAX_MONTHLY,
+            STRIPE_PRICES.MAX_ANNUAL,
+        ].filter(Boolean) as string[];
+
+        if (!allowedPriceIds.includes(priceId)) {
+            console.error('[Change Plan] Invalid price ID:', { priceId, userId });
+            return NextResponse.json(
+                { error: 'Invalid pricing option. Please select a valid plan.' },
+                { status: 400 }
+            );
+        }
+
+        // Check if subscription is in valid state for plan changes
+        if (subscription?.status === 'past_due') {
+            return NextResponse.json(
+                { error: 'Please update your payment method before changing plans.' },
+                { status: 400 }
+            );
+        }
+
         console.log('[Change Plan] Request:', {
             userId,
             currentPlan: subscription?.plan,
@@ -133,9 +157,26 @@ export async function POST(request: NextRequest) {
 
         // Get current subscription to find the subscription item ID
         const stripeSubscription = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
+        
+        // Validate subscription has items
+        if (!stripeSubscription.items?.data || stripeSubscription.items.data.length === 0) {
+            console.error('[Change Plan] Subscription has no items', {
+                subscriptionId: subscription.stripeSubscriptionId,
+                userId,
+            });
+            return NextResponse.json(
+                { error: 'Invalid subscription. Please contact support.' },
+                { status: 500 }
+            );
+        }
+        
         const subscriptionItemId = stripeSubscription.items.data[0]?.id;
 
         if (!subscriptionItemId) {
+            console.error('[Change Plan] Subscription item has no ID', {
+                subscriptionId: subscription.stripeSubscriptionId,
+                userId,
+            });
             return NextResponse.json(
                 { error: 'Could not find subscription item' },
                 { status: 500 }

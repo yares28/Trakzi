@@ -8,6 +8,12 @@ import { clerkClient } from '@clerk/nextjs/server';
 import { getStripe, getPlanFromPriceId } from '@/lib/stripe';
 import { upsertSubscription, getSubscriptionByStripeCustomerId, mapStripeStatus } from '@/lib/subscriptions';
 import { enforceTransactionCap, getTransactionCap } from '@/lib/limits/transactions-cap';
+import {
+    isEventProcessed,
+    markEventAsProcessing,
+    markEventAsCompleted,
+    markEventAsFailed,
+} from '@/lib/webhook-events';
 
 // Disable body parsing - we need raw body for signature verification
 export const runtime = 'nodejs';
@@ -67,8 +73,9 @@ export async function POST(request: NextRequest) {
 
     if (!webhookSecret) {
         console.error('[Webhook] STRIPE_WEBHOOK_SECRET is not set');
+        // Return generic error without exposing internal details
         return NextResponse.json(
-            { error: 'Webhook secret not configured' },
+            { received: false },
             { status: 500 }
         );
     }
@@ -101,7 +108,25 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ received: true });
     }
 
-    console.log(`[Webhook] Processing event: ${event.type}`);
+    // CRITICAL: Check idempotency using event ID (Stripe best practice)
+    const eventId = event.id;
+    const alreadyProcessed = await isEventProcessed(eventId);
+    
+    if (alreadyProcessed) {
+        console.log(`[Webhook] Event ${eventId} already processed, skipping (idempotency)`);
+        return NextResponse.json({ received: true });
+    }
+
+    // Mark as processing to prevent concurrent processing
+    const customerId = (event.data.object as any).customer;
+    const subscriptionId = (event.data.object as any).id;
+    
+    await markEventAsProcessing(eventId, event.type, {
+        customerId: typeof customerId === 'string' ? customerId : customerId?.id,
+        subscriptionId: event.type.includes('subscription') ? subscriptionId : undefined,
+    });
+
+    console.log(`[Webhook] Processing event: ${event.type} (ID: ${eventId})`);
 
     try {
         switch (event.type) {
@@ -140,12 +165,26 @@ export async function POST(request: NextRequest) {
                 console.log(`[Webhook] Unhandled event type: ${event.type}`);
         }
 
+        // Mark event as successfully completed
+        await markEventAsCompleted(eventId, {
+            customerId: typeof customerId === 'string' ? customerId : customerId?.id,
+            subscriptionId: event.type.includes('subscription') ? subscriptionId : undefined,
+        });
+
         return NextResponse.json({ received: true });
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Unknown error';
-        console.error(`[Webhook] Error processing ${event.type}:`, error);
+        console.error(`[Webhook] Error processing ${event.type} (${eventId}):`, error);
+        
+        // Mark event as failed (allows Stripe to retry)
+        await markEventAsFailed(eventId, error, {
+            customerId: typeof customerId === 'string' ? customerId : customerId?.id,
+            subscriptionId: event.type.includes('subscription') ? subscriptionId : undefined,
+        });
+        
+        // Return 500 so Stripe retries automatically (Stripe handles retries for 3 days)
         return NextResponse.json(
-            { error: `Webhook handler failed: ${message}` },
+            { error: 'Webhook processing failed' },
             { status: 500 }
         );
     }
@@ -181,11 +220,37 @@ async function syncSubscriptionToClerk(userId: string, plan: string, status: str
  */
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     const userId = session.metadata?.userId;
-    const customerId = session.customer as string;
-    const subscriptionId = session.subscription as string;
+    const customerId = typeof session.customer === 'string' 
+        ? session.customer 
+        : session.customer?.id;
+    const subscriptionId = typeof session.subscription === 'string'
+        ? session.subscription
+        : session.subscription?.id;
 
     if (!userId) {
-        console.error('[Webhook] No userId in checkout session metadata');
+        console.error('[Webhook] No userId in checkout session metadata', {
+            sessionId: session.id,
+            customerId,
+            subscriptionId,
+        });
+        // Store for manual review - don't throw, but log extensively
+        return;
+    }
+
+    if (!customerId) {
+        console.error('[Webhook] Invalid customer ID in checkout session', {
+            sessionId: session.id,
+            userId,
+        });
+        return;
+    }
+
+    if (!subscriptionId) {
+        console.error('[Webhook] No subscription ID in checkout session', {
+            sessionId: session.id,
+            userId,
+            customerId,
+        });
         return;
     }
 
@@ -196,8 +261,41 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     const subscriptionResponse = await stripe.subscriptions.retrieve(subscriptionId);
     // Use our interface type for proper typing
     const subscription = subscriptionResponse as unknown as StripeSubscriptionData;
+    
+    // Validate subscription has items
+    if (!subscription.items?.data || subscription.items.data.length === 0) {
+        console.error('[Webhook] Subscription has no items', {
+            subscriptionId,
+            customerId,
+            userId,
+        });
+        return;
+    }
+    
     const priceId = subscription.items.data[0]?.price.id;
-    const plan = getPlanFromPriceId(priceId || '');
+    
+    if (!priceId) {
+        console.error('[Webhook] Subscription item has no price ID', {
+            subscriptionId,
+            customerId,
+            userId,
+        });
+        return;
+    }
+    
+    const plan = getPlanFromPriceId(priceId);
+    
+    // Validate plan mapping (should not be 'free' for paid subscriptions)
+    if (plan === 'free' && priceId) {
+        console.error('[Webhook] Price ID maps to free plan unexpectedly', {
+            priceId,
+            subscriptionId,
+            customerId,
+            userId,
+        });
+        // Don't process - this indicates a configuration error
+        return;
+    }
 
     const periodEnd = safeTimestampToDate(subscription.current_period_end);
 
@@ -222,9 +320,49 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
  * Handle subscription updates (plan changes, renewals, etc.)
  */
 async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
-    const customerId = subscription.customer;
+    const customerId = typeof subscription.customer === 'string'
+        ? subscription.customer
+        : subscription.customer?.id;
+    
+    if (!customerId) {
+        console.error('[Webhook] Invalid customer ID in subscription update', {
+            subscriptionId: subscription.id,
+        });
+        return;
+    }
+    
+    // Validate subscription has items
+    if (!subscription.items?.data || subscription.items.data.length === 0) {
+        console.error('[Webhook] Subscription has no items', {
+            subscriptionId: subscription.id,
+            customerId,
+        });
+        return;
+    }
+    
     const priceId = subscription.items.data[0]?.price.id;
-    const newPlan = getPlanFromPriceId(priceId || '');
+    
+    if (!priceId) {
+        console.error('[Webhook] Subscription item has no price ID', {
+            subscriptionId: subscription.id,
+            customerId,
+        });
+        return;
+    }
+    
+    const newPlan = getPlanFromPriceId(priceId);
+    
+    // Validate plan mapping
+    if (newPlan === 'free' && priceId) {
+        console.error('[Webhook] Price ID maps to free plan unexpectedly', {
+            priceId,
+            subscriptionId: subscription.id,
+            customerId,
+        });
+        // Don't process - this indicates a configuration error
+        return;
+    }
+    
     const status = mapStripeStatus(subscription.status);
     const periodEnd = safeTimestampToDate(subscription.current_period_end);
 
@@ -325,7 +463,17 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
  * Handle subscription cancellation/deletion
  */
 async function handleSubscriptionDeleted(subscription: StripeSubscriptionData) {
-    const customerId = subscription.customer;
+    const customerId = typeof subscription.customer === 'string'
+        ? subscription.customer
+        : subscription.customer?.id;
+    
+    if (!customerId) {
+        console.error('[Webhook] Invalid customer ID in subscription deleted', {
+            subscriptionId: subscription.id,
+        });
+        return;
+    }
+    
     const periodEnd = safeTimestampToDate(subscription.current_period_end);
 
     const existingSub = await getSubscriptionByStripeCustomerId(customerId);
@@ -355,7 +503,17 @@ async function handleSubscriptionDeleted(subscription: StripeSubscriptionData) {
  * Handle failed payment - mark subscription as past_due and sync to Clerk
  */
 async function handlePaymentFailed(invoice: Stripe.Invoice) {
-    const customerId = invoice.customer as string;
+    const customerId = typeof invoice.customer === 'string'
+        ? invoice.customer
+        : invoice.customer?.id;
+    
+    if (!customerId) {
+        console.error('[Webhook] Invalid customer ID in payment failed invoice', {
+            invoiceId: invoice.id,
+        });
+        return;
+    }
+    
     const attemptCount = invoice.attempt_count || 1;
 
     console.log(`[Webhook] Payment failed for customer ${customerId}, attempt ${attemptCount}`);
@@ -396,7 +554,17 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
  * This is triggered when you issue a refund from the Stripe dashboard
  */
 async function handleChargeRefunded(charge: Stripe.Charge) {
-    const customerId = charge.customer as string;
+    const customerId = typeof charge.customer === 'string'
+        ? charge.customer
+        : charge.customer?.id;
+    
+    if (!customerId) {
+        console.error('[Webhook] Invalid customer ID in refunded charge', {
+            chargeId: charge.id,
+        });
+        return;
+    }
+    
     const amountRefunded = charge.amount_refunded;
     const refundedFull = charge.refunded; // true if fully refunded
 

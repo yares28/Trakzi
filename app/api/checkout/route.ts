@@ -2,9 +2,9 @@
 // Create Stripe Checkout Sessions for subscription purchases
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 import { getStripe, getAppUrl, STRIPE_PRICES } from '@/lib/stripe';
-import { getUserSubscription } from '@/lib/subscriptions';
+import { getUserSubscription, upsertSubscription } from '@/lib/subscriptions';
 
 export async function POST(request: NextRequest) {
     try {
@@ -29,25 +29,87 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Note: We don't validate priceId against server-side env vars here
-        // because the frontend uses NEXT_PUBLIC_* vars and server uses STRIPE_PRICE_ID_* vars
-        // Stripe will validate the price ID when creating the checkout session
-        // and return a clear error if the price doesn't exist
+        // Validate priceId against allowed prices (defense in depth)
+        // Stripe will also validate, but this prevents unnecessary API calls
+        const allowedPriceIds = [
+            STRIPE_PRICES.PRO_MONTHLY,
+            STRIPE_PRICES.PRO_ANNUAL,
+            STRIPE_PRICES.MAX_MONTHLY,
+            STRIPE_PRICES.MAX_ANNUAL,
+        ].filter(Boolean) as string[];
+
+        if (!allowedPriceIds.includes(priceId)) {
+            console.error('[Checkout] Invalid price ID attempted:', {
+                priceId,
+                userId,
+                allowedPriceIds,
+            });
+            return NextResponse.json(
+                { error: 'Invalid pricing option. Please select a valid plan.' },
+                { status: 400 }
+            );
+        }
 
         const stripe = getStripe();
         const appUrl = getAppUrl();
 
         // Check if user already has an active subscription with a Stripe customer
         const existingSubscription = await getUserSubscription(userId);
-        let customerId: string | undefined;
 
+        // Prevent duplicate subscriptions
+        if (existingSubscription?.status === 'active' && existingSubscription.plan !== 'free') {
+            return NextResponse.json(
+                { error: 'You already have an active subscription. Please manage it from your dashboard.' },
+                { status: 400 }
+            );
+        }
+
+        // CRITICAL FIX: Always create Stripe customer before checkout (t3dotgg recommendation)
+        // This prevents "split brain" issues and race conditions
+        let customerId: string | undefined;
+        
         if (existingSubscription?.stripeCustomerId) {
+            // Reuse existing customer
             customerId = existingSubscription.stripeCustomerId;
+        } else {
+            // Create new Stripe customer before checkout
+            // Get user email from Clerk
+            const client = await clerkClient();
+            const clerkUser = await client.users.getUser(userId);
+            const userEmail = clerkUser.emailAddresses[0]?.emailAddress;
+
+            if (!userEmail) {
+                console.error('[Checkout] User has no email address', { userId });
+                return NextResponse.json(
+                    { error: 'Email address is required for checkout. Please update your account.' },
+                    { status: 400 }
+                );
+            }
+
+            // Create Stripe customer
+            const newCustomer = await stripe.customers.create({
+                email: userEmail,
+                metadata: {
+                    userId: userId,
+                },
+            });
+
+            customerId = newCustomer.id;
+
+            // Store customer ID in database immediately (before checkout)
+            // This ensures we have the binding even if checkout fails
+            await upsertSubscription({
+                userId,
+                stripeCustomerId: customerId,
+                plan: 'free', // Will be updated by webhook after checkout
+                status: 'active',
+            });
+
+            console.log(`[Checkout] Created Stripe customer ${customerId} for user ${userId}`);
         }
 
         // Create Checkout Session
-        // Note: In subscription mode, Stripe automatically creates a customer
-        // so we don't need customer_creation (it's only for payment mode)
+        // ALWAYS pass customer ID (never let Stripe create it automatically)
         const session = await stripe.checkout.sessions.create({
             mode: 'subscription',
             payment_method_types: ['card'],
@@ -59,9 +121,7 @@ export async function POST(request: NextRequest) {
             ],
             success_url: successUrl || `${appUrl}/home?checkout=success`,
             cancel_url: cancelUrl || `${appUrl}/?checkout=canceled`,
-            // If user already has a Stripe customer ID, use it
-            // Otherwise Stripe will create a new customer automatically
-            ...(customerId && { customer: customerId }),
+            customer: customerId, // Always provided - never undefined
             metadata: {
                 userId: userId,
             },

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import posthog from "posthog-js";
+import { safeCapture } from "@/lib/posthog-safe";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
 import { PolarAngleAxis, RadialBar, RadialBarChart, AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
@@ -1030,7 +1030,7 @@ export default function DashboardPage() {
                                                         <Link
                                                             href={item.href}
                                                             className="text-sm font-medium text-primary px-6 py-4 hover:text-primary/80 hover:bg-primary/5 transition-all flex items-center gap-2"
-                                                            onClick={() => posthog.capture('dashboard_card_viewed', {
+                                                            onClick={() => safeCapture('dashboard_card_viewed', {
                                                                 card_name: item.name,
                                                                 card_key: item.key,
                                                                 card_score: item.progress,
@@ -1093,28 +1093,28 @@ export default function DashboardPage() {
                     <Link
                         href="/chat?prompt=Give%20me%20a%20monthly%20spending%20summary"
                         className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
-                        onClick={() => posthog.capture('quick_ai_prompt_clicked', { prompt_type: 'monthly_summary', prompt_text: 'Give me a monthly spending summary' })}
+                        onClick={() => safeCapture('quick_ai_prompt_clicked', { prompt_type: 'monthly_summary', prompt_text: 'Give me a monthly spending summary' })}
                     >
                         Monthly summary
                     </Link>
                     <Link
                         href="/chat?prompt=What%20are%20my%20top%20expenses%20this%20month"
                         className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
-                        onClick={() => posthog.capture('quick_ai_prompt_clicked', { prompt_type: 'top_expenses', prompt_text: 'What are my top expenses this month' })}
+                        onClick={() => safeCapture('quick_ai_prompt_clicked', { prompt_type: 'top_expenses', prompt_text: 'What are my top expenses this month' })}
                     >
                         Top expenses
                     </Link>
                     <Link
                         href="/chat?prompt=What%20seasonal%20spending%20patterns%20do%20you%20see%20in%20my%20data"
                         className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors hidden sm:block"
-                        onClick={() => posthog.capture('quick_ai_prompt_clicked', { prompt_type: 'seasonal_patterns', prompt_text: 'What seasonal spending patterns do you see in my data' })}
+                        onClick={() => safeCapture('quick_ai_prompt_clicked', { prompt_type: 'seasonal_patterns', prompt_text: 'What seasonal spending patterns do you see in my data' })}
                     >
                         Seasonal patterns
                     </Link>
                     <Link
                         href="/chat?prompt=Compare%20my%20spending%20year%20over%20year"
                         className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors hidden md:block"
-                        onClick={() => posthog.capture('quick_ai_prompt_clicked', { prompt_type: 'year_over_year', prompt_text: 'Compare my spending year over year' })}
+                        onClick={() => safeCapture('quick_ai_prompt_clicked', { prompt_type: 'year_over_year', prompt_text: 'Compare my spending year over year' })}
                     >
                         Year-over-year
                     </Link>

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@clerk/nextjs"
 import { toast } from "sonner"
-import posthog from "posthog-js"
+import { safeCapture } from "@/lib/posthog-safe"
 import Image from "next/image"
 
 // Plan logos for landing page (these replace the plan name text)
@@ -83,7 +83,7 @@ export function PricingSection() {
 
   const handlePlanSelect = async (plan: typeof pricingPlans[0]) => {
     // Track pricing plan click
-    posthog.capture('pricing_plan_clicked', {
+    safeCapture('pricing_plan_clicked', {
       plan_name: plan.name,
       billing_period: isAnnual ? 'annual' : 'monthly',
       price: plan.price || (isAnnual ? plan.annualPrice : plan.monthlyPrice),
@@ -144,7 +144,7 @@ export function PricingSection() {
     }
 
     // Track checkout started
-    posthog.capture('checkout_started', {
+    safeCapture('checkout_started', {
       plan_name: plan.name,
       billing_period: isAnnual ? 'annual' : 'monthly',
       price_id: priceId,
@@ -168,7 +168,7 @@ export function PricingSection() {
         console.error('Checkout error:', data.error)
 
         // Track checkout error
-        posthog.capture('checkout_error', {
+        safeCapture('checkout_error', {
           plan_name: plan.name,
           error: data.error,
           status: response.status,
@@ -184,7 +184,7 @@ export function PricingSection() {
 
       if (data.url) {
         // Track successful redirect to Stripe
-        posthog.capture('checkout_redirect', {
+        safeCapture('checkout_redirect', {
           plan_name: plan.name,
           billing_period: isAnnual ? 'annual' : 'monthly',
         })
@@ -194,7 +194,7 @@ export function PricingSection() {
       console.error('Checkout error:', error)
 
       // Track network/unexpected error
-      posthog.capture('checkout_error', {
+      safeCapture('checkout_error', {
         plan_name: plan.name,
         error: 'Network error',
       })
@@ -254,7 +254,7 @@ export function PricingSection() {
             <button
               onClick={() => {
                 setIsAnnual(false)
-                posthog.capture('billing_period_toggled', { billing_period: 'monthly', previous_period: 'annual' })
+                safeCapture('billing_period_toggled', { billing_period: 'monthly', previous_period: 'annual' })
               }}
               className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-200 ${!isAnnual ? "bg-[#e78a53] text-white shadow-lg" : "text-white/60 hover:text-white/80"
                 }`}
@@ -264,7 +264,7 @@ export function PricingSection() {
             <button
               onClick={() => {
                 setIsAnnual(true)
-                posthog.capture('billing_period_toggled', { billing_period: 'annual', previous_period: 'monthly' })
+                safeCapture('billing_period_toggled', { billing_period: 'annual', previous_period: 'monthly' })
               }}
               className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-200 relative ${isAnnual ? "bg-[#e78a53] text-white shadow-lg" : "text-white/60 hover:text-white/80"
                 }`}
