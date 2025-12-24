@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DEFAULT_CATEGORIES, DEFAULT_CATEGORY_GROUPS, type CategoryGroup } from "@/lib/categories"
 import { toast } from "sonner"
 import { ChevronDown, Plus } from "lucide-react"
+import { CategoryLimitDialog } from "@/components/category-limit-dialog"
 
 type SpendingTier = "Essentials" | "Mandatory" | "Wants"
 
@@ -37,6 +38,12 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
   const [, setCategories] = useState<string[]>(DEFAULT_CATEGORIES)
   const [newCategory, setNewCategory] = useState("")
   const [newCategoryTier, setNewCategoryTier] = useState<SpendingTier>("Wants")
+  const [showLimitDialog, setShowLimitDialog] = useState(false);
+  const [limitDialogData, setLimitDialogData] = useState<{
+    currentUsage: number;
+    limit: number;
+    plan: "free" | "pro" | "max";
+  } | null>(null);
   const [isSelectOpen, setIsSelectOpen] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -164,6 +171,13 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
     loadCategories()
   }, [loadCategories])
 
+  const [showLimitDialog, setShowLimitDialog] = useState(false);
+  const [limitDialogData, setLimitDialogData] = useState<{
+    currentUsage: number;
+    limit: number;
+    plan: "free" | "pro" | "max";
+  } | null>(null);
+
   const handleAddCategory = useCallback(async () => {
     const trimmed = newCategory.trim()
     if (!trimmed) {
@@ -185,6 +199,19 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
+        
+        // Check if it's a limit error
+        if (response.status === 403 && errorData.limitReached) {
+          setLimitDialogData({
+            currentUsage: errorData.currentUsage || 0,
+            limit: errorData.limit || 10,
+            plan: errorData.plan || "free",
+          });
+          setShowLimitDialog(true);
+          setIsSubmitting(false);
+          return;
+        }
+        
         throw new Error(errorData.error || "Failed to add category")
       }
 
@@ -418,6 +445,18 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Category Limit Dialog */}
+      {limitDialogData && (
+        <CategoryLimitDialog
+          open={showLimitDialog}
+          onOpenChange={setShowLimitDialog}
+          currentUsage={limitDialogData.currentUsage}
+          limit={limitDialogData.limit}
+          plan={limitDialogData.plan}
+          categoryType="transaction"
+        />
+      )}
     </>
   )
 })

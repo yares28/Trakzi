@@ -452,6 +452,44 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
         }
     };
 
+    // Retention offer state
+    const [showRetentionOffer, setShowRetentionOffer] = useState(false);
+    const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+
+    const handleApplyRetentionCoupon = async () => {
+        setIsApplyingCoupon(true);
+        try {
+            const response = await fetch("/api/billing/apply-retention-coupon", {
+                method: "POST",
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                toast.success("Discount applied!", {
+                    description: data.message,
+                    duration: 5000,
+                });
+                // Refresh the subscription status
+                const statusResponse = await fetch("/api/subscription/status");
+                if (statusResponse.ok) {
+                    const newStatus = await statusResponse.json();
+                    setStatus(newStatus);
+                }
+                setShowRetentionOffer(false);
+                setShowCancelConfirm(false);
+            } else if (data.error) {
+                toast.error(data.error);
+            } else {
+                toast.error("Unable to apply discount");
+            }
+        } catch (err) {
+            console.error("Apply retention coupon error:", err);
+            toast.error("Failed to apply discount");
+        } finally {
+            setIsApplyingCoupon(false);
+        }
+    };
+
     const handleCancelNow = async () => {
         setIsManaging(true);
         try {
@@ -465,12 +503,14 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                     description: data.message,
                     duration: 5000,
                 });
-                // Refresh the subscription status
+                // Refresh the subscription status and trigger transaction count refresh
                 const statusResponse = await fetch("/api/subscription/status");
                 if (statusResponse.ok) {
                     const newStatus = await statusResponse.json();
                     setStatus(newStatus);
                 }
+                // Trigger transaction count refresh in dashboard
+                window.dispatchEvent(new CustomEvent('subscription-changed'));
                 setShowCancelConfirm(false);
             } else if (data.error) {
                 toast.error(data.error);
@@ -853,6 +893,14 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                     <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:gap-2">
                         <AlertDialogCancel className="font-semibold">Keep My Subscription</AlertDialogCancel>
                         <AlertDialogAction
+                            className="bg-green-600 text-white hover:bg-green-700"
+                            onClick={() => {
+                                setShowRetentionOffer(true);
+                            }}
+                        >
+                            Stay & Save 30%
+                        </AlertDialogAction>
+                        <AlertDialogAction
                             className="bg-amber-600 text-white hover:bg-amber-700"
                             onClick={() => {
                                 setShowCancelConfirm(false);
@@ -875,6 +923,59 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                                     ({cancelPreview.transactionsToDelete.toLocaleString()} transactions will be deleted)
                                 </span>
                             )}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Retention Offer Dialog */}
+            <AlertDialog open={showRetentionOffer} onOpenChange={setShowRetentionOffer}>
+                <AlertDialogContent className="max-w-md">
+                    <AlertDialogHeader>
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 rounded-full bg-green-500/10">
+                                <Sparkles className="h-6 w-6 text-green-600" />
+                            </div>
+                            <AlertDialogTitle className="text-xl">Stay & Save 30%!</AlertDialogTitle>
+                        </div>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-4">
+                                <p className="text-sm text-muted-foreground">
+                                    We'd love to keep you! Here's a special offer:
+                                </p>
+
+                                <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                                    <div className="flex items-start gap-3">
+                                        <Check className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+                                        <div className="flex-1">
+                                            <p className="text-sm font-semibold text-green-900 dark:text-green-100 mb-1">
+                                                30% Off Your Next Month
+                                            </p>
+                                            <p className="text-sm text-green-800 dark:text-green-200">
+                                                Stay with us for one more month and get 30% off your next invoice. 
+                                                Your subscription will continue automatically after that.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <p className="text-xs text-muted-foreground">
+                                    This discount applies to your next billing cycle only. You can cancel anytime.
+                                </p>
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:gap-2">
+                        <AlertDialogCancel>No Thanks</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-green-600 text-white hover:bg-green-700"
+                            onClick={handleApplyRetentionCoupon}
+                            disabled={isApplyingCoupon}
+                        >
+                            {isApplyingCoupon ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : null}
+                            Apply Discount & Continue
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

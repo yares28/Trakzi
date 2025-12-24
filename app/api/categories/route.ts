@@ -116,6 +116,25 @@ const CATEGORY_COLORS = [
 export const POST = async (req: NextRequest) => {
   try {
     const userId = await getCurrentUserId()
+    
+    // Check category limit before creating
+    const { checkCustomTransactionCategoryLimit } = await import("@/lib/feature-access")
+    const limitCheck = await checkCustomTransactionCategoryLimit(userId)
+    
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        { 
+          error: limitCheck.reason || "Category limit reached",
+          limitReached: true,
+          currentUsage: limitCheck.currentUsage,
+          limit: limitCheck.limit,
+          plan: limitCheck.plan,
+          upgradeRequired: limitCheck.upgradeRequired,
+        },
+        { status: 403 }
+      )
+    }
+
     const body = await req.json().catch(() => ({}))
     const rawName = typeof body.name === "string" ? body.name : ""
     const color = typeof body.color === "string" ? body.color.trim() : null
