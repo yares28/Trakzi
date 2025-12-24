@@ -747,6 +747,15 @@ export default function AnalyticsPage() {
   } | null>(null)
   const [isLoadingStats, setIsLoadingStats] = useState(true)
 
+  // Chart transactions state (full data from /api/charts/transactions)
+  const [chartTransactions, setChartTransactions] = useState<Array<{
+    id: number
+    date: string
+    amount: number
+    category: string
+  }>>([])
+  const [isLoadingChartTransactions, setIsLoadingChartTransactions] = useState(true)
+
   const [ringCategories, setRingCategories] = useState<string[]>([])
   const [allExpenseCategories, setAllExpenseCategories] = useState<string[]>([])
   // Independent limits used ONLY for Spending Activity Rings card
@@ -1063,6 +1072,33 @@ export default function AnalyticsPage() {
       }
     }
     fetchSummaryStats()
+  }, [dateFilter])
+
+  // Fetch full transactions for charts (all data, no pagination limit)
+  useEffect(() => {
+    const fetchChartTransactions = async () => {
+      try {
+        setIsLoadingChartTransactions(true)
+        const url = dateFilter
+          ? `/api/charts/transactions?filter=${encodeURIComponent(dateFilter)}`
+          : "/api/charts/transactions"
+        console.log("[Analytics] Fetching chart transactions from:", url)
+        const response = await fetch(url)
+        const data = await response.json()
+
+        if (response.ok && Array.isArray(data)) {
+          console.log("[Analytics] Chart transactions received:", data.length, "transactions")
+          setChartTransactions(data)
+        } else {
+          console.error("[Analytics] Failed to fetch chart transactions:", data)
+        }
+      } catch (error) {
+        console.error("[Analytics] Error fetching chart transactions:", error)
+      } finally {
+        setIsLoadingChartTransactions(false)
+      }
+    }
+    fetchChartTransactions()
   }, [dateFilter])
 
   // Parse CSV when it changes
