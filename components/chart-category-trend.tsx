@@ -79,10 +79,10 @@ export function ChartCategoryTrend({ categoryName }: ChartCategoryTrendProps) {
       try {
         setIsLoading(true)
 
-        // Build API URL with filter
+        // Build API URL with filter - use limit=all to fetch all transactions
         const url = dateFilter
-          ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
-          : "/api/transactions"
+          ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}&limit=all`
+          : "/api/transactions?limit=all"
 
         const response = await deduplicatedFetch<any>(url)
 
