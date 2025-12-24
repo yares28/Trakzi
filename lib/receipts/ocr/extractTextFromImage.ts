@@ -109,6 +109,10 @@ Return ONLY the extracted text, nothing else.`,
             throw new Error("OCR_FAILED: No text detected in image")
         }
 
+        // Log OCR output for debugging
+        console.log("[OCR] Extracted text length:", text.length)
+        console.log("[OCR] First 500 chars:", text.substring(0, 500))
+
         return { text, confidence: undefined }
     }
 }
