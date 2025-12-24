@@ -44,3 +44,39 @@ export type PdfTextParser = {
      */
     parse(pdfText: string): { extracted: ExtractedReceipt; rawText: string }
 }
+
+/**
+ * =============================================================================
+ * RECEIPT PARSE PIPELINE TYPES
+ * =============================================================================
+ * These types support the unified receipt parsing pipeline that handles
+ * both PDFs and images with deterministic parsing + AI fallback.
+ */
+
+/** Warning codes for the receipt parse pipeline */
+export type ReceiptParseWarningCode =
+    | "MERCADONA_DETERMINISTIC_FAILED"
+    | "AI_FAILED"
+    | "OCR_FAILED"
+
+/** User-visible warning from the parse pipeline */
+export type ReceiptParseWarning = {
+    code: ReceiptParseWarningCode
+    message: string  // User-visible, keep copy clean
+}
+
+/** Metadata about how the receipt was parsed */
+export type ReceiptParseMeta = {
+    input_kind: "pdf" | "image"
+    merchant_detected: "mercadona" | "unknown"
+    extraction_method: "mercadona_deterministic" | "ai_fallback" | "ai_only"
+    ocr_used?: boolean
+}
+
+/** Result from the unified receipt parse pipeline */
+export type ReceiptParseResult = {
+    extracted: ExtractedReceipt | null
+    rawText?: string | null
+    warnings: ReceiptParseWarning[]  // Always returned (possibly empty)
+    meta: ReceiptParseMeta
+}

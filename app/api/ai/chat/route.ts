@@ -47,6 +47,7 @@ function formatCurrency(amount: number, currencyCode: string = "USD"): string {
 interface ChatMessage {
     role: "user" | "assistant" | "system";
     content: string;
+    reasoning_details?: unknown;  // For preserving thinking context
 }
 
 interface TransactionSummary {
@@ -342,7 +343,7 @@ export const POST = async (req: NextRequest) => {
             );
         }
 
-        // Make streaming request to OpenRouter
+        // Make streaming request to OpenRouter with Olmo 3.1 32B Think
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -352,11 +353,12 @@ export const POST = async (req: NextRequest) => {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                model: "google/gemini-2.0-flash-001",
+                model: "allenai/olmo-3.1-32b-think:free",
                 messages: apiMessages,
                 stream: true,
-                max_tokens: 1000,
-                temperature: 0.7
+                max_tokens: 2000,
+                temperature: 0.7,
+                reasoning: { enabled: true }  // Enable thinking/reasoning
             })
         });
 

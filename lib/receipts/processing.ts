@@ -7,9 +7,11 @@ import {
 } from "@/lib/receipts/item-category-preferences"
 import { suggestReceiptCategoryNameFromDescription } from "@/lib/receipts/receipt-category-heuristics"
 import { extractReceiptFromPdfTextWithParsers } from "@/lib/receipts/parsers"
+import { parseReceiptFile } from "@/lib/receipts/ingestion"
+import type { ReceiptParseWarning, ReceiptParseMeta } from "@/lib/receipts/parsers/types"
 import { getSiteUrl, getSiteName } from "@/lib/env"
 
-const RECEIPT_MODEL = "google/gemini-2.0-flash-001"
+const RECEIPT_MODEL = "allenai/olmo-3.1-32b-think:free"
 
 type EnqueueParams = {
   receiptId: string
@@ -300,6 +302,7 @@ async function repairReceiptJsonWithAi(params: {
       ],
       response_format: { type: "json_object" },
       provider: { sort: "throughput" },
+      reasoning: { enabled: true },
     }),
   })
 
@@ -409,6 +412,7 @@ async function extractReceiptWithAi(params: {
       ],
       response_format: { type: "json_object" },
       provider: { sort: "throughput" },
+      reasoning: { enabled: true },
     }),
   })
 
@@ -502,47 +506,98 @@ export async function processReceiptNow({ receiptId, userId }: EnqueueParams) {
 
   let extracted: ExtractedReceipt
   let rawText: string
+  let parseWarnings: ReceiptParseWarning[] = []
+  let parseMeta: ReceiptParseMeta | undefined
   const isPdf = mimeType === "application/pdf" || receiptFile.file_name.toLowerCase().endsWith(".pdf")
 
   try {
-    if (isPdf) {
-      // For PDFs: Try deterministic parser first, fall back to AI
-      const { extractText } = await import("unpdf")
-      const pdfData = new Uint8Array(receiptFile.data)
-      const textResult = await extractText(pdfData)
-      const pages = textResult.text || []
-      const pdfText = Array.isArray(pages) ? pages.join("\n") : String(pages)
+    // Use the unified receipt parsing pipeline for both PDFs and images
+    const pdfData = new Uint8Array(receiptFile.data)
 
-      if (!pdfText.trim()) {
-        throw new Error("PDF appears to be empty or unreadable")
-      }
+    const parseResult = await parseReceiptFile({
+      data: pdfData,
+      mimeType,
+      fileName: receiptFile.file_name,
+      allowedCategories: categories.map((c) => c.name),
+      aiExtractFromPdfText: async (pdfText: string) => {
+        // Use AI to extract from PDF text
+        const schemaPrompt = buildReceiptSchemaPrompt()
+        // Inline text-based AI extraction
+        const apiKey = process.env.OPENROUTER_API_KEY
+        if (!apiKey) throw new Error("OPENROUTER_API_KEY is not set")
+        const siteUrl = getSiteUrl()
+        const siteName = getSiteName()
+        const allowed = categories.map((c) => c.name)
 
-      const result = await extractReceiptFromPdfTextWithParsers({
-        pdfText,
-        fileName: receiptFile.file_name,
-        allowedCategories: categories.map((c) => c.name),
-        aiFallback: async () => {
-          // Fall back to vision-based AI extraction
-          const aiResult = await extractReceiptWithAi({
-            base64DataUrl,
-            fileName: receiptFile.file_name,
-            allowedCategories: categories.map((c) => c.name),
-          })
-          return aiResult
-        },
-      })
-      extracted = result.extracted
-      rawText = result.rawText
-    } else {
-      // For images: Use AI extraction directly
-      const result = await extractReceiptWithAi({
-        base64DataUrl,
-        fileName: receiptFile.file_name,
-        allowedCategories: categories.map((c) => c.name),
-      })
-      extracted = result.extracted
-      rawText = result.rawText
+        const prompt = [
+          "You extract structured data from the text content of a grocery store receipt.",
+          "Return ONLY valid JSON (no markdown, no code fences).",
+          "",
+          "Rules:",
+          "- receipt_date must be YYYY-MM-DD.",
+          "- receipt_time must be HH:MM or HH:MM:SS (24h).",
+          "- All money values must be numbers (use . as decimal separator).",
+          `- For item.category, choose exactly one from this list: ${allowed.join(", ")}.`,
+          "- Choose the closest matching category based on the item description.",
+          "",
+          schemaPrompt,
+          "",
+          `Receipt file name: ${receiptFile.file_name}`,
+          "",
+          "Receipt text content:",
+          pdfText,
+        ].join("\n")
+
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "HTTP-Referer": siteUrl,
+            "X-Title": siteName,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: RECEIPT_MODEL,
+            temperature: 0,
+            max_tokens: 1200,
+            messages: [{ role: "user", content: prompt }],
+            response_format: { type: "json_object" },
+            provider: { sort: "throughput" },
+            reasoning: { enabled: true },
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error(`OpenRouter error ${response.status}`)
+        }
+
+        const payload = await response.json()
+        const respText = payload?.choices?.[0]?.message?.content || ""
+        const parsed = tryParseReceiptJson(respText)
+        if (!parsed) throw new Error("AI response was not valid JSON")
+        return { extracted: parsed, rawText: respText }
+      },
+      aiExtractFromImageDataUrl: async (dataUrl: string) => {
+        return extractReceiptWithAi({
+          base64DataUrl: dataUrl,
+          fileName: receiptFile.file_name,
+          allowedCategories: categories.map((c) => c.name),
+        })
+      },
+    })
+
+    parseWarnings = parseResult.warnings
+    parseMeta = parseResult.meta
+
+    if (!parseResult.extracted) {
+      const errorMessage = parseWarnings.length > 0
+        ? parseWarnings.map(w => w.message).join(" ")
+        : "Failed to extract receipt data"
+      throw new Error(errorMessage)
     }
+
+    extracted = parseResult.extracted
+    rawText = parseResult.rawText || ""
   } catch (error: any) {
     await updateReceiptFailure({
       receiptId,
@@ -680,6 +735,9 @@ export async function processReceiptNow({ receiptId, userId }: EnqueueParams) {
     taxes_total_cuota: Number.isFinite(taxesTotalCuota) ? taxesTotalCuota : null,
     receipt_date_display: typeof extractedAny.receipt_date === "string" ? extractedAny.receipt_date : null,
     receipt_date_iso: receiptDate,
+    // Store parse pipeline metadata
+    parse_warnings: parseWarnings.length > 0 ? parseWarnings : undefined,
+    parse_meta: parseMeta,
     processedAt: new Date().toISOString(),
   }
 
