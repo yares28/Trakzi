@@ -313,6 +313,15 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
         targetCap: number;
         toDelete: number;
     } | null>(null);
+    
+    // Cancel preview state (how many transactions will be deleted)
+    const [cancelPreview, setCancelPreview] = useState<{
+        loading: boolean;
+        currentTotal: number;
+        freePlanCap: number;
+        transactionsToDelete: number;
+        willExceed: boolean;
+    } | null>(null);
 
     // Plan caps for downgrade warning
     const PLAN_CAPS: Record<PlanType, number> = { free: 400, pro: 3000, max: 15000 };
@@ -345,6 +354,32 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
         }
     };
 
+    // Fetch cancel preview (how many transactions will be deleted)
+    const fetchCancelPreview = async () => {
+        try {
+            const response = await fetch("/api/billing/cancel-preview");
+            if (response.ok) {
+                const data = await response.json();
+                setCancelPreview({
+                    loading: false,
+                    currentTotal: data.currentTotal,
+                    freePlanCap: data.freePlanCap,
+                    transactionsToDelete: data.transactionsToDelete,
+                    willExceed: data.willExceed,
+                });
+            }
+        } catch (err) {
+            console.error("Failed to fetch cancel preview:", err);
+            setCancelPreview({
+                loading: false,
+                currentTotal: 0,
+                freePlanCap: 400,
+                transactionsToDelete: 0,
+                willExceed: false,
+            });
+        }
+    };
+
     useEffect(() => {
         if (!open) return;
 
@@ -356,6 +391,14 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
 
         return () => clearInterval(pollInterval);
     }, [open]);
+    
+    // Fetch cancel preview when cancel dialog opens
+    useEffect(() => {
+        if (showCancelConfirm && status?.plan !== 'free') {
+            setCancelPreview({ loading: true, currentTotal: 0, freePlanCap: 400, transactionsToDelete: 0, willExceed: false });
+            fetchCancelPreview();
+        }
+    }, [showCancelConfirm, status?.plan]);
 
     // Format date for display
     const formatDate = (dateStr: string | null | undefined) => {
@@ -773,6 +816,34 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                                     </div>
                                 </div>
 
+                                {/* Transaction Deletion Warning */}
+                                {cancelPreview?.willExceed && cancelPreview.transactionsToDelete > 0 && (
+                                    <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                                        <div className="flex items-start gap-3">
+                                            <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                            <div className="flex-1">
+                                                <p className="text-sm font-semibold text-amber-900 dark:text-amber-100 mb-1">
+                                                    Transaction Limit Warning
+                                                </p>
+                                                <p className="text-sm text-amber-800 dark:text-amber-200">
+                                                    You currently have <strong>{cancelPreview.currentTotal.toLocaleString()}</strong> transactions. 
+                                                    The free plan allows up to <strong>{cancelPreview.freePlanCap.toLocaleString()}</strong> transactions.
+                                                </p>
+                                                <p className="text-sm font-medium text-amber-900 dark:text-amber-100 mt-2">
+                                                    ⚠️ <strong>{cancelPreview.transactionsToDelete.toLocaleString()}</strong> oldest transaction(s) will be automatically deleted to fit the free plan limit.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {cancelPreview?.loading && (
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        <span>Calculating transaction impact...</span>
+                                    </div>
+                                )}
+
                                 <p className="text-xs text-muted-foreground">
                                     You can reactivate anytime before {billingDate} to keep your benefits.
                                 </p>
@@ -793,12 +864,17 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                         <AlertDialogAction
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                             onClick={handleCancelNow}
-                            disabled={isManaging}
+                            disabled={isManaging || cancelPreview?.loading}
                         >
                             {isManaging ? (
                                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
                             ) : null}
                             Cancel Now
+                            {cancelPreview?.willExceed && cancelPreview.transactionsToDelete > 0 && (
+                                <span className="ml-2 text-xs opacity-90">
+                                    ({cancelPreview.transactionsToDelete.toLocaleString()} transactions will be deleted)
+                                </span>
+                            )}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

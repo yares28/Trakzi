@@ -481,6 +481,11 @@ async function handleSubscriptionDeleted(subscription: StripeSubscriptionData) {
 
     if (existingSub) {
         const userId = existingSub.userId;
+        const currentPlan = existingSub.plan;
+        
+        // Only enforce cap if user is downgrading from a paid plan to free
+        // If already on free plan, skip enforcement (prevents double deletion)
+        const isDowngradingToFree = currentPlan !== 'free';
         
         await upsertSubscription({
             userId,
@@ -490,13 +495,17 @@ async function handleSubscriptionDeleted(subscription: StripeSubscriptionData) {
         });
 
         // CRITICAL: Enforce transaction cap when downgrading to free plan
-        // Delete oldest transactions if user exceeds the 400 transaction limit
-        const freePlanCap = getTransactionCap('free');
-        console.log(`[Webhook] Subscription canceled - enforcing free plan cap of ${freePlanCap} for user ${userId}`);
-        const capResult = await enforceTransactionCap(userId, freePlanCap);
-        
-        if (capResult.deleted > 0) {
-            console.log(`[Webhook] Auto-deleted ${capResult.deleted} oldest transactions for user ${userId} to fit free plan cap`);
+        // Only enforce if downgrading from paid plan (prevents double deletion)
+        if (isDowngradingToFree) {
+            const freePlanCap = getTransactionCap('free');
+            console.log(`[Webhook] Subscription canceled - enforcing free plan cap of ${freePlanCap} for user ${userId} (downgrading from ${currentPlan})`);
+            const capResult = await enforceTransactionCap(userId, freePlanCap);
+            
+            if (capResult.deleted > 0) {
+                console.log(`[Webhook] Auto-deleted ${capResult.deleted} oldest transactions for user ${userId} to fit free plan cap`);
+            }
+        } else {
+            console.log(`[Webhook] Subscription canceled but user already on free plan, skipping cap enforcement`);
         }
 
         // Sync to Clerk - mark as canceled/free
@@ -609,6 +618,11 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
     }
 
     const userId = existingSub.userId;
+    const currentPlan = existingSub.plan;
+    
+    // Only enforce cap if user is downgrading from a paid plan to free
+    // If already on free plan, skip enforcement (prevents double deletion)
+    const isDowngradingToFree = currentPlan !== 'free';
     
     // Update our database - downgrade to free and mark as canceled
     await upsertSubscription({
@@ -620,13 +634,17 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
     });
 
     // CRITICAL: Enforce transaction cap when downgrading to free plan
-    // Delete oldest transactions if user exceeds the 400 transaction limit
-    const freePlanCap = getTransactionCap('free');
-    console.log(`[Webhook] Subscription canceled due to refund - enforcing free plan cap of ${freePlanCap} for user ${userId}`);
-    const capResult = await enforceTransactionCap(userId, freePlanCap);
-    
-    if (capResult.deleted > 0) {
-        console.log(`[Webhook] Auto-deleted ${capResult.deleted} oldest transactions for user ${userId} to fit free plan cap`);
+    // Only enforce if downgrading from paid plan (prevents double deletion)
+    if (isDowngradingToFree) {
+        const freePlanCap = getTransactionCap('free');
+        console.log(`[Webhook] Subscription canceled due to refund - enforcing free plan cap of ${freePlanCap} for user ${userId} (downgrading from ${currentPlan})`);
+        const capResult = await enforceTransactionCap(userId, freePlanCap);
+        
+        if (capResult.deleted > 0) {
+            console.log(`[Webhook] Auto-deleted ${capResult.deleted} oldest transactions for user ${userId} to fit free plan cap`);
+        }
+    } else {
+        console.log(`[Webhook] Subscription canceled due to refund but user already on free plan, skipping cap enforcement`);
     }
 
     // Sync to Clerk - mark as canceled/free with refund flag
