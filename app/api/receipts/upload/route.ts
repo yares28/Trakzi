@@ -10,6 +10,8 @@ import {
 } from "@/lib/receipts/item-category-preferences"
 import { suggestReceiptCategoryNameFromDescription } from "@/lib/receipts/receipt-category-heuristics"
 import { extractReceiptFromPdfTextWithParsers } from "@/lib/receipts/parsers"
+import { parseReceiptFile } from "@/lib/receipts/ingestion"
+import type { ReceiptParseWarning, ReceiptParseMeta } from "@/lib/receipts/parsers/types"
 import { getSiteUrl, getSiteName } from "@/lib/env"
 import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limiter"
 
@@ -40,7 +42,7 @@ async function extractTextFromPdf(data: Uint8Array): Promise<string> {
 
 const MAX_RECEIPT_FILE_BYTES = 10 * 1024 * 1024
 
-const RECEIPT_MODEL = "google/gemini-2.0-flash-001"
+const RECEIPT_MODEL = "allenai/olmo-3.1-32b-think:free"
 
 type ExtractedReceipt = {
   store_name?: string | null
@@ -288,6 +290,7 @@ async function repairReceiptJsonWithAi(params: {
       ],
       response_format: { type: "json_object" },
       provider: { sort: "throughput" },
+      reasoning: { enabled: true },
     }),
   })
 
@@ -372,6 +375,7 @@ async function extractReceiptWithAi(params: {
       ],
       response_format: { type: "json_object" },
       provider: { sort: "throughput" },
+      reasoning: { enabled: true },
     }),
   })
 
@@ -467,6 +471,7 @@ async function extractReceiptFromPdfText(params: {
       ],
       response_format: { type: "json_object" },
       provider: { sort: "throughput" },
+      reasoning: { enabled: true },
     }),
   })
 
@@ -572,6 +577,8 @@ export const POST = async (req: NextRequest) => {
         totalPrice: number
         categoryName: string | null
       }>
+      warnings?: ReceiptParseWarning[]
+      meta?: ReceiptParseMeta
     }> = []
     const rejected: Array<{ fileName: string; reason: string }> = []
 
@@ -596,50 +603,45 @@ export const POST = async (req: NextRequest) => {
         const uint8Array = new Uint8Array(arrayBuffer)
         const buffer = Buffer.from(arrayBuffer)
 
-        let extracted: ExtractedReceipt
+        // Determine MIME type
+        const mimeType = (file.type || stored.mime_type || (isPdf ? "application/pdf" : "image/jpeg")).toLowerCase()
 
-        if (isPdf) {
-          // Attempt Vision-based extraction first (Perfect approach for Gemini 2.0)
-          try {
-            const base64DataUrl = `data:application/pdf;base64,${buffer.toString("base64")}`
-            const result = await extractReceiptWithAi({
+        // Use the unified receipt parsing pipeline
+        const parseResult = await parseReceiptFile({
+          data: uint8Array,
+          mimeType,
+          fileName: file.name,
+          allowedCategories: allowedCategoryNames,
+          aiExtractFromPdfText: async (pdfText: string) => {
+            return extractReceiptFromPdfText({
+              pdfText,
+              fileName: file.name,
+              allowedCategories: allowedCategoryNames,
+            })
+          },
+          aiExtractFromImageDataUrl: async (base64DataUrl: string) => {
+            return extractReceiptWithAi({
               base64DataUrl,
               fileName: file.name,
               allowedCategories: allowedCategoryNames,
             })
-            extracted = result.extracted
-          } catch (visionError) {
-            console.error("[Receipts Upload] PDF Vision failed, falling back to text extraction:", visionError)
-            // Fallback to text extraction using unpdf (fixed to pass Uint8Array)
-            const pdfText = await extractTextFromPdf(uint8Array)
-            if (!pdfText.trim()) {
-              rejected.push({ fileName: file.name, reason: "PDF appears to be empty or unreadable" })
-              continue
-            }
-            // Use parser dispatcher: tries Mercadona parser first, falls back to AI
-            const result = await extractReceiptFromPdfTextWithParsers({
-              pdfText,
-              fileName: file.name,
-              allowedCategories: allowedCategoryNames,
-              aiFallback: () => extractReceiptFromPdfText({
-                pdfText,
-                fileName: file.name,
-                allowedCategories: allowedCategoryNames,
-              }),
-            })
-            extracted = result.extracted
-          }
-        } else {
-          // Send image to AI
-          const mimeType = (file.type || stored.mime_type || "image/jpeg").toLowerCase()
-          const base64DataUrl = `data:${mimeType};base64,${buffer.toString("base64")}`
-          const result = await extractReceiptWithAi({
-            base64DataUrl,
-            fileName: file.name,
-            allowedCategories: allowedCategoryNames,
-          })
-          extracted = result.extracted
+          },
+        })
+
+        // Store warnings and meta for the response
+        const parseWarnings = parseResult.warnings
+        const parseMeta = parseResult.meta
+
+        // Check if extraction succeeded
+        if (!parseResult.extracted) {
+          const errorMessage = parseWarnings.length > 0
+            ? parseWarnings.map(w => w.message).join(" ")
+            : "Failed to extract receipt data"
+          rejected.push({ fileName: file.name, reason: errorMessage })
+          continue
         }
+
+        const extracted = parseResult.extracted
 
         // Handle date: prefer receipt_date_iso (from deterministic parsers), 
         // fall back to receipt_date (from AI), convert DD-MM-YYYY if needed
@@ -769,6 +771,8 @@ export const POST = async (req: NextRequest) => {
           totalAmount: Number(totalAmount.toFixed(2)),
           currency,
           transactions,
+          warnings: parseWarnings.length > 0 ? parseWarnings : undefined,
+          meta: parseMeta,
         })
       } catch (error: any) {
         rejected.push({ fileName: file.name, reason: String(error?.message || error) })
