@@ -238,11 +238,14 @@ export default function TestChartsPage() {
         setIsLoading(true)
         try {
             const [txData, rxData] = await Promise.all([
-                deduplicatedFetch<any[]>(dateFilter ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}` : "/api/transactions"),
+                // Use pagination for transactions - charts use aggregated endpoints
+                deduplicatedFetch<any>(dateFilter ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}&limit=100` : "/api/transactions?limit=100"),
                 deduplicatedFetch<any[]>(dateFilter ? `/api/fridge?filter=${encodeURIComponent(dateFilter)}&limit=5000` : "/api/fridge?limit=5000")
             ]).catch(() => [[], []])
 
-            if (Array.isArray(txData)) setRawTransactions(normalizeTransactions(txData) as TestChartsTransaction[])
+            // Handle both old format (array) and new format (object with data property)
+            const transactions = Array.isArray(txData) ? txData : (txData?.data || [])
+            if (Array.isArray(transactions)) setRawTransactions(normalizeTransactions(transactions) as TestChartsTransaction[])
             if (Array.isArray(rxData)) {
                 // Map rxData to what charts expect
                 const normalizedRx = rxData.map((tx: any) => ({
