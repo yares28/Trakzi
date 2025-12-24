@@ -591,7 +591,9 @@ export default function Page() {
     id: number
     date: string
     amount: number
+    description: string
     category: string
+    balance: number | null
   }>>([])
   const [isLoadingChartTransactions, setIsLoadingChartTransactions] = useState(true)
 

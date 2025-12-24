@@ -86,12 +86,13 @@ export const GET = async (request: Request) => {
         }
 
         // Fetch all transactions for chart rendering
-        // This returns minimal fields needed for charts to reduce payload size
+        // This returns fields needed for charts to reduce payload size
         const query = `
             SELECT 
                 t.id,
                 DATE(t.tx_date) as date,
                 t.amount,
+                t.description,
                 COALESCE(c.name, 'Other') as category
             FROM transactions t
             LEFT JOIN categories c ON t.category_id = c.id
@@ -103,17 +104,20 @@ export const GET = async (request: Request) => {
             id: number;
             date: string | Date;
             amount: string | number;
+            description: string | null;
             category: string;
         }>(query, params);
 
-        // Format response with minimal fields for charts
+        // Format response with fields for charts
         const transactions = data.map(row => ({
             id: row.id,
             date: typeof row.date === 'string'
                 ? row.date.split('T')[0]
                 : row.date.toISOString().split('T')[0],
             amount: Number(row.amount) || 0,
+            description: row.description || '',
             category: row.category || 'Other',
+            balance: null as number | null,
         }));
 
         return NextResponse.json(transactions, {
