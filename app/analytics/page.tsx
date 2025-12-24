@@ -28,7 +28,7 @@ import { ChartDayOfWeekCategory } from "@/components/chart-day-of-week-category"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { SectionCards, TrendLineBackground } from "@/components/section-cards"
 import { SiteHeader } from "@/components/site-header"
-import { deduplicatedFetch } from "@/lib/request-deduplication"
+import { deduplicatedFetch, clearResponseCache } from "@/lib/request-deduplication"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import {
   SidebarInset,
@@ -1526,6 +1526,11 @@ export default function AnalyticsPage() {
       setTransactionCount(0)
       setParseError(null)
       setImportProgress(0)
+
+      // Clear all caches and notify charts that data has changed
+      clearResponseCache()
+      analyticsDataCache.clear()
+      window.dispatchEvent(new CustomEvent("transactionsUpdated"))
 
       // Refresh analytics data after import
       await fetchAllAnalyticsData()

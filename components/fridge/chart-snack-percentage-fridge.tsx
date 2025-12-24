@@ -503,3 +503,4 @@ export function ChartSnackPercentageFridge({ receiptTransactions = [], isLoading
 
 
 
+

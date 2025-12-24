@@ -106,10 +106,26 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
   const [tooltip, setTooltip] = React.useState<{ label: string; value: number; color: string } | null>(null)
   const [tooltipPosition, setTooltipPosition] = React.useState<{ x: number; y: number } | null>(null)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
+  const [refreshNonce, setRefreshNonce] = React.useState(0)
 
   React.useEffect(() => {
     // Mark as mounted to avoid rendering chart on server
     setMounted(true)
+  }, [])
+
+  // Listen for transactions updated event (triggered after file uploads)
+  React.useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const handleTransactionsUpdated = () => {
+      // Increment nonce to trigger a refetch
+      setRefreshNonce((n) => n + 1)
+    }
+
+    window.addEventListener("transactionsUpdated", handleTransactionsUpdated)
+    return () => {
+      window.removeEventListener("transactionsUpdated", handleTransactionsUpdated)
+    }
   }, [])
 
   // Fetch available months first (without selected month) when dateFilter changes
@@ -169,7 +185,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
       fetchAvailableMonths()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFilter, mounted, availableUrl])
+  }, [dateFilter, mounted, availableUrl, refreshNonce])
 
   // Fetch data when selectedMonth changes
   React.useEffect(() => {
@@ -239,7 +255,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMont
     if (mounted && selectedMonth !== null) {
       fetchData()
     }
-  }, [selectedMonth, dateFilter, mounted, availableMonths, buildMonthParams])
+  }, [selectedMonth, dateFilter, mounted, availableMonths, buildMonthParams, refreshNonce])
 
   const palette = React.useMemo(() => {
     const base = getPalette().filter((color) => color !== "#c3c3c3")

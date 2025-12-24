@@ -143,6 +143,7 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
   const containerRef = React.useRef<HTMLDivElement>(null)
   const [tooltip, setTooltip] = useState<{ date: string; value: number; color: string } | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
+  const [refreshNonce, setRefreshNonce] = useState(0)
 
   // Check if YTD is selected
   const isYTD = selectedYear === "YTD"
@@ -168,6 +169,22 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
     window.addEventListener("dateFilterChanged", handleFilterChange as EventListener)
     return () => {
       window.removeEventListener("dateFilterChanged", handleFilterChange as EventListener)
+    }
+  }, [propData])
+
+  // Listen for transactions updated event (triggered after file uploads)
+  useEffect(() => {
+    if (propData) return
+    if (typeof window === "undefined") return
+
+    const handleTransactionsUpdated = () => {
+      // Increment nonce to trigger a refetch
+      setRefreshNonce((n) => n + 1)
+    }
+
+    window.addEventListener("transactionsUpdated", handleTransactionsUpdated)
+    return () => {
+      window.removeEventListener("transactionsUpdated", handleTransactionsUpdated)
     }
   }, [propData])
 
@@ -213,7 +230,7 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
     }
 
     fetchDailyTransactions()
-  }, [propData, dateFilter, dailyUrl])
+  }, [propData, dateFilter, dailyUrl, refreshNonce])
 
   useEffect(() => {
     // Mark as mounted to avoid rendering chart on server

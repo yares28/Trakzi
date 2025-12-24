@@ -79,15 +79,27 @@ export const GET = async (request: Request) => {
         let userId: string | null = await getCurrentUserIdOrNull();
 
         if (!userId) {
-            // Re-check middleware: if this route is public, we might want to show demo data
-            userId = process.env.DEMO_USER_ID || "user_2qD6S6vB4Z5X9G2G7K8L0M1N2P3"; // Fallback to a demo user if public
-            console.log(`[Transactions API] Using demo user: ${userId}`);
+            // SECURITY: Only use demo user in development, never in production
+            if (process.env.NODE_ENV === 'development' && process.env.DEMO_USER_ID) {
+                userId = process.env.DEMO_USER_ID;
+                console.log(`[Transactions API] Using demo user in development: ${userId}`);
+            } else {
+                return NextResponse.json(
+                    { error: "Unauthorized - Please sign in to access transactions" },
+                    { status: 401 }
+                );
+            }
         }
 
         // Get filter from query params
         const { searchParams } = new URL(request.url);
         const filter = searchParams.get("filter");
         const categoryFilter = searchParams.get("category"); // Optional category filter
+
+        // Pagination parameters (security: limit max page size to prevent DoS)
+        const page = Math.max(1, parseInt(searchParams.get("page") || "1") || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50") || 50));
+        const offset = (page - 1) * limit;
 
         // Get date range based on filter
         const { startDate, endDate } = getDateRange(filter);
@@ -121,7 +133,9 @@ export const GET = async (request: Request) => {
         }
 
         // Use index-friendly ordering (matches idx_transactions_user_date_desc_covering)
-        query += ` ORDER BY t.tx_date DESC, t.id DESC`;
+        // Add pagination with LIMIT and OFFSET
+        query += ` ORDER BY t.tx_date DESC, t.id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+        params.push(limit, offset);
 
 
         // Fetch user transactions ordered by date
@@ -137,11 +151,14 @@ export const GET = async (request: Request) => {
             category_name: string | null;
         }>;
 
+        // Declare totalCount for pagination
+        let totalCount = 0;
+
         try {
             // First, check if there are any transactions for this user at all
             const countQuery = `SELECT COUNT(*) as count FROM transactions WHERE user_id = $1`;
             const countResult = await neonQuery<{ count: string | number }>(countQuery, [userId]);
-            const totalCount = typeof countResult[0]?.count === 'string'
+            totalCount = typeof countResult[0]?.count === 'string'
                 ? parseInt(countResult[0].count)
                 : (countResult[0]?.count as number) || 0;
 
@@ -252,7 +269,17 @@ export const GET = async (request: Request) => {
 
         // Add caching headers for better performance
         // Cache for 30 seconds, revalidate in background
-        return NextResponse.json(transactionsWithCategory, {
+        // Include pagination info in response for clients that need it
+        return NextResponse.json({
+            data: transactionsWithCategory,
+            pagination: {
+                page,
+                limit,
+                total: totalCount,
+                totalPages: Math.ceil(totalCount / limit),
+                hasMore: offset + transactionsWithCategory.length < totalCount
+            }
+        }, {
             headers: {
                 'Content-Type': 'application/json',
                 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',

@@ -77,6 +77,11 @@ class RequestDeduplicator {
 
 export const requestDeduplicator = new RequestDeduplicator();
 
+// Utility to clear all cached responses (useful after data mutations like file uploads)
+export function clearResponseCache() {
+  requestDeduplicator.clear();
+}
+
 function buildCacheKey(url: string, options?: RequestInit) {
   return `fetch:${url}:${JSON.stringify(options || {})}`;
 }
@@ -119,7 +124,7 @@ export async function deduplicatedFetch<T>(
       const snippet = (await response.text()).slice(0, 200);
       throw new Error(
         `Expected JSON from ${url}, but received HTML instead (likely an auth redirect). ` +
-          `First bytes: ${snippet}`,
+        `First bytes: ${snippet}`,
       );
     }
 

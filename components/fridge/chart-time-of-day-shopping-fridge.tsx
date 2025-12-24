@@ -302,10 +302,28 @@ export function ChartTimeOfDayShoppingFridge({ receiptTransactions = [], isLoadi
             yAxisLine.setAttribute("stroke", axisColor)
             yAxisGroup.appendChild(yAxisLine)
 
-            const numTicks = 5
-            for (let i = 0; i <= numTicks; i++) {
-                const value = Math.round((maxTrips / numTicks) * i)
-                const yPos = chartHeight - (i / numTicks) * chartHeight
+            // Generate unique tick values - avoid duplicates when maxTrips is low
+            const numTicks = Math.min(5, maxTrips)
+            const tickValues: number[] = []
+
+            if (maxTrips <= 5) {
+                // For small values, show each integer from 0 to maxTrips
+                for (let i = 0; i <= maxTrips; i++) {
+                    tickValues.push(i)
+                }
+            } else {
+                // For larger values, distribute ticks evenly
+                for (let i = 0; i <= numTicks; i++) {
+                    const value = Math.round((maxTrips / numTicks) * i)
+                    // Avoid duplicate values
+                    if (tickValues.length === 0 || tickValues[tickValues.length - 1] !== value) {
+                        tickValues.push(value)
+                    }
+                }
+            }
+
+            tickValues.forEach((value) => {
+                const yPos = chartHeight - (value / maxTrips) * chartHeight
 
                 const tickText = document.createElementNS("http://www.w3.org/2000/svg", "text")
                 tickText.setAttribute("x", "-10")
@@ -316,7 +334,7 @@ export function ChartTimeOfDayShoppingFridge({ receiptTransactions = [], isLoadi
                 tickText.setAttribute("font-size", "11")
                 tickText.textContent = value.toString()
                 yAxisGroup.appendChild(tickText)
-            }
+            })
 
             // Y axis label
             const yLabel = document.createElementNS("http://www.w3.org/2000/svg", "text")
@@ -338,15 +356,16 @@ export function ChartTimeOfDayShoppingFridge({ receiptTransactions = [], isLoadi
             gridGroup.setAttribute("stroke-dasharray", "3,3")
             gridGroup.setAttribute("opacity", "0.5")
 
-            for (let i = 1; i <= numTicks; i++) {
-                const yPos = marginTop + chartHeight - (i / numTicks) * chartHeight
+            // Draw grid lines for each non-zero tick value
+            tickValues.filter(v => v > 0).forEach((value) => {
+                const yPos = marginTop + chartHeight - (value / maxTrips) * chartHeight
                 const gridLine = document.createElementNS("http://www.w3.org/2000/svg", "line")
                 gridLine.setAttribute("x1", marginLeft.toString())
                 gridLine.setAttribute("y1", yPos.toString())
                 gridLine.setAttribute("x2", (width - marginRight).toString())
                 gridLine.setAttribute("y2", yPos.toString())
                 gridGroup.appendChild(gridLine)
-            }
+            })
             svg.insertBefore(gridGroup, svg.firstChild)
 
             // Tooltip handlers
