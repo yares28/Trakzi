@@ -6,7 +6,7 @@ import { auth } from '@clerk/nextjs/server';
 import { getStripe } from '@/lib/stripe';
 import { getUserSubscription, upsertSubscription } from '@/lib/subscriptions';
 import { clerkClient } from '@clerk/nextjs/server';
-import { enforceTransactionCap, getTransactionCap } from '@/lib/limits/transactions-cap';
+import { enforceTransactionCap, getTransactionCap, calculateDeletionsForCap } from '@/lib/limits/transactions-cap';
 
 export async function POST() {
     try {
@@ -49,7 +49,7 @@ export async function POST() {
                 status: 'canceled',
             });
 
-            // CRITICAL: Enforce transaction cap when downgrading to free plan
+            // For non-Stripe subscriptions, enforce cap here since no webhook will fire
             const freePlanCap = getTransactionCap('free');
             console.log(`[Cancel Now] Enforcing free plan cap of ${freePlanCap} for user ${userId} (no Stripe subscription)`);
             const capResult = await enforceTransactionCap(userId, freePlanCap);
@@ -98,15 +98,9 @@ export async function POST() {
             cancelAtPeriodEnd: false,
         });
 
-        // CRITICAL: Enforce transaction cap when downgrading to free plan
-        // Delete oldest transactions if user exceeds the 400 transaction limit
-        const freePlanCap = getTransactionCap('free');
-        console.log(`[Cancel Now] Enforcing free plan cap of ${freePlanCap} for user ${userId}`);
-        const capResult = await enforceTransactionCap(userId, freePlanCap);
-        
-        if (capResult.deleted > 0) {
-            console.log(`[Cancel Now] Auto-deleted ${capResult.deleted} oldest transactions for user ${userId} to fit free plan cap`);
-        }
+        // NOTE: Transaction cap enforcement is handled by the webhook handler
+        // when Stripe sends the customer.subscription.deleted event.
+        // This prevents double deletion (cancel-now + webhook both deleting).
 
         // Update Clerk metadata
         const client = await clerkClient();
@@ -117,14 +111,9 @@ export async function POST() {
             },
         });
 
-        const message = capResult.deleted > 0
-            ? `Your subscription has been canceled immediately. You are now on the free plan. ${capResult.deleted} oldest transaction(s) were automatically deleted to fit the free plan limit of ${freePlanCap} transactions.`
-            : 'Your subscription has been canceled immediately. You are now on the free plan.';
-
         return NextResponse.json({
             success: true,
-            message,
-            deletedTransactions: capResult.deleted,
+            message: 'Your subscription has been canceled immediately. You are now on the free plan.',
         });
     } catch (error: any) {
         console.error('[Cancel Now] Error:', error);
