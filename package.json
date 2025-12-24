@@ -1,5 +1,5 @@
 {
-  "name": "my-v0-project",
+  "name": "@trakzi/app",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,7 +9,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@clerk/nextjs": "^6.36.0",
+    "@clerk/nextjs": "^6.36.5",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/modifiers": "^9.0.0",
     "@dnd-kit/sortable": "^10.0.0",
@@ -100,7 +100,6 @@
     "unpdf": "^1.4.0",
     "use-stick-to-bottom": "^1.1.1",
     "vaul": "^1.1.2",
-    "xlsx": "^0.18.5",
     "zod": "3.25.76"
   },
   "devDependencies": {

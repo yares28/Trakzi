@@ -3,11 +3,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth";
 import { generateChartInsight, getChartContextHints, ChartInsightRequest } from "@/lib/ai/chartInsights";
 import { neonQuery } from "@/lib/neonClient";
+import { checkRateLimit, createRateLimitResponse, createRateLimitHeaders } from "@/lib/security/rate-limiter";
 
 export const POST = async (req: NextRequest) => {
     try {
         // Authenticate user
         const userId = await getCurrentUserId();
+
+        // Rate limit check - AI endpoints are expensive
+        const rateLimitResult = checkRateLimit(userId, 'ai');
+        if (rateLimitResult.limited) {
+            return createRateLimitResponse(rateLimitResult.resetIn);
+        }
 
         const body = await req.json();
         const { chartId, chartTitle, chartDescription, chartData } = body;
@@ -94,7 +101,7 @@ export const POST = async (req: NextRequest) => {
         return NextResponse.json(insight);
     } catch (error: any) {
         console.error("[ChartInsight API] Error:", error);
-        
+
         if (error.message?.includes("Unauthorized")) {
             return NextResponse.json(
                 { error: "Please sign in to access AI insights" },

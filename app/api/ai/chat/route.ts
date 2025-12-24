@@ -4,6 +4,8 @@ import { getCurrentUserId } from "@/lib/auth";
 import { neonQuery } from "@/lib/neonClient";
 import { getSiteUrl, getSiteName } from "@/lib/env";
 import { checkAiChatLimit } from "@/lib/feature-access";
+import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limiter";
+import { sanitizeForAI } from "@/lib/security/input-sanitizer";
 
 // Currency configuration - mirrors frontend currency-provider.tsx
 const CURRENCY_CONFIG: Record<string, { symbol: string; position: "before" | "after"; locale: string }> = {
@@ -262,6 +264,12 @@ export const POST = async (req: NextRequest) => {
         // Authenticate user
         const userId = await getCurrentUserId();
 
+        // Rate limit check - AI endpoints are expensive
+        const rateLimitResult = checkRateLimit(userId, 'ai');
+        if (rateLimitResult.limited) {
+            return createRateLimitResponse(rateLimitResult.resetIn);
+        }
+
         // Check if user has AI chat access
         const chatAccess = await checkAiChatLimit(userId);
         if (!chatAccess.allowed) {
@@ -288,7 +296,13 @@ export const POST = async (req: NextRequest) => {
             );
         }
 
-        const lastUserMessage = messages.filter(m => m.role === "user").pop();
+        // Sanitize user messages to prevent prompt injection
+        const sanitizedMessages = messages.map(m => ({
+            ...m,
+            content: m.role === 'user' ? sanitizeForAI(m.content, 2000) : m.content
+        }));
+
+        const lastUserMessage = sanitizedMessages.filter(m => m.role === "user").pop();
 
         // Basic topic filter - check if the latest message seems finance-related
         // This is a soft check; the AI will also enforce topic boundaries
@@ -300,10 +314,10 @@ export const POST = async (req: NextRequest) => {
         const userContext = await getUserFinancialContext(userId);
         const systemPrompt = buildSystemPrompt(userContext, userCurrency);
 
-        // Build messages array for the API
+        // Build messages array for the API - using sanitized messages
         const apiMessages = [
             { role: "system", content: systemPrompt },
-            ...messages.map(m => ({
+            ...sanitizedMessages.map(m => ({
                 role: m.role,
                 content: m.content
             }))

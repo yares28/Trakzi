@@ -11,6 +11,7 @@ import {
 import { suggestReceiptCategoryNameFromDescription } from "@/lib/receipts/receipt-category-heuristics"
 import { extractReceiptFromPdfTextWithParsers } from "@/lib/receipts/parsers"
 import { getSiteUrl, getSiteName } from "@/lib/env"
+import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limiter"
 
 function isSupportedReceiptImage(file: File): boolean {
   const mime = (file.type || "").toLowerCase()
@@ -506,6 +507,12 @@ async function extractReceiptFromPdfText(params: {
 export const POST = async (req: NextRequest) => {
   try {
     const userId = await getCurrentUserId()
+
+    // Rate limit check - file uploads are expensive
+    const rateLimitResult = checkRateLimit(userId, 'upload')
+    if (rateLimitResult.limited) {
+      return createRateLimitResponse(rateLimitResult.resetIn)
+    }
 
     const formData = await req.formData()
     const incoming = [

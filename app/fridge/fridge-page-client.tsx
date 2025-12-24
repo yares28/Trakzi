@@ -67,6 +67,7 @@ import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { getReceiptCategoryByName, getReceiptBroadTypes } from "@/lib/receipt-categories"
 // @dnd-kit handles auto-scroll natively
 import { cn } from "@/lib/utils"
+import { clearResponseCache } from "@/lib/request-deduplication"
 
 type ReceiptTransactionRow = {
   id: number
@@ -1065,6 +1066,10 @@ export function FridgePageClient() {
         }
         return
       }
+
+      // Clear all caches and notify charts that data has changed
+      clearResponseCache()
+      window.dispatchEvent(new CustomEvent("transactionsUpdated"))
 
       setReceiptsRefreshNonce((n) => n + 1)
 
