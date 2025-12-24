@@ -86,6 +86,7 @@ export default function Page() {
         params.append("filter", dateFilter)
       }
       params.append("category", "Savings") // Only show savings category transactions
+      params.append("limit", "all") // Fetch all transactions for charts
 
       const url = `/api/transactions?${params.toString()}`
       console.log("[Savings] Fetching transactions from:", url)

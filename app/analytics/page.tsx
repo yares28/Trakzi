@@ -922,10 +922,11 @@ export default function AnalyticsPage() {
         dayOfWeekCategoryData,
       ] = await Promise.all([
         // 1. Transactions - returns { data: [...], pagination: {...} } or fallback []
+        // Use limit=all to fetch all transactions for charts/analytics
         deduplicatedFetch<any>(
           dateFilter
-            ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
-            : "/api/transactions"
+            ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}&limit=all`
+            : "/api/transactions?limit=all"
         ).catch(err => {
           console.error("[Analytics] Transactions fetch error:", err)
           return []

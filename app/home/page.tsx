@@ -1454,9 +1454,10 @@ export default function Page() {
   // Fetch transactions for charts
   const fetchTransactions = useCallback(async (bypassCache = false) => {
     try {
+      // Use limit=all to fetch all transactions for charts/analytics
       const url = dateFilter
-        ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
-        : "/api/transactions"
+        ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}&limit=all`
+        : "/api/transactions?limit=all"
       console.log("[Home] Fetching transactions from:", url)
       const response = await fetch(url, {
         cache: bypassCache ? 'no-store' : 'default',
