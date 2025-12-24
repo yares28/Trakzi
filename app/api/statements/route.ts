@@ -7,9 +7,9 @@ export const GET = async () => {
     try {
         const userId = await getCurrentUserId();
 
-        // Fetch statements - only show successfully imported files (not canceled midway)
+        // Fetch statements - only show statements that have actual imported transactions
         const statementsQuery = `
-            SELECT 
+            SELECT DISTINCT
                 s.id,
                 s.file_name as name,
                 s.status,
@@ -18,8 +18,8 @@ export const GET = async () => {
                 s.created_at as date,
                 'Income/Expenses' as type
             FROM statements s
+            INNER JOIN transactions t ON t.statement_id = s.id AND t.user_id = s.user_id
             WHERE s.user_id = $1
-              AND s.imported_count > 0
             ORDER BY s.created_at DESC
         `;
 

@@ -54,6 +54,38 @@ export async function POST() {
             dbSubscription.stripeSubscriptionId
         );
 
+        // CRITICAL SECURITY: Verify subscription ownership
+        // Ensure the subscription's customer ID matches the user's customer ID
+        const stripeCustomerId = typeof stripeSubscription.customer === 'string'
+            ? stripeSubscription.customer
+            : stripeSubscription.customer?.id;
+
+        if (!stripeCustomerId || !dbSubscription.stripeCustomerId) {
+            console.error('[Sync Subscription] Missing customer ID:', {
+                userId,
+                dbCustomerId: dbSubscription.stripeCustomerId,
+                stripeCustomerId,
+                subscriptionId: dbSubscription.stripeSubscriptionId,
+            });
+            return NextResponse.json(
+                { error: 'Subscription ownership verification failed: missing customer ID' },
+                { status: 403 }
+            );
+        }
+
+        if (stripeCustomerId !== dbSubscription.stripeCustomerId) {
+            console.error('[Sync Subscription] Subscription ownership mismatch:', {
+                userId,
+                dbCustomerId: dbSubscription.stripeCustomerId,
+                stripeCustomerId,
+                subscriptionId: dbSubscription.stripeSubscriptionId,
+            });
+            return NextResponse.json(
+                { error: 'Subscription ownership verification failed' },
+                { status: 403 }
+            );
+        }
+
         // Extract subscription data
         const priceId = stripeSubscription.items.data[0]?.price.id;
         const newPlan = getPlanFromPriceId(priceId || '');

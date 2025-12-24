@@ -383,6 +383,19 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
             return;
         }
         userId = metaUserId;
+    } else {
+        // SECURITY: Verify customer ID matches (defense in depth)
+        // This ensures the subscription belongs to the user in our database
+        if (existingSub.stripeCustomerId && existingSub.stripeCustomerId !== customerId) {
+            console.error('[Webhook] Customer ID mismatch in subscription update:', {
+                userId: existingSub.userId,
+                dbCustomerId: existingSub.stripeCustomerId,
+                webhookCustomerId: customerId,
+                subscriptionId: subscription.id,
+            });
+            return; // Don't process - potential security issue
+        }
+        userId = existingSub.userId;
 
         await upsertSubscription({
             userId,
@@ -398,7 +411,7 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
         // Sync to Clerk
         await syncSubscriptionToClerk(userId, newPlan, status, customerId, periodEnd);
     } else {
-        userId = existingSub.userId;
+        // userId already set above with customer ID verification
         const currentPlan = existingSub.plan;
 
         // Check if this is a downgrade

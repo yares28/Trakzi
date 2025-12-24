@@ -171,13 +171,6 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
     loadCategories()
   }, [loadCategories])
 
-  const [showLimitDialog, setShowLimitDialog] = useState(false);
-  const [limitDialogData, setLimitDialogData] = useState<{
-    currentUsage: number;
-    limit: number;
-    plan: "free" | "pro" | "max";
-  } | null>(null);
-
   const handleAddCategory = useCallback(async () => {
     const trimmed = newCategory.trim()
     if (!trimmed) {
