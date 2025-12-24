@@ -414,3 +414,4 @@ export function ChartDayOfWeekSpendingFridge({ data = [], isLoading = false }: C
 
 
 
+

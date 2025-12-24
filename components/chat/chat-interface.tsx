@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import posthog from "posthog-js"
+import { safeCapture } from "@/lib/posthog-safe"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Orb } from "@/components/ui/orb"
@@ -273,7 +273,7 @@ export function ChatInterface() {
       setIsLoading(true)
 
       // Track AI chat message sent
-      posthog.capture('ai_chat_message_sent', {
+      safeCapture('ai_chat_message_sent', {
         message_length: trimmed.length,
         message_word_count: trimmed.split(/\s+/).length,
         is_first_message: messagesRef.current.filter(m => m.role === 'user').length === 0,

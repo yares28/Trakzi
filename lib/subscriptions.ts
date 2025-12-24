@@ -214,9 +214,21 @@ export async function syncSubscriptionToClerk(
                 currentPeriodEnd: currentPeriodEnd?.toISOString(),
             },
         });
+        
+        console.log(`[Subscriptions] Successfully synced subscription to Clerk for user ${userId}`);
     } catch (error) {
-        console.error('[Subscriptions] Failed to sync to Clerk:', error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error('[Subscriptions] Failed to sync to Clerk:', {
+            userId,
+            plan,
+            status,
+            error: errorMessage,
+            // Log full error for debugging but don't expose to user
+        });
+        
         // Don't throw - Clerk sync is best-effort
+        // Database is source of truth, Clerk metadata is for convenience
+        // However, this should be monitored for patterns indicating systemic issues
     }
 }
 

@@ -82,7 +82,7 @@ import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv"
 import { TxRow } from "@/lib/types/transactions"
 import { DEFAULT_CATEGORIES } from "@/lib/categories"
 // @dnd-kit handles auto-scroll natively
-import posthog from "posthog-js"
+import { safeCapture } from "@/lib/posthog-safe"
 
 type ParsedRow = TxRow & { id: number }
 
@@ -1231,7 +1231,7 @@ export default function AnalyticsPage() {
     setParsingProgress(5)
 
     // Track file import started
-    posthog.capture('file_import_started', {
+    safeCapture('file_import_started', {
       file_name: file.name,
       file_size: file.size,
       file_type: fileType,
@@ -1370,7 +1370,7 @@ export default function AnalyticsPage() {
       setParseError(errorMessage)
 
       // Track file import failed during parsing
-      posthog.capture('file_import_failed', {
+      safeCapture('file_import_failed', {
         file_name: file.name,
         file_size: file.size,
         file_type: fileType,
@@ -1512,7 +1512,7 @@ export default function AnalyticsPage() {
       }
 
       // Track file import completed
-      posthog.capture('file_import_completed', {
+      safeCapture('file_import_completed', {
         file_name: droppedFile.name,
         file_size: droppedFile.size,
         file_type: droppedFile.type || droppedFile.name.split('.').pop()?.toLowerCase() || 'unknown',
@@ -1540,7 +1540,7 @@ export default function AnalyticsPage() {
       })
 
       // Track file import failed during import
-      posthog.capture('file_import_failed', {
+      safeCapture('file_import_failed', {
         file_name: droppedFile.name,
         file_size: droppedFile.size,
         file_type: droppedFile.type || droppedFile.name.split('.').pop()?.toLowerCase() || 'unknown',
@@ -3456,7 +3456,7 @@ export default function AnalyticsPage() {
 
                                                           if (res.ok) {
                                                             // Track budget limit set
-                                                            posthog.capture('budget_limit_set', {
+                                                            safeCapture('budget_limit_set', {
                                                               category_name: savedCategory,
                                                               budget_amount: limitValue,
                                                               date_filter: dateFilter || 'all_time',

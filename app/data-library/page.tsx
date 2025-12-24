@@ -103,7 +103,7 @@ import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv"
 import { TxRow } from "@/lib/types/transactions"
 import { memo } from "react"
-import posthog from "posthog-js"
+import { safeCapture } from "@/lib/posthog-safe"
 
 type ParsedRow = TxRow & { id: number }
 
@@ -1164,7 +1164,7 @@ export default function DataLibraryPage() {
       saveCategoryTier(created.name ?? trimmedName, newCategoryTier)
 
       // Track category created
-      posthog.capture('category_created', {
+      safeCapture('category_created', {
         category_name: created.name ?? trimmedName,
         category_tier: newCategoryTier,
       })
@@ -1586,7 +1586,7 @@ export default function DataLibraryPage() {
         })
         if (response.ok) {
           // Track statement deleted
-          posthog.capture('statement_deleted', {
+          safeCapture('statement_deleted', {
             statement_name: statementToDelete.name,
             statement_type: statementToDelete.type,
             is_receipt: true,
@@ -2968,7 +2968,7 @@ export default function DataLibraryPage() {
                                             )
                                           })
                                           // Track transaction category changed
-                                          posthog.capture('transaction_category_changed', {
+                                          safeCapture('transaction_category_changed', {
                                             previous_category: previousCategory,
                                             new_category: updated.categoryName || categoryName,
                                             transaction_type: 'receipt',
@@ -3075,7 +3075,7 @@ export default function DataLibraryPage() {
                                           toast.error(errorData.error || "Failed to update category")
                                         } else {
                                           // Track transaction category changed
-                                          posthog.capture('transaction_category_changed', {
+                                          safeCapture('transaction_category_changed', {
                                             previous_category: previousCategory,
                                             new_category: value,
                                             transaction_type: 'statement',
