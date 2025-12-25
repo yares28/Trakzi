@@ -25,31 +25,31 @@ const CATEGORY_ORDER_STORAGE_KEY = 'trends-category-order'
 
 export default function TrendsPage() {
   // Use TanStack Query hook - single fetch, cached across navigation
-  const { transactions, categoryTrends, isLoading, error } = useTrendsData()
+  const { categoryTrends, isLoading, error } = useTrendsData()
 
-  // Derive categories from transactions (memoized)
+  // Derive categories from categoryTrends (bundled from server)
   const { categories, categoryTransactionCounts } = useMemo(() => {
-    if (!transactions || transactions.length === 0) {
+    if (!categoryTrends || Object.keys(categoryTrends).length === 0) {
       return { categories: [], categoryTransactionCounts: {} }
     }
 
-    // Build category -> transaction count map
+    // Build category -> data point count map from bundled trends
     const categoryCountMap: Record<string, number> = {}
-    for (const tx of transactions) {
-      const category = tx.category || "Other"
-      categoryCountMap[category] = (categoryCountMap[category] || 0) + 1
+    for (const category of Object.keys(categoryTrends)) {
+      // Use the number of data points as a proxy for transaction count
+      categoryCountMap[category] = categoryTrends[category]?.length || 0
     }
 
-    // Get categories with transactions, sorted by count
-    const categoriesWithTransactions = Object.keys(categoryCountMap)
+    // Get categories, sorted by data point count (most data first)
+    const categoriesWithData = Object.keys(categoryCountMap)
       .filter(cat => categoryCountMap[cat] > 0)
       .sort((a, b) => categoryCountMap[b] - categoryCountMap[a])
 
     return {
-      categories: categoriesWithTransactions,
+      categories: categoriesWithData,
       categoryTransactionCounts: categoryCountMap
     }
-  }, [transactions])
+  }, [categoryTrends])
 
   // @dnd-kit: Category order state
   const [categoryOrder, setCategoryOrder] = useState<string[]>([])
