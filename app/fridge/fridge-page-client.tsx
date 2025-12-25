@@ -1553,15 +1553,15 @@ export function FridgePageClient() {
         case "groceryDailyActivity":
           return <ChartDailyActivityFridge receiptTransactions={receiptTransactions} isLoading={isLoadingReceiptTransactions} />
         case "groceryDayOfWeekCategory":
-          return <ChartDayOfWeekCategoryFridge receiptTransactions={receiptTransactions} isLoading={isLoadingReceiptTransactions} />
+          return <ChartDayOfWeekCategoryFridge receiptTransactions={receiptTransactions} dayOfWeekCategoryData={bundleData?.dayOfWeekCategory} isLoading={isLoadingReceiptTransactions} />
         case "grocerySingleMonthCategory":
-          return <ChartSingleMonthCategoryFridge receiptTransactions={receiptTransactions} isLoading={isLoadingReceiptTransactions} />
+          return <ChartSingleMonthCategoryFridge receiptTransactions={receiptTransactions} monthlyCategoriesData={bundleData?.monthlyCategories} isLoading={isLoadingReceiptTransactions} />
         case "groceryAllMonthsCategory":
           return <ChartAllMonthsCategoryFridge receiptTransactions={receiptTransactions} isLoading={isLoadingReceiptTransactions} />
         case "groceryDayOfWeekSpending":
           return <ChartDayOfWeekSpendingCategoryFridge receiptTransactions={receiptTransactions} isLoading={isLoadingReceiptTransactions} />
         case "groceryTimeOfDay":
-          return <ChartTimeOfDayShoppingFridge receiptTransactions={receiptTransactions} isLoading={isLoadingReceiptTransactions} />
+          return <ChartTimeOfDayShoppingFridge receiptTransactions={receiptTransactions} hourlyActivityData={bundleData?.hourlyActivity} isLoading={isLoadingReceiptTransactions} />
         case "groceryVsRestaurant":
           return <ChartGroceryVsRestaurantFridge />
         case "groceryTransactionHistory":
@@ -1569,16 +1569,16 @@ export function FridgePageClient() {
         case "groceryPurchaseSizeComparison":
           return <ChartPurchaseSizeComparisonFridge receiptTransactions={receiptTransactions} isLoading={isLoadingReceiptTransactions} />
         case "groceryShoppingHeatmapHoursDays":
-          return <ChartShoppingHeatmapHoursDaysFridge receiptTransactions={receiptTransactions} isLoading={isLoadingReceiptTransactions} />
+          return <ChartShoppingHeatmapHoursDaysFridge receiptTransactions={receiptTransactions} hourDayHeatmapData={bundleData?.hourDayHeatmap} isLoading={isLoadingReceiptTransactions} />
         case "groceryShoppingHeatmapDaysMonths":
-          return <ChartShoppingHeatmapDaysMonthsFridge receiptTransactions={receiptTransactions} isLoading={isLoadingReceiptTransactions} />
+          return <ChartShoppingHeatmapDaysMonthsFridge receiptTransactions={receiptTransactions} dayMonthHeatmapData={bundleData?.dayMonthHeatmap} isLoading={isLoadingReceiptTransactions} />
         case "groceryNetWorthAllocation":
           return <ChartTreeMapFridge receiptTransactions={receiptTransactions} isLoading={isLoadingReceiptTransactions} />
         default:
           return null
       }
     },
-    [basketBreakdownData, categoryFlowData, isLoadingReceiptTransactions, receiptTransactions, spendTrendData]
+    [basketBreakdownData, categoryFlowData, isLoadingReceiptTransactions, receiptTransactions, spendTrendData, bundleData, dateFilter]
   )
 
   return (

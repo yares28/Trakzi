@@ -3130,6 +3130,7 @@ export default function AnalyticsPage() {
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartDayOfWeekSpending
                               data={rawTransactions}
+                              dayOfWeekCategoryData={bundleData?.dayOfWeekCategory}
                               categoryControls={dayOfWeekSpendingVisibility.buildCategoryControls(
                                 Array.from(
                                   new Set(
@@ -3152,6 +3153,7 @@ export default function AnalyticsPage() {
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartAllMonthsCategorySpending
                               data={rawTransactions}
+                              monthlyCategoriesData={bundleData?.monthlyCategories}
                               categoryControls={useMemo(() => {
                                 const categories = Array.from(
                                   new Set(
@@ -3705,6 +3707,7 @@ export default function AnalyticsPage() {
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartSingleMonthCategorySpending
                               dateFilter={dateFilter}
+                              monthlyCategoriesData={bundleData?.monthlyCategories}
                             />
                           </div>
                         </SortableGridItem>
@@ -3717,6 +3720,7 @@ export default function AnalyticsPage() {
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartDayOfWeekCategory
                               dateFilter={dateFilter}
+                              bundleData={bundleData?.dayOfWeekCategory}
                             />
                           </div>
                         </SortableGridItem>
