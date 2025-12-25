@@ -82,6 +82,7 @@ export default function Page() {
     try {
       // Build URL with both date filter and category filter for savings
       const params = new URLSearchParams()
+      params.append("all", "true")  // Fetch all for charts
       if (dateFilter) {
         params.append("filter", dateFilter)
       }
@@ -93,9 +94,11 @@ export default function Page() {
       const data = await response.json()
 
       if (response.ok) {
-        if (Array.isArray(data)) {
-          console.log(`[Savings] Setting ${data.length} savings transactions`)
-          setTransactions(normalizeTransactions(data) as Array<{
+        // Handle paginated response {data: [], pagination: {}} or direct array
+        const txArray = Array.isArray(data) ? data : (data?.data ?? [])
+        if (Array.isArray(txArray)) {
+          console.log(`[Savings] Setting ${txArray.length} savings transactions`)
+          setTransactions(normalizeTransactions(txArray) as Array<{
             id: number
             date: string
             description: string
