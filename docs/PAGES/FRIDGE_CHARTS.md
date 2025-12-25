@@ -45,17 +45,32 @@ All charts include:
 
 ## Data Source
 
-Fridge charts use receipt transaction data from uploaded grocery receipts, with categories assigned via AI or manual selection.
+> **Performance Optimization:** Bundle API available for server-side aggregation.
 
-**Primary endpoint:** `/api/fridge?limit=5000` (with optional date filter via `?filter=` parameter)
+### Bundle API (Recommended)
+
+**Endpoint:** `/api/charts/fridge-bundle?filter=...`
+
+Returns pre-aggregated data with Redis caching:
+- Fridge KPIs (total spent, shopping trips, stores)
+- Category spending with broad types
+- Daily spending trends
+- Store spending breakdown
+- Macronutrient breakdown
+
+See [DATA_FETCHING.md](./DATA_FETCHING.md) for response format.
+
+### Legacy Endpoint
+
+**Endpoint:** `/api/fridge?all=true` (with optional `?filter=` parameter)
 
 **Database tables:**
-- `receipt_transactions` - Individual line items from receipts (description, quantity, price_per_unit, total_price, category_id, receipt_date, receipt_time)
-- `receipts` - Receipt metadata (store_name, total_amount, receipt_date, status)
-- `receipt_categories` - Category definitions (name, color)
-- `receipt_category_types` - Category type definitions (name, color)
+- `receipt_transactions` - Individual line items from receipts
+- `receipts` - Receipt metadata (store_name, total_amount, status)
+- `receipt_categories` - Category definitions
+- `receipt_category_types` - Category type definitions
 
-**Data Processing:** Receipt transactions are fetched via SQL JOIN across these tables. Client-side calculations (grouping, summing, filtering) performed using React `useMemo` hooks. Date filters applied at API level, with additional client-side filtering for category visibility controls.
+**Data Processing:** Receipt transactions fetched via SQL JOIN. Legacy charts perform client-side calculations using `useMemo` hooks.
 
 ## Chart Libraries Used
 
@@ -63,3 +78,4 @@ Fridge charts use receipt transaction data from uploaded grocery receipts, with 
 - **Nivo** - Pie, TreeMap, Polar Bar
 - **ECharts** - Heatmaps, Bar charts
 - **Custom SVG** - Various custom visualizations
+

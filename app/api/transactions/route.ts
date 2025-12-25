@@ -2,8 +2,9 @@
 import { NextResponse } from "next/server";
 import { neonQuery } from "@/lib/neonClient";
 import { getCurrentUserId, getCurrentUserIdOrNull } from "@/lib/auth";
+import { invalidateUserCachePrefix } from "@/lib/cache/upstash";
 
-function getDateRange(filter: string | null): { startDate: string | null; endDate: string | null } {
+export function getDateRange(filter: string | null): { startDate: string | null; endDate: string | null } {
     if (!filter) {
         return { startDate: null, endDate: null };
     }
@@ -426,6 +427,11 @@ export const POST = async (request: Request) => {
             : typeof transaction.tx_date === 'string'
                 ? transaction.tx_date.split('T')[0]
                 : new Date(transaction.tx_date as any).toISOString().split('T')[0];
+
+        // Invalidate analytics cache after successful transaction creation
+        invalidateUserCachePrefix(userId, 'analytics').catch((err) => {
+            console.error('[Transactions API] Cache invalidation error:', err)
+        })
 
         return NextResponse.json({
             id: transaction.id,

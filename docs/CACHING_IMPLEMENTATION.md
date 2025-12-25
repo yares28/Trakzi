@@ -1,78 +1,143 @@
 # Dashboard Caching Implementation
 
-> **Implemented:** December 25, 2024  
-> **Issue:** #3 - Charts rerender and data refetches on navigation
+> **Last Updated:** December 25, 2024  
+> **Versions:** v1 (TanStack Query), v2 (Upstash Redis + Bundle APIs)
 
 ---
 
 ## Overview
 
-Fixed redundant network requests and chart rerenders when navigating between Home/Analytics/Trends/Savings/Fridge pages.
+Multi-layer caching strategy for optimal performance:
 
-## Solution
+1. **Server-side:** Upstash Redis caches pre-aggregated data
+2. **Client-side:** TanStack Query caches API responses
 
-### TanStack Query
+---
 
-Added `@tanstack/react-query` for client-side caching.
+## Architecture
+
+```
+Client → TanStack Query Cache → Bundle API → Upstash Redis → SQL Aggregation
+                 (2 min)                         (5 min)
+```
+
+---
+
+## Server-Side Caching (Upstash Redis)
+
+**File:** [lib/cache/upstash.ts](file:///c:/Users/Yaya/Desktop/PROJECTS/folio2/lib/cache/upstash.ts)
+
+### Cache Configuration
+
+| TTL | Pages | Invalidation |
+|-----|-------|--------------|
+| 5 min | Analytics, Fridge, Home, Trends, Savings | On data mutation |
+| 30 min | Categories | Manual only |
+
+### Cache Key Pattern
+
+```
+user:{userId}:{prefix}:{filter}:bundle
+```
+
+Example: `user:user_123:analytics:last30days:bundle`
+
+### Functions
+
+| Function | Purpose |
+|----------|---------|
+| `getCachedOrCompute()` | Cache-through pattern |
+| `invalidateUserCache()` | Clear all user keys |
+| `invalidateUserCachePrefix()` | Clear specific page cache |
+| `buildCacheKey()` | Build user-scoped keys |
+
+### Environment Variables
+
+```env
+UPSTASH_REDIS_REST_URL=https://your-instance.upstash.io
+UPSTASH_REDIS_REST_TOKEN=your_token
+```
+
+---
+
+## Bundle API Endpoints
+
+Pre-aggregated data endpoints with Redis caching:
+
+| Endpoint | Page | What It Returns |
+|----------|------|-----------------|
+| `/api/charts/analytics-bundle` | Analytics | KPIs, category spending, daily/monthly trends |
+| `/api/charts/fridge-bundle` | Fridge | KPIs, category/store spending, macronutrients |
+| `/api/charts/home-bundle` | Home | KPIs, top categories, activity rings, daily trends |
+| `/api/charts/trends-bundle` | Trends | Category → daily spending trends |
+| `/api/charts/savings-bundle` | Savings | Savings KPIs, cumulative chart data |
+
+### Aggregation Files
+
+- [lib/charts/aggregations.ts](file:///c:/Users/Yaya/Desktop/PROJECTS/folio2/lib/charts/aggregations.ts) - Analytics
+- [lib/charts/fridge-aggregations.ts](file:///c:/Users/Yaya/Desktop/PROJECTS/folio2/lib/charts/fridge-aggregations.ts) - Fridge
+- [lib/charts/home-trends-savings-aggregations.ts](file:///c:/Users/Yaya/Desktop/PROJECTS/folio2/lib/charts/home-trends-savings-aggregations.ts) - Home/Trends/Savings
+
+---
+
+## Client-Side Caching (TanStack Query)
 
 **Provider:** [query-provider.tsx](file:///c:/Users/Yaya/Desktop/PROJECTS/folio2/components/query-provider.tsx)
 
 | Setting | Value | Rationale |
 |---------|-------|-----------|
-| `staleTime` | 2 minutes | Data considered fresh for 2 min |
-| `gcTime` | 20 minutes | Cache retained 20 min |
+| `staleTime` | 2 min | Data fresh for 2 min |
+| `gcTime` | 20 min | Cache retained 20 min |
 | `refetchOnWindowFocus` | false | No refetch on tab switch |
 | `refetchOnMount` | false | Use cache on navigation |
-| `retry` | 1 | Fast failure |
 
 ### Dashboard Data Hooks
 
 **File:** [use-dashboard-data.ts](file:///c:/Users/Yaya/Desktop/PROJECTS/folio2/hooks/use-dashboard-data.ts)
 
-- `useTransactions(filter)` - Shared across pages
+- `useTransactions()` - Shared transaction data
 - `useCategories()` - 5 min stale time
-- `useHomeData()` - Home page
-- `useAnalyticsData()` - Analytics page
-- `useTrendsData()` - Trends page + pre-computed chart data
-- `useSavingsData()` - Savings page
-- `useFridgeData()` - Fridge page
-
-### Trends Page Optimization
-
-**Before:** 2 + N API calls (page fetches + each chart refetches)  
-**After:** 1 API call (cached, reused across charts)
-
-Charts receive pre-computed data via props instead of self-fetching.
-
-### Rate Limiting
-
-**File:** [rate-limiter.ts](file:///c:/Users/Yaya/Desktop/PROJECTS/folio2/lib/security/rate-limiter.ts)
-
-| Type | Limit | Change |
-|------|-------|--------|
-| `dashboardRead` | 1000/min | **NEW** |
-| `ai` | 10/min | Unchanged |
-| `upload` | 20/min | Unchanged |
-| `standard` | 100/min | Unchanged |
-| `auth` | 10/15min | Unchanged |
+- `useHomeData()` / `useAnalyticsData()` / `useTrendsData()` / `useSavingsData()` / `useFridgeData()`
 
 ---
 
-## Files Changed
+## Cache Invalidation
 
-- `package.json` - Added `@tanstack/react-query`
-- `app/layout.tsx` - Added QueryProvider
-- `components/query-provider.tsx` - **NEW**
-- `hooks/use-dashboard-data.ts` - **NEW**
-- `app/trends/page.tsx` - Refactored for caching
-- `components/chart-category-trend.tsx` - Added memo + data prop
-- `lib/security/rate-limiter.ts` - Added dashboardRead
+**Triggered on:**
+- Transaction creation/update/delete
+- Receipt upload/processing
+- Category changes
+
+**Location:** API mutation endpoints call `invalidateUserCachePrefix()`
+
+---
+
+## Performance Impact
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Analytics API calls | 8 parallel | 1 bundle |
+| Fridge payload | ~500KB raw | ~10KB aggregated |
+| Client CPU | Heavy useMemo | Pre-computed |
+| Second request | Full DB query | Redis cache hit |
+
+---
+
+## Rate Limiting
+
+**File:** [rate-limiter.ts](file:///c:/Users/Yaya/Desktop/PROJECTS/folio2/lib/security/rate-limiter.ts)
+
+| Type | Limit |
+|------|-------|
+| `dashboardRead` | 1000/min |
+| `ai` | 10/min |
+| `upload` | 20/min |
+| `standard` | 100/min |
 
 ---
 
 ## Verification
 
-1. Navigate Home → Trends → Analytics → Trends
-2. Check Network tab: no refetch on return visits within 2 min
-3. Trends page: only 1 API call for all charts
-4. Rapid navigation: no 429 errors
+1. **Redis cache:** Check Upstash dashboard for cache hits
+2. **Network:** DevTools shows single bundle request per page
+3. **Second visit:** Response includes `X-Cache-Key` header

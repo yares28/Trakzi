@@ -1114,8 +1114,8 @@ export function FridgePageClient() {
       setIsLoadingReceiptTransactions(true)
       try {
         const url = dateFilter
-          ? `/api/fridge?filter=${encodeURIComponent(dateFilter)}&limit=5000&offset=0`
-          : "/api/fridge?limit=5000&offset=0"
+          ? `/api/fridge?filter=${encodeURIComponent(dateFilter)}&all=true`
+          : "/api/fridge?all=true"
         const response = await fetch(url, { signal: controller.signal })
         if (!response.ok) {
           console.error("[Fridge] Failed to fetch receipt transactions:", response.statusText)
