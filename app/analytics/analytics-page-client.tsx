@@ -775,41 +775,33 @@ export default function AnalyticsPage() {
   }, [])
 
 
-  // Fetch transactions from Neon database
+  // Fetch transactions from Neon database (use all=true to get all for charts)
   const fetchTransactions = useCallback(async () => {
     try {
       const url = dateFilter
-        ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
-        : "/api/transactions"
-      console.log("[Analytics] Fetching transactions from:", url)
+        ? `/api/transactions?all=true&filter=${encodeURIComponent(dateFilter)}`
+        : "/api/transactions?all=true"
+      console.log("[Analytics Client] Fetching transactions from:", url)
       const response = await fetch(url)
       const data = await response.json()
 
       if (response.ok) {
-        if (Array.isArray(data)) {
-          console.log(`[Analytics] Setting ${data.length} transactions`)
-          setRawTransactions(normalizeTransactions(data) as Array<{
-            id: number
-            date: string
-            description: string
-            amount: number
-            balance: number | null
-            category: string
-          }>)
-        } else {
-          console.error("[Analytics] Response is not an array:", data)
-          if (data.error) {
-            toast.error("API Error", {
-              description: data.error,
-              duration: 10000,
-            })
-          }
-        }
+        // API always returns {data: [], pagination: {}} format
+        const txArray = data?.data ?? []
+        console.log(`[Analytics Client] Setting ${txArray.length} transactions`)
+        setRawTransactions(normalizeTransactions(txArray) as Array<{
+          id: number
+          date: string
+          description: string
+          amount: number
+          balance: number | null
+          category: string
+        }>)
       } else {
         console.error("Failed to fetch transactions: HTTP", response.status, data)
         if (response.status === 401) {
           toast.error("Authentication Error", {
-            description: "Please configure DEMO_USER_ID in .env.local",
+            description: "Please configure authentication",
             duration: 10000,
           })
         } else {
@@ -828,10 +820,8 @@ export default function AnalyticsPage() {
     }
   }, [dateFilter])
 
-  // Fetch transactions on mount and when filter changes
-  useEffect(() => {
-    fetchTransactions()
-  }, [fetchTransactions])
+  // NOTE: Initial fetch is handled by parent page.tsx with fetchAllAnalyticsData
+  // This fetchTransactions is only used for post-import refresh
 
   // Parse CSV when it changes
   useEffect(() => {
