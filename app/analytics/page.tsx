@@ -921,11 +921,11 @@ export default function AnalyticsPage() {
         dailyTransactionsData,
         dayOfWeekCategoryData,
       ] = await Promise.all([
-        // 1. Transactions
+        // 1. Transactions (use all=true to fetch all for charts)
         deduplicatedFetch<any[]>(
           dateFilter
-            ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
-            : "/api/transactions"
+            ? `/api/transactions?all=true&filter=${encodeURIComponent(dateFilter)}`
+            : "/api/transactions?all=true"
         ).catch(err => {
           console.error("[Analytics] Transactions fetch error:", err)
           return []
