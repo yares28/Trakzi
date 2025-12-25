@@ -41,6 +41,7 @@ type ReceiptTransactionRow = {
 
 interface ChartMacronutrientBreakdownFridgeProps {
   receiptTransactions?: ReceiptTransactionRow[]
+  macronutrientBreakdown?: Array<{ typeName: string; total: number; color: string | null }>
   categoryControls?: ChartInfoPopoverCategoryControls
   isLoading?: boolean
 }
@@ -64,7 +65,7 @@ function normalizeMacronutrientType(value: string | null | undefined) {
   return trimmed || "Other"
 }
 
-export function ChartMacronutrientBreakdownFridge({ receiptTransactions = [], categoryControls, isLoading = false }: ChartMacronutrientBreakdownFridgeProps) {
+export function ChartMacronutrientBreakdownFridge({ receiptTransactions = [], macronutrientBreakdown, categoryControls, isLoading = false }: ChartMacronutrientBreakdownFridgeProps) {
   const { resolvedTheme } = useTheme()
   const { colorScheme, getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -76,8 +77,15 @@ export function ChartMacronutrientBreakdownFridge({ receiptTransactions = [], ca
 
   // Group transactions by macronutrient type
   const macronutrientData = useMemo(() => {
-    const totals = new Map<string, number>()
+    // Use bundle data if available (pre-computed by server)
+    if (macronutrientBreakdown && macronutrientBreakdown.length > 0) {
+      return macronutrientBreakdown
+        .map(m => ({ id: m.typeName, label: m.typeName, value: Number(m.total.toFixed(2)) }))
+        .sort((a, b) => b.value - a.value)
+    }
 
+    // Fallback to receiptTransactions
+    const totals = new Map<string, number>()
     receiptTransactions.forEach((item) => {
       const macronutrientType = normalizeMacronutrientType(item.categoryTypeName)
       const spend = Number(item.totalPrice) || 0
@@ -91,7 +99,7 @@ export function ChartMacronutrientBreakdownFridge({ receiptTransactions = [], ca
         label: macronutrientType,
         value: Number(value.toFixed(2)),
       }))
-  }, [receiptTransactions])
+  }, [macronutrientBreakdown, receiptTransactions])
 
   const sanitizedBaseData = useMemo(() => macronutrientData.map(item => ({
     ...item,

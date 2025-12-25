@@ -48,10 +48,11 @@ type ReceiptTransactionRow = {
 
 interface ChartDailyActivityFridgeProps {
     receiptTransactions?: ReceiptTransactionRow[]
+    dailySpendingData?: Array<{ date: string; total: number; count: number }>
     isLoading?: boolean
 }
 
-export function ChartDailyActivityFridge({ receiptTransactions = [], isLoading = false }: ChartDailyActivityFridgeProps) {
+export function ChartDailyActivityFridge({ receiptTransactions = [], dailySpendingData, isLoading = false }: ChartDailyActivityFridgeProps) {
     const currentYear = new Date().getFullYear()
     const [selectedYear, setSelectedYear] = useState(currentYear.toString())
     const { resolvedTheme } = useTheme()
@@ -71,6 +72,13 @@ export function ChartDailyActivityFridge({ receiptTransactions = [], isLoading =
 
     // Aggregate receipt transactions by date
     const dailyData = useMemo(() => {
+        // Use bundle data if available
+        if (dailySpendingData && dailySpendingData.length > 0) {
+            return dailySpendingData.map(d => ({ day: d.date, value: Number(d.total.toFixed(2)) }))
+                .sort((a, b) => a.day.localeCompare(b.day))
+        }
+
+        // Fallback to raw transactions
         const totals = new Map<string, number>()
 
         receiptTransactions.forEach((item) => {
@@ -83,7 +91,7 @@ export function ChartDailyActivityFridge({ receiptTransactions = [], isLoading =
         return Array.from(totals.entries())
             .map(([day, value]) => ({ day, value: Number(value.toFixed(2)) }))
             .sort((a, b) => a.day.localeCompare(b.day))
-    }, [receiptTransactions])
+    }, [receiptTransactions, dailySpendingData])
 
     // Generate list of available years from data
     const availableYears = React.useMemo(() => {

@@ -26,13 +26,14 @@ type DayOfWeekSpendDatum = {
 
 interface ChartDayOfWeekSpendingFridgeProps {
   data?: DayOfWeekSpendDatum[]
+  dayOfWeekSpendingData?: Array<{ dayOfWeek: number; total: number; count: number }>
   isLoading?: boolean
 }
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 const DAY_NAMES_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-export function ChartDayOfWeekSpendingFridge({ data = [], isLoading = false }: ChartDayOfWeekSpendingFridgeProps) {
+export function ChartDayOfWeekSpendingFridge({ data = [], dayOfWeekSpendingData, isLoading = false }: ChartDayOfWeekSpendingFridgeProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const { formatCurrency, symbol } = useCurrency()
@@ -55,6 +56,18 @@ export function ChartDayOfWeekSpendingFridge({ data = [], isLoading = false }: C
   const valueFormatter = {
     format: (value: number) => formatCurrency(value, { maximumFractionDigits: 0 })
   }
+
+  // Use bundle data if available
+  const chartData = React.useMemo(() => {
+    if (dayOfWeekSpendingData && dayOfWeekSpendingData.length > 0) {
+      return dayOfWeekSpendingData.map(d => {
+        // Convert dayOfWeek from SQL (0=Sun) to Mon-Sun order
+        const dayIndex = d.dayOfWeek === 0 ? 6 : d.dayOfWeek - 1
+        return { day: DAY_NAMES_SHORT[dayIndex], spend: d.total }
+      })
+    }
+    return data
+  }, [data, dayOfWeekSpendingData])
 
   const handleChartMouseOver = React.useCallback(
     (params: any) => {
@@ -184,11 +197,11 @@ export function ChartDayOfWeekSpendingFridge({ data = [], isLoading = false }: C
   )
 
   const option = React.useMemo(() => {
-    if (!data.length) return null
+    if (!chartData.length) return null
 
     // Sort data by day order (Monday = 0, Sunday = 6)
     const dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    const sortedData = [...data].sort((a, b) => {
+    const sortedData = [...chartData].sort((a, b) => {
       const aIndex = dayOrder.indexOf(a.day)
       const bIndex = dayOrder.indexOf(b.day)
       return aIndex - bIndex

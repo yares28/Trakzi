@@ -41,6 +41,7 @@ type ReceiptTransactionRow = {
 
 interface ChartEmptyVsNutritiousFridgeProps {
     receiptTransactions?: ReceiptTransactionRow[]
+    categorySpendingData?: Array<{ category: string; total: number }>
     categoryControls?: ChartInfoPopoverCategoryControls
     isLoading?: boolean
 }
@@ -76,7 +77,7 @@ const getTextColor = (sliceColor: string, colorScheme?: string): string => {
     return darkColors.includes(sliceColor) ? "#ffffff" : "#000000"
 }
 
-export function ChartEmptyVsNutritiousFridge({ receiptTransactions = [], categoryControls, isLoading = false }: ChartEmptyVsNutritiousFridgeProps) {
+export function ChartEmptyVsNutritiousFridge({ receiptTransactions = [], categorySpendingData, categoryControls, isLoading = false }: ChartEmptyVsNutritiousFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { colorScheme, getPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
@@ -88,6 +89,30 @@ export function ChartEmptyVsNutritiousFridge({ receiptTransactions = [], categor
 
     // Group transactions by calorie type (Empty vs Nutritious)
     const calorieData = useMemo(() => {
+        // Use bundle data if available
+        if (categorySpendingData && categorySpendingData.length > 0) {
+            let nutritiousTotal = 0
+            let emptyTotal = 0
+
+            categorySpendingData.forEach((item) => {
+                if (isEmptyCalorieCategory(item.category)) {
+                    emptyTotal += item.total
+                } else {
+                    nutritiousTotal += item.total
+                }
+            })
+
+            const result: Array<{ id: string; label: string; value: number }> = []
+            if (nutritiousTotal > 0) {
+                result.push({ id: "Nutritious", label: "Nutritious", value: Number(nutritiousTotal.toFixed(2)) })
+            }
+            if (emptyTotal > 0) {
+                result.push({ id: "Empty Calories", label: "Empty Calories", value: Number(emptyTotal.toFixed(2)) })
+            }
+            return result
+        }
+
+        // Fallback to raw transactions
         let nutritiousTotal = 0
         let emptyTotal = 0
 
@@ -119,7 +144,7 @@ export function ChartEmptyVsNutritiousFridge({ receiptTransactions = [], categor
         }
 
         return result
-    }, [receiptTransactions])
+    }, [receiptTransactions, categorySpendingData])
 
     const sanitizedBaseData = useMemo(() => calorieData.map(item => ({
         ...item,

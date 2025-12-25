@@ -28,6 +28,7 @@ interface ChartAllMonthsCategorySpendingProps {
     balance: number | null
     category: string
   }>
+  monthlyCategoriesData?: Array<{ month: number; category: string; total: number }>
   categoryControls?: ChartInfoPopoverCategoryControls
   isLoading?: boolean
 }
@@ -77,7 +78,7 @@ const buildMonthTotals = (
   return totals
 }
 
-export function ChartAllMonthsCategorySpending({ data = [], categoryControls: propCategoryControls, isLoading = false }: ChartAllMonthsCategorySpendingProps) {
+export function ChartAllMonthsCategorySpending({ data = [], monthlyCategoriesData, categoryControls: propCategoryControls, isLoading = false }: ChartAllMonthsCategorySpendingProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -149,6 +150,35 @@ export function ChartAllMonthsCategorySpending({ data = [], categoryControls: pr
 
   // Process data to group by month of year and category
   const processedData = useMemo(() => {
+    // Use bundle data if available (pre-computed by server)
+    if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
+      const grouped = new Map<number, Map<string, number>>()
+      monthNames.forEach((_, monthIndex) => {
+        grouped.set(monthIndex, new Map<string, number>())
+      })
+
+      monthlyCategoriesData.forEach(m => {
+        const monthIndex = m.month - 1 // Convert 1-12 to 0-11
+        const category = m.category
+        if (hiddenCategorySet.has(category)) return
+        const dayMap = grouped.get(monthIndex)
+        if (dayMap) {
+          dayMap.set(category, (dayMap.get(category) || 0) + m.total)
+        }
+      })
+
+      const flatData: Array<{ month: number; monthName: string; category: string; amount: number }> = []
+      grouped.forEach((categoryMap, monthIndex) => {
+        categoryMap.forEach((amount, category) => {
+          if (amount > 0) {
+            flatData.push({ month: monthIndex, monthName: monthNamesShort[monthIndex], category, amount })
+          }
+        })
+      })
+      return flatData
+    }
+
+    // Fallback to raw transactions
     if (!data || data.length === 0) {
       return []
     }

@@ -50,6 +50,7 @@ type ReceiptTransactionRow = {
 
 interface ChartSnackPercentageFridgeProps {
   receiptTransactions?: ReceiptTransactionRow[]
+  categorySpendingData?: Array<{ category: string; total: number }>
   isLoading?: boolean
 }
 
@@ -73,7 +74,7 @@ function normalizeStoreName(value: string | null | undefined) {
   return raw
 }
 
-export function ChartSnackPercentageFridge({ receiptTransactions = [], isLoading = false }: ChartSnackPercentageFridgeProps) {
+export function ChartSnackPercentageFridge({ receiptTransactions = [], categorySpendingData, isLoading = false }: ChartSnackPercentageFridgeProps) {
   const { resolvedTheme } = useTheme()
   const { colorScheme, getPalette } = useColorScheme()
   const [mounted, setMounted] = useState(false)

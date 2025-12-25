@@ -1892,6 +1892,16 @@ export default function AnalyticsPage() {
   }, [rawTransactions, palette, ringCategories, ringLimits])
 
   const incomeExpenseChart = useMemo(() => {
+    // Use bundle data if available (pre-computed by server)
+    if (bundleData?.dailySpending && bundleData.dailySpending.length > 0) {
+      const categorySet = new Set<string>(bundleData.categorySpending?.map(c => c.category) || [])
+      const data = bundleData.dailySpending
+        .map(d => ({ date: d.date, desktop: d.income || 0, mobile: d.expense || 0 }))
+        .sort((a, b) => a.date.localeCompare(b.date))
+      return { data, categories: Array.from(categorySet) }
+    }
+
+    // Fallback to rawTransactions
     if (!rawTransactions || rawTransactions.length === 0) {
       return { data: [] as Array<{ date: string; desktop: number; mobile: number }>, categories: [] as string[] }
     }
@@ -1926,7 +1936,7 @@ export default function AnalyticsPage() {
       data: Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date)),
       categories: Array.from(categorySet),
     }
-  }, [rawTransactions, incomeExpenseVisibility.hiddenCategorySet])
+  }, [bundleData?.dailySpending, bundleData?.categorySpending, rawTransactions, incomeExpenseVisibility.hiddenCategorySet])
 
   const incomeExpenseControls = incomeExpenseVisibility.buildCategoryControls(
     incomeExpenseChart.categories,
@@ -1937,12 +1947,18 @@ export default function AnalyticsPage() {
 
   // Build categories for the top chart (same as incomeExpenseChart but independent visibility)
   const incomeExpenseTopCategories = useMemo(() => {
+    // Use bundle data if available
+    if (bundleData?.categorySpending && bundleData.categorySpending.length > 0) {
+      return bundleData.categorySpending.map(c => c.category)
+    }
+
+    // Fallback to rawTransactions
     const categorySet = new Set<string>()
     rawTransactions.forEach((tx) => {
       categorySet.add(normalizeCategoryName(tx.category))
     })
     return Array.from(categorySet)
-  }, [rawTransactions, normalizeCategoryName])
+  }, [bundleData?.categorySpending, rawTransactions, normalizeCategoryName])
 
   const incomeExpenseTopControls = incomeExpenseTopVisibility.buildCategoryControls(
     incomeExpenseTopCategories,
@@ -1952,6 +1968,39 @@ export default function AnalyticsPage() {
   )
 
   const categoryFlowChart = useMemo(() => {
+    // Use bundle data if available for monthly data
+    if (bundleData?.monthlyCategories && bundleData.monthlyCategories.length > 0) {
+      const categorySet = new Set<string>(bundleData.monthlyCategories.map(m => m.category))
+
+      // Group by month
+      const monthTotals = new Map<string, Map<string, number>>()
+      const periodTotals = new Map<string, number>()
+
+      bundleData.monthlyCategories.forEach(m => {
+        const monthKey = String(m.month).padStart(2, '0')
+        if (!monthTotals.has(monthKey)) monthTotals.set(monthKey, new Map())
+        monthTotals.get(monthKey)!.set(m.category, m.total)
+        periodTotals.set(monthKey, (periodTotals.get(monthKey) || 0) + m.total)
+      })
+
+      const sortedPeriods = Array.from(monthTotals.keys()).sort()
+      const data = Array.from(categorySet)
+        .filter(c => !categoryFlowVisibility.hiddenCategorySet.has(c))
+        .map(category => ({
+          id: category,
+          data: sortedPeriods.map(period => {
+            const value = monthTotals.get(period)?.get(category) || 0
+            const total = periodTotals.get(period) || 1
+            const percentage = total > 0 ? (value / total) * 100 : 0
+            return { x: period, y: Math.max(percentage, 0.1) }
+          })
+        }))
+        .filter(series => series.data.some(p => p.y > 0.1))
+
+      return { data, categories: Array.from(categorySet) }
+    }
+
+    // Fallback to rawTransactions
     if (!rawTransactions || rawTransactions.length === 0) {
       return { data: [] as Array<{ id: string; data: Array<{ x: string; y: number }> }>, categories: [] as string[] }
     }
@@ -2039,7 +2088,7 @@ export default function AnalyticsPage() {
       data,
       categories: Array.from(categorySet),
     }
-  }, [rawTransactions, categoryFlowVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
+  }, [bundleData?.monthlyCategories, rawTransactions, categoryFlowVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
 
   const categoryFlowControls = categoryFlowVisibility.buildCategoryControls(
     categoryFlowChart.categories,
@@ -2049,12 +2098,18 @@ export default function AnalyticsPage() {
   )
 
   const treeMapCategories = useMemo(() => {
+    // Use bundle data if available
+    if (bundleData?.categorySpending && bundleData.categorySpending.length > 0) {
+      return bundleData.categorySpending.map(c => c.category).sort((a, b) => a.localeCompare(b))
+    }
+
+    // Fallback to rawTransactions
     const categories = new Set<string>()
     rawTransactions.filter(tx => tx.amount < 0).forEach(tx => {
       categories.add(normalizeCategoryName(tx.category))
     })
     return Array.from(categories).sort((a, b) => a.localeCompare(b))
-  }, [rawTransactions, normalizeCategoryName])
+  }, [bundleData?.categorySpending, rawTransactions, normalizeCategoryName])
 
   const treeMapControls = treeMapVisibility.buildCategoryControls(treeMapCategories, {
     description: "Hide categories to remove them from this treemap view.",
@@ -2069,6 +2124,35 @@ export default function AnalyticsPage() {
   const moneyFlowMaxExpenseCategories = 2 + moneyFlowExtraSteps
 
   const spendingFunnelChart = useMemo(() => {
+    // Use bundle data if available (pre-computed by server)
+    if (bundleData?.kpis && bundleData?.categorySpending?.length > 0) {
+      const totalIncome = bundleData.kpis.totalIncome
+      const totalExpenses = bundleData.kpis.totalExpense
+      const savings = Math.max(0, totalIncome - totalExpenses)
+
+      const categorySet = new Set<string>(bundleData.categorySpending.map(c => c.category))
+      const topCategories = bundleData.categorySpending
+        .slice(0, moneyFlowMaxExpenseCategories)
+        .map(c => ({ id: c.category.toLowerCase().replace(/\s+/g, "_"), value: c.total, label: c.category }))
+
+      const topTotal = topCategories.reduce((sum, c) => sum + c.value, 0)
+      const remainingExpenses = totalExpenses - topTotal
+
+      const expenseCategories = [...topCategories]
+      if (remainingExpenses > 0) {
+        expenseCategories.push({ id: "others", value: remainingExpenses, label: "Others" })
+      }
+      expenseCategories.sort((a, b) => b.value - a.value)
+
+      const funnelData: Array<{ id: string; value: number; label: string }> = []
+      if (totalIncome > 0) funnelData.push({ id: "income", value: totalIncome, label: "Income" })
+      funnelData.push(...expenseCategories)
+      if (savings > 0) funnelData.push({ id: "savings", value: savings, label: "Savings" })
+
+      return { data: funnelData, categories: Array.from(categorySet) }
+    }
+
+    // Fallback to rawTransactions
     if (!rawTransactions || rawTransactions.length === 0) {
       return { data: [] as Array<{ id: string; value: number; label: string }>, categories: [] as string[] }
     }
@@ -2174,7 +2258,7 @@ export default function AnalyticsPage() {
       data: funnelData,
       categories: Array.from(categorySet),
     }
-  }, [rawTransactions, spendingFunnelVisibility.hiddenCategorySet, normalizeCategoryName, moneyFlowMaxExpenseCategories])
+  }, [bundleData?.kpis, bundleData?.categorySpending, rawTransactions, spendingFunnelVisibility.hiddenCategorySet, normalizeCategoryName, moneyFlowMaxExpenseCategories])
 
   const spendingFunnelControls = spendingFunnelVisibility.buildCategoryControls(
     spendingFunnelChart.categories,
@@ -2184,6 +2268,19 @@ export default function AnalyticsPage() {
   )
 
   const expensesPieData = useMemo(() => {
+    // Use bundle data if available (pre-computed by server)
+    if (bundleData?.categorySpending && bundleData.categorySpending.length > 0) {
+      const categorySet = new Set<string>(bundleData.categorySpending.map(c => c.category))
+      const filteredSpending = expensesPieVisibility.hiddenCategorySet.size === 0
+        ? bundleData.categorySpending
+        : bundleData.categorySpending.filter(c => !expensesPieVisibility.hiddenCategorySet.has(c.category))
+      const slices = filteredSpending
+        .map(c => ({ id: c.category, label: c.category, value: c.total }))
+        .sort((a, b) => b.value - a.value)
+      return { slices, categories: Array.from(categorySet) }
+    }
+
+    // Fallback to rawTransactions
     if (!rawTransactions || rawTransactions.length === 0) {
       return { slices: [] as Array<{ id: string; label: string; value: number }>, categories: [] as string[] }
     }
@@ -2217,7 +2314,7 @@ export default function AnalyticsPage() {
       .sort((a, b) => b.value - a.value)
 
     return { slices, categories: Array.from(categorySet) }
-  }, [rawTransactions, expensesPieVisibility.hiddenCategorySet, normalizeCategoryName])
+  }, [bundleData?.categorySpending, rawTransactions, expensesPieVisibility.hiddenCategorySet, normalizeCategoryName])
 
   const expensesPieControls = expensesPieVisibility.buildCategoryControls(expensesPieData.categories, {
     description: "Choose which expense categories appear in this pie chart.",
@@ -2226,6 +2323,16 @@ export default function AnalyticsPage() {
   type SpendingTier = "Essentials" | "Mandatory" | "Wants"
 
   const needsWantsPieData = useMemo(() => {
+    // Use bundle data if available (pre-computed by server)
+    if (bundleData?.needsWants && bundleData.needsWants.length > 0) {
+      const slices = bundleData.needsWants
+        .map(item => ({ id: item.classification, label: item.classification, value: item.total }))
+        .filter(slice => slice.value > 0)
+      // For bundle data, categories are the tier names themselves
+      return { slices, categories: bundleData.needsWants.map(n => n.classification) }
+    }
+
+    // Fallback to rawTransactions
     if (!rawTransactions || rawTransactions.length === 0) {
       return {
         slices: [] as Array<{ id: string; label: string; value: number }>,
@@ -2345,13 +2452,27 @@ export default function AnalyticsPage() {
       slices,
       categories: Array.from(categorySet),
     }
-  }, [rawTransactions, needsWantsVisibility.hiddenCategorySet, normalizeCategoryName])
+  }, [bundleData?.needsWants, rawTransactions, needsWantsVisibility.hiddenCategorySet, normalizeCategoryName])
 
   const needsWantsControls = needsWantsVisibility.buildCategoryControls(needsWantsPieData.categories, {
     description: "Hide a category to exclude it from the Needs vs Wants grouping.",
   })
 
   const circlePackingData = useMemo(() => {
+    // Use bundle data if available (pre-computed by server)
+    if (bundleData?.categorySpending && bundleData.categorySpending.length > 0) {
+      const categorySet = new Set<string>(bundleData.categorySpending.map(c => c.category))
+      const filteredSpending = circlePackingVisibility.hiddenCategorySet.size === 0
+        ? bundleData.categorySpending
+        : bundleData.categorySpending.filter(c => !circlePackingVisibility.hiddenCategorySet.has(c.category))
+      const children = filteredSpending
+        .map(c => ({ name: c.category, value: c.total }))
+        .filter(item => item.value > 0)
+        .sort((a, b) => b.value - a.value)
+      return { tree: { name: "Expenses", children }, categories: Array.from(categorySet) }
+    }
+
+    // Fallback to rawTransactions
     if (!rawTransactions || rawTransactions.length === 0) {
       return { tree: { name: "", children: [] as Array<{ name: string; value: number }> }, categories: [] as string[] }
     }
@@ -2390,7 +2511,7 @@ export default function AnalyticsPage() {
       },
       categories: Array.from(categorySet),
     }
-  }, [rawTransactions, circlePackingVisibility.hiddenCategorySet, normalizeCategoryName])
+  }, [bundleData?.categorySpending, rawTransactions, circlePackingVisibility.hiddenCategorySet, normalizeCategoryName])
 
   const circlePackingControls = circlePackingVisibility.buildCategoryControls(
     circlePackingData.categories,
@@ -2400,6 +2521,36 @@ export default function AnalyticsPage() {
   )
 
   const polarBarData = useMemo(() => {
+    // Use bundle data if available for monthly category data
+    if (bundleData?.monthlyCategories && bundleData.monthlyCategories.length > 0 && bundleData?.categorySpending) {
+      const categorySet = new Set<string>(bundleData.categorySpending.map(c => c.category))
+      const topCategories = bundleData.categorySpending
+        .filter(c => !polarBarVisibility.hiddenCategorySet.has(c.category))
+        .slice(0, 5)
+        .map(c => c.category)
+
+      // Group by month
+      const timePeriodMap = new Map<string, Record<string, number>>()
+      bundleData.monthlyCategories
+        .filter(m => topCategories.includes(m.category))
+        .forEach(m => {
+          const monthKey = String(m.month).padStart(2, '0')
+          if (!timePeriodMap.has(monthKey)) {
+            const initialData: Record<string, number> = {}
+            topCategories.forEach(cat => { initialData[cat] = 0 })
+            timePeriodMap.set(monthKey, initialData)
+          }
+          timePeriodMap.get(monthKey)![m.category] = m.total
+        })
+
+      const data = Array.from(timePeriodMap.entries())
+        .map(([period, values]) => ({ month: period, ...values }))
+        .sort((a, b) => (a.month as string).localeCompare(b.month as string))
+
+      return { data, keys: topCategories, categories: Array.from(categorySet) }
+    }
+
+    // Fallback to rawTransactions
     if (!rawTransactions || rawTransactions.length === 0) {
       return { data: [] as Array<Record<string, string | number>>, keys: [] as string[], categories: [] as string[] }
     }
@@ -2510,13 +2661,45 @@ export default function AnalyticsPage() {
       keys: topCategories,
       categories: Array.from(categorySet),
     }
-  }, [rawTransactions, polarBarVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
+  }, [bundleData?.monthlyCategories, bundleData?.categorySpending, rawTransactions, polarBarVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
 
   const polarBarControls = polarBarVisibility.buildCategoryControls(polarBarData.categories, {
     description: "Hide categories to declutter this polar bar view.",
   })
 
   const spendingStreamData = useMemo(() => {
+    // Use bundle data if available for daily category data
+    if (bundleData?.dailyByCategory && bundleData.dailyByCategory.length > 0) {
+      const categoryTotals = new Map<string, number>()
+      const categorySet = new Set<string>()
+      const monthMap = new Map<string, Map<string, number>>()
+
+      bundleData.dailyByCategory.forEach(d => {
+        categorySet.add(d.category)
+        categoryTotals.set(d.category, (categoryTotals.get(d.category) || 0) + d.total)
+        const monthKey = d.date.slice(0, 7) // YYYY-MM
+        if (!monthMap.has(monthKey)) monthMap.set(monthKey, new Map())
+        monthMap.get(monthKey)!.set(d.category, (monthMap.get(monthKey)!.get(d.category) || 0) + d.total)
+      })
+
+      const topCategories = Array.from(categoryTotals.entries())
+        .filter(([cat]) => !streamgraphVisibility.hiddenCategorySet.has(cat))
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 7)
+        .map(([cat]) => cat)
+
+      const data = Array.from(monthMap.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([month, cats]) => {
+          const row: Record<string, string | number> = { month }
+          topCategories.forEach(cat => { row[cat] = cats.get(cat) || 0 })
+          return row
+        })
+
+      return { data, keys: topCategories, categories: Array.from(categorySet) }
+    }
+
+    // Fallback to rawTransactions
     if (!rawTransactions || rawTransactions.length === 0) {
       return { data: [] as Array<Record<string, string | number>>, keys: [] as string[], categories: [] as string[] }
     }
@@ -2594,7 +2777,7 @@ export default function AnalyticsPage() {
     })
 
     return { data, keys, categories: Array.from(categorySet) }
-  }, [rawTransactions, streamgraphVisibility.hiddenCategorySet])
+  }, [bundleData?.dailyByCategory, rawTransactions, streamgraphVisibility.hiddenCategorySet])
 
   const streamgraphControls = streamgraphVisibility.buildCategoryControls(spendingStreamData.categories, {
     description: "Select which categories flow through this streamgraph.",
@@ -2602,6 +2785,13 @@ export default function AnalyticsPage() {
 
 
   const sankeyData = useMemo(() => {
+    // Use bundle data if available
+    if (bundleData?.cashFlow && bundleData.cashFlow.nodes.length > 0) {
+      const categorySet = new Set<string>(bundleData.cashFlow.nodes.filter(n => n.id !== 'income' && n.id !== 'savings' && n.id !== 'expenses').map(n => n.id))
+      return { graph: bundleData.cashFlow, categories: Array.from(categorySet) }
+    }
+
+    // Fallback to rawTransactions
     if (!rawTransactions || rawTransactions.length === 0) {
       return { graph: { nodes: [], links: [] as Array<{ source: string; target: string; value: number }> }, categories: [] as string[] }
     }
@@ -2722,7 +2912,7 @@ export default function AnalyticsPage() {
       graph: { nodes, links },
       categories: Array.from(categorySet),
     }
-  }, [rawTransactions, sankeyVisibility.hiddenCategorySet, normalizeCategoryName])
+  }, [bundleData?.cashFlow, rawTransactions, sankeyVisibility.hiddenCategorySet, normalizeCategoryName])
 
   const sankeyControls = sankeyVisibility.buildCategoryControls(sankeyData.categories, {
     description: "Hide sources to remove them from the cash-flow Sankey.",

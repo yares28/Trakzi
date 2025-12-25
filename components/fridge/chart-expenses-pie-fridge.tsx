@@ -31,7 +31,12 @@ const getTextColor = (sliceColor: string, colorScheme?: string): string => {
     return darkColors.includes(sliceColor) ? "#ffffff" : "#000000"
 }
 
-export function ChartExpensesPieFridge({ data }: { data: { id: string; label: string; value: number }[] }) {
+interface ChartExpensesPieFridgeProps {
+    data: { id: string; label: string; value: number }[]
+    categorySpendingData?: Array<{ category: string; total: number }>
+}
+
+export function ChartExpensesPieFridge({ data, categorySpendingData }: ChartExpensesPieFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { colorScheme, getPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
@@ -41,22 +46,34 @@ export function ChartExpensesPieFridge({ data }: { data: { id: string; label: st
         setMounted(true)
     }, [])
 
+    // Use bundle data if available
+    const pieData = useMemo(() => {
+        if (categorySpendingData && categorySpendingData.length > 0) {
+            return categorySpendingData.map(d => ({
+                id: d.category,
+                label: d.category,
+                value: d.total
+            }))
+        }
+        return data
+    }, [data, categorySpendingData])
+
     // Dynamically assign colors based on number of parts (max 7)
     // For all palettes: darker colors = larger amounts, lighter colors = smaller amounts
     const dataWithColors = useMemo(() => {
-        const numParts = Math.min(data.length, 7)
+        const numParts = Math.min(pieData.length, 7)
         const palette = getPalette().filter(color => color !== "#c3c3c3")
 
         // Sort by value descending (highest first) and assign colors
         // Darker colors go to higher values, lighter colors to lower values
-        const sorted = [...data].sort((a, b) => b.value - a.value)
+        const sorted = [...pieData].sort((a, b) => b.value - a.value)
         // Reverse palette so darkest colors are first (for highest values)
         const reversedPalette = [...palette].reverse().slice(0, numParts)
         return sorted.map((item, index) => ({
             ...item,
             color: reversedPalette[index % reversedPalette.length]
         }))
-    }, [colorScheme, getPalette, data])
+    }, [colorScheme, getPalette, pieData])
 
     const chartData = dataWithColors
 

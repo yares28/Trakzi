@@ -29,6 +29,7 @@ interface ChartDayOfWeekSpendingProps {
     balance: number | null
     category: string
   }>
+  dayOfWeekCategoryData?: Array<{ dayOfWeek: number; category: string; total: number }>
   categoryControls?: ChartInfoPopoverCategoryControls
   isLoading?: boolean
 }
@@ -37,7 +38,7 @@ interface ChartDayOfWeekSpendingProps {
 const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 const dayNamesShort = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-export function ChartDayOfWeekSpending({ data = [], categoryControls: propCategoryControls, isLoading = false }: ChartDayOfWeekSpendingProps) {
+export function ChartDayOfWeekSpending({ data = [], dayOfWeekCategoryData, categoryControls: propCategoryControls, isLoading = false }: ChartDayOfWeekSpendingProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -88,6 +89,15 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
 
   // Process data to group by day of week and category
   const processedData = useMemo(() => {
+    // Use bundle data if available (pre-computed by server)
+    if (dayOfWeekCategoryData && dayOfWeekCategoryData.length > 0) {
+      const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+      return dayOfWeekCategoryData
+        .filter(d => !hiddenCategories.includes(d.category))
+        .map(d => ({ day: d.dayOfWeek, dayName: dayNames[d.dayOfWeek] || "Mon", category: d.category, amount: d.total }))
+    }
+
+    // Fallback to raw transactions
     if (!data || data.length === 0) {
       return []
     }
@@ -141,7 +151,7 @@ export function ChartDayOfWeekSpending({ data = [], categoryControls: propCatego
     })
 
     return flatData
-  }, [data, hiddenCategories, normalizeCategoryName])
+  }, [dayOfWeekCategoryData, data, hiddenCategories, normalizeCategoryName])
 
   // Get all unique categories (including hidden ones for the controls)
   const allCategories = useMemo(() => {

@@ -32,6 +32,7 @@ interface ReceiptTransaction {
 
 interface ChartShoppingHeatmapDaysMonthsFridgeProps {
     receiptTransactions?: ReceiptTransaction[]
+    dayMonthHeatmapData?: Array<{ dayOfWeek: number; month: number; total: number; count: number }>
     isLoading?: boolean
 }
 
@@ -40,6 +41,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 
 export function ChartShoppingHeatmapDaysMonthsFridge({
     receiptTransactions = [],
+    dayMonthHeatmapData,
     isLoading = false,
 }: ChartShoppingHeatmapDaysMonthsFridgeProps) {
     const { resolvedTheme } = useTheme()
@@ -65,6 +67,39 @@ export function ChartShoppingHeatmapDaysMonthsFridge({
 
     // Process data into heatmap format
     const { heatmapData, maxValue, totalSpent, activeMonths } = useMemo(() => {
+        // Use bundle data if available (pre-computed by server)
+        if (dayMonthHeatmapData && dayMonthHeatmapData.length > 0) {
+            const monthsWithData = new Set<number>()
+            const amountMatrix = new Map<string, number>()
+            let total = 0
+            let max = 0
+
+            dayMonthHeatmapData.forEach(h => {
+                // Convert dayOfWeek from SQL (0=Sun) to display (0=Mon)
+                const day = h.dayOfWeek === 0 ? 6 : h.dayOfWeek - 1
+                const month = h.month - 1 // SQL months are 1-12, convert to 0-11
+                const key = `${month}-${day}`
+                amountMatrix.set(key, h.total)
+                total += h.total
+                if (h.total > max) max = h.total
+                monthsWithData.add(month)
+            })
+
+            const sortedMonths = Array.from(monthsWithData).sort((a, b) => a - b)
+            const data: [number, number, number][] = []
+
+            sortedMonths.forEach((month, monthIndex) => {
+                for (let day = 0; day < 7; day++) {
+                    const key = `${month}-${day}`
+                    const amount = amountMatrix.get(key) || 0
+                    data.push([monthIndex, day, Number(amount.toFixed(2))])
+                }
+            })
+
+            return { heatmapData: data, maxValue: max, totalSpent: total, activeMonths: sortedMonths.map(m => MONTHS[m]) }
+        }
+
+        // Fallback to raw transactions
         if (!receiptTransactions || receiptTransactions.length === 0) {
             return { heatmapData: [], maxValue: 0, totalSpent: 0, activeMonths: [] }
         }
@@ -119,7 +154,7 @@ export function ChartShoppingHeatmapDaysMonthsFridge({
             totalSpent: total,
             activeMonths: sortedMonths.map(m => MONTHS[m])
         }
-    }, [receiptTransactions])
+    }, [receiptTransactions, dayMonthHeatmapData])
 
     const isDark = resolvedTheme === "dark"
     const textColor = isDark ? "#9ca3af" : "#6b7280"

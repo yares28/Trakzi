@@ -42,6 +42,7 @@ type ReceiptTransactionRow = {
 
 interface ChartTimeOfDayShoppingFridgeProps {
     receiptTransactions?: ReceiptTransactionRow[]
+    hourlyActivityData?: Array<{ hour: number; total: number; count: number }>
     isLoading?: boolean
 }
 
@@ -74,7 +75,7 @@ function parseReceiptHour(value?: string | null) {
     return hour
 }
 
-export function ChartTimeOfDayShoppingFridge({ receiptTransactions = [], isLoading = false }: ChartTimeOfDayShoppingFridgeProps) {
+export function ChartTimeOfDayShoppingFridge({ receiptTransactions = [], hourlyActivityData, isLoading = false }: ChartTimeOfDayShoppingFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { getPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
@@ -96,6 +97,18 @@ export function ChartTimeOfDayShoppingFridge({ receiptTransactions = [], isLoadi
             (_, hour) => ({ hour, trips: 0, spending: 0 })
         )
 
+        // Use bundle data if available (pre-computed by server)
+        if (hourlyActivityData && hourlyActivityData.length > 0) {
+            hourlyActivityData.forEach(h => {
+                if (h.hour >= 0 && h.hour < 24) {
+                    fullDayData[h.hour].trips = h.count
+                    fullDayData[h.hour].spending = h.total
+                }
+            })
+            return fullDayData
+        }
+
+        // Fallback to raw transactions
         if (!Array.isArray(receiptTransactions) || receiptTransactions.length === 0) {
             return fullDayData
         }
@@ -140,7 +153,7 @@ export function ChartTimeOfDayShoppingFridge({ receiptTransactions = [], isLoadi
         })
 
         return fullDayData
-    }, [receiptTransactions])
+    }, [receiptTransactions, hourlyActivityData])
 
     const renderInfoTrigger = () => (
         <div className="flex flex-col items-center gap-2">
