@@ -82,7 +82,6 @@ export default function Page() {
     try {
       // Build URL with both date filter and category filter for savings
       const params = new URLSearchParams()
-      params.append("all", "true")  // Fetch all for charts
       if (dateFilter) {
         params.append("filter", dateFilter)
       }
@@ -94,17 +93,25 @@ export default function Page() {
       const data = await response.json()
 
       if (response.ok) {
-        // API always returns {data: [], pagination: {}} format
-        const txArray = data?.data ?? []
-        console.log(`[Savings] Setting ${txArray.length} savings transactions`)
-        setTransactions(normalizeTransactions(txArray) as Array<{
-          id: number
-          date: string
-          description: string
-          amount: number
-          balance: number | null
-          category: string
-        }>)
+        if (Array.isArray(data)) {
+          console.log(`[Savings] Setting ${data.length} savings transactions`)
+          setTransactions(normalizeTransactions(data) as Array<{
+            id: number
+            date: string
+            description: string
+            amount: number
+            balance: number | null
+            category: string
+          }>)
+        } else {
+          console.error("[Savings] Response is not an array:", data)
+          if (data.error) {
+            toast.error("API Error", {
+              description: data.error,
+              duration: 10000,
+            })
+          }
+        }
       } else {
         console.error("Failed to fetch transactions: HTTP", response.status, data)
         if (response.status === 401) {

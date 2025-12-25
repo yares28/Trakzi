@@ -21,12 +21,9 @@ export interface Category {
 
 // Fetcher functions
 async function fetchTransactions(filter: string | null): Promise<Transaction[]> {
-    // Use all=true to fetch all transactions for charts (bypasses pagination)
-    const params = new URLSearchParams()
-    params.append("all", "true")
-    if (filter) params.append("filter", filter)
-
-    const url = `/api/transactions?${params.toString()}`
+    const url = filter
+        ? `/api/transactions?filter=${encodeURIComponent(filter)}`
+        : "/api/transactions"
 
     const response = await fetch(url)
     if (!response.ok) {
@@ -34,7 +31,10 @@ async function fetchTransactions(filter: string | null): Promise<Transaction[]> 
     }
     const json = await response.json()
 
-    // API always returns {data: [], pagination: {}} format
+    // Handle paginated response {data: [], pagination: {}} or direct array
+    if (Array.isArray(json)) {
+        return json
+    }
     return json.data ?? []
 }
 
@@ -48,7 +48,6 @@ async function fetchCategories(): Promise<Category[]> {
 
 async function fetchSavingsTransactions(filter: string | null): Promise<Transaction[]> {
     const params = new URLSearchParams()
-    params.append("all", "true")  // Fetch all for charts
     if (filter) params.append("filter", filter)
     params.append("category", "Savings")
 
@@ -58,7 +57,10 @@ async function fetchSavingsTransactions(filter: string | null): Promise<Transact
     }
     const json = await response.json()
 
-    // API always returns {data: [], pagination: {}} format
+    // Handle paginated response
+    if (Array.isArray(json)) {
+        return json
+    }
     return json.data ?? []
 }
 

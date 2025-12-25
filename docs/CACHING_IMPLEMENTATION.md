@@ -44,19 +44,6 @@ Added `@tanstack/react-query` for client-side caching.
 
 Charts receive pre-computed data via props instead of self-fetching.
 
-### Transactions API
-
-**File:** [route.ts](file:///c:/Users/Yaya/Desktop/PROJECTS/folio2/app/api/transactions/route.ts)
-
-Dashboard charts use `all=true` parameter to bypass pagination:
-- Default pagination: 50 per page, max 100
-- With `all=true`: fetches up to 10,000 transactions
-- Used by: Analytics, Trends, Savings chart data hooks
-
-```
-GET /api/transactions?all=true&filter=last30days
-```
-
 ### Rate Limiting
 
 **File:** [rate-limiter.ts](file:///c:/Users/Yaya/Desktop/PROJECTS/folio2/lib/security/rate-limiter.ts)

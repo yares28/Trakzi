@@ -921,11 +921,11 @@ export default function AnalyticsPage() {
         dailyTransactionsData,
         dayOfWeekCategoryData,
       ] = await Promise.all([
-        // 1. Transactions (use all=true to fetch all for charts)
+        // 1. Transactions
         deduplicatedFetch<any[]>(
           dateFilter
-            ? `/api/transactions?all=true&filter=${encodeURIComponent(dateFilter)}`
-            : "/api/transactions?all=true"
+            ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
+            : "/api/transactions"
         ).catch(err => {
           console.error("[Analytics] Transactions fetch error:", err)
           return []
@@ -976,10 +976,12 @@ export default function AnalyticsPage() {
       const endTime = performance.now()
       console.log(`[Analytics] All data fetched in ${(endTime - startTime).toFixed(2)}ms`)
 
-      // Set transactions - API always returns {data: [], pagination: {}} format
+      // Set transactions - handle paginated response format {data: [], pagination: {}}
       let nextTransactions = cachedEntry?.transactions ?? []
-      const txArray = (transactionsData as { data?: any[] } | undefined)?.data ?? []
-      if (txArray.length > 0) {
+      const txArray = Array.isArray(transactionsData)
+        ? transactionsData
+        : ((transactionsData as { data?: any[] } | undefined)?.data ?? [])
+      if (Array.isArray(txArray) && txArray.length > 0) {
         nextTransactions = normalizeTransactions(txArray) as AnalyticsTransaction[]
         console.log(`[Analytics] Setting ${txArray.length} transactions`)
         setRawTransactions(nextTransactions)
