@@ -40,11 +40,11 @@ Savings charts filter transactions by the "Savings" category, showing:
 - Daily savings deposits/withdrawals
 - Income vs expenses within savings context
 
-**Primary endpoint:** `/api/transactions?category=Savings&limit=100` (paginated with optional date filter)
+**Primary endpoint:** `/api/transactions` (with client-side filtering by "Savings" category and optional date filter)
 
 **Data Processing:** 
-1. Transactions fetched from `/api/transactions` endpoint with pagination (max 100 per request)
-2. Server-side filtering: transactions where `category === "Savings"`
+1. All transactions fetched from `/api/transactions` endpoint
+2. Client-side filtering: transactions where `category === "Savings"`
 3. Grouping by date: transactions aggregated by `date` field (YYYY-MM-DD format)
 4. Daily calculations:
    - `income` = sum of positive transaction amounts for the day
@@ -52,7 +52,7 @@ Savings charts filter transactions by the "Savings" category, showing:
 5. Cumulative savings: running total calculated as `previousSavings + income - expenses`
 6. Moving averages: 7-day and 30-day moving averages calculated from savings values (optional, toggleable)
 
-**Time Range Filtering:** Chart supports filtering to last 7 days, 30 days, or 90 days. Filtering applied at the API level via the `filter` parameter.
+**Time Range Filtering:** Chart supports filtering to last 7 days, 30 days, or 90 days. Filtering applied client-side after data fetch.
 
 ## Chart Libraries Used
 

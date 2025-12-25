@@ -533,7 +533,7 @@ export default function DataLibraryPage() {
         receiptTypesRes,
         receiptCategoriesRes,
       ] = await Promise.all([
-        fetch("/api/transactions?limit=100"),
+        fetch("/api/transactions"),
         fetch("/api/stats"),
         fetch("/api/statements"),
         fetch("/api/categories"),
@@ -587,9 +587,7 @@ export default function DataLibraryPage() {
           receiptCategoriesRes.json(),
         ])
 
-      // Handle both old format (array) and new format (object with data property)
-      const transactions = Array.isArray(txData) ? txData : (txData?.data || [])
-      setTransactions(normalizeTransactions(transactions) as Transaction[])
+      setTransactions(normalizeTransactions(txData) as Transaction[])
       setStats(statsData)
       setStatements(stmtData)
       setCategories(catData)

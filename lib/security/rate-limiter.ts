@@ -14,6 +14,9 @@ interface RateLimiterConfig {
 
 // Default configurations for different endpoint types
 export const RATE_LIMIT_CONFIGS = {
+    // Dashboard read endpoints - very high for fast navigation
+    dashboardRead: { windowMs: 60 * 1000, maxRequests: 1000 }, // 1000 per minute
+
     // AI endpoints - expensive, limit strictly
     ai: { windowMs: 60 * 1000, maxRequests: 10 }, // 10 per minute
 

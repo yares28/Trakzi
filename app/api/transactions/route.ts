@@ -97,7 +97,6 @@ export const GET = async (request: Request) => {
         const categoryFilter = searchParams.get("category"); // Optional category filter
 
         // Pagination parameters (security: limit max page size to prevent DoS)
-        // For charts/analytics, use dedicated aggregated endpoints instead
         const page = Math.max(1, parseInt(searchParams.get("page") || "1") || 1);
         const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50") || 50));
         const offset = (page - 1) * limit;

@@ -576,7 +576,7 @@ export default function Page() {
   // NOTE: GridStack initialization removed - now using @dnd-kit for drag-and-drop
   // The SortableGridProvider handles all drag-and-drop functionality with built-in auto-scroll
 
-  // Transactions state for DataTable (paginated, max 100)
+  // Transactions state for charts
   const [transactions, setTransactions] = useState<Array<{
     id: number
     date: string
@@ -585,41 +585,6 @@ export default function Page() {
     balance: number | null
     category: string
   }>>([])
-
-  // Chart transactions state (full data from /api/charts/transactions)
-  const [chartTransactions, setChartTransactions] = useState<Array<{
-    id: number
-    date: string
-    amount: number
-    description: string
-    category: string
-    balance: number | null
-  }>>([])
-  const [isLoadingChartTransactions, setIsLoadingChartTransactions] = useState(true)
-
-  // Summary stats from aggregated API endpoint (for SectionCards)
-  const [summaryStats, setSummaryStats] = useState<{
-    totalIncome: number
-    totalExpenses: number
-    savingsRate: number
-    netWorth: number
-    incomeChange: number
-    expensesChange: number
-    savingsRateChange: number
-    netWorthChange: number
-    incomeTrend: Array<{ date: string; value: number }>
-    expensesTrend: Array<{ date: string; value: number }>
-    netWorthTrend: Array<{ date: string; value: number }>
-    transactionCount: number
-    transactionTimeSpan: string
-    transactionTrend: Array<{ date: string; value: number }>
-  } | null>(null)
-
-  // Chart data from aggregated API endpoint
-  const [chartData, setChartData] = useState<Array<{ date: string; desktop: number; mobile: number }>>([])
-  const [isLoadingStats, setIsLoadingStats] = useState(true)
-  const [isLoadingChartData, setIsLoadingChartData] = useState(true)
-
   // Date filter state
   const { filter: dateFilter } = useDateFilter()
   const incomeExpenseVisibility = useChartCategoryVisibility({
@@ -738,8 +703,8 @@ export default function Page() {
     )
   })
 
-
-  // chartTransactions is now a separate state fetched from /api/charts/transactions
+  // Use transactions for charts (same as transactions state)
+  const chartTransactions = transactions
 
   // Get default ring limit based on date filter
   const getDefaultRingLimit = (filter: string | null): number => {
@@ -1486,98 +1451,22 @@ export default function Page() {
     return { count, timeSpan, trend }
   }, [transactions])
 
-  // Fetch summary stats from aggregated endpoint (for SectionCards)
-  const fetchSummaryStats = useCallback(async () => {
-    try {
-      setIsLoadingStats(true)
-      const url = dateFilter
-        ? `/api/charts/summary-stats?filter=${encodeURIComponent(dateFilter)}`
-        : "/api/charts/summary-stats"
-      console.log("[Home] Fetching summary stats from:", url)
-      const response = await fetch(url)
-      const data = await response.json()
-
-      if (response.ok) {
-        console.log("[Home] Summary stats received:", data)
-        setSummaryStats(data)
-      } else {
-        console.error("[Home] Failed to fetch summary stats:", data)
-      }
-    } catch (error) {
-      console.error("[Home] Error fetching summary stats:", error)
-    } finally {
-      setIsLoadingStats(false)
-    }
-  }, [dateFilter])
-
-  // Fetch chart data from aggregated endpoint (for ChartAreaInteractive)
-  const fetchChartData = useCallback(async () => {
-    try {
-      setIsLoadingChartData(true)
-      const url = dateFilter
-        ? `/api/charts/income-expenses?filter=${encodeURIComponent(dateFilter)}`
-        : "/api/charts/income-expenses"
-      console.log("[Home] Fetching chart data from:", url)
-      const response = await fetch(url)
-      const data = await response.json()
-
-      if (response.ok && Array.isArray(data)) {
-        console.log("[Home] Chart data received:", data.length, "data points")
-        setChartData(data)
-      } else {
-        console.error("[Home] Failed to fetch chart data:", data)
-      }
-    } catch (error) {
-      console.error("[Home] Error fetching chart data:", error)
-    } finally {
-      setIsLoadingChartData(false)
-    }
-  }, [dateFilter])
-
-  // Fetch full transactions for charts (all data, no pagination limit)
-  const fetchChartTransactions = useCallback(async () => {
-    try {
-      setIsLoadingChartTransactions(true)
-      const url = dateFilter
-        ? `/api/charts/transactions?filter=${encodeURIComponent(dateFilter)}`
-        : "/api/charts/transactions"
-      console.log("[Home] Fetching chart transactions from:", url)
-      const response = await fetch(url)
-      const data = await response.json()
-
-      if (response.ok && Array.isArray(data)) {
-        console.log("[Home] Chart transactions received:", data.length, "transactions")
-        setChartTransactions(data)
-      } else {
-        console.error("[Home] Failed to fetch chart transactions:", data)
-      }
-    } catch (error) {
-      console.error("[Home] Error fetching chart transactions:", error)
-    } finally {
-      setIsLoadingChartTransactions(false)
-    }
-  }, [dateFilter])
-
-  // Fetch transactions for DataTable (paginated, NOT for charts)
+  // Fetch transactions for charts
   const fetchTransactions = useCallback(async (bypassCache = false) => {
     try {
-      // Use pagination for the data table - charts use aggregated endpoints
       const url = dateFilter
-        ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}&limit=100`
-        : "/api/transactions?limit=100"
+        ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
+        : "/api/transactions"
       console.log("[Home] Fetching transactions from:", url)
       const response = await fetch(url, {
         cache: bypassCache ? 'no-store' : 'default',
         headers: bypassCache ? { 'Cache-Control': 'no-cache' } : undefined
       })
-      const responseData = await response.json()
+      const data = await response.json()
       console.log("[Home] Response status:", response.status)
-      console.log("[Home] Response data:", responseData)
-
-      // Handle both old format (array) and new format (object with data property)
-      const data = Array.isArray(responseData) ? responseData : (responseData.data || [])
+      console.log("[Home] Response data:", data)
       console.log("[Home] Is array?", Array.isArray(data))
-      console.log("[Home] Data length:", data.length)
+      console.log("[Home] Data length:", Array.isArray(data) ? data.length : "N/A")
 
       if (response.ok) {
         if (Array.isArray(data)) {
@@ -1592,10 +1481,10 @@ export default function Page() {
             category: string
           }>)
         } else {
-          console.error("[Home] Response is not an array:", responseData)
-          if (responseData.error) {
+          console.error("[Home] Response is not an array:", data)
+          if (data.error) {
             toast.error("API Error", {
-              description: responseData.error,
+              description: data.error,
               duration: 10000,
             })
           }
@@ -1641,13 +1530,6 @@ export default function Page() {
   useEffect(() => {
     fetchTransactions()
   }, [fetchTransactions])
-
-  // Fetch aggregated data for charts and cards
-  useEffect(() => {
-    fetchSummaryStats()
-    fetchChartData()
-    fetchChartTransactions()
-  }, [fetchSummaryStats, fetchChartData, fetchChartTransactions])
 
   // Register refresh callback with the global transaction dialog provider
   // This ensures transactions are refreshed directly when a transaction is added
@@ -2323,20 +2205,20 @@ export default function Page() {
           <div className="@container/main flex flex-1 flex-col gap-2">
             <main className="flex-1 space-y-4 p-4 pt-0 lg:p-6 lg:pt-2">
               <SectionCards
-                totalIncome={summaryStats?.totalIncome ?? stats.totalIncome}
-                totalExpenses={summaryStats?.totalExpenses ?? stats.totalExpenses}
-                savingsRate={summaryStats?.savingsRate ?? stats.savingsRate}
-                netWorth={summaryStats?.netWorth ?? stats.netWorth}
-                incomeChange={summaryStats?.incomeChange ?? stats.incomeChange}
-                expensesChange={summaryStats?.expensesChange ?? stats.expensesChange}
-                savingsRateChange={summaryStats?.savingsRateChange ?? stats.savingsRateChange}
-                netWorthChange={summaryStats?.netWorthChange ?? stats.netWorthChange}
-                incomeTrend={summaryStats?.incomeTrend ?? statsTrends.incomeTrend}
-                expensesTrend={summaryStats?.expensesTrend ?? statsTrends.expensesTrend}
-                netWorthTrend={summaryStats?.netWorthTrend ?? statsTrends.netWorthTrend}
-                transactionCount={summaryStats?.transactionCount ?? transactionSummary.count}
-                transactionTimeSpan={summaryStats?.transactionTimeSpan ?? transactionSummary.timeSpan}
-                transactionTrend={summaryStats?.transactionTrend ?? transactionSummary.trend}
+                totalIncome={stats.totalIncome}
+                totalExpenses={stats.totalExpenses}
+                savingsRate={stats.savingsRate}
+                netWorth={stats.netWorth}
+                incomeChange={stats.incomeChange}
+                expensesChange={stats.expensesChange}
+                savingsRateChange={stats.savingsRateChange}
+                netWorthChange={stats.netWorthChange}
+                incomeTrend={statsTrends.incomeTrend}
+                expensesTrend={statsTrends.expensesTrend}
+                netWorthTrend={statsTrends.netWorthTrend}
+                transactionCount={transactionSummary.count}
+                transactionTimeSpan={transactionSummary.timeSpan}
+                transactionTrend={transactionSummary.trend}
               />
               {/* Favorite Charts Section */}
               {Array.from(favorites).length > 0 && (

@@ -9,6 +9,7 @@ import { CurrencyProvider } from "@/components/currency-provider";
 import { TransactionDialogProvider } from "@/components/transaction-dialog-provider";
 import { FavoritesProvider } from "@/components/favorites-provider";
 import { DateFilterProvider } from "@/components/date-filter-provider";
+import { QueryProvider } from "@/components/query-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { PostHogUserIdentifier } from "@/components/posthog-user-identifier";
 
@@ -52,20 +53,22 @@ export default function RootLayout({
             disableTransitionOnChange
             storageKey="trakzi-theme"
           >
-            <ColorSchemeProvider>
-              <CurrencyProvider>
-                <FavoritesProvider>
-                  <DateFilterProvider>
-                    <TransactionDialogProvider>
-                      <PostHogUserIdentifier />
-                      {children}
-                    </TransactionDialogProvider>
-                  </DateFilterProvider>
-                </FavoritesProvider>
-                <Toaster />
-                <Analytics />
-              </CurrencyProvider>
-            </ColorSchemeProvider>
+            <QueryProvider>
+              <ColorSchemeProvider>
+                <CurrencyProvider>
+                  <FavoritesProvider>
+                    <DateFilterProvider>
+                      <TransactionDialogProvider>
+                        <PostHogUserIdentifier />
+                        {children}
+                      </TransactionDialogProvider>
+                    </DateFilterProvider>
+                  </FavoritesProvider>
+                  <Toaster />
+                  <Analytics />
+                </CurrencyProvider>
+              </ColorSchemeProvider>
+            </QueryProvider>
           </ThemeProvider>
         </body>
       </html>
