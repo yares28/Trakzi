@@ -976,11 +976,14 @@ export default function AnalyticsPage() {
       const endTime = performance.now()
       console.log(`[Analytics] All data fetched in ${(endTime - startTime).toFixed(2)}ms`)
 
-      // Set transactions
+      // Set transactions - handle paginated response format {data: [], pagination: {}}
       let nextTransactions = cachedEntry?.transactions ?? []
-      if (Array.isArray(transactionsData)) {
-        nextTransactions = normalizeTransactions(transactionsData) as AnalyticsTransaction[]
-        console.log(`[Analytics] Setting ${transactionsData.length} transactions`)
+      const txArray = Array.isArray(transactionsData)
+        ? transactionsData
+        : ((transactionsData as { data?: any[] } | undefined)?.data ?? [])
+      if (Array.isArray(txArray) && txArray.length > 0) {
+        nextTransactions = normalizeTransactions(txArray) as AnalyticsTransaction[]
+        console.log(`[Analytics] Setting ${txArray.length} transactions`)
         setRawTransactions(nextTransactions)
       }
 
@@ -991,7 +994,7 @@ export default function AnalyticsPage() {
         setRingLimits(nextRingLimits)
       }
 
-      if (Array.isArray(transactionsData)) {
+      if (txArray.length > 0) {
         analyticsDataCache.set(cacheKey, {
           transactions: nextTransactions,
           ringLimits: nextRingLimits,
