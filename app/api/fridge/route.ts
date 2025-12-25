@@ -105,10 +105,12 @@ export const GET = async (request: Request) => {
     const filter = searchParams.get("filter")
     const { startDate, endDate } = getDateRange(filter)
 
+    // Support all=true for dashboard charts (bypass pagination)
+    const fetchAll = searchParams.get("all") === "true"
     const limitParam = searchParams.get("limit")
     const offsetParam = searchParams.get("offset")
-    const limit = Math.min(Math.max(parseInt(limitParam || "1000", 10) || 1000, 1), 5000)
-    const offset = Math.max(parseInt(offsetParam || "0", 10) || 0, 0)
+    const limit = fetchAll ? 10000 : Math.min(Math.max(parseInt(limitParam || "1000", 10) || 1000, 1), 5000)
+    const offset = fetchAll ? 0 : Math.max(parseInt(offsetParam || "0", 10) || 0, 0)
 
     let query = `
       SELECT 

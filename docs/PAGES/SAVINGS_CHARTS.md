@@ -35,25 +35,30 @@ All charts include:
 
 ## Data Source
 
-Savings charts filter transactions by the "Savings" category, showing:
-- Cumulative savings over time
-- Daily savings deposits/withdrawals
-- Income vs expenses within savings context
+> **Performance Optimization:** Bundle API available for server-side aggregation.
 
-**Primary endpoint:** `/api/transactions` (with client-side filtering by "Savings" category and optional date filter)
+### Bundle API (Recommended)
+
+**Endpoint:** `/api/charts/savings-bundle?filter=...`
+
+Returns pre-aggregated data with Redis caching:
+- Savings KPIs (total saved, savings rate, counts)
+- Cumulative chart data with daily amounts
+
+See [DATA_FETCHING.md](./DATA_FETCHING.md) for response format.
+
+### Legacy Endpoint
+
+**Endpoint:** `/api/transactions?category=Savings&all=true`
 
 **Data Processing:** 
-1. All transactions fetched from `/api/transactions` endpoint
-2. Client-side filtering: transactions where `category === "Savings"`
-3. Grouping by date: transactions aggregated by `date` field (YYYY-MM-DD format)
-4. Daily calculations:
-   - `income` = sum of positive transaction amounts for the day
-   - `expenses` = sum of absolute values of negative transaction amounts for the day
-5. Cumulative savings: running total calculated as `previousSavings + income - expenses`
-6. Moving averages: 7-day and 30-day moving averages calculated from savings values (optional, toggleable)
-
-**Time Range Filtering:** Chart supports filtering to last 7 days, 30 days, or 90 days. Filtering applied client-side after data fetch.
+1. Transactions fetched and filtered to "Savings" category
+2. Grouped by date (YYYY-MM-DD)
+3. Daily calculations: income, expenses
+4. Cumulative savings calculated
+5. Moving averages (7-day, 30-day) computed client-side
 
 ## Chart Libraries Used
 
 - **Recharts** - Area charts for accumulation visualization
+

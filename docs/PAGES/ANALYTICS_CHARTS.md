@@ -46,14 +46,30 @@ All charts include:
 
 ## Data Source Overview
 
-All analytics charts fetch transaction data from the Neon database via API endpoints:
-- **Primary endpoint:** `/api/transactions` - Returns all transactions with optional date filtering
-- **Specialized endpoints:**
-  - `/api/charts/transaction-history` - Formatted transaction history for swarm plots
-  - `/api/transactions/daily` - Daily aggregated transaction data
-  - `/api/analytics/monthly-category-duplicate` - Monthly category spending batch data
-  - `/api/analytics/day-of-week-category` - Day of week category breakdowns
-  - `/api/financial-health` - Financial health metrics and year summaries
-  - `/api/categories` - Available spending categories
+> **Performance Optimization:** Bundle API available for server-side aggregation.
 
-**Data Processing:** Most charts receive raw transaction arrays and perform client-side calculations (grouping, summing, filtering) using React `useMemo` hooks for performance. Date filters are applied at the API level when possible, with additional filtering on the client side for category visibility controls.
+### Bundle API (Recommended)
+
+**Endpoint:** `/api/charts/analytics-bundle?filter=...`
+
+Returns pre-aggregated data with Redis caching:
+- KPIs (income, expense, net savings, counts)
+- Category spending breakdown
+- Daily spending trends
+- Monthly category data
+- Day-of-week patterns
+
+See [DATA_FETCHING.md](./DATA_FETCHING.md) for response format.
+
+### Legacy Endpoints
+
+Still used by some charts for specialized data:
+- `/api/transactions?all=true` - Raw transactions
+- `/api/charts/transaction-history` - Swarm plot data
+- `/api/transactions/daily` - Daily aggregates
+- `/api/analytics/monthly-category-duplicate` - Monthly batch data
+- `/api/analytics/day-of-week-category` - Day of week breakdowns
+- `/api/categories` - Category definitions
+
+**Data Processing:** Most legacy charts receive raw transaction arrays and perform client-side calculations using `useMemo` hooks.
+
