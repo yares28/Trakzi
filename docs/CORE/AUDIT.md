@@ -27,6 +27,7 @@ This document outlines the security measures, performance considerations, and pr
 
 | Endpoint Type | Limit | Config Location |
 |---------------|-------|-----------------|
+| Dashboard Read | 1000 req/min | `lib/security/rate-limiter.ts` |
 | AI Endpoints | 10 req/min | `lib/security/rate-limiter.ts` |
 | File Uploads | 20 req/min | `lib/security/rate-limiter.ts` |
 | Standard API | 100 req/min | `lib/security/rate-limiter.ts` |
@@ -110,9 +111,18 @@ Response includes:
 
 | Cache Type | Implementation |
 |------------|----------------|
+| Client-Side Query Cache | `@tanstack/react-query` via `components/query-provider.tsx` |
 | HTTP Cache | `s-maxage=30, stale-while-revalidate=60` |
 | Request Deduplication | `lib/request-deduplication.ts` |
 | Batch Fetching | `lib/batch-fetch.ts` |
+
+**TanStack Query Settings** (Dashboard pages):
+- `staleTime`: 2 minutes
+- `gcTime`: 20 minutes  
+- `refetchOnWindowFocus`: false
+- `refetchOnMount`: false
+
+**Dashboard Data Hooks**: `hooks/use-dashboard-data.ts`
 
 ### 📋 Recommended for 1000+ Users
 

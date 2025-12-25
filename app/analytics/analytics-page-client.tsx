@@ -778,16 +778,12 @@ export default function AnalyticsPage() {
   // Fetch transactions from Neon database
   const fetchTransactions = useCallback(async () => {
     try {
-      // Use pagination - charts should use aggregated endpoints
       const url = dateFilter
-        ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}&limit=100`
-        : "/api/transactions?limit=100"
+        ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
+        : "/api/transactions"
       console.log("[Analytics] Fetching transactions from:", url)
       const response = await fetch(url)
-      const responseData = await response.json()
-
-      // Handle both old format (array) and new format (object with data property)
-      const data = Array.isArray(responseData) ? responseData : (responseData?.data || [])
+      const data = await response.json()
 
       if (response.ok) {
         if (Array.isArray(data)) {
@@ -802,9 +798,9 @@ export default function AnalyticsPage() {
           }>)
         } else {
           console.error("[Analytics] Response is not an array:", data)
-          if (responseData.error) {
+          if (data.error) {
             toast.error("API Error", {
-              description: responseData.error,
+              description: data.error,
               duration: 10000,
             })
           }
@@ -818,7 +814,7 @@ export default function AnalyticsPage() {
           })
         } else {
           toast.error("API Error", {
-            description: responseData.error || `HTTP ${response.status}`,
+            description: data.error || `HTTP ${response.status}`,
             duration: 8000,
           })
         }

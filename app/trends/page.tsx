@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo, memo } from "react"
 // @dnd-kit for drag-and-drop with auto-scroll
 import { SortableGridProvider, SortableGridItem } from "@/components/sortable-grid"
 
@@ -10,8 +10,7 @@ import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar"
-import { deduplicatedFetch } from "@/lib/request-deduplication"
-import { useDateFilter } from "@/components/date-filter-provider"
+import { useTrendsData } from "@/hooks/use-dashboard-data"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { ChartCategoryTrend } from "@/components/chart-category-trend"
 import { ChartCardSkeleton } from "@/components/chart-loading-state"
@@ -21,31 +20,36 @@ import { IconChartLine } from "@tabler/icons-react"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 
-interface Category {
-  id?: number
-  name?: string | null
-  totalSpend?: number
-  transactionCount?: number
-}
-
-interface Transaction {
-  id: number
-  date: string
-  description: string
-  amount: number
-  balance: number | null
-  category: string
-}
-
 // localStorage keys
 const CATEGORY_ORDER_STORAGE_KEY = 'trends-category-order'
 
 export default function TrendsPage() {
-  const [categories, setCategories] = useState<string[]>([])
-  const [categoryTransactionCounts, setCategoryTransactionCounts] = useState<Record<string, number>>({})
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const { filter: dateFilter } = useDateFilter()
+  // Use TanStack Query hook - single fetch, cached across navigation
+  const { transactions, categoryTrends, isLoading, error } = useTrendsData()
+
+  // Derive categories from transactions (memoized)
+  const { categories, categoryTransactionCounts } = useMemo(() => {
+    if (!transactions || transactions.length === 0) {
+      return { categories: [], categoryTransactionCounts: {} }
+    }
+
+    // Build category -> transaction count map
+    const categoryCountMap: Record<string, number> = {}
+    for (const tx of transactions) {
+      const category = tx.category || "Other"
+      categoryCountMap[category] = (categoryCountMap[category] || 0) + 1
+    }
+
+    // Get categories with transactions, sorted by count
+    const categoriesWithTransactions = Object.keys(categoryCountMap)
+      .filter(cat => categoryCountMap[cat] > 0)
+      .sort((a, b) => categoryCountMap[b] - categoryCountMap[a])
+
+    return {
+      categories: categoriesWithTransactions,
+      categoryTransactionCounts: categoryCountMap
+    }
+  }, [transactions])
 
   // @dnd-kit: Category order state
   const [categoryOrder, setCategoryOrder] = useState<string[]>([])
@@ -66,20 +70,14 @@ export default function TrendsPage() {
   }, [])
 
   // Sync category order with categories when categories load
-  // IMPORTANT: Don't reset to spending order if user has a saved order
   useEffect(() => {
     if (categories.length > 0 && categoryOrder.length === 0) {
-      // No saved order - use categories (sorted by spending) as initial order
       setCategoryOrder(categories)
     } else if (categories.length > 0 && categoryOrder.length > 0) {
-      // User has a saved order - preserve it!
-      // Only update to include new categories and remove deleted ones
       const existingInOrder = categoryOrder.filter(c => categories.includes(c))
       const newCategories = categories.filter(c => !categoryOrder.includes(c))
 
-      // Only update if there are changes
       if (newCategories.length > 0 || existingInOrder.length !== categoryOrder.length) {
-        // Append new categories at the end (they'll be in spending order since categories is sorted)
         setCategoryOrder([...existingInOrder, ...newCategories])
       }
     }
@@ -94,79 +92,6 @@ export default function TrendsPage() {
       console.error("Failed to save category order:", e)
     }
   }, [])
-
-  // Load categories and transaction counts
-  useEffect(() => {
-    let isMounted = true
-
-    const loadCategories = async () => {
-      try {
-        setIsLoading(true)
-        setError(null)
-
-        // Fetch transactions and categories in parallel
-        // Use /api/charts/transactions for full transaction data for category counts
-        const [transactionsResponse, categoriesData] = await Promise.all([
-          deduplicatedFetch<any>(
-            dateFilter
-              ? `/api/charts/transactions?filter=${encodeURIComponent(dateFilter)}`
-              : "/api/charts/transactions"
-          ),
-          deduplicatedFetch<Category[]>("/api/categories"),
-        ])
-
-        if (!isMounted) return
-
-        // Handle both old format (array) and new format (object with data property)
-        const transactions: Transaction[] = Array.isArray(transactionsResponse)
-          ? transactionsResponse
-          : (transactionsResponse?.data || [])
-
-        // If there are no transactions, show empty state
-        if (!transactions || transactions.length === 0) {
-          setCategories([])
-          setCategoryTransactionCounts({})
-          setIsLoading(false)
-          return
-        }
-
-        // Build category -> transaction count map from actual transactions
-        const categoryCountMap: Record<string, number> = {}
-        for (const tx of transactions) {
-          const category = tx.category || "Other"
-          categoryCountMap[category] = (categoryCountMap[category] || 0) + 1
-        }
-
-        // Get list of categories that have transactions
-        const categoriesWithTransactions = Object.keys(categoryCountMap).filter(
-          (cat) => categoryCountMap[cat] > 0
-        )
-
-        // Sort by transaction count descending
-        categoriesWithTransactions.sort(
-          (a, b) => (categoryCountMap[b] || 0) - (categoryCountMap[a] || 0)
-        )
-
-        if (isMounted) {
-          setCategories(categoriesWithTransactions)
-          setCategoryTransactionCounts(categoryCountMap)
-          setIsLoading(false)
-        }
-      } catch (err) {
-        if (isMounted) {
-          console.error("Failed to load categories:", err)
-          setError("Failed to load categories")
-          setIsLoading(false)
-        }
-      }
-    }
-
-    loadCategories()
-
-    return () => {
-      isMounted = false
-    }
-  }, [dateFilter])
 
   const hasCategories = categories.length > 0
   const sizeConfig = getChartCardSize("categoryTrend" as ChartId)
@@ -293,7 +218,11 @@ export default function TrendsPage() {
                     w={6}
                     h={sizeConfig.minH || 6}
                   >
-                    <ChartCategoryTrend categoryName={category} />
+                    {/* Pass pre-computed trend data to avoid per-chart fetching */}
+                    <ChartCategoryTrend
+                      categoryName={category}
+                      data={categoryTrends[category]}
+                    />
                   </SortableGridItem>
                 ))}
               </SortableGridProvider>

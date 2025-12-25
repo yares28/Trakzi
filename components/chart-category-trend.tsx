@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useMemo, memo } from "react"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 import { useTheme } from "next-themes"
 
@@ -19,141 +19,58 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import { DateFilterType } from "@/components/date-filter"
 import { formatDateForDisplay } from "@/lib/date"
-import { deduplicatedFetch } from "@/lib/request-deduplication"
-
-interface ChartCategoryTrendProps {
-  categoryName: string
-}
-
-interface Transaction {
-  id: number
-  date: string
-  description: string
-  amount: number
-  balance: number | null
-  category: string
-}
 
 interface ChartDataPoint {
   date: string
   value: number
 }
 
-export function ChartCategoryTrend({ categoryName }: ChartCategoryTrendProps) {
-  const { colorScheme, getPalette } = useColorScheme()
+interface ChartCategoryTrendProps {
+  categoryName: string
+  /** Pre-computed chart data from parent - eliminates per-chart fetching */
+  data?: ChartDataPoint[]
+}
+
+/**
+ * Category trend chart component - memoized to prevent unnecessary rerenders
+ * Now accepts data as a prop instead of self-fetching (eliminates N+1 calls)
+ */
+export const ChartCategoryTrend = memo(function ChartCategoryTrend({
+  categoryName,
+  data
+}: ChartCategoryTrendProps) {
+  const { getPalette } = useColorScheme()
   const { resolvedTheme } = useTheme()
-  const [dateFilter, setDateFilter] = useState<DateFilterType | null>(null)
   const isDark = resolvedTheme === "dark"
   const gridStrokeColor = isDark ? "#e5e7eb" : "#e5e7eb"
-  const [chartData, setChartData] = useState<ChartDataPoint[]>([])
-  const [isLoading, setIsLoading] = useState(true)
 
-  // Listen for date filter changes from SiteHeader
-  useEffect(() => {
-    const handleFilterChange = (event: CustomEvent<DateFilterType | null>) => {
-      setDateFilter(event.detail)
+  // Memoize palette computation
+  const { categoryColor, categoryBorderColor } = useMemo(() => {
+    const palette = getPalette().filter((color) => color !== "#c3c3c3")
+    const reversedPalette = [...palette].reverse()
+    const categoryColorIndex =
+      categoryName.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) %
+      reversedPalette.length
+    return {
+      categoryColor: reversedPalette[categoryColorIndex] || reversedPalette[reversedPalette.length - 1],
+      categoryBorderColor: reversedPalette[Math.max(0, categoryColorIndex - 1)] || reversedPalette[0]
     }
+  }, [categoryName, getPalette])
 
-    // Load initial filter from localStorage
-    if (typeof window !== "undefined") {
-      const savedFilter = localStorage.getItem("dateFilter")
-      if (savedFilter) {
-        setDateFilter(savedFilter as DateFilterType)
-      }
-    }
-
-    window.addEventListener("dateFilterChanged", handleFilterChange as EventListener)
-
-    return () => {
-      window.removeEventListener("dateFilterChanged", handleFilterChange as EventListener)
-    }
-  }, [])
-
-  // Fetch and process transaction data
-  useEffect(() => {
-    let isMounted = true
-
-    const fetchData = async () => {
-      try {
-        setIsLoading(true)
-
-        // Build API URL with filter
-        // TODO: Ideally should use /api/charts/category-totals endpoint for better performance
-        const url = dateFilter
-          ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}&limit=100`
-          : "/api/transactions?limit=100"
-
-        const response = await deduplicatedFetch<any>(url)
-
-        // Handle both old format (array) and new format (object with data property)
-        const transactions: Transaction[] = Array.isArray(response)
-          ? response
-          : (response?.data || [])
-
-        if (!isMounted) return
-
-        // Filter transactions for this category and expenses only
-        const categoryTransactions = transactions.filter(
-          (tx) => tx.category === categoryName && tx.amount < 0
-        )
-
-        // Group by date and sum amounts
-        const dailyTotals = new Map<string, number>()
-
-        categoryTransactions.forEach((tx) => {
-          const date = tx.date.split("T")[0] // Get YYYY-MM-DD
-          const currentTotal = dailyTotals.get(date) || 0
-          dailyTotals.set(date, currentTotal + Math.abs(tx.amount))
-        })
-
-        // Convert to array and sort by date
-        const data: ChartDataPoint[] = Array.from(dailyTotals.entries())
-          .map(([date, value]) => ({
-            date,
-            value: Math.round(value * 100) / 100, // Round to 2 decimals
-          }))
-          .sort((a, b) => a.date.localeCompare(b.date))
-
-        if (isMounted) {
-          setChartData(data)
-        }
-      } catch (error) {
-        console.error(`[ChartCategoryTrend] Failed to fetch data for ${categoryName}:`, error)
-        if (isMounted) {
-          setChartData([])
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false)
-        }
-      }
-    }
-
-    fetchData()
-
-    return () => {
-      isMounted = false
-    }
-  }, [categoryName, dateFilter])
-
-  // Get color from palette
-  const palette = getPalette().filter((color) => color !== "#c3c3c3")
-  const reversedPalette = [...palette].reverse()
-  // Use a color from the palette based on category name hash for consistency
-  const categoryColorIndex =
-    categoryName.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) %
-    reversedPalette.length
-  const categoryColor = reversedPalette[categoryColorIndex] || reversedPalette[reversedPalette.length - 1]
-  const categoryBorderColor = reversedPalette[Math.max(0, categoryColorIndex - 1)] || reversedPalette[0]
-
-  const chartConfig = {
+  // Memoize chart config
+  const chartConfig = useMemo(() => ({
     value: {
       label: categoryName,
       color: categoryColor,
     },
-  } satisfies ChartConfig
+  } satisfies ChartConfig), [categoryName, categoryColor])
+
+  // Memoize gradient ID
+  const gradientId = useMemo(
+    () => `fill-${categoryName.replace(/\s+/g, "-")}`,
+    [categoryName]
+  )
 
   const renderInfoAction = () => (
     <ChartInfoPopover
@@ -166,27 +83,8 @@ export function ChartCategoryTrend({ categoryName }: ChartCategoryTrendProps) {
     />
   )
 
-  // Show loading state
-  if (isLoading) {
-    return (
-      <Card className="@container/card h-full w-full flex flex-col">
-        <CardHeader className="flex-shrink-0">
-          <CardTitle>{categoryName}</CardTitle>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoAction()}
-          </CardAction>
-        </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
-          <div className="h-full w-full flex items-center justify-center text-muted-foreground">
-            Loading...
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  // Hide chart if no data for the selected timeframe
-  if (!chartData || chartData.length === 0) {
+  // Hide chart if no data
+  if (!data || data.length === 0) {
     return null
   }
 
@@ -203,9 +101,9 @@ export function ChartCategoryTrend({ categoryName }: ChartCategoryTrendProps) {
           config={chartConfig}
           className="aspect-auto h-full w-full min-w-0"
         >
-          <AreaChart data={chartData}>
+          <AreaChart data={data}>
             <defs>
-              <linearGradient id={`fill-${categoryName.replace(/\s+/g, "-")}`} x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="5%"
                   stopColor={categoryColor}
@@ -250,7 +148,7 @@ export function ChartCategoryTrend({ categoryName }: ChartCategoryTrendProps) {
             <Area
               dataKey="value"
               type="natural"
-              fill={`url(#fill-${categoryName.replace(/\s+/g, "-")})`}
+              fill={`url(#${gradientId})`}
               stroke={categoryBorderColor}
               strokeWidth={1}
             />
@@ -259,4 +157,4 @@ export function ChartCategoryTrend({ categoryName }: ChartCategoryTrendProps) {
       </CardContent>
     </Card>
   )
-}
+})
