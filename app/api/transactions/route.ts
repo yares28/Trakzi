@@ -95,11 +95,15 @@ export const GET = async (request: Request) => {
         const { searchParams } = new URL(request.url);
         const filter = searchParams.get("filter");
         const categoryFilter = searchParams.get("category"); // Optional category filter
+        const fetchAll = searchParams.get("all") === "true"; // For dashboard charts - fetch all transactions
 
         // Pagination parameters (security: limit max page size to prevent DoS)
+        // When fetchAll=true, we skip pagination for chart data (capped at 10000 for safety)
         const page = Math.max(1, parseInt(searchParams.get("page") || "1") || 1);
-        const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50") || 50));
-        const offset = (page - 1) * limit;
+        const limit = fetchAll
+            ? 10000  // Safety cap for "all" mode
+            : Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50") || 50));
+        const offset = fetchAll ? 0 : (page - 1) * limit;
 
         // Get date range based on filter
         const { startDate, endDate } = getDateRange(filter);

@@ -21,9 +21,12 @@ export interface Category {
 
 // Fetcher functions
 async function fetchTransactions(filter: string | null): Promise<Transaction[]> {
-    const url = filter
-        ? `/api/transactions?filter=${encodeURIComponent(filter)}`
-        : "/api/transactions"
+    // Use all=true to fetch all transactions for charts (bypasses pagination)
+    const params = new URLSearchParams()
+    params.append("all", "true")
+    if (filter) params.append("filter", filter)
+
+    const url = `/api/transactions?${params.toString()}`
 
     const response = await fetch(url)
     if (!response.ok) {
@@ -48,6 +51,7 @@ async function fetchCategories(): Promise<Category[]> {
 
 async function fetchSavingsTransactions(filter: string | null): Promise<Transaction[]> {
     const params = new URLSearchParams()
+    params.append("all", "true")  // Fetch all for charts
     if (filter) params.append("filter", filter)
     params.append("category", "Savings")
 
