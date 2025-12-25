@@ -109,7 +109,7 @@ export function ChartSavingsAccumulation({ data: chartData = [], isLoading = fal
   const filteredData = React.useMemo(() => {
     const filtered = chartData.filter((item) => {
       const date = new Date(item.date)
-      const referenceDate = new Date("2024-06-30")
+      const referenceDate = new Date() // Use current date instead of hardcoded
       let daysToSubtract = 90
       if (timeRange === "30d") daysToSubtract = 30
       else if (timeRange === "7d") daysToSubtract = 7
