@@ -34,7 +34,12 @@ All endpoints accept `?filter=` parameter (e.g., `last30days`, `lastyear`, `2024
   "categorySpending": [{ "category", "total", "count", "color" }],
   "dailySpending": [{ "date", "total", "income", "expense" }],
   "monthlyCategories": [{ "month", "category", "total" }],
-  "dayOfWeekSpending": [{ "dayOfWeek", "total", "count" }]
+  "dayOfWeekSpending": [{ "dayOfWeek", "total", "count" }],
+  "dayOfWeekCategory": [{ "dayOfWeek", "category", "total" }],
+  "transactionHistory": [{ "id", "date", "description", "amount", "category", "color" }],
+  "needsWants": [{ "classification", "total", "count" }],
+  "cashFlow": { "nodes": [{ "id", "label" }], "links": [{ "source", "target", "value" }] },
+  "dailyByCategory": [{ "date", "category", "total" }]
 }
 ```
 

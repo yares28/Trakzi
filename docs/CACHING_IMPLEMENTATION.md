@@ -66,7 +66,7 @@ Pre-aggregated data endpoints with Redis caching:
 
 | Endpoint | Page | What It Returns |
 |----------|------|-----------------|
-| `/api/charts/analytics-bundle` | Analytics | KPIs, category spending, daily/monthly trends |
+| `/api/charts/analytics-bundle` | Analytics | KPIs, category/daily/monthly spending, day-of-week, transaction history, needs/wants, cash flow, streamgraph |
 | `/api/charts/fridge-bundle` | Fridge | KPIs, category/store spending, macronutrients |
 | `/api/charts/home-bundle` | Home | KPIs, top categories, activity rings, daily trends |
 | `/api/charts/trends-bundle` | Trends | Category → daily spending trends |
@@ -74,9 +74,21 @@ Pre-aggregated data endpoints with Redis caching:
 
 ### Aggregation Files
 
-- [lib/charts/aggregations.ts](file:///c:/Users/Yaya/Desktop/PROJECTS/folio2/lib/charts/aggregations.ts) - Analytics
+- [lib/charts/aggregations.ts](file:///c:/Users/Yaya/Desktop/PROJECTS/folio2/lib/charts/aggregations.ts) - Analytics (10 functions)
 - [lib/charts/fridge-aggregations.ts](file:///c:/Users/Yaya/Desktop/PROJECTS/folio2/lib/charts/fridge-aggregations.ts) - Fridge
 - [lib/charts/home-trends-savings-aggregations.ts](file:///c:/Users/Yaya/Desktop/PROJECTS/folio2/lib/charts/home-trends-savings-aggregations.ts) - Home/Trends/Savings
+
+### Analytics Context Provider
+
+**File:** [contexts/analytics-data-context.tsx](file:///c:/Users/Yaya/Desktop/PROJECTS/folio2/contexts/analytics-data-context.tsx)
+
+Provides bundle data to all chart components via React Context:
+
+```tsx
+<AnalyticsDataProvider>
+  <ChartComponent /> {/* Uses useAnalyticsChartData() */}
+</AnalyticsDataProvider>
+```
 
 ---
 

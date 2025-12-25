@@ -5,7 +5,7 @@ import { useDateFilter } from "@/components/date-filter-provider"
 // TYPES - Bundle API Response Types
 // ============================================
 
-// Analytics Bundle Types
+// Analytics Bundle Types (extended for all 17 charts)
 export interface AnalyticsBundleData {
     kpis: {
         totalIncome: number
@@ -35,6 +35,34 @@ export interface AnalyticsBundleData {
         dayOfWeek: number
         total: number
         count: number
+    }>
+    // Extended fields for all 17 charts
+    dayOfWeekCategory: Array<{
+        dayOfWeek: number
+        category: string
+        total: number
+    }>
+    transactionHistory: Array<{
+        id: number
+        date: string
+        description: string
+        amount: number
+        category: string
+        color: string | null
+    }>
+    needsWants: Array<{
+        classification: 'Essentials' | 'Mandatory' | 'Wants'
+        total: number
+        count: number
+    }>
+    cashFlow: {
+        nodes: Array<{ id: string; label: string }>
+        links: Array<{ source: string; target: string; value: number }>
+    }
+    dailyByCategory: Array<{
+        date: string
+        category: string
+        total: number
     }>
 }
 

@@ -52,12 +52,18 @@ All charts include:
 
 **Endpoint:** `/api/charts/analytics-bundle?filter=...`
 
-Returns pre-aggregated data with Redis caching:
+Returns pre-aggregated data with Redis caching for all 17 charts:
 - KPIs (income, expense, net savings, counts)
 - Category spending breakdown
 - Daily spending trends
 - Monthly category data
-- Day-of-week patterns
+- Day-of-week patterns + by category
+- Transaction history (swarm plot)
+- Needs/Wants/Essentials classification
+- Cash flow (sankey diagram)
+- Daily by category (streamgraph)
+
+**Context Provider:** `<AnalyticsDataProvider>` wraps Analytics page, charts use `useAnalyticsChartData()` hook.
 
 See [DATA_FETCHING.md](./DATA_FETCHING.md) for response format.
 
