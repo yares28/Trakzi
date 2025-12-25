@@ -75,6 +75,7 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
 import { useCurrency } from "@/components/currency-provider"
 import { useDateFilter } from "@/components/date-filter-provider"
+import { useAnalyticsBundleData } from "@/hooks/use-dashboard-data"
 import { IconUpload, IconFile, IconCircleCheck, IconLoader2, IconAlertCircle, IconTrash } from "@tabler/icons-react"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
@@ -468,6 +469,9 @@ function isFileDragEvent(event: React.DragEvent) {
 export default function AnalyticsPage() {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
+
+  // Bundle API data - pre-aggregated with Redis caching (single request)
+  const { data: bundleData, isLoading: bundleLoading } = useAnalyticsBundleData()
 
   const palette = getPalette()
   const normalizeCategoryName = useCallback((value?: string | null) => {
@@ -2893,102 +2897,37 @@ export default function AnalyticsPage() {
                           <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                             <ChartSwarmPlot
                               data={useMemo(() => {
+                                // Use bundle data if available (pre-computed by server)
+                                if (bundleData?.transactionHistory && bundleData.transactionHistory.length > 0) {
+                                  return bundleData.transactionHistory.map((tx, index) => ({
+                                    id: `tx-${tx.id || index}`,
+                                    group: tx.category || "Other",
+                                    price: Math.abs(tx.amount),
+                                    volume: Math.max(4, Math.min(20, Math.round(Math.abs(tx.amount) / 50))),
+                                    category: tx.category || "Other",
+                                    color: tx.color,
+                                    date: tx.date.split("T")[0],
+                                    description: tx.description,
+                                  }))
+                                }
+
+                                // Fallback to rawTransactions if bundle not available
                                 if (!rawTransactions || rawTransactions.length === 0) {
                                   return []
                                 }
-
-                                const CATEGORY_GROUPS: Record<string, string[]> = {
-                                  Essentials: [
-                                    "Groceries",
-                                    "Rent",
-                                    "Mortgage",
-                                    "Utilities",
-                                    "Insurance",
-                                    "Taxes",
-                                    "Healthcare",
-                                    "Health",
-                                    "Medical",
-                                  ],
-                                  Lifestyle: [
-                                    "Shopping",
-                                    "Travel",
-                                    "Entertainment",
-                                    "Restaurants",
-                                    "Bars",
-                                    "Subscriptions",
-                                    "Services",
-                                    "Education",
-                                    "Personal",
-                                    "Leisure",
-                                  ],
-                                  Transport: [
-                                    "Transport",
-                                    "Transportation",
-                                    "Fuel",
-                                    "Gas",
-                                    "Car",
-                                    "Ride",
-                                    "Transit",
-                                    "Commute",
-                                  ],
-                                  Financial: [
-                                    "Transfers",
-                                    "Transfer",
-                                    "Fees",
-                                    "Banking",
-                                    "Savings",
-                                    "Investments",
-                                    "Loan",
-                                    "Debt",
-                                    "Mortgage",
-                                  ],
-                                }
-
-                                const CATEGORY_DEFAULT_GROUP = "Essentials"
-
-                                const resolveGroup = (categoryName: string): string => {
-                                  const normalized = categoryName.toLowerCase()
-                                  for (const [group, categories] of Object.entries(CATEGORY_GROUPS)) {
-                                    if (
-                                      categories.some((cat) =>
-                                        normalized.includes(cat.toLowerCase()),
-                                      )
-                                    ) {
-                                      return group
-                                    }
-                                  }
-                                  return CATEGORY_DEFAULT_GROUP
-                                }
-
-                                const computeVolume = (amount: number): number => {
-                                  const min = 4
-                                  const max = 20
-                                  if (!Number.isFinite(amount) || amount <= 0) {
-                                    return min
-                                  }
-                                  const scaled = Math.round(amount / 50)
-                                  return Math.max(min, Math.min(max, scaled))
-                                }
-
                                 return rawTransactions
-                                  .filter((tx) => tx.amount < 0) // Only expenses
-                                  .map((tx, index) => {
-                                    const normalizedAmount = Math.abs(tx.amount)
-                                    const rawCategory = tx.category || "Other"
-                                    const group = resolveGroup(rawCategory)
-
-                                    return {
-                                      id: tx.id ? `tx-${tx.id}` : `tx-${index}`,
-                                      group,
-                                      price: normalizedAmount,
-                                      volume: computeVolume(normalizedAmount),
-                                      category: rawCategory,
-                                      color: null,
-                                      date: tx.date.split("T")[0],
-                                      description: tx.description,
-                                    }
-                                  })
-                              }, [rawTransactions])}
+                                  .filter((tx) => tx.amount < 0)
+                                  .map((tx, index) => ({
+                                    id: tx.id ? `tx-${tx.id}` : `tx-${index}`,
+                                    group: tx.category || "Other",
+                                    price: Math.abs(tx.amount),
+                                    volume: Math.max(4, Math.min(20, Math.round(Math.abs(tx.amount) / 50))),
+                                    category: tx.category || "Other",
+                                    color: null,
+                                    date: tx.date.split("T")[0],
+                                    description: tx.description,
+                                  }))
+                              }, [bundleData?.transactionHistory, rawTransactions])}
                             />
                           </div>
                         </SortableGridItem>
