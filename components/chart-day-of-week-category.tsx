@@ -10,6 +10,10 @@ import { useCurrency } from "@/components/currency-provider"
 import { deduplicatedFetch, getCachedResponse } from "@/lib/request-deduplication"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
+  useIsInsideAnalyticsProvider,
+  useAnalyticsChartData,
+} from "@/contexts/analytics-data-context"
+import {
   Card,
   CardAction,
   CardContent,
@@ -31,6 +35,8 @@ import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 
 interface ChartDayOfWeekCategoryProps {
   dateFilter?: string | null
+  // Optional: pass bundle data directly (for context-based rendering)
+  bundleData?: Array<{ dayOfWeek: number; category: string; total: number }>
 }
 
 type DayOfWeekData = {

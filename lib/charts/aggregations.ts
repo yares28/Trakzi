@@ -28,6 +28,49 @@ export interface DayOfWeekSpending {
     count: number
 }
 
+export interface DayOfWeekCategory {
+    dayOfWeek: number
+    category: string
+    total: number
+}
+
+export interface TransactionHistoryItem {
+    id: number
+    date: string
+    description: string
+    amount: number
+    category: string
+    color: string | null
+}
+
+export interface NeedsWantsItem {
+    classification: 'Essentials' | 'Mandatory' | 'Wants'
+    total: number
+    count: number
+}
+
+export interface CashFlowNode {
+    id: string
+    label: string
+}
+
+export interface CashFlowLink {
+    source: string
+    target: string
+    value: number
+}
+
+export interface CashFlowData {
+    nodes: CashFlowNode[]
+    links: CashFlowLink[]
+}
+
+export interface DailyByCategory {
+    date: string
+    category: string
+    total: number
+}
+
 export interface AnalyticsSummary {
     kpis: {
         totalIncome: number
@@ -40,6 +83,28 @@ export interface AnalyticsSummary {
     dailySpending: DailySpending[]
     monthlyCategories: MonthlyCategory[]
     dayOfWeekSpending: DayOfWeekSpending[]
+    // Extended for all 17 charts
+    dayOfWeekCategory: DayOfWeekCategory[]
+    transactionHistory: TransactionHistoryItem[]
+    needsWants: NeedsWantsItem[]
+    cashFlow: CashFlowData
+    dailyByCategory: DailyByCategory[]
+}
+
+// Category classification for needs/wants
+const NEEDS_CATEGORIES: Record<string, 'Essentials' | 'Mandatory' | 'Wants'> = {
+    'Groceries': 'Essentials',
+    'Housing': 'Essentials',
+    'Utilities': 'Essentials',
+    'Transport': 'Essentials',
+    'Healthcare': 'Essentials',
+    'Insurance': 'Mandatory',
+    'Taxes': 'Mandatory',
+    'Shopping': 'Wants',
+    'Entertainment': 'Wants',
+    'Travel': 'Wants',
+    'Dining': 'Wants',
+    'Subscriptions': 'Wants',
 }
 
 /**
@@ -219,6 +284,310 @@ export async function getDayOfWeekSpending(
 }
 
 /**
+ * Get day of week by category breakdown
+ */
+export async function getDayOfWeekCategory(
+    userId: string,
+    startDate?: string,
+    endDate?: string
+): Promise<DayOfWeekCategory[]> {
+    let query = `
+        SELECT 
+            EXTRACT(DOW FROM t.tx_date)::int AS "dayOfWeek",
+            COALESCE(c.name, 'Uncategorized') AS category,
+            ABS(SUM(t.amount)) AS total
+        FROM transactions t
+        LEFT JOIN categories c ON t.category_id = c.id
+        WHERE t.user_id = $1 AND t.amount < 0
+    `
+    const params: (string | number)[] = [userId]
+
+    if (startDate) {
+        params.push(startDate)
+        query += ` AND t.tx_date >= $${params.length}::date`
+    }
+    if (endDate) {
+        params.push(endDate)
+        query += ` AND t.tx_date <= $${params.length}::date`
+    }
+
+    query += ` GROUP BY "dayOfWeek", c.name ORDER BY "dayOfWeek", total DESC`
+
+    const rows = await neonQuery<{
+        dayOfWeek: number
+        category: string
+        total: string
+    }>(query, params)
+
+    return rows.map(row => ({
+        dayOfWeek: row.dayOfWeek,
+        category: row.category,
+        total: parseFloat(row.total) || 0,
+    }))
+}
+
+/**
+ * Get transaction history for swarm plot (limited for performance)
+ */
+export async function getTransactionHistory(
+    userId: string,
+    startDate?: string,
+    endDate?: string,
+    limit: number = 500
+): Promise<TransactionHistoryItem[]> {
+    let query = `
+        SELECT 
+            t.id,
+            to_char(t.tx_date, 'YYYY-MM-DD') AS date,
+            t.description,
+            ABS(t.amount) AS amount,
+            COALESCE(c.name, 'Uncategorized') AS category,
+            c.color
+        FROM transactions t
+        LEFT JOIN categories c ON t.category_id = c.id
+        WHERE t.user_id = $1 AND t.amount < 0
+    `
+    const params: (string | number)[] = [userId]
+
+    if (startDate) {
+        params.push(startDate)
+        query += ` AND t.tx_date >= $${params.length}::date`
+    }
+    if (endDate) {
+        params.push(endDate)
+        query += ` AND t.tx_date <= $${params.length}::date`
+    }
+
+    params.push(limit)
+    query += ` ORDER BY t.tx_date DESC LIMIT $${params.length}`
+
+    const rows = await neonQuery<{
+        id: number
+        date: string
+        description: string
+        amount: string
+        category: string
+        color: string | null
+    }>(query, params)
+
+    return rows.map(row => ({
+        id: row.id,
+        date: row.date,
+        description: row.description,
+        amount: parseFloat(row.amount) || 0,
+        category: row.category,
+        color: row.color,
+    }))
+}
+
+/**
+ * Get needs vs wants breakdown
+ */
+export async function getNeedsWantsBreakdown(
+    userId: string,
+    startDate?: string,
+    endDate?: string
+): Promise<NeedsWantsItem[]> {
+    let query = `
+        SELECT 
+            COALESCE(c.name, 'Uncategorized') AS category,
+            ABS(SUM(t.amount)) AS total,
+            COUNT(*)::int AS count
+        FROM transactions t
+        LEFT JOIN categories c ON t.category_id = c.id
+        WHERE t.user_id = $1 AND t.amount < 0
+    `
+    const params: (string | number)[] = [userId]
+
+    if (startDate) {
+        params.push(startDate)
+        query += ` AND t.tx_date >= $${params.length}::date`
+    }
+    if (endDate) {
+        params.push(endDate)
+        query += ` AND t.tx_date <= $${params.length}::date`
+    }
+
+    query += ` GROUP BY c.name`
+
+    const rows = await neonQuery<{
+        category: string
+        total: string
+        count: number
+    }>(query, params)
+
+    // Group by needs/wants classification
+    const classified: Record<string, { total: number; count: number }> = {
+        'Essentials': { total: 0, count: 0 },
+        'Mandatory': { total: 0, count: 0 },
+        'Wants': { total: 0, count: 0 },
+    }
+
+    for (const row of rows) {
+        const classification = NEEDS_CATEGORIES[row.category] || 'Wants'
+        classified[classification].total += parseFloat(row.total) || 0
+        classified[classification].count += row.count
+    }
+
+    return Object.entries(classified).map(([classification, data]) => ({
+        classification: classification as 'Essentials' | 'Mandatory' | 'Wants',
+        total: data.total,
+        count: data.count,
+    }))
+}
+
+/**
+ * Get cash flow data for sankey diagram
+ */
+export async function getCashFlowData(
+    userId: string,
+    startDate?: string,
+    endDate?: string
+): Promise<CashFlowData> {
+    // Get income sources
+    let incomeQuery = `
+        SELECT 
+            COALESCE(c.name, 'Income') AS category,
+            SUM(t.amount) AS total
+        FROM transactions t
+        LEFT JOIN categories c ON t.category_id = c.id
+        WHERE t.user_id = $1 AND t.amount > 0
+    `
+    const incomeParams: (string | number)[] = [userId]
+
+    if (startDate) {
+        incomeParams.push(startDate)
+        incomeQuery += ` AND t.tx_date >= $${incomeParams.length}::date`
+    }
+    if (endDate) {
+        incomeParams.push(endDate)
+        incomeQuery += ` AND t.tx_date <= $${incomeParams.length}::date`
+    }
+    incomeQuery += ` GROUP BY c.name`
+
+    // Get expense categories
+    let expenseQuery = `
+        SELECT 
+            COALESCE(c.name, 'Other') AS category,
+            ABS(SUM(t.amount)) AS total
+        FROM transactions t
+        LEFT JOIN categories c ON t.category_id = c.id
+        WHERE t.user_id = $1 AND t.amount < 0
+    `
+    const expenseParams: (string | number)[] = [userId]
+
+    if (startDate) {
+        expenseParams.push(startDate)
+        expenseQuery += ` AND t.tx_date >= $${expenseParams.length}::date`
+    }
+    if (endDate) {
+        expenseParams.push(endDate)
+        expenseQuery += ` AND t.tx_date <= $${expenseParams.length}::date`
+    }
+    expenseQuery += ` GROUP BY c.name ORDER BY total DESC LIMIT 10`
+
+    const [incomeRows, expenseRows] = await Promise.all([
+        neonQuery<{ category: string; total: string }>(incomeQuery, incomeParams),
+        neonQuery<{ category: string; total: string }>(expenseQuery, expenseParams),
+    ])
+
+    // Build nodes and links
+    const nodes: CashFlowNode[] = []
+    const links: CashFlowLink[] = []
+
+    // Add income nodes
+    for (const row of incomeRows) {
+        nodes.push({ id: `income-${row.category}`, label: row.category })
+    }
+
+    // Add expense nodes
+    for (const row of expenseRows) {
+        nodes.push({ id: `expense-${row.category}`, label: row.category })
+    }
+
+    // Calculate total income and expenses
+    const totalIncome = incomeRows.reduce((sum, r) => sum + (parseFloat(r.total) || 0), 0)
+    const totalExpense = expenseRows.reduce((sum, r) => sum + (parseFloat(r.total) || 0), 0)
+    const savings = Math.max(0, totalIncome - totalExpense)
+
+    if (savings > 0) {
+        nodes.push({ id: 'savings', label: 'Savings' })
+    }
+
+    // Create links from income to expenses
+    for (const income of incomeRows) {
+        const incomeValue = parseFloat(income.total) || 0
+        const incomeRatio = incomeValue / totalIncome
+
+        for (const expense of expenseRows) {
+            const expenseValue = parseFloat(expense.total) || 0
+            const linkValue = Math.min(incomeValue, expenseValue * incomeRatio)
+            if (linkValue > 0) {
+                links.push({
+                    source: `income-${income.category}`,
+                    target: `expense-${expense.category}`,
+                    value: Math.round(linkValue * 100) / 100,
+                })
+            }
+        }
+
+        // Link to savings
+        if (savings > 0) {
+            links.push({
+                source: `income-${income.category}`,
+                target: 'savings',
+                value: Math.round(savings * incomeRatio * 100) / 100,
+            })
+        }
+    }
+
+    return { nodes, links }
+}
+
+/**
+ * Get daily spending by category for streamgraph
+ */
+export async function getDailyByCategory(
+    userId: string,
+    startDate?: string,
+    endDate?: string
+): Promise<DailyByCategory[]> {
+    let query = `
+        SELECT 
+            to_char(t.tx_date, 'YYYY-MM-DD') AS date,
+            COALESCE(c.name, 'Uncategorized') AS category,
+            ABS(SUM(t.amount)) AS total
+        FROM transactions t
+        LEFT JOIN categories c ON t.category_id = c.id
+        WHERE t.user_id = $1 AND t.amount < 0
+    `
+    const params: (string | number)[] = [userId]
+
+    if (startDate) {
+        params.push(startDate)
+        query += ` AND t.tx_date >= $${params.length}::date`
+    }
+    if (endDate) {
+        params.push(endDate)
+        query += ` AND t.tx_date <= $${params.length}::date`
+    }
+
+    query += ` GROUP BY t.tx_date, c.name ORDER BY t.tx_date`
+
+    const rows = await neonQuery<{
+        date: string
+        category: string
+        total: string
+    }>(query, params)
+
+    return rows.map(row => ({
+        date: row.date,
+        category: row.category,
+        total: parseFloat(row.total) || 0,
+    }))
+}
+
+/**
  * Get KPI summary
  */
 export async function getKPIs(
@@ -275,14 +644,29 @@ export async function getAnalyticsBundle(
     const { startDate, endDate } = getDateRange(filter)
 
     // Run all aggregations in parallel
-    const [kpis, categorySpending, dailySpending, monthlyCategories, dayOfWeekSpending] =
-        await Promise.all([
-            getKPIs(userId, startDate ?? undefined, endDate ?? undefined),
-            getCategorySpending(userId, startDate ?? undefined, endDate ?? undefined),
-            getDailySpending(userId, startDate ?? undefined, endDate ?? undefined),
-            getMonthlyCategories(userId, startDate ?? undefined, endDate ?? undefined),
-            getDayOfWeekSpending(userId, startDate ?? undefined, endDate ?? undefined),
-        ])
+    const [
+        kpis,
+        categorySpending,
+        dailySpending,
+        monthlyCategories,
+        dayOfWeekSpending,
+        dayOfWeekCategory,
+        transactionHistory,
+        needsWants,
+        cashFlow,
+        dailyByCategory,
+    ] = await Promise.all([
+        getKPIs(userId, startDate ?? undefined, endDate ?? undefined),
+        getCategorySpending(userId, startDate ?? undefined, endDate ?? undefined),
+        getDailySpending(userId, startDate ?? undefined, endDate ?? undefined),
+        getMonthlyCategories(userId, startDate ?? undefined, endDate ?? undefined),
+        getDayOfWeekSpending(userId, startDate ?? undefined, endDate ?? undefined),
+        getDayOfWeekCategory(userId, startDate ?? undefined, endDate ?? undefined),
+        getTransactionHistory(userId, startDate ?? undefined, endDate ?? undefined),
+        getNeedsWantsBreakdown(userId, startDate ?? undefined, endDate ?? undefined),
+        getCashFlowData(userId, startDate ?? undefined, endDate ?? undefined),
+        getDailyByCategory(userId, startDate ?? undefined, endDate ?? undefined),
+    ])
 
     return {
         kpis,
@@ -290,5 +674,11 @@ export async function getAnalyticsBundle(
         dailySpending,
         monthlyCategories,
         dayOfWeekSpending,
+        dayOfWeekCategory,
+        transactionHistory,
+        needsWants,
+        cashFlow,
+        dailyByCategory,
     }
 }
+
