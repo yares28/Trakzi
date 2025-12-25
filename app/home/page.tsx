@@ -1454,9 +1454,10 @@ export default function Page() {
   // Fetch transactions for charts
   const fetchTransactions = useCallback(async (bypassCache = false) => {
     try {
+      // Use all=true to fetch all transactions for charts (bypass pagination)
       const url = dateFilter
-        ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
-        : "/api/transactions"
+        ? `/api/transactions?all=true&filter=${encodeURIComponent(dateFilter)}`
+        : "/api/transactions?all=true"
       console.log("[Home] Fetching transactions from:", url)
       const response = await fetch(url, {
         cache: bypassCache ? 'no-store' : 'default',
@@ -1465,14 +1466,17 @@ export default function Page() {
       const data = await response.json()
       console.log("[Home] Response status:", response.status)
       console.log("[Home] Response data:", data)
-      console.log("[Home] Is array?", Array.isArray(data))
-      console.log("[Home] Data length:", Array.isArray(data) ? data.length : "N/A")
 
       if (response.ok) {
-        if (Array.isArray(data)) {
-          console.log(`[Home] Setting ${data.length} transactions`)
-          console.log("[Home] First transaction:", data[0])
-          setTransactions(normalizeTransactions(data) as Array<{
+        // Handle paginated response {data: [], pagination: {}} or direct array
+        const txArray = Array.isArray(data) ? data : (data?.data ?? [])
+        console.log("[Home] Is array?", Array.isArray(txArray))
+        console.log("[Home] Data length:", txArray.length)
+
+        if (Array.isArray(txArray)) {
+          console.log(`[Home] Setting ${txArray.length} transactions`)
+          console.log("[Home] First transaction:", txArray[0])
+          setTransactions(normalizeTransactions(txArray) as Array<{
             id: number
             date: string
             description: string
