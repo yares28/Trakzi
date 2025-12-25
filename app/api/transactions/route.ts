@@ -105,6 +105,8 @@ export const GET = async (request: Request) => {
             : Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50") || 50));
         const offset = fetchAll ? 0 : (page - 1) * limit;
 
+        console.log(`[Transactions API] fetchAll=${fetchAll}, limit=${limit}, offset=${offset}, filter=${filter}`);
+
         // Get date range based on filter
         const { startDate, endDate } = getDateRange(filter);
 
