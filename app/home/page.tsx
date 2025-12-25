@@ -1469,28 +1469,18 @@ export default function Page() {
       console.log("[Home] Data length:", Array.isArray(data) ? data.length : "N/A")
 
       if (response.ok) {
-        // Handle paginated response {data: [], pagination: {}} or direct array
-        const txArray = Array.isArray(data) ? data : (data?.data ?? [])
-        if (Array.isArray(txArray)) {
-          console.log(`[Home] Setting ${txArray.length} transactions`)
-          console.log("[Home] First transaction:", txArray[0])
-          setTransactions(normalizeTransactions(txArray) as Array<{
-            id: number
-            date: string
-            description: string
-            amount: number
-            balance: number | null
-            category: string
-          }>)
-        } else {
-          console.error("[Home] Response is not an array:", data)
-          if (data.error) {
-            toast.error("API Error", {
-              description: data.error,
-              duration: 10000,
-            })
-          }
-        }
+        // API always returns {data: [], pagination: {}} format
+        const txArray = data?.data ?? []
+        console.log(`[Home] Setting ${txArray.length} transactions`)
+        console.log("[Home] First transaction:", txArray[0])
+        setTransactions(normalizeTransactions(txArray) as Array<{
+          id: number
+          date: string
+          description: string
+          amount: number
+          balance: number | null
+          category: string
+        }>)
       } else {
         console.error("Failed to fetch transactions: HTTP", response.status, data)
         // Don't set empty array on error - keep previous data

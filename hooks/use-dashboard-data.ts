@@ -34,10 +34,7 @@ async function fetchTransactions(filter: string | null): Promise<Transaction[]> 
     }
     const json = await response.json()
 
-    // Handle paginated response {data: [], pagination: {}} or direct array
-    if (Array.isArray(json)) {
-        return json
-    }
+    // API always returns {data: [], pagination: {}} format
     return json.data ?? []
 }
 
@@ -61,10 +58,7 @@ async function fetchSavingsTransactions(filter: string | null): Promise<Transact
     }
     const json = await response.json()
 
-    // Handle paginated response
-    if (Array.isArray(json)) {
-        return json
-    }
+    // API always returns {data: [], pagination: {}} format
     return json.data ?? []
 }
 
