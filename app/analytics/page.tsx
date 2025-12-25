@@ -976,12 +976,10 @@ export default function AnalyticsPage() {
       const endTime = performance.now()
       console.log(`[Analytics] All data fetched in ${(endTime - startTime).toFixed(2)}ms`)
 
-      // Set transactions - handle paginated response format {data: [], pagination: {}}
+      // Set transactions - API always returns {data: [], pagination: {}} format
       let nextTransactions = cachedEntry?.transactions ?? []
-      const txArray = Array.isArray(transactionsData)
-        ? transactionsData
-        : ((transactionsData as { data?: any[] } | undefined)?.data ?? [])
-      if (Array.isArray(txArray) && txArray.length > 0) {
+      const txArray = (transactionsData as { data?: any[] } | undefined)?.data ?? []
+      if (txArray.length > 0) {
         nextTransactions = normalizeTransactions(txArray) as AnalyticsTransaction[]
         console.log(`[Analytics] Setting ${txArray.length} transactions`)
         setRawTransactions(nextTransactions)

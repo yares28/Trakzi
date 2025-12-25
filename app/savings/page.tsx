@@ -94,27 +94,17 @@ export default function Page() {
       const data = await response.json()
 
       if (response.ok) {
-        // Handle paginated response {data: [], pagination: {}} or direct array
-        const txArray = Array.isArray(data) ? data : (data?.data ?? [])
-        if (Array.isArray(txArray)) {
-          console.log(`[Savings] Setting ${txArray.length} savings transactions`)
-          setTransactions(normalizeTransactions(txArray) as Array<{
-            id: number
-            date: string
-            description: string
-            amount: number
-            balance: number | null
-            category: string
-          }>)
-        } else {
-          console.error("[Savings] Response is not an array:", data)
-          if (data.error) {
-            toast.error("API Error", {
-              description: data.error,
-              duration: 10000,
-            })
-          }
-        }
+        // API always returns {data: [], pagination: {}} format
+        const txArray = data?.data ?? []
+        console.log(`[Savings] Setting ${txArray.length} savings transactions`)
+        setTransactions(normalizeTransactions(txArray) as Array<{
+          id: number
+          date: string
+          description: string
+          amount: number
+          balance: number | null
+          category: string
+        }>)
       } else {
         console.error("Failed to fetch transactions: HTTP", response.status, data)
         if (response.status === 401) {
