@@ -1,8 +1,16 @@
 import { Redis } from '@upstash/redis'
 
+// Check if Redis environment variables are configured
+const REDIS_CONFIGURED = !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
+
 // Initialize Redis client from environment variables
 // Required: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
-const redis = Redis.fromEnv()
+const redis = REDIS_CONFIGURED ? Redis.fromEnv() : null
+
+// Log Redis configuration status on first import
+if (!REDIS_CONFIGURED) {
+    console.warn('[Cache] Upstash Redis not configured - caching disabled. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.')
+}
 
 // Cache key prefixes
 const CACHE_PREFIX = {
@@ -41,8 +49,13 @@ export function buildCacheKey(
  * Get cached data
  */
 export async function getCached<T>(key: string): Promise<T | null> {
+    if (!redis) return null
+
     try {
         const data = await redis.get<T>(key)
+        if (data !== null) {
+            console.log(`[Cache] HIT: ${key}`)
+        }
         return data
     } catch (error) {
         console.error('[Cache] Get error:', error)
@@ -58,8 +71,11 @@ export async function setCache<T>(
     value: T,
     ttlSeconds: number = CACHE_TTL.analytics
 ): Promise<void> {
+    if (!redis) return
+
     try {
         await redis.setex(key, ttlSeconds, value)
+        console.log(`[Cache] SET: ${key} (TTL: ${ttlSeconds}s)`)
     } catch (error) {
         console.error('[Cache] Set error:', error)
     }
@@ -73,17 +89,27 @@ export async function getCachedOrCompute<T>(
     computeFn: () => Promise<T>,
     ttlSeconds: number = CACHE_TTL.analytics
 ): Promise<T> {
+    // Skip cache if Redis is not configured
+    if (!redis) {
+        console.log(`[Cache] SKIP (Redis not configured): ${key}`)
+        return await computeFn()
+    }
+
     // Try to get from cache first
     const cached = await getCached<T>(key)
     if (cached !== null) {
         return cached
     }
 
+    console.log(`[Cache] MISS: ${key}`)
+
     // Compute fresh data
     const data = await computeFn()
 
     // Cache it (fire and forget)
-    setCache(key, data, ttlSeconds).catch(() => { })
+    setCache(key, data, ttlSeconds).catch((err) => {
+        console.error('[Cache] Failed to set cache:', err)
+    })
 
     return data
 }
@@ -92,6 +118,8 @@ export async function getCachedOrCompute<T>(
  * Invalidate all cache keys for a user
  */
 export async function invalidateUserCache(userId: string): Promise<void> {
+    if (!redis) return
+
     try {
         // Scan for all keys matching user pattern
         const keys: string[] = []
@@ -122,6 +150,8 @@ export async function invalidateUserCachePrefix(
     userId: string,
     prefix: keyof typeof CACHE_PREFIX
 ): Promise<void> {
+    if (!redis) return
+
     try {
         const keys: string[] = []
         let cursor = '0'
@@ -137,6 +167,7 @@ export async function invalidateUserCachePrefix(
 
         if (keys.length > 0) {
             await redis.del(...keys)
+            console.log(`[Cache] Invalidated ${keys.length} ${prefix} keys for user ${userId}`)
         }
     } catch (error) {
         console.error('[Cache] Prefix invalidation error:', error)
