@@ -21,9 +21,11 @@ export interface Category {
 
 // Fetcher functions
 async function fetchTransactions(filter: string | null): Promise<Transaction[]> {
+    // Use all=true to fetch all transactions (bypass pagination) for charts
+    const baseParams = "all=true"
     const url = filter
-        ? `/api/transactions?filter=${encodeURIComponent(filter)}`
-        : "/api/transactions"
+        ? `/api/transactions?${baseParams}&filter=${encodeURIComponent(filter)}`
+        : `/api/transactions?${baseParams}`
 
     const response = await fetch(url)
     if (!response.ok) {
