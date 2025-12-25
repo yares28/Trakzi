@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator"
 import { AppSidebar } from "@/components/app-sidebar"
 import { type DateFilterType } from "@/components/date-filter"
 import { useDateFilter } from "@/components/date-filter-provider"
+import { useFridgeBundleData } from "@/hooks/use-dashboard-data"
 import { FileUpload01 } from "@/components/file-upload-01"
 import { ChartAreaInteractiveFridge } from "@/components/fridge/chart-area-interactive-fridge"
 import { ChartCategoryFlowFridge } from "@/components/fridge/chart-category-flow-fridge"
@@ -289,6 +290,10 @@ export function FridgePageClient() {
   const { user, isLoaded: isUserLoaded } = useUser()
 
   const { filter: dateFilter, setFilter: setDateFilter } = useDateFilter()
+
+  // Bundle API data - pre-aggregated with Redis caching (single request)
+  const { data: bundleData, isLoading: bundleLoading } = useFridgeBundleData()
+
   const [receiptTransactions, setReceiptTransactions] = useState<ReceiptTransactionRow[]>([])
   const [isLoadingReceiptTransactions, setIsLoadingReceiptTransactions] = useState(true)
   const [receiptsRefreshNonce, setReceiptsRefreshNonce] = useState(0)
@@ -1255,6 +1260,14 @@ export function FridgePageClient() {
   }, [receiptLineItems])
 
   const spendTrendData = useMemo(() => {
+    // Use bundle data if available (pre-computed by server)
+    if (bundleData?.dailySpending && bundleData.dailySpending.length > 0) {
+      return bundleData.dailySpending
+        .map(d => ({ date: d.date, spend: Number(d.total.toFixed(2)) }))
+        .sort((a, b) => a.date < b.date ? -1 : 1)
+    }
+
+    // Fallback to receiptLineItems
     const totals = new Map<string, number>()
     receiptLineItems.forEach((item) => {
       const date = item.receiptDate
@@ -1264,9 +1277,17 @@ export function FridgePageClient() {
     return Array.from(totals.entries())
       .sort(([a], [b]) => (a < b ? -1 : 1))
       .map(([date, spend]) => ({ date, spend: Number(spend.toFixed(2)) }))
-  }, [receiptLineItems])
+  }, [bundleData?.dailySpending, receiptLineItems])
 
   const basketBreakdownData = useMemo(() => {
+    // Use bundle data if available (pre-computed by server)
+    if (bundleData?.categorySpending && bundleData.categorySpending.length > 0) {
+      return bundleData.categorySpending
+        .map(c => ({ id: c.category, label: c.category, value: Number(c.total.toFixed(2)) }))
+        .sort((a, b) => b.value - a.value)
+    }
+
+    // Fallback to receiptLineItems
     const totals = new Map<string, number>()
     receiptLineItems.forEach((item) => {
       const category = normalizeCategoryName(item.categoryName)
@@ -1281,7 +1302,7 @@ export function FridgePageClient() {
         label: category,
         value: Number(value.toFixed(2)),
       }))
-  }, [receiptLineItems])
+  }, [bundleData?.categorySpending, receiptLineItems])
 
   const categoryFlowData = useMemo(() => {
     const monthTotals = new Map<string, Map<string, number>>()

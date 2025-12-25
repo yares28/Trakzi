@@ -46,13 +46,14 @@ All charts include:
 
 ## Data Source Overview
 
-> **Performance Optimization:** Bundle API available for server-side aggregation.
+> **Status:** ✅ **Bundle Migration Complete** (December 25, 2024)
+> All 17 analytics charts now accept `bundleData` props with fallback logic.
 
 ### Bundle API (Recommended)
 
 **Endpoint:** `/api/charts/analytics-bundle?filter=...`
 
-Returns pre-aggregated data with Redis caching for all 17 charts:
+Returns pre-aggregated data with Redis caching (5min TTL) for all 17 charts:
 - KPIs (income, expense, net savings, counts)
 - Category spending breakdown
 - Daily spending trends
@@ -65,7 +66,37 @@ Returns pre-aggregated data with Redis caching for all 17 charts:
 
 **Context Provider:** `<AnalyticsDataProvider>` wraps Analytics page, charts use `useAnalyticsChartData()` hook.
 
-See [DATA_FETCHING.md](./DATA_FETCHING.md) for response format.
+### How to Verify Bundle is Working
+
+1. **Open DevTools Network Tab** (F12 → Network)
+2. **Navigate to Analytics page**
+3. **Look for these requests:**
+   - ✅ `analytics-bundle` - Should see ONE request with all chart data
+   - ⚠️ Individual chart APIs should NOT be called if bundle is working
+
+4. **Check Redis Cache:**
+   - First load: ~500ms (database query)
+   - Subsequent loads: ~50ms (cache hit)
+
+5. **Inspect Bundle Response:**
+   ```js
+   // In DevTools Console after page loads:
+   // Response should contain:
+   {
+     kpis: { totalIncome, totalExpense, netSavings, ... },
+     categorySpending: [...],
+     dailySpending: [...],
+     monthlyCategories: [...],
+     dayOfWeekSpending: [...],
+     dayOfWeekCategory: [...],
+     transactionHistory: [...],
+     needsWants: [...],
+     cashFlow: { nodes, links },
+     dailyByCategory: [...]
+   }
+   ```
+
+See [DATA_FETCHING.md](./DATA_FETCHING.md) for full response format.
 
 ### Legacy Endpoints
 

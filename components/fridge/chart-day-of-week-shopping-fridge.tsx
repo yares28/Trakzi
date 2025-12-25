@@ -30,9 +30,10 @@ export type DayOfWeekSpendDatum = {
 
 interface ChartDayOfWeekShoppingFridgeProps {
   data?: DayOfWeekSpendDatum[]
+  dayOfWeekSpendingData?: Array<{ dayOfWeek: number; total: number; count: number }>
 }
 
-export function ChartDayOfWeekShoppingFridge({ data = [] }: ChartDayOfWeekShoppingFridgeProps) {
+export function ChartDayOfWeekShoppingFridge({ data = [], dayOfWeekSpendingData }: ChartDayOfWeekShoppingFridgeProps) {
   const { getPalette } = useColorScheme()
   const { formatCurrency, symbol } = useCurrency()
   const palette = getPalette().filter((color) => color !== "#c3c3c3")

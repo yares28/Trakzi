@@ -48,6 +48,7 @@ type ReceiptTransactionRow = {
 
 interface ChartDayOfWeekCategoryFridgeProps {
     receiptTransactions?: ReceiptTransactionRow[]
+    dayOfWeekCategoryData?: Array<{ dayOfWeek: number; category: string; total: number }>
     isLoading?: boolean
 }
 
@@ -64,7 +65,7 @@ function normalizeCategoryName(value: string | null | undefined) {
     return trimmed || "Other"
 }
 
-export function ChartDayOfWeekCategoryFridge({ receiptTransactions = [], isLoading = false }: ChartDayOfWeekCategoryFridgeProps) {
+export function ChartDayOfWeekCategoryFridge({ receiptTransactions = [], dayOfWeekCategoryData, isLoading = false }: ChartDayOfWeekCategoryFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { getPalette, colorScheme } = useColorScheme()
     const { formatCurrency, symbol } = useCurrency()
@@ -82,6 +83,22 @@ export function ChartDayOfWeekCategoryFridge({ receiptTransactions = [], isLoadi
 
     // Aggregate receipt transactions by category and day of week
     const { allData, availableDays } = React.useMemo(() => {
+        // Use bundle data if available (pre-computed by server)
+        if (dayOfWeekCategoryData && dayOfWeekCategoryData.length > 0) {
+            const daysWithData = new Set<number>()
+            const allData: DayOfWeekData[] = []
+
+            dayOfWeekCategoryData.forEach(d => {
+                // Convert dayOfWeek from SQL (0=Sun) to display (0=Mon)
+                const displayDay = d.dayOfWeek === 0 ? 6 : d.dayOfWeek - 1
+                daysWithData.add(displayDay)
+                allData.push({ category: d.category, dayOfWeek: displayDay, total: d.total })
+            })
+
+            return { allData, availableDays: Array.from(daysWithData).sort((a, b) => a - b) }
+        }
+
+        // Fallback to raw transactions
         const dayTotals = new Map<number, Map<string, number>>()
         const daysWithData = new Set<number>()
 
@@ -115,7 +132,7 @@ export function ChartDayOfWeekCategoryFridge({ receiptTransactions = [], isLoadi
         const availableDays = Array.from(daysWithData).sort((a, b) => a - b)
 
         return { allData, availableDays }
-    }, [receiptTransactions])
+    }, [receiptTransactions, dayOfWeekCategoryData])
 
     // Set initial selected day
     React.useEffect(() => {

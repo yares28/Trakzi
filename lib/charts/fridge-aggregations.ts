@@ -27,6 +27,51 @@ export interface FridgeMacronutrientBreakdown {
     color: string | null
 }
 
+export interface FridgeDayOfWeekSpending {
+    dayOfWeek: number
+    total: number
+    count: number
+}
+
+export interface FridgeMonthlyCategory {
+    month: number
+    category: string
+    total: number
+}
+
+export interface FridgeHourlyActivity {
+    hour: number
+    total: number
+    count: number
+}
+
+export interface FridgeDayOfWeekCategory {
+    dayOfWeek: number
+    category: string
+    total: number
+}
+
+export interface FridgeHourDayHeatmap {
+    hour: number
+    dayOfWeek: number
+    total: number
+    count: number
+}
+
+export interface FridgeDayMonthHeatmap {
+    dayOfWeek: number
+    month: number
+    total: number
+    count: number
+}
+
+export interface FridgeCategoryRanking {
+    category: string
+    rank: number
+    total: number
+    previousRank?: number
+}
+
 export interface FridgeKPIs {
     totalSpent: number
     shoppingTrips: number
@@ -41,6 +86,13 @@ export interface FridgeSummary {
     dailySpending: FridgeDailySpending[]
     storeSpending: FridgeStoreSpending[]
     macronutrientBreakdown: FridgeMacronutrientBreakdown[]
+    dayOfWeekSpending: FridgeDayOfWeekSpending[]
+    monthlyCategories: FridgeMonthlyCategory[]
+    hourlyActivity: FridgeHourlyActivity[]
+    dayOfWeekCategory: FridgeDayOfWeekCategory[]
+    hourDayHeatmap: FridgeHourDayHeatmap[]
+    dayMonthHeatmap: FridgeDayMonthHeatmap[]
+    categoryRankings: FridgeCategoryRanking[]
 }
 
 /**
@@ -267,6 +319,309 @@ export async function getFridgeMacronutrientBreakdown(
 }
 
 /**
+ * Get fridge spending by day of week
+ */
+export async function getFridgeDayOfWeekSpending(
+    userId: string,
+    startDate?: string,
+    endDate?: string
+): Promise<FridgeDayOfWeekSpending[]> {
+    let query = `
+        SELECT 
+            EXTRACT(DOW FROM receipt_date)::int AS day_of_week,
+            SUM(total_price) AS total,
+            COUNT(*)::int AS count
+        FROM receipt_transactions
+        WHERE user_id = $1
+    `
+    const params: (string | number)[] = [userId]
+
+    if (startDate) {
+        params.push(startDate)
+        query += ` AND receipt_date >= $${params.length}::date`
+    }
+    if (endDate) {
+        params.push(endDate)
+        query += ` AND receipt_date <= $${params.length}::date`
+    }
+
+    query += ` GROUP BY EXTRACT(DOW FROM receipt_date) ORDER BY day_of_week`
+
+    const rows = await neonQuery<{
+        day_of_week: number
+        total: string
+        count: number
+    }>(query, params)
+
+    return rows.map(row => ({
+        dayOfWeek: row.day_of_week,
+        total: parseFloat(row.total) || 0,
+        count: row.count,
+    }))
+}
+
+/**
+ * Get fridge spending by month and category
+ */
+export async function getFridgeMonthlyCategories(
+    userId: string,
+    startDate?: string,
+    endDate?: string
+): Promise<FridgeMonthlyCategory[]> {
+    let query = `
+        SELECT 
+            EXTRACT(MONTH FROM receipt_date)::int AS month,
+            COALESCE(rc.name, 'Other') AS category,
+            SUM(rt.total_price) AS total
+        FROM receipt_transactions rt
+        LEFT JOIN receipt_categories rc ON rt.category_id = rc.id
+        WHERE rt.user_id = $1
+    `
+    const params: (string | number)[] = [userId]
+
+    if (startDate) {
+        params.push(startDate)
+        query += ` AND rt.receipt_date >= $${params.length}::date`
+    }
+    if (endDate) {
+        params.push(endDate)
+        query += ` AND rt.receipt_date <= $${params.length}::date`
+    }
+
+    query += ` GROUP BY EXTRACT(MONTH FROM receipt_date), rc.name ORDER BY month, total DESC`
+
+    const rows = await neonQuery<{
+        month: number
+        category: string
+        total: string
+    }>(query, params)
+
+    return rows.map(row => ({
+        month: row.month,
+        category: row.category,
+        total: parseFloat(row.total) || 0,
+    }))
+}
+
+/**
+ * Get fridge hourly spending activity
+ */
+export async function getFridgeHourlyActivity(
+    userId: string,
+    startDate?: string,
+    endDate?: string
+): Promise<FridgeHourlyActivity[]> {
+    let query = `
+        SELECT 
+            EXTRACT(HOUR FROM receipt_time::time)::int AS hour,
+            SUM(total_price) AS total,
+            COUNT(*)::int AS count
+        FROM receipt_transactions
+        WHERE user_id = $1
+    `
+    const params: (string | number)[] = [userId]
+
+    if (startDate) {
+        params.push(startDate)
+        query += ` AND receipt_date >= $${params.length}::date`
+    }
+    if (endDate) {
+        params.push(endDate)
+        query += ` AND receipt_date <= $${params.length}::date`
+    }
+
+    query += ` GROUP BY EXTRACT(HOUR FROM receipt_time::time) ORDER BY hour`
+
+    const rows = await neonQuery<{
+        hour: number
+        total: string
+        count: number
+    }>(query, params)
+
+    return rows.map(row => ({
+        hour: row.hour,
+        total: parseFloat(row.total) || 0,
+        count: row.count,
+    }))
+}
+
+/**
+ * Get fridge spending by day of week and category
+ */
+export async function getFridgeDayOfWeekCategory(
+    userId: string,
+    startDate?: string,
+    endDate?: string
+): Promise<FridgeDayOfWeekCategory[]> {
+    let query = `
+        SELECT 
+            EXTRACT(DOW FROM receipt_date)::int AS day_of_week,
+            COALESCE(rc.name, 'Other') AS category,
+            SUM(rt.total_price) AS total
+        FROM receipt_transactions rt
+        LEFT JOIN receipt_categories rc ON rt.category_id = rc.id
+        WHERE rt.user_id = $1
+    `
+    const params: (string | number)[] = [userId]
+
+    if (startDate) {
+        params.push(startDate)
+        query += ` AND rt.receipt_date >= $${params.length}::date`
+    }
+    if (endDate) {
+        params.push(endDate)
+        query += ` AND rt.receipt_date <= $${params.length}::date`
+    }
+
+    query += ` GROUP BY EXTRACT(DOW FROM receipt_date), rc.name ORDER BY day_of_week, total DESC`
+
+    const rows = await neonQuery<{
+        day_of_week: number
+        category: string
+        total: string
+    }>(query, params)
+
+    return rows.map(row => ({
+        dayOfWeek: row.day_of_week,
+        category: row.category,
+        total: parseFloat(row.total) || 0,
+    }))
+}
+
+/**
+ * Get fridge hour-by-day heatmap data
+ */
+export async function getFridgeHourDayHeatmap(
+    userId: string,
+    startDate?: string,
+    endDate?: string
+): Promise<FridgeHourDayHeatmap[]> {
+    let query = `
+        SELECT 
+            EXTRACT(HOUR FROM receipt_time::time)::int AS hour,
+            EXTRACT(DOW FROM receipt_date)::int AS day_of_week,
+            SUM(total_price) AS total,
+            COUNT(*)::int AS count
+        FROM receipt_transactions
+        WHERE user_id = $1
+    `
+    const params: (string | number)[] = [userId]
+
+    if (startDate) {
+        params.push(startDate)
+        query += ` AND receipt_date >= $${params.length}::date`
+    }
+    if (endDate) {
+        params.push(endDate)
+        query += ` AND receipt_date <= $${params.length}::date`
+    }
+
+    query += ` GROUP BY EXTRACT(HOUR FROM receipt_time::time), EXTRACT(DOW FROM receipt_date) ORDER BY hour, day_of_week`
+
+    const rows = await neonQuery<{
+        hour: number
+        day_of_week: number
+        total: string
+        count: number
+    }>(query, params)
+
+    return rows.map(row => ({
+        hour: row.hour,
+        dayOfWeek: row.day_of_week,
+        total: parseFloat(row.total) || 0,
+        count: row.count,
+    }))
+}
+
+/**
+ * Get fridge day-by-month heatmap data
+ */
+export async function getFridgeDayMonthHeatmap(
+    userId: string,
+    startDate?: string,
+    endDate?: string
+): Promise<FridgeDayMonthHeatmap[]> {
+    let query = `
+        SELECT 
+            EXTRACT(DOW FROM receipt_date)::int AS day_of_week,
+            EXTRACT(MONTH FROM receipt_date)::int AS month,
+            SUM(total_price) AS total,
+            COUNT(*)::int AS count
+        FROM receipt_transactions
+        WHERE user_id = $1
+    `
+    const params: (string | number)[] = [userId]
+
+    if (startDate) {
+        params.push(startDate)
+        query += ` AND receipt_date >= $${params.length}::date`
+    }
+    if (endDate) {
+        params.push(endDate)
+        query += ` AND receipt_date <= $${params.length}::date`
+    }
+
+    query += ` GROUP BY EXTRACT(DOW FROM receipt_date), EXTRACT(MONTH FROM receipt_date) ORDER BY day_of_week, month`
+
+    const rows = await neonQuery<{
+        day_of_week: number
+        month: number
+        total: string
+        count: number
+    }>(query, params)
+
+    return rows.map(row => ({
+        dayOfWeek: row.day_of_week,
+        month: row.month,
+        total: parseFloat(row.total) || 0,
+        count: row.count,
+    }))
+}
+
+/**
+ * Get fridge category rankings
+ */
+export async function getFridgeCategoryRankings(
+    userId: string,
+    startDate?: string,
+    endDate?: string
+): Promise<FridgeCategoryRanking[]> {
+    let query = `
+        SELECT 
+            COALESCE(rc.name, 'Other') AS category,
+            SUM(rt.total_price) AS total,
+            ROW_NUMBER() OVER (ORDER BY SUM(rt.total_price) DESC)::int AS rank
+        FROM receipt_transactions rt
+        LEFT JOIN receipt_categories rc ON rt.category_id = rc.id
+        WHERE rt.user_id = $1
+    `
+    const params: (string | number)[] = [userId]
+
+    if (startDate) {
+        params.push(startDate)
+        query += ` AND rt.receipt_date >= $${params.length}::date`
+    }
+    if (endDate) {
+        params.push(endDate)
+        query += ` AND rt.receipt_date <= $${params.length}::date`
+    }
+
+    query += ` GROUP BY rc.name ORDER BY total DESC LIMIT 10`
+
+    const rows = await neonQuery<{
+        category: string
+        total: string
+        rank: number
+    }>(query, params)
+
+    return rows.map(row => ({
+        category: row.category,
+        total: parseFloat(row.total) || 0,
+        rank: row.rank,
+    }))
+}
+
+/**
  * Get complete fridge bundle - single endpoint for all fridge chart data
  */
 export async function getFridgeBundle(
@@ -276,13 +631,20 @@ export async function getFridgeBundle(
     const { startDate, endDate } = getDateRange(filter)
 
     // Run all aggregations in parallel
-    const [kpis, categorySpending, dailySpending, storeSpending, macronutrientBreakdown] =
+    const [kpis, categorySpending, dailySpending, storeSpending, macronutrientBreakdown, dayOfWeekSpending, monthlyCategories, hourlyActivity, dayOfWeekCategory, hourDayHeatmap, dayMonthHeatmap, categoryRankings] =
         await Promise.all([
             getFridgeKPIs(userId, startDate ?? undefined, endDate ?? undefined),
             getFridgeCategorySpending(userId, startDate ?? undefined, endDate ?? undefined),
             getFridgeDailySpending(userId, startDate ?? undefined, endDate ?? undefined),
             getFridgeStoreSpending(userId, startDate ?? undefined, endDate ?? undefined),
             getFridgeMacronutrientBreakdown(userId, startDate ?? undefined, endDate ?? undefined),
+            getFridgeDayOfWeekSpending(userId, startDate ?? undefined, endDate ?? undefined),
+            getFridgeMonthlyCategories(userId, startDate ?? undefined, endDate ?? undefined),
+            getFridgeHourlyActivity(userId, startDate ?? undefined, endDate ?? undefined),
+            getFridgeDayOfWeekCategory(userId, startDate ?? undefined, endDate ?? undefined),
+            getFridgeHourDayHeatmap(userId, startDate ?? undefined, endDate ?? undefined),
+            getFridgeDayMonthHeatmap(userId, startDate ?? undefined, endDate ?? undefined),
+            getFridgeCategoryRankings(userId, startDate ?? undefined, endDate ?? undefined),
         ])
 
     return {
@@ -291,5 +653,14 @@ export async function getFridgeBundle(
         dailySpending,
         storeSpending,
         macronutrientBreakdown,
+        dayOfWeekSpending,
+        monthlyCategories,
+        hourlyActivity,
+        dayOfWeekCategory,
+        hourDayHeatmap,
+        dayMonthHeatmap,
+        categoryRankings,
     }
 }
+
+

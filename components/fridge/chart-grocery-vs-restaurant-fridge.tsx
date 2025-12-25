@@ -24,6 +24,7 @@ import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle
 
 interface ChartGroceryVsRestaurantFridgeProps {
     dateFilter?: string | null
+    groceryVsRestaurantData?: MonthlyData[]
 }
 
 interface MonthlyData {
@@ -33,7 +34,7 @@ interface MonthlyData {
     [key: string]: string | number
 }
 
-export function ChartGroceryVsRestaurantFridge({ dateFilter }: ChartGroceryVsRestaurantFridgeProps) {
+export function ChartGroceryVsRestaurantFridge({ dateFilter, groceryVsRestaurantData }: ChartGroceryVsRestaurantFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { getPalette } = useColorScheme()
     const { formatCurrency, symbol } = useCurrency()
@@ -45,8 +46,15 @@ export function ChartGroceryVsRestaurantFridge({ dateFilter }: ChartGroceryVsRes
         setMounted(true)
     }, [])
 
-    // Fetch data from API
+    // Fetch data from API (or use bundle data)
     useEffect(() => {
+        // Use bundle data if available
+        if (groceryVsRestaurantData && groceryVsRestaurantData.length > 0) {
+            setData(groceryVsRestaurantData)
+            setIsLoading(false)
+            return
+        }
+
         const fetchData = async () => {
             setIsLoading(true)
             try {
@@ -70,7 +78,7 @@ export function ChartGroceryVsRestaurantFridge({ dateFilter }: ChartGroceryVsRes
         if (mounted) {
             fetchData()
         }
-    }, [dateFilter, mounted])
+    }, [dateFilter, mounted, groceryVsRestaurantData])
 
     // Use specific colors for the two categories
     const palette = useMemo(() => {

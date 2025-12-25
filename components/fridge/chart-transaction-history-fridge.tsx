@@ -67,11 +67,13 @@ type EnhancedChartDatum = ChartSwarmPlotDatum & { categoryLabel: string }
 
 interface ChartTransactionHistoryFridgeProps {
     receiptTransactions?: ReceiptTransaction[]
+    categorySpendingData?: Array<{ category: string; total: number }>
     isLoading?: boolean
 }
 
 export function ChartTransactionHistoryFridge({
     receiptTransactions = [],
+    categorySpendingData,
     isLoading = false
 }: ChartTransactionHistoryFridgeProps) {
     const { resolvedTheme } = useTheme()

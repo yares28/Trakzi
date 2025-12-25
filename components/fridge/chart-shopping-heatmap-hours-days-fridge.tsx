@@ -33,6 +33,7 @@ interface ReceiptTransaction {
 
 interface ChartShoppingHeatmapHoursDaysFridgeProps {
     receiptTransactions?: ReceiptTransaction[]
+    hourDayHeatmapData?: Array<{ hour: number; dayOfWeek: number; total: number; count: number }>
     isLoading?: boolean
 }
 
@@ -41,6 +42,7 @@ const HOURS = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, "0")
 
 export function ChartShoppingHeatmapHoursDaysFridge({
     receiptTransactions = [],
+    hourDayHeatmapData,
     isLoading = false,
 }: ChartShoppingHeatmapHoursDaysFridgeProps) {
     const { resolvedTheme } = useTheme()
@@ -65,6 +67,36 @@ export function ChartShoppingHeatmapHoursDaysFridge({
 
     // Process data into heatmap format
     const { heatmapData, maxValue, totalSpent } = useMemo(() => {
+        // Use bundle data if available (pre-computed by server)
+        if (hourDayHeatmapData && hourDayHeatmapData.length > 0) {
+            const data: [number, number, number][] = []
+            let max = 0
+            let total = 0
+
+            // Initialize empty grid
+            const amountMatrix = new Map<string, number>()
+            hourDayHeatmapData.forEach(h => {
+                // Convert dayOfWeek from SQL (0=Sun) to display (0=Mon)
+                const day = h.dayOfWeek === 0 ? 6 : h.dayOfWeek - 1
+                const key = `${day}-${h.hour}`
+                amountMatrix.set(key, h.total)
+                total += h.total
+                if (h.total > max) max = h.total
+            })
+
+            // Build full grid
+            for (let day = 0; day < 7; day++) {
+                for (let hour = 0; hour < 24; hour++) {
+                    const key = `${day}-${hour}`
+                    const amount = amountMatrix.get(key) || 0
+                    data.push([day, hour, Number(amount.toFixed(2))])
+                }
+            }
+
+            return { heatmapData: data, maxValue: max, totalSpent: total }
+        }
+
+        // Fallback to raw transactions
         if (!receiptTransactions || receiptTransactions.length === 0) {
             return { heatmapData: [], maxValue: 0, totalSpent: 0 }
         }
@@ -124,7 +156,7 @@ export function ChartShoppingHeatmapHoursDaysFridge({
             maxValue: max,
             totalSpent: total
         }
-    }, [receiptTransactions])
+    }, [receiptTransactions, hourDayHeatmapData])
 
     const isDark = resolvedTheme === "dark"
     const textColor = isDark ? "#9ca3af" : "#6b7280"

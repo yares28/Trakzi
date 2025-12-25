@@ -41,6 +41,7 @@ type ReceiptTransactionRow = {
 
 interface ChartAllMonthsCategoryFridgeProps {
     receiptTransactions?: ReceiptTransactionRow[]
+    monthlyCategoriesData?: Array<{ month: number; category: string; total: number }>
     isLoading?: boolean
 }
 
@@ -51,7 +52,7 @@ function normalizeCategoryName(value: string | null | undefined) {
     return trimmed || "Other"
 }
 
-export function ChartAllMonthsCategoryFridge({ receiptTransactions = [], isLoading = false }: ChartAllMonthsCategoryFridgeProps) {
+export function ChartAllMonthsCategoryFridge({ receiptTransactions = [], monthlyCategoriesData, isLoading = false }: ChartAllMonthsCategoryFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { getPalette } = useColorScheme()
     const { formatCurrency, symbol } = useCurrency()
@@ -68,6 +69,17 @@ export function ChartAllMonthsCategoryFridge({ receiptTransactions = [], isLoadi
 
     // Process receipt transactions to group by month and category
     const processedData = useMemo(() => {
+        // Use bundle data if available
+        if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
+            return monthlyCategoriesData.map(d => ({
+                month: d.month - 1, // Convert from SQL 1-12 to JS 0-11
+                monthName: monthNamesShort[d.month - 1],
+                category: d.category,
+                amount: d.total
+            })).filter(d => d.amount > 0)
+        }
+
+        // Fallback to raw transactions
         if (!receiptTransactions || receiptTransactions.length === 0) return []
 
         const grouped = new Map<number, Map<string, number>>()
@@ -98,7 +110,7 @@ export function ChartAllMonthsCategoryFridge({ receiptTransactions = [], isLoadi
         })
 
         return flatData
-    }, [receiptTransactions])
+    }, [receiptTransactions, monthlyCategoriesData])
 
     // Get visible categories
     const categories = useMemo(() => {

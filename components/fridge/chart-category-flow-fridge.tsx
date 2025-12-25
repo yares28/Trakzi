@@ -43,6 +43,7 @@ type ReceiptTransactionRow = {
 
 interface ChartCategoryFlowFridgeProps {
     receiptTransactions?: ReceiptTransactionRow[]
+    monthlyCategoriesData?: Array<{ month: number; category: string; total: number }>
     isLoading?: boolean
     dateFilter?: DateFilterType | null
 }
@@ -52,7 +53,7 @@ function normalizeCategoryName(value: string | null | undefined) {
     return trimmed || "Other"
 }
 
-export function ChartCategoryFlowFridge({ receiptTransactions = [], isLoading = false, dateFilter }: ChartCategoryFlowFridgeProps) {
+export function ChartCategoryFlowFridge({ receiptTransactions = [], monthlyCategoriesData, isLoading = false, dateFilter }: ChartCategoryFlowFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { getPalette } = useColorScheme()
     const [mounted, setMounted] = useState(false)
@@ -111,6 +112,54 @@ export function ChartCategoryFlowFridge({ receiptTransactions = [], isLoading = 
 
     // Process receipt transactions to compute category rankings over time periods
     const data = useMemo(() => {
+        // Use bundle data if available (pre-computed monthly categories)
+        if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+            // Group by month
+            const periodTotals = new Map<number, Map<string, number>>()
+            monthlyCategoriesData.forEach(d => {
+                if (!periodTotals.has(d.month)) {
+                    periodTotals.set(d.month, new Map())
+                }
+                const catMap = periodTotals.get(d.month)!
+                catMap.set(d.category, (catMap.get(d.category) || 0) + d.total)
+            })
+
+            const sortedMonths = Array.from(periodTotals.keys()).sort((a, b) => a - b)
+            const allCategories = new Set<string>()
+            periodTotals.forEach(catMap => catMap.forEach((_, cat) => allCategories.add(cat)))
+
+            // Calculate rankings per month
+            const categoryRankings = new Map<string, { x: string; y: number }[]>()
+            allCategories.forEach(cat => categoryRankings.set(cat, []))
+
+            sortedMonths.forEach(month => {
+                const catMap = periodTotals.get(month)!
+                const totals: { category: string; total: number }[] = []
+                allCategories.forEach(cat => totals.push({ category: cat, total: catMap.get(cat) || 0 }))
+                totals.sort((a, b) => b.total - a.total)
+                totals.forEach((item, index) => {
+                    categoryRankings.get(item.category)!.push({ x: monthNames[month - 1], y: index + 1 })
+                })
+            })
+
+            // Get top 7 categories by total
+            const categoryTotals: { category: string; total: number }[] = []
+            allCategories.forEach(cat => {
+                let total = 0
+                periodTotals.forEach(catMap => total += catMap.get(cat) || 0)
+                categoryTotals.push({ category: cat, total })
+            })
+            categoryTotals.sort((a, b) => b.total - a.total)
+
+            return categoryTotals.slice(0, 7).map(item => ({
+                id: item.category,
+                data: categoryRankings.get(item.category) || []
+            }))
+        }
+
+        // Fallback to raw transactions
         if (!receiptTransactions || receiptTransactions.length === 0) return []
 
         // Group by time period and category
@@ -191,7 +240,7 @@ export function ChartCategoryFlowFridge({ receiptTransactions = [], isLoading = 
         })
 
         return result
-    }, [receiptTransactions, dateFilter])
+    }, [receiptTransactions, dateFilter, monthlyCategoriesData])
 
 
     const isDark = resolvedTheme === "dark"

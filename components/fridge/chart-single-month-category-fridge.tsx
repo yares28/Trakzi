@@ -48,6 +48,7 @@ type ReceiptTransactionRow = {
 
 interface ChartSingleMonthCategoryFridgeProps {
     receiptTransactions?: ReceiptTransactionRow[]
+    monthlyCategoriesData?: Array<{ category: string; month: number; total: number }>
     isLoading?: boolean
 }
 
@@ -67,7 +68,7 @@ function normalizeCategoryName(value: string | null | undefined) {
     return trimmed || "Other"
 }
 
-export function ChartSingleMonthCategoryFridge({ receiptTransactions = [], isLoading = false }: ChartSingleMonthCategoryFridgeProps) {
+export function ChartSingleMonthCategoryFridge({ receiptTransactions = [], monthlyCategoriesData, isLoading = false }: ChartSingleMonthCategoryFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { getPalette } = useColorScheme()
     const { formatCurrency, symbol } = useCurrency()
@@ -84,6 +85,17 @@ export function ChartSingleMonthCategoryFridge({ receiptTransactions = [], isLoa
 
     // Aggregate receipt transactions by category and month
     const { allData, availableMonths } = React.useMemo(() => {
+        // Use bundle data if available
+        if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
+            const monthsWithData = new Set<number>()
+            monthlyCategoriesData.forEach((item) => monthsWithData.add(item.month))
+            return {
+                allData: monthlyCategoriesData,
+                availableMonths: Array.from(monthsWithData).sort((a, b) => a - b)
+            }
+        }
+
+        // Fallback to raw transactions
         const monthTotals = new Map<number, Map<string, number>>()
         const monthsWithData = new Set<number>()
 
@@ -113,7 +125,7 @@ export function ChartSingleMonthCategoryFridge({ receiptTransactions = [], isLoa
         const availableMonths = Array.from(monthsWithData).sort((a, b) => a - b)
 
         return { allData, availableMonths }
-    }, [receiptTransactions])
+    }, [receiptTransactions, monthlyCategoriesData])
 
     // Set initial selected month
     React.useEffect(() => {

@@ -31,6 +31,7 @@ import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 
 interface ChartSingleMonthCategorySpendingProps {
   dateFilter?: string | null
+  monthlyCategoriesData?: Array<{ category: string; month: number; total: number }>
 }
 
 type MonthData = {
@@ -57,7 +58,7 @@ const MONTH_NAMES = [
 const buildMonthlyCategoryUrl = (params: URLSearchParams) =>
   `/api/analytics/monthly-category-duplicate?${params.toString()}`
 
-export function ChartSingleMonthCategorySpending({ dateFilter }: ChartSingleMonthCategorySpendingProps) {
+export function ChartSingleMonthCategorySpending({ dateFilter, monthlyCategoriesData }: ChartSingleMonthCategorySpendingProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()

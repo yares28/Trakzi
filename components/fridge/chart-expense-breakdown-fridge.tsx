@@ -27,6 +27,7 @@ interface ChartExpenseBreakdownFridgeProps {
     label: string
     value: number
   }>
+  categorySpendingData?: Array<{ category: string; total: number; color: string | null }>
   categoryControls?: ChartInfoPopoverCategoryControls
   isLoading?: boolean
 }
@@ -45,16 +46,28 @@ const getTextColor = (sliceColor: string, colorScheme?: string): string => {
   return darkColors.includes(sliceColor) ? "#ffffff" : "#000000"
 }
 
-export function ChartExpenseBreakdownFridge({ data: baseData = [], categoryControls, isLoading = false }: ChartExpenseBreakdownFridgeProps) {
+export function ChartExpenseBreakdownFridge({ data: baseData = [], categorySpendingData, categoryControls, isLoading = false }: ChartExpenseBreakdownFridgeProps) {
   const { resolvedTheme } = useTheme()
   const { colorScheme, getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const [mounted, setMounted] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const sanitizedBaseData = useMemo(() => baseData.map(item => ({
+  // Use bundle data if available
+  const chartBaseData = useMemo(() => {
+    if (categorySpendingData && categorySpendingData.length > 0) {
+      return categorySpendingData.map(d => ({
+        id: d.category,
+        label: d.category,
+        value: d.total
+      }))
+    }
+    return baseData
+  }, [baseData, categorySpendingData])
+
+  const sanitizedBaseData = useMemo(() => chartBaseData.map(item => ({
     ...item,
     value: toNumericValue(item.value)
-  })), [baseData])
+  })), [chartBaseData])
 
   useEffect(() => {
     setMounted(true)

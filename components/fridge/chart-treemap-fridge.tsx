@@ -48,6 +48,7 @@ type ReceiptTransactionRow = {
 
 interface ChartTreeMapFridgeProps {
   receiptTransactions?: ReceiptTransactionRow[]
+  categorySpendingData?: Array<{ category: string; total: number; color: string | null }>
   categoryControls?: ChartInfoPopoverCategoryControls
   isLoading?: boolean
 }
@@ -64,7 +65,7 @@ function getItemLabel(description?: string) {
   return trimmed.length > 24 ? `${trimmed.slice(0, 21)}…` : (trimmed || "Misc")
 }
 
-export function ChartTreeMapFridge({ receiptTransactions = [], categoryControls, isLoading = false }: ChartTreeMapFridgeProps) {
+export function ChartTreeMapFridge({ receiptTransactions = [], categorySpendingData, categoryControls, isLoading = false }: ChartTreeMapFridgeProps) {
   const { getPalette, colorScheme } = useColorScheme()
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"

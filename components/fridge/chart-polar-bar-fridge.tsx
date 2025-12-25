@@ -21,14 +21,16 @@ import { toNumericValue } from "@/lib/utils"
 
 interface ChartPolarBarFridgeProps {
   data?:
-    | Array<Record<string, string | number>>
-    | { data: Array<Record<string, string | number>>; keys: string[] }
+  | Array<Record<string, string | number>>
+  | { data: Array<Record<string, string | number>>; keys: string[] }
+  storeSpendingData?: Array<{ storeName: string; total: number; count: number }>
   keys?: string[]
   isLoading?: boolean
 }
 
 export function ChartPolarBarFridge({
   data: dataProp = [],
+  storeSpendingData,
   keys: keysProp,
   isLoading = false,
 }: ChartPolarBarFridgeProps) {

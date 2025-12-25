@@ -30,6 +30,7 @@ interface ReceiptTransaction {
 
 interface ChartPurchaseSizeComparisonFridgeProps {
     receiptTransactions?: ReceiptTransaction[]
+    storeSpendingData?: Array<{ storeName: string; total: number; count: number }>
     isLoading?: boolean
 }
 
@@ -55,6 +56,7 @@ const SIZE_RANGES = [
 
 export function ChartPurchaseSizeComparisonFridge({
     receiptTransactions = [],
+    storeSpendingData,
     isLoading = false,
 }: ChartPurchaseSizeComparisonFridgeProps) {
     const { resolvedTheme } = useTheme()
