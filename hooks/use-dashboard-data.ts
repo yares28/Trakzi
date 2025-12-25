@@ -146,6 +146,44 @@ export interface FridgeBundleData {
         total: number
         color: string | null
     }>
+    dayOfWeekSpending: Array<{
+        dayOfWeek: number
+        total: number
+        count: number
+    }>
+    monthlyCategories: Array<{
+        month: number
+        category: string
+        total: number
+    }>
+    hourlyActivity: Array<{
+        hour: number
+        total: number
+        count: number
+    }>
+    dayOfWeekCategory: Array<{
+        dayOfWeek: number
+        category: string
+        total: number
+    }>
+    hourDayHeatmap: Array<{
+        hour: number
+        dayOfWeek: number
+        total: number
+        count: number
+    }>
+    dayMonthHeatmap: Array<{
+        dayOfWeek: number
+        month: number
+        total: number
+        count: number
+    }>
+    categoryRankings: Array<{
+        category: string
+        rank: number
+        total: number
+        previousRank?: number
+    }>
 }
 
 // Legacy types for backward compatibility
