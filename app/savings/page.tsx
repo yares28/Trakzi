@@ -80,8 +80,9 @@ export default function Page() {
   // Fetch transactions for charts - filter for savings category only
   const fetchTransactions = useCallback(async () => {
     try {
-      // Build URL with both date filter and category filter for savings
+      // Build URL with both date filter, category filter, and all=true for full data
       const params = new URLSearchParams()
+      params.append("all", "true") // Fetch all transactions for charts
       if (dateFilter) {
         params.append("filter", dateFilter)
       }
@@ -93,9 +94,11 @@ export default function Page() {
       const data = await response.json()
 
       if (response.ok) {
-        if (Array.isArray(data)) {
-          console.log(`[Savings] Setting ${data.length} savings transactions`)
-          setTransactions(normalizeTransactions(data) as Array<{
+        // Handle paginated response {data: [], pagination: {}} or direct array
+        const txArray = Array.isArray(data) ? data : (data?.data ?? [])
+        if (Array.isArray(txArray)) {
+          console.log(`[Savings] Setting ${txArray.length} savings transactions`)
+          setTransactions(normalizeTransactions(txArray) as Array<{
             id: number
             date: string
             description: string
