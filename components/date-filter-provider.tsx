@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react"
+import { createContext, useContext, useState, ReactNode } from "react"
 import { type DateFilterType } from "@/components/date-filter"
 
 interface DateFilterContextType {
@@ -21,22 +21,20 @@ export function useDateFilter() {
 }
 
 export function DateFilterProvider({ children }: { children: ReactNode }) {
-    const [filter, setFilterState] = useState<DateFilterType | null>(null)
-
-    // Load filter from localStorage on mount
-    useEffect(() => {
-        if (typeof window === "undefined") return
-
+    // Initialize from localStorage synchronously (lazy initializer)
+    // This prevents double fetch when filter loads after initial mount
+    const [filter, setFilterState] = useState<DateFilterType | null>(() => {
+        if (typeof window === "undefined") return null
         try {
             const stored = localStorage.getItem(DATE_FILTER_STORAGE_KEY)
             if (stored) {
-                // Handle "null" string or actual value
-                setFilterState(stored === "null" ? null : stored)
+                return stored === "null" ? null : stored
             }
         } catch (error) {
             console.error("Failed to load date filter from localStorage:", error)
         }
-    }, [])
+        return null
+    })
 
     const setFilter = (newFilter: DateFilterType | null) => {
         setFilterState(newFilter)
