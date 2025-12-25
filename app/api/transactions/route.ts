@@ -273,6 +273,8 @@ export const GET = async (request: Request) => {
             };
         });
 
+        console.log(`[Transactions API] Returning ${transactionsWithCategory.length} transactions (total: ${totalCount}, limit: ${limit}, fetchAll: ${fetchAll})`);
+
         // Add caching headers for better performance
         // Cache for 30 seconds, revalidate in background
         // Include pagination info in response for clients that need it
