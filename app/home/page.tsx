@@ -1451,12 +1451,12 @@ export default function Page() {
     return { count, timeSpan, trend }
   }, [transactions])
 
-  // Fetch transactions for charts (use all=true to get all for charts)
+  // Fetch transactions for charts
   const fetchTransactions = useCallback(async (bypassCache = false) => {
     try {
       const url = dateFilter
-        ? `/api/transactions?all=true&filter=${encodeURIComponent(dateFilter)}`
-        : "/api/transactions?all=true"
+        ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}`
+        : "/api/transactions"
       console.log("[Home] Fetching transactions from:", url)
       const response = await fetch(url, {
         cache: bypassCache ? 'no-store' : 'default',
@@ -1469,18 +1469,26 @@ export default function Page() {
       console.log("[Home] Data length:", Array.isArray(data) ? data.length : "N/A")
 
       if (response.ok) {
-        // API always returns {data: [], pagination: {}} format
-        const txArray = data?.data ?? []
-        console.log(`[Home] Setting ${txArray.length} transactions`)
-        console.log("[Home] First transaction:", txArray[0])
-        setTransactions(normalizeTransactions(txArray) as Array<{
-          id: number
-          date: string
-          description: string
-          amount: number
-          balance: number | null
-          category: string
-        }>)
+        if (Array.isArray(data)) {
+          console.log(`[Home] Setting ${data.length} transactions`)
+          console.log("[Home] First transaction:", data[0])
+          setTransactions(normalizeTransactions(data) as Array<{
+            id: number
+            date: string
+            description: string
+            amount: number
+            balance: number | null
+            category: string
+          }>)
+        } else {
+          console.error("[Home] Response is not an array:", data)
+          if (data.error) {
+            toast.error("API Error", {
+              description: data.error,
+              duration: 10000,
+            })
+          }
+        }
       } else {
         console.error("Failed to fetch transactions: HTTP", response.status, data)
         // Don't set empty array on error - keep previous data
