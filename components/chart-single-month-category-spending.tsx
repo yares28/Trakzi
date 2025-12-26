@@ -32,6 +32,7 @@ import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 interface ChartSingleMonthCategorySpendingProps {
   dateFilter?: string | null
   monthlyCategoriesData?: Array<{ category: string; month: number; total: number }>
+  bundleLoading?: boolean
 }
 
 type MonthData = {
@@ -58,7 +59,7 @@ const MONTH_NAMES = [
 const buildMonthlyCategoryUrl = (params: URLSearchParams) =>
   `/api/analytics/monthly-category-duplicate?${params.toString()}`
 
-export function ChartSingleMonthCategorySpending({ dateFilter, monthlyCategoriesData }: ChartSingleMonthCategorySpendingProps) {
+export function ChartSingleMonthCategorySpending({ dateFilter, monthlyCategoriesData, bundleLoading }: ChartSingleMonthCategorySpendingProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -131,7 +132,13 @@ export function ChartSingleMonthCategorySpending({ dateFilter, monthlyCategories
 
   // Fetch available months first (without selected month) when dateFilter changes
   React.useEffect(() => {
-    // Skip API call if monthlyCategoriesData is provided
+    // Wait for bundle to finish loading before deciding
+    if (bundleLoading) {
+      setLoading(true)
+      return
+    }
+
+    // Use monthlyCategoriesData if provided
     if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
       const months = [...new Set(monthlyCategoriesData.map(d => d.month))].sort((a, b) => a - b)
       setAvailableMonths(months)
@@ -204,10 +211,15 @@ export function ChartSingleMonthCategorySpending({ dateFilter, monthlyCategories
       fetchAvailableMonths()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFilter, mounted, availableUrl, refreshNonce, monthlyCategoriesData])
+  }, [dateFilter, mounted, availableUrl, refreshNonce, monthlyCategoriesData, bundleLoading])
 
   // Fetch data when selectedMonth changes
   React.useEffect(() => {
+    // Wait for bundle to finish loading
+    if (bundleLoading) {
+      return
+    }
+
     // Use bundleData if available
     if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
       if (selectedMonth === null) {
@@ -286,7 +298,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter, monthlyCategories
     if (mounted && selectedMonth !== null) {
       fetchData()
     }
-  }, [selectedMonth, dateFilter, mounted, availableMonths, buildMonthParams, refreshNonce, monthlyCategoriesData])
+  }, [selectedMonth, dateFilter, mounted, availableMonths, buildMonthParams, refreshNonce, monthlyCategoriesData, bundleLoading])
 
   const palette = React.useMemo(() => {
     const base = getPalette().filter((color) => color !== "#c3c3c3")

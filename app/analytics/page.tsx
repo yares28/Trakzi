@@ -3721,6 +3721,7 @@ export default function AnalyticsPage() {
                             <ChartDayOfWeekCategory
                               dateFilter={dateFilter}
                               bundleData={bundleData?.dayOfWeekCategory}
+                              bundleLoading={bundleLoading}
                             />
                           </div>
                         </SortableGridItem>
