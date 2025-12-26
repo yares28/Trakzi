@@ -641,24 +641,39 @@ export function ChartRadar({ categoryControls }: ChartRadarProps) {
             sliceTooltip={({ index, data }: RadarSliceTooltipProps) => {
               if (!data || data.length === 0) return null
 
-              const primary = data[0]
-              const label = String(primary.id ?? index ?? "")
-              const value = primary.value ?? 0
-              const color = primary.color
+              // Show all data points at this position (all overlapping years)
+              const categoryName = typeof index === 'number' && filteredData[index]
+                ? String(filteredData[index].capability || '')
+                : 'Category'
 
               return (
                 <div className="pointer-events-none rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full border border-border/50"
-                      style={{ backgroundColor: color, borderColor: color }}
-                    />
-                    <span className="font-medium text-foreground whitespace-nowrap">
-                      {label}
-                    </span>
+                  <div className="font-medium text-foreground mb-2">
+                    {categoryName}
                   </div>
-                  <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                    {formatCurrency(value)}
+                  <div className="space-y-1.5">
+                    {data.map((item, i) => {
+                      const label = String(item.id ?? index ?? "")
+                      const value = item.value ?? 0
+                      const color = item.color
+
+                      return (
+                        <div key={i} className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="h-2.5 w-2.5 rounded-full border border-border/50 flex-shrink-0"
+                              style={{ backgroundColor: color, borderColor: color }}
+                            />
+                            <span className="font-medium text-foreground whitespace-nowrap">
+                              {label}
+                            </span>
+                          </div>
+                          <div className="font-mono text-[0.7rem] text-foreground/80">
+                            {formatCurrency(value)}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               )
