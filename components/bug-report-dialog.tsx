@@ -77,7 +77,7 @@ export function BugReportDialog() {
 
         // Construct mailto link
         const subject = `[${data.type === "bug" ? "Bug Report" : "Feature Request"}] ${data.title}`
-        const body = `${data.description}\n\n--\nSubmitted via Folio App`
+        const body = `${data.description}\n\n--\nSubmitted via Trakzi`
         const mailtoLink = `mailto:help@trakzi.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 
         // Open mailto
