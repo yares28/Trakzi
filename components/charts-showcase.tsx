@@ -675,7 +675,7 @@ export function ChartsShowcase() {
             data into visual insights
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
-            Fullet brings flexibility to your analysis. From detailed transaction tables to dynamic charts, visualize
+            Trakzi brings flexibility to your analysis. From detailed transaction tables to dynamic charts, visualize
             your spending exactly the way you need.
           </p>
         </motion.div>
