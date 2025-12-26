@@ -74,8 +74,17 @@ export async function setCache<T>(
     if (!redis) return
 
     try {
+        // Check for undefined/null value
+        if (value === undefined || value === null) {
+            console.warn(`[Cache] SET skipped (value is ${value}): ${key}`)
+            return
+        }
+
+        // Log data size being cached
+        const jsonSize = JSON.stringify(value).length
+        console.log(`[Cache] SET: ${key} (TTL: ${ttlSeconds}s, size: ${jsonSize} bytes)`)
+
         await redis.setex(key, ttlSeconds, value)
-        console.log(`[Cache] SET: ${key} (TTL: ${ttlSeconds}s)`)
     } catch (error) {
         console.error('[Cache] Set error:', error)
     }
