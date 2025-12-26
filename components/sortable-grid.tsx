@@ -325,32 +325,12 @@ export function SortableGridItem({
     }, [isResizing, id, w, h, minH, maxH, minW, maxW, onResize, resizeHeight, resizeWidth])
 
     // Apply full transform (both X and Y) during drag
-    // Size preservation is handled by locking width class and flexShrink
     const adjustedTransform = transform ? {
         x: transform.x,
         y: transform.y,
         scaleX: 1, // Prevent scaling
         scaleY: 1, // Prevent scaling
     } : null
-
-    // Smooth transform during drag, with resize/reposition animation
-    const style: React.CSSProperties = {
-        transform: adjustedTransform ? CSS.Transform.toString(adjustedTransform) : undefined,
-        // Always include grid transitions for smooth repositioning when other cards resize
-        transition: isDragging
-            ? transition
-            : isResizing
-                ? 'grid-row 300ms ease-out, grid-column 300ms ease-out'
-                : `${transition || ''}, grid-row 300ms ease-out, grid-column 300ms ease-out`.replace(/^, /, ''),
-        opacity: isDragging ? 0.5 : 1,
-        zIndex: isDragging ? 1000 : isResizing ? 999 : undefined,
-        // Height based on grid units - use row span for grid
-        gridRow: `span ${currentH}`,
-        // Width using CSS Grid column span
-        gridColumn: `span ${currentW}`,
-    }
-
-    // No extra width class needed - CSS Grid handles it
 
     // Provide drag handle context to children
     const handleContext: DragHandleContextValue = {
@@ -370,27 +350,30 @@ export function SortableGridItem({
                     }
                 }}
                 style={{
-                    ...style,
-                    // Enhanced animations - smooth transitions for all position changes
+                    // Grid positioning
+                    gridRow: `span ${currentH}`,
+                    gridColumn: `span ${currentW}`,
+                    // Transform for dragging (no scale during drag to avoid weirdness)
+                    transform: adjustedTransform ? CSS.Transform.toString(adjustedTransform) : undefined,
+                    // NO transition during drag for immediate feedback
+                    // Smooth transitions only when not dragging
                     transition: isDragging
-                        ? 'transform 200ms cubic-bezier(0.2, 0, 0, 1), opacity 200ms ease'
+                        ? 'none'
                         : `
                             grid-row 400ms cubic-bezier(0.4, 0, 0.2, 1),
                             grid-column 400ms cubic-bezier(0.4, 0, 0.2, 1),
-                            transform 300ms cubic-bezier(0.4, 0, 0.2, 1),
                             box-shadow 200ms ease,
                             opacity 200ms ease
                         `.replace(/\s+/g, ' ').trim(),
+                    // Visual feedback
+                    opacity: isDragging ? 0.8 : 1,
+                    zIndex: isDragging ? 1000 : isResizing ? 999 : undefined,
                     // Shadow effect based on state
                     boxShadow: isDragging
                         ? '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 2px rgba(var(--primary), 0.3)'
                         : isResizing
                             ? '0 10px 25px -5px rgba(0, 0, 0, 0.15)'
                             : undefined,
-                    // Slight scale when dragging
-                    transform: isDragging
-                        ? `${style.transform || ''} scale(1.02)`.trim()
-                        : style.transform,
                 }}
                 className={`${className} relative group`}
                 data-chart-id={id}
