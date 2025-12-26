@@ -50,7 +50,7 @@ const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satu
 const buildDayOfWeekUrl = (params: URLSearchParams) =>
   `/api/analytics/day-of-week-category?${params.toString()}`
 
-export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryProps) {
+export function ChartDayOfWeekCategory({ dateFilter, bundleData }: ChartDayOfWeekCategoryProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette, colorScheme } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -108,6 +108,24 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
 
   // Fetch available days first (without selected day) when dateFilter changes
   React.useEffect(() => {
+    // Skip API call if bundleData is provided
+    if (bundleData && bundleData.length > 0) {
+      const days = [...new Set(bundleData.map(d => d.dayOfWeek))].sort((a, b) => a - b)
+      setAvailableDays(days)
+      if (days.length > 0) {
+        setSelectedDay((prev) => {
+          if (prev === null || !days.includes(prev)) {
+            return days[0]
+          }
+          return prev
+        })
+      } else {
+        setSelectedDay(null)
+      }
+      setLoading(false)
+      return
+    }
+
     const fetchAvailableDays = async () => {
       try {
         const cached = getCachedResponse<{ data: Array<{ category: string; dayOfWeek: number; total: number }>; availableDays: number[] }>(
@@ -163,10 +181,22 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
       fetchAvailableDays()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFilter, mounted, availableUrl])
+  }, [dateFilter, mounted, availableUrl, bundleData])
 
   // Fetch data when selectedDay changes
   React.useEffect(() => {
+    // Use bundleData if available
+    if (bundleData && bundleData.length > 0) {
+      if (selectedDay === null) {
+        setData([])
+      } else {
+        const filtered = bundleData.filter(d => d.dayOfWeek === selectedDay)
+        setData(filtered)
+      }
+      setLoading(false)
+      return
+    }
+
     const fetchData = async () => {
       if (selectedDay === null) {
         setData([])
@@ -234,7 +264,7 @@ export function ChartDayOfWeekCategory({ dateFilter }: ChartDayOfWeekCategoryPro
     if (mounted && selectedDay !== null) {
       fetchData()
     }
-  }, [selectedDay, dateFilter, mounted, availableDays, buildDayParams])
+  }, [selectedDay, dateFilter, mounted, availableDays, buildDayParams, bundleData])
 
   const palette = React.useMemo(() => {
     let base = getPalette().filter((color) => color !== "#c3c3c3")

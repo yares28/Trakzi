@@ -118,6 +118,23 @@ export function ChartAllMonthsCategorySpending({ data = [], monthlyCategoriesDat
 
   // Fetch actual month totals from database (unfiltered) for accurate tooltip display
   useEffect(() => {
+    // Skip API call if monthlyCategoriesData is provided
+    if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
+      // Build totals from bundle data
+      const totals = new Map<number, number>()
+      monthNames.forEach((_, monthIndex) => {
+        totals.set(monthIndex, 0)
+      })
+      monthlyCategoriesData.forEach(item => {
+        const monthIndex = item.month - 1 // Convert 1-indexed month to 0-indexed
+        if (monthIndex >= 0 && monthIndex < 12) {
+          totals.set(monthIndex, (totals.get(monthIndex) || 0) + (item.total || 0))
+        }
+      })
+      setActualMonthTotals(totals)
+      return
+    }
+
     const fetchActualTotals = async () => {
       try {
         const cacheKey = `/api/analytics/monthly-category-duplicate?months=${ALL_MONTHS_QUERY}`
@@ -146,7 +163,7 @@ export function ChartAllMonthsCategorySpending({ data = [], monthlyCategoriesDat
     }
 
     fetchActualTotals()
-  }, []) // Only fetch once on mount
+  }, [monthlyCategoriesData]) // Re-run when bundleData changes
 
   // Process data to group by month of year and category
   const processedData = useMemo(() => {

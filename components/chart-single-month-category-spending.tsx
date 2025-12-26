@@ -131,6 +131,24 @@ export function ChartSingleMonthCategorySpending({ dateFilter, monthlyCategories
 
   // Fetch available months first (without selected month) when dateFilter changes
   React.useEffect(() => {
+    // Skip API call if monthlyCategoriesData is provided
+    if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
+      const months = [...new Set(monthlyCategoriesData.map(d => d.month))].sort((a, b) => a - b)
+      setAvailableMonths(months)
+      if (months.length > 0) {
+        setSelectedMonth((prev) => {
+          if (prev === null || !months.includes(prev)) {
+            return months[0]
+          }
+          return prev
+        })
+      } else {
+        setSelectedMonth(null)
+      }
+      setLoading(false)
+      return
+    }
+
     const fetchAvailableMonths = async () => {
       try {
         const cached = getCachedResponse<{ data: Array<{ category: string; month: number; total: number }>; availableMonths: number[] }>(
@@ -186,10 +204,22 @@ export function ChartSingleMonthCategorySpending({ dateFilter, monthlyCategories
       fetchAvailableMonths()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFilter, mounted, availableUrl, refreshNonce])
+  }, [dateFilter, mounted, availableUrl, refreshNonce, monthlyCategoriesData])
 
   // Fetch data when selectedMonth changes
   React.useEffect(() => {
+    // Use bundleData if available
+    if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
+      if (selectedMonth === null) {
+        setData([])
+      } else {
+        const filtered = monthlyCategoriesData.filter(d => d.month === selectedMonth)
+        setData(filtered)
+      }
+      setLoading(false)
+      return
+    }
+
     const fetchData = async () => {
       if (selectedMonth === null) {
         setData([])
@@ -256,7 +286,7 @@ export function ChartSingleMonthCategorySpending({ dateFilter, monthlyCategories
     if (mounted && selectedMonth !== null) {
       fetchData()
     }
-  }, [selectedMonth, dateFilter, mounted, availableMonths, buildMonthParams, refreshNonce])
+  }, [selectedMonth, dateFilter, mounted, availableMonths, buildMonthParams, refreshNonce, monthlyCategoriesData])
 
   const palette = React.useMemo(() => {
     const base = getPalette().filter((color) => color !== "#c3c3c3")
