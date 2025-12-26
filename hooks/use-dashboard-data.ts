@@ -59,8 +59,8 @@ export interface AnalyticsBundleData {
         nodes: Array<{ id: string; label: string }>
         links: Array<{ source: string; target: string; value: number }>
     }
-    dailyByCategory: Array<{
-        date: string
+    monthlyByCategory: Array<{
+        month: string
         category: string
         total: number
     }>

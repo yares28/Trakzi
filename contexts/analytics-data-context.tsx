@@ -15,7 +15,7 @@ export type {
     TransactionHistoryItem,
     NeedsWantsItem,
     CashFlowData,
-    DailyByCategory,
+    MonthlyByCategory,
     AnalyticsSummary,
 } from "@/lib/charts/aggregations"
 

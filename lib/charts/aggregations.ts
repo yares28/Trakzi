@@ -65,8 +65,8 @@ export interface CashFlowData {
     links: CashFlowLink[]
 }
 
-export interface DailyByCategory {
-    date: string
+export interface MonthlyByCategory {
+    month: string
     category: string
     total: number
 }
@@ -88,7 +88,7 @@ export interface AnalyticsSummary {
     // transactionHistory removed - fetched separately via /api/transactions
     needsWants: NeedsWantsItem[]
     cashFlow: CashFlowData
-    dailyByCategory: DailyByCategory[]
+    monthlyByCategory: MonthlyByCategory[]
 }
 
 // Category classification for needs/wants
@@ -545,16 +545,17 @@ export async function getCashFlowData(
 }
 
 /**
- * Get daily spending by category for streamgraph
+ * Get monthly spending by category for streamgraph
+ * Aggregated at SQL level to reduce cache size (30x reduction vs daily)
  */
-export async function getDailyByCategory(
+export async function getMonthlyByCategory(
     userId: string,
     startDate?: string,
     endDate?: string
-): Promise<DailyByCategory[]> {
+): Promise<MonthlyByCategory[]> {
     let query = `
         SELECT 
-            to_char(t.tx_date, 'YYYY-MM-DD') AS date,
+            to_char(t.tx_date, 'YYYY-MM') AS month,
             COALESCE(c.name, 'Uncategorized') AS category,
             ABS(SUM(t.amount)) AS total
         FROM transactions t
@@ -572,16 +573,16 @@ export async function getDailyByCategory(
         query += ` AND t.tx_date <= $${params.length}::date`
     }
 
-    query += ` GROUP BY t.tx_date, c.name ORDER BY t.tx_date`
+    query += ` GROUP BY to_char(t.tx_date, 'YYYY-MM'), c.name ORDER BY month`
 
     const rows = await neonQuery<{
-        date: string
+        month: string
         category: string
         total: string
     }>(query, params)
 
     return rows.map(row => ({
-        date: row.date,
+        month: row.month,
         category: row.category,
         total: parseFloat(row.total) || 0,
     }))
@@ -654,7 +655,7 @@ export async function getAnalyticsBundle(
         dayOfWeekCategory,
         needsWants,
         cashFlow,
-        dailyByCategory,
+        monthlyByCategory,
     ] = await Promise.all([
         getKPIs(userId, startDate ?? undefined, endDate ?? undefined),
         getCategorySpending(userId, startDate ?? undefined, endDate ?? undefined),
@@ -664,7 +665,7 @@ export async function getAnalyticsBundle(
         getDayOfWeekCategory(userId, startDate ?? undefined, endDate ?? undefined),
         getNeedsWantsBreakdown(userId, startDate ?? undefined, endDate ?? undefined),
         getCashFlowData(userId, startDate ?? undefined, endDate ?? undefined),
-        getDailyByCategory(userId, startDate ?? undefined, endDate ?? undefined),
+        getMonthlyByCategory(userId, startDate ?? undefined, endDate ?? undefined),
     ])
 
     return {
@@ -676,7 +677,7 @@ export async function getAnalyticsBundle(
         dayOfWeekCategory,
         needsWants,
         cashFlow,
-        dailyByCategory,
+        monthlyByCategory,
     }
 }
 

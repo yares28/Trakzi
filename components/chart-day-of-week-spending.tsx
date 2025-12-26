@@ -215,26 +215,6 @@ export function ChartDayOfWeekSpending({ data = [], dayOfWeekCategoryData, categ
 
     const svg = svgRef.current
 
-    // #region agent log
-    fetch("http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sessionId: "debug-session",
-        runId: "pre-fix",
-        hypothesisId: "H4",
-        location: "chart-day-of-week-spending.tsx:renderChart:entry",
-        message: "renderChart entry",
-        data: {
-          processedDataLength: processedData.length,
-          categoriesLength: categories.length,
-          animateParamReceived: undefined,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => { });
-    // #endregion
-
     const renderChart = (animate: boolean = false) => {
       // Clear previous content
       svg.innerHTML = ""
@@ -646,43 +626,7 @@ export function ChartDayOfWeekSpending({ data = [], dayOfWeekCategoryData, categ
     let resizeObserver: ResizeObserver | null = null
 
     if (container && typeof ResizeObserver !== "undefined") {
-      // #region agent log
-      fetch("http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: "debug-session",
-          runId: "pre-fix",
-          hypothesisId: "H5",
-          location: "chart-day-of-week-spending.tsx:resizeObserver:setup",
-          message: "ResizeObserver set up",
-          data: {
-            containerWidth: container.clientWidth,
-            containerHeight: container.clientHeight,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => { });
-      // #endregion
-
       resizeObserver = new ResizeObserver(() => {
-        // #region agent log
-        fetch("http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: "debug-session",
-            runId: "pre-fix",
-            hypothesisId: "H4",
-            location: "chart-day-of-week-spending.tsx:resizeObserver:render",
-            message: "ResizeObserver triggering renderChart",
-            data: {
-              animateParamPassed: false,
-            },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => { });
-        // #endregion
         renderChart(false)
       })
       resizeObserver.observe(container)
