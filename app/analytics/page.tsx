@@ -3171,6 +3171,7 @@ export default function AnalyticsPage() {
                                 normalizeCategoryName,
                               ])}
                               isLoading={isLoadingTransactions}
+                              bundleLoading={bundleLoading}
                             />
                           </div>
                         </SortableGridItem>
@@ -3708,6 +3709,7 @@ export default function AnalyticsPage() {
                             <ChartSingleMonthCategorySpending
                               dateFilter={dateFilter}
                               monthlyCategoriesData={bundleData?.monthlyCategories}
+                              bundleLoading={bundleLoading}
                             />
                           </div>
                         </SortableGridItem>
