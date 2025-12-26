@@ -161,20 +161,18 @@ export function SortableGridProvider({
         setActiveId(null)
     }, [])
 
-    // Listen for randomize layout event from settings
+    // Listen for randomize event from settings popover
     React.useEffect(() => {
         const handleRandomize = () => {
-            // Fisher-Yates shuffle algorithm
-            const shuffled = [...chartOrder]
-            for (let i = shuffled.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-            }
+            // Shuffle the chartOrder array
+            const shuffled = [...chartOrder].sort(() => Math.random() - 0.5)
             onOrderChange(shuffled)
         }
 
-        window.addEventListener('layout:randomize', handleRandomize)
-        return () => window.removeEventListener('layout:randomize', handleRandomize)
+        window.addEventListener('gridstack:randomize', handleRandomize)
+        return () => {
+            window.removeEventListener('gridstack:randomize', handleRandomize)
+        }
     }, [chartOrder, onOrderChange])
 
     return (

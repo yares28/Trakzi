@@ -75,28 +75,11 @@ function SidebarProvider({
     // Check for cookie on mount to set initial state
     if (typeof document !== "undefined") {
       const match = document.cookie.match(new RegExp(`(^| )${SIDEBAR_COOKIE_NAME}=([^;]+)`))
-      if (match) {
-        const cookieValue = match[2]
-        return cookieValue === "true"
-      }
+      if (match) return match[2] === "true"
     }
-    // Default to defaultOpen if provided, otherwise true
+    // Default to true only if no cookie exists
     return defaultOpen !== undefined ? defaultOpen : true
   })
-
-  // Sync with cookie on mount to handle SSR/hydration
-  React.useEffect(() => {
-    if (typeof document !== "undefined" && !openProp) {
-      const match = document.cookie.match(new RegExp(`(^| )${SIDEBAR_COOKIE_NAME}=([^;]+)`))
-      if (match) {
-        const cookieValue = match[2]
-        const shouldOpen = cookieValue === "true"
-        if (shouldOpen !== _open) {
-          _setOpen(shouldOpen)
-        }
-      }
-    }
-  }, []) // Run once on mount
   const open = openProp ?? _open
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
