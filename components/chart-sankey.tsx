@@ -179,13 +179,13 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls,
       }}
       colors={chartColors}
       nodeOpacity={1}
-      nodeHoverOthersOpacity={0.6}
+      nodeHoverOthersOpacity={0.7}
       nodeThickness={18}
       nodeSpacing={32}
       nodeBorderWidth={0}
       nodeBorderRadius={3}
-      linkOpacity={0.6}
-      linkHoverOthersOpacity={0.35}
+      linkOpacity={0.75}
+      linkHoverOthersOpacity={0.4}
       linkContract={3}
       labelPosition="outside"
       labelOrientation="horizontal"
