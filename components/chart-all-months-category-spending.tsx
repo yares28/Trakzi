@@ -31,6 +31,7 @@ interface ChartAllMonthsCategorySpendingProps {
   monthlyCategoriesData?: Array<{ month: number; category: string; total: number }>
   categoryControls?: ChartInfoPopoverCategoryControls
   isLoading?: boolean
+  bundleLoading?: boolean
 }
 
 const monthNames = [
@@ -78,7 +79,7 @@ const buildMonthTotals = (
   return totals
 }
 
-export function ChartAllMonthsCategorySpending({ data = [], monthlyCategoriesData, categoryControls: propCategoryControls, isLoading = false }: ChartAllMonthsCategorySpendingProps) {
+export function ChartAllMonthsCategorySpending({ data = [], monthlyCategoriesData, categoryControls: propCategoryControls, isLoading = false, bundleLoading }: ChartAllMonthsCategorySpendingProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -118,7 +119,12 @@ export function ChartAllMonthsCategorySpending({ data = [], monthlyCategoriesDat
 
   // Fetch actual month totals from database (unfiltered) for accurate tooltip display
   useEffect(() => {
-    // Skip API call if monthlyCategoriesData is provided
+    // Wait for bundle to finish loading before deciding
+    if (bundleLoading) {
+      return
+    }
+
+    // Use monthlyCategoriesData if provided
     if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
       // Build totals from bundle data
       const totals = new Map<number, number>()
@@ -163,7 +169,7 @@ export function ChartAllMonthsCategorySpending({ data = [], monthlyCategoriesDat
     }
 
     fetchActualTotals()
-  }, [monthlyCategoriesData]) // Re-run when bundleData changes
+  }, [monthlyCategoriesData, bundleLoading]) // Re-run when bundleData or loading changes
 
   // Process data to group by month of year and category
   const processedData = useMemo(() => {
