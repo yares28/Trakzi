@@ -194,6 +194,21 @@ button[data-active="true"] .icon-chat,
     cursor: url('/cursors/hand-orange.svg') 6 0, pointer;
   }
 
+  /* All children of interactive elements inherit the cursor */
+  a *,
+  button *,
+  [role="button"] *,
+  [type="button"] *,
+  [type="submit"] *,
+  [type="reset"] *,
+  select *,
+  summary *,
+  [tabindex]:not([tabindex="-1"]) *,
+  label[for] *,
+  .cursor-pointer * {
+    cursor: inherit;
+  }
+
   /* Drag handles use grab cursor with higher specificity */
   .gridstack-drag-handle,
   button.gridstack-drag-handle,
@@ -207,6 +222,14 @@ button[data-active="true"] .icon-chat,
   [role="button"].gridstack-drag-handle:active,
   span.gridstack-drag-handle:active {
     cursor: url('/cursors/grab.svg') 6 0, grabbing !important;
+  }
+
+  /* All children of drag handles inherit the grab cursor */
+  .gridstack-drag-handle *,
+  button.gridstack-drag-handle *,
+  [role="button"].gridstack-drag-handle *,
+  span.gridstack-drag-handle * {
+    cursor: inherit !important;
   }
 }
 
