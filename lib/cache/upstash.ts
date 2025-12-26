@@ -55,6 +55,8 @@ export async function getCached<T>(key: string): Promise<T | null> {
         const data = await redis.get<T>(key)
         if (data !== null) {
             console.log(`[Cache] HIT: ${key}`)
+        } else {
+            console.log(`[Cache] MISS (key not found): ${key}`)
         }
         return data
     } catch (error) {
