@@ -22,11 +22,6 @@ const CATEGORY_COLORS = [
 export const GET = async (req: NextRequest) => {
   try {
     const userId = await getCurrentUserId()
-    const { searchParams } = new URL(req.url)
-    // Get filter from query params: null means "all time", string values are specific filters
-    // searchParams.get() returns null if param doesn't exist, or the string value if it does
-    const filterParam = searchParams.get("filter")
-    const filter = filterParam === null ? null : (filterParam === "" ? null : filterParam)
 
     // Note: filter column removed from query until database schema is updated
     // For now, return all budgets regardless of filter
@@ -80,16 +75,6 @@ export const POST = async (req: NextRequest) => {
         : typeof body.budget === "number"
           ? body.budget
           : NaN
-    // Handle filter: null means "all time", string values are specific filters
-    // body.filter can be: null (All Time), a string (specific filter), undefined (default to null), or "" (treat as null)
-    let filter: string | null = null
-    if (body.filter === null) {
-      filter = null // Explicitly null for "all time"
-    } else if (body.filter !== undefined && body.filter !== "" && body.filter !== null) {
-      filter = String(body.filter) // Convert to string for specific filters like "last7days", "2024", etc.
-    } else {
-      filter = null // Default to null for "all time" if undefined or empty string
-    }
 
     if (!categoryName || !Number.isFinite(budgetValue) || budgetValue < 0) {
       return NextResponse.json(
@@ -148,49 +133,30 @@ export const POST = async (req: NextRequest) => {
       categoryId = categoryResult[0].id
     }
 
-    // Upsert the budget with filter
-    // Since we're using partial unique indexes, we need to manually check and update
-    const scope = "analytics" // Default scope for these budgets
+    // Upsert the budget (no filter column - not in database schema)
+    const scope = "analytics"
 
     // Check if a budget already exists for this combination
-    let existingBudget
-    if (filter === null) {
-      existingBudget = await neonQuery<{ id: number }>(
-        `SELECT id FROM category_budgets 
-         WHERE user_id = $1 AND category_id = $2 AND scope = $3 AND filter IS NULL`,
-        [userId, categoryId, scope]
-      )
-    } else {
-      existingBudget = await neonQuery<{ id: number }>(
-        `SELECT id FROM category_budgets 
-         WHERE user_id = $1 AND category_id = $2 AND scope = $3 AND filter = $4`,
-        [userId, categoryId, scope, filter]
-      )
-    }
+    const existingBudget = await neonQuery<{ id: number }>(
+      `SELECT id FROM category_budgets 
+       WHERE user_id = $1 AND category_id = $2 AND scope = $3`,
+      [userId, categoryId, scope]
+    )
 
     if (existingBudget.length > 0) {
       // Update existing budget
-      if (filter === null) {
-        await neonQuery(
-          `UPDATE category_budgets 
-           SET budget = $1, updated_at = NOW()
-           WHERE user_id = $2 AND category_id = $3 AND scope = $4 AND filter IS NULL`,
-          [budgetValue, userId, categoryId, scope]
-        )
-      } else {
-        await neonQuery(
-          `UPDATE category_budgets 
-           SET budget = $1, updated_at = NOW()
-           WHERE user_id = $2 AND category_id = $3 AND scope = $4 AND filter = $5`,
-          [budgetValue, userId, categoryId, scope, filter]
-        )
-      }
-    } else {
-      // Insert new budget
       await neonQuery(
-        `INSERT INTO category_budgets (user_id, category_id, scope, budget, filter)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [userId, categoryId, scope, budgetValue, filter]
+        `UPDATE category_budgets 
+         SET budget = $1, updated_at = NOW()
+         WHERE user_id = $2 AND category_id = $3 AND scope = $4`,
+        [budgetValue, userId, categoryId, scope]
+      )
+    } else {
+      // Insert new budget (no filter column)
+      await neonQuery(
+        `INSERT INTO category_budgets (user_id, category_id, scope, budget)
+         VALUES ($1, $2, $3, $4)`,
+        [userId, categoryId, scope, budgetValue]
       )
     }
 
@@ -210,16 +176,6 @@ export const DELETE = async (req: NextRequest) => {
     const body = await req.json().catch(() => ({}))
 
     const categoryName = (body.categoryName ?? "").trim()
-
-    // Handle filter: null means "all time", string values are specific filters
-    let filter: string | null = null
-    if (body.filter === null) {
-      filter = null // Explicitly null for "all time"
-    } else if (body.filter !== undefined && body.filter !== "" && body.filter !== null) {
-      filter = String(body.filter) // Convert to string for specific filters
-    } else {
-      filter = null // Default to null for "all time"
-    }
 
     if (!categoryName) {
       return NextResponse.json(
@@ -247,20 +203,12 @@ export const DELETE = async (req: NextRequest) => {
     const categoryId = categoryResult[0].id
     const scope = "analytics"
 
-    // Delete the budget for this filter
-    if (filter === null) {
-      await neonQuery(
-        `DELETE FROM category_budgets 
-         WHERE user_id = $1 AND category_id = $2 AND scope = $3 AND filter IS NULL`,
-        [userId, categoryId, scope]
-      )
-    } else {
-      await neonQuery(
-        `DELETE FROM category_budgets 
-         WHERE user_id = $1 AND category_id = $2 AND scope = $3 AND filter = $4`,
-        [userId, categoryId, scope, filter]
-      )
-    }
+    // Delete the budget (no filter column)
+    await neonQuery(
+      `DELETE FROM category_budgets 
+       WHERE user_id = $1 AND category_id = $2 AND scope = $3`,
+      [userId, categoryId, scope]
+    )
 
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (error: any) {
