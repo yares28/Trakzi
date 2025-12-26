@@ -161,6 +161,16 @@ export function SortableGridProvider({
         setActiveId(null)
     }, [])
 
+    // Listen for randomize event
+    React.useEffect(() => {
+        const handleRandomize = () => {
+            const shuffled = [...chartOrder].sort(() => Math.random() - 0.5)
+            onOrderChange(shuffled)
+        }
+        window.addEventListener("gridstack:randomize", handleRandomize)
+        return () => window.removeEventListener("gridstack:randomize", handleRandomize)
+    }, [chartOrder, onOrderChange])
+
     return (
         <DndContext
             sensors={sensors}

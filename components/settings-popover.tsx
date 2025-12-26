@@ -266,10 +266,7 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
             <Shuffle className="h-4 w-4 mr-2" />
             Randomize cards
           </Button>
-          <Button variant="outline" size="sm" onClick={handleGravityLayout}>
-            <ArrowUp className="h-4 w-4 mr-2" />
-            Gravitate up
-          </Button>
+
         </div>
         <p className="text-xs text-muted-foreground">
           Applies to the current draggable grid.
