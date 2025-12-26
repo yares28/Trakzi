@@ -66,11 +66,10 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls,
   const { formatCurrency } = useCurrency()
   const [isFullscreen, setIsFullscreen] = useState(false)
 
-  // In dark mode, use lighter colors (reverse the palette so lightest colors come first)
+  // Use the same palette colors in both themes - Nivo will handle rendering them appropriately
   const chartColors = useMemo(() => {
-    const palette = getPalette()
-    return resolvedTheme === "dark" ? [...palette].reverse() : palette
-  }, [getPalette, resolvedTheme])
+    return getPalette()
+  }, [getPalette])
 
 
 
