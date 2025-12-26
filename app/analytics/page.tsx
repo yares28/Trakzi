@@ -2650,18 +2650,17 @@ export default function AnalyticsPage() {
   })
 
   const spendingStreamData = useMemo(() => {
-    // Use bundle data if available for daily category data
-    if (bundleData?.dailyByCategory && bundleData.dailyByCategory.length > 0) {
+    // Use bundle data if available for monthly category data (pre-aggregated by SQL)
+    if (bundleData?.monthlyByCategory && bundleData.monthlyByCategory.length > 0) {
       const categoryTotals = new Map<string, number>()
       const categorySet = new Set<string>()
       const monthMap = new Map<string, Map<string, number>>()
 
-      bundleData.dailyByCategory.forEach(d => {
+      bundleData.monthlyByCategory.forEach(d => {
         categorySet.add(d.category)
         categoryTotals.set(d.category, (categoryTotals.get(d.category) || 0) + d.total)
-        const monthKey = d.date.slice(0, 7) // YYYY-MM
-        if (!monthMap.has(monthKey)) monthMap.set(monthKey, new Map())
-        monthMap.get(monthKey)!.set(d.category, (monthMap.get(monthKey)!.get(d.category) || 0) + d.total)
+        if (!monthMap.has(d.month)) monthMap.set(d.month, new Map())
+        monthMap.get(d.month)!.set(d.category, (monthMap.get(d.month)!.get(d.category) || 0) + d.total)
       })
 
       const topCategories = Array.from(categoryTotals.entries())
@@ -2759,7 +2758,7 @@ export default function AnalyticsPage() {
     })
 
     return { data, keys, categories: Array.from(categorySet) }
-  }, [bundleData?.dailyByCategory, rawTransactions, streamgraphVisibility.hiddenCategorySet])
+  }, [bundleData?.monthlyByCategory, rawTransactions, streamgraphVisibility.hiddenCategorySet])
 
   const streamgraphControls = streamgraphVisibility.buildCategoryControls(spendingStreamData.categories, {
     description: "Select which categories flow through this streamgraph.",

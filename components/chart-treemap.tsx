@@ -77,25 +77,6 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
 
     const result = sanitizeChildren(data)
 
-    // #region agent log
-    fetch("http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sessionId: "debug-session",
-        runId: "pre-fix",
-        hypothesisId: "H6",
-        location: "chart-treemap.tsx:sanitizedData",
-        message: "sanitizedData computed",
-        data: {
-          hasChildren: Boolean(result.children && result.children.length),
-          childCount: result.children?.length ?? 0,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => { });
-    // #endregion
-
     return result
   }, [data])
 
@@ -167,26 +148,6 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
   )
 
   if (!sanitizedData || !sanitizedData.children || sanitizedData.children.length === 0) {
-    // #region agent log
-    fetch("http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sessionId: "debug-session",
-        runId: "pre-fix",
-        hypothesisId: "H7",
-        location: "chart-treemap.tsx:empty-state",
-        message: "sanitizedData empty",
-        data: {
-          sanitizedDataExists: Boolean(sanitizedData),
-          childCount: sanitizedData?.children?.length ?? 0,
-          isLoading,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => { });
-    // #endregion
-
     return (
       <Card className="@container/card col-span-full">
         <CardHeader>
