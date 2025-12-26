@@ -119,27 +119,33 @@ export function ChartAllMonthsCategorySpending({ data = [], monthlyCategoriesDat
 
   // Fetch actual month totals from database (unfiltered) for accurate tooltip display
   useEffect(() => {
-    // Wait for bundle to finish loading before deciding
-    if (bundleLoading) {
+    // If parent provides bundleLoading prop, it's using the bundle system
+    if (bundleLoading !== undefined) {
+      // Still loading - wait
+      if (bundleLoading) {
+        return
+      }
+      // Use monthlyCategoriesData if provided
+      if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
+        const totals = new Map<number, number>()
+        monthNames.forEach((_, monthIndex) => {
+          totals.set(monthIndex, 0)
+        })
+        monthlyCategoriesData.forEach(item => {
+          const monthIndex = item.month - 1
+          if (monthIndex >= 0 && monthIndex < 12) {
+            totals.set(monthIndex, (totals.get(monthIndex) || 0) + (item.total || 0))
+          }
+        })
+        setActualMonthTotals(totals)
+        return
+      }
+      // Bundle returned empty
+      setActualMonthTotals(new Map())
       return
     }
 
-    // Use monthlyCategoriesData if provided
-    if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
-      // Build totals from bundle data
-      const totals = new Map<number, number>()
-      monthNames.forEach((_, monthIndex) => {
-        totals.set(monthIndex, 0)
-      })
-      monthlyCategoriesData.forEach(item => {
-        const monthIndex = item.month - 1 // Convert 1-indexed month to 0-indexed
-        if (monthIndex >= 0 && monthIndex < 12) {
-          totals.set(monthIndex, (totals.get(monthIndex) || 0) + (item.total || 0))
-        }
-      })
-      setActualMonthTotals(totals)
-      return
-    }
+    // Fallback: parent doesn't use bundle system
 
     const fetchActualTotals = async () => {
       try {
