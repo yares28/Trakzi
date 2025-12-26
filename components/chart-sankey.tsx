@@ -152,6 +152,33 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls,
     )
   }
 
+  // Memoize tooltip components to prevent re-renders
+  const nodeTooltipRenderer = useMemo(() => {
+    return ({ node }: any) => {
+      const label = getNodeLabel(node.id)
+      const value = typeof node.value === "number" ? node.value : 0
+      return (
+        <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
+          <div className="font-medium text-foreground">{label}</div>
+          <div className="text-muted-foreground">{formatCurrency(value)}</div>
+        </div>
+      )
+    }
+  }, [getNodeLabel, formatCurrency])
+
+  const linkTooltipRenderer = useMemo(() => {
+    return ({ link }: any) => {
+      const sourceLabel = getNodeLabel(link.source.id)
+      const targetLabel = getNodeLabel(link.target.id)
+      return (
+        <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
+          <div className="font-medium text-foreground">{sourceLabel} → {targetLabel}</div>
+          <div className="text-muted-foreground">{formatCurrency(toNumericValue(link.value))}</div>
+        </div>
+      )
+    }
+  }, [getNodeLabel, formatCurrency])
+
   // Render chart function for reuse
   const renderChart = () => (
     <ResponsiveSankey
@@ -159,41 +186,25 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls,
       margin={{ top: 40, right: 160, bottom: 90, left: 100 }}
       align="justify"
       label={node => getNodeLabel(node.id)}
-      nodeTooltip={({ node }) => {
-        const label = getNodeLabel(node.id)
-        const value = typeof node.value === "number" ? node.value : 0
-        return (
-          <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-            <div className="font-medium text-foreground">{label}</div>
-            <div className="text-muted-foreground">{formatCurrency(value)}</div>
-          </div>
-        )
-      }}
-      linkTooltip={({ link }) => {
-        const sourceLabel = getNodeLabel(link.source.id)
-        const targetLabel = getNodeLabel(link.target.id)
-        return (
-          <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-            <div className="font-medium text-foreground">{sourceLabel} → {targetLabel}</div>
-            <div className="text-muted-foreground">{formatCurrency(toNumericValue(link.value))}</div>
-          </div>
-        )
-      }}
+      nodeTooltip={nodeTooltipRenderer}
+      linkTooltip={linkTooltipRenderer}
       colors={chartColors}
       nodeOpacity={1}
-      nodeHoverOthersOpacity={0.35}
+      nodeHoverOthersOpacity={0.6}
       nodeThickness={18}
       nodeSpacing={32}
       nodeBorderWidth={0}
       nodeBorderRadius={3}
-      linkOpacity={0.5}
-      linkHoverOthersOpacity={0.1}
+      linkOpacity={0.6}
+      linkHoverOthersOpacity={0.35}
       linkContract={3}
       labelPosition="outside"
       labelOrientation="horizontal"
       labelPadding={20}
       labelTextColor={resolvedTheme === "dark" ? "#ffffff" : { from: "color", modifiers: [["darker", 1]] }}
       legends={[]}
+      enableLinkGradient={true}
+      animate={false}
     />
   )
 
