@@ -920,10 +920,7 @@ export default function AnalyticsPage() {
         budgetsData,
         categoriesData,
         financialHealthData,
-        transactionHistoryData,
-        monthlyCategoryBatch,
         dailyTransactionsData,
-        dayOfWeekCategoryData,
       ] = await Promise.all([
         // 1. Transactions (use all=true to fetch all for charts)
         deduplicatedFetch<any[]>(
@@ -954,27 +951,12 @@ export default function AnalyticsPage() {
           "/api/financial-health"
         ).catch(() => ({ data: [], years: [] })),
 
-        // 5. Transaction History (for swarm plot)
-        deduplicatedFetch<any[]>(
-          "/api/charts/transaction-history"
-        ).catch(() => []),
-
-        // 6. Monthly Category (batch for all 12 months)
-        deduplicatedFetch<{ data: Record<number, Array<{ category: string; month: number; total: number }>>; availableMonths: number[] }>(
-          `/api/analytics/monthly-category-duplicate?months=1,2,3,4,5,6,7,8,9,10,11,12${dateFilter ? `&filter=${encodeURIComponent(dateFilter)}` : ''}`
-        ).catch(() => ({ data: {}, availableMonths: [] })),
-
-        // 7. Daily Transactions
+        // 5. Daily Transactions
         deduplicatedFetch<Array<{ day: string; value: number }>>(
           dateFilter
             ? `/api/transactions/daily?filter=${encodeURIComponent(dateFilter)}`
             : "/api/transactions/daily"
         ).catch(() => []),
-
-        // 8. Day of Week Category
-        deduplicatedFetch<{ data: Array<{ category: string; dayOfWeek: number; total: number }>; availableDays: number[] }>(
-          `/api/analytics/day-of-week-category${dateFilter ? `?filter=${encodeURIComponent(dateFilter)}` : ''}`
-        ).catch(() => ({ data: [], availableDays: [] })),
       ])
 
       const endTime = performance.now()
