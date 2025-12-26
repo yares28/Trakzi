@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useCallback } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveSankey } from "@nivo/sankey"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
@@ -152,31 +152,27 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls,
     )
   }
 
-  // Memoize tooltip components to prevent re-renders
-  const nodeTooltipRenderer = useMemo(() => {
-    return ({ node }: any) => {
-      const label = getNodeLabel(node.id)
-      const value = typeof node.value === "number" ? node.value : 0
-      return (
-        <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-          <div className="font-medium text-foreground">{label}</div>
-          <div className="text-muted-foreground">{formatCurrency(value)}</div>
-        </div>
-      )
-    }
+  // Use useCallback for tooltip renderers to prevent re-renders
+  const nodeTooltipRenderer = useCallback((node: any) => {
+    const label = getNodeLabel(node.id)
+    const value = typeof node.value === "number" ? node.value : 0
+    return (
+      <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
+        <div className="font-medium text-foreground">{label}</div>
+        <div className="text-muted-foreground">{formatCurrency(value)}</div>
+      </div>
+    )
   }, [getNodeLabel, formatCurrency])
 
-  const linkTooltipRenderer = useMemo(() => {
-    return ({ link }: any) => {
-      const sourceLabel = getNodeLabel(link.source.id)
-      const targetLabel = getNodeLabel(link.target.id)
-      return (
-        <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-          <div className="font-medium text-foreground">{sourceLabel} → {targetLabel}</div>
-          <div className="text-muted-foreground">{formatCurrency(toNumericValue(link.value))}</div>
-        </div>
-      )
-    }
+  const linkTooltipRenderer = useCallback((link: any) => {
+    const sourceLabel = getNodeLabel(link.source.id)
+    const targetLabel = getNodeLabel(link.target.id)
+    return (
+      <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
+        <div className="font-medium text-foreground">{sourceLabel} → {targetLabel}</div>
+        <div className="text-muted-foreground">{formatCurrency(toNumericValue(link.value))}</div>
+      </div>
+    )
   }, [getNodeLabel, formatCurrency])
 
   // Render chart function for reuse
@@ -186,8 +182,8 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls,
       margin={{ top: 40, right: 160, bottom: 90, left: 100 }}
       align="justify"
       label={node => getNodeLabel(node.id)}
-      nodeTooltip={nodeTooltipRenderer}
-      linkTooltip={linkTooltipRenderer}
+      nodeTooltip={({ node }) => nodeTooltipRenderer(node)}
+      linkTooltip={({ link }) => linkTooltipRenderer(link)}
       colors={chartColors}
       nodeOpacity={1}
       nodeHoverOthersOpacity={0.6}
