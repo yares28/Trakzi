@@ -85,7 +85,7 @@ export interface AnalyticsSummary {
     dayOfWeekSpending: DayOfWeekSpending[]
     // Extended for all 17 charts
     dayOfWeekCategory: DayOfWeekCategory[]
-    transactionHistory: TransactionHistoryItem[]
+    // transactionHistory removed - fetched separately via /api/transactions
     needsWants: NeedsWantsItem[]
     cashFlow: CashFlowData
     dailyByCategory: DailyByCategory[]
@@ -636,6 +636,7 @@ export async function getKPIs(
 
 /**
  * Get complete analytics bundle - single endpoint for all chart data
+ * Note: transactionHistory removed - fetched separately via /api/transactions
  */
 export async function getAnalyticsBundle(
     userId: string,
@@ -651,7 +652,6 @@ export async function getAnalyticsBundle(
         monthlyCategories,
         dayOfWeekSpending,
         dayOfWeekCategory,
-        transactionHistory,
         needsWants,
         cashFlow,
         dailyByCategory,
@@ -662,7 +662,6 @@ export async function getAnalyticsBundle(
         getMonthlyCategories(userId, startDate ?? undefined, endDate ?? undefined),
         getDayOfWeekSpending(userId, startDate ?? undefined, endDate ?? undefined),
         getDayOfWeekCategory(userId, startDate ?? undefined, endDate ?? undefined),
-        getTransactionHistory(userId, startDate ?? undefined, endDate ?? undefined),
         getNeedsWantsBreakdown(userId, startDate ?? undefined, endDate ?? undefined),
         getCashFlowData(userId, startDate ?? undefined, endDate ?? undefined),
         getDailyByCategory(userId, startDate ?? undefined, endDate ?? undefined),
@@ -675,7 +674,6 @@ export async function getAnalyticsBundle(
         monthlyCategories,
         dayOfWeekSpending,
         dayOfWeekCategory,
-        transactionHistory,
         needsWants,
         cashFlow,
         dailyByCategory,

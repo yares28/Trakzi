@@ -27,35 +27,18 @@ export const GET = async (req: NextRequest) => {
     // searchParams.get() returns null if param doesn't exist, or the string value if it does
     const filterParam = searchParams.get("filter")
     const filter = filterParam === null ? null : (filterParam === "" ? null : filterParam)
-    
-    // Build query based on whether filter is null or has a value
-    let query: string
-    let params: any[]
-    
-    if (filter === null) {
-      // When filter is null (All Time), match only rows where filter IS NULL
-      query = `
-        SELECT c.name AS category_name, cb.budget
-        FROM category_budgets cb
-        JOIN categories c ON c.id = cb.category_id
-        WHERE cb.user_id = $1
-          AND cb.scope = 'analytics'
-          AND cb.filter IS NULL
-      `
-      params = [userId]
-    } else {
-      // When filter has a value, match only rows where filter equals that value
-      query = `
-        SELECT c.name AS category_name, cb.budget
-        FROM category_budgets cb
-        JOIN categories c ON c.id = cb.category_id
-        WHERE cb.user_id = $1
-          AND cb.scope = 'analytics'
-          AND cb.filter = $2
-      `
-      params = [userId, filter]
-    }
-    
+
+    // Note: filter column removed from query until database schema is updated
+    // For now, return all budgets regardless of filter
+    const query = `
+      SELECT c.name AS category_name, cb.budget
+      FROM category_budgets cb
+      JOIN categories c ON c.id = cb.category_id
+      WHERE cb.user_id = $1
+        AND cb.scope = 'analytics'
+    `
+    const params = [userId]
+
     const rows = await neonQuery<BudgetRow>(query, params)
 
     const result: Record<string, number> = {}
@@ -151,7 +134,7 @@ export const POST = async (req: NextRequest) => {
             `SELECT id FROM categories WHERE user_id = $1 AND name = $2`,
             [userId, normalizedName]
           )
-          
+
           if (categoryResult.length > 0) {
             categoryId = categoryResult[0].id
           } else {
@@ -168,7 +151,7 @@ export const POST = async (req: NextRequest) => {
     // Upsert the budget with filter
     // Since we're using partial unique indexes, we need to manually check and update
     const scope = "analytics" // Default scope for these budgets
-    
+
     // Check if a budget already exists for this combination
     let existingBudget
     if (filter === null) {
@@ -184,7 +167,7 @@ export const POST = async (req: NextRequest) => {
         [userId, categoryId, scope, filter]
       )
     }
-    
+
     if (existingBudget.length > 0) {
       // Update existing budget
       if (filter === null) {
@@ -227,7 +210,7 @@ export const DELETE = async (req: NextRequest) => {
     const body = await req.json().catch(() => ({}))
 
     const categoryName = (body.categoryName ?? "").trim()
-    
+
     // Handle filter: null means "all time", string values are specific filters
     let filter: string | null = null
     if (body.filter === null) {

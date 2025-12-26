@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ColorSchemeProvider } from "@/components/color-scheme-provider";
 import { CurrencyProvider } from "@/components/currency-provider";
@@ -66,6 +67,7 @@ export default function RootLayout({
                   </FavoritesProvider>
                   <Toaster />
                   <Analytics />
+                  <SpeedInsights />
                 </CurrencyProvider>
               </ColorSchemeProvider>
             </QueryProvider>
