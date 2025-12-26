@@ -109,29 +109,40 @@ export function ChartDayOfWeekCategory({ dateFilter, bundleData, bundleLoading }
 
   // Fetch available days first (without selected day) when dateFilter changes
   React.useEffect(() => {
-    // Wait for bundle to finish loading before deciding
-    if (bundleLoading) {
-      setLoading(true)
-      return
-    }
-
-    // Use bundleData if provided
-    if (bundleData && bundleData.length > 0) {
-      const days = [...new Set(bundleData.map(d => d.dayOfWeek))].sort((a, b) => a - b)
-      setAvailableDays(days)
-      if (days.length > 0) {
-        setSelectedDay((prev) => {
-          if (prev === null || !days.includes(prev)) {
-            return days[0]
-          }
-          return prev
-        })
-      } else {
-        setSelectedDay(null)
+    // If parent provides bundleLoading prop, it's using the bundle system
+    // Skip individual API calls and wait for bundleData
+    if (bundleLoading !== undefined) {
+      // Still loading - wait
+      if (bundleLoading) {
+        setLoading(true)
+        return
       }
+      // Not loading - use bundleData if available
+      if (bundleData && bundleData.length > 0) {
+        const days = [...new Set(bundleData.map(d => d.dayOfWeek))].sort((a, b) => a - b)
+        setAvailableDays(days)
+        if (days.length > 0) {
+          setSelectedDay((prev) => {
+            if (prev === null || !days.includes(prev)) {
+              return days[0]
+            }
+            return prev
+          })
+        } else {
+          setSelectedDay(null)
+        }
+        setLoading(false)
+        return
+      }
+      // bundleLoading is false but no bundleData - bundle returned empty
+      // This is valid (no data), set empty state
+      setAvailableDays([])
+      setSelectedDay(null)
       setLoading(false)
       return
     }
+
+    // Fallback: parent doesn't use bundle system - fetch from individual API
 
     const fetchAvailableDays = async () => {
       try {
@@ -192,22 +203,30 @@ export function ChartDayOfWeekCategory({ dateFilter, bundleData, bundleLoading }
 
   // Fetch data when selectedDay changes
   React.useEffect(() => {
-    // Wait for bundle to finish loading before deciding
-    if (bundleLoading) {
-      return
-    }
-
-    // Use bundleData if available
-    if (bundleData && bundleData.length > 0) {
-      if (selectedDay === null) {
-        setData([])
-      } else {
-        const filtered = bundleData.filter(d => d.dayOfWeek === selectedDay)
-        setData(filtered)
+    // If parent provides bundleLoading prop, it's using the bundle system
+    if (bundleLoading !== undefined) {
+      // Still loading - wait
+      if (bundleLoading) {
+        return
       }
+      // Use bundleData if available
+      if (bundleData && bundleData.length > 0) {
+        if (selectedDay === null) {
+          setData([])
+        } else {
+          const filtered = bundleData.filter(d => d.dayOfWeek === selectedDay)
+          setData(filtered)
+        }
+        setLoading(false)
+        return
+      }
+      // Bundle returned empty - set empty state
+      setData([])
       setLoading(false)
       return
     }
+
+    // Fallback: parent doesn't use bundle system
 
     const fetchData = async () => {
       if (selectedDay === null) {

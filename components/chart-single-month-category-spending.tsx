@@ -132,29 +132,38 @@ export function ChartSingleMonthCategorySpending({ dateFilter, monthlyCategories
 
   // Fetch available months first (without selected month) when dateFilter changes
   React.useEffect(() => {
-    // Wait for bundle to finish loading before deciding
-    if (bundleLoading) {
-      setLoading(true)
-      return
-    }
-
-    // Use monthlyCategoriesData if provided
-    if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
-      const months = [...new Set(monthlyCategoriesData.map(d => d.month))].sort((a, b) => a - b)
-      setAvailableMonths(months)
-      if (months.length > 0) {
-        setSelectedMonth((prev) => {
-          if (prev === null || !months.includes(prev)) {
-            return months[0]
-          }
-          return prev
-        })
-      } else {
-        setSelectedMonth(null)
+    // If parent provides bundleLoading prop, it's using the bundle system
+    if (bundleLoading !== undefined) {
+      // Still loading - wait
+      if (bundleLoading) {
+        setLoading(true)
+        return
       }
+      // Use monthlyCategoriesData if provided
+      if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
+        const months = [...new Set(monthlyCategoriesData.map(d => d.month))].sort((a, b) => a - b)
+        setAvailableMonths(months)
+        if (months.length > 0) {
+          setSelectedMonth((prev) => {
+            if (prev === null || !months.includes(prev)) {
+              return months[0]
+            }
+            return prev
+          })
+        } else {
+          setSelectedMonth(null)
+        }
+        setLoading(false)
+        return
+      }
+      // Bundle returned empty
+      setAvailableMonths([])
+      setSelectedMonth(null)
       setLoading(false)
       return
     }
+
+    // Fallback: parent doesn't use bundle system
 
     const fetchAvailableMonths = async () => {
       try {
@@ -215,22 +224,30 @@ export function ChartSingleMonthCategorySpending({ dateFilter, monthlyCategories
 
   // Fetch data when selectedMonth changes
   React.useEffect(() => {
-    // Wait for bundle to finish loading
-    if (bundleLoading) {
-      return
-    }
-
-    // Use bundleData if available
-    if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
-      if (selectedMonth === null) {
-        setData([])
-      } else {
-        const filtered = monthlyCategoriesData.filter(d => d.month === selectedMonth)
-        setData(filtered)
+    // If parent provides bundleLoading prop, it's using the bundle system
+    if (bundleLoading !== undefined) {
+      // Still loading - wait
+      if (bundleLoading) {
+        return
       }
+      // Use bundleData if available
+      if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
+        if (selectedMonth === null) {
+          setData([])
+        } else {
+          const filtered = monthlyCategoriesData.filter(d => d.month === selectedMonth)
+          setData(filtered)
+        }
+        setLoading(false)
+        return
+      }
+      // Bundle returned empty
+      setData([])
       setLoading(false)
       return
     }
+
+    // Fallback: parent doesn't use bundle system
 
     const fetchData = async () => {
       if (selectedMonth === null) {
