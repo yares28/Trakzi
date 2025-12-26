@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Moon, Sun, CreditCard, Shuffle, ArrowUp } from "lucide-react"
+import { Moon, Sun, CreditCard, Shuffle } from "lucide-react"
 import { IconPalette, IconCheck, IconCurrencyDollar, IconCalendar } from "@tabler/icons-react"
 import { useTheme } from "next-themes"
 import { useColorScheme } from "@/components/color-scheme-provider"
@@ -127,11 +127,8 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
   }
 
   const handleRandomizeLayout = () => {
-    window.dispatchEvent(new CustomEvent("gridstack:randomize"))
-  }
-
-  const handleGravityLayout = () => {
-    window.dispatchEvent(new CustomEvent("gridstack:compact"))
+    // Dispatch a randomize event that pages can listen to
+    window.dispatchEvent(new CustomEvent("layout:randomize"))
   }
 
   if (!mounted) {
@@ -266,7 +263,6 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
             <Shuffle className="h-4 w-4 mr-2" />
             Randomize cards
           </Button>
-
         </div>
         <p className="text-xs text-muted-foreground">
           Applies to the current draggable grid.
