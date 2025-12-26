@@ -438,6 +438,7 @@ export async function getNeedsWantsBreakdown(
 
 /**
  * Get cash flow data for sankey diagram
+ * Uses a 3-layer model: Income Sources → Total Cash → Expenses/Savings
  */
 export async function getCashFlowData(
     userId: string,
@@ -463,14 +464,14 @@ export async function getCashFlowData(
         incomeParams.push(endDate)
         incomeQuery += ` AND t.tx_date <= $${incomeParams.length}::date`
     }
-    incomeQuery += ` GROUP BY c.name`
+    incomeQuery += ` GROUP BY c.name ORDER BY total DESC LIMIT 5`
 
     // Get expense categories
     let expenseQuery = `
         SELECT 
             COALESCE(c.name, 'Other') AS category,
             ABS(SUM(t.amount)) AS total
-        FROM transactions t
+       FROM transactions t
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE t.user_id = $1 AND t.amount < 0
     `
@@ -484,61 +485,63 @@ export async function getCashFlowData(
         expenseParams.push(endDate)
         expenseQuery += ` AND t.tx_date <= $${expenseParams.length}::date`
     }
-    expenseQuery += ` GROUP BY c.name ORDER BY total DESC LIMIT 10`
+    expenseQuery += ` GROUP BY c.name ORDER BY total DESC LIMIT 8`
 
     const [incomeRows, expenseRows] = await Promise.all([
         neonQuery<{ category: string; total: string }>(incomeQuery, incomeParams),
         neonQuery<{ category: string; total: string }>(expenseQuery, expenseParams),
     ])
 
-    // Build nodes and links
+    // Build nodes and links using a 3-layer flow model
     const nodes: CashFlowNode[] = []
     const links: CashFlowLink[] = []
 
-    // Add income nodes
-    for (const row of incomeRows) {
-        nodes.push({ id: `income-${row.category}`, label: row.category })
-    }
-
-    // Add expense nodes
-    for (const row of expenseRows) {
-        nodes.push({ id: `expense-${row.category}`, label: row.category })
-    }
-
-    // Calculate total income and expenses
+    // Calculate totals
     const totalIncome = incomeRows.reduce((sum, r) => sum + (parseFloat(r.total) || 0), 0)
     const totalExpense = expenseRows.reduce((sum, r) => sum + (parseFloat(r.total) || 0), 0)
     const savings = Math.max(0, totalIncome - totalExpense)
 
-    if (savings > 0) {
-        nodes.push({ id: 'savings', label: 'Savings' })
-    }
+    // Layer 1: Income sources (left side)
+    for (const row of incomeRows) {
+        const incomeValue = parseFloat(row.total) || 0
+        if (incomeValue > 0) {
+            nodes.push({ id: `income-${row.category}`, label: row.category })
 
-    // Create links from income to expenses
-    for (const income of incomeRows) {
-        const incomeValue = parseFloat(income.total) || 0
-        const incomeRatio = incomeValue / totalIncome
-
-        for (const expense of expenseRows) {
-            const expenseValue = parseFloat(expense.total) || 0
-            const linkValue = Math.min(incomeValue, expenseValue * incomeRatio)
-            if (linkValue > 0) {
-                links.push({
-                    source: `income-${income.category}`,
-                    target: `expense-${expense.category}`,
-                    value: Math.round(linkValue * 100) / 100,
-                })
-            }
-        }
-
-        // Link to savings
-        if (savings > 0) {
+            // Connect income to "Total Cash" central node
             links.push({
-                source: `income-${income.category}`,
-                target: 'savings',
-                value: Math.round(savings * incomeRatio * 100) / 100,
+                source: `income-${row.category}`,
+                target: 'total-cash',
+                value: Math.round(incomeValue * 100) / 100,
             })
         }
+    }
+
+    // Layer 2: Central node - Total Cash (middle)
+    nodes.push({ id: 'total-cash', label: 'Total Cash' })
+
+    // Layer 3: Expenses and Savings (right side)
+    for (const row of expenseRows) {
+        const expenseValue = parseFloat(row.total) || 0
+        if (expenseValue > 0) {
+            nodes.push({ id: `expense-${row.category}`, label: row.category })
+
+            // Connect "Total Cash" to each expense category
+            links.push({
+                source: 'total-cash',
+                target: `expense-${row.category}`,
+                value: Math.round(expenseValue * 100) / 100,
+            })
+        }
+    }
+
+    // Add savings if positive
+    if (savings > 0) {
+        nodes.push({ id: 'savings', label: 'Savings' })
+        links.push({
+            source: 'total-cash',
+            target: 'savings',
+            value: Math.round(savings * 100) / 100,
+        })
     }
 
     return { nodes, links }
