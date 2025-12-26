@@ -369,7 +369,7 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
     transition: none !important;
     z-index: 1000 !important;
     opacity: 0.95;
-    cursor: url('/cursors/grab.svg') 12 12, grabbing !important;
+    cursor: grabbing !important;
   }
 
   /* Disable transitions during active resize */
@@ -420,11 +420,11 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
   }
 
   .gridstack-drag-handle {
-    cursor: url('/cursors/hand.svg') 12 12, grab;
+    cursor: grab !important;
   }
 
   .gridstack-drag-handle:active {
-    cursor: url('/cursors/grab.svg') 12 12, grabbing;
+    cursor: grabbing !important;
   }
 
   .grid-stack-item-content [data-slot="card"] {

@@ -127,8 +127,7 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
   }
 
   const handleRandomizeLayout = () => {
-    // Dispatch a randomize event that pages can listen to
-    window.dispatchEvent(new CustomEvent("layout:randomize"))
+    window.dispatchEvent(new CustomEvent("gridstack:randomize"))
   }
 
   if (!mounted) {
@@ -258,12 +257,10 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
           <Shuffle className="h-4 w-4" />
           <span>Layout</span>
         </div>
-        <div className="grid gap-2">
-          <Button variant="outline" size="sm" onClick={handleRandomizeLayout}>
-            <Shuffle className="h-4 w-4 mr-2" />
-            Randomize cards
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" onClick={handleRandomizeLayout}>
+          <Shuffle className="h-4 w-4 mr-2" />
+          Randomize cards
+        </Button>
         <p className="text-xs text-muted-foreground">
           Applies to the current draggable grid.
         </p>
