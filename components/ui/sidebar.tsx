@@ -96,6 +96,19 @@ function SidebarProvider({
     [setOpenProp, open]
   )
 
+  // Sync with cookie on mount to handle hydration mismatches
+  React.useEffect(() => {
+    if (typeof document !== "undefined") {
+      const match = document.cookie.match(new RegExp(`(^| )${SIDEBAR_COOKIE_NAME}=([^;]+)`))
+      if (match) {
+        const cookieValue = match[2] === "true"
+        if (cookieValue !== open) {
+          setOpen(cookieValue)
+        }
+      }
+    }
+  }, [])
+
   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
     return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open)
