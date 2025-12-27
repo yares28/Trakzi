@@ -1951,15 +1951,17 @@ export default function AnalyticsPage() {
 
   const categoryFlowChart = useMemo(() => {
     // Use bundle data if available for monthly data
-    if (bundleData?.monthlyCategories && bundleData.monthlyCategories.length > 0) {
-      const categorySet = new Set<string>(bundleData.monthlyCategories.map(m => m.category))
+    // Use monthlyByCategory (has year-month keys like "2024-01") instead of monthlyCategories (only has month 1-12)
+    if (bundleData?.monthlyByCategory && bundleData.monthlyByCategory.length > 0) {
+      const categorySet = new Set<string>(bundleData.monthlyByCategory.map(m => m.category))
 
-      // Group by month
+      // Group by year-month
       const monthTotals = new Map<string, Map<string, number>>()
       const periodTotals = new Map<string, number>()
 
-      bundleData.monthlyCategories.forEach(m => {
-        const monthKey = String(m.month).padStart(2, '0')
+      bundleData.monthlyByCategory.forEach(m => {
+        // Use the year-month key directly (e.g., "2024-01")
+        const monthKey = m.month
         if (!monthTotals.has(monthKey)) monthTotals.set(monthKey, new Map())
         monthTotals.get(monthKey)!.set(m.category, m.total)
         periodTotals.set(monthKey, (periodTotals.get(monthKey) || 0) + m.total)
@@ -2070,7 +2072,7 @@ export default function AnalyticsPage() {
       data,
       categories: Array.from(categorySet),
     }
-  }, [bundleData?.monthlyCategories, rawTransactions, categoryFlowVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
+  }, [bundleData?.monthlyByCategory, rawTransactions, categoryFlowVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
 
   const categoryFlowControls = categoryFlowVisibility.buildCategoryControls(
     categoryFlowChart.categories,
