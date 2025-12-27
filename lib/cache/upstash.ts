@@ -20,6 +20,7 @@ const CACHE_PREFIX = {
     trends: 'trends',
     savings: 'savings',
     categories: 'categories',
+    'data-library': 'data-library',
 } as const
 
 // TTL in seconds

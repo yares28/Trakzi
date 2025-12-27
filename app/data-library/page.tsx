@@ -524,76 +524,25 @@ export default function DataLibraryPage() {
     setError(null)
 
     try {
-      const [
-        txRes,
-        statsRes,
-        stmtRes,
-        catRes,
-        filesRes,
-        receiptTypesRes,
-        receiptCategoriesRes,
-      ] = await Promise.all([
-        fetch("/api/transactions"),
-        fetch("/api/stats"),
-        fetch("/api/statements"),
-        fetch("/api/categories"),
-        fetch("/api/files"),
-        fetch("/api/receipt-categories/types"),
-        fetch("/api/receipt-categories"),
-      ])
+      // Use the new bundle API instead of 7 separate calls
+      const bundleRes = await fetch("/api/charts/data-library-bundle")
 
-      if (!txRes.ok) {
+      if (!bundleRes.ok) {
         throw new Error(
-          (await txRes.text()) || "Unable to load transactions dataset."
-        )
-      }
-      if (!statsRes.ok) {
-        throw new Error((await statsRes.text()) || "Stats pipeline unavailable.")
-      }
-      if (!stmtRes.ok) {
-        throw new Error(
-          (await stmtRes.text()) || "Failed to fetch statement archive."
-        )
-      }
-      if (!catRes.ok) {
-        throw new Error(
-          (await catRes.text()) || "Unable to load category taxonomy."
-        )
-      }
-      if (!filesRes.ok) {
-        throw new Error(
-          (await filesRes.text()) || "Unable to load raw file inventory."
-        )
-      }
-      if (!receiptTypesRes.ok) {
-        throw new Error(
-          (await receiptTypesRes.text()) || "Unable to load receipt category types."
-        )
-      }
-      if (!receiptCategoriesRes.ok) {
-        throw new Error(
-          (await receiptCategoriesRes.text()) || "Unable to load receipt categories."
+          (await bundleRes.text()) || "Unable to load data library."
         )
       }
 
-      const [txData, statsData, stmtData, catData, filesData, receiptTypesData, receiptCategoriesData] =
-        await Promise.all([
-          txRes.json(),
-          statsRes.json(),
-          stmtRes.json(),
-          catRes.json(),
-          filesRes.json(),
-          receiptTypesRes.json(),
-          receiptCategoriesRes.json(),
-        ])
+      const bundleData = await bundleRes.json()
 
-      setTransactions(normalizeTransactions(txData) as Transaction[])
-      setStats(statsData)
-      setStatements(stmtData)
-      setCategories(catData)
-      setUserFiles(filesData)
-      setReceiptCategoryTypes(receiptTypesData)
-      setReceiptCategories(receiptCategoriesData)
+      // Set all state from bundle response
+      setTransactions(normalizeTransactions(bundleData.transactions) as Transaction[])
+      setStats(bundleData.stats)
+      setStatements(bundleData.statements)
+      setCategories(bundleData.categories)
+      setUserFiles(bundleData.userFiles)
+      setReceiptCategoryTypes(bundleData.receiptCategoryTypes)
+      setReceiptCategories(bundleData.receiptCategories)
     } catch (err) {
       const message =
         err instanceof Error
