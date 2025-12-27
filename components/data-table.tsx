@@ -714,17 +714,13 @@ export function DataTable<TData, TValue>({
                       <TableHead>Description</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
                       <TableHead>Category</TableHead>
-                      {filteredTransactions.some(tx => tx.balance !== null) && (
-                        <TableHead className="text-right">Balance</TableHead>
-                      )}
                       <TableHead className="w-12"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {(() => {
-                      // Determine if balance column should be shown (check original transactions, not filtered)
-                      const hasBalanceColumn = transactions?.some(tx => tx.balance !== null) ?? false
-                      const baseColSpan = hasBalanceColumn ? 6 : 5
+                      // Determine baseColSpan without balance column
+                      const baseColSpan = 5
 
                       if (!filteredTransactions || filteredTransactions.length === 0) {
                         const colSpanWithCheckbox = baseColSpan + 1 // Add 1 for checkbox column
@@ -791,11 +787,6 @@ export function DataTable<TData, TValue>({
                           <TableCell className="w-[140px] flex-shrink-0">
                             <Badge variant="outline">{tx.category}</Badge>
                           </TableCell>
-                          {filteredTransactions.some(t => t.balance !== null) && (
-                            <TableCell className="text-right w-32 flex-shrink-0">
-                              {tx.balance !== null ? formatCurrency(tx.balance) : "-"}
-                            </TableCell>
-                          )}
                           <TableCell className="w-12 flex-shrink-0">
                             <Button
                               variant="ghost"
