@@ -211,7 +211,7 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
           <span>Currency</span>
         </div>
         <Select value={currency} onValueChange={setCurrency}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger className="w-full pointer-events-auto">
             <SelectValue placeholder="Select currency" />
           </SelectTrigger>
           <SelectContent>
@@ -233,7 +233,7 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
           <span>Default Time Period</span>
         </div>
         <Select value={defaultTimePeriod} onValueChange={handleTimePeriodChange}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger className="w-full pointer-events-auto">
             <SelectValue placeholder="Select default time period" />
           </SelectTrigger>
           <SelectContent>
