@@ -209,7 +209,7 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls,
         labelPadding={20}
         labelTextColor={resolvedTheme === "dark" ? "#ffffff" : { from: "color", modifiers: [["darker", 1]] }}
         legends={[]}
-        enableLinkGradient={false}
+        enableLinkGradient={true}
         animate={false}
       />
     </div>
