@@ -468,7 +468,7 @@ export function TransactionDialog({
 
                   <Field>
                     <FieldLabel htmlFor="cat-r">Item Category</FieldLabel>
-                    <DropdownMenu>
+                    <DropdownMenu modal={false}>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" type="button" className="w-full justify-between font-normal">
                           {formData.receipt_category_id !== "none"

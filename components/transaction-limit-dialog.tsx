@@ -163,7 +163,8 @@ export function TransactionLimitDialog({
                         <AlertDialogAction
                             onClick={() => {
                                 onOpenChange(false);
-                                router.push("/?upgrade=true");
+                                // Redirect to billing page with upgrade parameter
+                                router.push(`/?upgrade=${nextPlan}`);
                             }}
                             className="bg-primary text-primary-foreground hover:bg-primary/90"
                         >
