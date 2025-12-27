@@ -240,7 +240,7 @@ function Sidebar({
       <div
         data-slot="sidebar-gap"
         className={cn(
-          "relative w-(--sidebar-width) bg-transparent",
+          "relative w-(--sidebar-width) bg-transparent pointer-events-none",
           desktopTransition.gap,
           "group-data-[collapsible=offcanvas]:w-0",
           "group-data-[side=right]:rotate-180",
