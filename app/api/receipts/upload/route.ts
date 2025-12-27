@@ -528,21 +528,15 @@ export const POST = async (req: NextRequest) => {
     // This prevents expensive OCR processing when user is already at limit
     const quickCheck = await hasAnyRemainingCapacity(userId)
     if (!quickCheck.hasCapacity) {
-      // Get full capacity details for proper error response
-      const { getRemainingCapacity } = await import("@/lib/limits/transactions-cap")
-      const { getUpgradePlans } = await import("@/lib/plan-limits")
-      const capacity = await getRemainingCapacity(userId)
-      const upgradePlans = getUpgradePlans(capacity.plan)
-
       const limitExceeded: LimitExceededResponse = {
         code: 'LIMIT_EXCEEDED',
-        plan: capacity.plan,
-        cap: capacity.cap,
-        used: capacity.used,
-        remaining: 0, // We already know it's 0
-        incomingCount: 0, // Don't know yet, haven't processed files
+        plan: quickCheck.plan,
+        cap: 0,
+        used: 0,
+        remaining: 0,
+        incomingCount: 0,
         suggestedActions: ['UPGRADE', 'DELETE_EXISTING'],
-        upgradePlans,
+        upgradePlans: quickCheck.plan === 'free' ? ['pro', 'max'] : quickCheck.plan === 'pro' ? ['max'] : [],
       }
       return NextResponse.json(limitExceeded, { status: 403 })
     }
