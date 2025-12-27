@@ -370,23 +370,25 @@ export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControl
                   stroke="currentColor"
                   strokeOpacity={0.35}
                 />
-                {months.map((month) => {
-                  const x = xScale(month) ?? margin.left
-                  return (
-                    <g key={month} transform={`translate(${x}, 0)`}>
-                      <line y2={6} stroke="currentColor" strokeWidth={0.75} />
-                      <text
-                        y={18}
-                        textAnchor="middle"
-                        fill="currentColor"
-                        fontSize={11}
-                        className="uppercase tracking-wide"
-                      >
-                        {monthFormatter(month)}
-                      </text>
-                    </g>
-                  )
-                })}
+                {months
+                  .filter((_, index) => index % 2 === 0)  // Show every other month to prevent overlap
+                  .map((month) => {
+                    const x = xScale(month) ?? margin.left
+                    return (
+                      <g key={month} transform={`translate(${x}, 0)`}>
+                        <line y2={6} stroke="currentColor" strokeWidth={0.75} />
+                        <text
+                          y={18}
+                          textAnchor="middle"
+                          fill="currentColor"
+                          fontSize={11}
+                          className="uppercase tracking-wide"
+                        >
+                          {monthFormatter(month)}
+                        </text>
+                      </g>
+                    )
+                  })}
               </g>
             </svg>
 
@@ -394,8 +396,9 @@ export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControl
               <div
                 className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
                 style={{
-                  left: Math.min(Math.max(tooltipPosition.x + 16, 8), DIMENSIONS.width - 8),
-                  top: Math.min(Math.max(tooltipPosition.y - 16, 8), DIMENSIONS.height - 8),
+                  left: tooltipPosition.x + 16,
+                  top: tooltipPosition.y - 16,
+                  transform: 'translate(0, -100%)',  // Position above cursor
                 }}
               >
                 <div className="flex items-center gap-2">

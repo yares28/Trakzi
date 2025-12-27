@@ -66,15 +66,18 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls,
   const { formatCurrency } = useCurrency()
   const [isFullscreen, setIsFullscreen] = useState(false)
 
-  // Use bright colors from palette (palettes are ordered darkest to lightest)
-  // In dark mode, reverse for better contrast (same as Streamgraph)
+  // Bright colors for both nodes AND links
   const chartColors = useMemo(() => {
     const fullPalette = getPalette()
-    // Get the brighter colors (last 6)
     const brightColors = fullPalette.slice(-6)
-    // In dark mode, reverse the bright colors for better contrast
     return resolvedTheme === "dark" ? [...brightColors].reverse() : brightColors
   }, [getPalette, resolvedTheme])
+
+  // ACTUAL ROOT CAUSE FIX: Nivo theme controls link colors
+  const chartTheme = useMemo(() => ({
+    // This prevents Nivo from applying default darkening to links
+    background: 'transparent',
+  }), [])
 
 
 
@@ -183,14 +186,15 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls,
         )
       }}
       colors={chartColors}
+      theme={chartTheme}
       nodeOpacity={1}
       nodeHoverOthersOpacity={0.7}
       nodeThickness={18}
       nodeSpacing={32}
       nodeBorderWidth={0}
       nodeBorderRadius={3}
-      linkOpacity={0.75}
-      linkHoverOthersOpacity={0.4}
+      linkOpacity={0.85}
+      linkHoverOthersOpacity={0.5}
       linkContract={3}
       labelPosition="outside"
       labelOrientation="horizontal"
