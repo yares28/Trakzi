@@ -45,6 +45,7 @@ import { CategorySelect } from "@/components/category-select"
 import { toast } from "sonner"
 import { TransactionLimitDialog } from "@/components/transaction-limit-dialog"
 import type { LimitExceededResponse } from "@/lib/limits/transactions-cap"
+import { ReceiptCategorySelect } from "@/components/receipt-category-select"
 
 interface Category {
   id: number
@@ -468,39 +469,12 @@ export function TransactionDialog({
 
                   <Field>
                     <FieldLabel htmlFor="cat-r">Item Category</FieldLabel>
-                    <DropdownMenu modal={false}>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" type="button" className="w-full justify-between font-normal">
-                          {formData.receipt_category_id !== "none"
-                            ? receiptCategories.find(c => String(c.id) === formData.receipt_category_id)?.name
-                            : "Select receipt category"}
-                          <ChevronDown className="h-4 w-4 opacity-50" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-[300px]" align="start">
-                        <DropdownMenuItem onClick={() => setFormData({ ...formData, receipt_category_id: "none" })}>
-                          Uncategorized
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {Object.entries(groupedReceiptCategories).map(([typeName, cats]) => (
-                          <DropdownMenuSub key={typeName}>
-                            <DropdownMenuSubTrigger>
-                              {typeName}
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent>
-                              {cats.map((cat) => (
-                                <DropdownMenuItem
-                                  key={cat.id}
-                                  onClick={() => setFormData({ ...formData, receipt_category_id: String(cat.id) })}
-                                >
-                                  {cat.name}
-                                </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuSubContent>
-                          </DropdownMenuSub>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <ReceiptCategorySelect
+                      value={formData.receipt_category_id}
+                      onValueChange={(categoryId, category) => {
+                        setFormData({ ...formData, receipt_category_id: categoryId })
+                      }}
+                    />
                   </Field>
                 </FieldGroup>
               </TabsContent>
