@@ -2,10 +2,10 @@
 
 import { motion } from "framer-motion"
 import { Check, Sparkles, Loader2 } from "lucide-react"
-import { useState, useEffect, useRef } from "react"
+import { useState } from "react"
 import { geist } from "@/lib/fonts"
 import { cn } from "@/lib/utils"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@clerk/nextjs"
 import { toast } from "sonner"
 import { safeCapture } from "@/lib/posthog-safe"
@@ -79,28 +79,7 @@ export function PricingSection() {
   const [isAnnual, setIsAnnual] = useState(false)
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { isSignedIn } = useAuth()
-  const hasTriggeredUpgrade = useRef(false)
-
-  // Handle upgrade parameter from URL (e.g., from limit dialog)
-  useEffect(() => {
-    const upgrade = searchParams?.get('upgrade')
-    if (upgrade && isSignedIn && !hasTriggeredUpgrade.current) {
-      hasTriggeredUpgrade.current = true
-
-      // Find the plan that matches the upgrade parameter
-      const planName = upgrade.toUpperCase() as 'PRO' | 'MAX'
-      const plan = pricingPlans.find(p => p.name === planName)
-
-      if (plan) {
-        // Trigger checkout for this plan
-        setTimeout(() => {
-          handlePlanSelect(plan)
-        }, 500)
-      }
-    }
-  }, [searchParams, isSignedIn])
 
   const handlePlanSelect = async (plan: typeof pricingPlans[0]) => {
     // Track pricing plan click

@@ -21,14 +21,6 @@ type SubscriptionData = {
         totalTransactions: number;
         transactionLimit: number; // -1 means unlimited
     };
-    limits: {
-        customTransactionCategoriesLimit: number; // -1 means unlimited
-        customFridgeCategoriesLimit: number; // -1 means unlimited
-    };
-    categoryUsage?: {
-        transactionCategories: number;
-        receiptCategories: number;
-    };
 };
 
 function getPlanIcon(plan: string) {
@@ -197,27 +189,6 @@ export function TransactionProgressBar({
                         </span>
                     </div>
                 </div>
-
-                {/* Category Usage */}
-                {subscriptionData?.categoryUsage && (
-                    <div className="mt-4 pt-4 border-t border-border">
-                        <p className="text-sm font-medium text-muted-foreground mb-2">Categories</p>
-                        <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm text-muted-foreground">Spending/Income</span>
-                                <span className="text-sm tabular-nums text-foreground font-medium">
-                                    {subscriptionData.categoryUsage.transactionCategories} / {subscriptionData.limits.customTransactionCategoriesLimit === -1 ? '∞' : subscriptionData.limits.customTransactionCategoriesLimit}
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm text-muted-foreground">Receipts</span>
-                                <span className="text-sm tabular-nums text-foreground font-medium">
-                                    {subscriptionData.categoryUsage.receiptCategories} / {subscriptionData.limits.customFridgeCategoriesLimit === -1 ? '∞' : subscriptionData.limits.customFridgeCategoriesLimit}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                )}
             </CardContent>
         </Card>
     );

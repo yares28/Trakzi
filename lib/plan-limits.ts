@@ -123,8 +123,8 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
         aiCategorizationEnabled: true,
         advancedChartsEnabled: true,
         exportEnabled: false,
-        customTransactionCategoriesLimit: 5,   // Free: 5 transaction categories
-        customFridgeCategoriesLimit: 5,        // Free: 5 receipt categories
+        customTransactionCategoriesLimit: 10,
+        customFridgeCategoriesLimit: 10,
         dataRetentionMonths: Infinity,
     },
 
@@ -141,8 +141,8 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
         aiCategorizationEnabled: true,
         advancedChartsEnabled: true,
         exportEnabled: true,
-        customTransactionCategoriesLimit: 20,  // Pro: 20 transaction categories
-        customFridgeCategoriesLimit: 20,       // Pro: 20 receipt categories
+        customTransactionCategoriesLimit: Infinity,
+        customFridgeCategoriesLimit: Infinity,
         dataRetentionMonths: Infinity,
     },
 
@@ -159,8 +159,8 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
         aiCategorizationEnabled: true,
         advancedChartsEnabled: true,
         exportEnabled: true,
-        customTransactionCategoriesLimit: 100, // Max: 100 transaction categories
-        customFridgeCategoriesLimit: 100,      // Max: 100 receipt categories
+        customTransactionCategoriesLimit: Infinity,
+        customFridgeCategoriesLimit: Infinity,
         dataRetentionMonths: Infinity,
     },
 };

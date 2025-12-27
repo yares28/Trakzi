@@ -4,6 +4,7 @@ import { getCachedOrCompute, buildCacheKey, CACHE_TTL } from '@/lib/cache/upstas
 import { neonQuery } from '@/lib/neonClient'
 import { normalizeTransactions } from '@/lib/utils'
 import { ensureReceiptCategories } from '@/lib/receipts/receipt-categories-db'
+import { checkAndEnforceCapacity } from '@/lib/startup/check-capacity'
 
 export interface DataLibraryBundle {
     transactions: Array<{
@@ -483,6 +484,14 @@ export const GET = async (request: Request) => {
                 )
             }
         }
+
+        // SAFETY NET: Auto-enforce transaction capacity on every bundle load
+        // This runs in the background and silently deletes oldest transactions if user is over limit
+        // Catches any edge cases where capacity checks might have been bypassed
+        checkAndEnforceCapacity(userId).catch((error) => {
+            // Don't block the bundle API if capacity check fails
+            console.error('[Bundle API] Capacity check failed:', error)
+        })
 
         // Build cache key
         const cacheKey = buildCacheKey('data-library', userId, null, 'bundle')

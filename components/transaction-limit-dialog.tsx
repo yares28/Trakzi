@@ -161,38 +161,9 @@ export function TransactionLimitDialog({
                     )}
                     {canUpgrade && (
                         <AlertDialogAction
-                            onClick={async () => {
+                            onClick={() => {
                                 onOpenChange(false);
-
-                                // Get the price ID for the upgrade plan
-                                const priceId = nextPlan === 'pro'
-                                    ? process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY
-                                    : process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_MAX_MONTHLY;
-
-                                if (!priceId) {
-                                    console.error('No price ID configured for', nextPlan);
-                                    return;
-                                }
-
-                                try {
-                                    // Call checkout API directly
-                                    const response = await fetch('/api/checkout', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ priceId })
-                                    });
-
-                                    const data = await response.json();
-
-                                    if (data.url) {
-                                        // Redirect directly to Stripe checkout
-                                        window.location.href = data.url;
-                                    } else if (data.error) {
-                                        console.error('Checkout error:', data.error);
-                                    }
-                                } catch (error) {
-                                    console.error('Failed to create checkout session:', error);
-                                }
+                                router.push("/?upgrade=true");
                             }}
                             className="bg-primary text-primary-foreground hover:bg-primary/90"
                         >
