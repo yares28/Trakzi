@@ -66,9 +66,11 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls,
   const { formatCurrency } = useCurrency()
   const [isFullscreen, setIsFullscreen] = useState(false)
 
-  // Use full palette colors now that CSS isolation prevents darkening
+  // Use full palette colors, filtering out the neutral gray for more distinct flows
   const chartColors = useMemo(() => {
-    return getPalette()
+    const palette = getPalette()
+    // Remove the neutral gray (#c3c3c3) for more color variety
+    return palette.filter(color => color !== "#c3c3c3")
   }, [getPalette])
 
   // ACTUAL ROOT CAUSE FIX: Nivo theme controls link colors

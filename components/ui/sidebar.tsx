@@ -27,7 +27,7 @@ import {
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-const SIDEBAR_WIDTH = "20.625rem"  // 310px + 20px = 330px = 20.625rem
+const SIDEBAR_WIDTH = "21.875rem"  // 350px - increased to close gap with header
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
