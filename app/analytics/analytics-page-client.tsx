@@ -1362,8 +1362,11 @@ export default function AnalyticsPage() {
 
     // Load initial filter from localStorage
     const savedFilter = localStorage.getItem("dateFilter")
-    if (savedFilter) {
+    // Handle "All time" filter properly: convert string "null", empty string, or actual null to null
+    if (savedFilter && savedFilter !== "null" && savedFilter.trim() !== "") {
       setDateFilter(savedFilter)
+    } else {
+      setDateFilter(null) // Explicitly set to null for "All time"
     }
 
     return () => {
