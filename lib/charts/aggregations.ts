@@ -17,7 +17,7 @@ export interface DailySpending {
 }
 
 export interface MonthlyCategory {
-    month: number
+    month: string
     category: string
     total: number
 }
@@ -208,7 +208,7 @@ export async function getMonthlyCategories(
 ): Promise<MonthlyCategory[]> {
     let query = `
         SELECT 
-            EXTRACT(MONTH FROM t.tx_date)::int AS month,
+            TO_CHAR(t.tx_date, 'Mon YYYY') AS month,
             COALESCE(c.name, 'Uncategorized') AS category,
             ABS(SUM(t.amount)) AS total
         FROM transactions t
@@ -226,10 +226,10 @@ export async function getMonthlyCategories(
         query += ` AND t.tx_date <= $${params.length}::date`
     }
 
-    query += ` GROUP BY month, c.name ORDER BY month, total DESC`
+    query += ` GROUP BY TO_CHAR(t.tx_date, 'Mon YYYY'), c.name ORDER BY MIN(t.tx_date), total DESC`
 
     const rows = await neonQuery<{
-        month: number
+        month: string
         category: string
         total: string
     }>(query, params)
