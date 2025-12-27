@@ -14,11 +14,6 @@ import { parseReceiptFile } from "@/lib/receipts/ingestion"
 import type { ReceiptParseWarning, ReceiptParseMeta } from "@/lib/receipts/parsers/types"
 import { getSiteUrl, getSiteName } from "@/lib/env"
 import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limiter"
-import {
-  hasAnyRemainingCapacity,
-  assertCapacityOrExplain,
-  type LimitExceededResponse
-} from "@/lib/limits/transactions-cap"
 
 function isSupportedReceiptImage(file: File): boolean {
   const mime = (file.type || "").toLowerCase()
@@ -524,23 +519,6 @@ export const POST = async (req: NextRequest) => {
       return createRateLimitResponse(rateLimitResult.resetIn)
     }
 
-    // Quick capacity check - fail fast if user has no remaining capacity
-    // This prevents expensive OCR processing when user is already at limit
-    const quickCheck = await hasAnyRemainingCapacity(userId)
-    if (!quickCheck.hasCapacity) {
-      const limitExceeded: LimitExceededResponse = {
-        code: 'LIMIT_EXCEEDED',
-        plan: quickCheck.plan,
-        cap: 0,
-        used: 0,
-        remaining: 0,
-        incomingCount: 0,
-        suggestedActions: ['UPGRADE', 'DELETE_EXISTING'],
-        upgradePlans: quickCheck.plan === 'free' ? ['pro', 'max'] : quickCheck.plan === 'pro' ? ['max'] : [],
-      }
-      return NextResponse.json(limitExceeded, { status: 403 })
-    }
-
     const formData = await req.formData()
     const incoming = [
       ...(formData.getAll("files") as unknown[]),
@@ -802,31 +780,7 @@ export const POST = async (req: NextRequest) => {
       }
     }
 
-    // After processing all files, check if total items exceed capacity
-    const totalItems = receipts.reduce((sum, r) => sum + r.transactions.length, 0)
-
-    // Final capacity check with exact item count
-    const capacityCheck = await assertCapacityOrExplain({
-      userId,
-      incomingCount: totalItems,
-    })
-
-    if (!capacityCheck.ok) {
-      // User cannot add these receipt items - return limit exceeded error
-      return NextResponse.json(capacityCheck.limitExceeded, { status: 403 })
-    }
-
-    // Include capacity information in successful response
-    return NextResponse.json({
-      receipts,
-      rejected,
-      capacity: {
-        plan: capacityCheck.capacity.plan,
-        cap: capacityCheck.capacity.cap,
-        used: capacityCheck.capacity.used,
-        remaining: capacityCheck.capacity.remaining,
-      }
-    }, { status: 201 })
+    return NextResponse.json({ receipts, rejected }, { status: 201 })
   } catch (error: any) {
     const message = String(error?.message || "")
     if (message.includes("Unauthorized")) {
