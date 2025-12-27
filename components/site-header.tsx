@@ -67,7 +67,7 @@ export function SiteHeader() {
         md:mx-0 md:mt-0 md:mb-0 md:rounded-none md:rounded-t-2xl md:bg-background md:backdrop-blur-none md:border-0 md:border-b md:shadow-none md:h-[var(--header-height)]
         will-change-[width,height] group-has-data-[collapsible=icon]/sidebar-wrapper:h-[var(--header-height)]
       ">
-        <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-8">
+        <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:pl-6 lg:pr-8 group-has-data-[collapsible=icon]/sidebar-wrapper:lg:pl-4">
           <SidebarTrigger className="-ml-1" />
           <Separator
             orientation="vertical"
