@@ -7,6 +7,7 @@ import { useUser } from "@clerk/nextjs"
 import { SortableGridProvider, SortableGridItem } from "@/components/sortable-grid"
 import { ChevronDown, Minus, Plus, Trash2, Upload } from "lucide-react"
 import { toast } from "sonner"
+import { TransactionLimitDialog, type TransactionLimitExceededData } from "@/components/limits/transaction-limit-dialog"
 import {
   DialogHeader,
   DialogTitle,
@@ -339,6 +340,8 @@ export function FridgePageClient() {
   }, [reviewCategories])
   const [activeReviewCategoryBroadType, setActiveReviewCategoryBroadType] = useState<string>("")
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
+  const [limitExceededData, setLimitExceededData] = useState<TransactionLimitExceededData | null>(null)
+  const [isLimitDialogOpen, setIsLimitDialogOpen] = useState(false)
 
   const reviewCategoryByLowerName = useMemo(() => {
     const map = new Map<string, ReceiptCategoryOption>()
@@ -926,15 +929,28 @@ export function FridgePageClient() {
           })
 
           if (!uploadResponse.ok) {
-            let errorMessage = `HTTP error! status: ${uploadResponse.status}`
             const responseText = await uploadResponse.text()
+
+            // Check if it's a limit exceeded response
             try {
               const parsed = JSON.parse(responseText)
-              errorMessage = parsed.error || parsed.message || errorMessage
-            } catch {
-              errorMessage = responseText || errorMessage
+
+              if (parsed.code === 'LIMIT_EXCEEDED' && uploadResponse.status === 403) {
+                // Show limit exceeded dialog instead of generic error
+                setLimitExceededData(parsed as TransactionLimitExceededData)
+                setIsLimitDialogOpen(true)
+                setIsUploading(false)
+                return
+              }
+
+              const errorMessage = parsed.error || parsed.message || `HTTP error! status: ${uploadResponse.status}`
+              throw new Error(errorMessage)
+            } catch (parseError) {
+              if (parseError instanceof Error && parseError.message.startsWith('HTTP error')) {
+                throw parseError
+              }
+              throw new Error(responseText || `HTTP error! status: ${uploadResponse.status}`)
             }
-            throw new Error(errorMessage)
           }
 
           const payload = (await uploadResponse.json()) as {
@@ -1039,6 +1055,16 @@ export function FridgePageClient() {
         const responseText = await response.text()
         try {
           const parsed = JSON.parse(responseText)
+
+          // Check if it's a limit exceeded response
+          if (parsed.code === 'LIMIT_EXCEEDED' && response.status === 403) {
+            // Show limit exceeded dialog and close review dialog
+            setLimitExceededData(parsed as TransactionLimitExceededData)
+            setIsLimitDialogOpen(true)
+            resetReviewDialog()
+            return
+          }
+
           setReviewCommitError(parsed.error || parsed.message || responseText || "Failed to import receipts.")
         } catch {
           setReviewCommitError(responseText || "Failed to import receipts.")
@@ -2219,6 +2245,28 @@ export function FridgePageClient() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Transaction Limit Exceeded Dialog */}
+        {limitExceededData && (
+          <TransactionLimitDialog
+            open={isLimitDialogOpen}
+            onOpenChange={(open) => {
+              setIsLimitDialogOpen(open)
+              if (!open) {
+                setLimitExceededData(null)
+              }
+            }}
+            data={limitExceededData}
+            onUpgrade={() => {
+              window.location.href = '/billing'
+            }}
+            onDeleteOld={() => {
+              setIsLimitDialogOpen(false)
+              setLimitExceededData(null)
+              window.location.href = '/data-library'
+            }}
+          />
+        )}
       </SidebarInset>
     </SidebarProvider>
   )
