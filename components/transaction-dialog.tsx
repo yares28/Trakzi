@@ -43,9 +43,6 @@ import {
 import { ChevronDown } from "lucide-react"
 import { CategorySelect } from "@/components/category-select"
 import { toast } from "sonner"
-import { TransactionLimitDialog } from "@/components/transaction-limit-dialog"
-import type { LimitExceededResponse } from "@/lib/limits/transactions-cap"
-import { ReceiptCategorySelect } from "@/components/receipt-category-select"
 
 interface Category {
   id: number
@@ -85,8 +82,6 @@ export function TransactionDialog({
   const [statements, setStatements] = useState<Statement[]>([])
   const [categoryName, setCategoryName] = useState<string>("")
   const [transactionType, setTransactionType] = useState<"transaction" | "receipt">("transaction")
-  const [showLimitDialog, setShowLimitDialog] = useState(false)
-  const [limitExceeded, setLimitExceeded] = useState<LimitExceededResponse | null>(null)
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0], // Default to today
@@ -225,15 +220,6 @@ export function TransactionDialog({
 
         if (!response.ok) {
           const error = await response.json()
-
-          // Check for limit exceeded
-          if (response.status === 403 && error.code === 'LIMIT_EXCEEDED') {
-            setLimitExceeded(error)
-            setShowLimitDialog(true)
-            setLoading(false)
-            return  // Don't throw, show dialog instead
-          }
-
           throw new Error(error.error || "Failed to create transaction")
         }
 
@@ -262,15 +248,6 @@ export function TransactionDialog({
 
         if (!response.ok) {
           const error = await response.json()
-
-          // Check for limit exceeded
-          if (response.status === 403 && error.code === 'LIMIT_EXCEEDED') {
-            setLimitExceeded(error)
-            setShowLimitDialog(true)
-            setLoading(false)
-            return  // Don't throw, show dialog instead
-          }
-
           throw new Error(error.error || "Failed to create receipt transaction")
         }
       }
@@ -308,203 +285,219 @@ export function TransactionDialog({
   }
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Add New Transaction</DialogTitle>
-            <DialogDescription>
-              Quickly add a spending/income transaction or a manual receipt item.
-            </DialogDescription>
-          </DialogHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Add New Transaction</DialogTitle>
+          <DialogDescription>
+            Quickly add a spending/income transaction or a manual receipt item.
+          </DialogDescription>
+        </DialogHeader>
 
-          <Tabs value={transactionType} onValueChange={(v) => setTransactionType(v as any)} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="transaction">Spending / Income</TabsTrigger>
-              <TabsTrigger value="receipt">Receipt Transaction</TabsTrigger>
-            </TabsList>
+        <Tabs value={transactionType} onValueChange={(v) => setTransactionType(v as any)} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="transaction">Spending / Income</TabsTrigger>
+            <TabsTrigger value="receipt">Receipt Transaction</TabsTrigger>
+          </TabsList>
 
-            <form onSubmit={handleSubmit}>
-              <TabsContent value="transaction" className="space-y-4">
-                <FieldGroup>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field>
-                      <FieldLabel htmlFor="date-t">Date</FieldLabel>
-                      <Input
-                        id="date-t"
-                        type="date"
-                        value={formData.date}
-                        onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                        required
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="amount-t">Amount</FieldLabel>
-                      <Input
-                        id="amount-t"
-                        type="number"
-                        step="0.01"
-                        value={formData.amount}
-                        onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                        placeholder="0.00"
-                        required
-                      />
-                    </Field>
-                  </div>
-
+          <form onSubmit={handleSubmit}>
+            <TabsContent value="transaction" className="space-y-4">
+              <FieldGroup>
+                <div className="grid grid-cols-2 gap-4">
                   <Field>
-                    <FieldLabel htmlFor="description-t">Description</FieldLabel>
+                    <FieldLabel htmlFor="date-t">Date</FieldLabel>
                     <Input
-                      id="description-t"
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="e.g., Starbucks Coffee"
+                      id="date-t"
+                      type="date"
+                      value={formData.date}
+                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                       required
                     />
                   </Field>
-
                   <Field>
-                    <FieldLabel htmlFor="category-t">Category</FieldLabel>
-                    <CategorySelect
-                      value={categoryName}
-                      onValueChange={(value) => {
-                        setCategoryName(value)
-                        setFormData({ ...formData, category_name: value })
-                      }}
-                      onCategoryAdded={(newCategory) => {
-                        fetchCategories()
-                        setCategoryName(newCategory)
-                        setFormData({ ...formData, category_name: newCategory })
-                      }}
-                    />
-                  </Field>
-
-                  <Field>
-                    <FieldLabel htmlFor="statement">Link to Report/Statement</FieldLabel>
-                    <Select
-                      value={formData.statement_id}
-                      onValueChange={(value) => setFormData({ ...formData, statement_id: value })}
-                    >
-                      <SelectTrigger id="statement">
-                        <SelectValue placeholder="None (individual transaction)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None (individual transaction)</SelectItem>
-                        {statements
-                          .filter((statement) => statement.statementId != null)
-                          .map((statement) => (
-                            <SelectItem key={`stmt-${statement.statementId}`} value={String(statement.statementId)}>
-                              {statement.name} ({statement.type})
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                </FieldGroup>
-              </TabsContent>
-
-              <TabsContent value="receipt" className="space-y-4">
-                <FieldGroup>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field>
-                      <FieldLabel htmlFor="date-r">Receipt Date</FieldLabel>
-                      <Input
-                        id="date-r"
-                        type="date"
-                        value={formData.date}
-                        onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                        required
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="store">Store Name</FieldLabel>
-                      <Input
-                        id="store"
-                        value={formData.store_name}
-                        onChange={(e) => setFormData({ ...formData, store_name: e.target.value })}
-                        placeholder="e.g. Walmart"
-                        required
-                      />
-                    </Field>
-                  </div>
-
-                  <Field>
-                    <FieldLabel htmlFor="item-desc">Item Description</FieldLabel>
+                    <FieldLabel htmlFor="amount-t">Amount</FieldLabel>
                     <Input
-                      id="item-desc"
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="e.g. Milk 1L"
+                      id="amount-t"
+                      type="number"
+                      step="0.01"
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                      placeholder="0.00"
                       required
                     />
                   </Field>
+                </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field>
-                      <FieldLabel htmlFor="price">Price per Item</FieldLabel>
-                      <Input
-                        id="price"
-                        type="number"
-                        step="0.01"
-                        value={formData.amount}
-                        onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                        placeholder="0.00"
-                        required
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="quantity">Quantity</FieldLabel>
-                      <Input
-                        id="quantity"
-                        type="number"
-                        step="1"
-                        min="1"
-                        value={formData.quantity}
-                        onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                        placeholder="1"
-                        required
-                      />
-                    </Field>
-                  </div>
+                <Field>
+                  <FieldLabel htmlFor="description-t">Description</FieldLabel>
+                  <Input
+                    id="description-t"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="e.g., Starbucks Coffee"
+                    required
+                  />
+                </Field>
 
+                <Field>
+                  <FieldLabel htmlFor="category-t">Category</FieldLabel>
+                  <CategorySelect
+                    value={categoryName}
+                    onValueChange={(value) => {
+                      setCategoryName(value)
+                      setFormData({ ...formData, category_name: value })
+                    }}
+                    onCategoryAdded={(newCategory) => {
+                      fetchCategories()
+                      setCategoryName(newCategory)
+                      setFormData({ ...formData, category_name: newCategory })
+                    }}
+                  />
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="statement">Link to Report/Statement</FieldLabel>
+                  <Select
+                    value={formData.statement_id}
+                    onValueChange={(value) => setFormData({ ...formData, statement_id: value })}
+                  >
+                    <SelectTrigger id="statement">
+                      <SelectValue placeholder="None (individual transaction)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None (individual transaction)</SelectItem>
+                      {statements
+                        .filter((statement) => statement.statementId != null)
+                        .map((statement) => (
+                          <SelectItem key={`stmt-${statement.statementId}`} value={String(statement.statementId)}>
+                            {statement.name} ({statement.type})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </FieldGroup>
+            </TabsContent>
+
+            <TabsContent value="receipt" className="space-y-4">
+              <FieldGroup>
+                <div className="grid grid-cols-2 gap-4">
                   <Field>
-                    <FieldLabel htmlFor="cat-r">Item Category</FieldLabel>
-                    <ReceiptCategorySelect
-                      value={formData.receipt_category_id}
-                      onValueChange={(categoryId, category) => {
-                        setFormData({ ...formData, receipt_category_id: categoryId })
-                      }}
+                    <FieldLabel htmlFor="date-r">Receipt Date</FieldLabel>
+                    <Input
+                      id="date-r"
+                      type="date"
+                      value={formData.date}
+                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                      required
                     />
                   </Field>
-                </FieldGroup>
-              </TabsContent>
+                  <Field>
+                    <FieldLabel htmlFor="store">Store Name</FieldLabel>
+                    <Input
+                      id="store"
+                      value={formData.store_name}
+                      onChange={(e) => setFormData({ ...formData, store_name: e.target.value })}
+                      placeholder="e.g. Walmart"
+                      required
+                    />
+                  </Field>
+                </div>
 
-              <DialogFooter className="mt-6">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                  disabled={loading}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={loading}>
-                  {loading ? "Adding..." : (transactionType === "transaction" ? "Add Transaction" : "Add Receipt Item")}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Tabs>
-        </DialogContent>
-      </Dialog>
+                <Field>
+                  <FieldLabel htmlFor="item-desc">Item Description</FieldLabel>
+                  <Input
+                    id="item-desc"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="e.g. Milk 1L"
+                    required
+                  />
+                </Field>
 
-      {/* Limit exceeded dialog */}
-      {limitExceeded && (
-        <TransactionLimitDialog
-          open={showLimitDialog}
-          onOpenChange={setShowLimitDialog}
-          limitExceeded={limitExceeded}
-        />
-      )}
-    </>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field>
+                    <FieldLabel htmlFor="price">Price per Item</FieldLabel>
+                    <Input
+                      id="price"
+                      type="number"
+                      step="0.01"
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                      placeholder="0.00"
+                      required
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="quantity">Quantity</FieldLabel>
+                    <Input
+                      id="quantity"
+                      type="number"
+                      step="1"
+                      min="1"
+                      value={formData.quantity}
+                      onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                      placeholder="1"
+                      required
+                    />
+                  </Field>
+                </div>
+
+                <Field>
+                  <FieldLabel htmlFor="cat-r">Item Category</FieldLabel>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" type="button" className="w-full justify-between font-normal">
+                        {formData.receipt_category_id !== "none"
+                          ? receiptCategories.find(c => String(c.id) === formData.receipt_category_id)?.name
+                          : "Select receipt category"}
+                        <ChevronDown className="h-4 w-4 opacity-50" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-[300px]" align="start">
+                      <DropdownMenuItem onClick={() => setFormData({ ...formData, receipt_category_id: "none" })}>
+                        Uncategorized
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      {Object.entries(groupedReceiptCategories).map(([typeName, cats]) => (
+                        <DropdownMenuSub key={typeName}>
+                          <DropdownMenuSubTrigger>
+                            {typeName}
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent>
+                            {cats.map((cat) => (
+                              <DropdownMenuItem
+                                key={cat.id}
+                                onClick={() => setFormData({ ...formData, receipt_category_id: String(cat.id) })}
+                              >
+                                {cat.name}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </Field>
+              </FieldGroup>
+            </TabsContent>
+
+            <DialogFooter className="mt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Adding..." : (transactionType === "transaction" ? "Add Transaction" : "Add Receipt Item")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
   )
 }

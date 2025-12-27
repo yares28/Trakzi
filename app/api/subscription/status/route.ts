@@ -4,24 +4,22 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUserId } from '@/lib/auth';
 import { getUserPlanSummary, getTotalTransactionUsage } from '@/lib/feature-access';
-import { neonQuery } from '@/lib/neonClient';
 
 export async function GET() {
     try {
         const userId = await getCurrentUserId();
 
-        //Get plan summary with usage
+        // SAFETY NET: Auto-enforce transaction capacity BEFORE fetching usage
+        // This ensures the count is correct after any auto-deletions
+        const { checkAndEnforceCapacity } = await import('@/lib/startup/check-capacity');
+        await checkAndEnforceCapacity(userId).catch((error) => {
+            console.error('[Subscription Status] Capacity check failed:', error);
+            // Continue anyway - don't block status fetch if capacity check fails
+        });
+
+        // Get plan summary with usage (will now reflect any deletions)
         const summary = await getUserPlanSummary(userId);
         const usage = await getTotalTransactionUsage(userId);
-
-        // Get category counts
-        const [transactionCats, receiptCats] = await Promise.all([
-            neonQuery<{ count: string | number }>('SELECT COUNT(*) as count FROM categories WHERE user_id = $1', [userId]),
-            neonQuery<{ count: string | number }>('SELECT COUNT(*) as count FROM receipt_categories WHERE user_id = $1', [userId])
-        ]);
-
-        const transactionCategoryCount = Number(transactionCats[0]?.count || 0);
-        const receiptCategoryCount = Number(receiptCats[0]?.count || 0);
 
         // Handle Infinity values - JSON doesn't support Infinity
         // Use -1 to indicate unlimited
@@ -46,10 +44,6 @@ export async function GET() {
                 // -1 means unlimited
                 transactionLimit: usage.limit === Infinity ? -1 : usage.limit,
                 percentUsed: usage.limit === Infinity ? 0 : Math.round((usage.total / usage.limit) * 100),
-            },
-            categoryUsage: {
-                transactionCategories: transactionCategoryCount,
-                receiptCategories: receiptCategoryCount
             },
             subscription: summary.subscription,
         });
