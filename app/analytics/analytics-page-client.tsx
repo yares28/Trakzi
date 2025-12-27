@@ -1822,6 +1822,16 @@ export default function AnalyticsPage() {
     }
 
     const sortedTimePeriods = Array.from(allTimePeriods).sort((a, b) => a.localeCompare(b))
+
+    // DEBUG: Log to identify the issue
+    console.log('[Category Flow Debug]', {
+      dateFilter,
+      totalTimePeriods: sortedTimePeriods.length,
+      samplePeriods: sortedTimePeriods.slice(0, 5),
+      totalTransactions: rawTransactions.length,
+      expenseTransactions: rawTransactions.filter(tx => tx.amount < 0).length
+    })
+
     const periodTotals = new Map<string, number>()
     sortedTimePeriods.forEach((period) => {
       let total = 0
