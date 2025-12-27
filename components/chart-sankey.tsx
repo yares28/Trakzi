@@ -66,11 +66,14 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls,
   const { formatCurrency } = useCurrency()
   const [isFullscreen, setIsFullscreen] = useState(false)
 
-  // Use lighter colors in dark mode by reversing the palette (darkest→lightest becomes lightest→darkest)
+  // Use bright colors from palette (palettes are ordered darkest to lightest)
+  // Take the last 6 colors for vibrant display in both light and dark modes
   const chartColors = useMemo(() => {
-    const palette = getPalette()
-    return resolvedTheme === "dark" ? [...palette].reverse() : palette
-  }, [getPalette, resolvedTheme])
+    const fullPalette = getPalette()
+    // Get the brighter half of the palette (last 6 colors)
+    // This ensures colors are vibrant in both themes
+    return fullPalette.slice(-6)
+  }, [getPalette])
 
 
 
