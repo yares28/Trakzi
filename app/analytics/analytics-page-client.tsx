@@ -2149,8 +2149,9 @@ export default function AnalyticsPage() {
     // Determine time granularity based on date filter
     const getTimeKey = (date: Date): string => {
       if (!dateFilter) {
-        // All time: use months
-        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+        // All time: use year-month format (e.g., "Jan 2024")
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        return `${monthNames[date.getMonth()]} ${date.getFullYear()}`
       }
 
       switch (dateFilter) {
@@ -2165,16 +2166,20 @@ export default function AnalyticsPage() {
         case "last3months":
         case "last6months":
           // Monthly grouping for 3 and 6 months
-          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+          const monthNames2 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+          return `${monthNames2[date.getMonth()]} ${date.getFullYear()}`
         case "lastyear":
           // Monthly grouping for last year
-          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+          const monthNames3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+          return `${monthNames3[date.getMonth()]} ${date.getFullYear()}`
         default:
           // For specific years or other filters, use months
           if (/^\d{4}$/.test(dateFilter)) {
-            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+            const monthNames4 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            return `${monthNames4[date.getMonth()]} ${date.getFullYear()}`
           }
-          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+          const monthNames5 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+          return `${monthNames5[date.getMonth()]} ${date.getFullYear()}`
       }
     }
 
