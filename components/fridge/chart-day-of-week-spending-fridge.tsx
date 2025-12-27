@@ -431,3 +431,4 @@ export function ChartDayOfWeekSpendingFridge({ data = [], dayOfWeekSpendingData,
 
 
 
+
