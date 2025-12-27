@@ -67,13 +67,14 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls,
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   // Use bright colors from palette (palettes are ordered darkest to lightest)
-  // Take the last 6 colors for vibrant display in both light and dark modes
+  // In dark mode, reverse for better contrast (same as Streamgraph)
   const chartColors = useMemo(() => {
     const fullPalette = getPalette()
-    // Get the brighter half of the palette (last 6 colors)
-    // This ensures colors are vibrant in both themes
-    return fullPalette.slice(-6)
-  }, [getPalette])
+    // Get the brighter colors (last 6)
+    const brightColors = fullPalette.slice(-6)
+    // In dark mode, reverse the bright colors for better contrast
+    return resolvedTheme === "dark" ? [...brightColors].reverse() : brightColors
+  }, [getPalette, resolvedTheme])
 
 
 
