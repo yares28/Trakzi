@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getCurrentUserIdOrNull } from '@/lib/auth'
 import { getSavingsBundle, type SavingsSummary } from '@/lib/charts/home-trends-savings-aggregations'
 import { getCachedOrCompute, buildCacheKey, CACHE_TTL } from '@/lib/cache/upstash'
+import { autoEnforceTransactionCap } from '@/lib/limits/auto-enforce-cap'
 
 export const GET = async (request: Request) => {
     try {
@@ -18,6 +19,10 @@ export const GET = async (request: Request) => {
                 )
             }
         }
+
+        // Automatically enforce transaction cap on page load
+        // This ensures users who exceed limits (e.g., after downgrade) are brought back within limits
+        await autoEnforceTransactionCap(userId, true)
 
         // Get filter from query params
         const { searchParams } = new URL(request.url)
