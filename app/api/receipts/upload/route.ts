@@ -529,6 +529,32 @@ export const POST = async (req: NextRequest) => {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
+    // Pre-check: Ensure user has SOME capacity before expensive OCR processing
+    // This prevents wasting resources on files that can't be committed
+    const { hasAnyRemainingCapacity } = await import("@/lib/limits/transactions-cap")
+    const capacityCheck = await hasAnyRemainingCapacity(userId)
+
+    if (!capacityCheck.hasCapacity) {
+      // Return proper limit exceeded response
+      const { getPlanLimits, getUpgradePlans } = await import("@/lib/plan-limits")
+      const { getTransactionCount } = await import("@/lib/limits/transactions-cap")
+
+      const limits = getPlanLimits(capacityCheck.plan)
+      const counts = await getTransactionCount(userId)
+      const upgradePlans = getUpgradePlans(capacityCheck.plan)
+
+      return NextResponse.json({
+        code: 'LIMIT_EXCEEDED',
+        plan: capacityCheck.plan,
+        cap: limits.maxTotalTransactions,
+        used: counts.total,
+        remaining: 0,
+        message: 'You have reached your transaction limit. Please delete some transactions or upgrade your plan to add more receipts.',
+        suggestedActions: ['DELETE_EXISTING', 'UPGRADE'],
+        upgradePlans,
+      }, { status: 403 })
+    }
+
     const receiptCategories = await ensureReceiptCategories(userId)
     const allowedCategoryNames = receiptCategories.map((category) => category.name)
     const allowedCategorySet = new Set(allowedCategoryNames.map((name) => name.toLowerCase()))
