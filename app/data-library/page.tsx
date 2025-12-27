@@ -1589,10 +1589,27 @@ export default function DataLibraryPage() {
     }
   }
 
+  // Count custom categories and receipt categories (excluding defaults)
+  const customCategoriesCount = useMemo(() => {
+    return categories.filter(cat => !DEFAULT_CATEGORIES.includes(cat.name)).length
+  }, [categories])
+
+  const customReceiptCategoriesCount = useMemo(() => {
+    const defaultNames = DEFAULT_RECEIPT_CATEGORIES.map(c => c.name)
+    return receiptCategories.filter(cat => !defaultNames.includes(cat.name)).length
+  }, [receiptCategories])
+
+  // Calculate total transactions including receipts
+  const totalTransactionsWithReceipts = useMemo(() => {
+    // Count receipt transactions from statements
+    const receiptCount = statements.filter(s => s.type === "Receipts").length
+    return totalTransactions + receiptCount
+  }, [totalTransactions, statements])
+
   const kpiCards = [
     {
       title: "Transactions Indexed",
-      value: formatNumber(totalTransactions),
+      value: formatNumber(totalTransactionsWithReceipts),
       hint: latestTransactionDate
         ? `Last touch ${formatFreshness(latestTransactionDate).toLowerCase()}`
         : "Waiting for first sync",
@@ -1612,17 +1629,17 @@ export default function DataLibraryPage() {
     },
     {
       title: "User Categories",
-      value: formatNumber(categories.length),
-      hint: "Count pulled directly from your Neon categories table.",
+      value: formatNumber(customCategoriesCount),
+      hint: "User-created categories (excluding defaults).",
       icon: IconCategory,
-      subtitle: "total categories synced from Neon",
+      subtitle: "custom categories created",
     },
     {
       title: "Receipt Categories",
-      value: formatNumber(receiptCategories.length),
+      value: formatNumber(customReceiptCategoriesCount),
       hint: `${receiptCategoryTypes.length} macronutrient type${receiptCategoryTypes.length === 1 ? "" : "s"}`,
       icon: IconFolders,
-      subtitle: "food categories for AI",
+      subtitle: "custom food categories for AI",
     },
   ]
 
@@ -1884,7 +1901,18 @@ export default function DataLibraryPage() {
                                     {statement.name}
                                   </TableCell>
                                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                                    {statement.type}
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className="inline-flex size-2 rounded-full"
+                                        style={{
+                                          backgroundColor:
+                                            statement.type === "Receipts" ? "#10b981" :
+                                              statement.type === "Income/Expenses" ? "#3b82f6" :
+                                                "#6b7280",
+                                        }}
+                                      />
+                                      <span>{statement.type}</span>
+                                    </div>
                                   </TableCell>
                                   <TableCell className="text-sm text-muted-foreground">
                                     {formatDateLabel(statement.date)}
@@ -2843,7 +2871,6 @@ export default function DataLibraryPage() {
                           <TableHead>Description</TableHead>
                           <TableHead>Category</TableHead>
                           <TableHead className="text-right">Amount</TableHead>
-                          <TableHead className="text-right">Balance</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -3054,11 +3081,6 @@ export default function DataLibraryPage() {
                             </TableCell>
                             <TableCell className="text-right">
                               {formatCurrency(tx.amount)}
-                            </TableCell>
-                            <TableCell className="text-right text-muted-foreground">
-                              {tx.balance !== null
-                                ? formatCurrency(tx.balance)
-                                : "—"}
                             </TableCell>
                           </TableRow>
                         ))}
