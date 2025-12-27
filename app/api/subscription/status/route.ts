@@ -9,7 +9,15 @@ export async function GET() {
     try {
         const userId = await getCurrentUserId();
 
-        // Get plan summary with usage
+        // SAFETY NET: Auto-enforce transaction capacity BEFORE fetching usage
+        // This ensures the count is correct after any auto-deletions
+        const { checkAndEnforceCapacity } = await import('@/lib/startup/check-capacity');
+        await checkAndEnforceCapacity(userId).catch((error) => {
+            console.error('[Subscription Status] Capacity check failed:', error);
+            // Continue anyway - don't block status fetch if capacity check fails
+        });
+
+        // Get plan summary with usage (will now reflect any deletions)
         const summary = await getUserPlanSummary(userId);
         const usage = await getTotalTransactionUsage(userId);
 
