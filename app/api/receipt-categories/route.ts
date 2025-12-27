@@ -115,20 +115,18 @@ export const GET = async () => {
 export const POST = async (req: NextRequest) => {
   try {
     const userId = await getCurrentUserId()
-    
+
     // Check category limit before creating
-    const { checkCustomFridgeCategoryLimit } = await import("@/lib/feature-access")
-    const limitCheck = await checkCustomFridgeCategoryLimit(userId)
-    
+    const { canCreateCategory } = await import("@/lib/limits/category-cap")
+    const limitCheck = await canCreateCategory(userId, 'receipt')
+
     if (!limitCheck.allowed) {
       return NextResponse.json(
-        { 
-          error: limitCheck.reason || "Category limit reached",
-          limitReached: true,
-          currentUsage: limitCheck.currentUsage,
-          limit: limitCheck.limit,
-          plan: limitCheck.plan,
-          upgradeRequired: limitCheck.upgradeRequired,
+        {
+          error: limitCheck.message || "Receipt category limit reached",
+          code: 'CATEGORY_LIMIT_EXCEEDED',
+          capacity: limitCheck.capacity,
+          plan: limitCheck.capacity.plan,
         },
         { status: 403 }
       )

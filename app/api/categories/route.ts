@@ -55,7 +55,7 @@ export const GET = async () => {
         const totalAmount = typeof category.total_amount === "string"
           ? parseFloat(category.total_amount)
           : Number(category.total_amount ?? 0)
-        
+
         return {
           id: category.id,
           name: category.name,
@@ -116,20 +116,18 @@ const CATEGORY_COLORS = [
 export const POST = async (req: NextRequest) => {
   try {
     const userId = await getCurrentUserId()
-    
+
     // Check category limit before creating
-    const { checkCustomTransactionCategoryLimit } = await import("@/lib/feature-access")
-    const limitCheck = await checkCustomTransactionCategoryLimit(userId)
-    
+    const { canCreateCategory } = await import("@/lib/limits/category-cap")
+    const limitCheck = await canCreateCategory(userId, 'transaction')
+
     if (!limitCheck.allowed) {
       return NextResponse.json(
-        { 
-          error: limitCheck.reason || "Category limit reached",
-          limitReached: true,
-          currentUsage: limitCheck.currentUsage,
-          limit: limitCheck.limit,
-          plan: limitCheck.plan,
-          upgradeRequired: limitCheck.upgradeRequired,
+        {
+          error: limitCheck.message || "Category limit reached",
+          code: 'CATEGORY_LIMIT_EXCEEDED',
+          capacity: limitCheck.capacity,
+          plan: limitCheck.capacity.plan,
         },
         { status: 403 }
       )
@@ -155,9 +153,9 @@ export const POST = async (req: NextRequest) => {
     const [category] = await neonInsert<{ user_id: string; name: string; color: string; id?: number }>(
       "categories",
       {
-      user_id: userId,
-      name: normalizedName,
-      color: paletteColor,
+        user_id: userId,
+        name: normalizedName,
+        color: paletteColor,
       }
     ) as Array<{ id: number; user_id: string; name: string; color: string }>
 

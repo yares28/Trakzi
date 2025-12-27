@@ -132,7 +132,21 @@ export function ChartAllMonthsCategorySpending({ data = [], monthlyCategoriesDat
           totals.set(monthIndex, 0)
         })
         monthlyCategoriesData.forEach(item => {
-          const monthIndex = item.month - 1
+          // Parse month from either string ('Mon YYYY') or number (1-12) format
+          let monthIndex: number
+          if (typeof item.month === 'string') {
+            // Extract month from 'Mon YYYY' format
+            const monthStr = item.month.split(' ')[0]  // Get 'Mon'
+            monthIndex = monthNamesShort.indexOf(monthStr)
+            if (monthIndex === -1) {
+              console.warn('[All Months] Unknown month format:', item.month)
+              return
+            }
+          } else {
+            // Legacy number format (1-12)
+            monthIndex = item.month - 1
+          }
+
           if (monthIndex >= 0 && monthIndex < 12) {
             totals.set(monthIndex, (totals.get(monthIndex) || 0) + (item.total || 0))
           }
@@ -187,7 +201,16 @@ export function ChartAllMonthsCategorySpending({ data = [], monthlyCategoriesDat
       })
 
       monthlyCategoriesData.forEach(m => {
-        const monthIndex = m.month - 1 // Convert 1-12 to 0-11
+        // Parse month from either string ('Mon YYYY') or number (1-12) format
+        let monthIndex: number
+        if (typeof m.month === 'string') {
+          const monthStr = m.month.split(' ')[0]
+          monthIndex = monthNamesShort.indexOf(monthStr)
+          if (monthIndex === -1) return
+        } else {
+          monthIndex = m.month - 1 // Convert 1-12 to 0-11
+        }
+
         const category = m.category
         if (hiddenCategorySet.has(category)) return
         const dayMap = grouped.get(monthIndex)
