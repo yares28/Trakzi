@@ -58,10 +58,10 @@ export function SiteHeader() {
         sticky top-0 z-40 
         mx-2 mt-2 mb-1
         rounded-2xl
-        bg-background/80 dark:bg-background/70
+        bg-background/80
         backdrop-blur-xl
-        border border-border/50 dark:border-white/10
-        shadow-lg shadow-black/5 dark:shadow-black/20
+        border border-border/50
+        shadow-lg shadow-black/5
         flex h-14 shrink-0 items-center gap-2
         transition-all duration-300 ease-in-out
         md:mx-0 md:mt-0 md:mb-0 md:rounded-none md:rounded-t-2xl md:bg-background md:backdrop-blur-none md:border-0 md:border-b md:shadow-none md:h-[var(--header-height)]
