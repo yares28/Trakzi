@@ -226,7 +226,7 @@ async function getDataLibraryBundle(userId: string): Promise<DataLibraryBundle> 
                 rct.created_at,
                 COUNT(DISTINCT rc.id) as category_count,
                 COUNT(DISTINCT rt.id) as transaction_count,
-                COALESCE(SUM(rt.total_price), 0) as total_spend
+                COALESCE(-SUM(rt.total_price), 0) as total_spend
             FROM receipt_category_types rct
             LEFT JOIN receipt_categories rc ON rc.type_id = rct.id AND rc.user_id = $1
             LEFT JOIN receipt_transactions rt ON rt.category_type_id = rct.id AND rt.user_id = $1
@@ -262,7 +262,7 @@ async function getDataLibraryBundle(userId: string): Promise<DataLibraryBundle> 
             rct.color as type_color,
             rc.created_at,
             COUNT(rt.id) as transaction_count,
-            COALESCE(SUM(rt.total_price), 0) as total_spend
+            COALESCE(-SUM(rt.total_price), 0) as total_spend
         FROM receipt_categories rc
         INNER JOIN receipt_category_types rct ON rc.type_id = rct.id
         LEFT JOIN receipt_transactions rt
