@@ -35,7 +35,7 @@
 
 ---
 
-## Stripe Account Overvieww
+## Stripe Account Overview
 
 ### Account Details
 - **Account ID:** `acct_1SfK253mCRibQnW1`
