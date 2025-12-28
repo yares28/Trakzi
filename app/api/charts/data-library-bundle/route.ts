@@ -269,7 +269,6 @@ async function getDataLibraryBundle(userId: string): Promise<DataLibraryBundle> 
             ON rt.category_id = rc.id
             AND rt.user_id = $1
         WHERE rc.user_id = $1
-          AND (rc.is_default IS NULL OR rc.is_default = false)
         GROUP BY
             rc.id,
             rc.name,

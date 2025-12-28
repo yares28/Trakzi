@@ -12,59 +12,94 @@ export const DEFAULT_CATEGORY_GROUPS: CategoryGroup[] = [
     categories: [
       "Groceries",
       "Restaurants",
+      "Coffee",
       "Bars",
+      "Takeaway/Delivery",
     ],
   },
   {
-    label: "Home & Utilities",
+    label: "Housing",
     categories: [
-      "Rent", 
+      "Rent",
       "Mortgage",
-      "Utilities",
+      "Home Maintenance",
+      "Home Supplies",
+    ],
+  },
+  {
+    label: "Bills & Utilities",
+    categories: [
+      "Electricity",
+      "Gas",
+      "Water",
+      "Internet",
+      "Mobile",
     ],
   },
   {
     label: "Transportation",
     categories: [
       "Fuel",
-      "Transport",
+      "Public Transport",
+      "Taxi/Rideshare",
+      "Parking/Tolls",
+      "Car Maintenance",
+    ],
+  },
+  {
+    label: "Health & Fitness",
+    categories: [
+      "Pharmacy",
+      "Medical",
+      "Fitness",
+    ],
+  },
+  {
+    label: "Shopping",
+    categories: [
+      "Clothing",
+      "Electronics",
+      "Home Goods",
+      "Gifts",
     ],
   },
   {
     label: "Finance & Insurance",
     categories: [
-      "Insurance",
+      "Bank Fees",
       "Taxes & Fees",
+      "Insurance",
     ],
   },
   {
-    label: "Lifestyle & Shopping",
+    label: "Income",
     categories: [
-      "Shopping",
+      "Salary",
+      "Bonus",
+      "Freelance",
+      "Refunds/Reimbursements",
+    ],
+  },
+  {
+    label: "Savings & Investments",
+    categories: [
+      "Savings",
+      "Investments",
+      "Transfers",
+    ],
+  },
+  {
+    label: "Entertainment & Lifestyle",
+    categories: [
       "Entertainment",
       "Education",
-      "Health & Fitness",
       "Subscriptions",
       "Travel",
       "Services",
     ],
   },
   {
-    label: "Income & Transfers",
-    categories: [
-      "Income",
-      "Transfers",
-      "Refunds",
-    ],
-  },
-  {
-    label: "Savings & Goals",
-    categories: [
-      "Savings",
-    ],
-  },
-  {
-    label: "Personal & Other",
+    label: "Other",
     categories: ["Other"],
   },
 ]
@@ -72,4 +107,5 @@ export const DEFAULT_CATEGORY_GROUPS: CategoryGroup[] = [
 export const DEFAULT_CATEGORIES = DEFAULT_CATEGORY_GROUPS.flatMap(
   (group) => group.categories,
 )
+
 
