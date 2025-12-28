@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth";
 import { neonQuery } from "@/lib/neonClient";
+import { invalidateUserCachePrefix } from "@/lib/cache/upstash";
 
 export const DELETE = async (
     request: NextRequest,
@@ -10,9 +11,9 @@ export const DELETE = async (
     try {
         const userId = await getCurrentUserId();
         const { id: idParam } = await params;
-        
+
         console.log("[Delete Statement API] Received ID param:", idParam, typeof idParam);
-        
+
         if (!idParam || idParam === 'undefined' || idParam === 'null') {
             console.error("[Delete Statement API] Missing or invalid ID param:", idParam);
             return NextResponse.json(
@@ -20,7 +21,7 @@ export const DELETE = async (
                 { status: 400 }
             );
         }
-        
+
         const statementId = parseInt(idParam, 10);
 
         if (isNaN(statementId) || statementId <= 0) {
@@ -62,6 +63,9 @@ export const DELETE = async (
             WHERE id = $1 AND user_id = $2
         `;
         await neonQuery(deleteStatementQuery, [statementId, userId]);
+
+        // Invalidate data-library cache to ensure UI reflects deletion instantly
+        await invalidateUserCachePrefix(userId, 'data-library');
 
         return NextResponse.json({ success: true });
     } catch (error: any) {
