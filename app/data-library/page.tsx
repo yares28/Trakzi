@@ -531,12 +531,14 @@ export default function DataLibraryPage() {
   }, [statements, selectedReportType, reportsSearch])
 
   const fetchLibraryData = useCallback(async () => {
+    console.log('[Data Library] fetchLibraryData called')
     setLoading(true)
     setError(null)
 
     try {
       // Use the new bundle API instead of 7 separate calls
       // Disable caching to ensure instant updates after deletions
+      console.log('[Data Library] Fetching bundle with cache: no-store')
       const bundleRes = await fetch("/api/charts/data-library-bundle", {
         cache: 'no-store'
       })
@@ -548,6 +550,11 @@ export default function DataLibraryPage() {
       }
 
       const bundleData = await bundleRes.json()
+      console.log('[Data Library] Received bundle data:', {
+        statements: bundleData.statements.length,
+        transactions: bundleData.transactions.length,
+        cacheKey: bundleRes.headers.get('X-Cache-Key')
+      })
 
       // Set all state from bundle response
       setTransactions(normalizeTransactions(bundleData.transactions) as Transaction[])
@@ -559,12 +566,14 @@ export default function DataLibraryPage() {
       setReceiptCategories(bundleData.receiptCategories)
       setReceiptTransactionsCount(bundleData.receiptTransactionsCount || 0)
       setTotalUserCategoriesCount(bundleData.userCategoriesCount || 0)
+      console.log('[Data Library] State updated with', bundleData.statements.length, 'statements')
     } catch (err) {
       const message =
         err instanceof Error
           ? err.message
           : "We hit a snag while syncing the library."
       setError(message)
+      console.error('[Data Library] Fetch error:', err)
     } finally {
       setLoading(false)
     }
@@ -1705,14 +1714,21 @@ export default function DataLibraryPage() {
   const handleDeleteStatement = async () => {
     if (!statementToDelete) return
 
+    console.log('[Delete] Deleting statement:', statementToDelete)
+
     // Handle receipts differently
     if (statementToDelete.type === "Receipts" && statementToDelete.receiptId) {
       setDeleteLoading(true)
       try {
+        console.log('[Delete] Calling DELETE /api/receipts/', statementToDelete.receiptId)
         const response = await fetch(`/api/receipts/${statementToDelete.receiptId}`, {
           method: "DELETE",
         })
+        console.log('[Delete] DELETE response status:', response.status)
         if (response.ok) {
+          const result = await response.json()
+          console.log('[Delete] DELETE successful:', result)
+
           // Track statement deleted
           safeCapture('statement_deleted', {
             statement_name: statementToDelete.name,
@@ -1720,11 +1736,14 @@ export default function DataLibraryPage() {
             is_receipt: true,
           })
 
+          console.log('[Delete] Calling fetchLibraryData to refresh')
           await fetchLibraryData()
+          console.log('[Delete] fetchLibraryData completed')
           setDeleteDialogOpen(false)
           setStatementToDelete(null)
         } else {
           const errorData = await response.json().catch(() => ({}))
+          console.error('[Delete] DELETE failed:', errorData)
           alert(errorData.error || "Failed to delete receipt")
         }
       } catch (err) {
