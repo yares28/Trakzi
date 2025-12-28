@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { revalidatePath } from "next/cache"
 import { getCurrentUserId } from "@/lib/auth"
 import { neonQuery } from "@/lib/neonClient"
 import { invalidateUserCachePrefix } from "@/lib/cache/upstash"
@@ -193,6 +194,10 @@ export const DELETE = async (
     console.log('[Delete Receipt API] Invalidating cache for user:', userId)
     await invalidateUserCachePrefix(userId, 'data-library')
     console.log('[Delete Receipt API] Cache invalidation completed')
+
+    // Revalidate the data library page to clear Vercel's edge cache
+    revalidatePath('/data-library')
+    console.log('[Delete Receipt API] Revalidated /data-library path')
 
     return NextResponse.json({ success: true, message: "Receipt deleted successfully" })
   } catch (error: any) {
