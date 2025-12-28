@@ -90,14 +90,14 @@ postgresql://neondb_owner:npg_nCG8VWF9OSwI@ep-purple-tree-abhoip45-pooler.eu-wes
 ### Public Schema Tables
 
 1. **users** - User accounts (Clerk authentication)
-2. **categories** - Transaction categories
+2. **categories** - Transaction categories (41 defaults)
 3. **transactions** - Bank transactions
 4. **statements** - Uploaded bank statements
 5. **category_budgets** - Category budget settings
 6. **user_files** - Uploaded files storage
 7. **receipts** - Grocery receipt metadata
-8. **receipt_category_types** - Macronutrient types (Protein, Carbs, etc.)
-9. **receipt_categories** - Food categories
+8. **receipt_category_types** - Macronutrient types (6 types: Protein, Carbs, Fat, Mixed, None, Other)
+9. **receipt_categories** - Food/Drink/Non-food categories (62 defaults, broad_type: Food/Drinks/Other)
 10. **receipt_transactions** - Individual receipt line items
 11. **receipt_item_category_preferences** - Receipt item categorization preferences
 12. **transaction_category_preferences** - Transaction categorization preferences
@@ -336,15 +336,20 @@ postgresql://neondb_owner:npg_nCG8VWF9OSwI@ep-purple-tree-abhoip45-pooler.eu-wes
 
 ### 9. receipt_categories
 
-**Purpose**: Stores food categories (Fruits, Vegetables, Meat, Dairy, etc.)
+**Purpose**: Stores food, drink, and non-food grocery categories
+
+**Default Categories**: 62 categories organized by type:
+- Food (38): Fresh/whole foods, bakery, pantry staples, snacks, frozen, prepared foods
+- Drinks (9): Water, soft drinks, juice, coffee/tea, energy drinks, alcohol (beer, wine, spirits, low/no alcohol)
+- Other (15): OTC medicine, supplements, hygiene, cleaning, baby, pet supplies
 
 **Columns**:
 - `id` (integer, PRIMARY KEY, AUTO_INCREMENT)
 - `user_id` (text, NOT NULL) - References `users(id)`
-- `type_id` (integer, NULLABLE) - References `receipt_category_types(id)`
+- `type_id` (integer, NULLABLE) - References `receipt_category_types(id)` (fallback macro classification)
 - `name` (text, NOT NULL) - Category name
 - `color` (text, NULLABLE, DEFAULT '#6366f1') - Category color
-- `broad_type` (text, NULLABLE) - Quick filter: 'Drinks', 'Food', 'Other'
+- `broad_type` (text, NULLABLE) - **Standardized values**: 'Food' | 'Drinks' | 'Other' (used for filtering)
 - `is_default` (boolean, NULLABLE, DEFAULT false) - System default flag
 - `created_at` (timestamp with time zone, NULLABLE, DEFAULT now())
 - `updated_at` (timestamp with time zone, NULLABLE, DEFAULT now())
@@ -674,7 +679,21 @@ All information was extracted using Neon MCP tools and reflects the current stat
 
 ### Recent Changes
 
+- **December 28, 2025**: Expanded category system:
+  - Transaction categories: 22 → 41 (added utilities, transport, health, shopping subcategories)
+  - Receipt categories: 31 → 62 (detailed food, beverage, non-food items)
+  - Standardized `broad_type` to Food/Drinks/Other only
+  - Migration endpoint `/api/migrations/fix-default-categories` to mark defaults
 - **December 24, 2025**: Added `webhook_events` table for Stripe webhook idempotency
 - **December 24, 2025**: Compute endpoint resumed from suspension
 - **December 23, 2025**: Initial documentation created
+
+### Migration Notes
+
+For existing users with old default categories, run:
+```bash
+curl -X POST http://localhost:3000/api/migrations/fix-default-categories?dryRun=true
+```
+
+This marks default categories with `is_default=true` to exclude them from user category limits.
 
