@@ -62,6 +62,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { cn, normalizeTransactions } from "@/lib/utils"
 import { IconUpload, IconFile, IconCircleCheck, IconLoader2, IconAlertCircle, IconTrash } from "@tabler/icons-react"
 import { toast } from "sonner"
+import { TransactionLimitDialog, type TransactionLimitExceededData } from "@/components/limits/transaction-limit-dialog"
 import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv"
 import { TxRow } from "@/lib/types/transactions"
@@ -2081,8 +2082,28 @@ export default function Page() {
       if (!response.ok) {
         let errorMessage = `HTTP error! status: ${response.status}`
         const responseText = await response.text()
+
         try {
           const errorData = JSON.parse(responseText)
+
+          // Check for transaction limit exceeded
+          if (response.status === 403 && errorData.code === 'LIMIT_EXCEEDED') {
+            clearInterval(progressInterval)
+            setImportProgress(0)
+            setIsImporting(false)
+
+            // Show toast with upgrade option (home page simplified approach)
+            toast.error("Transaction Limit Reached", {
+              description: errorData.message || "You've reached your transaction limit. Upgrade for more capacity.",
+              duration: 10000,
+              action: {
+                label: "Upgrade",
+                onClick: () => { window.location.href = '/billing' }
+              }
+            })
+            return
+          }
+
           errorMessage = errorData.error || errorMessage
         } catch {
           errorMessage = responseText || errorMessage
