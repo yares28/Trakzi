@@ -214,7 +214,7 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
           <SelectTrigger className="w-full pointer-events-auto">
             <SelectValue placeholder="Select currency" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="z-50">
             {currencies.map((curr) => (
               <SelectItem key={curr.value} value={curr.value}>
                 {curr.label}
@@ -236,7 +236,7 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
           <SelectTrigger className="w-full pointer-events-auto">
             <SelectValue placeholder="Select default time period" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="z-50">
             {timePeriods.map((period) => (
               <SelectItem key={period.value} value={period.value}>
                 {period.label}
