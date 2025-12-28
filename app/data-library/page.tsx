@@ -1761,14 +1761,15 @@ export default function DataLibraryPage() {
     }
   }
 
-  // Count custom categories and receipt categories (excluding defaults)
+  // Count custom categories (excluding defaults) using is_default flag
   const customCategoriesCount = useMemo(() => {
-    return categories.filter(cat => !DEFAULT_CATEGORIES.includes(cat.name)).length
+    // @ts-ignore - is_default exists in DB but not in type
+    return categories.filter(cat => !cat.is_default).length
   }, [categories])
 
   const customReceiptCategoriesCount = useMemo(() => {
-    const defaultNames = DEFAULT_RECEIPT_CATEGORIES.map(c => c.name)
-    return receiptCategories.filter(cat => !defaultNames.includes(cat.name)).length
+    // @ts-ignore - is_default exists in DB but not in type
+    return receiptCategories.filter(cat => !cat.is_default).length
   }, [receiptCategories])
 
   // Calculate total transactions including receipts
