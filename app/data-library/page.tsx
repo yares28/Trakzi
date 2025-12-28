@@ -1105,6 +1105,27 @@ export default function DataLibraryPage() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
+
+        // Check for category limit exceeded
+        if (response.status === 403 && errorData.code === 'CATEGORY_LIMIT_EXCEEDED') {
+          setCategoryLimitData({
+            code: 'CATEGORY_LIMIT_EXCEEDED',
+            type: 'transaction',
+            plan: errorData.plan || 'free',
+            transactionCap: errorData.capacity?.transactionCap,
+            receiptCap: errorData.capacity?.receiptCap,
+            transactionUsed: errorData.capacity?.transactionUsed,
+            receiptUsed: errorData.capacity?.receiptUsed,
+            transactionRemaining: errorData.capacity?.transactionRemaining,
+            receiptRemaining: errorData.capacity?.receiptRemaining,
+            message: errorData.message,
+            upgradePlans: errorData.capacity?.upgradePlans
+          })
+          setIsCategoryLimitDialogOpen(true)
+          setAddCategoryLoading(false)
+          return
+        }
+
         throw new Error(errorData.error || "Failed to add category")
       }
 
@@ -1261,6 +1282,27 @@ export default function DataLibraryPage() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
+
+        // Check for category limit exceeded
+        if (response.status === 403 && errorData.code === 'CATEGORY_LIMIT_EXCEEDED') {
+          setCategoryLimitData({
+            code: 'CATEGORY_LIMIT_EXCEEDED',
+            type: 'receipt',
+            plan: errorData.plan || 'free',
+            transactionCap: errorData.capacity?.transactionCap,
+            receiptCap: errorData.capacity?.receiptCap,
+            transactionUsed: errorData.capacity?.transactionUsed,
+            receiptUsed: errorData.capacity?.receiptUsed,
+            transactionRemaining: errorData.capacity?.transactionRemaining,
+            receiptRemaining: errorData.capacity?.receiptRemaining,
+            message: errorData.message,
+            upgradePlans: errorData.capacity?.upgradePlans
+          })
+          setIsCategoryLimitDialogOpen(true)
+          setAddReceiptCategoryLoading(false)
+          return
+        }
+
         throw new Error(errorData.error || "Failed to add receipt category")
       }
 
@@ -1305,6 +1347,27 @@ export default function DataLibraryPage() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
+
+        // Check for category limit exceeded
+        if (response.status === 403 && errorData.code === 'CATEGORY_LIMIT_EXCEEDED') {
+          setCategoryLimitData({
+            code: 'CATEGORY_LIMIT_EXCEEDED',
+            type: 'receipt',
+            plan: errorData.plan || 'free',
+            transactionCap: errorData.capacity?.transactionCap,
+            receiptCap: errorData.capacity?.receiptCap,
+            transactionUsed: errorData.capacity?.transactionUsed,
+            receiptUsed: errorData.capacity?.receiptUsed,
+            transactionRemaining: errorData.capacity?.transactionRemaining,
+            receiptRemaining: errorData.capacity?.receiptRemaining,
+            message: errorData.message,
+            upgradePlans: errorData.capacity?.upgradePlans
+          })
+          setIsCategoryLimitDialogOpen(true)
+          setIsCreatingReceiptCategory(false)
+          return
+        }
+
         throw new Error(errorData.error || "Failed to add receipt category")
       }
 
@@ -3890,6 +3953,50 @@ export default function DataLibraryPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Transaction Limit Exceeded Dialog */}
+        {transactionLimitData && (
+          <TransactionLimitDialog
+            open={isTransactionLimitDialogOpen}
+            onOpenChange={(open) => {
+              setIsTransactionLimitDialogOpen(open)
+              if (!open) {
+                setTransactionLimitData(null)
+              }
+            }}
+            data={transactionLimitData}
+            onUpgrade={() => {
+              window.location.href = '/billing'
+            }}
+            onDeleteOld={() => {
+              setIsTransactionLimitDialogOpen(false)
+              setTransactionLimitData(null)
+              toast.info("Go to Data Library to delete old transactions")
+            }}
+          />
+        )}
+
+        {/* Category Limit Exceeded Dialog */}
+        {categoryLimitData && (
+          <CategoryLimitDialog
+            open={isCategoryLimitDialogOpen}
+            onOpenChange={(open) => {
+              setIsCategoryLimitDialogOpen(open)
+              if (!open) {
+                setCategoryLimitData(null)
+              }
+            }}
+            data={categoryLimitData}
+            onUpgrade={() => {
+              window.location.href = '/billing'
+            }}
+            onDeleteUnused={() => {
+              setIsCategoryLimitDialogOpen(false)
+              setCategoryLimitData(null)
+              toast.info("Review your categories in the tables below")
+            }}
+          />
+        )}
       </SidebarInset >
     </SidebarProvider >
   )
