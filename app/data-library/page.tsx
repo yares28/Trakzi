@@ -1327,6 +1327,23 @@ export default function DataLibraryPage() {
       return
     }
 
+    // Generate temporary ID for optimistic update
+    const optimisticId = `temp-${Date.now()}`
+
+    // Optimistic update - add to UI immediately  
+    setReceiptCategories(prev => [...prev, {
+      id: optimisticId as any,
+      name: trimmedName,
+      color: '#94a3b8',
+      typeId: typeId,
+      typeName: '',
+      typeColor: null,
+      broadType: 'Other',
+      createdAt: new Date().toISOString(),
+      transactionCount: 0,
+      totalSpend: 0
+    }])
+
     try {
       setAddReceiptCategoryLoading(true)
       const response = await fetch("/api/receipt-categories", {
@@ -1340,8 +1357,12 @@ export default function DataLibraryPage() {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
 
+        // Rollback optimistic update
+        setReceiptCategories(prev => prev.filter(c => String(c.id) !== optimisticId))
+
         // Check for category limit exceeded
         if (response.status === 403 && errorData.code === 'CATEGORY_LIMIT_EXCEEDED') {
+          console.log('[DEBUG] Receipt category limit:', errorData)
           setCategoryLimitData({
             code: 'CATEGORY_LIMIT_EXCEEDED',
             type: 'receipt',
@@ -1365,25 +1386,32 @@ export default function DataLibraryPage() {
 
       const newCategory = await response.json()
 
-      // Optimistic update - add to local state immediately
-      setReceiptCategories(prev => [...prev, {
-        id: newCategory.id,
-        name: newCategory.name,
-        color: newCategory.color,
-        typeId: newCategory.typeId || typeId,
-        typeName: newCategory.typeName || '',
-        typeColor: newCategory.typeColor || null,
-        broadType: newCategory.broadType || 'Other',
-        createdAt: new Date().toISOString(),
-        transactionCount: 0,
-        totalSpend: 0
-      }])
+      // Replace optimistic item with real data
+      setReceiptCategories(prev => prev.map(c =>
+        String(c.id) === optimisticId
+          ? {
+            id: newCategory.id,
+            name: newCategory.name,
+            color: newCategory.color,
+            typeId: newCategory.typeId || typeId,
+            typeName: newCategory.typeName || '',
+            typeColor: newCategory.typeColor || null,
+            broadType: newCategory.broadType || 'Other',
+            createdAt: new Date().toISOString(),
+            transactionCount: 0,
+            totalSpend: 0
+          }
+          : c
+      ))
 
       setNewReceiptCategoryName("")
       setAddReceiptCategoryDialogOpen(false)
 
       toast.success(`Receipt category "${trimmedName}" added`)
     } catch (error) {
+      // Rollback optimistic update on any error
+      setReceiptCategories(prev => prev.filter(c => String(c.id) !== optimisticId))
+
       console.error("[Add Receipt Category] Error:", error)
       const message = error instanceof Error ? error.message : "Failed to add receipt category"
       toast.error(message)
