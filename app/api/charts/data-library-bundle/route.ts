@@ -186,6 +186,7 @@ async function getDataLibraryBundle(userId: string): Promise<DataLibraryBundle> 
             FROM categories c
             LEFT JOIN transactions t ON t.category_id = c.id AND t.user_id = $1
             WHERE c.user_id = $1
+              AND (c.is_default IS NULL OR c.is_default = false)
             GROUP BY c.id
             ORDER BY COALESCE(SUM(t.amount), 0) ASC
         `, [userId]),
@@ -269,6 +270,7 @@ async function getDataLibraryBundle(userId: string): Promise<DataLibraryBundle> 
             ON rt.category_id = rc.id
             AND rt.user_id = $1
         WHERE rc.user_id = $1
+          AND (rc.is_default IS NULL OR rc.is_default = false)
         GROUP BY
             rc.id,
             rc.name,
