@@ -1153,8 +1153,16 @@ export default function DataLibraryPage() {
 
       const created = await response.json()
 
-      // Refresh categories list
-      await fetchLibraryData()
+      // Optimistic update - add to local state immediately
+      setCategories(prev => [...prev, {
+        id: created.id,
+        name: created.name,
+        color: created.color,
+        createdAt: new Date().toISOString(),
+        transactionCount: 0,
+        totalSpend: 0,
+        totalAmount: 0
+      }])
 
       // Reset form
       setNewCategoryName("")
@@ -1318,7 +1326,7 @@ export default function DataLibraryPage() {
             transactionRemaining: errorData.capacity?.transactionRemaining,
             receiptRemaining: errorData.capacity?.receiptRemaining,
             message: errorData.message,
-            upgradePlans: errorData.capacity?.upgradePlans
+            upgradePlans: errorData.upgradePlans
           })
           setIsCategoryLimitDialogOpen(true)
           setAddReceiptCategoryLoading(false)
@@ -1328,7 +1336,21 @@ export default function DataLibraryPage() {
         throw new Error(errorData.error || "Failed to add receipt category")
       }
 
-      await fetchLibraryData()
+      const newCategory = await response.json()
+
+      // Optimistic update - add to local state immediately
+      setReceiptCategories(prev => [...prev, {
+        id: newCategory.id,
+        name: newCategory.name,
+        color: newCategory.color,
+        typeId: newCategory.typeId || typeId,
+        typeName: newCategory.typeName || '',
+        typeColor: newCategory.typeColor || null,
+        broadType: newCategory.broadType || 'Other',
+        createdAt: new Date().toISOString(),
+        transactionCount: 0,
+        totalSpend: 0
+      }])
 
       setNewReceiptCategoryName("")
       setAddReceiptCategoryDialogOpen(false)
@@ -1383,7 +1405,7 @@ export default function DataLibraryPage() {
             transactionRemaining: errorData.capacity?.transactionRemaining,
             receiptRemaining: errorData.capacity?.receiptRemaining,
             message: errorData.message,
-            upgradePlans: errorData.capacity?.upgradePlans
+            upgradePlans: errorData.upgradePlans
           })
           setIsCategoryLimitDialogOpen(true)
           setIsCreatingReceiptCategory(false)
