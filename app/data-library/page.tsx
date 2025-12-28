@@ -1033,9 +1033,10 @@ export default function DataLibraryPage() {
             setTransactionLimitData({
               code: 'LIMIT_EXCEEDED',
               plan: errorData.plan || 'free',
-              currentCount: errorData.currentCount,
-              limit: errorData.limit,
-              attempting: errorData.attempting,
+              cap: errorData.limit || 500,
+              used: errorData.currentCount || 0,
+              remaining: errorData.remaining || 0,
+              incomingCount: errorData.attempting,
               message: errorData.message,
               upgradePlans: errorData.upgradePlans
             })
