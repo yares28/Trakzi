@@ -190,7 +190,9 @@ export const DELETE = async (
     }
 
     // Invalidate data-library cache to ensure UI reflects deletion instantly
+    console.log('[Delete Receipt API] Invalidating cache for user:', userId)
     await invalidateUserCachePrefix(userId, 'data-library')
+    console.log('[Delete Receipt API] Cache invalidation completed')
 
     return NextResponse.json({ success: true, message: "Receipt deleted successfully" })
   } catch (error: any) {
