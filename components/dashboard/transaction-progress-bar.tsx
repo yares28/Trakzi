@@ -228,31 +228,50 @@ export function TransactionProgressBar({
                             </p>
                         </div>
 
-                        {/* Categories Legend */}
-                        <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
-                            <div className="flex items-center gap-2">
-                                <span
-                                    className="size-3 shrink-0 rounded bg-purple-500"
-                                    aria-hidden="true"
-                                />
-                                <span className="text-sm text-muted-foreground">
-                                    Spending Categories
-                                </span>
-                                <span className="text-sm tabular-nums text-foreground font-medium">
-                                    {categoryData.transactions} / {categoryData.capacity.transactionCap}
-                                </span>
+                        {/* Category Gauges */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Spending Categories Gauge */}
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium text-muted-foreground">Spending Categories</span>
+                                    <span className={`text-sm font-bold tabular-nums ${(categoryData.transactions / categoryData.capacity.transactionCap) >= 0.9 ? 'text-red-600' :
+                                            (categoryData.transactions / categoryData.capacity.transactionCap) >= 0.7 ? 'text-orange-500' :
+                                                'text-green-600'
+                                        }`}>
+                                        {categoryData.transactions} / {categoryData.capacity.transactionCap}
+                                    </span>
+                                </div>
+                                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-purple-500 transition-all"
+                                        style={{ width: `${Math.min(100, (categoryData.transactions / categoryData.capacity.transactionCap) * 100)}%` }}
+                                    />
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    {categoryData.capacity.transactionRemaining} remaining
+                                </p>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <span
-                                    className="size-3 shrink-0 rounded bg-teal-500"
-                                    aria-hidden="true"
-                                />
-                                <span className="text-sm text-muted-foreground">
-                                    Receipt Categories
-                                </span>
-                                <span className="text-sm tabular-nums text-foreground font-medium">
-                                    {categoryData.receipts} / {categoryData.capacity.receiptCap}
-                                </span>
+
+                            {/* Receipt Categories Gauge */}
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium text-muted-foreground">Receipt Categories</span>
+                                    <span className={`text-sm font-bold tabular-nums ${(categoryData.receipts / categoryData.capacity.receiptCap) >= 0.9 ? 'text-red-600' :
+                                            (categoryData.receipts / categoryData.capacity.receiptCap) >= 0.7 ? 'text-orange-500' :
+                                                'text-green-600'
+                                        }`}>
+                                        {categoryData.receipts} / {categoryData.capacity.receiptCap}
+                                    </span>
+                                </div>
+                                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-teal-500 transition-all"
+                                        style={{ width: `${Math.min(100, (categoryData.receipts / categoryData.capacity.receiptCap) * 100)}%` }}
+                                    />
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    {categoryData.capacity.receiptRemaining} remaining
+                                </p>
                             </div>
                         </div>
                     </>
