@@ -1777,17 +1777,15 @@ export default function DataLibraryPage() {
     return customCategoriesCount + customReceiptCategoriesCount
   }, [customCategoriesCount, customReceiptCategoriesCount])
 
-  // Calculate total transactions including receipts
-  const totalTransactionsWithReceipts = useMemo(() => {
-    // Count receipt transactions from statements
-    const receiptCount = statements.filter(s => s.type === "Receipts").length
-    return totalTransactions + receiptCount
-  }, [totalTransactions, statements])
+  // Calculate total transactions (already includes receipt transactions from bundle API)
+  const totalTransactionsCount = useMemo(() => {
+    return transactions.length
+  }, [transactions])
 
   const kpiCards = [
     {
       title: "Transactions Indexed",
-      value: formatNumber(totalTransactionsWithReceipts),
+      value: formatNumber(totalTransactionsCount),
       hint: latestTransactionDate
         ? `Last touch ${formatFreshness(latestTransactionDate).toLowerCase()}`
         : "Waiting for first sync",
