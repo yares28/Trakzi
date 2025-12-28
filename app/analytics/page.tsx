@@ -64,6 +64,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Progress } from "@/components/ui/progress"
 import { CategorySelect } from "@/components/category-select"
 import { toast } from "sonner"
+import { TransactionLimitDialog, type TransactionLimitExceededData } from "@/components/limits/transaction-limit-dialog"
 import { normalizeTransactions, cn } from "@/lib/utils"
 import { useTheme } from "next-themes"
 import {
@@ -1479,8 +1480,28 @@ export default function AnalyticsPage() {
       if (!response.ok) {
         let errorMessage = `HTTP error! status: ${response.status}`
         const responseText = await response.text()
+
         try {
           const errorData = JSON.parse(responseText)
+
+          // Check for transaction limit exceeded
+          if (response.status === 403 && errorData.code === 'LIMIT_EXCEEDED') {
+            clearInterval(progressInterval)
+            setImportProgress(0)
+            setIsImporting(false)
+
+            // Show TransactionLimitDialog (will need to add state and component)
+            toast.error("Transaction Limit Reached", {
+              description: errorData.message || "You've reached your transaction limit. Upgrade for more capacity.",
+              duration: 8000,
+              action: {
+                label: "Upgrade",
+                onClick: () => { window.location.href = '/billing' }
+              }
+            })
+            return
+          }
+
           errorMessage = errorData.error || errorMessage
         } catch {
           errorMessage = responseText || errorMessage
