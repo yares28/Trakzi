@@ -1020,8 +1020,29 @@ export default function DataLibraryPage() {
       if (!response.ok) {
         let errorMessage = `HTTP error! status: ${response.status}`
         const responseText = await response.text()
+
         try {
           const errorData = JSON.parse(responseText)
+
+          // Check for transaction limit exceeded
+          if (response.status === 403 && errorData.code === 'LIMIT_EXCEEDED') {
+            clearInterval(progressInterval)
+            setImportProgress(0)
+            setIsImporting(false)
+
+            setTransactionLimitData({
+              code: 'LIMIT_EXCEEDED',
+              plan: errorData.plan || 'free',
+              currentCount: errorData.currentCount,
+              limit: errorData.limit,
+              attempting: errorData.attempting,
+              message: errorData.message,
+              upgradePlans: errorData.upgradePlans
+            })
+            setIsTransactionLimitDialogOpen(true)
+            return
+          }
+
           errorMessage = errorData.error || errorMessage
         } catch {
           errorMessage = responseText || errorMessage
