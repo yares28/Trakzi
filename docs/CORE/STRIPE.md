@@ -16,7 +16,7 @@
 
 ---
 
-## Table of Contents
+## Table of Contentss
 
 1. [Stripe Account Overview](#stripe-account-overview)
 2. [Stripe Resources](#stripe-resources)
