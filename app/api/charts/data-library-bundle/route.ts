@@ -72,6 +72,8 @@ export interface DataLibraryBundle {
         transactionCount: number
         totalSpend: number
     }>
+    receiptTransactionsCount: number
+    userCategoriesCount: number
 }
 
 async function getDataLibraryBundle(userId: string): Promise<DataLibraryBundle> {
@@ -84,7 +86,9 @@ async function getDataLibraryBundle(userId: string): Promise<DataLibraryBundle> 
         categoriesRaw,
         filesRaw,
         receiptTypesRaw,
-        receiptCategoriesRawStep
+        receiptCategoriesRawStep,
+        receiptTransactionsRaw,
+        userCategoriesRaw
     ] = await Promise.all([
         // Transactions - replicate logic from /api/transactions
         neonQuery<{
@@ -237,6 +241,25 @@ async function getDataLibraryBundle(userId: string): Promise<DataLibraryBundle> 
 
         // Ensure receipt categories exist before querying
         ensureReceiptCategories(userId),
+
+        // Count receipt transactions
+        neonQuery<{ count: string | number }>(`
+            SELECT COUNT(*) as count
+            FROM receipt_transactions
+            WHERE user_id = $1
+        `, [userId]),
+
+        // Count user-created categories (not defaults)
+        neonQuery<{ count: string | number }>(`
+            SELECT COUNT(*) as count
+            FROM (
+                SELECT id FROM categories
+                WHERE user_id = $1 AND (is_default IS NULL OR is_default = false)
+                UNION ALL
+                SELECT id FROM receipt_categories
+                WHERE user_id = $1 AND (is_default IS NULL OR is_default = false)
+            ) AS user_cats
+        `, [userId]),
     ])
 
     // Now fetch receipt categories (after ensuring they exist)
@@ -464,7 +487,9 @@ async function getDataLibraryBundle(userId: string): Promise<DataLibraryBundle> 
         categories,
         userFiles,
         receiptCategoryTypes,
-        receiptCategories
+        receiptCategories,
+        receiptTransactionsCount: toNumber(receiptTransactionsRaw[0]?.count || 0),
+        userCategoriesCount: toNumber(userCategoriesRaw[0]?.count || 0)
     }
 }
 
