@@ -111,6 +111,7 @@ export async function ensureReceiptCategories(userId: string): Promise<ReceiptCa
         name: category.name,
         color: category.color,
         broad_type: category.broadType || "Other",
+        is_default: true,
       }
     }).filter((row): row is NonNullable<typeof row> => Boolean(row))
 
@@ -133,8 +134,8 @@ export async function ensureReceiptCategories(userId: string): Promise<ReceiptCa
     if (!typeId) continue
     try {
       await neonQuery(
-        `INSERT INTO receipt_categories (user_id, type_id, name, color, broad_type) VALUES ($1, $2, $3, $4, $5)`,
-        [userId, typeId, category.name, category.color, category.broadType || "Other"]
+        `INSERT INTO receipt_categories (user_id, type_id, name, color, broad_type, is_default) VALUES ($1, $2, $3, $4, $5, $6)`,
+        [userId, typeId, category.name, category.color, category.broadType || "Other", true]
       )
     } catch {
       // Ignore conflicts; user may have created it concurrently.
