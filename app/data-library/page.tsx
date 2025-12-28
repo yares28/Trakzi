@@ -1772,6 +1772,11 @@ export default function DataLibraryPage() {
     return receiptCategories.filter(cat => !cat.is_default).length
   }, [receiptCategories])
 
+  // Total user-created categories (transaction + receipt)
+  const totalUserCategories = useMemo(() => {
+    return customCategoriesCount + customReceiptCategoriesCount
+  }, [customCategoriesCount, customReceiptCategoriesCount])
+
   // Calculate total transactions including receipts
   const totalTransactionsWithReceipts = useMemo(() => {
     // Count receipt transactions from statements
@@ -1782,12 +1787,12 @@ export default function DataLibraryPage() {
   const kpiCards = [
     {
       title: "Transactions Indexed",
-      value: formatNumber(totalTransactionsWithReceipts),
+      value: formatNumber(totalTransactions),
       hint: latestTransactionDate
         ? `Last touch ${formatFreshness(latestTransactionDate).toLowerCase()}`
         : "Waiting for first sync",
       icon: IconRefresh,
-      subtitle: "synced ledger entries",
+      subtitle: "all transactions tracked",
     },
     {
       title: "Documents Archived",
@@ -1799,6 +1804,13 @@ export default function DataLibraryPage() {
           : "Upload a statement to unlock insights",
       icon: IconShieldCheck,
       subtitle: "documents captured",
+    },
+    {
+      title: "Total User Categories",
+      value: formatNumber(totalUserCategories),
+      hint: "Combined transaction and receipt categories created by user.",
+      icon: IconCategory,
+      subtitle: "custom categories across all types",
     },
     {
       title: "Macronutrient Types",
