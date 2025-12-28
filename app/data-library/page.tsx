@@ -2531,13 +2531,6 @@ export default function DataLibraryPage() {
                             ` of ${receiptCategoryTypes.length}`}
                         </Badge>
                       </div>
-                      <Button
-                        size="sm"
-                        onClick={() => setAddReceiptTypeDialogOpen(true)}
-                      >
-                        <IconPlus className="size-4 mr-1" />
-                        Add Type
-                      </Button>
                     </CardHeader>
                     <CardContent>
                       {/* Search */}
