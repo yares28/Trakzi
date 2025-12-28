@@ -1143,7 +1143,7 @@ export default function DataLibraryPage() {
         const errorData = await response.json().catch(() => ({}))
 
         // Rollback optimistic update
-        setCategories(prev => prev.filter(c => c.id !== optimisticId))
+        setCategories(prev => prev.filter(c => String(c.id) !== optimisticId))
 
         // Check for category limit exceeded
         if (response.status === 403 && errorData.code === 'CATEGORY_LIMIT_EXCEEDED') {
@@ -1175,7 +1175,7 @@ export default function DataLibraryPage() {
 
       // Replace optimistic item with real data
       setCategories(prev => prev.map(c =>
-        c.id === optimisticId
+        String(c.id) === optimisticId
           ? {
             id: created.id,
             name: created.name,
@@ -1205,7 +1205,7 @@ export default function DataLibraryPage() {
       toast.success(`Category "${created.name}" added`)
     } catch (error) {
       // Rollback optimistic update on any error
-      setCategories(prev => prev.filter(c => c.id !== optimisticId))
+      setCategories(prev => prev.filter(c => String(c.id) !== optimisticId))
 
       console.error("[Add Category] Error:", error)
       const message = error instanceof Error ? error.message : "Failed to add category"
