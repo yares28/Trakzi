@@ -38,6 +38,7 @@ import { ChartDayOfWeekCategory } from "@/components/chart-day-of-week-category"
 import { SectionCards } from "@/components/section-cards"
 import { SiteHeader } from "@/components/site-header"
 import { SortableAnalyticsChart } from "@/components/SortableAnalyticsChart"
+import { FileUpload01 } from "@/components/file-upload-01"
 import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import {
@@ -528,29 +529,24 @@ export default function AnalyticsPage() {
     return trimmed || "Other"
   }, [])
 
-  // CSV drop-to-import state
-  const [isDragging, setIsDragging] = useState(false)
-  const [droppedFile, setDroppedFile] = useState<File | null>(null)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [isParsing, setIsParsing] = useState(false)
-  const [isImporting, setIsImporting] = useState(false)
-  const [importProgress, setImportProgress] = useState(0)
-  const [parsingProgress, setParsingProgress] = useState(0)
+  // FileUpload01 upload state (replaces old CSV upload state)
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
+  const [uploadFiles, setUploadFiles] = useState<File[]>([])
+  const [fileProgresses, setFileProgresses] = useState<Record<string, number>>({})
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [projectName, setProjectName] = useState("")
+  const [projectNameEdited, setProjectNameEdited] = useState(false)
+
+  // Keep only needed state for post-upload processing
   const [parsedCsv, setParsedCsv] = useState<string | null>(null)
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([])
-  const [fileId, setFileId] = useState<string | null>(null)
-  const [parseError, setParseError] = useState<string | null>(null)
-  const [isAiReparseOpen, setIsAiReparseOpen] = useState(false)
-  const [aiReparseContext, setAiReparseContext] = useState("")
-  const [isAiReparsing, setIsAiReparsing] = useState(false)
   const [selectedParsedRowIds, setSelectedParsedRowIds] = useState<Set<number>>(new Set())
   const [transactionCount, setTransactionCount] = useState<number>(0)
-  const dragCounterRef = useRef(0)
   const csvRegenerationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const latestParsedRowsRef = useRef<ParsedRow[]>([])
   const preferenceUpdateTimerRef = useRef<NodeJS.Timeout | null>(null)
   const pendingPreferenceEntriesRef = useRef<Array<{ description: string; category: string }>>([])
-
   // Draggable ordering for all analytics charts
   const [analyticsChartOrder, setAnalyticsChartOrder] = useState<string[]>([
     "incomeExpensesTracking1",
@@ -861,6 +857,183 @@ export default function AnalyticsPage() {
     }
   }, [])
 
+  // Listen for pending uploads from sidebar Upload button
+  useEffect(() => {
+    const pendingFile = (window as any).__pendingUploadFile
+    const targetPage = (window as any).__pendingUploadTargetPage
+
+    if (pendingFile && targetPage === "analytics") {
+      // Clear the pending upload markers
+      delete (window as any).__pendingUploadFile
+      delete (window as any).__pendingUploadTargetPage
+
+      // Open the upload dialog with the pending file
+      setUploadFiles([pendingFile])
+      setFileProgresses({ [`${pendingFile.name}::${pendingFile.size}::${pendingFile.lastModified}`]: 0 })
+      setProjectName(pendingFile.name.replace(/\.(csv|xlsx|xls)$/i, ''))
+      setProjectNameEdited(false)
+      setIsUploadDialogOpen(true)
+    }
+  }, [])
+
+  // Helper function to strip file extension for project name
+  const stripFileExtension = useCallback((filename: string) => {
+    const lastDot = filename.lastIndexOf(".")
+    return lastDot > 0 ? filename.slice(0, lastDot) : filename
+  }, [])
+
+  // Handle upload dialog file changes
+  const handleUploadFilesChange = useCallback((nextFiles: File[]) => {
+    setUploadFiles(nextFiles)
+    setFileProgresses((prev) => {
+      const next: Record<string, number> = {}
+      nextFiles.forEach((file) => {
+        const key = `${file.name}::${file.size}::${file.lastModified}`
+        next[key] = prev[key] ?? 0
+      })
+      return next
+    })
+
+    if (!projectNameEdited && nextFiles.length > 0) {
+      setProjectName(stripFileExtension(nextFiles[0].name))
+    }
+  }, [projectNameEdited, stripFileExtension])
+
+  // Handle project name change
+  const handleProjectNameChange = useCallback((next: string) => {
+    setProjectName(next)
+    setProjectNameEdited(true)
+  }, [])
+
+  // Handle upload cancel
+  const handleUploadCancel = useCallback(() => {
+    setIsUploadDialogOpen(false)
+    setUploadFiles([])
+    setFileProgresses({})
+    setUploadError(null)
+    setProjectName("")
+    setProjectNameEdited(false)
+  }, [])
+
+  // Handle upload continue - parse CSV and process
+  const handleUploadContinue = useCallback(async () => {
+    if (uploadFiles.length === 0) return
+
+    const file = uploadFiles[0]
+    setIsUploading(true)
+    setUploadError(null)
+
+    try {
+      // Read file
+      const text = await file.text()
+
+      // Parse CSV
+      setParsedCsv(text)
+      const rows = parseCsvToRows(text)
+      const rowsWithId: ParsedRow[] = rows.map((row, index) => ({
+        ...row,
+        id: index,
+        category: row.category || undefined
+      }))
+      setParsedRows(rowsWithId)
+      setSelectedParsedRowIds(new Set(rowsWithId.map(r => r.id)))
+
+      // Close upload dialog
+      handleUploadCancel()
+
+      toast.success("File parsed successfully", {
+        description: `Found ${rowsWithId.length} transactions`
+      })
+    } catch (error) {
+      console.error("Error parsing file:", error)
+      setUploadError(error instanceof Error ? error.message : "Failed to parse file")
+    } finally {
+      setIsUploading(false)
+    }
+  }, [uploadFiles, handleUploadCancel])
+
+  // Handle row selection in review table
+  const handleParsedRowSelectChange = useCallback((rowId: number, isSelected: boolean) => {
+    setSelectedParsedRowIds((prev) => {
+      const next = new Set(prev)
+      if (isSelected) {
+        next.add(rowId)
+      } else {
+        next.delete(rowId)
+      }
+      return next
+    })
+  }, [])
+
+  // Handle select all rows
+  const handleSelectAllParsedRows = useCallback((isSelected: boolean) => {
+    if (isSelected) {
+      setSelectedParsedRowIds(new Set(parsedRows.map(r => r.id)))
+    } else {
+      setSelectedParsedRowIds(new Set())
+    }
+  }, [parsedRows])
+
+  // Handle delete selected rows
+  const handleDeleteSelectedRows = useCallback(() => {
+    setParsedRows((prev) => prev.filter(row => !selectedParsedRowIds.has(row.id)))
+    setSelectedParsedRowIds(new Set())
+  }, [selectedParsedRowIds])
+
+  // Handle delete single row
+  const handleDeleteRow = useCallback((rowId: number) => {
+    setParsedRows((prev) => prev.filter(row => row.id !== rowId))
+    setSelectedParsedRowIds((prev) => {
+      const next = new Set(prev)
+      next.delete(rowId)
+      return next
+    })
+  }, [])
+
+  // Handle confirm import - sends transactions to database
+  const handleConfirm = useCallback(async () => {
+    if (parsedRows.length === 0) return
+
+    try {
+      // Regenerate CSV from edited rows
+      const canonical = rowsToCanonicalCsv(parsedRows)
+
+      // Import to database
+      const response = await fetch("/api/statements/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          csv: canonical,
+          source: projectName || "CSV Import"
+        })
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || "Failed to import transactions")
+      }
+
+      const result = await response.json()
+
+      toast.success("Import successful", {
+        description: `Imported ${result.imported || parsedRows.length} transactions`
+      })
+
+      // Clear state and refresh page data
+      setParsedRows([])
+      setParsedCsv(null)
+      setSelectedParsedRowIds(new Set())
+
+      // Refresh transactions
+      await fetchTransactions()
+    } catch (error) {
+      console.error("Import error:", error)
+      toast.error("Import failed", {
+        description: error instanceof Error ? error.message : "Unknown error"
+      })
+    }
+  }, [parsedRows, projectName, fetchTransactions])
+
   const flushPreferenceUpdates = useCallback(async () => {
     const pending = pendingPreferenceEntriesRef.current
     if (pending.length === 0) return
@@ -921,428 +1094,10 @@ export default function AnalyticsPage() {
     }, 300)
   }, [schedulePreferenceUpdate])
 
-  const handleToggleParsedRow = useCallback((rowId: number, value: boolean) => {
-    setSelectedParsedRowIds((prev) => {
-      const next = new Set(prev)
-      if (value) {
-        next.add(rowId)
-      } else {
-        next.delete(rowId)
-      }
-      return next
-    })
-  }, [])
 
-  const handleSelectAllParsedRows = useCallback((value: boolean) => {
-    if (!value) {
-      setSelectedParsedRowIds(new Set())
-      return
-    }
-    setSelectedParsedRowIds(new Set(parsedRows.map((row) => row.id)))
-  }, [parsedRows])
+  // ===== END OF HANDLERS =====
 
-  const handleDeleteRow = useCallback((rowId: number) => {
-    flushSync(() => {
-      setParsedRows((prevRows) => {
-        const updatedRows = prevRows.filter((row) => row.id !== rowId)
-        latestParsedRowsRef.current = updatedRows
-        setTransactionCount(updatedRows.length)
-        return updatedRows
-      })
-    })
-    setSelectedParsedRowIds((prev) => {
-      const next = new Set(prev)
-      next.delete(rowId)
-      return next
-    })
-
-    if (csvRegenerationTimerRef.current) {
-      clearTimeout(csvRegenerationTimerRef.current)
-    }
-
-    csvRegenerationTimerRef.current = setTimeout(() => {
-      const rowsForCsv = latestParsedRowsRef.current.map((row) => {
-        const { id: _ignored, ...rest } = row
-        void _ignored
-        return rest as TxRow
-      })
-      const newCsv = rowsToCanonicalCsv(rowsForCsv)
-      setParsedCsv(newCsv)
-    }, 100)
-  }, [])
-
-  const handleDeleteSelectedRows = useCallback(() => {
-    if (selectedParsedRowIds.size === 0) return
-    const selectedIds = new Set(selectedParsedRowIds)
-
-    flushSync(() => {
-      setParsedRows((prevRows) => {
-        const updatedRows = prevRows.filter((row) => !selectedIds.has(row.id))
-        latestParsedRowsRef.current = updatedRows
-        setTransactionCount(updatedRows.length)
-        return updatedRows
-      })
-      setSelectedParsedRowIds(new Set())
-    })
-
-    if (csvRegenerationTimerRef.current) {
-      clearTimeout(csvRegenerationTimerRef.current)
-    }
-
-    csvRegenerationTimerRef.current = setTimeout(() => {
-      const rowsForCsv = latestParsedRowsRef.current.map((row) => {
-        const { id: _ignored, ...rest } = row
-        void _ignored
-        return rest as TxRow
-      })
-      const newCsv = rowsToCanonicalCsv(rowsForCsv)
-      setParsedCsv(newCsv)
-    }, 100)
-  }, [selectedParsedRowIds])
-
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    dragCounterRef.current++
-    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-      setIsDragging(true)
-    }
-  }, [])
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    dragCounterRef.current--
-    if (dragCounterRef.current === 0) {
-      setIsDragging(false)
-    }
-  }, [])
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-  }, [])
-
-  const parseFile = useCallback(async (file: File, options?: { parseMode?: "auto" | "ai"; aiContext?: string }) => {
-    const parseMode = options?.parseMode ?? "auto"
-    const aiContext = options?.aiContext?.trim()
-
-    setDroppedFile(file)
-    setIsDialogOpen(true)
-    setIsParsing(true)
-    setParsingProgress(0)
-    setParseError(null)
-    setParsedCsv(null)
-    setFileId(null)
-    setTransactionCount(0)
-    setSelectedParsedRowIds(new Set())
-    pendingPreferenceEntriesRef.current = []
-    if (preferenceUpdateTimerRef.current) {
-      clearTimeout(preferenceUpdateTimerRef.current)
-      preferenceUpdateTimerRef.current = null
-    }
-
-    setParsingProgress(5)
-
-    try {
-      const formData = new FormData()
-      formData.append("file", file)
-      formData.append("bankName", "Unknown")
-      formData.append("parseMode", parseMode)
-      if (aiContext) {
-        formData.append("aiContext", aiContext)
-      }
-
-      let currentCategories = DEFAULT_CATEGORIES
-      try {
-        const categoriesResponse = await fetch("/api/categories")
-        if (categoriesResponse.ok) {
-          const payload = await categoriesResponse.json()
-          const categoriesArray: Array<{ name?: string }> = Array.isArray(payload) ? payload : []
-          const names = categoriesArray
-            .map((cat) => cat?.name)
-            .filter((name): name is string => typeof name === "string" && name.trim().length > 0)
-          if (names.length > 0) {
-            currentCategories = names
-          }
-        }
-      } catch (categoriesError) {
-        console.warn("[ANALYTICS] Failed to load categories from API. Using defaults.", categoriesError)
-      }
-
-      setParsingProgress(20)
-
-      const response = await fetch("/api/statements/parse", {
-        method: "POST",
-        headers: {
-          "X-Custom-Categories": JSON.stringify(currentCategories),
-        },
-        body: formData,
-      })
-
-      const contentType = response.headers.get("content-type") || ""
-      const fileIdHeader = response.headers.get("X-File-Id")
-      const categorizationError = response.headers.get("X-Categorization-Error")
-      const categorizationWarning = response.headers.get("X-Categorization-Warning")
-
-      if (!response.ok) {
-        let errorMessage = `HTTP error! status: ${response.status}`
-        const responseText = await response.text()
-
-        try {
-          const errorData = JSON.parse(responseText)
-          errorMessage = errorData.error || errorMessage
-        } catch {
-          errorMessage = responseText || errorMessage
-        }
-
-        throw new Error(errorMessage)
-      }
-
-      let responseText = ""
-
-      if (response.body) {
-        const reader = response.body.getReader()
-        const contentLength = response.headers.get("content-length")
-        const total = contentLength ? parseInt(contentLength, 10) : 0
-        let received = 0
-        const decoder = new TextDecoder()
-        const chunks: string[] = []
-
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          const chunk = decoder.decode(value, { stream: true })
-          chunks.push(chunk)
-          received += value.length
-
-          if (total > 0) {
-            const downloadProgress = (received / total) * 65
-            setParsingProgress(25 + downloadProgress)
-          } else {
-            const estimatedTotal = file.size * 1.2
-            const estimatedProgress = Math.min(25 + (received / estimatedTotal) * 65, 90)
-            setParsingProgress(estimatedProgress)
-          }
-        }
-
-        responseText = chunks.join("")
-      } else {
-        setParsingProgress(60)
-        responseText = await response.text()
-        setParsingProgress(90)
-      }
-
-      setParsingProgress(95)
-
-      if (contentType.includes("application/json")) {
-        try {
-          const data = JSON.parse(responseText)
-          if (!data.parseable) {
-            setParseError(data.message || "File format not supported for parsing")
-            setIsParsing(false)
-            setParsingProgress(0)
-            return
-          }
-        } catch {
-          throw new Error("Invalid response from server")
-        }
-      }
-
-      const csv = responseText
-      setParsingProgress(100)
-
-      const lines = csv.trim().split("\n")
-      const count = lines.length > 1 ? lines.length - 1 : 0
-
-      setParsedCsv(csv)
-      setFileId(fileIdHeader)
-      setTransactionCount(count)
-
-      if (categorizationWarning === "true" && categorizationError) {
-        const decodedError = decodeURIComponent(categorizationError)
-        console.warn("AI categorization failed:", decodedError)
-        toast.warning("Categorization Warning", {
-          description: `AI categorization failed. All transactions defaulted to "Other". Error: ${decodedError.substring(0, 100)}`,
-          duration: 10000,
-        })
-      }
-    } catch (error) {
-      setParsingProgress(0)
-      console.error("Parse error:", error)
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to parse file. Please try again."
-      setParseError(errorMessage)
-
-      if (errorMessage.includes("DEMO_USER_ID") || errorMessage.includes("Authentication")) {
-        toast.error("Configuration Error", {
-          description: "Please configure DEMO_USER_ID in your environment variables.",
-          duration: 10000,
-        })
-      } else if (errorMessage.includes("No transactions found")) {
-        toast.error("No Transactions Found", {
-          description: "The file was parsed but no transactions were detected. Please check the file format.",
-          duration: 8000,
-        })
-      } else if (errorMessage.includes("Failed to parse") || errorMessage.includes("Parsing quality")) {
-        toast.error("Parse Error", {
-          description: errorMessage,
-          duration: 8000,
-        })
-      } else {
-        toast.error("Upload Error", {
-          description: errorMessage,
-          duration: 8000,
-        })
-      }
-      setParsingProgress(0)
-    } finally {
-      setIsParsing(false)
-    }
-  }, [])
-
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(false)
-    dragCounterRef.current = 0
-
-    const files = Array.from(e.dataTransfer.files)
-    if (files && files.length > 0) {
-      await parseFile(files[0], { parseMode: "auto" })
-    }
-  }, [parseFile])
-
-  const handleAiReparse = useCallback(async () => {
-    if (!droppedFile) {
-      toast.error("Missing file", {
-        description: "Please drop a file before reparsing with AI.",
-        duration: 6000,
-      })
-      return
-    }
-
-    setIsAiReparseOpen(false)
-    setIsAiReparsing(true)
-    try {
-      await parseFile(droppedFile, { parseMode: "ai", aiContext: aiReparseContext })
-    } finally {
-      setIsAiReparsing(false)
-    }
-  }, [aiReparseContext, droppedFile, parseFile])
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes"
-    const k = 1024
-    const sizes = ["Bytes", "KB", "MB", "GB"]
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i]
-  }
-
-  const handleConfirm = async () => {
-    if (!droppedFile || !parsedCsv || !fileId) {
-      toast.error("Missing data", {
-        description: "Please wait for the file to be parsed before confirming.",
-      })
-      return
-    }
-
-    setIsImporting(true)
-    setImportProgress(0)
-
-    const progressInterval = setInterval(() => {
-      setImportProgress((prev) => {
-        if (prev >= 90) return prev
-        return prev + 10
-      })
-    }, 200)
-
-    try {
-      const extension = droppedFile.name.split(".").pop()?.toLowerCase() ?? "other"
-      const rawFormat = extension === "pdf" ? "pdf" :
-        extension === "csv" ? "csv" :
-          (extension === "xls" || extension === "xlsx") ? "xlsx" : "other"
-
-      const response = await fetch("/api/statements/import", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          csv: parsedCsv,
-          statementMeta: {
-            bankName: "Unknown",
-            sourceFilename: droppedFile.name,
-            rawFormat: rawFormat as "pdf" | "csv" | "xlsx" | "xls" | "other",
-            fileId: fileId,
-          },
-        }),
-      })
-
-      clearInterval(progressInterval)
-      setImportProgress(95)
-
-      if (!response.ok) {
-        let errorMessage = `HTTP error! status: ${response.status}`
-        const responseText = await response.text()
-        try {
-          const errorData = JSON.parse(responseText)
-          errorMessage = errorData.error || errorMessage
-        } catch {
-          errorMessage = responseText || errorMessage
-        }
-        throw new Error(errorMessage)
-      }
-
-      const data = await response.json()
-      setImportProgress(100)
-
-      toast.success("File Imported Successfully", {
-        description: `${data.inserted} transactions imported from ${droppedFile.name}`,
-      })
-      if (data.skippedInvalidDates) {
-        toast.warning("Some rows were skipped", {
-          description: `${data.skippedInvalidDates} transaction(s) had missing or invalid dates and were not imported.`,
-        })
-      }
-
-      setIsDialogOpen(false)
-      setDroppedFile(null)
-      setParsedCsv(null)
-      setFileId(null)
-      setTransactionCount(0)
-      setParseError(null)
-      setImportProgress(0)
-
-      await fetchTransactions()
-    } catch (error) {
-      clearInterval(progressInterval)
-      console.error("Import error:", error)
-      toast.error("Import Failed", {
-        description:
-          error instanceof Error
-            ? error.message
-            : "Failed to import transactions. Please try again.",
-      })
-      setImportProgress(0)
-    } finally {
-      setIsImporting(false)
-    }
-  }
-
-  const handleCancel = () => {
-    if (csvRegenerationTimerRef.current) {
-      clearTimeout(csvRegenerationTimerRef.current)
-      csvRegenerationTimerRef.current = null
-    }
-    setIsDialogOpen(false)
-    setDroppedFile(null)
-    setParsedCsv(null)
-    setFileId(null)
-    setTransactionCount(0)
-    setParseError(null)
-  }
+  // Cleanup timer on unmount
 
   useEffect(() => {
     return () => {
@@ -2592,922 +2347,734 @@ export default function AnalyticsPage() {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
-        <div
-          className="flex flex-1 flex-col relative"
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-        >
-          {/* Dark overlay when dragging */}
-          {isDragging && (
-            <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm transition-opacity duration-300 pointer-events-none" />
-          )}
+        <div className="flex-1 overflow-y-auto p-6 pb-0">
+          <div className="max-w-full space-y-6">
 
-          {/* Modern drop indicator with Card */}
-          {isDragging && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-              <Card className="w-full max-w-md mx-4 border-2 border-dashed border-primary/50 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-300">
-                <CardHeader className="text-center pb-4">
-                  <div className="flex justify-center mb-4">
-                    <div className="relative">
-                      <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
-                      <div className="relative bg-primary/10 p-6 rounded-full border-2 border-primary/30">
-                        <IconUpload className="w-12 h-12 text-primary animate-bounce" />
-                      </div>
-                    </div>
-                  </div>
-                  <CardTitle className="text-2xl text-primary">Drop your file here</CardTitle>
-                  <CardDescription className="text-base mt-2">
-                    Release to upload your file
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                    <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                    <span>Ready to receive file</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+            <div className="@container/main flex flex-1 flex-col gap-2">
+              <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+                <SectionCards
+                  totalIncome={stats.totalIncome}
+                  totalExpenses={stats.totalExpenses}
+                  savingsRate={stats.savingsRate}
+                  netWorth={stats.netWorth}
+                  incomeChange={stats.incomeChange}
+                  expensesChange={stats.expensesChange}
+                  savingsRateChange={stats.savingsRateChange}
+                  netWorthChange={stats.netWorthChange}
+                  incomeTrend={statsTrends.incomeTrend}
+                  expensesTrend={statsTrends.expensesTrend}
+                  netWorthTrend={statsTrends.netWorthTrend}
+                />
 
-          <div className="@container/main flex flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-              <SectionCards
-                totalIncome={stats.totalIncome}
-                totalExpenses={stats.totalExpenses}
-                savingsRate={stats.savingsRate}
-                netWorth={stats.netWorth}
-                incomeChange={stats.incomeChange}
-                expensesChange={stats.expensesChange}
-                savingsRateChange={stats.savingsRateChange}
-                netWorthChange={stats.netWorthChange}
-                incomeTrend={statsTrends.incomeTrend}
-                expensesTrend={statsTrends.expensesTrend}
-                netWorthTrend={statsTrends.netWorthTrend}
-              />
+                {/* Draggable analytics chart section */}
+                <DndContext
+                  sensors={dndSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleAnalyticsChartsDragEnd}
+                >
+                  <SortableContext items={analyticsChartOrder} strategy={rectSortingStrategy}>
+                    <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
+                      {analyticsChartOrder.map((chartId) => {
+                        // Determine if chart should be full width (transactionHistory is always full width, or if expanded)
+                        const isFullWidth =
+                          chartId === "transactionHistory" ||
+                          chartId === "netWorthAllocation" ||
+                          chartId === "spendingStreamgraph" ||
+                          chartId === "incomeExpensesTracking1" ||
+                          chartId === "incomeExpensesTracking2" ||
+                          chartId === "spendingCategoryRankings" ||
+                          expandedCharts[chartId]
+                        const colSpanClass = isFullWidth
+                          ? "col-span-1 @3xl/main:col-span-2"
+                          : "col-span-1"
 
-              {/* Draggable analytics chart section */}
-              <DndContext
-                sensors={dndSensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleAnalyticsChartsDragEnd}
-              >
-                <SortableContext items={analyticsChartOrder} strategy={rectSortingStrategy}>
-                  <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-2">
-                    {analyticsChartOrder.map((chartId) => {
-                      // Determine if chart should be full width (transactionHistory is always full width, or if expanded)
-                      const isFullWidth =
-                        chartId === "transactionHistory" ||
-                        chartId === "netWorthAllocation" ||
-                        chartId === "spendingStreamgraph" ||
-                        chartId === "incomeExpensesTracking1" ||
-                        chartId === "incomeExpensesTracking2" ||
-                        chartId === "spendingCategoryRankings" ||
-                        expandedCharts[chartId]
-                      const colSpanClass = isFullWidth
-                        ? "col-span-1 @3xl/main:col-span-2"
-                        : "col-span-1"
+                        if (chartId === "transactionHistory") {
+                          return (
+                            <SortableAnalyticsChart
+                              key={chartId}
+                              id={chartId}
+                              className={colSpanClass}
+                            >
+                              <ChartSwarmPlot
+                                data={transactionHistoryData}
+                              />
+                            </SortableAnalyticsChart>
+                          )
+                        }
 
-                      if (chartId === "transactionHistory") {
-                        return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartSwarmPlot
-                              data={transactionHistoryData}
-                            />
-                          </SortableAnalyticsChart>
-                        )
-                      }
+                        if (chartId === "dayOfWeekSpending") {
+                          return (
+                            <SortableAnalyticsChart
+                              key={chartId}
+                              id={chartId}
+                              className={colSpanClass}
+                            >
+                              <ChartDayOfWeekSpending
+                                data={rawTransactions}
+                                categoryControls={dayOfWeekSpendingVisibility.buildCategoryControls(
+                                  Array.from(
+                                    new Set(
+                                      rawTransactions
+                                        .filter((tx) => Number(tx.amount) < 0)
+                                        .map((tx) => normalizeCategoryName(tx.category)),
+                                    ),
+                                  ).sort(),
+                                )}
+                              />
+                            </SortableAnalyticsChart>
+                          )
+                        }
 
-                      if (chartId === "dayOfWeekSpending") {
-                        return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartDayOfWeekSpending
-                              data={rawTransactions}
-                              categoryControls={dayOfWeekSpendingVisibility.buildCategoryControls(
-                                Array.from(
-                                  new Set(
-                                    rawTransactions
-                                      .filter((tx) => Number(tx.amount) < 0)
-                                      .map((tx) => normalizeCategoryName(tx.category)),
-                                  ),
-                                ).sort(),
-                              )}
-                            />
-                          </SortableAnalyticsChart>
-                        )
-                      }
+                        if (chartId === "allMonthsCategorySpending") {
+                          return (
+                            <SortableAnalyticsChart
+                              key={chartId}
+                              id={chartId}
+                              className={colSpanClass}
+                            >
+                              <ChartAllMonthsCategorySpending
+                                data={rawTransactions}
+                                categoryControls={allMonthsCategorySpendingControls}
+                              />
+                            </SortableAnalyticsChart>
+                          )
+                        }
 
-                      if (chartId === "allMonthsCategorySpending") {
-                        return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartAllMonthsCategorySpending
-                              data={rawTransactions}
-                              categoryControls={allMonthsCategorySpendingControls}
-                            />
-                          </SortableAnalyticsChart>
-                        )
-                      }
+                        if (chartId === "incomeExpensesTracking1") {
+                          return (
+                            <SortableAnalyticsChart
+                              key={chartId}
+                              id={chartId}
+                              className={colSpanClass}
+                            >
+                              <ChartAreaInteractive
+                                chartId="incomeExpensesTracking1"
+                                categoryControls={incomeExpenseTopControls}
+                                data={incomeExpensesTracking1Data}
+                              />
+                            </SortableAnalyticsChart>
+                          )
+                        }
 
-                      if (chartId === "incomeExpensesTracking1") {
-                        return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartAreaInteractive
-                              chartId="incomeExpensesTracking1"
-                              categoryControls={incomeExpenseTopControls}
-                              data={incomeExpensesTracking1Data}
-                            />
-                          </SortableAnalyticsChart>
-                        )
-                      }
+                        if (chartId === "incomeExpensesTracking2") {
+                          return (
+                            <SortableAnalyticsChart
+                              key={chartId}
+                              id={chartId}
+                              className={colSpanClass}
+                            >
+                              <ChartAreaInteractive
+                                chartId="incomeExpensesTracking2"
+                                categoryControls={incomeExpenseControls}
+                                data={incomeExpenseChart.data}
+                              />
+                            </SortableAnalyticsChart>
+                          )
+                        }
 
-                      if (chartId === "incomeExpensesTracking2") {
-                        return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartAreaInteractive
-                              chartId="incomeExpensesTracking2"
-                              categoryControls={incomeExpenseControls}
-                              data={incomeExpenseChart.data}
-                            />
-                          </SortableAnalyticsChart>
-                        )
-                      }
+                        if (chartId === "spendingCategoryRankings") {
+                          return (
+                            <SortableAnalyticsChart
+                              key={chartId}
+                              id={chartId}
+                              className={colSpanClass}
+                            >
+                              <ChartCategoryFlow
+                                categoryControls={categoryFlowControls}
+                                data={categoryFlowChart.data}
+                              />
+                            </SortableAnalyticsChart>
+                          )
+                        }
 
-                      if (chartId === "spendingCategoryRankings") {
-                        return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartCategoryFlow
-                              categoryControls={categoryFlowControls}
-                              data={categoryFlowChart.data}
-                            />
-                          </SortableAnalyticsChart>
-                        )
-                      }
+                        if (chartId === "netWorthAllocation") {
+                          return (
+                            <SortableAnalyticsChart
+                              key={chartId}
+                              id={chartId}
+                              className={colSpanClass}
+                            >
+                              <ChartTreeMap
+                                categoryControls={treeMapControls}
+                                data={netWorthAllocationData}
+                              />
+                            </SortableAnalyticsChart>
+                          )
+                        }
 
-                      if (chartId === "netWorthAllocation") {
-                        return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartTreeMap
-                              categoryControls={treeMapControls}
-                              data={netWorthAllocationData}
-                            />
-                          </SortableAnalyticsChart>
-                        )
-                      }
+                        if (chartId === "moneyFlow") {
+                          return (
+                            <SortableAnalyticsChart
+                              key={chartId}
+                              id={chartId}
+                              className={colSpanClass}
+                            >
+                              <ChartSpendingFunnel
+                                categoryControls={spendingFunnelControls}
+                                data={spendingFunnelChart.data}
+                              />
+                            </SortableAnalyticsChart>
+                          )
+                        }
 
-                      if (chartId === "moneyFlow") {
-                        return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartSpendingFunnel
-                              categoryControls={spendingFunnelControls}
-                              data={spendingFunnelChart.data}
-                            />
-                          </SortableAnalyticsChart>
-                        )
-                      }
+                        if (chartId === "expenseBreakdown") {
+                          return (
+                            <SortableAnalyticsChart
+                              key={chartId}
+                              id={chartId}
+                              className={colSpanClass}
+                            >
+                              <ChartExpensesPie
+                                categoryControls={expensesPieControls}
+                                data={expensesPieData.slices}
+                              />
+                            </SortableAnalyticsChart>
+                          )
+                        }
 
-                      if (chartId === "expenseBreakdown") {
-                        return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartExpensesPie
-                              categoryControls={expensesPieControls}
-                              data={expensesPieData.slices}
-                            />
-                          </SortableAnalyticsChart>
-                        )
-                      }
+                        if (chartId === "needsWantsBreakdown") {
+                          return (
+                            <SortableAnalyticsChart
+                              key={chartId}
+                              id={chartId}
+                              className={colSpanClass}
+                            >
+                              <ChartNeedsWantsPie
+                                categoryControls={needsWantsControls}
+                                data={needsWantsPieData.slices}
+                              />
+                            </SortableAnalyticsChart>
+                          )
+                        }
 
-                      if (chartId === "needsWantsBreakdown") {
-                        return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartNeedsWantsPie
-                              categoryControls={needsWantsControls}
-                              data={needsWantsPieData.slices}
-                            />
-                          </SortableAnalyticsChart>
-                        )
-                      }
+                        if (chartId === "categoryBubbleMap") {
+                          return (
+                            <SortableAnalyticsChart
+                              key={chartId}
+                              id={chartId}
+                              className={colSpanClass}
+                            >
+                              <ChartCategoryBubble
+                                data={rawTransactions}
+                              />
+                            </SortableAnalyticsChart>
+                          )
+                        }
 
-                      if (chartId === "categoryBubbleMap") {
-                        return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartCategoryBubble
-                              data={rawTransactions}
-                            />
-                          </SortableAnalyticsChart>
-                        )
-                      }
+                        if (chartId === "householdSpendMix") {
+                          return (
+                            <SortableAnalyticsChart
+                              key={chartId}
+                              id={chartId}
+                              className={colSpanClass}
+                            >
+                              <ChartPolarBar
+                                categoryControls={polarBarControls}
+                                data={polarBarData.data}
+                                keys={polarBarData.keys}
+                              />
+                            </SortableAnalyticsChart>
+                          )
+                        }
 
-                      if (chartId === "householdSpendMix") {
-                        return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartPolarBar
-                              categoryControls={polarBarControls}
-                              data={polarBarData.data}
-                              keys={polarBarData.keys}
-                            />
-                          </SortableAnalyticsChart>
-                        )
-                      }
+                        if (chartId === "financialHealthScore") {
+                          return (
+                            <SortableAnalyticsChart
+                              key={chartId}
+                              id={chartId}
+                              className={colSpanClass}
+                            >
+                              <ChartRadar
+                              />
+                            </SortableAnalyticsChart>
+                          )
+                        }
 
-                      if (chartId === "financialHealthScore") {
-                        return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartRadar
-                            />
-                          </SortableAnalyticsChart>
-                        )
-                      }
-
-                      if (chartId === "spendingActivityRings") {
-                        return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <Card className="relative h-full flex flex-col">
-                              <CardHeader>
-                                <div className="space-y-1 pointer-events-auto flex-shrink-0">
-                                  <div className="flex items-center gap-2">
-                                    <ChartFavoriteButton
-                                      chartId="spendingActivityRings"
-                                      chartTitle="Spending Activity Rings"
-                                    />
-                                    <CardTitle className="mb-0">Spending Activity Rings</CardTitle>
+                        if (chartId === "spendingActivityRings") {
+                          return (
+                            <SortableAnalyticsChart
+                              key={chartId}
+                              id={chartId}
+                              className={colSpanClass}
+                            >
+                              <Card className="relative h-full flex flex-col">
+                                <CardHeader>
+                                  <div className="space-y-1 pointer-events-auto flex-shrink-0">
+                                    <div className="flex items-center gap-2">
+                                      <ChartFavoriteButton
+                                        chartId="spendingActivityRings"
+                                        chartTitle="Spending Activity Rings"
+                                      />
+                                      <CardTitle className="mb-0">Spending Activity Rings</CardTitle>
+                                    </div>
                                   </div>
-                                </div>
-                                <div className="flex items-center gap-2 pointer-events-auto flex-shrink-0">
-                                  <ChartInfoPopover
-                                    title="Spending Activity Rings"
-                                    description="Top spending categories from your Neon transactions"
-                                    details={[
-                                      "Each ring shows how much a category has consumed relative to its budget.",
-                                      "Budgets come from your saved limits or a default amount for the selected date filter.",
-                                    ]}
-                                    className="self-start"
-                                  />
-                                  {activityData.length > 0 && (
-                                    <div className="flex flex-col gap-1 z-10 w-[140px]">
-                                      <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground text-right">
-                                        Limits
-                                      </span>
-                                      <div className="flex flex-col gap-1">
-                                        {activityData.map((item, idx) => {
-                                          const category: string =
-                                            (item as { category?: string }).category ??
-                                            (item.label ?? "Other")
-                                          const storedLimit = ringLimits[category]
-                                          const limit =
-                                            typeof storedLimit === "number" &&
-                                              storedLimit > 0
-                                              ? storedLimit
-                                              : getDefaultRingLimit(dateFilter)
-                                          const percent = (item.value * 100).toFixed(1)
-                                          const spent =
-                                            typeof (item as { spent?: number }).spent ===
-                                              "number"
-                                              ? (item as { spent?: number }).spent!
-                                              : null
-                                          return (
-                                            <Popover
-                                              key={`${category}-${idx}`}
-                                              open={ringCategoryPopoverIndex === idx}
-                                              onOpenChange={(open) => {
-                                                if (
-                                                  open &&
-                                                  allExpenseCategories &&
-                                                  allExpenseCategories.length
-                                                ) {
-                                                  const currentCategory =
-                                                    (category as string) ||
-                                                    allExpenseCategories[0]
-                                                  setRingCategoryPopoverIndex(idx)
-                                                  setRingCategoryPopoverValue(
-                                                    currentCategory
-                                                  )
-                                                  const currentLimitRaw =
-                                                    ringLimits[currentCategory]
-                                                  const currentLimit =
-                                                    typeof currentLimitRaw === "number" &&
-                                                      currentLimitRaw > 0
-                                                      ? currentLimitRaw
-                                                      : getDefaultRingLimit(dateFilter)
-                                                  setRingLimitPopoverValue(
-                                                    currentLimit.toString()
-                                                  )
-                                                } else {
-                                                  setRingCategoryPopoverIndex(null)
-                                                  setRingCategoryPopoverValue(null)
-                                                  setRingLimitPopoverValue("")
-                                                }
-                                              }}
-                                            >
-                                              <PopoverTrigger asChild>
-                                                <div className="flex items-center gap-1 bg-background/80 backdrop-blur-sm p-1 rounded border cursor-pointer">
-                                                  <button
-                                                    type="button"
-                                                    className="px-1.5 py-0.5 text-[0.7rem] rounded w-full flex items-center justify-between gap-1.5 hover:bg-muted/80 bg-muted"
-                                                    title={
-                                                      limit
-                                                        ? `${category} ÔÇô ${percent}% of limit (${item.value} of 1.0)`
-                                                        : `${category} ÔÇô no limit set`
-                                                    }
-                                                  >
-                                                    <span className="max-w-[170px] whitespace-normal">
-                                                      {category}
-                                                    </span>
-                                                    <span className="text-[0.65rem] font-medium text-muted-foreground flex-shrink-0 text-right">
-                                                      {spent !== null
-                                                        ? `$${spent.toFixed(2)}`
-                                                        : `${percent}%`}
-                                                    </span>
-                                                  </button>
-                                                </div>
-                                              </PopoverTrigger>
-                                              <PopoverContent className="w-56" align="end">
-                                                <RingPopoverContent
-                                                  initialCategory={ringCategoryPopoverValue ?? (category as string)}
-                                                  initialLimit={
-                                                    ringLimitPopoverValue
-                                                      ? parseFloat(ringLimitPopoverValue) || limit
-                                                      : limit
+                                  <div className="flex items-center gap-2 pointer-events-auto flex-shrink-0">
+                                    <ChartInfoPopover
+                                      title="Spending Activity Rings"
+                                      description="Top spending categories from your Neon transactions"
+                                      details={[
+                                        "Each ring shows how much a category has consumed relative to its budget.",
+                                        "Budgets come from your saved limits or a default amount for the selected date filter.",
+                                      ]}
+                                      className="self-start"
+                                    />
+                                    {activityData.length > 0 && (
+                                      <div className="flex flex-col gap-1 z-10 w-[140px]">
+                                        <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground text-right">
+                                          Limits
+                                        </span>
+                                        <div className="flex flex-col gap-1">
+                                          {activityData.map((item, idx) => {
+                                            const category: string =
+                                              (item as { category?: string }).category ??
+                                              (item.label ?? "Other")
+                                            const storedLimit = ringLimits[category]
+                                            const limit =
+                                              typeof storedLimit === "number" &&
+                                                storedLimit > 0
+                                                ? storedLimit
+                                                : getDefaultRingLimit(dateFilter)
+                                            const percent = (item.value * 100).toFixed(1)
+                                            const spent =
+                                              typeof (item as { spent?: number }).spent ===
+                                                "number"
+                                                ? (item as { spent?: number }).spent!
+                                                : null
+                                            return (
+                                              <Popover
+                                                key={`${category}-${idx}`}
+                                                open={ringCategoryPopoverIndex === idx}
+                                                onOpenChange={(open) => {
+                                                  if (
+                                                    open &&
+                                                    allExpenseCategories &&
+                                                    allExpenseCategories.length
+                                                  ) {
+                                                    const currentCategory =
+                                                      (category as string) ||
+                                                      allExpenseCategories[0]
+                                                    setRingCategoryPopoverIndex(idx)
+                                                    setRingCategoryPopoverValue(
+                                                      currentCategory
+                                                    )
+                                                    const currentLimitRaw =
+                                                      ringLimits[currentCategory]
+                                                    const currentLimit =
+                                                      typeof currentLimitRaw === "number" &&
+                                                        currentLimitRaw > 0
+                                                        ? currentLimitRaw
+                                                        : getDefaultRingLimit(dateFilter)
+                                                    setRingLimitPopoverValue(
+                                                      currentLimit.toString()
+                                                    )
+                                                  } else {
+                                                    setRingCategoryPopoverIndex(null)
+                                                    setRingCategoryPopoverValue(null)
+                                                    setRingLimitPopoverValue("")
                                                   }
-                                                  allCategories={allExpenseCategories}
-                                                  onSave={async (savedCategory, savedLimit) => {
-                                                    if (!savedCategory) {
+                                                }}
+                                              >
+                                                <PopoverTrigger asChild>
+                                                  <div className="flex items-center gap-1 bg-background/80 backdrop-blur-sm p-1 rounded border cursor-pointer">
+                                                    <button
+                                                      type="button"
+                                                      className="px-1.5 py-0.5 text-[0.7rem] rounded w-full flex items-center justify-between gap-1.5 hover:bg-muted/80 bg-muted"
+                                                      title={
+                                                        limit
+                                                          ? `${category} ÔÇô ${percent}% of limit (${item.value} of 1.0)`
+                                                          : `${category} ÔÇô no limit set`
+                                                      }
+                                                    >
+                                                      <span className="max-w-[170px] whitespace-normal">
+                                                        {category}
+                                                      </span>
+                                                      <span className="text-[0.65rem] font-medium text-muted-foreground flex-shrink-0 text-right">
+                                                        {spent !== null
+                                                          ? `$${spent.toFixed(2)}`
+                                                          : `${percent}%`}
+                                                      </span>
+                                                    </button>
+                                                  </div>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-56" align="end">
+                                                  <RingPopoverContent
+                                                    initialCategory={ringCategoryPopoverValue ?? (category as string)}
+                                                    initialLimit={
+                                                      ringLimitPopoverValue
+                                                        ? parseFloat(ringLimitPopoverValue) || limit
+                                                        : limit
+                                                    }
+                                                    allCategories={allExpenseCategories}
+                                                    onSave={async (savedCategory, savedLimit) => {
+                                                      if (!savedCategory) {
+                                                        setRingCategoryPopoverIndex(null)
+                                                        setRingCategoryPopoverValue(null)
+                                                        setRingLimitPopoverValue("")
+                                                        return
+                                                      }
+                                                      setRingCategories((prev) => {
+                                                        const base =
+                                                          prev && prev.length
+                                                            ? [...prev]
+                                                            : activityData.map(
+                                                              (ringItem) => {
+                                                                const ringCategory =
+                                                                  (ringItem as {
+                                                                    category?: string
+                                                                  }).category ??
+                                                                  ringItem.label
+                                                                return ringCategory as string
+                                                              }
+                                                            )
+                                                        base[ringCategoryPopoverIndex ?? idx] = savedCategory
+                                                        return base
+                                                      })
+                                                      if (savedLimit) {
+                                                        const limitValue = parseFloat(savedLimit)
+                                                        if (!isNaN(limitValue) && limitValue >= 0) {
+                                                          setRingLimits((prev) => {
+                                                            const updated = {
+                                                              ...prev,
+                                                              [savedCategory]: limitValue,
+                                                            }
+                                                            if (typeof window !== "undefined") {
+                                                              localStorage.setItem(
+                                                                "activityRingLimits",
+                                                                JSON.stringify(updated)
+                                                              )
+                                                            }
+                                                            return updated
+                                                          })
+
+                                                          // Save to database with current filter
+                                                          try {
+                                                            const res = await fetch("/api/budgets", {
+                                                              method: "POST",
+                                                              headers: {
+                                                                "Content-Type": "application/json",
+                                                              },
+                                                              body: JSON.stringify({
+                                                                categoryName: savedCategory,
+                                                                budget: limitValue,
+                                                                filter: dateFilter, // Include current filter
+                                                              }),
+                                                            })
+
+                                                            if (!res.ok) {
+                                                              console.error(
+                                                                "[Analytics] Failed to save ring limit:",
+                                                                await res.text()
+                                                              )
+                                                            }
+                                                          } catch (error) {
+                                                            console.error("[Analytics] Error saving ring limit:", error)
+                                                          }
+                                                        }
+                                                      }
                                                       setRingCategoryPopoverIndex(null)
                                                       setRingCategoryPopoverValue(null)
                                                       setRingLimitPopoverValue("")
-                                                      return
-                                                    }
-                                                    setRingCategories((prev) => {
-                                                      const base =
-                                                        prev && prev.length
-                                                          ? [...prev]
-                                                          : activityData.map(
-                                                            (ringItem) => {
-                                                              const ringCategory =
-                                                                (ringItem as {
-                                                                  category?: string
-                                                                }).category ??
-                                                                ringItem.label
-                                                              return ringCategory as string
-                                                            }
-                                                          )
-                                                      base[ringCategoryPopoverIndex ?? idx] = savedCategory
-                                                      return base
-                                                    })
-                                                    if (savedLimit) {
-                                                      const limitValue = parseFloat(savedLimit)
-                                                      if (!isNaN(limitValue) && limitValue >= 0) {
-                                                        setRingLimits((prev) => {
-                                                          const updated = {
-                                                            ...prev,
-                                                            [savedCategory]: limitValue,
-                                                          }
-                                                          if (typeof window !== "undefined") {
-                                                            localStorage.setItem(
-                                                              "activityRingLimits",
-                                                              JSON.stringify(updated)
-                                                            )
-                                                          }
-                                                          return updated
-                                                        })
-
-                                                        // Save to database with current filter
-                                                        try {
-                                                          const res = await fetch("/api/budgets", {
-                                                            method: "POST",
-                                                            headers: {
-                                                              "Content-Type": "application/json",
-                                                            },
-                                                            body: JSON.stringify({
-                                                              categoryName: savedCategory,
-                                                              budget: limitValue,
-                                                              filter: dateFilter, // Include current filter
-                                                            }),
-                                                          })
-
-                                                          if (!res.ok) {
-                                                            console.error(
-                                                              "[Analytics] Failed to save ring limit:",
-                                                              await res.text()
-                                                            )
-                                                          }
-                                                        } catch (error) {
-                                                          console.error("[Analytics] Error saving ring limit:", error)
-                                                        }
-                                                      }
-                                                    }
-                                                    setRingCategoryPopoverIndex(null)
-                                                    setRingCategoryPopoverValue(null)
-                                                    setRingLimitPopoverValue("")
-                                                  }}
-                                                  onCancel={() => {
-                                                    setRingCategoryPopoverIndex(null)
-                                                    setRingCategoryPopoverValue(null)
-                                                    setRingLimitPopoverValue("")
-                                                  }}
-                                                />
-                                              </PopoverContent>
-                                            </Popover>
+                                                    }}
+                                                    onCancel={() => {
+                                                      setRingCategoryPopoverIndex(null)
+                                                      setRingCategoryPopoverValue(null)
+                                                      setRingLimitPopoverValue("")
+                                                    }}
+                                                  />
+                                                </PopoverContent>
+                                              </Popover>
+                                            )
+                                          })}
+                                        </div>
+                                      </div>
+                                    )}
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="icon-sm"
+                                      className="ml-auto"
+                                      onClick={() => handleToggleChartExpand("spendingActivityRings")}
+                                      aria-label={expandedCharts["spendingActivityRings"] ? "Shrink chart" : "Expand chart"}
+                                    >
+                                      {expandedCharts["spendingActivityRings"] ? (
+                                        <IconMinimize className="h-4 w-4" />
+                                      ) : (
+                                        <IconMaximize className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                  </div>
+                                </CardHeader>
+                                <CardContent className="min-h-[420px] flex flex-col items-center justify-between flex-1 mt-[15px]">
+                                  {activityData.length === 0 ? (
+                                    <span className="text-sm text-muted-foreground">
+                                      No expense categories available yet.
+                                    </span>
+                                  ) : (
+                                    <>
+                                      <div className="flex items-center justify-center w-full flex-1 min-h-0">
+                                        <SpendingActivityRings
+                                          key={`rings-${dateFilter}-${ringCategories?.join(',') || ''}`}
+                                          data={activityData}
+                                          config={activityConfig}
+                                          theme={activityTheme as "light" | "dark"}
+                                          ringLimits={ringLimits}
+                                          getDefaultLimit={() => getDefaultRingLimit(dateFilter)}
+                                          colorScheme={colorScheme}
+                                        />
+                                      </div>
+                                      <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
+                                        {activityData.map((item) => {
+                                          const category =
+                                            (item as { category?: string }).category ??
+                                            item.label
+                                          return (
+                                            <div
+                                              key={category}
+                                              className="flex items-center gap-1.5"
+                                            >
+                                              <span
+                                                className="h-2 w-2 rounded-full"
+                                                style={{
+                                                  backgroundColor:
+                                                    (item as { color?: string }).color ||
+                                                    "#a1a1aa",
+                                                }}
+                                              />
+                                              <span className="font-medium">
+                                                {category}
+                                              </span>
+                                              <span className="text-[0.7rem]">
+                                                {(item.value * 100).toFixed(0)}%
+                                              </span>
+                                            </div>
                                           )
                                         })}
                                       </div>
-                                    </div>
+                                    </>
                                   )}
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon-sm"
-                                    className="ml-auto"
-                                    onClick={() => handleToggleChartExpand("spendingActivityRings")}
-                                    aria-label={expandedCharts["spendingActivityRings"] ? "Shrink chart" : "Expand chart"}
-                                  >
-                                    {expandedCharts["spendingActivityRings"] ? (
-                                      <IconMinimize className="h-4 w-4" />
-                                    ) : (
-                                      <IconMaximize className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                </div>
-                              </CardHeader>
-                              <CardContent className="min-h-[420px] flex flex-col items-center justify-between flex-1 mt-[15px]">
-                                {activityData.length === 0 ? (
-                                  <span className="text-sm text-muted-foreground">
-                                    No expense categories available yet.
-                                  </span>
-                                ) : (
-                                  <>
-                                    <div className="flex items-center justify-center w-full flex-1 min-h-0">
-                                      <SpendingActivityRings
-                                        key={`rings-${dateFilter}-${ringCategories?.join(',') || ''}`}
-                                        data={activityData}
-                                        config={activityConfig}
-                                        theme={activityTheme as "light" | "dark"}
-                                        ringLimits={ringLimits}
-                                        getDefaultLimit={() => getDefaultRingLimit(dateFilter)}
-                                        colorScheme={colorScheme}
-                                      />
-                                    </div>
-                                    <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
-                                      {activityData.map((item) => {
-                                        const category =
-                                          (item as { category?: string }).category ??
-                                          item.label
-                                        return (
-                                          <div
-                                            key={category}
-                                            className="flex items-center gap-1.5"
-                                          >
-                                            <span
-                                              className="h-2 w-2 rounded-full"
-                                              style={{
-                                                backgroundColor:
-                                                  (item as { color?: string }).color ||
-                                                  "#a1a1aa",
-                                              }}
-                                            />
-                                            <span className="font-medium">
-                                              {category}
-                                            </span>
-                                            <span className="text-[0.7rem]">
-                                              {(item.value * 100).toFixed(0)}%
-                                            </span>
-                                          </div>
-                                        )
-                                      })}
-                                    </div>
-                                  </>
-                                )}
-                              </CardContent>
-                            </Card>
-                          </SortableAnalyticsChart>
-                        )
-                      }
+                                </CardContent>
+                              </Card>
+                            </SortableAnalyticsChart>
+                          )
+                        }
 
-                      if (chartId === "spendingStreamgraph") {
-                        return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartSpendingStreamgraph
-                              categoryControls={streamgraphControls}
-                              data={spendingStreamData.data}
-                              keys={spendingStreamData.keys}
-                            />
-                          </SortableAnalyticsChart>
-                        )
-                      }
+                        if (chartId === "spendingStreamgraph") {
+                          return (
+                            <SortableAnalyticsChart
+                              key={chartId}
+                              id={chartId}
+                              className={colSpanClass}
+                            >
+                              <ChartSpendingStreamgraph
+                                categoryControls={streamgraphControls}
+                                data={spendingStreamData.data}
+                                keys={spendingStreamData.keys}
+                              />
+                            </SortableAnalyticsChart>
+                          )
+                        }
 
-                      if (chartId === "singleMonthCategorySpending") {
-                        return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartSingleMonthCategorySpending
-                              dateFilter={dateFilter}
-                            />
-                          </SortableAnalyticsChart>
-                        )
-                      }
+                        if (chartId === "singleMonthCategorySpending") {
+                          return (
+                            <SortableAnalyticsChart
+                              key={chartId}
+                              id={chartId}
+                              className={colSpanClass}
+                            >
+                              <ChartSingleMonthCategorySpending
+                                dateFilter={dateFilter}
+                              />
+                            </SortableAnalyticsChart>
+                          )
+                        }
 
-                      if (chartId === "dayOfWeekCategory") {
-                        return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartDayOfWeekCategory
-                              dateFilter={dateFilter}
-                            />
-                          </SortableAnalyticsChart>
-                        )
-                      }
+                        if (chartId === "dayOfWeekCategory") {
+                          return (
+                            <SortableAnalyticsChart
+                              key={chartId}
+                              id={chartId}
+                              className={colSpanClass}
+                            >
+                              <ChartDayOfWeekCategory
+                                dateFilter={dateFilter}
+                              />
+                            </SortableAnalyticsChart>
+                          )
+                        }
 
-                      if (chartId === "budgetDistribution") {
-                        return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartCirclePacking
-                              categoryControls={circlePackingControls}
-                              data={circlePackingData.tree}
-                            />
-                          </SortableAnalyticsChart>
-                        )
-                      }
+                        if (chartId === "budgetDistribution") {
+                          return (
+                            <SortableAnalyticsChart
+                              key={chartId}
+                              id={chartId}
+                              className={colSpanClass}
+                            >
+                              <ChartCirclePacking
+                                categoryControls={circlePackingControls}
+                                data={circlePackingData.tree}
+                              />
+                            </SortableAnalyticsChart>
+                          )
+                        }
 
-                      if (chartId === "transactionHistory") {
-                        return (
-                          <SortableAnalyticsChart
-                            key={chartId}
-                            id={chartId}
-                            className={colSpanClass}
-                          >
-                            <ChartSwarmPlot
-                              data={transactionHistoryData}
-                            />
-                          </SortableAnalyticsChart>
-                        )
-                      }
+                        if (chartId === "transactionHistory") {
+                          return (
+                            <SortableAnalyticsChart
+                              key={chartId}
+                              id={chartId}
+                              className={colSpanClass}
+                            >
+                              <ChartSwarmPlot
+                                data={transactionHistoryData}
+                              />
+                            </SortableAnalyticsChart>
+                          )
+                        }
 
-                      return null
-                    })}
-                  </div>
-                </SortableContext>
-              </DndContext>
+                        return null
+                      })}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Modern Confirmation Dialog */}
-        <Dialog open={isAiReparseOpen} onOpenChange={setIsAiReparseOpen}>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Reparse with AI</DialogTitle>
-              <DialogDescription>
-                Add any context that helps the parser (bank name, column meanings, or date format).
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="ai-reparse-context-analytics-client">
-                Context (optional)
-              </label>
-              <textarea
-                id="ai-reparse-context-analytics-client"
-                className="min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                placeholder="Example: Date column is DD/MM/YY, amounts are negative for debits."
-                value={aiReparseContext}
-                onChange={(event) => setAiReparseContext(event.target.value)}
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsAiReparseOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleAiReparse}
-                disabled={isAiReparsing || !droppedFile}
-              >
-                {isAiReparsing ? "Reparsing..." : "Reparse with AI"}
-              </Button>
-            </DialogFooter>
+        {/* FileUpload01 Dialog - Initial File Selection */}
+        <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+          <DialogContent className="sm:max-w-xl">
+            <FileUpload01
+              files={uploadFiles}
+              fileProgresses={fileProgresses}
+              isBusy={isUploading}
+              error={uploadError}
+              projectName={projectName}
+              onProjectNameChange={handleProjectNameChange}
+              projectLead={null}
+              accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              onFilesChange={handleUploadFilesChange}
+              onCancel={handleUploadCancel}
+              onContinue={handleUploadContinue}
+              continueLabel="Parse & Review"
+            />
           </DialogContent>
         </Dialog>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="sm:max-w-[95vw] lg:max-w-[1400px] w-full max-h-[90vh] flex flex-col p-0 gap-0">
-            <div className="px-6 pt-6 pb-4 flex-shrink-0">
-              <DialogHeader>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <IconCircleCheck className="w-5 h-5 text-primary" />
-                  </div>
-                  <DialogTitle className="text-xl">Confirm File Upload</DialogTitle>
-                </div>
-                <DialogDescription className="text-base">
-                  Review the file details below and confirm to proceed with the upload.
-                </DialogDescription>
-              </DialogHeader>
-            </div>
-            <Separator className="flex-shrink-0" />
-            {droppedFile && (
+
+        {/* Review Transactions Dialog - After Parsing */}
+        {parsedRows.length > 0 && (
+          <Dialog open={parsedRows.length > 0} onOpenChange={(open) => {
+            if (!open) {
+              setParsedRows([])
+              setParsedCsv(null)
+              setSelectedParsedRowIds(new Set())
+            }
+          }}>
+            <DialogContent className="sm:max-w-[95vw] lg:max-w-[1400px] w-full max-h-[90vh] flex flex-col p-0 gap-0">
+              <div className="px-6 pt-6 pb-4 flex-shrink-0">
+                <DialogHeader>
+                  <DialogTitle className="text-xl">Review Transactions</DialogTitle>
+                  <DialogDescription className="text-base">
+                    Review and edit {parsedRows.length} parsed transactions before importing to database.
+                  </DialogDescription>
+                </DialogHeader>
+              </div>
+              <Separator className="flex-shrink-0" />
+
               <div className="px-6 py-4 space-y-4 overflow-y-auto flex-1 min-h-0">
-                <Card className="border-2">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start gap-4">
-                      <div className="flex-shrink-0">
-                        <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-                          <IconFile className="w-8 h-8 text-primary" />
-                        </div>
+                <Card className="border-2 overflow-hidden flex flex-col min-h-0">
+                  <CardHeader className="flex-shrink-0 px-4 pt-4 pb-2">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <CardTitle className="text-sm">Transactions ({parsedRows.length})</CardTitle>
+                        <CardDescription className="text-xs">
+                          Select categories and remove unwanted transactions
+                        </CardDescription>
                       </div>
-                      <div className="flex-1 min-w-0 space-y-3">
-                        <div>
-                          <p className="text-sm font-semibold text-foreground mb-1 break-words">
-                            {droppedFile.name}
-                          </p>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant="secondary" className="text-xs">
-                              {formatFileSize(droppedFile.size)}
-                            </Badge>
-                            {droppedFile.type && (
-                              <Badge variant="outline" className="text-xs">
-                                {droppedFile.type.split('/')[1]?.toUpperCase() || 'FILE'}
-                              </Badge>
-                            )}
-                            {transactionCount > 0 && (
-                              <Badge variant="default" className="text-xs">
-                                {transactionCount} transactions
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                        <Separator />
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <p className="text-muted-foreground text-xs mb-1">File Type</p>
-                            <p className="font-medium">{droppedFile.type || "Unknown"}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground text-xs mb-1">File Size</p>
-                            <p className="font-medium">{formatFileSize(droppedFile.size)}</p>
-                          </div>
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={handleDeleteSelectedRows}
+                          disabled={selectedParsedRowIds.size === 0}
+                        >
+                          Delete selected ({selectedParsedRowIds.size})
+                        </Button>
                       </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
+                    <div className="h-full max-h-[500px] overflow-auto rounded-lg border">
+                      <Table>
+                        <TableHeader className="bg-muted sticky top-0 z-10">
+                          <TableRow>
+                            <TableHead className="w-12">
+                              <Checkbox
+                                checked={parsedRows.length > 0 && selectedParsedRowIds.size === parsedRows.length}
+                                onCheckedChange={(checked) => handleSelectAllParsedRows(checked === true)}
+                                aria-label="Select all transactions"
+                              />
+                            </TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Description</TableHead>
+                            <TableHead className="text-right">Amount</TableHead>
+                            <TableHead>Category</TableHead>
+                            <TableHead className="w-12"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {parsedRows.map((row) => {
+                            const amount = typeof row.amount === 'number' ? row.amount : parseFloat(row.amount) || 0
+                            const category = row.category || 'Other'
+
+                            return (
+                              <MemoizedTableRow
+                                key={row.id ?? `${row.date}-${row.description}`}
+                                row={row}
+                                amount={amount}
+                                category={category}
+                                isSelected={selectedParsedRowIds.has(row.id)}
+                                onSelectChange={(isSelected) => handleParsedRowSelectChange(row.id, isSelected)}
+                                onCategoryChange={(value) => handleCategoryChange(row.id, value)}
+                                onDelete={() => handleDeleteRow(row.id)}
+                              />
+                            )
+                          })}
+                        </TableBody>
+                      </Table>
                     </div>
                   </CardContent>
                 </Card>
-
-                {/* Parsing Status */}
-                {isParsing && (
-                  <Card className="border-2 border-primary/20 bg-primary/5">
-                    <CardContent className="pt-6">
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <IconLoader2 className="w-5 h-5 text-primary animate-spin flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium">Parsing file...</p>
-                            <p className="text-xs text-muted-foreground">Extracting transactions and categorizing</p>
-                          </div>
-                          <span className="text-sm font-semibold text-primary flex-shrink-0">{Math.round(parsingProgress)}%</span>
-                        </div>
-                        <div className="w-full">
-                          <Progress value={parsingProgress} className="w-full h-3" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Parse Error */}
-                {parseError && !isParsing && (
-                  <Card className="border-2 border-destructive/20 bg-destructive/5">
-                    <CardContent className="pt-6">
-                      <div className="flex items-start gap-3">
-                        <IconAlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium text-destructive">Parse Error</p>
-                          <p className="text-xs text-muted-foreground mt-1">{parseError}</p>
-                        </div>
-                      </div>
-                      <div className="mt-4">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setIsAiReparseOpen(true)}
-                          disabled={!droppedFile || isAiReparsing}
-                        >
-                          Reparse with AI
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Import Progress */}
-                {isImporting && (
-                  <Card className="border-2 border-primary/20 bg-primary/5">
-                    <CardContent className="pt-6">
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <IconLoader2 className="w-5 h-5 text-primary animate-spin flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium">Importing transactions...</p>
-                            <p className="text-xs text-muted-foreground">
-                              Please wait while we import {transactionCount} transactions into the database
-                            </p>
-                          </div>
-                          <span className="text-sm font-semibold text-primary flex-shrink-0">{Math.round(importProgress)}%</span>
-                        </div>
-                        <div className="w-full">
-                          <Progress value={importProgress} className="w-full h-3" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Parsed CSV Preview */}
-                {parsedCsv && !isParsing && !parseError && !isImporting && (
-                  <Card className="border-2 overflow-hidden flex flex-col min-h-0 max-w-[1200px] w-full mx-auto">
-                    <CardHeader className="flex-shrink-0 px-4 pt-4 pb-2">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <CardTitle className="text-sm">Preview ({transactionCount} transactions)</CardTitle>
-                          <CardDescription className="text-xs">
-                            Review and edit categories before importing
-                          </CardDescription>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={handleDeleteSelectedRows}
-                            disabled={selectedParsedRowIds.size === 0}
-                          >
-                            Delete selected
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsAiReparseOpen(true)}
-                            disabled={!droppedFile || isAiReparsing}
-                          >
-                            Reparse with AI
-                          </Button>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
-                      <div className="h-full max-h-[500px] overflow-auto rounded-lg border">
-                        <Table>
-                          <TableHeader className="bg-muted sticky top-0 z-10">
-                            <TableRow>
-                              <TableHead className="w-12">
-                                <Checkbox
-                                  checked={parsedRows.length > 0 && selectedParsedRowIds.size === parsedRows.length}
-                                  onCheckedChange={(checked) => handleSelectAllParsedRows(checked === true)}
-                                  aria-label="Select all transactions"
-                                />
-                              </TableHead>
-                              <TableHead>Date</TableHead>
-                              <TableHead>Description</TableHead>
-                              <TableHead className="text-right">Amount</TableHead>
-                              <TableHead>Category</TableHead>
-                              <TableHead className="w-12"></TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {parsedRows.length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={6} className="h-24 text-center">
-                                  No transactions found
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              parsedRows.map((row) => {
-                                const amount = typeof row.amount === 'number' ? row.amount : parseFloat(row.amount) || 0
-                                const category = row.category || 'Other'
-
-                                return (
-                                  <MemoizedTableRow
-                                    key={row.id ?? `${row.date}-${row.description}`}
-                                    row={row}
-                                    amount={amount}
-                                    category={category}
-                                    isSelected={selectedParsedRowIds.has(row.id)}
-                                    onSelectChange={(value) => handleToggleParsedRow(row.id, value)}
-                                    onCategoryChange={(value) => handleCategoryChange(row.id, value)}
-                                    onDelete={() => handleDeleteRow(row.id)}
-                                  />
-                                )
-                              })
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
               </div>
-            )}
-            <Separator className="flex-shrink-0" />
-            <div className="px-6 py-4 flex-shrink-0">
-              <DialogFooter className="gap-2 sm:gap-0">
-                <Button
-                  variant="outline"
-                  onClick={handleCancel}
-                  disabled={isImporting}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleConfirm}
-                  className="gap-2"
-                  disabled={isParsing || isAiReparsing || isImporting || !!parseError || !parsedCsv}
-                >
-                  {isImporting ? (
-                    <>
-                      <IconLoader2 className="w-4 h-4 animate-spin" />
-                      Importing...
-                    </>
-                  ) : (
-                    <>
-                      <IconUpload className="w-4 h-4" />
-                      Import to Database
-                    </>
-                  )}
-                </Button>
-              </DialogFooter>
-            </div>
-          </DialogContent>
-        </Dialog>
+
+              <div className="px-6 py-4 flex-shrink-0">
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setParsedRows([])
+                      setParsedCsv(null)
+                      setSelectedParsedRowIds(new Set())
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleConfirm}
+                    className="gap-2"
+                  >
+                    <IconUpload className="w-4 h-4" />
+                    Import {parsedRows.length} Transactions
+                  </Button>
+                </DialogFooter>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
       </SidebarInset>
-    </SidebarProvider>
+
+    </SidebarProvider >
   )
 }
 
