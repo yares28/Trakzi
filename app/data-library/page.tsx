@@ -1115,6 +1115,20 @@ export default function DataLibraryPage() {
       return
     }
 
+    // Generate temporary ID for optimistic update
+    const optimisticId = `temp-${Date.now()}`
+
+    // Optimistic update - add to UI immediately
+    setCategories(prev => [...prev, {
+      id: optimisticId as any,
+      name: trimmedName,
+      color: '#94a3b8', // Slate color for pending
+      createdAt: new Date().toISOString(),
+      transactionCount: 0,
+      totalSpend: 0,
+      totalAmount: 0
+    }])
+
     try {
       setAddCategoryLoading(true)
       const response = await fetch("/api/categories", {
@@ -1128,8 +1142,14 @@ export default function DataLibraryPage() {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
 
+        // Rollback optimistic update
+        setCategories(prev => prev.filter(c => c.id !== optimisticId))
+
         // Check for category limit exceeded
         if (response.status === 403 && errorData.code === 'CATEGORY_LIMIT_EXCEEDED') {
+          console.log('[DEBUG] Category limit error data:', errorData)
+          console.log('[DEBUG] upgradePlans:', errorData.upgradePlans)
+
           setCategoryLimitData({
             code: 'CATEGORY_LIMIT_EXCEEDED',
             type: 'transaction',
@@ -1153,16 +1173,20 @@ export default function DataLibraryPage() {
 
       const created = await response.json()
 
-      // Optimistic update - add to local state immediately
-      setCategories(prev => [...prev, {
-        id: created.id,
-        name: created.name,
-        color: created.color,
-        createdAt: new Date().toISOString(),
-        transactionCount: 0,
-        totalSpend: 0,
-        totalAmount: 0
-      }])
+      // Replace optimistic item with real data
+      setCategories(prev => prev.map(c =>
+        c.id === optimisticId
+          ? {
+            id: created.id,
+            name: created.name,
+            color: created.color,
+            createdAt: new Date().toISOString(),
+            transactionCount: 0,
+            totalSpend: 0,
+            totalAmount: 0
+          }
+          : c
+      ))
 
       // Reset form
       setNewCategoryName("")
@@ -1180,6 +1204,9 @@ export default function DataLibraryPage() {
 
       toast.success(`Category "${created.name}" added`)
     } catch (error) {
+      // Rollback optimistic update on any error
+      setCategories(prev => prev.filter(c => c.id !== optimisticId))
+
       console.error("[Add Category] Error:", error)
       const message = error instanceof Error ? error.message : "Failed to add category"
       toast.error(message)
