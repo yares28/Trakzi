@@ -312,6 +312,8 @@ export default function DataLibraryPage() {
   const [receiptCategoryTypes, setReceiptCategoryTypes] = useState<ReceiptCategoryType[]>([])
   const [receiptCategories, setReceiptCategories] = useState<ReceiptCategory[]>([])
   const [userFiles, setUserFiles] = useState<UserFile[]>([])
+  const [receiptTransactionsCount, setReceiptTransactionsCount] = useState(0)
+  const [totalUserCategoriesCount, setTotalUserCategoriesCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
@@ -552,6 +554,8 @@ export default function DataLibraryPage() {
       setUserFiles(bundleData.userFiles)
       setReceiptCategoryTypes(bundleData.receiptCategoryTypes)
       setReceiptCategories(bundleData.receiptCategories)
+      setReceiptTransactionsCount(bundleData.receiptTransactionsCount || 0)
+      setTotalUserCategoriesCount(bundleData.userCategoriesCount || 0)
     } catch (err) {
       const message =
         err instanceof Error
@@ -1777,10 +1781,10 @@ export default function DataLibraryPage() {
     return customCategoriesCount + customReceiptCategoriesCount
   }, [customCategoriesCount, customReceiptCategoriesCount])
 
-  // Calculate total transactions (already includes receipt transactions from bundle API)
+  // Calculate total transactions (spending + receipt transactions from bundle API)
   const totalTransactionsCount = useMemo(() => {
-    return transactions.length
-  }, [transactions])
+    return transactions.length + receiptTransactionsCount
+  }, [transactions.length, receiptTransactionsCount])
 
   const kpiCards = [
     {
@@ -1805,7 +1809,7 @@ export default function DataLibraryPage() {
     },
     {
       title: "Total User Categories",
-      value: formatNumber(totalUserCategories),
+      value: formatNumber(totalUserCategoriesCount),
       hint: "Total user-created categories (transaction + receipt combined).",
       icon: IconCategory,
       subtitle: "custom categories across all types",
