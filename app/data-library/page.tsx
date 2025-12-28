@@ -1141,7 +1141,7 @@ export default function DataLibraryPage() {
             transactionRemaining: errorData.capacity?.transactionRemaining,
             receiptRemaining: errorData.capacity?.receiptRemaining,
             message: errorData.message,
-            upgradePlans: errorData.capacity?.upgradePlans
+            upgradePlans: errorData.upgradePlans
           })
           setIsCategoryLimitDialogOpen(true)
           setAddCategoryLoading(false)
