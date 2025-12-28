@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
+import { revalidatePath } from "next/cache"
 
 import { getCurrentUserId } from "@/lib/auth"
 import { neonInsert, neonQuery } from "@/lib/neonClient"
 import { ensureReceiptCategories } from "@/lib/receipts/receipt-categories-db"
 import { upsertReceiptItemCategoryPreferences } from "@/lib/receipts/item-category-preferences"
+import { invalidateUserCachePrefix } from "@/lib/cache/upstash"
 
 type CommitReceiptTransaction = {
   description?: string | null
@@ -270,6 +272,10 @@ export const POST = async (req: NextRequest) => {
     // Calculate totals
     const totalInserted = receipts.reduce((sum, r) => sum + r.itemsInserted, 0)
     const totalSkipped = receipts.reduce((sum, r) => sum + r.itemsSkipped, 0)
+
+    // Invalidate cache to ensure UI updates instantly
+    await invalidateUserCachePrefix(userId, 'data-library');
+    revalidatePath('/data-library');
 
     return NextResponse.json({
       receipts,

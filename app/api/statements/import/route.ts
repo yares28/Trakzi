@@ -1,9 +1,11 @@
 // app/api/statements/import/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import Papa from "papaparse";
 import { neonInsert, neonQuery } from "@/lib/neonClient";
 import { getCurrentUserId } from "@/lib/auth";
 import { TxRow } from "@/lib/types/transactions";
+import { invalidateUserCachePrefix } from "@/lib/cache/upstash";
 import {
     assertCapacityOrExplain,
     getRemainingCapacity,
@@ -308,6 +310,10 @@ export const POST = async (req: NextRequest) => {
             response.partialImport = true;
             response.reachedCap = true;
         }
+
+        // Invalidate cache to ensure UI updates instantly
+        await invalidateUserCachePrefix(userId, 'data-library');
+        revalidatePath('/data-library');
 
         return NextResponse.json(response, { status: 201 });
     } catch (error: any) {
