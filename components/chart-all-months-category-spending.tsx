@@ -28,7 +28,7 @@ interface ChartAllMonthsCategorySpendingProps {
     balance: number | null
     category: string
   }>
-  monthlyCategoriesData?: Array<{ month: number; category: string; total: number }>
+  monthlyCategoriesData?: Array<{ month: number | string; category: string; total: number }>
   categoryControls?: ChartInfoPopoverCategoryControls
   isLoading?: boolean
   bundleLoading?: boolean
@@ -136,7 +136,7 @@ export function ChartAllMonthsCategorySpending({ data = [], monthlyCategoriesDat
           let monthIndex: number
           if (typeof item.month === 'string') {
             // Extract month from 'Mon YYYY' format
-            const monthStr = item.month.split(' ')[0]  // Get 'Mon'
+            const monthStr = (item.month as string).split(' ')[0]  // Get 'Mon'
             monthIndex = monthNamesShort.indexOf(monthStr)
             if (monthIndex === -1) {
               console.warn('[All Months] Unknown month format:', item.month)
@@ -144,7 +144,7 @@ export function ChartAllMonthsCategorySpending({ data = [], monthlyCategoriesDat
             }
           } else {
             // Legacy number format (1-12)
-            monthIndex = item.month - 1
+            monthIndex = (item.month as number) - 1
           }
 
           if (monthIndex >= 0 && monthIndex < 12) {
@@ -204,11 +204,11 @@ export function ChartAllMonthsCategorySpending({ data = [], monthlyCategoriesDat
         // Parse month from either string ('Mon YYYY') or number (1-12) format
         let monthIndex: number
         if (typeof m.month === 'string') {
-          const monthStr = m.month.split(' ')[0]
+          const monthStr = (m.month as string).split(' ')[0]
           monthIndex = monthNamesShort.indexOf(monthStr)
           if (monthIndex === -1) return
         } else {
-          monthIndex = m.month - 1 // Convert 1-12 to 0-11
+          monthIndex = (m.month as number) - 1 // Convert 1-12 to 0-11
         }
 
         const category = m.category
