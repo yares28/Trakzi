@@ -52,29 +52,50 @@ export function TransactionProgressBar({
     className,
 }: TransactionProgressBarProps) {
     const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
+    const [categoryData, setCategoryData] = useState<{
+        transactions: number;
+        receipts: number;
+        total: number;
+        capacity: {
+            transactionCap: number;
+            receiptCap: number;
+            transactionRemaining: number;
+            receiptRemaining: number;
+        };
+        plan: string;
+    } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Fetch subscription data on mount and when subscription changes
+    // Fetch subscription and category data on mount
     useEffect(() => {
-        async function fetchSubscription() {
+        async function fetchData() {
             try {
                 setIsLoading(true);
-                const response = await fetch("/api/subscription/status");
-                if (response.ok) {
-                    const data = await response.json();
-                    setSubscriptionData(data);
+
+                // Fetch subscription status
+                const subResponse = await fetch("/api/subscription/status");
+                if (subResponse.ok) {
+                    const subData = await subResponse.json();
+                    setSubscriptionData(subData);
+                }
+
+                // Fetch category counts
+                const catResponse = await fetch("/api/categories/count");
+                if (catResponse.ok) {
+                    const catData = await catResponse.json();
+                    setCategoryData(catData);
                 }
             } catch (error) {
-                console.error("Failed to fetch subscription status:", error);
+                console.error("Failed to fetch data:", error);
             } finally {
                 setIsLoading(false);
             }
         }
-        fetchSubscription();
+        fetchData();
 
         // Listen for subscription change events
         const handleSubscriptionChange = () => {
-            fetchSubscription();
+            fetchData();
         };
         window.addEventListener('subscription-changed', handleSubscriptionChange);
 
@@ -189,6 +210,53 @@ export function TransactionProgressBar({
                         </span>
                     </div>
                 </div>
+
+                {/* Categories Tracked Section */}
+                {categoryData && (
+                    <>
+                        {/* Divider */}
+                        <div className="my-4 border-t" />
+
+                        {/* Categories Header */}
+                        <div className="mb-3">
+                            <p className="text-base text-muted-foreground">
+                                Categories tracked{" "}
+                                <span className="font-semibold tabular-nums text-foreground">
+                                    {categoryData.total}
+                                </span>{" "}
+                                of {categoryData.capacity.transactionCap + categoryData.capacity.receiptCap} max
+                            </p>
+                        </div>
+
+                        {/* Categories Legend */}
+                        <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
+                            <div className="flex items-center gap-2">
+                                <span
+                                    className="size-3 shrink-0 rounded bg-purple-500"
+                                    aria-hidden="true"
+                                />
+                                <span className="text-sm text-muted-foreground">
+                                    Spending Categories
+                                </span>
+                                <span className="text-sm tabular-nums text-foreground font-medium">
+                                    {categoryData.transactions} / {categoryData.capacity.transactionCap}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span
+                                    className="size-3 shrink-0 rounded bg-teal-500"
+                                    aria-hidden="true"
+                                />
+                                <span className="text-sm text-muted-foreground">
+                                    Receipt Categories
+                                </span>
+                                <span className="text-sm tabular-nums text-foreground font-medium">
+                                    {categoryData.receipts} / {categoryData.capacity.receiptCap}
+                                </span>
+                            </div>
+                        </div>
+                    </>
+                )}
             </CardContent>
         </Card>
     );
