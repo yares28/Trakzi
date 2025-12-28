@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getCurrentUserId } from "@/lib/auth"
 import { neonQuery } from "@/lib/neonClient"
+import { invalidateUserCachePrefix } from "@/lib/cache/upstash"
 
 function toIsoDate(value: string | Date | null): string | null {
   if (!value) return null
@@ -187,6 +188,9 @@ export const DELETE = async (
       `
       await neonQuery(deleteFileQuery, [fileId, userId])
     }
+
+    // Invalidate data-library cache to ensure UI reflects deletion instantly
+    await invalidateUserCachePrefix(userId, 'data-library')
 
     return NextResponse.json({ success: true, message: "Receipt deleted successfully" })
   } catch (error: any) {
