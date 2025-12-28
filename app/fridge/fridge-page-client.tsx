@@ -445,6 +445,21 @@ export function FridgePageClient() {
     }
   }, [])
 
+  // Listen for pending uploads from sidebar Upload button
+  useEffect(() => {
+    const pendingFile = (window as any).__pendingUploadFile
+    const targetPage = (window as any).__pendingUploadTargetPage
+
+    if (pendingFile && targetPage === "fridge") {
+      // Clear the pending upload markers
+      delete (window as any).__pendingUploadFile
+      delete (window as any).__pendingUploadTargetPage
+
+      // Open the upload dialog with the pending file
+      openUploadDialogWithFiles([pendingFile])
+    }
+  }, [])
+
   const projectLead = useMemo(() => {
     if (!isUserLoaded || !user) return null
 

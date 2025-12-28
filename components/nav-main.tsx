@@ -77,27 +77,21 @@ export function NavMain({
       fileName.endsWith(".xlsx") ||
       fileName.endsWith(".xls")
 
-    // Store file info in sessionStorage so the target page can trigger upload
-    const fileData = {
-      name: file.name,
-      type: file.type,
-      size: file.size,
-    }
-
     // Route based on file type:
     // Images -> always receipts -> fridge
     // CSV/Excel -> always spending -> analytics  
     // PDF -> prefer receipts -> fridge
     if (isImage || (isPDF && !isCSV && !isExcel)) {
       // Receipt files go to fridge
-      sessionStorage.setItem("pendingUploadFile", JSON.stringify({ ...fileData, targetPage: "fridge" }))
-      // Trigger file input click on fridge page after navigation
-      window.dispatchEvent(new CustomEvent("triggerFileUpload", { detail: { file } }))
+      // Store the actual File object in window so the target page can access it
+      (window as any).__pendingUploadFile = file;
+      (window as any).__pendingUploadTargetPage = "fridge"
       router.push("/fridge")
     } else if (isCSV || isExcel || isPDF) {
       // Spending files go to analytics
-      sessionStorage.setItem("pendingUploadFile", JSON.stringify({ ...fileData, targetPage: "analytics" }))
-      window.dispatchEvent(new CustomEvent("triggerFileUpload", { detail: { file } }))
+      // Store the actual File object in window so the target page can access it
+      (window as any).__pendingUploadFile = file;
+      (window as any).__pendingUploadTargetPage = "analytics"
       router.push("/analytics")
     }
 
@@ -129,7 +123,10 @@ export function NavMain({
             />
             <SidebarMenuButton
               tooltip="Upload File"
-              className="bg-blue-600 text-white hover:bg-blue-700 hover:text-white active:bg-blue-700 active:text-white min-w-8 duration-200 ease-linear"
+              className="text-white hover:text-white active:text-white min-w-8 duration-200 ease-linear"
+              style={{ backgroundColor: '#5f8787' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4a6a6a'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#5f8787'}
               onClick={handleUploadClick}
             >
               <IconUpload />
