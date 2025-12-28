@@ -522,7 +522,7 @@ export const GET = async (request: Request) => {
         return NextResponse.json(data, {
             headers: {
                 'Content-Type': 'application/json',
-                'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+                'Cache-Control': 'no-store, no-cache, must-revalidate, private',
                 'X-Cache-Key': cacheKey,
             },
         })
