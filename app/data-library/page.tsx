@@ -1787,7 +1787,7 @@ export default function DataLibraryPage() {
   const kpiCards = [
     {
       title: "Transactions Indexed",
-      value: formatNumber(totalTransactions),
+      value: formatNumber(totalTransactionsWithReceipts),
       hint: latestTransactionDate
         ? `Last touch ${formatFreshness(latestTransactionDate).toLowerCase()}`
         : "Waiting for first sync",
