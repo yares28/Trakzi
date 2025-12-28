@@ -162,24 +162,36 @@ export async function invalidateUserCachePrefix(
     userId: string,
     prefix: keyof typeof CACHE_PREFIX
 ): Promise<void> {
-    if (!redis) return
+    console.log(`[Cache] invalidateUserCachePrefix called for user ${userId}, prefix: ${prefix}`)
+
+    if (!redis) {
+        console.warn('[Cache] Redis not configured - cache invalidation skipped')
+        return
+    }
 
     try {
         const keys: string[] = []
         let cursor = '0'
+        const pattern = `user:${userId}:${CACHE_PREFIX[prefix]}:*`
+        console.log(`[Cache] Scanning for keys matching pattern: ${pattern}`)
 
         do {
             const result = await redis.scan(cursor, {
-                match: `user:${userId}:${CACHE_PREFIX[prefix]}:*`,
+                match: pattern,
                 count: 100,
             })
             cursor = String(result[0])
             keys.push(...result[1])
+            console.log(`[Cache] Scan iteration - cursor: ${cursor}, found: ${result[1].length} keys`)
         } while (cursor !== '0')
+
+        console.log(`[Cache] Total keys found: ${keys.length}`, keys)
 
         if (keys.length > 0) {
             await redis.del(...keys)
             console.log(`[Cache] Invalidated ${keys.length} ${prefix} keys for user ${userId}`)
+        } else {
+            console.warn(`[Cache] No keys found matching pattern: ${pattern}`)
         }
     } catch (error) {
         console.error('[Cache] Prefix invalidation error:', error)
