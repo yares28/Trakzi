@@ -536,7 +536,10 @@ export default function DataLibraryPage() {
 
     try {
       // Use the new bundle API instead of 7 separate calls
-      const bundleRes = await fetch("/api/charts/data-library-bundle")
+      // Disable caching to ensure instant updates after deletions
+      const bundleRes = await fetch("/api/charts/data-library-bundle", {
+        cache: 'no-store'
+      })
 
       if (!bundleRes.ok) {
         throw new Error(
