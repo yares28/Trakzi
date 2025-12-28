@@ -122,12 +122,20 @@ export const POST = async (req: NextRequest) => {
     const limitCheck = await canCreateCategory(userId, 'transaction')
 
     if (!limitCheck.allowed) {
+      const upgradePlans = [];
+      if (limitCheck.capacity.plan === 'free') {
+        upgradePlans.push('pro', 'max');
+      } else if (limitCheck.capacity.plan === 'pro') {
+        upgradePlans.push('max');
+      }
+
       return NextResponse.json(
         {
           error: limitCheck.message || "Category limit reached",
           code: 'CATEGORY_LIMIT_EXCEEDED',
           capacity: limitCheck.capacity,
           plan: limitCheck.capacity.plan,
+          upgradePlans,
         },
         { status: 403 }
       )
