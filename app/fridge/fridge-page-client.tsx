@@ -8,6 +8,7 @@ import { SortableGridProvider, SortableGridItem } from "@/components/sortable-gr
 import { ChevronDown, Minus, Plus, Trash2, Upload } from "lucide-react"
 import { toast } from "sonner"
 import { TransactionLimitDialog, type TransactionLimitExceededData } from "@/components/limits/transaction-limit-dialog"
+import { CategoryLimitDialog, type CategoryLimitExceededData } from "@/components/limits/category-limit-dialog"
 import {
   DialogHeader,
   DialogTitle,
@@ -342,6 +343,8 @@ export function FridgePageClient() {
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
   const [limitExceededData, setLimitExceededData] = useState<TransactionLimitExceededData | null>(null)
   const [isLimitDialogOpen, setIsLimitDialogOpen] = useState(false)
+  const [categoryLimitData, setCategoryLimitData] = useState<CategoryLimitExceededData | null>(null)
+  const [isCategoryLimitDialogOpen, setIsCategoryLimitDialogOpen] = useState(false)
 
   const reviewCategoryByLowerName = useMemo(() => {
     const map = new Map<string, ReceiptCategoryOption>()
@@ -577,6 +580,27 @@ export function FridgePageClient() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
+
+        // Check for category limit exceeded
+        if (response.status === 403 && errorData.code === 'CATEGORY_LIMIT_EXCEEDED') {
+          setCategoryLimitData({
+            code: 'CATEGORY_LIMIT_EXCEEDED',
+            type: 'receipt',
+            plan: errorData.plan || 'free',
+            transactionCap: errorData.capacity?.transactionCap,
+            receiptCap: errorData.capacity?.receiptCap,
+            transactionUsed: errorData.capacity?.transactionUsed,
+            receiptUsed: errorData.capacity?.receiptUsed,
+            transactionRemaining: errorData.capacity?.transactionRemaining,
+            receiptRemaining: errorData.capacity?.receiptRemaining,
+            message: errorData.message,
+            upgradePlans: errorData.capacity?.upgradePlans
+          })
+          setIsCategoryLimitDialogOpen(true)
+          setIsCreatingCategory(false)
+          return
+        }
+
         throw new Error(errorData.error || "Failed to create category")
       }
 
@@ -2264,6 +2288,28 @@ export function FridgePageClient() {
               setIsLimitDialogOpen(false)
               setLimitExceededData(null)
               window.location.href = '/data-library'
+            }}
+          />
+        )}
+
+        {/* Category Limit Exceeded Dialog */}
+        {categoryLimitData && (
+          <CategoryLimitDialog
+            open={isCategoryLimitDialogOpen}
+            onOpenChange={(open) => {
+              setIsCategoryLimitDialogOpen(open)
+              if (!open) {
+                setCategoryLimitData(null)
+              }
+            }}
+            data={categoryLimitData}
+            onUpgrade={() => {
+              window.location.href = '/billing'
+            }}
+            onDeleteUnused={() => {
+              setIsCategoryLimitDialogOpen(false)
+              setCategoryLimitData(null)
+              toast.info("Go to settings to manage your categories")
             }}
           />
         )}
