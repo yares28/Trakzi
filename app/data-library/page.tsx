@@ -96,6 +96,8 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
+import { TransactionLimitDialog, type TransactionLimitExceededData } from "@/components/limits/transaction-limit-dialog"
+import { CategoryLimitDialog, type CategoryLimitExceededData } from "@/components/limits/category-limit-dialog"
 import { useCurrency } from "@/components/currency-provider"
 import { formatDateForDisplay } from "@/lib/date"
 import { normalizeTransactions, cn } from "@/lib/utils"
@@ -390,6 +392,13 @@ export default function DataLibraryPage() {
   const [isAiReparsing, setIsAiReparsing] = useState(false)
   const [selectedParsedRowIds, setSelectedParsedRowIds] = useState<Set<number>>(new Set())
   const [transactionCount, setTransactionCount] = useState<number>(0)
+
+  // Limit dialog state
+  const [transactionLimitData, setTransactionLimitData] = useState<TransactionLimitExceededData | null>(null)
+  const [isTransactionLimitDialogOpen, setIsTransactionLimitDialogOpen] = useState(false)
+  const [categoryLimitData, setCategoryLimitData] = useState<CategoryLimitExceededData | null>(null)
+  const [isCategoryLimitDialogOpen, setIsCategoryLimitDialogOpen] = useState(false)
+
   const dragCounterRef = useRef(0)
   const csvRegenerationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const latestParsedRowsRef = useRef<ParsedRow[]>([])
