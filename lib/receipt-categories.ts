@@ -25,49 +25,83 @@ export const DEFAULT_RECEIPT_CATEGORY_TYPES: ReceiptCategoryType[] = [
 
 // Default Food Categories organized by Macronutrient Type
 export const DEFAULT_RECEIPT_CATEGORIES: ReceiptCategory[] = [
-  // PROTEIN
-  { name: "Meat", type: "Protein", color: "#dc2626", broadType: "Food" }, // Chicken, beef, pork, sausage, bacon, etc.
-  { name: "Fish & Seafood", type: "Protein", color: "#ea580c", broadType: "Food" }, // Shrimp, crab, cod, tuna, salmon, etc.
+  // FRESH / WHOLE FOODS
+  { name: "Fruits", type: "None", color: "#059669", broadType: "Food" },
+  { name: "Vegetables", type: "None", color: "#047857", broadType: "Food" },
+  { name: "Herbs & Fresh Aromatics", type: "None", color: "#065f46", broadType: "Food" },
+  { name: "Meat & Poultry", type: "Protein", color: "#dc2626", broadType: "Food" },
+  { name: "Fish & Seafood", type: "Protein", color: "#ea580c", broadType: "Food" },
   { name: "Eggs", type: "Protein", color: "#991b1b", broadType: "Food" },
-  { name: "Plant-Based Protein", type: "Protein", color: "#7f1d1d", broadType: "Food" }, // Tofu, tempeh, seitan, etc.
-  { name: "Cheese", type: "Protein", color: "#fcd34d", broadType: "Food" }, // All types of cheese
+  { name: "Dairy (Milk/Yogurt)", type: "Mixed", color: "#fbbf24", broadType: "Food" },
+  { name: "Cheese", type: "Fat", color: "#fcd34d", broadType: "Food" },
+  { name: "Deli / Cold Cuts", type: "Protein", color: "#7f1d1d", broadType: "Food" },
+  { name: "Fresh Ready-to-Eat", type: "Mixed", color: "#7c3aed", broadType: "Food" },
 
-  // CARBS
-  { name: "Bread & Bakery", type: "Carbs", color: "#d97706", broadType: "Food" }, // Bread, tortillas, pies, muffins, bagels, cookies, etc.
-  { name: "Snacks", type: "Carbs", color: "#92400e", broadType: "Food" }, // Chips, pretzels, popcorn, crackers, etc.
-  { name: "Baking", type: "Carbs", color: "#78350f", broadType: "Food" }, // Flour, powdered sugar, baking powder, cocoa, etc.
-  { name: "Soda & Cola", type: "Carbs", color: "#1d4ed8", broadType: "Drinks" }, // Cola, soda, fizzy drinks, etc. (sugar-based)
-  { name: "Energy Drinks", type: "Carbs", color: "#f59e0b", broadType: "Drinks" }, // Energy drinks, sports drinks, etc. (sugar-based)
-  { name: "Juice", type: "Carbs", color: "#3b82f6", broadType: "Drinks" }, // Juice, smoothies, etc. (sugar-based)
-  { name: "Beverages", type: "Carbs", color: "#1d4ed8", broadType: "Drinks" }, // Sugar-based drinks
-  { name: "Drinks", type: "Carbs", color: "#1e40af", broadType: "Drinks" }, // General sugary drinks
+  // BAKERY
+  { name: "Bread", type: "Carbs", color: "#d97706", broadType: "Food" },
+  { name: "Pastries", type: "Carbs", color: "#f59e0b", broadType: "Food" },
+  { name: "Wraps & Buns", type: "Carbs", color: "#92400e", broadType: "Food" },
 
-  // FAT
-  { name: "Dairy", type: "Fat", color: "#fbbf24", broadType: "Food" }, // Butter, milk, yogurt, cream, etc.
-  { name: "Condiments & Spices", type: "Fat", color: "#f59e0b", broadType: "Food" }, // Black pepper, oregano, cinnamon, sugar, olive oil, ketchup, mayonnaise, etc.
-  { name: "Oils & Fats", type: "Fat", color: "#d97706", broadType: "Food" }, // Olive oil, vegetable oil, coconut oil, etc.
-  { name: "Sauce", type: "Fat", color: "#ea580c", broadType: "Food" }, // Tomato sauce, pasta sauce, BBQ sauce, salsa, etc.
+  // PANTRY STAPLES
+  { name: "Pasta, Rice & Grains", type: "Carbs", color: "#78350f", broadType: "Food" },
+  { name: "Legumes", type: "Protein", color: "#7f1d1d", broadType: "Food" },
+  { name: "Canned & Jarred", type: "Mixed", color: "#065f46", broadType: "Food" },
+  { name: "Sauces", type: "Mixed", color: "#ea580c", broadType: "Food" },
+  { name: "Condiments", type: "Fat", color: "#f59e0b", broadType: "Food" },
+  { name: "Spices & Seasonings", type: "None", color: "#92400e", broadType: "Food" },
+  { name: "Oils & Vinegars", type: "Fat", color: "#d97706", broadType: "Food" },
+  { name: "Baking Ingredients", type: "Carbs", color: "#78350f", broadType: "Food" },
+  { name: "Breakfast & Spreads", type: "Carbs", color: "#d97706", broadType: "Food" },
 
-  // NONE (No macronutrient value) - Fruits, Vegetables, Canned Goods, etc.
-  { name: "Fruits", type: "None", color: "#059669", broadType: "Food" }, // Apples, bananas, grapes, oranges, strawberries, avocados, peaches, etc.
-  { name: "Vegetables", type: "None", color: "#047857", broadType: "Food" }, // Onions, carrots, salad greens, broccoli, peppers, tomatoes, cucumbers, etc.
-  { name: "Canned Goods", type: "None", color: "#065f46", broadType: "Food" }, // Soup, tuna, fruit, beans, vegetables, pasta sauce, etc.
+  // SNACKS & SWEETS
+  { name: "Salty Snacks", type: "Carbs", color: "#92400e", broadType: "Food" },
+  { name: "Cookies & Biscuits", type: "Carbs", color: "#f59e0b", broadType: "Food" },
+  { name: "Chocolate & Candy", type: "Carbs", color: "#78350f", broadType: "Food" },
+  { name: "Nuts & Seeds", type: "Fat", color: "#d97706", broadType: "Food" },
+  { name: "Ice Cream & Desserts", type: "Mixed", color: "#8b5cf6", broadType: "Food" },
 
-  // MIXED (Multiple macronutrients - prepared/frozen foods)
-  { name: "Frozen Foods", type: "Mixed", color: "#8b5cf6", broadType: "Food" }, // Pizza, fish, potatoes, ready meals, ice cream, etc.
-  { name: "Prepared Foods", type: "Mixed", color: "#7c3aed", broadType: "Food" }, // Ready-to-eat meals, pre-made salads, rotisserie chicken, etc.
-  { name: "Water", type: "None", color: "#0ea5e9", broadType: "Drinks" }, // Bottled water, sparkling water, etc.
-  { name: "Coffee & Tea", type: "None", color: "#6b7280", broadType: "Drinks" }, // Coffee, tea, teabags, etc.
-  { name: "Alcohol", type: "Carbs", color: "#9333ea", broadType: "Drinks" }, // Beer, wine, spirits, etc. (carbs from alcohol)
-  { name: "Health Care", type: "None", color: "#1e3a8a", broadType: "Health Care" }, // Saline, band-aid, cleaning alcohol, pain killers, antacids, etc.
+  // BEVERAGES
+  { name: "Water", type: "None", color: "#0ea5e9", broadType: "Drinks" },
+  { name: "Soft Drinks", type: "Carbs", color: "#1d4ed8", broadType: "Drinks" },
+  { name: "Juice", type: "Carbs", color: "#3b82f6", broadType: "Drinks" },
+  { name: "Coffee & Tea", type: "None", color: "#6b7280", broadType: "Drinks" },
+  { name: "Energy & Sports Drinks", type: "Carbs", color: "#f59e0b", broadType: "Drinks" },
 
-  // OTHER (No specific macronutrient)
-  { name: "Personal Care", type: "Other", color: "#1e40af", broadType: "Personal Care" }, // Shampoo, conditioner, deodorant, toothpaste, dental floss, etc.
-  { name: "Household & Cleaning Supplies", type: "Other", color: "#1e3a8a", broadType: "Household" }, // Laundry detergent, dish soap, dishwashing liquid, paper towels, tissues, trash bags, aluminum foil, zip bags, etc.
-  { name: "Baby Items", type: "Other", color: "#1e40af", broadType: "Personal Care" }, // Baby food, diapers, wet wipes, lotion, etc.
-  { name: "Pet Care", type: "Other", color: "#1e3a8a", broadType: "Pet Care" }, // Pet food, kitty litter, chew toys, pet treats, pet shampoo, etc.
-  { name: "Bags", type: "Other", color: "#64748b", broadType: "Household" }, // Grocery bags, trash bags, zip bags, etc.
-  { name: "Other", type: "Other", color: "#64748b", broadType: "Other" }, // Catch-all (should be rarely used)
+  // ALCOHOL
+  { name: "Beer", type: "Other", color: "#9333ea", broadType: "Drinks" },
+  { name: "Wine", type: "Other", color: "#7c3aed", broadType: "Drinks" },
+  { name: "Spirits", type: "Other", color: "#6d28d9", broadType: "Drinks" },
+  { name: "Low/No Alcohol", type: "Other", color: "#5b21b6", broadType: "Drinks" },
+
+  // FROZEN
+  { name: "Frozen Vegetables & Fruit", type: "None", color: "#0ea5e9", broadType: "Food" },
+  { name: "Frozen Meals", type: "Mixed", color: "#8b5cf6", broadType: "Food" },
+
+  // PREPARED FOODS
+  { name: "Ready Meals", type: "Mixed", color: "#7c3aed", broadType: "Food" },
+  { name: "Prepared Salads", type: "Mixed", color: "#6d28d9", broadType: "Food" },
+  { name: "Sandwiches / Takeaway", type: "Mixed", color: "#5b21b6", broadType: "Food" },
+
+  // NON-FOOD (broad_type = "Other")
+  { name: "OTC Medicine", type: "Other", color: "#1e3a8a", broadType: "Other" },
+  { name: "Supplements", type: "Other", color: "#1e40af", broadType: "Other" },
+  { name: "First Aid", type: "Other", color: "#1d4ed8", broadType: "Other" },
+  { name: "Hygiene & Toiletries", type: "Other", color: "#1e40af", broadType: "Other" },
+  { name: "Hair Care", type: "Other", color: "#1e3a8a", broadType: "Other" },
+  { name: "Skin Care", type: "Other", color: "#1d4ed8", broadType: "Other" },
+  { name: "Oral Care", type: "Other", color: "#1e40af", broadType: "Other" },
+  { name: "Cosmetics", type: "Other", color: "#1e3a8a", broadType: "Other" },
+  { name: "Cleaning Supplies", type: "Other", color: "#1e40af", broadType: "Other" },
+  { name: "Laundry", type: "Other", color: "#1e3a8a", broadType: "Other" },
+  { name: "Paper Goods", type: "Other", color: "#1d4ed8", broadType: "Other" },
+  { name: "Kitchen Consumables", type: "Other", color: "#1e40af", broadType: "Other" },
+  { name: "Storage (containers, zip bags)", type: "Other", color: "#64748b", broadType: "Other" },
+  { name: "Baby (Diapers & Wipes)", type: "Other", color: "#1e40af", broadType: "Other" },
+  { name: "Baby Food", type: "Mixed", color: "#7c3aed", broadType: "Food" },
+  { name: "Pet Food", type: "Other", color: "#1e40af", broadType: "Other" },
+  { name: "Pet Supplies", type: "Other", color: "#1e3a8a", broadType: "Other" },
+  { name: "Bags", type: "Other", color: "#64748b", broadType: "Other" },
+  { name: "Other", type: "Other", color: "#64748b", broadType: "Other" },
 ]
 
 // Helper function to get categories grouped by type
