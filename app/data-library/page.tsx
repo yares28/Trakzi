@@ -1736,11 +1736,19 @@ export default function DataLibraryPage() {
             is_receipt: true,
           })
 
-          console.log('[Delete] Calling fetchLibraryData to refresh')
-          await fetchLibraryData()
-          console.log('[Delete] fetchLibraryData completed')
+          // OPTIMISTIC UPDATE: Remove from UI immediately
+          console.log('[Delete] Optimistically removing statement from UI')
+          setStatements(prev => prev.filter(s => s.id !== statementToDelete.id))
           setDeleteDialogOpen(false)
           setStatementToDelete(null)
+          setDeleteLoading(false)
+
+          // Refetch in background to confirm and get accurate counts
+          console.log('[Delete] Calling fetchLibraryData to refresh in background')
+          fetchLibraryData().catch(err => {
+            console.error('[Delete] Background refresh failed:', err)
+          })
+          return
         } else {
           const errorData = await response.json().catch(() => ({}))
           console.error('[Delete] DELETE failed:', errorData)
