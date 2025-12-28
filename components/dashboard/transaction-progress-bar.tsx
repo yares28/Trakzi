@@ -243,10 +243,9 @@ export function TransactionProgressBar({
                                 </div>
                                 <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                                     <div
-                                        className="h-full transition-all"
+                                        className="h-full transition-all bg-[hsl(var(--chart-1))]"
                                         style={{
-                                            width: `${Math.min(100, (categoryData.transactions / categoryData.capacity.transactionCap) * 100)}%`,
-                                            backgroundColor: 'hsl(var(--chart-1))'
+                                            width: `${Math.min(100, (categoryData.transactions / categoryData.capacity.transactionCap) * 100)}%`
                                         }}
                                     />
                                 </div>
@@ -268,10 +267,9 @@ export function TransactionProgressBar({
                                 </div>
                                 <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                                     <div
-                                        className="h-full transition-all"
+                                        className="h-full transition-all bg-[hsl(var(--chart-3))]"
                                         style={{
-                                            width: `${Math.min(100, (categoryData.receipts / categoryData.capacity.receiptCap) * 100)}%`,
-                                            backgroundColor: 'hsl(var(--chart-3))'
+                                            width: `${Math.min(100, (categoryData.receipts / categoryData.capacity.receiptCap) * 100)}%`
                                         }}
                                     />
                                 </div>
