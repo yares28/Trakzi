@@ -1,5 +1,6 @@
 // app/api/statements/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getCurrentUserId } from "@/lib/auth";
 import { neonQuery } from "@/lib/neonClient";
 import { invalidateUserCachePrefix } from "@/lib/cache/upstash";
@@ -66,6 +67,9 @@ export const DELETE = async (
 
         // Invalidate data-library cache to ensure UI reflects deletion instantly
         await invalidateUserCachePrefix(userId, 'data-library');
+
+        // Revalidate the data library page to clear Vercel's edge cache
+        revalidatePath('/data-library');
 
         return NextResponse.json({ success: true });
     } catch (error: any) {
