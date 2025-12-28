@@ -61,11 +61,12 @@ export async function getCategoryCounts(userId: string): Promise<CategoryCounts>
     const txResult = await neonQuery<{ count: string }>(txQuery, [userId]);
     const transactionCategories = parseInt(txResult[0]?.count || '0', 10);
 
-    // Receipt categories (all user-created)
+    // Receipt categories (exclude default/system categories)
     const receiptQuery = `
         SELECT COUNT(DISTINCT id) as count
         FROM receipt_categories
         WHERE user_id = $1
+          AND (is_default IS NULL OR is_default = false)
     `;
     const receiptResult = await neonQuery<{ count: string }>(receiptQuery, [userId]);
     const receiptCategories = parseInt(receiptResult[0]?.count || '0', 10);
