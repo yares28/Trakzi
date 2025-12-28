@@ -1,9 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { IconCirclePlusFilled } from "@tabler/icons-react"
-import React, { useContext } from "react"
+import { usePathname, useRouter } from "next/navigation"
+import { IconCirclePlusFilled, IconUpload } from "@tabler/icons-react"
+import React, { useContext, useRef } from "react"
 
 import {
   SidebarGroup,
@@ -29,7 +29,9 @@ export function NavMain({
   onQuickCreate?: () => void
 }) {
   const pathname = usePathname()
+  const router = useRouter()
   const dialogContext = useContext(TransactionDialogContext)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleQuickCreate = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -44,6 +46,53 @@ export function NavMain({
     }
   }
 
+  const handleUploadClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    const file = files[0]
+    const fileName = file.name.toLowerCase()
+    const fileType = file.type.toLowerCase()
+
+    // Check if it's a receipt (image or PDF from receipt context)
+    const isImage =
+      fileType.startsWith("image/") ||
+      fileName.endsWith(".png") ||
+      fileName.endsWith(".jpg") ||
+      fileName.endsWith(".jpeg") ||
+      fileName.endsWith(".webp") ||
+      fileName.endsWith(".heic") ||
+      fileName.endsWith(".heif")
+
+    const isPDF = fileType === "application/pdf" || fileName.endsWith(".pdf")
+    const isCSV = fileType === "text/csv" || fileName.endsWith(".csv")
+    const isExcel =
+      fileType.includes("spreadsheet") ||
+      fileName.endsWith(".xlsx") ||
+      fileName.endsWith(".xls")
+
+    // Route based on file type:
+    // Images -> always receipts -> fridge
+    // CSV/Excel -> always spending -> analytics  
+    // PDF -> prefer receipts -> fridge
+    if (isImage || (isPDF && !isCSV && !isExcel)) {
+      // Receipt files go to fridge
+      router.push("/fridge")
+    } else if (isCSV || isExcel || isPDF) {
+      // Spending files go to analytics
+      router.push("/analytics")
+    }
+
+    // Reset the input so the user can upload the same file again
+    e.target.value = ""
+  }
+
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
@@ -56,6 +105,23 @@ export function NavMain({
             >
               <IconCirclePlusFilled />
               <span>Quick Create</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem className="flex items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,.pdf,.csv,.xlsx,.xls"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <SidebarMenuButton
+              tooltip="Upload File"
+              className="bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white active:bg-emerald-700 active:text-white min-w-8 duration-200 ease-linear"
+              onClick={handleUploadClick}
+            >
+              <IconUpload />
+              <span>Upload</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
