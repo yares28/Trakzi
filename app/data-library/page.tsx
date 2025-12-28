@@ -1806,7 +1806,7 @@ export default function DataLibraryPage() {
     {
       title: "Total User Categories",
       value: formatNumber(totalUserCategories),
-      hint: "Combined transaction and receipt categories created by user.",
+      hint: "Total user-created categories (transaction + receipt combined).",
       icon: IconCategory,
       subtitle: "custom categories across all types",
     },
