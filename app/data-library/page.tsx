@@ -1202,8 +1202,8 @@ export default function DataLibraryPage() {
         throw new Error(errorData.error || "Failed to delete category")
       }
 
-      // Refresh categories list
-      await fetchLibraryData()
+      // Optimistic update - remove from local state immediately
+      setCategories(prev => prev.filter(c => c.id !== categoryToDelete.id))
 
       // Reset state
       setCategoryToDelete(null)
@@ -1479,7 +1479,8 @@ export default function DataLibraryPage() {
         throw new Error(errorData.error || "Failed to delete receipt category")
       }
 
-      await fetchLibraryData()
+      // Optimistic update - remove from local state immediately
+      setReceiptCategories(prev => prev.filter(c => c.id !== receiptCategoryToDelete.id))
 
       setReceiptCategoryToDelete(null)
       setDeleteReceiptCategoryDialogOpen(false)
