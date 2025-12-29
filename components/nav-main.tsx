@@ -84,9 +84,15 @@ export function NavMain({
     if (isImage || (isPDF && !isCSV && !isExcel)) {
       // Receipt files go to fridge
       console.log('[NavMain] Routing to fridge for receipt:', file.name);
-      // Store the actual File object in window so the target page can access it
+      // Store file info in sessionStorage (survives navigation)
+      sessionStorage.setItem('pendingUploadFileName', file.name);
+      sessionStorage.setItem('pendingUploadFileType', file.type);
+      sessionStorage.setItem('pendingUploadFileSize', file.size.toString());
+      sessionStorage.setItem('pendingUploadTargetPage', 'fridge');
+
+      // Store the file object temporarily in window (will be picked up immediately)
       (window as any).__pendingUploadFile = file;
-      (window as any).__pendingUploadTargetPage = "fridge";
+
       router.push("/fridge")
     } else if (isCSV || isExcel || isPDF) {
       // Spending files go to analytics
@@ -96,13 +102,22 @@ export function NavMain({
         isPDF,
         fileType: file.type
       });
-      // Store the actual File object in window so the target page can access it
+
+      // Store file info in sessionStorage (survives navigation)
+      sessionStorage.setItem('pendingUploadFileName', file.name);
+      sessionStorage.setItem('pendingUploadFileType', file.type);
+      sessionStorage.setItem('pendingUploadFileSize', file.size.toString());
+      sessionStorage.setItem('pendingUploadTargetPage', 'analytics');
+
+      // Store the actual File object in window property
       (window as any).__pendingUploadFile = file;
-      (window as any).__pendingUploadTargetPage = "analytics";
-      console.log('[NavMain] Set window properties:', {
-        hasFile: !!(window as any).__pendingUploadFile,
-        targetPage: (window as any).__pendingUploadTargetPage
+
+      console.log('[NavMain] Set storage:', {
+        sessionHasName: !!sessionStorage.getItem('pendingUploadFileName'),
+        windowHasFile: !!(window as any).__pendingUploadFile,
+        targetPage: sessionStorage.getItem('pendingUploadTargetPage')
       });
+
       router.push("/analytics")
     }
 
