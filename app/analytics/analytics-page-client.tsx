@@ -858,35 +858,46 @@ export default function AnalyticsPage() {
   }, [])
 
   // Listen for pending uploads from sidebar Upload button
-  // Runs whenever the page loads or pathname changes to ensure upload dialog opens
+  // Check both sessionStorage (survives navigation) and window property (immediate transfers)
   useEffect(() => {
-    const pendingFile = (window as any).__pendingUploadFile
-    const targetPage = (window as any).__pendingUploadTargetPage
+    // Check sessionStorage first (survives navigation)
+    const targetPage = sessionStorage.getItem('pendingUploadTargetPage');
+    const pendingFile = (window as any).__pendingUploadFile;
 
     console.log('[Analytics] Checking for pending upload:', {
-      hasPendingFile: !!pendingFile,
-      targetPage,
-      fileName: pendingFile?.name,
+      sessionTargetPage: targetPage,
+      windowHasFile: !!pendingFile,
+      sessionFileName: sessionStorage.getItem('pendingUploadFileName'),
       currentDialogOpen: isUploadDialogOpen
-    })
+    });
 
-    if (pendingFile && targetPage === "analytics") {
-      console.log('[Analytics] Opening upload dialog for:', pendingFile.name)
+    if (targetPage === "analytics" && pendingFile) {
+      console.log('[Analytics] Opening upload dialog for:', pendingFile.name);
 
-      // Clear the pending upload markers
-      delete (window as any).__pendingUploadFile
-      delete (window as any).__pendingUploadTargetPage
+      // Clear the storage markers
+      sessionStorage.removeItem('pendingUploadFileName');
+      sessionStorage.removeItem('pendingUploadFileType');
+      sessionStorage.removeItem('pendingUploadFileSize');
+      sessionStorage.removeItem('pendingUploadTargetPage');
+      delete (window as any).__pendingUploadFile;
 
       // Open the upload dialog with the pending file
-      setUploadFiles([pendingFile])
-      setFileProgresses({ [`${pendingFile.name}::${pendingFile.size}::${pendingFile.lastModified}`]: 0 })
-      setProjectName(pendingFile.name.replace(/\.(csv|xlsx|xls)$/i, ''))
-      setProjectNameEdited(false)
-      setIsUploadDialogOpen(true)
+      setUploadFiles([pendingFile]);
+      setFileProgresses({ [`${pendingFile.name}::${pendingFile.size}::${pendingFile.lastModified}`]: 0 });
+      setProjectName(pendingFile.name.replace(/\.(csv|xlsx|xls)$/i, ''));
+      setProjectNameEdited(false);
+      setIsUploadDialogOpen(true);
 
-      console.log('[Analytics] Upload dialog state updated')
+      console.log('[Analytics] Upload dialog state updated');
+    } else if (targetPage === "analytics" && !pendingFile) {
+      console.warn('[Analytics] Found targetPage in sessionStorage but no file in window - file was lost during navigation');
+      // Clean up the orphaned session storage
+      sessionStorage.removeItem('pendingUploadFileName');
+      sessionStorage.removeItem('pendingUploadFileType');
+      sessionStorage.removeItem('pendingUploadFileSize');
+      sessionStorage.removeItem('pendingUploadTargetPage');
     }
-  }) // Removed dependency array to run on every render - will check for pending upload
+  }) // Runs on every render to detect pending uploads
 
   // Helper function to strip file extension for project name
   const stripFileExtension = useCallback((filename: string) => {
