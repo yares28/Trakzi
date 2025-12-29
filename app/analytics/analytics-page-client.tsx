@@ -538,6 +538,9 @@ export default function AnalyticsPage() {
   const [projectName, setProjectName] = useState("")
   const [projectNameEdited, setProjectNameEdited] = useState(false)
 
+  // Ref to track if we've already checked for pending upload (prevents duplicate checks)
+  const hasCheckedPendingUploadRef = useRef(false)
+
   // Keep only needed state for post-upload processing
   const [parsedCsv, setParsedCsv] = useState<string | null>(null)
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([])
@@ -854,17 +857,24 @@ export default function AnalyticsPage() {
       if (preferenceUpdateTimerRef.current) {
         clearTimeout(preferenceUpdateTimerRef.current)
       }
-    }
-  }, [])
+    }, [])
 
   // Listen for pending uploads from sidebar Upload button
-  // Check both sessionStorage (survives navigation) and window property (immediate transfers)
+  // IMPORTANT: Must run on mount with empty dependency array [] to ensure it runs after navigation
   useEffect(() => {
-    // Check sessionStorage first (survives navigation)
+    // Only check once to prevent duplicate processing
+    if (hasCheckedPendingUploadRef.current) {
+      return;
+    }
+    hasCheckedPendingUploadRef.current = true;
+
+    console.log('[Analytics] Component mounted, checking for pending upload...');
+
+    // Check sessionStorage (survives navigation) and window property (immediate transfers)
     const targetPage = sessionStorage.getItem('pendingUploadTargetPage');
     const pendingFile = (window as any).__pendingUploadFile;
 
-    console.log('[Analytics] Checking for pending upload:', {
+    console.log('[Analytics] Pending upload check:', {
       sessionTargetPage: targetPage,
       windowHasFile: !!pendingFile,
       sessionFileName: sessionStorage.getItem('pendingUploadFileName'),
@@ -872,7 +882,7 @@ export default function AnalyticsPage() {
     });
 
     if (targetPage === "analytics" && pendingFile) {
-      console.log('[Analytics] Opening upload dialog for:', pendingFile.name);
+      console.log('[Analytics] ✅ Found pending upload, opening dialog for:', pendingFile.name);
 
       // Clear the storage markers
       sessionStorage.removeItem('pendingUploadFileName');
@@ -888,16 +898,18 @@ export default function AnalyticsPage() {
       setProjectNameEdited(false);
       setIsUploadDialogOpen(true);
 
-      console.log('[Analytics] Upload dialog state updated');
+      console.log('[Analytics] Upload dialog state updated successfully');
     } else if (targetPage === "analytics" && !pendingFile) {
-      console.warn('[Analytics] Found targetPage in sessionStorage but no file in window - file was lost during navigation');
+      console.warn('[Analytics] ⚠️  Found targetPage in sessionStorage but no file in window - file was lost during navigation');
       // Clean up the orphaned session storage
       sessionStorage.removeItem('pendingUploadFileName');
       sessionStorage.removeItem('pendingUploadFileType');
       sessionStorage.removeItem('pendingUploadFileSize');
       sessionStorage.removeItem('pendingUploadTargetPage');
+    } else {
+      console.log('[Analytics] No pending upload found (targetPage:', targetPage, ', hasFile:', !!pendingFile, ')');
     }
-  }) // Runs on every render to detect pending uploads
+  }, []) // Empty array = run only once on mount
 
   // Helper function to strip file extension for project name
   const stripFileExtension = useCallback((filename: string) => {
