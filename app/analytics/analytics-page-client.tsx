@@ -852,12 +852,14 @@ export default function AnalyticsPage() {
     latestParsedRowsRef.current = parsedRows
   }, [parsedRows])
 
+  // Cleanup timer on unmount
   useEffect(() => {
     return () => {
       if (preferenceUpdateTimerRef.current) {
         clearTimeout(preferenceUpdateTimerRef.current)
       }
-    }, [])
+    }
+  }, [])
 
   // Listen for pending uploads from sidebar Upload button
   // IMPORTANT: Must run on mount with empty dependency array [] to ensure it runs after navigation
