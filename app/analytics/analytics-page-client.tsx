@@ -538,9 +538,6 @@ export default function AnalyticsPage() {
   const [projectName, setProjectName] = useState("")
   const [projectNameEdited, setProjectNameEdited] = useState(false)
 
-  // Ref to track if we've already checked for pending upload (prevents duplicate checks)
-  const hasCheckedPendingUploadRef = useRef(false)
-
   // Keep only needed state for post-upload processing
   const [parsedCsv, setParsedCsv] = useState<string | null>(null)
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([])
@@ -862,32 +859,37 @@ export default function AnalyticsPage() {
   }, [])
 
   // Listen for pending uploads from sidebar Upload button
-  // IMPORTANT: Must run on mount with empty dependency array [] to ensure it runs after navigation
+  // Runs on EVERY render to catch pending uploads, but processes only once via sessionStorage cleanup
   useEffect(() => {
-    // Only check once to prevent duplicate processing
-    if (hasCheckedPendingUploadRef.current) {
+    // Skip if dialog is already open (prevents duplicate processing)
+    if (isUploadDialogOpen) {
       return;
     }
-    hasCheckedPendingUploadRef.current = true;
 
-    console.log('[Analytics] Component mounted, checking for pending upload...');
+    console.log('[Analytics] Checking for pending upload...');
 
     // Check sessionStorage for pending upload
     const targetPage = sessionStorage.getItem('pendingUploadTargetPage');
     const blobUrl = sessionStorage.getItem('pendingUploadBlobUrl');
     const fileName = sessionStorage.getItem('pendingUploadFileName');
     const fileType = sessionStorage.getItem('pendingUploadFileType');
-    const fileSize = sessionStorage.getItem('pendingUploadFileSize');
 
     console.log('[Analytics] Pending upload check:', {
       targetPage,
       hasBlobUrl: !!blobUrl,
       fileName,
-      fileType
+      isDialogOpen: isUploadDialogOpen
     });
 
-    if (targetPage === "analytics" && blobUrl && fileName) {
+    if (targetPage === "analytics" && blobUrl && fileName && !isUploadDialogOpen) {
       console.log('[Analytics] ✅ Found pending upload, fetching file from blob URL...');
+
+      // IMMEDIATELY clear sessionStorage to prevent duplicate processing
+      sessionStorage.removeItem('pendingUploadBlobUrl');
+      sessionStorage.removeItem('pendingUploadFileName');
+      sessionStorage.removeItem('pendingUploadFileType');
+      sessionStorage.removeItem('pendingUploadFileSize');
+      sessionStorage.removeItem('pendingUploadTargetPage');
 
       // Fetch the blob URL and reconstruct the File object
       fetch(blobUrl)
@@ -902,13 +904,8 @@ export default function AnalyticsPage() {
             type: file.type
           });
 
-          // Clean up blob URL and sessionStorage
+          // Clean up blob URL
           URL.revokeObjectURL(blobUrl);
-          sessionStorage.removeItem('pendingUploadBlobUrl');
-          sessionStorage.removeItem('pendingUploadFileName');
-          sessionStorage.removeItem('pendingUploadFileType');
-          sessionStorage.removeItem('pendingUploadFileSize');
-          sessionStorage.removeItem('pendingUploadTargetPage');
 
           // Open the upload dialog with the reconstructed file
           setUploadFiles([file]);
@@ -917,21 +914,13 @@ export default function AnalyticsPage() {
           setProjectNameEdited(false);
           setIsUploadDialogOpen(true);
 
-          console.log('[Analytics] Upload dialog opened successfully!');
+          console.log('[Analytics] ✅ Upload dialog opened successfully!');
         })
         .catch(error => {
           console.error('[Analytics] ❌ Failed to reconstruct file from blob URL:', error);
-          // Clean up on error
-          sessionStorage.removeItem('pendingUploadBlobUrl');
-          sessionStorage.removeItem('pendingUploadFileName');
-          sessionStorage.removeItem('pendingUploadFileType');
-          sessionStorage.removeItem('pendingUploadFileSize');
-          sessionStorage.removeItem('pendingUploadTargetPage');
         });
-    } else {
-      console.log('[Analytics] No pending upload found (targetPage:', targetPage, ', hasBlobUrl:', !!blobUrl, ')');
     }
-  }, []) // Empty array = run only once on mount
+  }) // No dependency array = runs on every render, but sessionStorage cleanup prevents duplicates
 
   // Helper function to strip file extension for project name
   const stripFileExtension = useCallback((filename: string) => {
