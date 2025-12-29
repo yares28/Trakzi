@@ -19,6 +19,15 @@ export function suggestReceiptCategoryNameFromDescription(params: {
     return null
   }
 
+  // ===== SPECIFIC PRODUCTS FIRST =====
+  // Snacks - BEFORE vegetables (pringles has "onion" but isn't vegetable!)
+  if (/\b(chips|crisps|pringles|doritos|cheetos|nachos)\b/.test(normalized)) {
+    return pick("Salty Snacks", "Other")
+  }
+  if (/\b(ice cream|helado|sorbet|cono|conos)\b/.test(normalized)) {
+    return pick("Ice Cream & Desserts", "Other")
+  }
+
   // Bags / packaging
   if (/\b(bag|bags|bolsa|bolsas)\b/.test(normalized)) {
     return pick("Bags", "Household & Cleaning Supplies", "Other")
@@ -49,8 +58,8 @@ export function suggestReceiptCategoryNameFromDescription(params: {
     return pick("Eggs", "Other")
   }
 
-  // Dairy
-  if (/\b(cheese|queso)\b/.test(normalized)) {
+  // Dairy - add mozzarella!
+  if (/\b(cheese|queso|mozzarella|cheddar|parmesan)\b/.test(normalized)) {
     return pick("Cheese", "Other")
   }
   if (/\b(milk|leche|yogurt|yoghurt|yogur|proteina|protein)\b/.test(normalized)) {
@@ -64,8 +73,13 @@ export function suggestReceiptCategoryNameFromDescription(params: {
   if (/\b(apple|manzana|banana|platano|orange|naranja|grape|uva|strawberry|fresa|avocado|aguacate|peach|melocoton)\b/.test(normalized)) {
     return pick("Fruits", "Other")
   }
-  if (/\b(onion|cebolla|carrot|zanahoria|broccoli|brocoli|pepper|pimiento|tomato|tomate|cucumber|pepino|lettuce|lechuga)\b/.test(normalized)) {
-    return pick("Vegetables", "Other")
+  if (/\b(onion|cebolla|carrot|zanahoria|broccoli|brocoli|pepper|pimiento|tomato|tomate|cucumber|pepino|lettuce|lechuga|batata)\b/.test(normalized)) {
+    // SKIP if product name indicates it's NOT a vegetable
+    if (/\b(pringles|chips|burger)\b/.test(normalized)) {
+      // Will be caught later by specific patterns
+    } else {
+      return pick("Vegetables", "Other")
+    }
   }
   if (/\b(salad|ensalada)\b/.test(normalized) && /\b(prepared|ready|fresh)\b/.test(normalized)) {
     return pick("Prepared Salads", "Fresh Ready-to-Eat", "Other")
@@ -84,11 +98,9 @@ export function suggestReceiptCategoryNameFromDescription(params: {
   if (/\b(cola|coke|coca|soda|refresco|sprite|fanta|pepsi)\b/.test(normalized)) {
     return pick("Soft Drinks", "Other")
   }
-  if (/\b(juice|zumo)\b/.test(normalized)) {
+  // Juice BEFORE checking fruits (so "zumo de naranja" doesn't become "Fruits")
+  if (/\b(juice|zumo|expr)\b/.test(normalized)) {
     return pick("Juice", "Other")
-  }
-  if (/\b(orange|naranja)\b/.test(normalized) && /\b(juice|zumo|expr)\b/.test(normalized)) {
-    return pick("Juice", "Fruits", "Other")
   }
   if (/\b(coffee|cafe|tea|te)\b/.test(normalized)) {
     return pick("Coffee & Tea", "Other")
