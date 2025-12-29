@@ -83,44 +83,15 @@ export function NavMain({
     // PDF -> prefer receipts -> fridge
     if (isImage || (isPDF && !isCSV && !isExcel)) {
       // Receipt files go to fridge
-      console.log('[NavMain] Routing to fridge for receipt:', file.name);
-
-      // Create blob URL (survives navigation)
-      const blobUrl = URL.createObjectURL(file);
-
-      // Store metadata in sessionStorage
-      sessionStorage.setItem('pendingUploadBlobUrl', blobUrl);
-      sessionStorage.setItem('pendingUploadFileName', file.name);
-      sessionStorage.setItem('pendingUploadFileType', file.type);
-      sessionStorage.setItem('pendingUploadFileSize', file.size.toString());
-      sessionStorage.setItem('pendingUploadTargetPage', 'fridge');
-
+      // Store the actual File object in window so the target page can access it
+      (window as any).__pendingUploadFile = file;
+      (window as any).__pendingUploadTargetPage = "fridge"
       router.push("/fridge")
     } else if (isCSV || isExcel || isPDF) {
       // Spending files go to analytics
-      console.log('[NavMain] Routing to analytics for CSV/Excel:', file.name, {
-        isCSV,
-        isExcel,
-        isPDF,
-        fileType: file.type
-      });
-
-      // Create blob URL that survives navigation
-      const blobUrl = URL.createObjectURL(file);
-
-      // Store blob URL and metadata in sessionStorage
-      sessionStorage.setItem('pendingUploadBlobUrl', blobUrl);
-      sessionStorage.setItem('pendingUploadFileName', file.name);
-      sessionStorage.setItem('pendingUploadFileType', file.type);
-      sessionStorage.setItem('pendingUploadFileSize', file.size.toString());
-      sessionStorage.setItem('pendingUploadTargetPage', 'analytics');
-
-      console.log('[NavMain] Created blob URL and stored metadata:', {
-        hasBlobUrl: !!blobUrl,
-        fileName: file.name,
-        targetPage: 'analytics'
-      });
-
+      // Store the actual File object in window so the target page can access it
+      (window as any).__pendingUploadFile = file;
+      (window as any).__pendingUploadTargetPage = "analytics"
       router.push("/analytics")
     }
 

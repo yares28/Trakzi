@@ -849,7 +849,6 @@ export default function AnalyticsPage() {
     latestParsedRowsRef.current = parsedRows
   }, [parsedRows])
 
-  // Cleanup timer on unmount
   useEffect(() => {
     return () => {
       if (preferenceUpdateTimerRef.current) {
@@ -859,69 +858,24 @@ export default function AnalyticsPage() {
   }, [])
 
   // Listen for pending uploads from sidebar Upload button
-  // For CSV files: Parse immediately and show Review Transactions dialog
+  // Runs whenever the page loads or pathname changes to ensure upload dialog opens
   useEffect(() => {
-    console.log('[Analytics] useEffect FIRED - version 3.0 - checking for CSV upload');
+    const pendingFile = (window as any).__pendingUploadFile
+    const targetPage = (window as any).__pendingUploadTargetPage
 
-    // Check sessionStorage for pending upload
-    const targetPage = sessionStorage.getItem('pendingUploadTargetPage');
-    const blobUrl = sessionStorage.getItem('pendingUploadBlobUrl');
-    const fileName = sessionStorage.getItem('pendingUploadFileName');
-    const fileType = sessionStorage.getItem('pendingUploadFileType');
+    if (pendingFile && targetPage === "analytics") {
+      // Clear the pending upload markers
+      delete (window as any).__pendingUploadFile
+      delete (window as any).__pendingUploadTargetPage
 
-    console.log('[Analytics] Pending upload check:', {
-      targetPage,
-      hasBlobUrl: !!blobUrl,
-      fileName,
-      hasParsedRows: parsedRows.length > 0
-    });
-
-    // Only proceed if we have a pending CSV upload and haven't already parsed it
-    if (targetPage === "analytics" && blobUrl && fileName && parsedRows.length === 0) {
-      console.log('[Analytics] ✅ Found pending CSV, fetching and parsing...');
-
-      // IMMEDIATELY clear sessionStorage to prevent duplicate processing
-      sessionStorage.removeItem('pendingUploadBlobUrl');
-      sessionStorage.removeItem('pendingUploadFileName');
-      sessionStorage.removeItem('pendingUploadFileType');
-      sessionStorage.removeItem('pendingUploadFileSize');
-      sessionStorage.removeItem('pendingUploadTargetPage');
-
-      // Fetch blob and parse CSV
-      fetch(blobUrl)
-        .then(res => res.blob())
-        .then(async (blob) => {
-          const file = new File([blob], fileName, { type: fileType || 'text/csv' });
-
-          console.log('[Analytics] File reconstructed, parsing CSV...');
-
-          // Read and parse the CSV
-          const text = await file.text();
-          const rows = parseCsvToRows(text);
-          const rowsWithId: ParsedRow[] = rows.map((row, index) => ({
-            ...row,
-            id: index,
-          }));
-
-          console.log('[Analytics] CSV parsed, showing Review Transactions dialog with', rowsWithId.length, 'rows');
-
-          // Clean up blob URL
-          URL.revokeObjectURL(blobUrl);
-
-          // Set the parsed data and show Review Transactions dialog
-          setParsedCsv(text);
-          setParsedRows(rowsWithId);
-          setSelectedParsedRowIds(new Set(rowsWithId.map((r) => r.id)));
-          setProjectName(fileName.replace(/\.(csv|xlsx|xls)$/i, ''));
-
-          console.log('[Analytics] ✅ Review Transactions dialog ready to display');
-        })
-        .catch(error => {
-          console.error('[Analytics] ❌ Failed to parse CSV from blob URL:', error);
-          toast.error('Failed to parse CSV file');
-        });
+      // Open the upload dialog with the pending file
+      setUploadFiles([pendingFile])
+      setFileProgresses({ [`${pendingFile.name}::${pendingFile.size}::${pendingFile.lastModified}`]: 0 })
+      setProjectName(pendingFile.name.replace(/\.(csv|xlsx|xls)$/i, ''))
+      setProjectNameEdited(false)
+      setIsUploadDialogOpen(true)
     }
-  }) // No dependency array = runs on every render to catch pending uploads
+  }) // Removed dependency array to run on every render - will check for pending upload
 
   // Helper function to strip file extension for project name
   const stripFileExtension = useCallback((filename: string) => {
