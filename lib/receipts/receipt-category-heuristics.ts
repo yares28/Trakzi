@@ -53,7 +53,7 @@ export function suggestReceiptCategoryNameFromDescription(params: {
   if (/\b(cheese|queso)\b/.test(normalized)) {
     return pick("Cheese", "Other")
   }
-  if (/\b(milk|leche|yogurt|yoghurt|yogur)\b/.test(normalized)) {
+  if (/\b(milk|leche|yogurt|yoghurt|yogur|proteina|protein)\b/.test(normalized)) {
     return pick("Dairy (Milk/Yogurt)", "Other")
   }
   if (/\b(butter|mantequilla)\b/.test(normalized)) {
@@ -70,12 +70,15 @@ export function suggestReceiptCategoryNameFromDescription(params: {
   if (/\b(salad|ensalada)\b/.test(normalized) && /\b(prepared|ready|fresh)\b/.test(normalized)) {
     return pick("Prepared Salads", "Fresh Ready-to-Eat", "Other")
   }
+  if (/\b(crema|sopa|soup|cream|pure|gaz)\b/.test(normalized) && /\b(calabaza|tomate|verduras|vegetable|pumpkin|lenteja)\b/.test(normalized)) {
+    return pick("Canned & Jarred", "Ready Meals", "Other")
+  }
 
   // Drinks
   if (/\b(water|agua)\b/.test(normalized) && !/\b(coconut|coco)\b/.test(normalized)) {
     return pick("Water", "Other")
   }
-  if (/\b(energy|energetica)\b/.test(normalized) && /\b(drink|bebida)\b/.test(normalized)) {
+  if (/\b(energy|energetica|energizante|furious|monster|berries.*zero|aquarius)\b/.test(normalized)) {
     return pick("Energy & Sports Drinks", "Soft Drinks", "Other")
   }
   if (/\b(cola|coke|coca|soda|refresco|sprite|fanta|pepsi)\b/.test(normalized)) {
