@@ -798,6 +798,11 @@ export const POST = async (req: NextRequest) => {
               ? allowedCategoryNameByLower.get(rawCategoryLower) ?? rawCategoryName
               : "Other"
 
+            // Debug logging for category validation
+            if (rawCategoryName && !allowedCategorySet.has(rawCategoryLower)) {
+              console.log(`[RECEIPT] Item "${description}": AI returned "${rawCategoryName}" but not in allowed set, defaulting to "Other"`)
+            }
+
             const descriptionKey = normalizeReceiptItemDescriptionKey(description)
             let finalCategoryName = categoryName
             let usedPreference = false
