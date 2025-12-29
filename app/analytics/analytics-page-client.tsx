@@ -863,7 +863,16 @@ export default function AnalyticsPage() {
     const pendingFile = (window as any).__pendingUploadFile
     const targetPage = (window as any).__pendingUploadTargetPage
 
+    console.log('[Analytics] Checking for pending upload:', {
+      hasPendingFile: !!pendingFile,
+      targetPage,
+      fileName: pendingFile?.name,
+      currentDialogOpen: isUploadDialogOpen
+    })
+
     if (pendingFile && targetPage === "analytics") {
+      console.log('[Analytics] Opening upload dialog for:', pendingFile.name)
+
       // Clear the pending upload markers
       delete (window as any).__pendingUploadFile
       delete (window as any).__pendingUploadTargetPage
@@ -874,6 +883,8 @@ export default function AnalyticsPage() {
       setProjectName(pendingFile.name.replace(/\.(csv|xlsx|xls)$/i, ''))
       setProjectNameEdited(false)
       setIsUploadDialogOpen(true)
+
+      console.log('[Analytics] Upload dialog state updated')
     }
   }) // Removed dependency array to run on every render - will check for pending upload
 
