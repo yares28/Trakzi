@@ -858,6 +858,7 @@ export default function AnalyticsPage() {
   }, [])
 
   // Listen for pending uploads from sidebar Upload button
+  // Runs whenever the page loads or pathname changes to ensure upload dialog opens
   useEffect(() => {
     const pendingFile = (window as any).__pendingUploadFile
     const targetPage = (window as any).__pendingUploadTargetPage
@@ -874,7 +875,7 @@ export default function AnalyticsPage() {
       setProjectNameEdited(false)
       setIsUploadDialogOpen(true)
     }
-  }, [])
+  }) // Removed dependency array to run on every render - will check for pending upload
 
   // Helper function to strip file extension for project name
   const stripFileExtension = useCallback((filename: string) => {
