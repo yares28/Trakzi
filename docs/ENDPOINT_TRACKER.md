@@ -67,12 +67,6 @@ Need to search for:
 - [ ] Line 1246: POST (unknown)
 - [ ] Line 1289: POST (unknown)
 
-#### app/analytics/analytics-page-client.tsx
-- [ ] Line 871: POST (unknown)
-- [ ] Line 1076: POST (unknown)
-- [ ] Line 1268: POST (unknown)
-- [ ] Line 3034: POST (unknown)
-
 ---
 
 ## 📊 Implementation Checklist Per Endpoint
@@ -125,7 +119,6 @@ if (response.status === 403 && errorData.code === 'LIMIT_EXCEEDED') {
 3. 🔍 Investigate unknown POST endpoints in:
    - home/page.tsx
    - data-library/page.tsx  
-   - analytics/analytics-page-client.tsx
 4. 📝 Document exact endpoint URLs and purposes
 5. 🔧 Systematically update each endpoint
 6. ✅ Test each update
