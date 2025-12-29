@@ -858,12 +858,24 @@ export default function AnalyticsPage() {
   }, [])
 
   // Listen for pending uploads from sidebar Upload button
-  // Runs whenever the page loads or pathname changes to ensure upload dialog opens
+  const uploadProcessedRef = useRef(false)
+
   useEffect(() => {
     const pendingFile = (window as any).__pendingUploadFile
     const targetPage = (window as any).__pendingUploadTargetPage
 
-    if (pendingFile && targetPage === "analytics") {
+    console.log('[Analytics Upload] Checking for pending upload:', {
+      hasPendingFile: !!pendingFile,
+      targetPage,
+      alreadyProcessed: uploadProcessedRef.current,
+    })
+
+    if (pendingFile && targetPage === "analytics" && !uploadProcessedRef.current) {
+      console.log('[Analytics Upload] Processing pending upload:', pendingFile.name)
+
+      // Mark as processed to prevent re-running
+      uploadProcessedRef.current = true
+
       // Clear the pending upload markers
       delete (window as any).__pendingUploadFile
       delete (window as any).__pendingUploadTargetPage
@@ -874,8 +886,10 @@ export default function AnalyticsPage() {
       setProjectName(pendingFile.name.replace(/\.(csv|xlsx|xls)$/i, ''))
       setProjectNameEdited(false)
       setIsUploadDialogOpen(true)
+
+      console.log('[Analytics Upload] Dialog state set to open')
     }
-  }) // Removed dependency array to run on every render - will check for pending upload
+  }) // Run on every render but ref prevents multiple executions
 
   // Helper function to strip file extension for project name
   const stripFileExtension = useCallback((filename: string) => {
