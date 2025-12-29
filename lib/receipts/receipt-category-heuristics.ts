@@ -87,6 +87,9 @@ export function suggestReceiptCategoryNameFromDescription(params: {
   if (/\b(juice|zumo)\b/.test(normalized)) {
     return pick("Juice", "Other")
   }
+  if (/\b(orange|naranja)\b/.test(normalized) && /\b(juice|zumo|expr)\b/.test(normalized)) {
+    return pick("Juice", "Fruits", "Other")
+  }
   if (/\b(coffee|cafe|tea|te)\b/.test(normalized)) {
     return pick("Coffee & Tea", "Other")
   }
@@ -118,6 +121,79 @@ export function suggestReceiptCategoryNameFromDescription(params: {
   }
   if (/\b(toothpaste|pasta de dientes|floss|hilo dental|toothbrush|cepillo)\b/.test(normalized)) {
     return pick("Oral Care", "Other")
+  }
+
+  // Snacks - be more aggressive here
+  if (/\b(chips|crisps|pringles|doritos|cheetos|nachos)\b/.test(normalized)) {
+    return pick("Salty Snacks", "Other")
+  }
+  if (/\b(cookie|galleta|biscuit)\b/.test(normalized)) {
+    return pick("Cookies & Biscuits", "Other")
+  }
+  if (/\b(chocolate|candy|caramelo|dulce)\b/.test(normalized)) {
+    return pick("Chocolate & Candy", "Other")
+  }
+  if (/\b(nuts|almonds|almendra|cacahuete|peanut)\b/.test(normalized)) {
+    return pick("Nuts & Seeds", "Other")
+  }
+  if (/\b(ice cream|helado|sorbet)\b/.test(normalized)) {
+    return pick("Ice Cream & Desserts", "Other")
+  }
+
+  // Frozen
+  if (/\b(frozen|congelad)\b/.test(normalized)) {
+    if (/\b(pizza|meal|lasagna|burger|nugget)\b/.test(normalized)) {
+      return pick("Frozen Meals", "Other")
+    }
+    return pick("Frozen Vegetables & Fruit", "Frozen Meals", "Other")
+  }
+
+  // Condiments & spreads
+  if (/\b(ketchup|mustard|mayo|mayonnaise|mayonesa|salsa|sauce)\b/.test(normalized)) {
+    return pick("Sauces", "Condiments", "Other")
+  }
+  if (/\b(jam|mermelada|jelly|honey|miel|nutella|spread)\b/.test(normalized)) {
+    return pick("Breakfast & Spreads", "Other")
+  }
+  if (/\b(salt|sal|pepper|pimienta|spice|especia|oregano|basil|albahaca)\b/.test(normalized)) {
+    return pick("Spices & Seasonings", "Condiments", "Other")
+  }
+
+  // Breakfast items
+  if (/\b(cereal|cornflakes|muesli|granola|avena|oat)\b/.test(normalized)) {
+    return pick("Breakfast & Spreads", "Other")
+  }
+
+  // Prepared/ready meals
+  if (/\b(sandwich|bocadillo|wrap|burger|pizza|kebab|relleno)\b/.test(normalized)) {
+    return pick("Sandwiches / Takeaway", "Ready Meals", "Other")
+  }
+  if (/\b(ready|preparad|meal|comida)\b/.test(normalized)) {
+    return pick("Ready Meals", "Prepared Salads", "Other")
+  }
+
+  // Canned goods - be less strict
+  if (/\b(can|lata|conserva|tin)\b/.test(normalized)) {
+    return pick("Canned & Jarred", "Other")
+  }
+  if (/\b(beans|legume|lentil|lenteja|chickpea|garbanzo)\b/.test(normalized)) {
+    return pick("Legumes", "Canned & Jarred", "Other")
+  }
+
+  // Fallback: Try to make an educated guess based on common word patterns
+  // This catches items we don't have specific patterns for
+  const words = normalized.split(/\s+/)
+
+  // If it mentions any food-related word, try food categories
+  if (/\\b(bio|organic|natural|fresco|fresh)\\b/.test(normalized)) {
+    // These words often appear with fresh food
+    return pick("Fruits", "Vegetables", "Fresh Ready-to-Eat", "Other")
+  }
+
+  // If description is very short (1-2 words), might be a basic food item
+  if (words.length <= 2 && normalized.length > 3) {
+    // Try common food categories
+    return pick("Vegetables", "Fruits", "Pasta, Rice & Grains", "Other")
   }
 
   return null
