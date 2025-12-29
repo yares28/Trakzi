@@ -3,7 +3,6 @@ import { neonQuery } from "@/lib/neonClient"
 export type ReceiptItemCategoryPreferenceRow = {
   store_key: string
   description_key: string
-  example_description: string | null
   category_id: number
 }
 
@@ -82,7 +81,7 @@ export async function getReceiptItemCategoryPreferences(params: {
 
   return neonQuery<ReceiptItemCategoryPreferenceRow>(
     `
-      SELECT store_key, description_key, example_description, category_id
+      SELECT store_key, description_key, category_id
       FROM receipt_item_category_preferences
       WHERE user_id = $1
       ORDER BY updated_at DESC
