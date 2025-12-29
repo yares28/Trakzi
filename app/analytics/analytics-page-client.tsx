@@ -861,6 +861,8 @@ export default function AnalyticsPage() {
   // Listen for pending uploads from sidebar Upload button
   // Runs on EVERY render to catch pending uploads, but processes only once via sessionStorage cleanup
   useEffect(() => {
+    console.log('[Analytics] useEffect FIRED - version 2.0 - isUploadDialogOpen:', isUploadDialogOpen);
+
     // Skip if dialog is already open (prevents duplicate processing)
     if (isUploadDialogOpen) {
       return;
