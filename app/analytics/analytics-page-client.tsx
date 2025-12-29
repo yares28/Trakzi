@@ -872,44 +872,64 @@ export default function AnalyticsPage() {
 
     console.log('[Analytics] Component mounted, checking for pending upload...');
 
-    // Check sessionStorage (survives navigation) and window property (immediate transfers)
+    // Check sessionStorage for pending upload
     const targetPage = sessionStorage.getItem('pendingUploadTargetPage');
-    const pendingFile = (window as any).__pendingUploadFile;
+    const blobUrl = sessionStorage.getItem('pendingUploadBlobUrl');
+    const fileName = sessionStorage.getItem('pendingUploadFileName');
+    const fileType = sessionStorage.getItem('pendingUploadFileType');
+    const fileSize = sessionStorage.getItem('pendingUploadFileSize');
 
     console.log('[Analytics] Pending upload check:', {
-      sessionTargetPage: targetPage,
-      windowHasFile: !!pendingFile,
-      sessionFileName: sessionStorage.getItem('pendingUploadFileName'),
-      currentDialogOpen: isUploadDialogOpen
+      targetPage,
+      hasBlobUrl: !!blobUrl,
+      fileName,
+      fileType
     });
 
-    if (targetPage === "analytics" && pendingFile) {
-      console.log('[Analytics] ✅ Found pending upload, opening dialog for:', pendingFile.name);
+    if (targetPage === "analytics" && blobUrl && fileName) {
+      console.log('[Analytics] ✅ Found pending upload, fetching file from blob URL...');
 
-      // Clear the storage markers
-      sessionStorage.removeItem('pendingUploadFileName');
-      sessionStorage.removeItem('pendingUploadFileType');
-      sessionStorage.removeItem('pendingUploadFileSize');
-      sessionStorage.removeItem('pendingUploadTargetPage');
-      delete (window as any).__pendingUploadFile;
+      // Fetch the blob URL and reconstruct the File object
+      fetch(blobUrl)
+        .then(res => res.blob())
+        .then(blob => {
+          // Reconstruct File object from blob
+          const file = new File([blob], fileName, { type: fileType || 'text/csv' });
 
-      // Open the upload dialog with the pending file
-      setUploadFiles([pendingFile]);
-      setFileProgresses({ [`${pendingFile.name}::${pendingFile.size}::${pendingFile.lastModified}`]: 0 });
-      setProjectName(pendingFile.name.replace(/\.(csv|xlsx|xls)$/i, ''));
-      setProjectNameEdited(false);
-      setIsUploadDialogOpen(true);
+          console.log('[Analytics] File reconstructed from blob, opening dialog:', {
+            name: file.name,
+            size: file.size,
+            type: file.type
+          });
 
-      console.log('[Analytics] Upload dialog state updated successfully');
-    } else if (targetPage === "analytics" && !pendingFile) {
-      console.warn('[Analytics] ⚠️  Found targetPage in sessionStorage but no file in window - file was lost during navigation');
-      // Clean up the orphaned session storage
-      sessionStorage.removeItem('pendingUploadFileName');
-      sessionStorage.removeItem('pendingUploadFileType');
-      sessionStorage.removeItem('pendingUploadFileSize');
-      sessionStorage.removeItem('pendingUploadTargetPage');
+          // Clean up blob URL and sessionStorage
+          URL.revokeObjectURL(blobUrl);
+          sessionStorage.removeItem('pendingUploadBlobUrl');
+          sessionStorage.removeItem('pendingUploadFileName');
+          sessionStorage.removeItem('pendingUploadFileType');
+          sessionStorage.removeItem('pendingUploadFileSize');
+          sessionStorage.removeItem('pendingUploadTargetPage');
+
+          // Open the upload dialog with the reconstructed file
+          setUploadFiles([file]);
+          setFileProgresses({ [`${file.name}::${file.size}::${file.lastModified}`]: 0 });
+          setProjectName(file.name.replace(/\.(csv|xlsx|xls)$/i, ''));
+          setProjectNameEdited(false);
+          setIsUploadDialogOpen(true);
+
+          console.log('[Analytics] Upload dialog opened successfully!');
+        })
+        .catch(error => {
+          console.error('[Analytics] ❌ Failed to reconstruct file from blob URL:', error);
+          // Clean up on error
+          sessionStorage.removeItem('pendingUploadBlobUrl');
+          sessionStorage.removeItem('pendingUploadFileName');
+          sessionStorage.removeItem('pendingUploadFileType');
+          sessionStorage.removeItem('pendingUploadFileSize');
+          sessionStorage.removeItem('pendingUploadTargetPage');
+        });
     } else {
-      console.log('[Analytics] No pending upload found (targetPage:', targetPage, ', hasFile:', !!pendingFile, ')');
+      console.log('[Analytics] No pending upload found (targetPage:', targetPage, ', hasBlobUrl:', !!blobUrl, ')');
     }
   }, []) // Empty array = run only once on mount
 
