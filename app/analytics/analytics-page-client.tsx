@@ -859,16 +859,9 @@ export default function AnalyticsPage() {
   }, [])
 
   // Listen for pending uploads from sidebar Upload button
-  // Runs on EVERY render to catch pending uploads, but processes only once via sessionStorage cleanup
+  // For CSV files: Parse immediately and show Review Transactions dialog
   useEffect(() => {
-    console.log('[Analytics] useEffect FIRED - version 2.0 - isUploadDialogOpen:', isUploadDialogOpen);
-
-    // Skip if dialog is already open (prevents duplicate processing)
-    if (isUploadDialogOpen) {
-      return;
-    }
-
-    console.log('[Analytics] Checking for pending upload...');
+    console.log('[Analytics] useEffect FIRED - version 3.0 - checking for CSV upload');
 
     // Check sessionStorage for pending upload
     const targetPage = sessionStorage.getItem('pendingUploadTargetPage');
@@ -880,11 +873,12 @@ export default function AnalyticsPage() {
       targetPage,
       hasBlobUrl: !!blobUrl,
       fileName,
-      isDialogOpen: isUploadDialogOpen
+      hasParsedRows: parsedRows.length > 0
     });
 
-    if (targetPage === "analytics" && blobUrl && fileName && !isUploadDialogOpen) {
-      console.log('[Analytics] ✅ Found pending upload, fetching file from blob URL...');
+    // Only proceed if we have a pending CSV upload and haven't already parsed it
+    if (targetPage === "analytics" && blobUrl && fileName && parsedRows.length === 0) {
+      console.log('[Analytics] ✅ Found pending CSV, fetching and parsing...');
 
       // IMMEDIATELY clear sessionStorage to prevent duplicate processing
       sessionStorage.removeItem('pendingUploadBlobUrl');
@@ -893,36 +887,41 @@ export default function AnalyticsPage() {
       sessionStorage.removeItem('pendingUploadFileSize');
       sessionStorage.removeItem('pendingUploadTargetPage');
 
-      // Fetch the blob URL and reconstruct the File object
+      // Fetch blob and parse CSV
       fetch(blobUrl)
         .then(res => res.blob())
-        .then(blob => {
-          // Reconstruct File object from blob
+        .then(async (blob) => {
           const file = new File([blob], fileName, { type: fileType || 'text/csv' });
 
-          console.log('[Analytics] File reconstructed from blob, opening dialog:', {
-            name: file.name,
-            size: file.size,
-            type: file.type
-          });
+          console.log('[Analytics] File reconstructed, parsing CSV...');
+
+          // Read and parse the CSV
+          const text = await file.text();
+          const rows = parseCsvToRows(text);
+          const rowsWithId: ParsedRow[] = rows.map((row, index) => ({
+            ...row,
+            id: index,
+          }));
+
+          console.log('[Analytics] CSV parsed, showing Review Transactions dialog with', rowsWithId.length, 'rows');
 
           // Clean up blob URL
           URL.revokeObjectURL(blobUrl);
 
-          // Open the upload dialog with the reconstructed file
-          setUploadFiles([file]);
-          setFileProgresses({ [`${file.name}::${file.size}::${file.lastModified}`]: 0 });
-          setProjectName(file.name.replace(/\.(csv|xlsx|xls)$/i, ''));
-          setProjectNameEdited(false);
-          setIsUploadDialogOpen(true);
+          // Set the parsed data and show Review Transactions dialog
+          setParsedCsv(text);
+          setParsedRows(rowsWithId);
+          setSelectedParsedRowIds(new Set(rowsWithId.map((r) => r.id)));
+          setProjectName(fileName.replace(/\.(csv|xlsx|xls)$/i, ''));
 
-          console.log('[Analytics] ✅ Upload dialog opened successfully!');
+          console.log('[Analytics] ✅ Review Transactions dialog ready to display');
         })
         .catch(error => {
-          console.error('[Analytics] ❌ Failed to reconstruct file from blob URL:', error);
+          console.error('[Analytics] ❌ Failed to parse CSV from blob URL:', error);
+          toast.error('Failed to parse CSV file');
         });
     }
-  }) // No dependency array = runs on every render, but sessionStorage cleanup prevents duplicates
+  }) // No dependency array = runs on every render to catch pending uploads
 
   // Helper function to strip file extension for project name
   const stripFileExtension = useCallback((filename: string) => {
