@@ -833,7 +833,13 @@ export const POST = async (req: NextRequest) => {
 
             // Debug logging for category validation
             if (rawCategoryName && !allowedCategorySet.has(rawCategoryLower)) {
-              console.log(`[RECEIPT] Item "${description}": AI returned "${rawCategoryName}" but not in allowed set, defaulting to "Other"`)
+              console.log(`[RECEIPT MISMATCH] Item "${description}":`)
+              console.log(`  - AI returned: "${rawCategoryName}"`)
+              console.log(`  - Normalized: "${rawCategoryLower}"`)
+              console.log(`  - Available categories:`, Array.from(allowedCategorySet).join(", "))
+              console.log(`  - Defaulting to: "Other"`)
+            } else if (rawCategoryName) {
+              console.log(`[RECEIPT MATCH] Item "${description}": "${rawCategoryName}" ✓`)
             }
 
             const descriptionKey = normalizeReceiptItemDescriptionKey(description)
@@ -862,16 +868,23 @@ export const POST = async (req: NextRequest) => {
 
               if (heuristicSuggestion && allowedCategorySet.has(heuristicSuggestion.toLowerCase())) {
                 const currentLower = finalCategoryName.toLowerCase()
-                const currentBroadType = categoryBroadTypeByLowerName.get(currentLower) ?? "Other"
-                const suggestedBroadType = categoryBroadTypeByLowerName.get(heuristicSuggestion.toLowerCase()) ?? "Other"
 
-                const isOther = currentLower === "other"
-                const isDrinkMismatch =
-                  (currentBroadType === "Drinks" && suggestedBroadType !== "Drinks") ||
-                  (currentBroadType !== "Drinks" && suggestedBroadType === "Drinks")
-
-                if (isOther || isDrinkMismatch) {
+                // ALWAYS use heuristic if current category is "Other"
+                if (currentLower === "other") {
                   finalCategoryName = heuristicSuggestion
+                  console.log(`[RECEIPT HEURISTIC] Item "${description}": "Other" → "${heuristicSuggestion}"`)
+                } else {
+                  // For non-Other categories, only override on drink mismatch
+                  const currentBroadType = categoryBroadTypeByLowerName.get(currentLower) ?? "Other"
+                  const suggestedBroadType = categoryBroadTypeByLowerName.get(heuristicSuggestion.toLowerCase()) ?? "Other"
+                  const isDrinkMismatch =
+                    (currentBroadType === "Drinks" && suggestedBroadType !== "Drinks") ||
+                    (currentBroadType !== "Drinks" && suggestedBroadType === "Drinks")
+
+                  if (isDrinkMismatch) {
+                    finalCategoryName = heuristicSuggestion
+                    console.log(`[RECEIPT HEURISTIC] Item "${description}": Drink mismatch "${categoryName}" → "${heuristicSuggestion}"`)
+                  }
                 }
               }
             }
