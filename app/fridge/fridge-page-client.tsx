@@ -508,7 +508,7 @@ export function FridgePageClient() {
 
               return {
                 name,
-                color: typeof category?.color === "string" ? category.color : null,
+                color: typeof category?.color === "string" ? category.color : (defaultCategory?.color ?? null),
                 typeName:
                   typeof category?.typeName === "string"
                     ? category.typeName

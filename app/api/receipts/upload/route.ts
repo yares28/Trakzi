@@ -245,8 +245,7 @@ async function repairReceiptJsonWithAi(params: {
     throw new Error("OPENROUTER_API_KEY is not set")
   }
 
-  // DEBUG: Remove "Other" to force AI to choose specific categories
-  const allowed = params.allowedCategories.filter(cat => cat.toLowerCase() !== "other")
+  const allowed = params.allowedCategories.length ? params.allowedCategories : ["Other"]
   const schemaPrompt = buildReceiptSchemaPrompt()
 
   const prompt = [
@@ -363,8 +362,7 @@ async function extractReceiptWithAi(params: {
     throw new Error("OPENROUTER_API_KEY is not set")
   }
 
-  // DEBUG: Remove "Other" to force AI to choose specific categories
-  const allowed = params.allowedCategories.filter(cat => cat.toLowerCase() !== "other")
+  const allowed = params.allowedCategories.length ? params.allowedCategories : ["Other"]
 
   const schemaPrompt = buildReceiptSchemaPrompt()
   const prompt = [
@@ -492,8 +490,7 @@ async function extractReceiptFromPdfText(params: {
     throw new Error("OPENROUTER_API_KEY is not set")
   }
 
-  // DEBUG: Remove "Other" to force AI to choose specific categories
-  const allowed = params.allowedCategories.filter(cat => cat.toLowerCase() !== "other")
+  const allowed = params.allowedCategories.length ? params.allowedCategories : ["Other"]
 
   const schemaPrompt = buildReceiptSchemaPrompt()
   const prompt = [
