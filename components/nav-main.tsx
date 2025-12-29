@@ -84,14 +84,16 @@ export function NavMain({
     if (isImage || (isPDF && !isCSV && !isExcel)) {
       // Receipt files go to fridge
       console.log('[NavMain] Routing to fridge for receipt:', file.name);
-      // Store file info in sessionStorage (survives navigation)
+
+      // Create blob URL (survives navigation)
+      const blobUrl = URL.createObjectURL(file);
+
+      // Store metadata in sessionStorage
+      sessionStorage.setItem('pendingUploadBlobUrl', blobUrl);
       sessionStorage.setItem('pendingUploadFileName', file.name);
       sessionStorage.setItem('pendingUploadFileType', file.type);
       sessionStorage.setItem('pendingUploadFileSize', file.size.toString());
       sessionStorage.setItem('pendingUploadTargetPage', 'fridge');
-
-      // Store the file object temporarily in window (will be picked up immediately)
-      (window as any).__pendingUploadFile = file;
 
       router.push("/fridge")
     } else if (isCSV || isExcel || isPDF) {
@@ -103,19 +105,20 @@ export function NavMain({
         fileType: file.type
       });
 
-      // Store file info in sessionStorage (survives navigation)
+      // Create blob URL that survives navigation
+      const blobUrl = URL.createObjectURL(file);
+
+      // Store blob URL and metadata in sessionStorage
+      sessionStorage.setItem('pendingUploadBlobUrl', blobUrl);
       sessionStorage.setItem('pendingUploadFileName', file.name);
       sessionStorage.setItem('pendingUploadFileType', file.type);
       sessionStorage.setItem('pendingUploadFileSize', file.size.toString());
       sessionStorage.setItem('pendingUploadTargetPage', 'analytics');
 
-      // Store the actual File object in window property
-      (window as any).__pendingUploadFile = file;
-
-      console.log('[NavMain] Set storage:', {
-        sessionHasName: !!sessionStorage.getItem('pendingUploadFileName'),
-        windowHasFile: !!(window as any).__pendingUploadFile,
-        targetPage: sessionStorage.getItem('pendingUploadTargetPage')
+      console.log('[NavMain] Created blob URL and stored metadata:', {
+        hasBlobUrl: !!blobUrl,
+        fileName: file.name,
+        targetPage: 'analytics'
       });
 
       router.push("/analytics")
