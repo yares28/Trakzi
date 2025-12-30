@@ -26,10 +26,20 @@ type ParseCsvReturn<T extends ParseCsvOptions> = T extends { returnDiagnostics: 
     ? { rows: TxRow[]; diagnostics: CsvDiagnostics }
     : TxRow[];
 
+type ParsedRowWithMeta = TxRow & {
+    __rowIndex: number;
+    __dateValid: boolean;
+    __amountMissing: boolean;
+    __balanceMissing: boolean;
+    __descriptionMissing: boolean;
+};
+
 const HEADER_KEYWORDS = [
-    "date", "description", "desc", "amount", "balance", "transaction",
-    "transactions", "debit", "credit", "value", "montant", "solde",
-    "libelle", "details", "memo", "note", "category", "categorie"
+    "date", "fecha", "data", "description", "descripcion", "desc", "concepto",
+    "detail", "detalle", "details", "detalles", "amount", "importe", "monto",
+    "balance", "saldo", "solde", "transaction", "transactions", "debit", "credit",
+    "value", "valor", "montant", "libelle", "memo", "note", "category", "categorie",
+    "categoria", "movement", "movimiento", "operation", "operacion"
 ];
 
 const DELIMITER_CANDIDATES = [",", ";", "\t", "|"];
@@ -40,7 +50,8 @@ const DATE_COLUMN_NAMES = [
     "transaction date", "Transaction Date", "TRANSACTION DATE",
     "posted_date", "PostedDate", "POSTED_DATE",
     "value_date", "ValueDate", "VALUE_DATE",
-    "booking_date", "BookingDate", "BOOKING_DATE"
+    "booking_date", "BookingDate", "BOOKING_DATE",
+    "fecha", "Fecha", "FECHA", "fecha_operacion", "fecha_valor"
 ];
 
 const TIME_COLUMN_NAMES = [
@@ -48,12 +59,38 @@ const TIME_COLUMN_NAMES = [
     "transaction_time", "TransactionTime", "TRANSACTION_TIME",
     "transaction time", "Transaction Time", "TRANSACTION TIME",
     "posted_time", "PostedTime", "POSTED_TIME",
-    "posting_time", "PostingTime", "POSTING_TIME"
+    "posting_time", "PostingTime", "POSTING_TIME",
+    "hora", "Hora", "HORA"
 ];
 
-const DESCRIPTION_REGEX = /description|desc|memo|note|details|narration|particulars|concept|libelle/i;
-const AMOUNT_REGEX = /amount|amt|value|debit|credit|importe|montant/i;
-const BALANCE_REGEX = /balance|bal|running.*balance|saldo|solde/i;
+const DESCRIPTION_REGEX = /description|desc|memo|note|details|narration|particulars|concept|concepto|detalle|detalles|descripcion|libelle|movement|movimiento|operation|operacion|merchant|payee/i;
+const AMOUNT_REGEX = /amount|amt|value|importe|monto|montant|debit|credit|cargo|abono|haber|credito|debito/i;
+const BALANCE_REGEX = /balance|bal|running.*balance|saldo|solde|available/i;
+const DEBIT_REGEX = /\b(debit|debito|debe|cargo|dr)\b/i;
+const CREDIT_REGEX = /\b(credit|credito|haber|abono|cr)\b/i;
+const TYPE_REGEX = /\b(type|movement|movimiento|transaction type|debit\/credit|dr\/cr|dc)\b/i;
+
+function normalizeHeaderText(value: string): string {
+    return value
+        .toLowerCase()
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+}
+
+function includesHeaderKeyword(value: string, keywords: string[]): boolean {
+    return keywords.some((keyword) => value.includes(keyword));
+}
+
+function findColumnByRegex(
+    columns: string[],
+    normalizedColumns: string[],
+    regex: RegExp
+): string | undefined {
+    const index = normalizedColumns.findIndex((value) => regex.test(value));
+    return index >= 0 ? columns[index] : undefined;
+}
 
 function excelSerialToDate(serial: number): string | null {
     if (!isFinite(serial) || serial <= 0) return null;
@@ -80,7 +117,31 @@ function looksLikeDate(value: string): boolean {
     );
 }
 
-function normalizeDate(dateStr: string): string {
+type DateOrder = "dmy" | "mdy";
+
+function inferDateOrder(samples: string[]): DateOrder | null {
+    let dmyScore = 0;
+    let mdyScore = 0;
+
+    for (const sample of samples) {
+        const trimmed = String(sample).trim();
+        const match = trimmed.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/);
+        if (!match) continue;
+        const part1 = parseInt(match[1], 10);
+        const part2 = parseInt(match[2], 10);
+        if (part1 > 12 && part2 <= 12) {
+            dmyScore += 1;
+        } else if (part2 > 12 && part1 <= 12) {
+            mdyScore += 1;
+        }
+    }
+
+    if (dmyScore > mdyScore) return "dmy";
+    if (mdyScore > dmyScore) return "mdy";
+    return null;
+}
+
+function normalizeDate(dateStr: string, dateOrder?: DateOrder | null): string {
     if (dateStr == null) return "";
     const trimmed = String(dateStr).trim();
     if (trimmed === "") return "";
@@ -127,6 +188,9 @@ function normalizeDate(dateStr: string): string {
         if (num2 > 12) {
             return `${fullYear}-${part1.padStart(2, '0')}-${part2.padStart(2, '0')}`;
         }
+        if (dateOrder === "mdy") {
+            return `${fullYear}-${part1.padStart(2, '0')}-${part2.padStart(2, '0')}`;
+        }
         return `${fullYear}-${part2.padStart(2, '0')}-${part1.padStart(2, '0')}`;
     }
 
@@ -150,6 +214,9 @@ function normalizeDate(dateStr: string): string {
             return `${fullYear}-${part2.padStart(2, '0')}-${part1.padStart(2, '0')}`;
         }
         if (num2 > 12) {
+            return `${fullYear}-${part1.padStart(2, '0')}-${part2.padStart(2, '0')}`;
+        }
+        if (dateOrder === "mdy") {
             return `${fullYear}-${part1.padStart(2, '0')}-${part2.padStart(2, '0')}`;
         }
         return `${fullYear}-${part2.padStart(2, '0')}-${part1.padStart(2, '0')}`;
@@ -301,7 +368,7 @@ function preprocessCsv(csv: string, delimiterHint?: string): { csv: string; deli
     for (let i = 0; i < Math.min(20, rows.length); i++) {
         const row = rows[i];
         if (!row || row.length === 0) continue;
-        const rowText = row.map(cell => String(cell || "").toLowerCase().trim()).join(" ");
+        const rowText = row.map(cell => normalizeHeaderText(String(cell || ""))).join(" ");
         const matches = HEADER_KEYWORDS.filter(keyword => rowText.includes(keyword));
         if (matches.length >= 2) {
             headerRowIndex = i;
@@ -310,16 +377,33 @@ function preprocessCsv(csv: string, delimiterHint?: string): { csv: string; deli
         }
 
         const hasDateHeader = row.some(cell => {
-            const cellLower = String(cell || "").toLowerCase().trim();
-            return /^date|transaction.*date|posted.*date|value.*date/i.test(cellLower);
+            const cellLower = normalizeHeaderText(String(cell || ""));
+            return includesHeaderKeyword(cellLower, [
+                "date",
+                "fecha",
+                "transaction date",
+                "posted date",
+                "value date",
+                "booking date"
+            ]);
         });
         const hasAmountHeader = row.some(cell => {
-            const cellLower = String(cell || "").toLowerCase().trim();
-            return /^amount|montant|value|debit|credit/i.test(cellLower);
+            const cellLower = normalizeHeaderText(String(cell || ""));
+            return includesHeaderKeyword(cellLower, ["amount", "importe", "monto", "montant", "debit", "credit"]);
         });
         const hasDescHeader = row.some(cell => {
-            const cellLower = String(cell || "").toLowerCase().trim();
-            return /^description|desc|details|libelle|memo|note|transaction/i.test(cellLower);
+            const cellLower = normalizeHeaderText(String(cell || ""));
+            return includesHeaderKeyword(cellLower, [
+                "description",
+                "desc",
+                "details",
+                "detalle",
+                "libelle",
+                "memo",
+                "note",
+                "concepto",
+                "transaction"
+            ]);
         });
         if (hasDateHeader && (hasAmountHeader || hasDescHeader)) {
             headerRowIndex = i;
@@ -373,7 +457,7 @@ function findDateColumn(row: Record<string, any>, columns: string[]): string | n
     return null;
 }
 
-function coerceNumber(value: any): number | null {
+export function coerceNumber(value: any): number | null {
     if (value == null || value === "") return null;
     if (typeof value === "number") return value;
     if (typeof value !== "string") return null;
@@ -383,26 +467,74 @@ function coerceNumber(value: any): number | null {
 
     // Extract and preserve the sign FIRST (before any processing)
     let isNegative = false;
-    // Check for minus at the start or end (common in some formats)
-    if (normalized.startsWith('-') || normalized.startsWith('−') || normalized.startsWith('–') || normalized.startsWith('—')) {
+    let forcedPositive = false;
+
+    const trimmedForSign = normalized.trim();
+    if (trimmedForSign.startsWith("(") && trimmedForSign.endsWith(")")) {
         isNegative = true;
-        normalized = normalized.replace(/^[-−–—]/, "");
-    } else if (normalized.endsWith('-') || normalized.endsWith('−') || normalized.endsWith('–') || normalized.endsWith('—')) {
-        isNegative = true;
-        normalized = normalized.replace(/[-−–—]$/, "");
+        normalized = trimmedForSign.slice(1, -1);
     }
-    // Also check for any fancy minus signs in the middle and normalize them
-    normalized = normalized.replace(/[\u2212\u2012\u2013\u2014]/g, "-");
+
+    const prefixMatch = normalized.match(/^(CR|DR)\s+/i);
+    if (prefixMatch) {
+        const prefix = prefixMatch[1].toUpperCase();
+        if (prefix === "DR") {
+            isNegative = true;
+        } else if (prefix === "CR") {
+            forcedPositive = true;
+        }
+        normalized = normalized.replace(/^(CR|DR)\s+/i, "");
+    }
+
+    const suffixMatch = normalized.match(/\s+(CR|DR)\s*$/i);
+    if (suffixMatch) {
+        const suffix = suffixMatch[1].toUpperCase();
+        if (suffix === "DR") {
+            isNegative = true;
+        } else if (suffix === "CR") {
+            forcedPositive = true;
+        }
+        normalized = normalized.replace(/\s+(CR|DR)\s*$/i, "");
+    }
+
+    if (!forcedPositive) {
+        const shortSuffixMatch = normalized.match(/\s+([CD])\s*$/i);
+        if (shortSuffixMatch) {
+            const shortSuffix = shortSuffixMatch[1].toUpperCase();
+            if (shortSuffix === "D") {
+                isNegative = true;
+            }
+            normalized = normalized.replace(/\s+[CD]\s*$/i, "");
+        }
+    }
+    // Check for leading/trailing sign markers (common in some exports)
+    const signMatch = normalized.match(/^[+\-\u2212\u2012\u2013\u2014\uFE63\uFF0D]/);
+    if (signMatch) {
+        if (signMatch[0] !== "+") {
+            isNegative = true;
+        }
+        normalized = normalized.slice(1);
+    }
+    const trailingSignMatch = normalized.match(/[+\-\u2212\u2012\u2013\u2014\uFE63\uFF0D]$/);
+    if (trailingSignMatch) {
+        if (trailingSignMatch[0] !== "+") {
+            isNegative = true;
+        }
+        normalized = normalized.slice(0, -1);
+    }
+    // Normalize unicode minus-like characters
+    normalized = normalized.replace(/[\u2212\u2012\u2013\u2014\uFE63\uFF0D]/g, "-");
     // If there's a minus anywhere now, it's negative
-    if (normalized.includes('-')) {
+    if (normalized.includes("-")) {
         isNegative = true;
         normalized = normalized.replace(/-/g, "");
     }
 
-    // Remove currency symbols
+    // Remove currency symbols and whitespace
     normalized = normalized
-        .replace(/[€$£¥]/g, "") // Remove currency symbols
-        .replace(/\s/g, ""); // Remove whitespace
+        .replace(/[^\d,.\s]/g, "")
+        .replace(/\s/g, "");
+    if (normalized === "") return null;
 
     // Handle European number format: "1.234,56" or "912,00" -> "1234.56" or "912.00"
     // Check if comma is used as decimal separator (European format)
@@ -460,6 +592,10 @@ function coerceNumber(value: any): number | null {
     }
 
     // Add minus sign at the beginning if negative
+    if (forcedPositive) {
+        isNegative = false;
+    }
+
     if (isNegative && normalized) {
         normalized = "-" + normalized;
     }
@@ -486,6 +622,76 @@ function mapArraysToObjects(rawParsed: Papa.ParseResult<any[]>): { rows: Record<
     });
 
     return { rows, columns };
+}
+
+function mergeMultilineRows(rows: ParsedRowWithMeta[], diagnostics: CsvDiagnostics): ParsedRowWithMeta[] {
+    const merged: ParsedRowWithMeta[] = [];
+    let pending: ParsedRowWithMeta | null = null;
+    let mergedCount = 0;
+    let mergedAmountCount = 0;
+
+    const appendDescription = (target: ParsedRowWithMeta, extra: string) => {
+        const base = target.description?.trim() ?? "";
+        const addition = extra?.trim() ?? "";
+        if (!addition) return;
+        target.description = base ? `${base} ${addition}` : addition;
+        target.__descriptionMissing = target.description.trim().length === 0;
+    };
+
+    for (const row of rows) {
+        const hasDate = row.__dateValid;
+        const hasDescription = !row.__descriptionMissing;
+        const hasAmount = !row.__amountMissing;
+        const hasBalance = !row.__balanceMissing;
+
+        if (!hasDate && pending) {
+            const isDescriptionOnly = hasDescription && !hasAmount && !hasBalance;
+            const isAmountOnly = !hasDescription && (hasAmount || hasBalance);
+            const canFillAmounts = (pending.__amountMissing || pending.__balanceMissing) && (hasAmount || hasBalance);
+
+            if (isDescriptionOnly) {
+                appendDescription(pending, row.description);
+                mergedCount += 1;
+                continue;
+            }
+
+            if (isAmountOnly || canFillAmounts) {
+                if (hasAmount && pending.__amountMissing) {
+                    pending.amount = row.amount;
+                    pending.__amountMissing = false;
+                    mergedAmountCount += 1;
+                }
+                if (hasBalance && pending.__balanceMissing) {
+                    pending.balance = row.balance;
+                    pending.__balanceMissing = false;
+                    mergedAmountCount += 1;
+                }
+                if (hasDescription) {
+                    appendDescription(pending, row.description);
+                }
+                mergedCount += 1;
+                continue;
+            }
+        }
+
+        if (pending) {
+            merged.push(pending);
+        }
+        pending = row;
+    }
+
+    if (pending) {
+        merged.push(pending);
+    }
+
+    if (mergedCount > 0) {
+        diagnostics.warnings.push(`${mergedCount} continuation line(s) merged into previous rows.`);
+    }
+    if (mergedAmountCount > 0) {
+        diagnostics.warnings.push(`${mergedAmountCount} continuation line(s) supplied missing amounts/balances.`);
+    }
+
+    return merged;
 }
 
 export function parseCsvToRows(csv: string): TxRow[];
@@ -550,6 +756,31 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
         warnings: []
     };
 
+    const normalizedColumns = columns.map(normalizeHeaderText);
+    const descriptionHeaderColumn = findColumnByRegex(columns, normalizedColumns, DESCRIPTION_REGEX);
+    const amountHeaderColumn = findColumnByRegex(columns, normalizedColumns, AMOUNT_REGEX);
+    const balanceHeaderColumn = findColumnByRegex(columns, normalizedColumns, BALANCE_REGEX);
+    const debitHeaderColumn = findColumnByRegex(columns, normalizedColumns, DEBIT_REGEX);
+    const creditHeaderColumn = findColumnByRegex(columns, normalizedColumns, CREDIT_REGEX);
+    const typeHeaderColumn = findColumnByRegex(columns, normalizedColumns, TYPE_REGEX);
+
+    const dateSamples: string[] = [];
+    for (let i = 0; i < Math.min(rowsData.length, 120); i++) {
+        const row = rowsData[i];
+        for (const col of columns) {
+            const value = row?.[col];
+            if (value == null) continue;
+            const strValue = String(value).trim();
+            if (!strValue) continue;
+            if (looksLikeDate(strValue)) {
+                dateSamples.push(strValue);
+                if (dateSamples.length >= 40) break;
+            }
+        }
+        if (dateSamples.length >= 40) break;
+    }
+    const inferredDateOrder = inferDateOrder(dateSamples);
+
     // Helper function to find numeric columns (excluding dates)
     function findNumericColumn(row: Record<string, any>, columns: string[], excludeColumns: string[] = []): string | undefined {
         for (const col of columns) {
@@ -571,7 +802,7 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
         return undefined;
     }
 
-    const rows = rowsData.map((r, index) => {
+    const rows = rowsData.map((r, index): ParsedRowWithMeta => {
         // Find all date columns first (there might be multiple)
         const dateColumns: string[] = [];
         for (const colName of DATE_COLUMN_NAMES) {
@@ -622,14 +853,21 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
             rawTime = String(r[timeColumn] ?? "");
         }
 
-        const normalizedDate = normalizeDate(rawDate);
+        const normalizedDate = normalizeDate(rawDate, inferredDateOrder);
         const normalizedTime = normalizeTime(rawTime) ?? extractTime(rawDate);
         if (!normalizedDate && rawDate && diagnostics.invalidDateSamples.length < 5) {
             diagnostics.invalidDateSamples.push({ index, value: rawDate });
         }
 
         // Find description column - exclude date columns
-        let descColumn = columns.find(col => !dateColumns.includes(col) && col !== timeColumn && DESCRIPTION_REGEX.test(col));
+        let descColumn = descriptionHeaderColumn;
+        if (!descColumn) {
+            descColumn = columns.find((col, colIndex) =>
+                !dateColumns.includes(col) &&
+                col !== timeColumn &&
+                DESCRIPTION_REGEX.test(normalizedColumns[colIndex] || "")
+            );
+        }
         if (!descColumn) {
             // Try to find a column with text (not date, not number)
             for (const col of columns) {
@@ -645,9 +883,18 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
             }
         }
         const rawDescription = descColumn ? (r[descColumn] ?? "") : (r.description ?? r.Description ?? r.DESCRIPTION ?? "");
+        const normalizedDescription = String(rawDescription ?? "").trim();
 
         // Find amount column - exclude date columns and description column
-        let amountColumn = columns.find(col => !dateColumns.includes(col) && col !== descColumn && col !== timeColumn && AMOUNT_REGEX.test(col));
+        let amountColumn = amountHeaderColumn;
+        if (!amountColumn) {
+            amountColumn = columns.find((col, colIndex) =>
+                !dateColumns.includes(col) &&
+                col !== descColumn &&
+                col !== timeColumn &&
+                AMOUNT_REGEX.test(normalizedColumns[colIndex] || "")
+            );
+        }
         if (!amountColumn) {
             // Try to find numeric column (excluding dates and description)
             const excludeCols = [...dateColumns, descColumn, timeColumn].filter(
@@ -660,9 +907,19 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
             amountColumn = "amount";
         }
         const rawAmount = amountColumn && r[amountColumn] != null ? r[amountColumn] : (r.amount ?? r.Amount ?? r.AMOUNT ?? 0);
+        const rawAmountString = String(rawAmount ?? "").trim();
 
         // Find balance column - exclude date columns, description, and amount columns
-        let balanceColumn = columns.find(col => !dateColumns.includes(col) && col !== descColumn && col !== amountColumn && col !== timeColumn && BALANCE_REGEX.test(col));
+        let balanceColumn = balanceHeaderColumn;
+        if (!balanceColumn) {
+            balanceColumn = columns.find((col, colIndex) =>
+                !dateColumns.includes(col) &&
+                col !== descColumn &&
+                col !== amountColumn &&
+                col !== timeColumn &&
+                BALANCE_REGEX.test(normalizedColumns[colIndex] || "")
+            );
+        }
         if (!balanceColumn) {
             // Try to find another numeric column
             const excludeCols = [...dateColumns, descColumn, amountColumn, timeColumn].filter(
@@ -671,21 +928,63 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
             balanceColumn = findNumericColumn(r, columns, excludeCols);
         }
         const rawBalance = balanceColumn && r[balanceColumn] != null ? r[balanceColumn] : (r.balance ?? r.Balance ?? r.BALANCE);
+        const rawBalanceString = String(rawBalance ?? "").trim();
 
-        const parsedAmount = coerceNumber(rawAmount);
+        let parsedAmount = coerceNumber(rawAmount);
+        const debitValue = debitHeaderColumn ? coerceNumber(r[debitHeaderColumn]) : null;
+        const creditValue = creditHeaderColumn ? coerceNumber(r[creditHeaderColumn]) : null;
+        const rawTypeValue = typeHeaderColumn ? String(r[typeHeaderColumn] ?? "") : "";
+        const normalizedTypeValue = normalizeHeaderText(rawTypeValue);
+
+        if (
+            (parsedAmount == null || parsedAmount === 0) &&
+            (debitValue != null || creditValue != null)
+        ) {
+            if (creditValue != null && debitValue != null) {
+                parsedAmount = creditValue - Math.abs(debitValue);
+            } else if (creditValue != null) {
+                parsedAmount = creditValue;
+            } else if (debitValue != null) {
+                parsedAmount = -Math.abs(debitValue);
+            }
+        }
+
+        if (parsedAmount != null && rawTypeValue) {
+            if (/\b(debit|debito|cargo|dr)\b/i.test(normalizedTypeValue)) {
+                parsedAmount = -Math.abs(parsedAmount);
+            } else if (/\b(credit|credito|abono|haber|cr)\b/i.test(normalizedTypeValue)) {
+                parsedAmount = Math.abs(parsedAmount);
+            }
+        }
         const parsedBalance = coerceNumber(rawBalance);
+        const amountMissing =
+            parsedAmount == null &&
+            debitValue == null &&
+            creditValue == null &&
+            rawAmountString === "";
+        const balanceMissing = parsedBalance == null && rawBalanceString === "";
+        const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(normalizedDate);
+        const descriptionMissing = normalizedDescription.length === 0;
 
         return {
             date: normalizedDate || "",
             time: normalizedTime ?? null,
-            description: String(rawDescription ?? "").trim(),
+            description: normalizedDescription,
             amount: parsedAmount ?? 0,
             balance: parsedBalance ?? null,
-            category: (r.category ?? r.Category ?? r.CATEGORY ?? "").trim() || undefined
+            category: (r.category ?? r.Category ?? r.CATEGORY ?? "").trim() || undefined,
+            __rowIndex: index,
+            __dateValid: dateValid,
+            __amountMissing: amountMissing,
+            __balanceMissing: balanceMissing,
+            __descriptionMissing: descriptionMissing,
         };
     });
 
-    const validRows = rows.filter((row, index) => {
+    const mergedRows = mergeMultilineRows(rows, diagnostics);
+    diagnostics.rowsAfterPreprocess = mergedRows.length;
+
+    const validRows = mergedRows.filter((row, index) => {
         const dateStr = row.date?.trim() ?? "";
         const isDateValid = /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
         const hasDescription = !!(row.description && row.description.trim().length > 0);

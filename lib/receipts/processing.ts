@@ -1,17 +1,22 @@
 import { neonInsert, neonQuery } from "@/lib/neonClient"
+import { logAiCategoryFeedbackBatch } from "@/lib/ai/ai-category-feedback"
 import { ensureReceiptCategories } from "@/lib/receipts/receipt-categories-db"
 import {
   getReceiptItemCategoryPreferences,
   normalizeReceiptItemDescriptionKey,
   normalizeReceiptStoreKey,
 } from "@/lib/receipts/item-category-preferences"
-import { suggestReceiptCategoryNameFromDescription } from "@/lib/receipts/receipt-category-heuristics"
+import { getReceiptCategorySuggestion } from "@/lib/receipts/receipt-category-heuristics"
+import { createReceiptCategoryResolver } from "@/lib/receipts/receipt-category-normalization"
+import { detectLanguageFromSamples, type SupportedLocale } from "@/lib/language/language-detection"
+import { getReceiptStoreLanguagePreference } from "@/lib/receipts/receipt-store-language-preferences"
 import { extractReceiptFromPdfTextWithParsers } from "@/lib/receipts/parsers"
 import { parseReceiptFile } from "@/lib/receipts/ingestion"
 import type { ReceiptParseWarning, ReceiptParseMeta } from "@/lib/receipts/parsers/types"
 import { getSiteUrl, getSiteName } from "@/lib/env"
 
 const RECEIPT_MODEL = "allenai/olmo-3.1-32b-think:free"
+const SUPPORTED_RECEIPT_LOCALES = new Set<SupportedLocale>(["es", "en", "pt", "fr", "it", "de", "nl", "ca"])
 
 type EnqueueParams = {
   receiptId: string
@@ -252,7 +257,12 @@ async function repairReceiptJsonWithAi(params: {
     throw new Error("OPENROUTER_API_KEY is not set")
   }
 
-  const allowed = params.allowedCategories.length ? params.allowedCategories : ["Other"]
+  const filtered = params.allowedCategories.filter(
+    (category) => category.toLowerCase() !== "other"
+  )
+  const allowed = filtered.length > 0
+    ? filtered
+    : (params.allowedCategories.length ? params.allowedCategories : ["Other"])
   const schemaPrompt = buildReceiptSchemaPrompt()
 
   const prompt = [
@@ -264,15 +274,18 @@ async function repairReceiptJsonWithAi(params: {
     "- receipt_time must be HH:MM or HH:MM:SS (24h).",
     "- All money values must be numbers (use . as decimal separator).",
     `- For item.category, choose exactly one from this list: ${allowed.join(", ")}.`,
+    "- Items can be in Spanish, English, Portuguese, French, Italian, German, Dutch, or Catalan.",
+    "- Translate item names, but output the category label EXACTLY as listed (case-sensitive).",
+    "- Do not invent categories, do not translate category labels, do not use singular/plural variants.",
     "- Choose the closest matching category based on the item description (what the item is).",
-    "- IMPORTANT: NEVER choose 'Other' unless you have absolutely no idea what the item is. Think carefully about the item name.",
-    "- Sauces (tomato sauce, pasta sauce, BBQ sauce, salsa) go to 'Sauce'.",
+    "- Multi-word items: use the most specific noun (e.g., lemon juice -> Juice; ham slices -> Deli / Cold Cuts).",
+    "- Sauces (tomato sauce, pasta sauce, BBQ sauce, salsa) go to 'Sauces'.",
     "- Cheese products go to 'Cheese'.",
-    "- Ready-to-eat or pre-made meals go to 'Prepared Foods'.",
-    "- Sugary drinks (soda, juice, energy drinks) are 'Carbs' not vitamins.",
-    "- ONLY choose a drinks category for beverages/liquids meant to drink (water, soda, juice, coffee, tea, beer, wine, energy drinks).",
+    "- Deli meats and sliced meats go to 'Deli / Cold Cuts'.",
+    "- Ready-to-eat or pre-made meals go to 'Ready Meals', 'Prepared Salads', or 'Sandwiches / Takeaway'.",
+    "- ONLY choose a drinks category for beverages meant to drink (water, soda, juice, coffee, tea, beer, wine, energy drinks).",
     "- Food staples like rice/pasta/bread are NOT drinks.",
-    "- If unsure between two categories, pick the one that best matches the PRIMARY ingredient or purpose.",
+    "- If unsure between two categories, pick the one that best matches the primary ingredient or purpose.",
     "",
     schemaPrompt,
     "",
@@ -362,7 +375,12 @@ async function extractReceiptWithAi(params: {
     throw new Error("OPENROUTER_API_KEY is not set")
   }
 
-  const allowed = params.allowedCategories.length ? params.allowedCategories : ["Other"]
+  const filtered = params.allowedCategories.filter(
+    (category) => category.toLowerCase() !== "other"
+  )
+  const allowed = filtered.length > 0
+    ? filtered
+    : (params.allowedCategories.length ? params.allowedCategories : ["Other"])
 
   const schemaPrompt = buildReceiptSchemaPrompt()
   const prompt = [
@@ -374,15 +392,18 @@ async function extractReceiptWithAi(params: {
     "- receipt_time must be HH:MM or HH:MM:SS (24h).",
     "- All money values must be numbers (use . as decimal separator).",
     `- For item.category, choose exactly one from this list: ${allowed.join(", ")}.`,
+    "- Items can be in Spanish, English, Portuguese, French, Italian, German, Dutch, or Catalan.",
+    "- Translate item names, but output the category label EXACTLY as listed (case-sensitive).",
+    "- Do not invent categories, do not translate category labels, do not use singular/plural variants.",
     "- Choose the closest matching category based on the item description (what the item is).",
-    "- IMPORTANT: NEVER choose 'Other' unless you have absolutely no idea what the item is. Think carefully about the item name.",
-    "- Sauces (tomato sauce, pasta sauce, BBQ sauce, salsa) go to 'Sauce'.",
+    "- Multi-word items: use the most specific noun (e.g., lemon juice -> Juice; ham slices -> Deli / Cold Cuts).",
+    "- Sauces (tomato sauce, pasta sauce, BBQ sauce, salsa) go to 'Sauces'.",
     "- Cheese products go to 'Cheese'.",
-    "- Ready-to-eat or pre-made meals go to 'Prepared Foods'.",
-    "- Sugary drinks (soda, juice, energy drinks) are 'Carbs' not vitamins.",
-    "- ONLY choose a drinks category for beverages/liquids meant to drink (water, soda, juice, coffee, tea, beer, wine, energy drinks).",
+    "- Deli meats and sliced meats go to 'Deli / Cold Cuts'.",
+    "- Ready-to-eat or pre-made meals go to 'Ready Meals', 'Prepared Salads', or 'Sandwiches / Takeaway'.",
+    "- ONLY choose a drinks category for beverages meant to drink (water, soda, juice, coffee, tea, beer, wine, energy drinks).",
     "- Food staples like rice/pasta/bread are NOT drinks.",
-    "- If unsure between two categories, pick the one that best matches the PRIMARY ingredient or purpose.",
+    "- If unsure between two categories, pick the one that best matches the primary ingredient or purpose.",
     "",
     schemaPrompt,
     "",
@@ -488,6 +509,7 @@ export async function processReceiptNow({ receiptId, userId }: EnqueueParams) {
   categories.forEach((cat) => categoryNameToRow.set(cat.name.toLowerCase(), cat))
   categories.forEach((cat) => categoryNameByLower.set(cat.name.toLowerCase(), cat.name))
   categories.forEach((cat) => categoryIdToRow.set(cat.id, cat))
+  const resolveReceiptCategoryName = createReceiptCategoryResolver(categories.map((cat) => cat.name))
   const otherCategory = categoryNameToRow.get("other") ?? null
 
   const preferenceRows = await getReceiptItemCategoryPreferences({ userId }).catch(() => [])
@@ -527,7 +549,11 @@ export async function processReceiptNow({ receiptId, userId }: EnqueueParams) {
         if (!apiKey) throw new Error("OPENROUTER_API_KEY is not set")
         const siteUrl = getSiteUrl()
         const siteName = getSiteName()
-        const allowed = categories.map((c) => c.name)
+        const allowedCategories = categories.map((c) => c.name)
+        const filteredAllowed = allowedCategories.filter(
+          (category) => category.toLowerCase() !== "other"
+        )
+        const allowed = filteredAllowed.length > 0 ? filteredAllowed : allowedCategories
 
         const prompt = [
           "You extract structured data from the text content of a grocery store receipt.",
@@ -538,7 +564,11 @@ export async function processReceiptNow({ receiptId, userId }: EnqueueParams) {
           "- receipt_time must be HH:MM or HH:MM:SS (24h).",
           "- All money values must be numbers (use . as decimal separator).",
           `- For item.category, choose exactly one from this list: ${allowed.join(", ")}.`,
+          "- Items can be in Spanish, English, Portuguese, French, Italian, German, Dutch, or Catalan.",
+          "- Translate item names, but output the category label EXACTLY as listed (case-sensitive).",
+          "- Do not invent categories, do not translate category labels, do not use singular/plural variants.",
           "- Choose the closest matching category based on the item description.",
+          "- Multi-word items: use the most specific noun (e.g., lemon juice -> Juice; ham slices -> Deli / Cold Cuts).",
           "",
           schemaPrompt,
           "",
@@ -637,8 +667,36 @@ export async function processReceiptNow({ receiptId, userId }: EnqueueParams) {
       : null
 
   const storeKey = normalizeReceiptStoreKey(storeName)
+  const storeLanguagePreference = storeName
+    ? await getReceiptStoreLanguagePreference({ userId, storeName }).catch(() => null)
+    : null
+  const languageOverrideCandidate = storeLanguagePreference?.language?.trim().toLowerCase() as SupportedLocale | undefined
+  const languageOverride = languageOverrideCandidate && SUPPORTED_RECEIPT_LOCALES.has(languageOverrideCandidate)
+    ? languageOverrideCandidate
+    : null
 
   const rawItems = Array.isArray(extracted.items) ? extracted.items : []
+  const detectedLanguage = languageOverride
+    ? null
+    : detectLanguageFromSamples(
+        rawItems
+          .map((item) => (typeof item?.description === "string" ? item.description : ""))
+          .filter((value) => value.trim().length > 0)
+      )
+  const receiptLanguage = languageOverride
+    ? { locale: languageOverride, score: 1, confidence: 1, iso: languageOverride }
+    : detectedLanguage
+  const feedbackEntries: Array<{
+    userId: string
+    scope: "receipt"
+    inputText?: string | null
+    rawCategory?: string | null
+    normalizedCategory?: string | null
+    locale?: string | null
+    storeName?: string | null
+    receiptFileName?: string | null
+  }> = []
+  const feedbackLimit = 30
   const items = rawItems
     .map((item) => {
       const description =
@@ -657,6 +715,24 @@ export async function processReceiptNow({ receiptId, userId }: EnqueueParams) {
 
       const rawCategoryName =
         typeof item?.category === "string" ? item.category.trim() : ""
+      const resolvedCategoryName = rawCategoryName
+        ? resolveReceiptCategoryName(rawCategoryName)
+        : null
+      if (rawCategoryName && !resolvedCategoryName && feedbackEntries.length < feedbackLimit) {
+        feedbackEntries.push({
+          userId,
+          scope: "receipt",
+          inputText: description,
+          rawCategory: rawCategoryName,
+          normalizedCategory: null,
+          locale: receiptLanguage?.locale ?? null,
+          storeName,
+          receiptFileName: receiptFile.file_name,
+        })
+      }
+      const resolvedCategory = resolvedCategoryName
+        ? categoryNameToRow.get(resolvedCategoryName.toLowerCase()) ?? null
+        : null
 
       const descriptionKey = normalizeReceiptItemDescriptionKey(description)
       const preferredCategoryId = descriptionKey
@@ -667,25 +743,31 @@ export async function processReceiptNow({ receiptId, userId }: EnqueueParams) {
 
       let category = preferredCategoryId
         ? categoryIdToRow.get(preferredCategoryId) ?? otherCategory
-        : categoryNameToRow.get(rawCategoryName.toLowerCase()) ?? otherCategory
+        : resolvedCategory ?? otherCategory
 
       if (!preferredCategoryId) {
-        const heuristicSuggestion = suggestReceiptCategoryNameFromDescription({
+        const heuristicSuggestion = getReceiptCategorySuggestion({
           description,
           categoryNameByLower,
+          locale: receiptLanguage.locale,
         })
 
         if (heuristicSuggestion) {
+          const suggestionLower = heuristicSuggestion.category.toLowerCase()
           const currentBroadType = category?.broad_type || "Other"
-          const suggestedBroadType = categoryNameToRow.get(heuristicSuggestion.toLowerCase())?.broad_type || "Other"
+          const suggestedBroadType = categoryNameToRow.get(suggestionLower)?.broad_type || "Other"
           const currentIsOther = category?.name.toLowerCase() === "other"
 
           const isDrinkMismatch =
             (currentBroadType === "Drinks" && suggestedBroadType !== "Drinks") ||
             (currentBroadType !== "Drinks" && suggestedBroadType === "Drinks")
 
-          if (currentIsOther || isDrinkMismatch) {
-            category = categoryNameToRow.get(heuristicSuggestion.toLowerCase()) ?? category
+          const strongOverride =
+            heuristicSuggestion.confidence === "strong" &&
+            category?.name.toLowerCase() !== suggestionLower
+
+          if (currentIsOther || isDrinkMismatch || strongOverride) {
+            category = categoryNameToRow.get(suggestionLower) ?? category
           }
         }
       }
@@ -707,6 +789,10 @@ export async function processReceiptNow({ receiptId, userId }: EnqueueParams) {
       }
     })
     .filter((value): value is NonNullable<typeof value> => Boolean(value))
+
+  if (feedbackEntries.length > 0) {
+    await logAiCategoryFeedbackBatch(feedbackEntries)
+  }
 
   const summedTotal = items.reduce((sum, item) => sum + (Number(item.total_price) || 0), 0)
   const totalAmount = Math.max(parseNumber(extracted.total_amount), summedTotal)

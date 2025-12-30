@@ -1,8 +1,120 @@
 # Neon Database Documentation
 
-This document contains comprehensive information about the Neon database setup for the Trakzi project, extracted using the Neon MCP tools.
+This document is a snapshot of the Neon database setup for the Trakzi project. It is generated using the Neon MCP server so the inventory, schema, and operational details stay in one place.
+
+## How to read this document
+
+- Organization Information: The Neon organization that owns the project and billing.
+- Project Information: The Neon project container for branches, databases, and roles.
+- Branch Information: The primary branch used by the app plus its activity and size.
+- Compute Endpoint Information: The compute host that serves queries (region, autoscale, state).
+- Connection String: How the app connects to Neon (treat as secret).
+- Database Structure: Databases and schemas present in the project.
+- Tables Overview: Quick list of tables by schema.
+- Detailed Table Schemas: Column-level details, indexes, constraints, and sizes.
+- Functions and Triggers: Server-side helpers and automatic updated_at behavior.
+- Performance Optimizations and Statistics: Indexing choices and size metrics.
+- Monitoring and Notes: Operational notes, recent changes, and last refresh date.
+
+## Neon MCP (Codex integration)
+
+This documentation is assembled with Neon MCP tools. Use the steps below to refresh or extend it.
+
+### Remote MCP (OAuth, recommended)
+```toml
+[mcp_servers.neon]
+command = "npx"
+args = ["-y", "mcp-remote", "https://mcp.neon.tech/mcp"]
+```
+Verify the MCP server is registered with `codex mcp list`. The first run opens an OAuth browser window.
+
+### Local MCP (API key)
+```toml
+[mcp_servers.neon]
+command = "npx"
+args = ["-y", "@neondatabase/mcp-server-neon", "start", "<NEON_API_KEY>"]
+```
+
+### Typical refresh flow (tools)
+1. list_organizations -> identify org
+2. list_projects -> identify project
+3. describe_project -> project, branches, and databases
+4. describe_branch -> branch metadata and size
+5. list_branch_computes -> compute endpoint details
+6. get_connection_string -> connection info
+7. get_database_tables -> table inventory
+8. describe_table_schema -> per-table schema
+9. run_sql -> table sizes, indexes, stats, or custom checks
+
+### Safety notes
+- Always verify destructive actions; Neon MCP can create, modify, or delete resources.
+- Keep connection strings and API keys out of shared or public docs.
+
+## Source of Truth Rules
+
+- The live Neon database is authoritative for schema, data, and operational state.
+- This file is the curated snapshot for humans and AI. Refresh it after any migration, backfill, or Neon setting change.
+- If code, Prisma, or this document disagree with Neon, refresh via Neon MCP and reconcile before shipping changes.
+
+## Project Code References (Schema + Access)
+
+- `lib/neonClient.ts`: primary DB access path using @neondatabase/serverless and raw SQL. It reads `DATABASE_URL` or `NEON_CONNECTION_STRING` and auto-converts to pooled connections.
+- `prisma/schema.prisma`: reference schema for Prisma Studio only. It is not authoritative.
+- `prisma/migrations/*`: partial Prisma migrations (currently subscription-related). Validate against Neon before reusing.
+- `database/schema.sql`: referenced by Prisma schema as authoritative, but not present in this repo as of December 30, 2025. If it exists elsewhere, link it here or update the Prisma note.
+
+## Secrets and Access
+
+- Connection strings and API keys are secrets. Store them in `.env`/secret manager, not in source control.
+- `DATABASE_URL` should be the pooled connection string for app traffic; `DIRECT_URL` is for migrations/admin tasks when needed.
+- If this document is shared outside the team, rotate the `neondb_owner` password.
+
+## Update Checklist (when something changes)
+
+1. Refresh org, project, branch, and compute metadata via Neon MCP.
+2. Recompute branch sizes and usage via `describe_branch`.
+3. Regenerate the table list via `get_database_tables`.
+4. Re-pull per-table schemas via `describe_table_schema`.
+5. Update size/index stats with `run_sql` (see queries below).
+6. Update "Last Updated" and add a line under "Recent Changes".
+
+### Useful SQL (run_sql)
+
+Table sizes (schema + index size):
+```sql
+SELECT
+  n.nspname AS schema,
+  c.relname AS table,
+  pg_size_pretty(pg_total_relation_size(c.oid)) AS total_size,
+  pg_size_pretty(pg_relation_size(c.oid)) AS table_size,
+  pg_size_pretty(pg_total_relation_size(c.oid) - pg_relation_size(c.oid)) AS index_size
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE c.relkind = 'r'
+  AND n.nspname IN ('public', 'neon_auth')
+ORDER BY pg_total_relation_size(c.oid) DESC;
+```
+
+Indexes per table:
+```sql
+SELECT schemaname, tablename, indexname, indexdef
+FROM pg_indexes
+WHERE schemaname IN ('public', 'neon_auth')
+ORDER BY schemaname, tablename, indexname;
+```
+
+Triggers for updated_at:
+```sql
+SELECT event_object_table, trigger_name, action_timing, event_manipulation
+FROM information_schema.triggers
+WHERE trigger_schema = 'public'
+ORDER BY event_object_table, trigger_name;
+```
+
 
 ## Organization Information
+
+The Neon organization that owns the project and billing.
 
 - **Organization Name**: yares
 - **Organization ID**: org-damp-flower-56045386
@@ -15,11 +127,24 @@ This document contains comprehensive information about the Neon database setup f
 
 ## Project Information
 
+The Neon project container for branches, databases, and roles.
+
 - **Project Name**: Trakzi
 - **Project ID**: orange-waterfall-16223480
 - **Console URL**: https://console.neon.tech/app/projects/orange-waterfall-16223480
+- **Region**: aws-eu-west-2 (London)
+- **Postgres Version**: 17
+- **Proxy Host**: eu-west-2.aws.neon.tech
+- **Default Autoscaling**: 0.25-2 CU (min 0.25, max 2)
+- **Project Active Time**: 396,364 seconds (~110.1 hours)
+- **Project CPU Used**: 101,520 seconds (~28.2 hours)
+- **Synthetic Storage Size**: 50,533,248 bytes (~48.2 MB)
+- **Project Updated**: December 30, 2025 at 00:16:14 UTC
+- **Compute Last Active**: December 30, 2025 at 00:16:06 UTC
 
 ## Branch Information
+
+Branch metadata, starting with the default production branch.
 
 ### Production Branch (Default)
 
@@ -30,16 +155,27 @@ This document contains comprehensive information about the Neon database setup f
 - **Default**: Yes
 - **Protected**: No
 - **Created**: November 22, 2025 at 19:29:06 UTC
-- **Updated**: December 23, 2025 at 23:50:35 UTC
+- **Updated**: December 30, 2025 at 00:30:36 UTC
 - **Created By**: yares
-- **Logical Size**: 38,846,464 bytes (~37 MB)
-- **Compute Usage**: 63,569 seconds (~17.7 hours)
-- **Active Time**: 248,964 seconds (~69.2 hours)
-- **Written Data**: 99,368,560 bytes (~94.8 MB)
-- **Data Transfer**: 146,066,300 bytes (~139.4 MB)
+- **Logical Size**: 45,629,440 bytes (~43.5 MB)
+- **Compute Usage**: 99,153 seconds (~27.5 hours)
+- **Active Time**: 387,216 seconds (~107.6 hours)
+- **Written Data**: 148,709,368 bytes (~141.8 MB)
+- **Data Transfer**: 234,924,291 bytes (~224.0 MB)
 - **Console Link**: https://console.neon.tech/app/projects/orange-waterfall-16223480/branches/br-rapid-voice-abajd9gp
 
+### Other Branches
+
+1. **preview/yaya** (br-purple-fog-ab3rzue3)
+   - Parent: br-rapid-voice-abajd9gp
+   - Status: ready
+   - Source: vercel
+   - Created: December 29, 2025 at 12:42:58 UTC
+   - Updated: December 29, 2025 at 22:50:35 UTC
+
 ## Compute Endpoint Information
+
+Details about the compute endpoint that serves queries.
 
 - **Compute ID**: ep-purple-tree-abhoip45
 - **Compute Type**: read_write
@@ -50,17 +186,19 @@ This document contains comprehensive information about the Neon database setup f
 - **Host**: ep-purple-tree-abhoip45.eu-west-2.aws.neon.tech
 - **Proxy Host**: eu-west-2.aws.neon.tech
 - **Current State**: active
-- **Last Active**: December 24, 2025 at 00:06:20 UTC
-- **Started At**: December 24, 2025 at 00:06:09 UTC
+- **Last Active**: December 30, 2025 at 00:16:06 UTC
+- **Started At**: December 30, 2025 at 00:45:54 UTC
 - **Pooler Enabled**: false
 - **Pooler Mode**: transaction
 - **Passwordless Access**: true
 - **Suspend Timeout**: 0 seconds
 - **Compute Release Version**: 10673
 - **Created**: November 22, 2025 at 19:29:06 UTC
-- **Updated**: December 24, 2025 at 00:06:22 UTC
+- **Updated**: December 30, 2025 at 00:45:54 UTC
 
 ## Connection String
+
+Connection details for applications and tooling. Treat credentials as secrets.
 
 **Pooled Connection String** (Recommended for application use):
 ```
@@ -75,6 +213,8 @@ postgresql://neondb_owner:npg_nCG8VWF9OSwI@ep-purple-tree-abhoip45-pooler.eu-wes
 
 ## Database Structure
 
+High-level inventory of databases and schemas.
+
 ### Databases
 
 1. **postgres** (system database)
@@ -86,6 +226,8 @@ postgresql://neondb_owner:npg_nCG8VWF9OSwI@ep-purple-tree-abhoip45-pooler.eu-wes
 2. **neon_auth** - Neon Auth schema (contains `users_sync` table)
 
 ## Tables Overview
+
+Quick list of tables by schema; details follow.
 
 ### Public Schema Tables
 
@@ -109,6 +251,8 @@ postgresql://neondb_owner:npg_nCG8VWF9OSwI@ep-purple-tree-abhoip45-pooler.eu-wes
 1. **users_sync** - Neon Auth user synchronization table
 
 ## Detailed Table Schemas
+
+Per-table columns, indexes, constraints, and sizes.
 
 ### 1. users
 
@@ -159,7 +303,7 @@ postgresql://neondb_owner:npg_nCG8VWF9OSwI@ep-purple-tree-abhoip45-pooler.eu-wes
 
 **Constraints**:
 - PRIMARY KEY: `id`
-- FOREIGN KEY: `user_id` → `users(id)` ON DELETE CASCADE
+- FOREIGN KEY: `user_id` -> `users(id)` ON DELETE CASCADE
 
 **Size**: Table: 112 kB, Indexes: 152 kB, Total: 264 kB
 
@@ -188,7 +332,7 @@ postgresql://neondb_owner:npg_nCG8VWF9OSwI@ep-purple-tree-abhoip45-pooler.eu-wes
 **Constraints**:
 - PRIMARY KEY: `id`
 - UNIQUE: `user_id, name`
-- FOREIGN KEY: `user_id` → `users(id)` ON DELETE CASCADE
+- FOREIGN KEY: `user_id` -> `users(id)` ON DELETE CASCADE
 
 **Size**: Table: 16 kB, Indexes: 96 kB, Total: 112 kB
 
@@ -215,7 +359,7 @@ postgresql://neondb_owner:npg_nCG8VWF9OSwI@ep-purple-tree-abhoip45-pooler.eu-wes
 
 **Constraints**:
 - PRIMARY KEY: `id`
-- FOREIGN KEY: `user_id` → `users(id)` ON DELETE CASCADE
+- FOREIGN KEY: `user_id` -> `users(id)` ON DELETE CASCADE
 
 **Size**: Table: 8 kB, Indexes: 56 kB, Total: 64 kB
 
@@ -242,8 +386,8 @@ postgresql://neondb_owner:npg_nCG8VWF9OSwI@ep-purple-tree-abhoip45-pooler.eu-wes
 **Constraints**:
 - PRIMARY KEY: `id`
 - UNIQUE: `user_id, category_id, scope`
-- FOREIGN KEY: `user_id` → `users(id)` ON DELETE CASCADE
-- FOREIGN KEY: `category_id` → `categories(id)` ON DELETE CASCADE
+- FOREIGN KEY: `user_id` -> `users(id)` ON DELETE CASCADE
+- FOREIGN KEY: `category_id` -> `categories(id)` ON DELETE CASCADE
 
 **Size**: Table: 0 bytes, Indexes: 32 kB, Total: 32 kB
 
@@ -269,7 +413,7 @@ postgresql://neondb_owner:npg_nCG8VWF9OSwI@ep-purple-tree-abhoip45-pooler.eu-wes
 
 **Constraints**:
 - PRIMARY KEY: `id`
-- FOREIGN KEY: `user_id` → `users(id)` ON DELETE CASCADE
+- FOREIGN KEY: `user_id` -> `users(id)` ON DELETE CASCADE
 
 **Size**: Table: 16 kB, Indexes: 5,816 kB, Total: 5,832 kB
 
@@ -300,8 +444,8 @@ postgresql://neondb_owner:npg_nCG8VWF9OSwI@ep-purple-tree-abhoip45-pooler.eu-wes
 
 **Constraints**:
 - PRIMARY KEY: `id`
-- FOREIGN KEY: `user_id` → `users(id)` ON DELETE CASCADE
-- FOREIGN KEY: `receipt_file_id` → `user_files(id)` ON DELETE SET NULL
+- FOREIGN KEY: `user_id` -> `users(id)` ON DELETE CASCADE
+- FOREIGN KEY: `receipt_file_id` -> `user_files(id)` ON DELETE SET NULL
 
 **Size**: Table: 8 kB, Indexes: 56 kB, Total: 64 kB
 
@@ -328,7 +472,7 @@ postgresql://neondb_owner:npg_nCG8VWF9OSwI@ep-purple-tree-abhoip45-pooler.eu-wes
 **Constraints**:
 - PRIMARY KEY: `id`
 - UNIQUE: `user_id, name`
-- FOREIGN KEY: `user_id` → `users(id)` ON DELETE CASCADE
+- FOREIGN KEY: `user_id` -> `users(id)` ON DELETE CASCADE
 
 **Size**: Table: 8 kB, Indexes: 56 kB, Total: 64 kB
 
@@ -363,8 +507,8 @@ postgresql://neondb_owner:npg_nCG8VWF9OSwI@ep-purple-tree-abhoip45-pooler.eu-wes
 **Constraints**:
 - PRIMARY KEY: `id`
 - UNIQUE: `user_id, name`
-- FOREIGN KEY: `user_id` → `users(id)` ON DELETE CASCADE
-- FOREIGN KEY: `type_id` → `receipt_category_types(id)` ON DELETE SET NULL
+- FOREIGN KEY: `user_id` -> `users(id)` ON DELETE CASCADE
+- FOREIGN KEY: `type_id` -> `receipt_category_types(id)` ON DELETE SET NULL
 
 **Size**: Table: 16 kB, Indexes: 96 kB, Total: 112 kB
 
@@ -398,10 +542,10 @@ postgresql://neondb_owner:npg_nCG8VWF9OSwI@ep-purple-tree-abhoip45-pooler.eu-wes
 
 **Constraints**:
 - PRIMARY KEY: `id`
-- FOREIGN KEY: `receipt_id` → `receipts(id)` ON DELETE CASCADE
-- FOREIGN KEY: `user_id` → `users(id)` ON DELETE CASCADE
-- FOREIGN KEY: `category_id` → `receipt_categories(id)` ON DELETE SET NULL
-- FOREIGN KEY: `category_type_id` → `receipt_category_types(id)` ON DELETE SET NULL
+- FOREIGN KEY: `receipt_id` -> `receipts(id)` ON DELETE CASCADE
+- FOREIGN KEY: `user_id` -> `users(id)` ON DELETE CASCADE
+- FOREIGN KEY: `category_id` -> `receipt_categories(id)` ON DELETE SET NULL
+- FOREIGN KEY: `category_type_id` -> `receipt_category_types(id)` ON DELETE SET NULL
 
 **Size**: Table: 8 kB, Indexes: 88 kB, Total: 96 kB
 
@@ -431,8 +575,8 @@ postgresql://neondb_owner:npg_nCG8VWF9OSwI@ep-purple-tree-abhoip45-pooler.eu-wes
 **Constraints**:
 - PRIMARY KEY: `id`
 - UNIQUE: `user_id, store_key, description_key`
-- FOREIGN KEY: `user_id` → `users(id)` ON DELETE CASCADE
-- FOREIGN KEY: `category_id` → `receipt_categories(id)` ON DELETE CASCADE
+- FOREIGN KEY: `user_id` -> `users(id)` ON DELETE CASCADE
+- FOREIGN KEY: `category_id` -> `receipt_categories(id)` ON DELETE CASCADE
 
 **Size**: Table: 0 bytes, Indexes: 48 kB, Total: 48 kB
 
@@ -495,7 +639,7 @@ postgresql://neondb_owner:npg_nCG8VWF9OSwI@ep-purple-tree-abhoip45-pooler.eu-wes
 
 **Constraints**:
 - PRIMARY KEY: `id`
-- FOREIGN KEY: `user_id` → `users(id)` ON DELETE CASCADE
+- FOREIGN KEY: `user_id` -> `users(id)` ON DELETE CASCADE
 
 **Size**: Table: 8 kB, Indexes: 120 kB, Total: 128 kB
 
@@ -532,6 +676,8 @@ postgresql://neondb_owner:npg_nCG8VWF9OSwI@ep-purple-tree-abhoip45-pooler.eu-wes
 
 ## Database Functions
 
+Server-side functions available in the database.
+
 ### Public Schema Functions
 
 - `update_updated_at_column()` - Trigger function to update `updated_at` timestamp
@@ -552,6 +698,8 @@ postgresql://neondb_owner:npg_nCG8VWF9OSwI@ep-purple-tree-abhoip45-pooler.eu-wes
 
 ## Database Triggers
 
+Automatic triggers that update fields or enforce behavior.
+
 The following tables have triggers that automatically update the `updated_at` column:
 
 - `users`
@@ -568,6 +716,8 @@ The following tables have triggers that automatically update the `updated_at` co
 All triggers use the `update_updated_at_column()` function.
 
 ## Performance Optimizations
+
+Indexing and denormalization choices that improve query speed.
 
 ### Covering Indexes
 
@@ -593,11 +743,13 @@ All triggers use the `update_updated_at_column()` function.
 
 ## Database Statistics
 
+Size and usage metrics for the project.
+
 ### Total Database Size
 
-- **Logical Size**: ~37 MB
-- **Written Data**: ~94.8 MB
-- **Data Transfer**: ~139.4 MB
+- **Logical Size**: ~43.5 MB
+- **Written Data**: ~141.8 MB
+- **Data Transfer**: ~224.0 MB
 
 ### Table Sizes Summary
 
@@ -622,6 +774,8 @@ All triggers use the `update_updated_at_column()` function.
 
 ## Connection Information
 
+Connection format and pooling behavior.
+
 ### Connection String Format
 
 The connection string uses the pooled endpoint format:
@@ -643,6 +797,8 @@ postgresql://[role]:[password]@[endpoint]-pooler.[region].aws.neon.tech/[databas
 
 ## Monitoring & Performance
 
+Operational monitoring status and current compute activity.
+
 ### Slow Query Monitoring
 
 **Status**: `pg_stat_statements` extension is not currently installed
@@ -654,18 +810,20 @@ CREATE EXTENSION pg_stat_statements;
 
 ### Compute Usage
 
-- **Total Compute Time**: 63,569 seconds (~17.7 hours)
-- **Active Time**: 248,964 seconds (~69.2 hours)
-- **Last Active**: December 24, 2025 at 00:06:20 UTC
+- **Total Compute Time**: 99,153 seconds (~27.5 hours)
+- **Active Time**: 387,216 seconds (~107.6 hours)
+- **Last Active**: December 30, 2025 at 00:16:06 UTC
 - **Current Status**: Active (was suspended, now resumed)
 
 ## Notes
+
+Important context and caveats for the schema and infrastructure.
 
 1. **User IDs**: All user IDs are stored as `TEXT` to match Clerk's authentication format (e.g., "user_2abc123xyz"), not UUIDs.
 
 2. **Connection Pooling**: While the compute endpoint shows pooler as disabled, the connection string uses the `-pooler` suffix, which enables Neon's built-in connection pooling at the proxy level.
 
-3. **Database Suspension**: The compute endpoint automatically suspends when idle on the free tier. It was suspended on December 23, 2025 and resumed on December 24, 2025 at 00:06:09 UTC. The endpoint is currently active.
+3. **Database Suspension**: The compute endpoint automatically suspends when idle on the free tier. It was suspended on December 23, 2025 and resumed on December 24, 2025 at 00:06:09 UTC. The endpoint is currently active (last active December 30, 2025 at 00:16:06 UTC).
 
 4. **File Storage**: The `user_files` table stores binary data directly in the database. Consider migrating to object storage (S3, etc.) for production if file sizes grow significantly.
 
@@ -673,15 +831,20 @@ CREATE EXTENSION pg_stat_statements;
 
 ## Last Updated
 
-This documentation was generated on: **December 24, 2025**
+Snapshot timestamp for this document. Refresh using Neon MCP when needed.
 
-All information was extracted using Neon MCP tools and reflects the current state of the database.
+This documentation was generated on: **December 30, 2025**
+
+Metadata, metrics, and connection details were refreshed using Neon MCP tools and reflect the current state of the database.
 
 ### Recent Changes
 
+Notable schema and data changes since the previous snapshot.
+
+- **December 30, 2025**: Refreshed organization, project, branch, compute, and size metrics via Neon MCP; added preview branch summary
 - **December 28, 2025**: Expanded category system:
-  - Transaction categories: 22 → 41 (added utilities, transport, health, shopping subcategories)
-  - Receipt categories: 31 → 62 (detailed food, beverage, non-food items)
+  - Transaction categories: 22 -> 41 (added utilities, transport, health, shopping subcategories)
+  - Receipt categories: 31 -> 62 (detailed food, beverage, non-food items)
   - Standardized `broad_type` to Food/Drinks/Other only
   - Migration endpoint `/api/migrations/fix-default-categories` to mark defaults
 - **December 24, 2025**: Added `webhook_events` table for Stripe webhook idempotency
@@ -689,6 +852,8 @@ All information was extracted using Neon MCP tools and reflects the current stat
 - **December 23, 2025**: Initial documentation created
 
 ### Migration Notes
+
+Optional migrations or backfills for existing data.
 
 For existing users with old default categories, run:
 ```bash
