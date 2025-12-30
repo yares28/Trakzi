@@ -15,18 +15,55 @@
  */
 
 import { getSiteUrl, getSiteName } from "@/lib/env"
+import { preprocessReceiptImage, type PreprocessReceiptImageResult } from "./preprocessReceiptImage"
 
 export interface OcrResult {
     text: string
     confidence?: number
+    metrics?: {
+        charCount: number
+        lineCount: number
+        lowTextDensity: boolean
+    }
+    preprocess?: PreprocessReceiptImageResult["meta"]
+    retryUsed?: boolean
 }
 
 export interface OcrProvider {
-    extractText(data: Buffer | Uint8Array, mimeType: string): Promise<OcrResult>
+    extractText(data: Buffer | Uint8Array, mimeType: string, promptOverride?: string): Promise<OcrResult>
 }
 
 // OpenRouter model for OCR
 const OCR_MODEL = "nvidia/nemotron-nano-12b-v2-vl:free"
+const MIN_OCR_TEXT_CHARS = 80
+const MIN_OCR_TEXT_LINES = 4
+
+const DEFAULT_OCR_PROMPT = `Extract ALL text from this receipt image exactly as it appears. 
+Include every line, number, and character you can see.
+Preserve the original layout and line breaks.
+Do not summarize or interpret - just transcribe the raw text.
+If you cannot read something clearly, use [?] to mark uncertain characters.
+
+Return ONLY the extracted text, nothing else.`
+
+const LOW_DENSITY_OCR_PROMPT = `The receipt text is faint, skewed, or low-contrast.
+Carefully extract ALL text, including item lines, quantities, unit prices, totals, and headers.
+Preserve line breaks and columns; do not summarize or interpret.
+Use [?] for any uncertain characters.
+
+Return ONLY the extracted text, nothing else.`
+
+function analyzeOcrText(text: string) {
+    const trimmed = text.trim()
+    const lines = trimmed
+        ? trimmed.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0)
+        : []
+    const charCount = trimmed.replace(/\s+/g, "").length
+    const lineCount = lines.length
+    const lowTextDensity = charCount < MIN_OCR_TEXT_CHARS || lineCount < MIN_OCR_TEXT_LINES
+
+    return { charCount, lineCount, lowTextDensity }
+}
 
 /**
  * OpenRouter NVIDIA Nemotron VL OCR implementation.
@@ -39,13 +76,18 @@ class OpenRouterNemotronOcrProvider implements OcrProvider {
         this.apiKey = apiKey
     }
 
-    async extractText(data: Buffer | Uint8Array, mimeType: string): Promise<OcrResult> {
+    async extractText(
+        data: Buffer | Uint8Array,
+        mimeType: string,
+        promptOverride?: string
+    ): Promise<OcrResult> {
         const buffer = data instanceof Buffer ? data : Buffer.from(data)
         const base64Image = buffer.toString("base64")
         const base64DataUrl = `data:${mimeType};base64,${base64Image}`
 
         const siteUrl = getSiteUrl()
         const siteName = getSiteName()
+        const prompt = promptOverride || DEFAULT_OCR_PROMPT
 
         // First API call with reasoning enabled for better OCR accuracy
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -64,13 +106,7 @@ class OpenRouterNemotronOcrProvider implements OcrProvider {
                         content: [
                             {
                                 type: "text",
-                                text: `Extract ALL text from this receipt image exactly as it appears. 
-Include every line, number, and character you can see.
-Preserve the original layout and line breaks.
-Do not summarize or interpret - just transcribe the raw text.
-If you cannot read something clearly, use [?] to mark uncertain characters.
-
-Return ONLY the extracted text, nothing else.`,
+                                text: prompt,
                             },
                             {
                                 type: "image_url",
@@ -145,6 +181,10 @@ function getOcrProvider(): OcrProvider {
 export async function extractTextFromImage(params: {
     data: Uint8Array | Buffer
     mimeType: string
+    promptOverride?: string
+    retryOnLowText?: boolean
+    retryPromptOverride?: string
+    preprocess?: boolean
 }): Promise<OcrResult> {
     const { data, mimeType } = params
 
@@ -168,8 +208,50 @@ export async function extractTextFromImage(params: {
     }
 
     try {
+        let ocrData: Uint8Array | Buffer = data
+        let ocrMimeType = mimeType
+        let preprocessMeta: PreprocessReceiptImageResult["meta"] | undefined
+
+        if (params.preprocess !== false) {
+            try {
+                const preprocessed = await preprocessReceiptImage({
+                    data,
+                    mimeType,
+                })
+                ocrData = preprocessed.buffer
+                ocrMimeType = preprocessed.mimeType
+                preprocessMeta = preprocessed.meta
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error)
+                console.warn("[OCR] Preprocess failed, using original image:", message)
+            }
+        }
+
         const provider = getOcrProvider()
-        return await provider.extractText(data, mimeType)
+        const primaryResult = await provider.extractText(ocrData, ocrMimeType, params.promptOverride)
+        let metrics = analyzeOcrText(primaryResult.text)
+        let retryUsed = false
+        let finalResult = primaryResult
+
+        if (params.retryOnLowText && metrics.lowTextDensity) {
+            const retryPrompt = params.retryPromptOverride || LOW_DENSITY_OCR_PROMPT
+            const retryResult = await provider.extractText(ocrData, ocrMimeType, retryPrompt)
+            const retryMetrics = analyzeOcrText(retryResult.text)
+
+            if (retryMetrics.charCount > metrics.charCount) {
+                finalResult = retryResult
+                metrics = retryMetrics
+                retryUsed = true
+            }
+        }
+
+        return {
+            text: finalResult.text,
+            confidence: finalResult.confidence,
+            metrics,
+            preprocess: preprocessMeta,
+            retryUsed,
+        }
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         // Ensure all errors have OCR_FAILED prefix for proper handling

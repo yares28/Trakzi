@@ -70,9 +70,7 @@ prisma/migrations/*.sql
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
-*.code-workspace
-
-# IDE - JetBrains (IntelliJ, WebStorm, etc.)
+*.code-workspace# IDE - JetBrains (IntelliJ, WebStorm, etc.)
 .idea/
 *.iml
 *.iws

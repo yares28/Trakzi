@@ -58,11 +58,29 @@ export type ReceiptParseWarningCode =
     | "MERCADONA_DETERMINISTIC_FAILED"
     | "AI_FAILED"
     | "OCR_FAILED"
+    | "LOW_TEXT_DENSITY"
+    | "OCR_RETRY_USED"
+    | "PDF_OCR_USED"
+    | "TOTAL_MISMATCH"
+    | "MISSING_LINE_ITEMS"
+    | "LINE_ITEM_MISMATCH"
+    | "REPAIR_ATTEMPTED"
 
 /** User-visible warning from the parse pipeline */
 export type ReceiptParseWarning = {
     code: ReceiptParseWarningCode
     message: string  // User-visible, keep copy clean
+}
+
+export type ReceiptParseValidation = {
+    item_count: number
+    line_item_mismatch_count: number
+    line_item_mismatch_rate: number
+    total_amount: number | null
+    line_items_total: number | null
+    total_difference: number | null
+    total_mismatch: boolean
+    missing_line_items: boolean
 }
 
 /** Metadata about how the receipt was parsed */
@@ -71,6 +89,26 @@ export type ReceiptParseMeta = {
     merchant_detected: "mercadona" | "unknown"
     extraction_method: "mercadona_deterministic" | "ai_fallback" | "ai_only"
     ocr_used?: boolean
+    ocr_used_for_pdf?: boolean
+    ocr_page_count?: number
+    ocr_text?: {
+        char_count: number
+        line_count: number
+        low_text_density: boolean
+    }
+    ocr_retry_used?: boolean
+    pdf_text?: {
+        page_count: number
+        char_count: number
+        chars_per_page: number
+        low_text_density: boolean
+    }
+    validation?: ReceiptParseValidation
+    quality?: "high" | "medium" | "low"
+    quality_reasons?: string[]
+    repair_attempted?: boolean
+    repair_used?: boolean
+    repair_source?: "ai" | "ocr" | "pdf_text"
     // Debug info (temporary for troubleshooting)
     debug?: {
         ocr_text_length?: number

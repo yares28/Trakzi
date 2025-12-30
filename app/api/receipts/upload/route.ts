@@ -8,7 +8,11 @@ import {
   normalizeReceiptItemDescriptionKey,
   normalizeReceiptStoreKey,
 } from "@/lib/receipts/item-category-preferences"
-import { suggestReceiptCategoryNameFromDescription } from "@/lib/receipts/receipt-category-heuristics"
+import { getReceiptCategorySuggestion } from "@/lib/receipts/receipt-category-heuristics"
+import { createReceiptCategoryResolver } from "@/lib/receipts/receipt-category-normalization"
+import { detectLanguageFromSamples, type SupportedLocale } from "@/lib/language/language-detection"
+import { logAiCategoryFeedbackBatch } from "@/lib/ai/ai-category-feedback"
+import { getReceiptStoreLanguagePreferences } from "@/lib/receipts/receipt-store-language-preferences"
 import { extractReceiptFromPdfTextWithParsers } from "@/lib/receipts/parsers"
 import { parseReceiptFile } from "@/lib/receipts/ingestion"
 import type { ReceiptParseWarning, ReceiptParseMeta } from "@/lib/receipts/parsers/types"
@@ -43,6 +47,8 @@ async function extractTextFromPdf(data: Uint8Array): Promise<string> {
 const MAX_RECEIPT_FILE_BYTES = 10 * 1024 * 1024
 
 const RECEIPT_MODEL = "allenai/olmo-3.1-32b-think:free"
+const SUPPORTED_RECEIPT_LOCALES = new Set<SupportedLocale>(["es", "en", "pt", "fr", "it", "de", "nl", "ca"])
+const LOW_CONFIDENCE_THRESHOLD = 0.55
 
 type ExtractedReceipt = {
   store_name?: string | null
@@ -258,6 +264,10 @@ async function repairReceiptJsonWithAi(params: {
     "- receipt_time must be HH:MM or HH:MM:SS (24h).",
     "- All money values must be numbers (use . as decimal separator).",
     `- For item.category, choose exactly one from this list: ${allowed.join(", ")}.`,
+    "- Items can be in Spanish, English, Portuguese, French, Italian, German, Dutch, or Catalan.",
+    "- Translate item names, but output the category label EXACTLY as listed (case-sensitive).",
+    "- Do not invent categories, do not translate category labels, do not use singular/plural variants.",
+    "- Multi-word items: use the most specific noun (e.g., lemon juice -> Juice; ham slices -> Deli / Cold Cuts).",
     "",
     "CATEGORY STRUCTURE:",
     "Categories are organized by macronutrient type (Protein, Carbs, Fat, Mixed, None, Other) and broad type (Food, Drinks, Other).",
@@ -376,6 +386,10 @@ async function extractReceiptWithAi(params: {
     "- receipt_time must be HH:MM or HH:MM:SS (24h).",
     "- All money values must be numbers (use . as decimal separator).",
     `- For item.category, choose exactly one from this list: ${allowed.join(", ")}.`,
+    "- Items can be in Spanish, English, Portuguese, French, Italian, German, Dutch, or Catalan.",
+    "- Translate item names, but output the category label EXACTLY as listed (case-sensitive).",
+    "- Do not invent categories, do not translate category labels, do not use singular/plural variants.",
+    "- Multi-word items: use the most specific noun (e.g., lemon juice -> Juice; ham slices -> Deli / Cold Cuts).",
     "",
     "CATEGORY STRUCTURE:",
     "Categories are organized by macronutrient type (Protein, Carbs, Fat, Mixed, None, Other) and broad type (Food, Drinks, Other).",
@@ -505,6 +519,10 @@ async function extractReceiptFromPdfText(params: {
     "- receipt_time must be HH:MM or HH:MM:SS (24h).",
     "- All money values must be numbers (use . as decimal separator).",
     `- For item.category, choose exactly one from this list: ${allowed.join(", ")}.`,
+    "- Items can be in Spanish, English, Portuguese, French, Italian, German, Dutch, or Catalan.",
+    "- Translate item names, but output the category label EXACTLY as listed (case-sensitive).",
+    "- Do not invent categories, do not translate category labels, do not use singular/plural variants.",
+    "- Multi-word items: use the most specific noun (e.g., lemon juice -> Juice; ham slices -> Deli / Cold Cuts).",
     "",
     "CATEGORY STRUCTURE:",
     "Categories are organized by macronutrient type (Protein, Carbs, Fat, Mixed, None, Other) and broad type (Food, Drinks, Other).",
@@ -658,6 +676,7 @@ export const POST = async (req: NextRequest) => {
     const allowedCategoryNames = receiptCategories.map((category) => category.name)
     const allowedCategorySet = new Set(allowedCategoryNames.map((name) => name.toLowerCase()))
     const allowedCategoryNameByLower = new Map(allowedCategoryNames.map((name) => [name.toLowerCase(), name]))
+    const resolveReceiptCategoryName = createReceiptCategoryResolver(allowedCategoryNames)
 
     const categoryBroadTypeByLowerName = new Map<string, string>()
     receiptCategories.forEach((category) => {
@@ -684,6 +703,27 @@ export const POST = async (req: NextRequest) => {
       }
     })
 
+    const storeLanguageRows = await getReceiptStoreLanguagePreferences({ userId }).catch(() => [])
+    const storeLanguageByKey = new Map<string, SupportedLocale>()
+    storeLanguageRows.forEach((row) => {
+      if (!row.store_key || !row.language) return
+      const language = row.language.trim().toLowerCase() as SupportedLocale
+      if (SUPPORTED_RECEIPT_LOCALES.has(language)) {
+        storeLanguageByKey.set(row.store_key, language)
+      }
+    })
+    const feedbackEntries: Array<{
+      userId: string
+      scope: "receipt"
+      inputText?: string | null
+      rawCategory?: string | null
+      normalizedCategory?: string | null
+      locale?: string | null
+      storeName?: string | null
+      receiptFileName?: string | null
+    }> = []
+    const feedbackLimit = 30
+
     const receipts: Array<{
       receiptId: string
       status: string
@@ -701,7 +741,17 @@ export const POST = async (req: NextRequest) => {
         pricePerUnit: number
         totalPrice: number
         categoryName: string | null
+        aiCategoryRaw?: string | null
+        aiCategoryResolved?: string | null
+        heuristicCategory?: string | null
+        needsReview?: boolean
+        reviewReason?: string | null
+        categoryConfidence?: number
+        confidenceSource?: string | null
       }>
+      languageOverride?: string | null
+      languageDetected?: string | null
+      languageSource?: "override" | "detected" | "unknown"
       warnings?: ReceiptParseWarning[]
       meta?: ReceiptParseMeta
     }> = []
@@ -800,6 +850,17 @@ export const POST = async (req: NextRequest) => {
         const storeKey = normalizeReceiptStoreKey(storeName)
 
         const rawItems = Array.isArray(extracted.items) ? extracted.items : []
+        const languageOverride = storeKey ? storeLanguageByKey.get(storeKey) ?? null : null
+        const detectedLanguage = languageOverride
+          ? null
+          : detectLanguageFromSamples(
+              rawItems
+                .map((item) => (typeof item?.description === "string" ? item.description : ""))
+                .filter((value) => value.trim().length > 0)
+            )
+        const receiptLanguage = languageOverride
+          ? { locale: languageOverride, score: 1, confidence: 1, iso: languageOverride }
+          : detectedLanguage
         const transactions = rawItems
           .map((item, index) => {
             const description =
@@ -826,18 +887,30 @@ export const POST = async (req: NextRequest) => {
 
             const rawCategoryName =
               typeof item?.category === "string" ? item.category.trim() : ""
-            const rawCategoryLower = rawCategoryName.toLowerCase()
-            const categoryName = rawCategoryName && allowedCategorySet.has(rawCategoryLower)
-              ? allowedCategoryNameByLower.get(rawCategoryLower) ?? rawCategoryName
-              : "Other"
+            const normalizedCategoryName = rawCategoryName
+              ? resolveReceiptCategoryName(rawCategoryName)
+              : null
+            const categoryName = normalizedCategoryName ?? "Other"
 
             // Debug logging for category validation
-            if (rawCategoryName && !allowedCategorySet.has(rawCategoryLower)) {
+            if (rawCategoryName && !normalizedCategoryName) {
               console.log(`[RECEIPT MISMATCH] Item "${description}":`)
               console.log(`  - AI returned: "${rawCategoryName}"`)
-              console.log(`  - Normalized: "${rawCategoryLower}"`)
+              console.log(`  - Normalized: "${rawCategoryName.toLowerCase()}"`)
               console.log(`  - Available categories:`, Array.from(allowedCategorySet).join(", "))
               console.log(`  - Defaulting to: "Other"`)
+              if (feedbackEntries.length < feedbackLimit) {
+                feedbackEntries.push({
+                  userId,
+                  scope: "receipt",
+                  inputText: description,
+                  rawCategory: rawCategoryName,
+                  normalizedCategory: null,
+                  locale: receiptLanguage?.locale ?? null,
+                  storeName,
+                  receiptFileName: file.name,
+                })
+              }
             } else if (rawCategoryName) {
               console.log(`[RECEIPT MATCH] Item "${description}": "${rawCategoryName}" ✓`)
             }
@@ -860,34 +933,74 @@ export const POST = async (req: NextRequest) => {
               }
             }
 
+            let heuristicSuggestion: ReturnType<typeof getReceiptCategorySuggestion> = null
+            let heuristicApplied = false
             if (!usedPreference) {
-              const heuristicSuggestion = suggestReceiptCategoryNameFromDescription({
+              heuristicSuggestion = getReceiptCategorySuggestion({
                 description,
                 categoryNameByLower: allowedCategoryNameByLower,
+                locale: receiptLanguage?.locale ?? "unknown",
               })
 
-              if (heuristicSuggestion && allowedCategorySet.has(heuristicSuggestion.toLowerCase())) {
+              if (heuristicSuggestion) {
                 const currentLower = finalCategoryName.toLowerCase()
+                const suggestionLower = heuristicSuggestion.category.toLowerCase()
+                const currentBroadType = categoryBroadTypeByLowerName.get(currentLower) ?? "Other"
+                const suggestedBroadType = categoryBroadTypeByLowerName.get(suggestionLower) ?? "Other"
+                const isDrinkMismatch =
+                  (currentBroadType === "Drinks" && suggestedBroadType !== "Drinks") ||
+                  (currentBroadType !== "Drinks" && suggestedBroadType === "Drinks")
+                const isOther = currentLower === "other"
+                const strongOverride =
+                  heuristicSuggestion.confidence === "strong" && currentLower !== suggestionLower
 
-                // ALWAYS use heuristic if current category is "Other"
-                if (currentLower === "other") {
-                  finalCategoryName = heuristicSuggestion
-                  console.log(`[RECEIPT HEURISTIC] Item "${description}": "Other" → "${heuristicSuggestion}"`)
-                } else {
-                  // For non-Other categories, only override on drink mismatch
-                  const currentBroadType = categoryBroadTypeByLowerName.get(currentLower) ?? "Other"
-                  const suggestedBroadType = categoryBroadTypeByLowerName.get(heuristicSuggestion.toLowerCase()) ?? "Other"
-                  const isDrinkMismatch =
-                    (currentBroadType === "Drinks" && suggestedBroadType !== "Drinks") ||
-                    (currentBroadType !== "Drinks" && suggestedBroadType === "Drinks")
-
-                  if (isDrinkMismatch) {
-                    finalCategoryName = heuristicSuggestion
-                    console.log(`[RECEIPT HEURISTIC] Item "${description}": Drink mismatch "${categoryName}" → "${heuristicSuggestion}"`)
-                  }
+                if (isOther || isDrinkMismatch || strongOverride) {
+                  finalCategoryName = heuristicSuggestion.category
+                  heuristicApplied = true
+                  const reason = isOther
+                    ? "Other"
+                    : isDrinkMismatch
+                      ? "Drink mismatch"
+                      : "Strong heuristic"
+                  console.log(
+                    `[RECEIPT HEURISTIC] Item "${description}": ${reason} "${categoryName}" → "${heuristicSuggestion.category}"`
+                  )
                 }
               }
             }
+
+            const aiComparison = (normalizedCategoryName ?? "Other").toLowerCase()
+            const heuristicCategory = heuristicSuggestion?.category ?? null
+            const aiDisagreeReview =
+              heuristicSuggestion?.confidence === "strong" &&
+              Boolean(heuristicCategory) &&
+              aiComparison !== heuristicCategory!.toLowerCase()
+
+            let categoryConfidence = 0.6
+            let confidenceSource = "fallback"
+            if (usedPreference) {
+              categoryConfidence = 0.95
+              confidenceSource = "preference"
+            } else if (heuristicApplied && heuristicSuggestion) {
+              categoryConfidence = heuristicSuggestion.score
+              confidenceSource =
+                heuristicSuggestion.confidence === "strong" ? "heuristic_strong" : "heuristic_weak"
+            } else if (normalizedCategoryName) {
+              categoryConfidence = normalizedCategoryName.toLowerCase() === "other" ? 0.35 : 0.8
+              confidenceSource = "ai"
+            } else if (finalCategoryName.toLowerCase() === "other") {
+              categoryConfidence = 0.35
+              confidenceSource = "other"
+            }
+
+            categoryConfidence = Math.max(0, Math.min(categoryConfidence, 1))
+            const lowConfidenceReview = categoryConfidence < LOW_CONFIDENCE_THRESHOLD
+            const needsReview = aiDisagreeReview || lowConfidenceReview
+            const reviewReason = aiDisagreeReview
+              ? "ai_heuristic_disagree"
+              : lowConfidenceReview
+                ? "low_confidence"
+                : null
 
             return {
               id: `${stored.id}:${index}`,
@@ -896,12 +1009,25 @@ export const POST = async (req: NextRequest) => {
               pricePerUnit: normalizedPricePerUnit,
               totalPrice: normalizedTotalPrice,
               categoryName: finalCategoryName,
+              aiCategoryRaw: rawCategoryName || null,
+              aiCategoryResolved: normalizedCategoryName ?? null,
+              heuristicCategory: heuristicCategory,
+              needsReview,
+              reviewReason,
+              categoryConfidence,
+              confidenceSource,
             }
           })
           .filter((value): value is NonNullable<typeof value> => Boolean(value))
 
         const summedTotal = transactions.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0)
         const totalAmount = Math.max(parseNumber(extracted.total_amount), summedTotal)
+        const languageSource = languageOverride
+          ? "override"
+          : (receiptLanguage?.locale && receiptLanguage.locale !== "unknown" ? "detected" : "unknown")
+        const languageDetected = !languageOverride && receiptLanguage?.locale !== "unknown"
+          ? receiptLanguage?.locale ?? null
+          : null
 
         receipts.push({
           receiptId: stored.id,
@@ -914,6 +1040,9 @@ export const POST = async (req: NextRequest) => {
           totalAmount: Number(totalAmount.toFixed(2)),
           currency,
           transactions,
+          languageOverride: languageOverride ?? null,
+          languageDetected,
+          languageSource,
           warnings: parseWarnings.length > 0 ? parseWarnings : undefined,
           meta: parseMeta,
         })
@@ -921,6 +1050,10 @@ export const POST = async (req: NextRequest) => {
         rejected.push({ fileName: file.name, reason: String(error?.message || error) })
         continue
       }
+    }
+
+    if (feedbackEntries.length > 0) {
+      await logAiCategoryFeedbackBatch(feedbackEntries)
     }
 
     return NextResponse.json({ receipts, rejected }, { status: 201 })
