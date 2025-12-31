@@ -11,7 +11,7 @@
  * 5. User preference application (highest priority override)
  */
 
-import { TxRow, TransactionMetadata } from "@/lib/types/transactions";
+import { TxRow, TransactionMetadata, SimplifyResult } from "@/lib/types/transactions";
 import { sanitizeDescription } from "./sanitize-description";
 import { ruleSimplifyDescription } from "./rule-simplify";
 import { aiSimplifyBatch } from "./ai-simplify";
@@ -57,6 +57,7 @@ export async function processHybridPipelineV2(
 
     const enrichedRows: EnrichedTxRow[] = [];
     const needsAiSimplify: Array<{ index: number; row: TxRow; sanitized: string }> = [];
+    const ruleSimplified: Array<{ index: number; result: SimplifyResult }> = [];
 
     // Step 1 & 2: Sanitize + Rule Simplify (all transactions)
     console.log("[Hybrid Pipeline v2] Step 1+2: Sanitize + Rule Simplify");
@@ -97,6 +98,7 @@ export async function processHybridPipelineV2(
                     },
                 },
             });
+            ruleSimplified.push({ index: i, result: ruleResult });  // Track rule results
         } else {
             // No confident rule match → needs AI
             needsAiSimplify.push({ index: i, row, sanitized });
@@ -156,33 +158,77 @@ export async function processHybridPipelineV2(
         }
     }
 
-    // Step 4: AI Categorize (all transactions)
-    console.log("[Hybrid Pipeline v2] Step 4: AI Categorize");
+    // Step 4: Categorize (use rules first, AI for remaining)
+    console.log("[Hybrid Pipeline v2] Step 4: Categorize");
+
+    // Separate transactions with and without categories from rules
+    const withRuleCategories: typeof enrichedRows = [];
+    const needsAiCategory: typeof enrichedRows = [];
+
+    for (let i = 0; i < enrichedRows.length; i++) {
+        const row = enrichedRows[i];
+        const simplifyKey = `tx_${i}`;
+
+        // Check if rule provided a category
+        let ruleCategory: string | null = null;
+
+        // Check rule simplify results first
+        for (const item of ruleSimplified) {
+            if (item.index === i && item.result.category) {
+                ruleCategory = item.result.category;
+                break;
+            }
+        }
+
+        if (ruleCategory) {
+            // Use category from rules
+            withRuleCategories.push({
+                ...row,
+                category: ruleCategory,
+            });
+
+            // Add category to metadata
+            if (row._metadata) {
+                row._metadata.categorize = {
+                    source: "ai",
+                    confidence: 0.9,
+                };
+            }
+        } else {
+            // Needs AI categorization
+            needsAiCategory.push(row);
+        }
+    }
+
+    console.log(`[Hybrid Pipeline v2] ${withRuleCategories.length} categorized by rules, ${needsAiCategory.length} need AI`);
 
     try {
-        const categorizationInput = enrichedRows.map((row, i) => ({
-            id: `tx_${i}`,
-            simplified_description: row.simplifiedDescription || row._metadata?.sanitized_description || row.description,
-            sanitized_description: row._metadata?.sanitized_description || row.description,
-            amount: row.amount,
-        }));
+        // Only call AI for transactions that need it
+        if (needsAiCategory.length > 0) {
+            const categorizationInput = needsAiCategory.map((row, localIdx) => ({
+                id: `tx_${localIdx}`,
+                simplified_description: row.simplifiedDescription || row._metadata?.sanitized_description || row.description,
+                sanitized_description: row._metadata?.sanitized_description || row.description,
+                amount: row.amount,
+            }));
 
-        const categories = customCategories && customCategories.length > 0
-            ? customCategories
-            : DEFAULT_CATEGORIES;
+            const categories = customCategories && customCategories.length > 0
+                ? customCategories
+                : DEFAULT_CATEGORIES;
 
-        const categoryResults = await aiCategorizeBatch(categorizationInput, categories);
+            const categoryResults = await aiCategorizeBatch(categorizationInput, categories);
 
-        // Apply categorization results
-        for (let i = 0; i < enrichedRows.length; i++) {
-            const categoryResult = categoryResults.get(`tx_${i}`);
-            if (categoryResult) {
-                enrichedRows[i].category = categoryResult.category;
-                if (enrichedRows[i]._metadata) {
-                    enrichedRows[i]._metadata!.categorize = {
-                        source: "ai",
-                        confidence: categoryResult.confidence,
-                    };
+            // Apply categorization results
+            for (let i = 0; i < enrichedRows.length; i++) {
+                const categoryResult = categoryResults.get(`tx_${i}`);
+                if (categoryResult) {
+                    enrichedRows[i].category = categoryResult.category;
+                    if (enrichedRows[i]._metadata) {
+                        enrichedRows[i]._metadata!.categorize = {
+                            source: "ai",
+                            confidence: categoryResult.confidence,
+                        };
+                    }
                 }
             }
         }
