@@ -208,10 +208,6 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     const aiContext = options?.aiContext?.trim()
     const fileType = file.type || file.name.split(".").pop()?.toLowerCase() || "unknown"
 
-    setDroppedFile(file)
-    setIsUploadDialogOpen(true)
-    // Don't auto-parse - let user click Continue button
-
     // Track file import started
     safeCapture("file_import_started", {
       file_name: file.name,
@@ -220,6 +216,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
       parse_mode: parseMode,
     })
 
+    let parseSucceeded = false
     try {
       setIsParsing(true)
       setParsingProgress(0)
@@ -368,6 +365,9 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
           duration: 8000,
         })
       }
+
+      // Mark as successful
+      parseSucceeded = true
     } catch (error) {
       console.error("Parsing error:", error)
       const errorMessage = error instanceof Error
@@ -401,7 +401,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
       setIsParsing(false)
 
       // After successful parse, close upload dialog and open review dialog
-      if (!parseError && parsedCsv) {
+      if (parseSucceeded) {
         setIsUploadDialogOpen(false)
         setIsReviewDialogOpen(true)
       }
@@ -417,8 +417,12 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
 
     const files = Array.from(e.dataTransfer.files)
     if (files && files.length > 0) {
-      setDroppedFile(files[0])
+      const file = files[0]
+      setDroppedFile(file)
       setIsUploadDialogOpen(true)
+      // Auto-fill project name with filename (without extension)
+      const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, "")
+      setProjectName(fileNameWithoutExt)
       // Don't parse yet - user will click "Parse file" button
     }
   }, [])
@@ -604,7 +608,11 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
 
   const handleFilesChange = useCallback((files: File[]) => {
     if (files.length > 0) {
-      setDroppedFile(files[0])
+      const file = files[0]
+      setDroppedFile(file)
+      // Auto-fill project name with filename (without extension)
+      const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, "")
+      setProjectName(fileNameWithoutExt)
     }
   }, [])
 
