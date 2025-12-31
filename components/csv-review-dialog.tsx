@@ -188,6 +188,26 @@ export function CsvReviewDialog({
                                 </Button>
                             </div>
                         </div>
+
+                        {/* Parse Quality Insights */}
+                        <div className="rounded-xl border border-border/60 bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
+                            <div className="flex flex-wrap items-center gap-2 text-sm">
+                                <span className="font-medium text-foreground">Parse quality</span>
+                                <Badge variant="outline" className={qualityBadgeClass}>
+                                    {parseQualityLabel}
+                                </Badge>
+                                {fileName && (
+                                    <Badge variant="outline" className="border-sky-500/40 bg-sky-500/10 text-sky-700">
+                                        {fileName}
+                                    </Badge>
+                                )}
+                            </div>
+                            {parseQualityReasons.length > 0 && (
+                                <div className="mt-1">
+                                    Signals: {parseQualityReasons.join(" | ")}
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     <div className="flex-1 overflow-y-auto overflow-x-hidden pt-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40">
