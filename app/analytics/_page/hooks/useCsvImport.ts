@@ -37,6 +37,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
   const [isAiReparsing, setIsAiReparsing] = useState(false)
   const [selectedParsedRowIds, setSelectedParsedRowIds] = useState<Set<number>>(new Set())
   const [transactionCount, setTransactionCount] = useState<number>(0)
+  const [projectName, setProjectName] = useState<string>("")
   const dragCounterRef = useRef(0)
   const csvRegenerationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const latestParsedRowsRef = useRef<ParsedRow[]>([])
@@ -209,16 +210,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
 
     setDroppedFile(file)
     setIsUploadDialogOpen(true)
-    setIsParsing(true)
-    setParsingProgress(0)
-    setParseError(null)
-    setParsedCsv(null)
-    setFileId(null)
-    setTransactionCount(0)
-    setSelectedParsedRowIds(new Set())
-    resetPreferenceUpdates()
-
-    setParsingProgress(5)
+    // Don't auto-parse - let user click Continue button
 
     // Track file import started
     safeCapture("file_import_started", {
@@ -229,6 +221,17 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     })
 
     try {
+      setIsParsing(true)
+      setParsingProgress(0)
+      setParseError(null)
+      setParsedCsv(null)
+      setFileId(null)
+      setTransactionCount(0)
+      setSelectedParsedRowIds(new Set())
+      resetPreferenceUpdates()
+
+      setParsingProgress(5)
+
       const formData = new FormData()
       formData.append("file", file)
       formData.append("bankName", "Unknown")
@@ -398,8 +401,10 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
       setIsParsing(false)
 
       // After successful parse, close upload dialog and open review dialog
-      setIsUploadDialogOpen(false)
-      setIsReviewDialogOpen(true)
+      if (!parseError && parsedCsv) {
+        setIsUploadDialogOpen(false)
+        setIsReviewDialogOpen(true)
+      }
     }
   }, [resetPreferenceUpdates])
 
@@ -412,9 +417,11 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
 
     const files = Array.from(e.dataTransfer.files)
     if (files && files.length > 0) {
-      await parseFile(files[0], { parseMode: "auto" })
+      setDroppedFile(files[0])
+      setIsUploadDialogOpen(true)
+      // Don't parse yet - user will click "Parse file" button
     }
-  }, [parseFile])
+  }, [])
 
   const handleAiReparse = useCallback(async () => {
     if (!droppedFile) {
@@ -645,11 +652,13 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     parsedCsv,
     parsedRows,
     parsingProgress,
+    projectName,
     selectedParsedRowIds,
     setAiReparseContext,
     setIsAiReparseOpen,
     setIsReviewDialogOpen,
     setIsUploadDialogOpen,
+    setProjectName,
     transactionCount,
   }
 }
