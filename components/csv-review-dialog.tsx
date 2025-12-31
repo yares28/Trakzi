@@ -79,6 +79,39 @@ export function CsvReviewDialog({
     const transactionCount = parsedRows.length
     const selectedCount = selectedParsedRowIds.size
 
+    // Calculate parse quality based on data completeness
+    const hasCategories = parsedRows.some(row => row.category && row.category !== "Other")
+    const hasDescriptions = parsedRows.every(row => row.description && row.description.trim().length > 0)
+    const hasDates = parsedRows.every(row => row.date && row.date.trim().length > 0)
+    const hasAmounts = parsedRows.every(row => {
+        const amt = typeof row.amount === "number" ? row.amount : parseFloat(String(row.amount))
+        return !isNaN(amt)
+    })
+
+    let parseQuality: "high" | "medium" | "low" = "low"
+    let parseQualityReasons: string[] = []
+
+    if (hasDates && hasAmounts && hasDescriptions && hasCategories) {
+        parseQuality = "high"
+        parseQualityReasons.push("Complete data", "Auto-categorized")
+    } else if (hasDates && hasAmounts && hasDescriptions) {
+        parseQuality = "medium"
+        parseQualityReasons.push("Missing categories")
+    } else {
+        parseQuality = "low"
+        if (!hasDates) parseQualityReasons.push("Missing dates")
+        if (!hasAmounts) parseQualityReasons.push("Missing amounts")
+        if (!hasDescriptions) parseQualityReasons.push("Missing descriptions")
+    }
+
+    const parseQualityLabel = `${parseQuality[0].toUpperCase()}${parseQuality.slice(1)}`
+    const qualityBadgeClass =
+        parseQuality === "high"
+            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700"
+            : parseQuality === "medium"
+                ? "border-amber-500/40 bg-amber-500/10 text-amber-700"
+                : "border-red-500/40 bg-red-500/10 text-red-700"
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="border bg-background sm:max-w-[95vw] md:max-w-[1400px] max-h-[90vh] overflow-hidden">
