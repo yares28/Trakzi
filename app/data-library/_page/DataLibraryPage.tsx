@@ -155,12 +155,10 @@ export default function DataLibraryPage() {
     handleDrop,
     handleAiReparse,
     handleConfirm,
-    handleCancel,
+    handleCancelReview,
+    handleCancelUpload,
   } = useCsvImport({
-    fetchLibraryData,
-    onTransactionLimit: handleTransactionLimit,
-    schedulePreferenceUpdate,
-    resetPreferenceQueue,
+    refreshAnalyticsData: fetchLibraryData,
   })
 
   const {
@@ -542,25 +540,14 @@ export default function DataLibraryPage() {
         open={isUploadDialogOpen}
         onOpenChange={setIsUploadDialogOpen}
         droppedFile={droppedFile}
-        transactionCount={transactionCount}
-        parsedCsv={parsedCsv}
-        parsedRows={parsedRows}
-        selectedParsedRowIds={selectedParsedRowIds}
         isParsing={isParsing}
         parsingProgress={parsingProgress}
         parseError={parseError}
-        isImporting={isImporting}
-        importProgress={importProgress}
-        isAiReparsing={isAiReparsing}
-        onOpenAiReparse={() => setIsAiReparseOpen(true)}
-        onDeleteSelectedRows={handleDeleteSelectedRows}
-        onSelectAll={handleSelectAllParsedRows}
-        onToggleRow={handleToggleParsedRow}
-        onCategoryChange={handleCategoryChange}
-        onDeleteRow={handleDeleteRow}
-        formatCurrency={formatCurrency}
-        onCancel={handleCancel}
-        onConfirm={handleConfirm}
+        projectName={""}
+        onProjectNameChange={() => { }}
+        onFilesChange={() => { }}
+        onCancel={handleCancelUpload}
+        onContinue={() => { }}
       />
 
       <LimitDialogs
