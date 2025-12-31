@@ -35,8 +35,7 @@ export function DateFilter({ value, onChange, availableYears }: DateFilterProps)
   const effectiveOnChange = onChange || setGlobalFilter
 
   const getFilterLabel = (filter: DateFilterType | null): string => {
-
-    if (!filter) return "All Time"
+    if (!filter) return "Last 6 Months" // Default display
     switch (filter) {
       case "last7days":
         return "Last 7 Days"
@@ -64,11 +63,6 @@ export function DateFilter({ value, onChange, availableYears }: DateFilterProps)
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuLabel>Time Period</DropdownMenuLabel>
-        <DropdownMenuItem onClick={() => effectiveOnChange(null)}>
-          <span className="flex-1">All Time</span>
-          {effectiveValue === null && <IconCheck className="size-4" />}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => effectiveOnChange("last7days")}>
           <span className="flex-1">Last 7 Days</span>
           {effectiveValue === "last7days" && <IconCheck className="size-4" />}

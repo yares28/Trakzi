@@ -63,7 +63,6 @@ const currencies = [
 ]
 
 const timePeriods = [
-  { value: "all", label: "All Time" },
   { value: "last7days", label: "Last 7 Days" },
   { value: "last30days", label: "Last 30 Days" },
   { value: "last3months", label: "Last 3 Months" },
@@ -79,7 +78,7 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
   const { colorScheme, setColorScheme } = useColorScheme()
   const [mounted, setMounted] = React.useState(false)
   const [currency, setCurrency] = React.useState<string>("USD")
-  const [defaultTimePeriod, setDefaultTimePeriod] = React.useState<string>("all")
+  const [defaultTimePeriod, setDefaultTimePeriod] = React.useState<string>("last6months")
   const [open, setOpen] = React.useState(false)
   const isMobile = useIsMobile()
 
@@ -92,8 +91,13 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
     }
     // Load default time period from localStorage
     const savedTimePeriod = localStorage.getItem(DEFAULT_TIME_PERIOD_KEY)
-    if (savedTimePeriod) {
+    if (savedTimePeriod && savedTimePeriod !== "all") {
+      // Skip "all" value for migration purposes
       setDefaultTimePeriod(savedTimePeriod)
+    } else {
+      // Default to last 6 months for new users or users who had "all" selected
+      setDefaultTimePeriod("last6months")
+      localStorage.setItem(DEFAULT_TIME_PERIOD_KEY, "last6months")
     }
   }, [])
 
@@ -110,15 +114,10 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
     setDefaultTimePeriod(value)
     localStorage.setItem(DEFAULT_TIME_PERIOD_KEY, value)
 
-    // Also apply this as the current filter immediately
-    const filterValue = value === "all" ? null : value
-    if (filterValue) {
-      localStorage.setItem("dateFilter", filterValue)
-    } else {
-      localStorage.removeItem("dateFilter")
-    }
+    // Apply this as the current filter immediately
+    localStorage.setItem("dateFilter", value)
     // Dispatch event to notify all pages of the filter change
-    window.dispatchEvent(new CustomEvent("dateFilterChanged", { detail: filterValue }))
+    window.dispatchEvent(new CustomEvent("dateFilterChanged", { detail: value }))
   }
 
   const toggleTheme = () => {
