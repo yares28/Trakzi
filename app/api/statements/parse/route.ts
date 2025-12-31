@@ -112,6 +112,37 @@ function normalizeColumnIndex(value: unknown): number | null {
     return null;
 }
 
+function parseCustomCategoriesHeader(value: string | null): { categories?: string[]; warning?: string } {
+    if (!value) return {};
+    try {
+        const parsed = JSON.parse(value);
+        if (!Array.isArray(parsed)) {
+            return { warning: "Custom categories header was not an array." };
+        }
+        const names: string[] = [];
+        for (const entry of parsed) {
+            if (typeof entry === "string") {
+                names.push(entry);
+                continue;
+            }
+            if (entry && typeof entry === "object") {
+                const name = (entry as { name?: unknown }).name;
+                if (typeof name === "string") {
+                    names.push(name);
+                }
+            }
+        }
+        const cleaned = names
+            .map((name) => name.trim())
+            .filter((name) => name.length > 0);
+        return cleaned.length > 0
+            ? { categories: cleaned }
+            : { warning: "Custom categories header had no valid names." };
+    } catch {
+        return { warning: "Custom categories header was not valid JSON." };
+    }
+}
+
 function normalizeTypeValue(value: string): string {
     return value
         .normalize("NFKD")
@@ -1056,7 +1087,11 @@ export const POST = async (req: NextRequest) => {
         try {
             // Get custom categories from request if provided (from frontend localStorage)
             const customCategoriesHeader = req.headers.get("X-Custom-Categories");
-            const customCategories = customCategoriesHeader ? JSON.parse(customCategoriesHeader) : undefined;
+            const { categories: customCategories, warning: customCategoriesWarning } =
+                parseCustomCategoriesHeader(customCategoriesHeader);
+            if (customCategoriesWarning) {
+                console.warn("[PARSE API] Ignoring custom categories header:", customCategoriesWarning);
+            }
             const categorySet = new Set(
                 Array.isArray(customCategories)
                     ? customCategories.map((category) => String(category).toLowerCase())

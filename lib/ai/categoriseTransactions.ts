@@ -1069,8 +1069,15 @@ export async function categoriseTransactions(
 ): Promise<TxRow[]> {
     if (rows.length === 0) return rows;
 
+    const sanitizedCustomCategories = Array.isArray(customCategories)
+        ? customCategories
+            .filter((category): category is string => typeof category === "string")
+            .map((category) => category.trim())
+            .filter((category) => category.length > 0)
+        : [];
+
     // Use custom categories if provided, otherwise use defaults
-    const CATEGORIES = customCategories && customCategories.length > 0 ? customCategories : DEFAULT_CATEGORIES;
+    const CATEGORIES = sanitizedCustomCategories.length > 0 ? sanitizedCustomCategories : DEFAULT_CATEGORIES;
     const resolveCategory = createCategoryResolver(CATEGORIES);
     const preferencesByKey = options?.preferencesByKey;
     const preferenceKeywordRules = buildPreferenceKeywordRules(preferencesByKey, resolveCategory);
