@@ -12,13 +12,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-export type DateFilterType =
-  | "last7days"
-  | "last30days"
-  | "last3months"
-  | "last6months"
-  | "lastyear"
-  | string // For specific years like "2024", "2023", etc.
+import type { DateFilterType } from "@/lib/date-filter"
+
+export type { DateFilterType } from "@/lib/date-filter"
 
 import { useDateFilter } from "@/components/date-filter-provider"
 

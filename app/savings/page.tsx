@@ -14,6 +14,11 @@ import {
 import { toast } from "sonner"
 import { normalizeTransactions } from "@/lib/utils"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
+import {
+  FALLBACK_DATE_FILTER,
+  isValidDateFilterValue,
+  normalizeDateFilterValue,
+} from "@/lib/date-filter"
 
 // Persistence keys
 const SAVINGS_ORDER_STORAGE_KEY = "savings-chart-order"
@@ -140,22 +145,24 @@ export default function Page() {
 
   // Fetch transactions on mount and when filter changes
   useEffect(() => {
+    if (!dateFilter) return
     fetchTransactions()
-  }, [fetchTransactions])
+  }, [fetchTransactions, dateFilter])
 
   // Listen for date filter changes from SiteHeader
   useEffect(() => {
     const handleFilterChange = (event: CustomEvent) => {
-      setDateFilter(event.detail)
+      setDateFilter(normalizeDateFilterValue(event.detail))
     }
 
     window.addEventListener("dateFilterChanged", handleFilterChange as EventListener)
 
     // Load initial filter from localStorage
     const savedFilter = localStorage.getItem("dateFilter")
-    if (savedFilter) {
-      setDateFilter(savedFilter)
-    }
+    const resolvedFilter = isValidDateFilterValue(savedFilter)
+      ? savedFilter
+      : FALLBACK_DATE_FILTER
+    setDateFilter(resolvedFilter)
 
     return () => {
       window.removeEventListener("dateFilterChanged", handleFilterChange as EventListener)
@@ -424,5 +431,3 @@ export default function Page() {
     </SidebarProvider>
   )
 }
-
-
