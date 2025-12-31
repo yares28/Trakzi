@@ -119,27 +119,43 @@ export default function DataLibraryPage() {
 
   const handleCategoryLimit = (data: CategoryLimitExceededData) => {
     setCategoryLimitData(data)
+    setIsCategoryLimitDialogOpen(true)
+  }
+
+  const { schedulePreferenceUpdate, resetPreferenceQueue } =
+    useCategoryPreferences()
+
+  const {
+    isDragging,
+    droppedFile,
+    isUploadDialogOpen,
+    setIsUploadDialogOpen,
+    isParsing,
+    isImporting,
+    importProgress,
+    parsingProgress,
+    parsedCsv,
     parsedRows,
-      parseError,
-      isAiReparseOpen,
-      setIsAiReparseOpen,
-      aiReparseContext,
-      setAiReparseContext,
-      isAiReparsing,
-      selectedParsedRowIds,
-      transactionCount,
-      handleCategoryChange,
-      handleToggleParsedRow,
-      handleSelectAllParsedRows,
-      handleDeleteRow,
-      handleDeleteSelectedRows,
-      handleDragEnter,
-      handleDragLeave,
-      handleDragOver,
-      handleDrop,
-      handleAiReparse,
-      handleConfirm,
-      handleCancel,
+    parseError,
+    isAiReparseOpen,
+    setIsAiReparseOpen,
+    aiReparseContext,
+    setAiReparseContext,
+    isAiReparsing,
+    selectedParsedRowIds,
+    transactionCount,
+    handleCategoryChange,
+    handleToggleParsedRow,
+    handleSelectAllParsedRows,
+    handleDeleteRow,
+    handleDeleteSelectedRows,
+    handleDragEnter,
+    handleDragLeave,
+    handleDragOver,
+    handleDrop,
+    handleAiReparse,
+    handleConfirm,
+    handleCancel,
   } = useCsvImport({
     fetchLibraryData,
     onTransactionLimit: handleTransactionLimit,
