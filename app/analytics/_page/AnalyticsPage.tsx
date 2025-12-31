@@ -11,6 +11,7 @@ import { AnalyticsLayout } from "./components/AnalyticsLayout"
 import { AiReparseDialog } from "./components/AiReparseDialog"
 import { ChartsGrid } from "./components/ChartsGrid"
 import { CsvUploadDialog } from "./components/CsvUploadDialog"
+import { AnalyticsCsvReviewDialog } from "./components/AnalyticsCsvReviewDialog"
 import { StatsCards } from "./components/StatsCards"
 import { useAnalyticsChartData } from "./hooks/useAnalyticsChartData"
 import { useAnalyticsData } from "./hooks/useAnalyticsData"
@@ -112,27 +113,32 @@ export default function AnalyticsPage() {
       />
 
       <CsvUploadDialog
-        open={csvImport.isDialogOpen}
-        onOpenChange={csvImport.setIsDialogOpen}
+        open={csvImport.isUploadDialogOpen}
+        onOpenChange={csvImport.setIsUploadDialogOpen}
         droppedFile={csvImport.droppedFile}
-        transactionCount={csvImport.transactionCount}
-        parsedCsv={csvImport.parsedCsv}
-        parsedRows={csvImport.parsedRows}
-        selectedParsedRowIds={csvImport.selectedParsedRowIds}
         isParsing={csvImport.isParsing}
         parsingProgress={csvImport.parsingProgress}
         parseError={csvImport.parseError}
+        onFilesChange={(files) => csvImport.handleFilesChange(files)}
+        onCancel={csvImport.handleCancelUpload}
+        onContinue={csvImport.handleContinueUpload}
+      />
+
+      <AnalyticsCsvReviewDialog
+        open={csvImport.isReviewDialogOpen}
+        onOpenChange={csvImport.setIsReviewDialogOpen}
+        fileName={csvImport.droppedFile?.name || null}
+        parsedRows={csvImport.parsedRows}
+        selectedParsedRowIds={csvImport.selectedParsedRowIds}
         isImporting={csvImport.isImporting}
         importProgress={csvImport.importProgress}
-        isAiReparsing={csvImport.isAiReparsing}
-        onOpenAiReparse={() => csvImport.setIsAiReparseOpen(true)}
-        onDeleteSelectedRows={csvImport.handleDeleteSelectedRows}
         onSelectAll={csvImport.handleSelectAllParsedRows}
         onToggleRow={csvImport.handleToggleParsedRow}
         onCategoryChange={csvImport.handleCategoryChange}
         onDeleteRow={csvImport.handleDeleteRow}
-        onCancel={csvImport.handleCancel}
-        onConfirm={csvImport.handleConfirm}
+        onDeleteSelectedRows={csvImport.handleDeleteSelectedRows}
+        onCommitImport={csvImport.handleConfirm}
+        onCancel={csvImport.handleCancelReview}
       />
     </AnalyticsLayout>
   )
