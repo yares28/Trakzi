@@ -15,6 +15,70 @@ type SpendingTier = "Essentials" | "Mandatory" | "Wants"
 
 const CATEGORY_TIER_STORAGE_KEY = "needsWantsCategoryTier"
 
+let cachedCategoryNames: string[] | null = null
+let cachedCategoryPromise: Promise<string[]> | null = null
+let hasShownCategoryLoadErrorToast = false
+
+function extractCategoryNames(payload: unknown): string[] {
+  if (!Array.isArray(payload)) return []
+  const names: string[] = []
+  for (const item of payload) {
+    if (typeof item === "string") {
+      names.push(item)
+      continue
+    }
+    if (item && typeof item === "object") {
+      const name = (item as { name?: unknown }).name
+      if (typeof name === "string") {
+        names.push(name)
+      }
+    }
+  }
+  return names
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0)
+}
+
+async function loadCategoryNamesOnce(): Promise<string[]> {
+  if (cachedCategoryNames) return cachedCategoryNames
+  if (!cachedCategoryPromise) {
+    cachedCategoryPromise = (async () => {
+      const response = await fetch("/api/categories")
+      if (!response.ok) {
+        throw new Error("Failed to load categories")
+      }
+      const payload = await response.json()
+      const names = extractCategoryNames(payload)
+      cachedCategoryNames = names.length > 0 ? names : DEFAULT_CATEGORIES
+      return cachedCategoryNames
+    })()
+  }
+
+  try {
+    return await cachedCategoryPromise
+  } catch (error) {
+    cachedCategoryPromise = null
+    throw error
+  }
+}
+
+function updateCategoryCache(next: string[]) {
+  cachedCategoryNames = next
+}
+
+function addCategoryToCache(name: string) {
+  if (!cachedCategoryNames) {
+    cachedCategoryNames = [...DEFAULT_CATEGORIES, name]
+    return
+  }
+  const exists = cachedCategoryNames.some(
+    (existing) => existing.toLowerCase() === name.toLowerCase()
+  )
+  if (!exists) {
+    cachedCategoryNames = [...cachedCategoryNames, name]
+  }
+}
+
 function saveCategoryTier(categoryName: string, tier: SpendingTier) {
   if (typeof window === "undefined") return
   try {
@@ -110,25 +174,20 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
   const loadCategories = useCallback(async () => {
     try {
       setIsLoading(true)
-      const response = await fetch("/api/categories")
-      if (!response.ok) {
-        throw new Error("Failed to load categories")
-      }
-      const payload = await response.json()
-      const categoriesArray: Array<{ name?: string }> = Array.isArray(payload) ? payload : []
-      const names = categoriesArray
-        .map((cat) => cat?.name)
-        .filter((name): name is string => typeof name === "string" && name.trim().length > 0)
-
+      const names = await loadCategoryNamesOnce()
       const alphabetical = names.length > 0 ? [...names].sort(collator.compare) : DEFAULT_CATEGORIES
       setCategories(alphabetical)
+      updateCategoryCache(alphabetical)
       updateGroups(alphabetical)
     } catch (error) {
       console.error("[CategorySelect] Failed to load categories:", error)
       setCategories(DEFAULT_CATEGORIES)
       setGroupedOptions(DEFAULT_CATEGORY_GROUPS)
       updateGroups(DEFAULT_CATEGORIES)
-      toast.error("Unable to load categories. Using defaults.")
+      if (!hasShownCategoryLoadErrorToast) {
+        toast.error("Unable to load categories. Using defaults.")
+        hasShownCategoryLoadErrorToast = true
+      }
     } finally {
       setIsLoading(false)
     }
@@ -218,6 +277,7 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
         }
         const next = [...prev, createdName].sort(collator.compare)
         updateGroups(next)
+        updateCategoryCache(next)
         return next
       })
 
@@ -226,6 +286,7 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
       setIsCreateDialogOpen(false)
       onValueChange(createdName)
       onCategoryAdded?.(createdName)
+      addCategoryToCache(createdName)
       // Persist the chosen tier locally for Needs vs Wants classification
       saveCategoryTier(createdName, newCategoryTier)
       toast.success(`Category "${createdName}" added`)
