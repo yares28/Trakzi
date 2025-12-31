@@ -23,6 +23,7 @@ export type SimplifyResult = {
     confidence: number;              // 0.0 - 1.0
     matchedRule?: string;            // e.g., "merchant:mercadona", "transfer:bizum", "fee"
     typeHint?: "merchant" | "transfer" | "fee" | "atm" | "salary" | "refund" | "other";
+    category?: string;               // NEW: Category from rule matching (if available)
 };
 
 /**

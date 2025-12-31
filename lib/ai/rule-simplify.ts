@@ -74,6 +74,7 @@ export function ruleSimplifyDescription(sanitized: string): SimplifyResult {
                 confidence: 0.9,
                 matchedRule: `merchant:${pattern.merchant.toLowerCase()}`,
                 typeHint: "merchant",
+                category: pattern.category,
             };
         }
     }
@@ -86,6 +87,7 @@ export function ruleSimplifyDescription(sanitized: string): SimplifyResult {
                 confidence: 0.85,
                 matchedRule: `operation:${operation.category.toLowerCase()}`,
                 typeHint: "other",
+                category: operation.category,
             };
         }
     }
