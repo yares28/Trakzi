@@ -19,6 +19,7 @@ export const FR_GROCERIES: MerchantPattern[] = [
     { pattern: /\bCORA\b/i, merchant: "Cora", category: "Groceries" },
     { pattern: /\bU\s*EXPRESS\b/i, merchant: "U Express", category: "Groceries" },
     { pattern: /\bPIKARD\b/i, merchant: "Picard", category: "Groceries" },
+    { pattern: /\b(BOULANGERIE|PATISSERIE)\b/i, merchant: "Bakery", category: "Groceries" },
 ];
 
 /**
@@ -43,6 +44,8 @@ export const FR_TRANSPORT: MerchantPattern[] = [
     { pattern: /\bRATP\b/i, merchant: "RATP", category: "Public Transport" },
     { pattern: /\bOUI\.?SNCF\b/i, merchant: "Oui.sncf", category: "Public Transport" },
     { pattern: /\b(METRO|RER|BUS)\b/i, merchant: "Public Transport", category: "Public Transport" },
+    { pattern: /\bUBER\b/i, merchant: "Uber", category: "Taxi/Rideshare" },
+    { pattern: /\bBOLT\b/i, merchant: "Bolt", category: "Taxi/Rideshare" },
     { pattern: /\b(TOTAL|ESSO|BP|SHELL)\b/i, merchant: "Gas Station", category: "Gas" },
     { pattern: /\bPARKING\b/i, merchant: "Parking", category: "Parking" },
     { pattern: /\bPEAGE\b/i, merchant: "Toll", category: "Gas" },
@@ -78,6 +81,19 @@ export const FR_SHOPPING: MerchantPattern[] = [
     { pattern: /\bGALERIES?\s*LAFAYETTE\b/i, merchant: "Galeries Lafayette", category: "Shopping" },
     { pattern: /\bPRINCIPS\b/i, merchant: "Printems", category: "Shopping" },
     { pattern: /\bSEPHORA\b/i, merchant: "Sephora", category: "Shopping" },
+    { pattern: /\bAMAZON\b/i, merchant: "Amazon", category: "Shopping" },
+    { pattern: /\bAPPLE\b/i, merchant: "Apple", category: "Subscriptions" },
+];
+
+/**
+ * Specific common French markers
+ */
+export const FR_SPECIFIC: MerchantPattern[] = [
+    { pattern: /\bAPPLE\s*PAY\b/i, merchant: "Apple Pay", category: "Other" },
+    { pattern: /\bGOOGLE\s*PAY\b/i, merchant: "Google Pay", category: "Other" },
+    { pattern: /\bFRAIS\s+DE\s+LIVRAISON\s+DE\s+CARTE\b/i, merchant: "Bank Fee", category: "Bank Fees" },
+    { pattern: /\bFRAIS\s+DE\s+LIVRAISON\b/i, merchant: "Delivery Fee", category: "Bank Fees" },
+    { pattern: /\bAJOUT\s+DE\s+FONDS\b/i, merchant: "Top-up", category: "Transfers" },
 ];
 
 /**
@@ -86,14 +102,16 @@ export const FR_SHOPPING: MerchantPattern[] = [
 export const FR_OPERATIONS: OperationPattern[] = [
     { pattern: /\b(VIREMENT|VIR|TRANSF)\b/i, label: "Transfer", category: "Transfers" },
     { pattern: /\b(REMBOURSEMENT|REMBOURS)\b/i, label: "Refund", category: "Other" },
-    { pattern: /\b(FRAIS|COMMISSION)\b/i, label: "Bank Fee", category: "Bank Fees" },
+    { pattern: /\b(FRAIS|COMMISSION|AGIOS)\b/i, label: "Bank Fee", category: "Bank Fees" },
     { pattern: /\b(PRELEVEMENT|PRLV)\b/i, label: "Direct Debit", category: "Other" },
     { pattern: /\b(SALAIRE|PAIE|VIREMENT\s*SALAIRE)\b/i, label: "Salary", category: "Income" },
     { pattern: /\b(RETRAITE|PENSION)\b/i, label: "Pension", category: "Income" },
     { pattern: /\b(CARTE|CB|PAIEMENT)\b/i, label: "Card Payment", category: "Other" },
     { pattern: /\b(RETRAIT|DAB|GAB)\b/i, label: "ATM Withdrawal", category: "Bank Fees" },
     { pattern: /\b(ACHAT|PAIEMENT)\b/i, label: "Purchase", category: "Other" },
-    { pattern: /\bRECHARGE\b/i, label: "Top-up", category: "Other" },
+    { pattern: /\b(RECHARGE|TOP-UP|AJOUT)\b/i, label: "Top-up", category: "Transfers" },
+    { pattern: /\b(TPS|TVA|IMPOT)\b/i, label: "Tax", category: "Other" },
+    { pattern: /\b(COTISATION|ASSURANCE)\b/i, label: "Insurance/Fee", category: "Bank Fees" },
 ];
 
 /**
@@ -117,5 +135,6 @@ export const FR_ALL_PATTERNS: MerchantPattern[] = [
     ...FR_TRANSPORT,
     ...FR_RESTAURANTS,
     ...FR_SHOPPING,
+    ...FR_SPECIFIC,
     ...FR_TRANSFER_PATTERNS,
 ];

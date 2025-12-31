@@ -15,8 +15,8 @@ const LANGUAGE_SIGNATURES: LanguageKeywords[] = [
         language: "es",
         keywords: [
             /\b(COMPRA|PAGO|TRANSFERENCIA|BIZUM|RECIBO|CAJERO|CARGO)\b/i,
-            /\b(RETIRADA|DOMICILIACION|NOMINA|DEVOLUCION|MERCADONA|CARREFOUR)\b/i,
-            /\b(VIREMENT|TRANSF|PRELEVEMENT|RETRAIT)\b/i, // Also works for French
+            /\b(RETIRADA|DOMICILIACION|NOMINA|DEVOLUCION|MERCADONA|CARREFOUR|EROSKI|DIA)\b/i,
+            /\b(EFECTIVO|TARJETA|CUENTA|RECIBO)\b/i,
         ],
         weight: 1
     },
@@ -25,8 +25,10 @@ const LANGUAGE_SIGNATURES: LanguageKeywords[] = [
         language: "fr",
         keywords: [
             /\b(VIREMENT|RECHARGE|FRAIS|RETRAIT|PRELEVEMENT|ACHAT)\b/i,
-            /\b(SALAIRE|PAIEMENT|REMBOURSEMENT|CARTE|CB|DAB|GAB)\b/i,
-            /\b(AUCHAN|LECLERC|INTERMARCHE|SNCF|RATP|EDF)\b/i,
+            /\b(SALAIRE|PAIEMENT|REMBOURSEMENT|CARTE|CB|DAB|GAB|TPS)\b/i,
+            /\b(AUCHAN|LECLERC|INTERMARCHE|SNCF|RATP|EDF|MONOPRIX|FRANCPRIX|QUICK)\b/i,
+            /\b(VERSEMENT|AVOIR|COMMISSION|COTISATION|AGIOS)\b/i,
+            /\b(CHEQUE|TELEREGLEMENT|PRLV|VIR|AJOUT\s+DE\s+FONDS)\b/i,
         ],
         weight: 1
     },
@@ -36,7 +38,8 @@ const LANGUAGE_SIGNATURES: LanguageKeywords[] = [
         keywords: [
             /\b(TRANSFER|PAYMENT|WITHDRAWAL|PURCHASE|FEE|CHARGE)\b/i,
             /\b(DIRECT\s*DEBIT|STANDING\s*ORDER|SALARY|REFUND|ATM)\b/i,
-            /\b(TESCO|SAINSBURY|ASDA|MORRISONS|WAITROSE|TFL)\b/i,
+            /\b(TESCO|SAINSBURY|ASDA|MORRISONS|WAITROSE|TFL|AMAZON|COSTCO)\b/i,
+            /\b(STMT|INTEREST|CASHBACK|WIRE|ZELLE|VENMO)\b/i,
         ],
         weight: 1
     },
@@ -60,10 +63,11 @@ export function detectLanguage(descriptions: string[]): Language {
         unknown: 0,
     };
 
-    // Combine descriptions into one text for efficiency
-    const combinedText = descriptions.slice(0, 50).join(" ").toUpperCase();
+    // Combine descriptions into one text for efficiency - use larger sample if possible
+    const sampleSize = Math.min(descriptions.length, 100);
+    const combinedText = descriptions.slice(0, sampleSize).join(" ").toUpperCase();
 
-    // Score each language
+    console.log(`[Language Detection] Analyzing sample of ${sampleSize} transactions: "${combinedText.substring(0, 150)}..."`);
     for (const signature of LANGUAGE_SIGNATURES) {
         for (const keyword of signature.keywords) {
             const matches = combinedText.match(new RegExp(keyword.source, "gi"));
@@ -79,14 +83,14 @@ export function detectLanguage(descriptions: string[]): Language {
 
     const [topLanguage, topScore] = entries[0];
 
-    // Require at least 5 matches to be confident
-    if (topScore < 5) {
-        console.log(`[Language Detection] Low confidence (${topScore} matches), defaulting to unknown`);
+    // Require at least 3 matches to be confident
+    if (topScore < 3) {
+        console.log(`[Language Detection] Low confidence (${topScore} matches), defaulting to unknown. Scores:`, scores);
         return "unknown";
     }
 
     console.log(`[Language Detection] Detected: ${topLanguage} (score: ${topScore})`);
-    console.log(`[Language Detection] Scores:`, scores);
+    console.log(`[Language Detection] Full Scores:`, scores);
 
     return topLanguage;
 }
