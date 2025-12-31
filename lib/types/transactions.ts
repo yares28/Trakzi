@@ -47,7 +47,7 @@ export type TransactionMetadata = {
         type_hint?: string;
     };
     categorize: {
-        source: "ai" | "manual" | "preference";
+        source: "ai" | "manual" | "preference" | "rules";
         confidence: number;
         model?: string;
     };

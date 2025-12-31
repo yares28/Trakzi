@@ -94,24 +94,28 @@ export const FR_SPECIFIC: MerchantPattern[] = [
     { pattern: /\bFRAIS\s+DE\s+LIVRAISON\s+DE\s+CARTE\b/i, merchant: "Bank Fee", category: "Bank Fees" },
     { pattern: /\bFRAIS\s+DE\s+LIVRAISON\b/i, merchant: "Delivery Fee", category: "Bank Fees" },
     { pattern: /\bAJOUT\s+DE\s+FONDS\b/i, merchant: "Top-up", category: "Transfers" },
+    { pattern: /\bRECHARGE\s+SUR\s+APPLE\s+PAY\b/i, merchant: "Top-up", category: "Transfers" },
+    { pattern: /\bRECHARGE\s+VIA\b/i, merchant: "Top-up", category: "Transfers" },
+    { pattern: /\bREVOLUT\s*BANK\b/i, merchant: "Revolut", category: "Bank Fees" },
+    { pattern: /\bBALANCE\s+MIGRATION\b/i, merchant: "Internal Transfer", category: "Transfers" },
 ];
 
 /**
  * French banking operations (labels, not merchants)
  */
 export const FR_OPERATIONS: OperationPattern[] = [
-    { pattern: /\b(VIREMENT|VIR|TRANSF)\b/i, label: "Transfer", category: "Transfers" },
+    { pattern: /\b(VIREMENT|VIR|TRANSF|VIR\s+RECU)\b/i, label: "Transfer", category: "Transfers" },
     { pattern: /\b(REMBOURSEMENT|REMBOURS)\b/i, label: "Refund", category: "Other" },
-    { pattern: /\b(FRAIS|COMMISSION|AGIOS)\b/i, label: "Bank Fee", category: "Bank Fees" },
+    { pattern: /\b(FRAIS|COMMISSION|AGIOS|COTISATION)\b/i, label: "Bank Fee", category: "Bank Fees" },
     { pattern: /\b(PRELEVEMENT|PRLV)\b/i, label: "Direct Debit", category: "Other" },
     { pattern: /\b(SALAIRE|PAIE|VIREMENT\s*SALAIRE)\b/i, label: "Salary", category: "Income" },
     { pattern: /\b(RETRAITE|PENSION)\b/i, label: "Pension", category: "Income" },
     { pattern: /\b(CARTE|CB|PAIEMENT)\b/i, label: "Card Payment", category: "Other" },
     { pattern: /\b(RETRAIT|DAB|GAB)\b/i, label: "ATM Withdrawal", category: "Bank Fees" },
     { pattern: /\b(ACHAT|PAIEMENT)\b/i, label: "Purchase", category: "Other" },
-    { pattern: /\b(RECHARGE|TOP-UP|AJOUT)\b/i, label: "Top-up", category: "Transfers" },
-    { pattern: /\b(TPS|TVA|IMPOT)\b/i, label: "Tax", category: "Other" },
-    { pattern: /\b(COTISATION|ASSURANCE)\b/i, label: "Insurance/Fee", category: "Bank Fees" },
+    { pattern: /\b(RECHARGE|TOP-UP|AJOUT|VERSEM)\b/i, label: "Top-up", category: "Transfers" },
+    { pattern: /\b(TPS|TVA|IMPOT|TAXE)\b/i, label: "Tax", category: "Other" },
+    { pattern: /\b(ASSURANCE)\b/i, label: "Insurance", category: "Bank Fees" },
 ];
 
 /**

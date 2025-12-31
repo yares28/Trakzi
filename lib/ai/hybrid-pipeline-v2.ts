@@ -13,10 +13,11 @@
 
 import { TxRow, TransactionMetadata, SimplifyResult } from "@/lib/types/transactions";
 import { sanitizeDescription } from "./sanitize-description";
-import { ruleSimplifyDescription } from "./rule-simplify";
+import { ruleSimplifyDescription, resetRuleCache } from "./rule-simplify";
 import { aiSimplifyBatch } from "./ai-simplify";
 import { aiCategorizeBatch } from "./categorize-v2";
 import { DEFAULT_CATEGORIES } from "@/lib/categories";
+import { detectLanguage, loadRulesForLanguage } from "./rules";
 
 type HybridPipelineOptions = {
     preferencesByKey?: Map<string, string>; // User category preferences
@@ -58,6 +59,15 @@ export async function processHybridPipelineV2(
     const enrichedRows: EnrichedTxRow[] = [];
     const needsAiSimplify: Array<{ index: number; row: TxRow; sanitized: string }> = [];
     const ruleSimplified: Array<{ index: number; result: SimplifyResult }> = [];
+
+    // Step 0: Global Language Detection (Analyze 100 transactions first)
+    const samples = rows.slice(0, 100).map(r => r.description);
+    const detectedLang = detectLanguage(samples);
+    console.log(`[Hybrid Pipeline v2] Global Language Detection: ${detectedLang}`);
+
+    // Pre-load rules for this language and reset cache to override any previous state
+    resetRuleCache();
+    loadRulesForLanguage(samples);
 
     // Step 1 & 2: Sanitize + Rule Simplify (all transactions)
     console.log("[Hybrid Pipeline v2] Step 1+2: Sanitize + Rule Simplify");
@@ -189,9 +199,9 @@ export async function processHybridPipelineV2(
             rulesApplied++;
 
             // Add category to metadata
-            if (row._metadata) {
-                row._metadata.categorize = {
-                    source: "ai",
+            if (enrichedRows[i]._metadata) {
+                enrichedRows[i]._metadata!.categorize = {
+                    source: "rules",
                     confidence: 0.9,
                 };
             }

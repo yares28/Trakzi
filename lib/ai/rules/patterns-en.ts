@@ -103,16 +103,16 @@ export const EN_SHOPPING: MerchantPattern[] = [
  * English banking operations (labels, not merchants)
  */
 export const EN_OPERATIONS: OperationPattern[] = [
-    { pattern: /\b(TRANSFER|BANK\s*TRANSFER)\b/i, label: "Transfer", category: "Transfers" },
-    { pattern: /\bREFUND\b/i, label: "Refund", category: "Other" },
-    { pattern: /\b(FEE|CHARGE|COMMISSION)\b/i, label: "Bank Fee", category: "Bank Fees" },
-    { pattern: /\b(DIRECT\s*DEBIT|DD)\b/i, label: "Direct Debit", category: "Other" },
-    { pattern: /\b(SALARY|WAGE|PAYROLL)\b/i, label: "Salary", category: "Income" },
-    { pattern: /\b(PENSION|BENEFIT)\b/i, label: "Pension", category: "Income" },
-    { pattern: /\b(CARD\s*PAYMENT|DEBIT\s*CARD)\b/i, label: "Card Payment", category: "Other" },
-    { pattern: /\b(ATM|WITHDRAWAL|CASH\s*WITHDRAWAL)\b/i, label: "ATM Withdrawal", category: "Bank Fees" },
-    { pattern: /\bPURCHASE\b/i, label: "Purchase", category: "Other" },
-    { pattern: /\bTOP\s*UP\b/i, label: "Top-up", category: "Other" },
+    { pattern: /\b(TRANSFER|BANK\s*TRANSFER|WIRE|ZELLE|VENMO)\b/i, label: "Transfer", category: "Transfers" },
+    { pattern: /\b(REFUND|REVERSAL|CREDIT)\b/i, label: "Refund", category: "Other" },
+    { pattern: /\b(FEE|CHARGE|COMMISSION|INTEREST|STMT|STAMP)\b/i, label: "Bank Fee", category: "Bank Fees" },
+    { pattern: /\b(DIRECT\s*DEBIT|DD|PRLV)\b/i, label: "Direct Debit", category: "Other" },
+    { pattern: /\b(SALARY|WAGE|PAYROLL|PAYSLIP)\b/i, label: "Salary", category: "Income" },
+    { pattern: /\b(PENSION|BENEFIT|ALLOWANCE)\b/i, label: "Pension", category: "Income" },
+    { pattern: /\b(CARD\s*PAYMENT|DEBIT\s*CARD|CPT|DEBIT)\b/i, label: "Card Payment", category: "Other" },
+    { pattern: /\b(ATM|WITHDRAWAL|CASH\s*WITHDRAWAL|DAB)\b/i, label: "ATM Withdrawal", category: "Bank Fees" },
+    { pattern: /\b(PURCHASE|POS|SHOP)\b/i, label: "Purchase", category: "Other" },
+    { pattern: /\b(TOP\s*UP|TOPUP|RECHARGE|LOAD)\b/i, label: "Top-up", category: "Transfers" },
     { pattern: /\bSTANDING\s*ORDER\b/i, label: "Standing Order", category: "Transfers" },
 ];
 
