@@ -44,7 +44,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
   const csvRegenerationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const latestParsedRowsRef = useRef<ParsedRow[]>([])
 
-  const { schedulePreferenceUpdate, resetPreferenceUpdates } = useCategoryPreferences()
+  const { schedulePreferenceUpdate, resetPreferenceQueue } = useCategoryPreferences()
 
   // Parse CSV when it changes
   useEffect(() => {
@@ -179,7 +179,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     }, 100)
   }, [selectedParsedRowIds])
 
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
+  const handleDragEnter = useCallback((e: React.DragEvent<HTMLElement>) => {
     if (!isFileDragEvent(e)) return
     e.preventDefault()
     e.stopPropagation()
@@ -189,7 +189,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     }
   }, [])
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLElement>) => {
     if (!isFileDragEvent(e)) return
     e.preventDefault()
     e.stopPropagation()
@@ -199,7 +199,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     }
   }, [])
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLElement>) => {
     if (!isFileDragEvent(e)) return
     e.preventDefault()
     e.stopPropagation()
@@ -228,7 +228,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
       setFileId(null)
       setTransactionCount(0)
       setSelectedParsedRowIds(new Set())
-      resetPreferenceUpdates()
+      resetPreferenceQueue()
 
       setParsingProgress(5)
 
@@ -445,9 +445,9 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
         setIsReviewDialogOpen(true)
       }
     }
-  }, [resetPreferenceUpdates])
+  }, [resetPreferenceQueue])
 
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
+  const handleDrop = useCallback(async (e: React.DragEvent<HTMLElement>) => {
     if (!isFileDragEvent(e)) return
     e.preventDefault()
     e.stopPropagation()
