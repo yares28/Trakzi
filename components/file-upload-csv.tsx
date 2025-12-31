@@ -129,14 +129,14 @@ export function FileUploadCsv({
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
                             <Label htmlFor="projectName" className="mb-2">
-                                Project name
+                                Report name
                             </Label>
                             <Input
                                 id="projectName"
                                 type="text"
                                 value={projectName}
                                 onChange={(e) => onProjectNameChange(e.target.value)}
-                                placeholder="Bank statements"
+                                placeholder="Monthly statement"
                             />
                         </div>
 
