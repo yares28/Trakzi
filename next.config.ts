@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: [],
+  serverExternalPackages: ["@napi-rs/canvas"],
 
   // Silence workspace root warning from multiple lockfiles (global pnpm + local npm)
   outputFileTracingRoot: path.join(__dirname),

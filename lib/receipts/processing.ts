@@ -679,10 +679,10 @@ export async function processReceiptNow({ receiptId, userId }: EnqueueParams) {
   const detectedLanguage = languageOverride
     ? null
     : detectLanguageFromSamples(
-        rawItems
-          .map((item) => (typeof item?.description === "string" ? item.description : ""))
-          .filter((value) => value.trim().length > 0)
-      )
+      rawItems
+        .map((item) => (typeof item?.description === "string" ? item.description : ""))
+        .filter((value) => value.trim().length > 0)
+    )
   const receiptLanguage = languageOverride
     ? { locale: languageOverride, score: 1, confidence: 1, iso: languageOverride }
     : detectedLanguage
@@ -749,7 +749,7 @@ export async function processReceiptNow({ receiptId, userId }: EnqueueParams) {
         const heuristicSuggestion = getReceiptCategorySuggestion({
           description,
           categoryNameByLower,
-          locale: receiptLanguage.locale,
+          locale: receiptLanguage?.locale,
         })
 
         if (heuristicSuggestion) {

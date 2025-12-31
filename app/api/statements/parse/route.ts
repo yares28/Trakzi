@@ -807,7 +807,7 @@ async function parseCsvWithAiFallback(params: { csvContent: string; context: str
     const mappedRows = rowsData
         .slice(startIndex)
         .filter((cells) => {
-            const candidates = [dateIndex, descriptionIndex, amountIndex];
+            const candidates = [dateIndex, descriptionIndex, amountIndex].filter((idx): idx is number => idx !== null);
             let headerHits = 0;
             for (const idx of candidates) {
                 const value = String(cells[idx] ?? "").toLowerCase().trim();
