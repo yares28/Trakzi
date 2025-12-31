@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { saveFileToNeon } from "@/lib/files/saveFileToNeon";
 import { parseCsvToRows, type CsvDiagnostics, coerceNumber } from "@/lib/parsing/parseCsvToRows";
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv";
+import { buildStatementParseQuality } from "@/lib/parsing/statement-parse-quality";
 import { categoriseTransactions } from "@/lib/ai/categoriseTransactions";
 import { TxRow } from "@/lib/types/transactions";
 import { getSiteName, getSiteUrl } from "@/lib/env";
@@ -1130,6 +1131,12 @@ export const POST = async (req: NextRequest) => {
             categorizationError = errorMessage;
         }
 
+        const parseQuality = buildStatementParseQuality({
+            rows: withCategories,
+            diagnostics,
+            parseMode: parseModeUsed,
+        });
+
         // 4) Build canonical CSV
         console.log(`[PARSE API] Building CSV from ${withCategories.length} rows`);
         const csv = rowsToCanonicalCsv(withCategories);
@@ -1141,6 +1148,10 @@ export const POST = async (req: NextRequest) => {
             "X-File-Id": String(savedFile.id),
             "X-Parse-Mode": parseModeUsed
         };
+
+        headers["X-Parse-Quality"] = parseQuality.level;
+        headers["X-Parse-Quality-Score"] = String(parseQuality.score);
+        headers["X-Parse-Quality-Reasons"] = encodeURIComponent(JSON.stringify(parseQuality.reasons));
 
         // Add warning header if categorization failed
         if (categorizationError) {

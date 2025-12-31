@@ -21,7 +21,7 @@ type CsvReviewDialogWrapperProps = {
     onCancel: () => void
 }
 
-export function AnalyticsCsvReviewDialog({
+export function DataLibraryCsvReviewDialog({
     open,
     onOpenChange,
     fileName,
