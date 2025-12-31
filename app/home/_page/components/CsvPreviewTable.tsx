@@ -1,3 +1,5 @@
+import { IconInfoCircle } from "@tabler/icons-react"
+
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -7,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   Table,
   TableBody,
@@ -58,6 +61,37 @@ export function CsvPreviewTable({
     return null
   }
 
+  const negativeTotals = new Map<string, number>()
+  const allTotals = new Map<string, number>()
+  let negativeTotal = 0
+  let overallTotal = 0
+
+  for (const row of parsedRows) {
+    const amount = typeof row.amount === "number" ? row.amount : parseFloat(row.amount) || 0
+    if (amount === 0) continue
+    const category = row.category?.trim() || "Other"
+    const value = Math.abs(amount)
+    overallTotal += value
+    allTotals.set(category, (allTotals.get(category) || 0) + value)
+    if (amount < 0) {
+      negativeTotal += value
+      negativeTotals.set(category, (negativeTotals.get(category) || 0) + value)
+    }
+  }
+
+  const totalsToUse = negativeTotal > 0 ? negativeTotals : allTotals
+  const totalToUse = negativeTotal > 0 ? negativeTotal : overallTotal
+  const breakdownDescription = negativeTotal > 0
+    ? "Percent of total spending in this upload."
+    : "Percent of total amount in this upload."
+
+  const categoryBreakdown = Array.from(totalsToUse.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([category, amount]) => ({
+      category,
+      percentage: totalToUse > 0 ? (amount / totalToUse) * 100 : 0,
+    }))
+
   return (
     <Card className="border-2 overflow-hidden flex flex-col min-h-0 max-w-[1200px] w-full mx-auto">
       <CardHeader className="flex-shrink-0 px-4 pt-4 pb-2">
@@ -71,6 +105,40 @@ export function CsvPreviewTable({
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 rounded-full hover:bg-primary/10"
+                  aria-label="View category percentages"
+                >
+                  <IconInfoCircle className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64" align="end">
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold">Category breakdown</p>
+                    <p className="text-xs text-muted-foreground">{breakdownDescription}</p>
+                  </div>
+                  {categoryBreakdown.length > 0 ? (
+                    <div className="max-h-64 space-y-2 overflow-auto pr-1">
+                      {categoryBreakdown.map((item) => (
+                        <div key={item.category} className="flex items-center justify-between gap-3 text-xs">
+                          <span className="font-medium text-foreground">{item.category}</span>
+                          <span className="text-muted-foreground">{item.percentage.toFixed(1)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      No spending categories detected yet.
+                    </p>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button
               variant="destructive"
               size="sm"
