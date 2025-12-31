@@ -119,6 +119,8 @@ export default function AnalyticsPage() {
         isParsing={csvImport.isParsing}
         parsingProgress={csvImport.parsingProgress}
         parseError={csvImport.parseError}
+        projectName={csvImport.projectName}
+        onProjectNameChange={csvImport.setProjectName}
         onFilesChange={(files) => csvImport.handleFilesChange(files)}
         onCancel={csvImport.handleCancelUpload}
         onContinue={csvImport.handleContinueUpload}

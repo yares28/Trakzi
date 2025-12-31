@@ -5,6 +5,16 @@ import { File, FileSpreadsheet, FileText, HelpCircle, Loader2, Trash2, Upload } 
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+    Select,
+    SelectContent,
+    SelectGroup,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 import {
     Tooltip,
     TooltipContent,
@@ -13,12 +23,22 @@ import {
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
+export type FileUploadCsvLead = {
+    id: string
+    name: string
+    imageUrl?: string | null
+}
+
 export interface FileUploadCsvProps {
     files: File[]
     fileProgresses?: Record<string, number>
     isBusy?: boolean
     error?: string | null
     parsingStatus?: string | null
+
+    projectName: string
+    onProjectNameChange: (next: string) => void
+    projectLead?: FileUploadCsvLead | null
 
     accept?: string
     onFilesChange: (nextFiles: File[]) => void
@@ -53,6 +73,9 @@ export function FileUploadCsv({
     isBusy = false,
     error,
     parsingStatus,
+    projectName,
+    onProjectNameChange,
+    projectLead,
     accept = ".csv,.xlsx,.xls,.pdf,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf",
     onFilesChange,
     onCancel,
@@ -85,6 +108,9 @@ export function FileUploadCsv({
         onFilesChange(files.filter((file) => getFileKey(file) !== fileKey))
     }
 
+    const leadLabel = projectLead?.name ?? "You"
+    const leadValue = projectLead?.id ?? "me"
+
     return (
         <Card className="w-full mx-auto max-w-xl bg-background rounded-lg p-0 shadow-2xl">
             <CardContent className="p-0">
@@ -95,6 +121,52 @@ export function FileUploadCsv({
                             <p className="text-sm text-muted-foreground mt-1">
                                 Drop your bank statement or CSV file to import transactions.
                             </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="px-6 pb-4 mt-2">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <Label htmlFor="projectName" className="mb-2">
+                                Project name
+                            </Label>
+                            <Input
+                                id="projectName"
+                                type="text"
+                                value={projectName}
+                                onChange={(e) => onProjectNameChange(e.target.value)}
+                                placeholder="Bank statements"
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="projectLead" className="mb-2">
+                                Project lead
+                            </Label>
+                            <Select value={leadValue} onValueChange={() => { }} disabled>
+                                <SelectTrigger id="projectLead" className="ps-2 w-full">
+                                    <SelectValue placeholder="Select project lead" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectGroup>
+                                        <SelectItem value={leadValue}>
+                                            {projectLead?.imageUrl ? (
+                                                <img
+                                                    className="size-5 rounded"
+                                                    src={projectLead.imageUrl}
+                                                    alt={leadLabel}
+                                                    width={20}
+                                                    height={20}
+                                                />
+                                            ) : (
+                                                <div className="size-5 rounded bg-muted" />
+                                            )}
+                                            <span className="truncate">{leadLabel}</span>
+                                        </SelectItem>
+                                    </SelectGroup>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
                 </div>
@@ -195,7 +267,7 @@ export function FileUploadCsv({
                 ) : null}
 
                 <div className="px-6 py-3 border-t border-border bg-muted rounded-b-lg flex justify-between items-center">
-                    <TooltipProvider delayDuration={0}>
+                    <TooltipProvider delayDuration={300}>
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button
