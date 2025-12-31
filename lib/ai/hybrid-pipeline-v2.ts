@@ -1,28 +1,26 @@
 // lib/ai/hybrid-pipeline-v2.ts
 /**
- * Hybrid Import Pipeline (Default Transaction Processing)
+ * Hybrid Import Pipeline v2
  * 
- * This is THE default pipeline for processing all transaction imports.
- * It orchestrates the full enrichment flow:
- * 1. Sanitize (remove sensitive data before AI)
- * 2. Rule-based simplification (80%+ coverage, zero cost)
+ * Orchestrates the full enrichment pipeline:
+ * 1. Sanitize (remove sensitive data)
+ * 2. Rule-based simplification (80%+ coverage)
  * 3. AI simplification (fallback for unknown merchants)
  * 4. AI categorization (using simplified descriptions)
- * 5. User preference application (highest priority override)
  */
 
-import { TxRow, TransactionMetadata, SimplifyResult } from "@/lib/types/transactions";
+import { TxRow, TransactionMetadata } from "@/lib/types/transactions";
 import { sanitizeDescription } from "./sanitize-description";
-import { ruleSimplifyDescription, resetRuleCache } from "./rule-simplify";
+import { ruleSimplifyDescription } from "./rule-simplify";
 import { aiSimplifyBatch } from "./ai-simplify";
 import { aiCategorizeBatch } from "./categorize-v2";
 import { DEFAULT_CATEGORIES } from "@/lib/categories";
-import { detectLanguage, loadRulesForLanguage } from "./rules";
 
 type HybridPipelineOptions = {
     preferencesByKey?: Map<string, string>; // User category preferences
     userId?: string;
     customCategories?: string[];
+    enableV2?: boolean; // Feature flag
 };
 
 type EnrichedTxRow = TxRow & {
@@ -30,17 +28,10 @@ type EnrichedTxRow = TxRow & {
 };
 
 /**
- * Process transactions through the Hybrid Import Pipeline
- * 
- * This is THE default transaction processing pipeline that:
- * 1. Sanitizes descriptions (removes sensitive data)
- * 2. Simplifies using rules first (80%+ coverage, free)
- * 3. Falls back to AI simplification for unknown merchants
- * 4. Categorizes using simplified descriptions
- * 5. Applies user preferences (highest priority)
+ * Process transactions through the hybrid v2 pipeline
  * 
  * @param rows - Array of transaction rows to process
- * @param options - Pipeline options (preferences, custom categories)
+ * @param options - Pipeline options (preferences, custom categories, feature flag)
  * @returns Enriched transaction rows with simplified descriptions and categories
  */
 export async function processHybridPipelineV2(
@@ -51,23 +42,20 @@ export async function processHybridPipelineV2(
         preferencesByKey,
         userId,
         customCategories,
+        enableV2 = true, // Default to enabled
     } = options;
+
+    // If v2 disabled, return rows as-is
+    if (!enableV2) {
+        console.log("[Hybrid Pipeline v2] Disabled via feature flag");
+        return rows;
+    }
 
     console.log(`[Hybrid Pipeline v2] Processing ${rows.length} transactions`);
     const startTime = Date.now();
 
     const enrichedRows: EnrichedTxRow[] = [];
     const needsAiSimplify: Array<{ index: number; row: TxRow; sanitized: string }> = [];
-    const ruleSimplified: Array<{ index: number; result: SimplifyResult }> = [];
-
-    // Step 0: Global Language Detection (Analyze 100 transactions first)
-    const samples = rows.slice(0, 100).map(r => r.description);
-    const detectedLang = detectLanguage(samples);
-    console.log(`[Hybrid Pipeline v2] Global Language Detection: ${detectedLang}`);
-
-    // Pre-load rules for this language and reset cache to override any previous state
-    resetRuleCache();
-    loadRulesForLanguage(samples);
 
     // Step 1 & 2: Sanitize + Rule Simplify (all transactions)
     console.log("[Hybrid Pipeline v2] Step 1+2: Sanitize + Rule Simplify");
@@ -108,7 +96,6 @@ export async function processHybridPipelineV2(
                     },
                 },
             });
-            ruleSimplified.push({ index: i, result: ruleResult });  // Track rule results
         } else {
             // No confident rule match → needs AI
             needsAiSimplify.push({ index: i, row, sanitized });
@@ -122,10 +109,7 @@ export async function processHybridPipelineV2(
     const ruleMatchedCount = enrichedRows.filter(r => r.simplifiedDescription).length;
     console.log(`[Hybrid Pipeline v2] Rule coverage: ${ruleMatchedCount}/${rows.length} (${Math.round(ruleMatchedCount / rows.length * 100)}%)`);
 
-    if (needsAiSimplify.length > 0) {
-        const sampleUnmatched = needsAiSimplify.slice(0, 5).map(i => i.sanitized).join(", ");
-        console.log(`[Hybrid Pipeline v2] Sample of unmatched descriptions (AI fallback): ${sampleUnmatched}${needsAiSimplify.length > 5 ? "..." : ""}`);
-    }
+    // Step 3: AI Simplify (only unmatched transactions)
     if (needsAiSimplify.length > 0) {
         console.log(`[Hybrid Pipeline v2] Step 3: AI Simplify (${needsAiSimplify.length} items)`);
 
@@ -171,75 +155,33 @@ export async function processHybridPipelineV2(
         }
     }
 
-    // Step 4: Categorize (use rules first, AI for remaining)
-    console.log("[Hybrid Pipeline v2] Step 4: Categorize");
-
-    // Apply categories from rules directly, track which need AI
-    let rulesApplied = 0;
-    const needsAiIndexes: number[] = [];
-
-    for (let i = 0; i < enrichedRows.length; i++) {
-        const row = enrichedRows[i];
-        const simplifyKey = `tx_${i}`;
-
-        // Check if rule provided a category
-        let ruleCategory: string | null = null;
-
-        // Check rule simplify results first
-        for (const item of ruleSimplified) {
-            if (item.index === i && item.result.category) {
-                ruleCategory = item.result.category;
-                break;
-            }
-        }
-
-        if (ruleCategory) {
-            // Apply category DIRECTLY to enrichedRows[i]
-            enrichedRows[i].category = ruleCategory;
-            rulesApplied++;
-
-            // Add category to metadata
-            if (enrichedRows[i]._metadata) {
-                enrichedRows[i]._metadata!.categorize = {
-                    source: "rules",
-                    confidence: 0.9,
-                };
-            }
-        } else {
-            // Track which indexes need AI
-            needsAiIndexes.push(i);
-        }
-    }
-
-    console.log(`[Hybrid Pipeline v2] ${rulesApplied} categorized by rules, ${needsAiIndexes.length} need AI`);
+    // Step 4: AI Categorize (all transactions)
+    console.log("[Hybrid Pipeline v2] Step 4: AI Categorize");
 
     try {
-        // Only call AI for transactions that need it
-        if (needsAiIndexes.length > 0) {
-            const categorizationInput = needsAiIndexes.map((idx) => ({
-                id: `tx_${idx}`,
-                simplified_description: enrichedRows[idx].simplifiedDescription || enrichedRows[idx]._metadata?.sanitized_description || enrichedRows[idx].description,
-                sanitized_description: enrichedRows[idx]._metadata?.sanitized_description || enrichedRows[idx].description,
-                amount: enrichedRows[idx].amount,
-            }));
+        const categorizationInput = enrichedRows.map((row, i) => ({
+            id: `tx_${i}`,
+            simplified_description: row.simplifiedDescription || row._metadata?.sanitized_description || row.description,
+            sanitized_description: row._metadata?.sanitized_description || row.description,
+            amount: row.amount,
+        }));
 
-            const categories = customCategories && customCategories.length > 0
-                ? customCategories
-                : DEFAULT_CATEGORIES;
+        const categories = customCategories && customCategories.length > 0
+            ? customCategories
+            : DEFAULT_CATEGORIES;
 
-            const categoryResults = await aiCategorizeBatch(categorizationInput, categories);
+        const categoryResults = await aiCategorizeBatch(categorizationInput, categories);
 
-            // Apply categorization results
-            for (let i = 0; i < enrichedRows.length; i++) {
-                const categoryResult = categoryResults.get(`tx_${i}`);
-                if (categoryResult) {
-                    enrichedRows[i].category = categoryResult.category;
-                    if (enrichedRows[i]._metadata) {
-                        enrichedRows[i]._metadata!.categorize = {
-                            source: "ai",
-                            confidence: categoryResult.confidence,
-                        };
-                    }
+        // Apply categorization results
+        for (let i = 0; i < enrichedRows.length; i++) {
+            const categoryResult = categoryResults.get(`tx_${i}`);
+            if (categoryResult) {
+                enrichedRows[i].category = categoryResult.category;
+                if (enrichedRows[i]._metadata) {
+                    enrichedRows[i]._metadata!.categorize = {
+                        source: "ai",
+                        confidence: categoryResult.confidence,
+                    };
                 }
             }
         }
@@ -279,20 +221,10 @@ export async function processHybridPipelineV2(
     }
 
     const elapsed = Date.now() - startTime;
-    const ruleCount = enrichedRows.filter(r => r._metadata?.simplify.source === "rules").length;
-    const aiSimplifyCount = enrichedRows.filter(r => r._metadata?.simplify.source === "ai").length;
-    const aiCategorizeCount = enrichedRows.filter(r => r._metadata?.categorize.source === "ai").length;
-    const preferenceCount = enrichedRows.filter(r => r._metadata?.categorize.source === "preference").length;
     const categorizedCount = enrichedRows.filter(r => r.category && r.category !== "Other").length;
 
-    console.log(`[Hybrid Pipeline v2] Execution Summary (${elapsed}ms):`);
-    console.log(` - Total Rows: ${rows.length}`);
-    console.log(` - Simplified by Rules: ${ruleCount} (${Math.round(ruleCount / rows.length * 100)}%)`);
-    console.log(` - Simplified by AI: ${aiSimplifyCount} (${Math.round(aiSimplifyCount / rows.length * 100)}%)`);
-    console.log(` - Categorized by Rules: ${rulesApplied} (${Math.round(rulesApplied / rows.length * 100)}%)`);
-    console.log(` - Categorized by AI: ${aiCategorizeCount} (${Math.round(aiCategorizeCount / rows.length * 100)}%)`);
-    console.log(` - User Preferences applied: ${preferenceCount}`);
-    console.log(` - Total Results: ${categorizedCount}/${rows.length} categorized (${Math.round(categorizedCount / rows.length * 100)}%)`);
+    console.log(`[Hybrid Pipeline v2] Complete in ${elapsed}ms`);
+    console.log(`[Hybrid Pipeline v2] Results: ${categorizedCount}/${rows.length} categorized (${Math.round(categorizedCount / rows.length * 100)}%)`);
 
     return enrichedRows;
 }
