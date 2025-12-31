@@ -11,6 +11,7 @@ import { CategorySelect } from "@/components/category-select"
 import { useCurrency } from "@/components/currency-provider"
 import { IconTrash } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
+import { buildStatementParseQuality, type ParseQualitySummary } from "@/lib/parsing/statement-parse-quality"
 
 export type CsvReviewRow = {
     id: number
@@ -26,6 +27,7 @@ type CsvReviewDialogProps = {
     onOpenChange: (open: boolean) => void
     fileName: string | null
     parsedRows: CsvReviewRow[]
+    parseQuality?: ParseQualitySummary | null
     selectedParsedRowIds: Set<number>
     isImporting: boolean
     importProgress: number
@@ -43,6 +45,7 @@ export function CsvReviewDialog({
     onOpenChange,
     fileName,
     parsedRows,
+    parseQuality,
     selectedParsedRowIds,
     isImporting,
     importProgress,
@@ -79,38 +82,18 @@ export function CsvReviewDialog({
     const transactionCount = parsedRows.length
     const selectedCount = selectedParsedRowIds.size
 
-    // Calculate parse quality based on data completeness
-    const hasCategories = parsedRows.some(row => row.category && row.category !== "Other")
-    const hasDescriptions = parsedRows.every(row => row.description && row.description.trim().length > 0)
-    const hasDates = parsedRows.every(row => row.date && row.date.trim().length > 0)
-    const hasAmounts = parsedRows.every(row => {
-        const amt = typeof row.amount === "number" ? row.amount : parseFloat(String(row.amount))
-        return !isNaN(amt)
-    })
-
-    let parseQuality: "high" | "medium" | "low" = "low"
-    let parseQualityReasons: string[] = []
-
-    if (hasDates && hasAmounts && hasDescriptions && hasCategories) {
-        parseQuality = "high"
-        parseQualityReasons.push("Complete data", "Auto-categorized")
-    } else if (hasDates && hasAmounts && hasDescriptions) {
-        parseQuality = "medium"
-        parseQualityReasons.push("Missing categories")
-    } else {
-        parseQuality = "low"
-        if (!hasDates) parseQualityReasons.push("Missing dates")
-        if (!hasAmounts) parseQualityReasons.push("Missing amounts")
-        if (!hasDescriptions) parseQualityReasons.push("Missing descriptions")
-    }
-
-    const parseQualityLabel = `${parseQuality[0].toUpperCase()}${parseQuality.slice(1)}`
+    const parseQualitySummary = parseQuality ?? buildStatementParseQuality({ rows: parsedRows })
+    const parseQualityLabel = `${parseQualitySummary.level[0].toUpperCase()}${parseQualitySummary.level.slice(1)}`
+    const parseQualityScore = parseQualitySummary.score
+    const parseQualityReasons = parseQualitySummary.reasons
+    const parseModeLabel = parseQualitySummary.parseMode === "ai" ? "AI parse" : null
     const qualityBadgeClass =
-        parseQuality === "high"
+        parseQualitySummary.level === "high"
             ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700"
-            : parseQuality === "medium"
+            : parseQualitySummary.level === "medium"
                 ? "border-amber-500/40 bg-amber-500/10 text-amber-700"
                 : "border-red-500/40 bg-red-500/10 text-red-700"
+    const scoreBadgeClass = "border-border/60 bg-background text-muted-foreground"
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -196,6 +179,16 @@ export function CsvReviewDialog({
                                 <Badge variant="outline" className={qualityBadgeClass}>
                                     {parseQualityLabel}
                                 </Badge>
+                                {Number.isFinite(parseQualityScore) ? (
+                                    <Badge variant="outline" className={scoreBadgeClass}>
+                                        {parseQualityScore}%
+                                    </Badge>
+                                ) : null}
+                                {parseModeLabel ? (
+                                    <Badge variant="outline" className="border-sky-500/40 bg-sky-500/10 text-sky-700">
+                                        {parseModeLabel}
+                                    </Badge>
+                                ) : null}
                                 {fileName && (
                                     <Badge variant="outline" className="border-sky-500/40 bg-sky-500/10 text-sky-700">
                                         {fileName}

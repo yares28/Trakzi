@@ -3,6 +3,7 @@ import { flushSync } from "react-dom"
 
 import { clearResponseCache } from "@/lib/request-deduplication"
 import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
+import { buildStatementParseQuality, type ParseQualitySummary } from "@/lib/parsing/statement-parse-quality"
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv"
 import { DEFAULT_CATEGORIES } from "@/lib/categories"
 import { safeCapture } from "@/lib/posthog-safe"
@@ -30,6 +31,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
   const [parsingProgress, setParsingProgress] = useState(0)
   const [parsedCsv, setParsedCsv] = useState<string | null>(null)
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([])
+  const [parseQuality, setParseQuality] = useState<ParseQualitySummary | null>(null)
   const [fileId, setFileId] = useState<string | null>(null)
   const [parseError, setParseError] = useState<string | null>(null)
   const [isAiReparseOpen, setIsAiReparseOpen] = useState(false)
@@ -222,6 +224,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
       setParsingProgress(0)
       setParseError(null)
       setParsedCsv(null)
+      setParseQuality(null)
       setFileId(null)
       setTransactionCount(0)
       setSelectedParsedRowIds(new Set())
@@ -266,6 +269,10 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
 
       const contentType = response.headers.get("content-type") || ""
       const fileIdHeader = response.headers.get("X-File-Id")
+      const parseModeHeader = response.headers.get("X-Parse-Mode")
+      const parseQualityHeader = response.headers.get("X-Parse-Quality")
+      const parseQualityScoreHeader = response.headers.get("X-Parse-Quality-Score")
+      const parseQualityReasonsHeader = response.headers.get("X-Parse-Quality-Reasons")
       const categorizationError = response.headers.get("X-Categorization-Error")
       const categorizationWarning = response.headers.get("X-Categorization-Warning")
 
@@ -345,14 +352,46 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
       setIsParsing(false)
       setParsingProgress(0)
 
-      const rows = parseCsvToRows(csv)
-      const rowsWithId = rows.map((row, index) => ({
+      const parseModeUsed = parseModeHeader === "ai"
+        ? "ai"
+        : parseModeHeader === "auto"
+          ? "auto"
+          : null
+      const parsed = parseCsvToRows(csv, { returnDiagnostics: true })
+      const rowsWithId = parsed.rows.map((row, index) => ({
         ...row,
         id: index,
         category: row.category || undefined,
       }))
       setParsedRows(rowsWithId)
       setTransactionCount(rowsWithId.length)
+      const fallbackQuality = buildStatementParseQuality({
+        rows: parsed.rows,
+        diagnostics: parsed.diagnostics,
+        parseMode: parseModeUsed,
+      })
+      const parsedLevel = parseQualityHeader === "high" || parseQualityHeader === "medium" || parseQualityHeader === "low"
+        ? parseQualityHeader
+        : null
+      const parsedScore = parseQualityScoreHeader ? Number.parseInt(parseQualityScoreHeader, 10) : NaN
+      let parsedReasons: string[] = []
+      if (parseQualityReasonsHeader) {
+        try {
+          const decoded = decodeURIComponent(parseQualityReasonsHeader)
+          const parsedList = JSON.parse(decoded)
+          if (Array.isArray(parsedList)) {
+            parsedReasons = parsedList.filter((item) => typeof item === "string")
+          }
+        } catch {
+          // Ignore malformed header
+        }
+      }
+      setParseQuality({
+        level: parsedLevel ?? fallbackQuality.level,
+        score: Number.isFinite(parsedScore) ? parsedScore : fallbackQuality.score,
+        reasons: parsedReasons.length > 0 ? parsedReasons : fallbackQuality.reasons,
+        parseMode: parseModeUsed ?? undefined,
+      })
 
       const idHeader = response.headers.get("X-File-Id")
       if (idHeader) {
@@ -542,6 +581,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
       setIsReviewDialogOpen(false)
       setDroppedFile(null)
       setParsedCsv(null)
+      setParseQuality(null)
       setFileId(null)
       setTransactionCount(0)
       setParseError(null)
@@ -588,6 +628,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     setIsUploadDialogOpen(false)
     setDroppedFile(null)
     setParsedCsv(null)
+    setParseQuality(null)
     setFileId(null)
     setTransactionCount(0)
     setParseError(null)
@@ -601,6 +642,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     setIsReviewDialogOpen(false)
     setDroppedFile(null)
     setParsedCsv(null)
+    setParseQuality(null)
     setFileId(null)
     setTransactionCount(0)
     setParseError(null)
@@ -661,6 +703,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     parsedRows,
     parsingProgress,
     projectName,
+    parseQuality,
     selectedParsedRowIds,
     setAiReparseContext,
     setIsAiReparseOpen,

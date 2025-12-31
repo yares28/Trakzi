@@ -131,6 +131,7 @@ export default function AnalyticsPage() {
         onOpenChange={csvImport.setIsReviewDialogOpen}
         fileName={csvImport.droppedFile?.name || null}
         parsedRows={csvImport.parsedRows}
+        parseQuality={csvImport.parseQuality}
         selectedParsedRowIds={csvImport.selectedParsedRowIds}
         isImporting={csvImport.isImporting}
         importProgress={csvImport.importProgress}

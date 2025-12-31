@@ -6,6 +6,7 @@ import { useDateFilter } from "@/components/date-filter-provider"
 import { AiReparseDialog } from "./components/AiReparseDialog"
 import { ChartsGrid } from "./components/ChartsGrid"
 import { CsvUploadDialog } from "./components/CsvUploadDialog"
+import { HomeCsvReviewDialog } from "./components/HomeCsvReviewDialog"
 import { FavoritesGrid } from "./components/FavoritesGrid"
 import { HomeLayout } from "./components/HomeLayout"
 import { StatsCards } from "./components/StatsCards"
@@ -36,47 +37,15 @@ export default function Page() {
     handleFavoritesResize,
   } = useFavoritesLayout()
 
-  const {
-    isDragging,
-    droppedFile,
-    isDialogOpen,
-    setIsDialogOpen,
-    isParsing,
-    isImporting,
-    importProgress,
-    parsingProgress,
-    parsedCsv,
-    parsedRows,
-    parseError,
-    isAiReparseOpen,
-    setIsAiReparseOpen,
-    aiReparseContext,
-    setAiReparseContext,
-    isAiReparsing,
-    selectedParsedRowIds,
-    transactionCount,
-    handleCategoryChange,
-    handleToggleParsedRow,
-    handleSelectAllParsedRows,
-    handleDeleteRow,
-    handleDeleteSelectedRows,
-    handleDragEnter,
-    handleDragLeave,
-    handleDragOver,
-    handleDrop,
-    handleAiReparse,
-    handleConfirm,
-    handleCancel,
-    formatFileSize,
-  } = useCsvImport({ fetchTransactions })
+  const csvImport = useCsvImport({ refreshAnalyticsData: fetchTransactions })
 
   return (
     <HomeLayout
-      isDragging={isDragging}
-      onDragEnter={handleDragEnter}
-      onDragLeave={handleDragLeave}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
+      isDragging={csvImport.isDragging}
+      onDragEnter={csvImport.handleDragEnter}
+      onDragLeave={csvImport.handleDragLeave}
+      onDragOver={csvImport.handleDragOver}
+      onDrop={csvImport.handleDrop}
     >
       <div className="@container/main flex flex-1 flex-col gap-2">
         <main className="flex-1 space-y-4 p-4 pt-0 lg:p-6 lg:pt-2">
@@ -109,37 +78,45 @@ export default function Page() {
       </div>
 
       <AiReparseDialog
-        open={isAiReparseOpen}
-        onOpenChange={setIsAiReparseOpen}
-        aiReparseContext={aiReparseContext}
-        onContextChange={setAiReparseContext}
-        onConfirm={handleAiReparse}
-        isAiReparsing={isAiReparsing}
-        hasFile={!!droppedFile}
+        open={csvImport.isAiReparseOpen}
+        onOpenChange={csvImport.setIsAiReparseOpen}
+        aiReparseContext={csvImport.aiReparseContext}
+        onContextChange={csvImport.setAiReparseContext}
+        onConfirm={csvImport.handleAiReparse}
+        isAiReparsing={csvImport.isAiReparsing}
+        hasFile={!!csvImport.droppedFile}
       />
+
       <CsvUploadDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        droppedFile={droppedFile}
-        transactionCount={transactionCount}
-        parsedCsv={parsedCsv}
-        parsedRows={parsedRows}
-        selectedParsedRowIds={selectedParsedRowIds}
-        isParsing={isParsing}
-        parsingProgress={parsingProgress}
-        parseError={parseError}
-        isImporting={isImporting}
-        importProgress={importProgress}
-        isAiReparsing={isAiReparsing}
-        onOpenAiReparse={() => setIsAiReparseOpen(true)}
-        onDeleteSelectedRows={handleDeleteSelectedRows}
-        onSelectAll={handleSelectAllParsedRows}
-        onToggleRow={handleToggleParsedRow}
-        onCategoryChange={handleCategoryChange}
-        onDeleteRow={handleDeleteRow}
-        onCancel={handleCancel}
-        onConfirm={handleConfirm}
-        formatFileSize={formatFileSize}
+        open={csvImport.isUploadDialogOpen}
+        onOpenChange={csvImport.setIsUploadDialogOpen}
+        droppedFile={csvImport.droppedFile}
+        isParsing={csvImport.isParsing}
+        parsingProgress={csvImport.parsingProgress}
+        parseError={csvImport.parseError}
+        projectName={csvImport.projectName}
+        onProjectNameChange={csvImport.setProjectName}
+        onFilesChange={(files) => csvImport.handleFilesChange(files)}
+        onCancel={csvImport.handleCancelUpload}
+        onContinue={csvImport.handleContinueUpload}
+      />
+
+      <HomeCsvReviewDialog
+        open={csvImport.isReviewDialogOpen}
+        onOpenChange={csvImport.setIsReviewDialogOpen}
+        fileName={csvImport.droppedFile?.name || null}
+        parsedRows={csvImport.parsedRows}
+        parseQuality={csvImport.parseQuality}
+        selectedParsedRowIds={csvImport.selectedParsedRowIds}
+        isImporting={csvImport.isImporting}
+        importProgress={csvImport.importProgress}
+        onSelectAll={csvImport.handleSelectAllParsedRows}
+        onToggleRow={csvImport.handleToggleParsedRow}
+        onCategoryChange={csvImport.handleCategoryChange}
+        onDeleteRow={csvImport.handleDeleteRow}
+        onDeleteSelectedRows={csvImport.handleDeleteSelectedRows}
+        onCommitImport={csvImport.handleConfirm}
+        onCancel={csvImport.handleCancelReview}
       />
     </HomeLayout>
   )
