@@ -80,7 +80,7 @@ const getRangeForFilter = (filter: string) => {
 }
 
 const formatFilterLabel = (filter: string | null) => {
-  if (!filter) return "All Time"
+  if (!filter) return "Last 6 Months" // Default display
   switch (filter) {
     case "last7days":
       return "Last 7 Days"

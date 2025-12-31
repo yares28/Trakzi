@@ -1,4 +1,4 @@
-import { Minus, Plus, Trash2 } from "lucide-react"
+import { Info, Minus, Plus, Trash2 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -6,6 +6,7 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
 import {
   Select,
@@ -164,6 +165,26 @@ export function ReviewDialog({
         ? "border-amber-500/40 bg-amber-500/10 text-amber-700"
         : "border-rose-500/40 bg-rose-500/10 text-rose-700"
   )
+  const categoryTotals = new Map<string, number>()
+  let categoryTotalSpend = 0
+
+  if (activeReviewReceipt) {
+    for (const item of activeReviewReceipt.transactions) {
+      const amount = Number(item.totalPrice) || 0
+      if (amount === 0) continue
+      const category = item.categoryName?.trim() || "Uncategorized"
+      const value = Math.abs(amount)
+      categoryTotalSpend += value
+      categoryTotals.set(category, (categoryTotals.get(category) || 0) + value)
+    }
+  }
+
+  const categoryBreakdown = Array.from(categoryTotals.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([category, amount]) => ({
+      category,
+      percentage: categoryTotalSpend > 0 ? (amount / categoryTotalSpend) * 100 : 0,
+    }))
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -227,15 +248,53 @@ export function ReviewDialog({
                     <span className="text-[0.7rem] text-amber-600">{storeLanguageError}</span>
                   ) : null}
                 </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={showReviewOnly ? "default" : "outline"}
-                  onClick={() => setShowReviewOnly(!showReviewOnly)}
-                  disabled={reviewQueueCount === 0 && !showReviewOnly}
-                >
-                  {reviewQueueLabel}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 rounded-full hover:bg-primary/10"
+                        aria-label="View category percentages"
+                      >
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64" align="end">
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold">Category breakdown</p>
+                          <p className="text-xs text-muted-foreground">
+                            Percent of total receipt spend.
+                          </p>
+                        </div>
+                        {categoryBreakdown.length > 0 ? (
+                          <div className="max-h-64 space-y-2 overflow-auto pr-1">
+                            {categoryBreakdown.map((item) => (
+                              <div key={item.category} className="flex items-center justify-between gap-3 text-xs">
+                                <span className="font-medium text-foreground">{item.category}</span>
+                                <span className="text-muted-foreground">{item.percentage.toFixed(1)}%</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            No category totals yet.
+                          </p>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={showReviewOnly ? "default" : "outline"}
+                    onClick={() => setShowReviewOnly(!showReviewOnly)}
+                    disabled={reviewQueueCount === 0 && !showReviewOnly}
+                  >
+                    {reviewQueueLabel}
+                  </Button>
+                </div>
               </div>
             ) : null}
 
