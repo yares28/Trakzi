@@ -18,8 +18,16 @@ type SimplifyBatchResult = Map<string, SimplifyResult>;
  * 
  * @param items - Array of items to simplify (id + sanitized description)
  * @returns Map of id -> SimplifyResult
+ * Utility to wait for N milliseconds
  */
-export async function aiSimplifyBatch(items: SimplifyBatchItem[]): Promise<SimplifyBatchResult> {
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * AI Simplification with batching and fallback
+ */
+export async function aiSimplifyBatch(
+    items: SimplifyBatchItem[]
+): Promise<SimplifyBatchResult> {
     if (items.length === 0) return new Map();
 
     const apiKey = process.env.OPENROUTER_API_KEY;
@@ -29,30 +37,63 @@ export async function aiSimplifyBatch(items: SimplifyBatchItem[]): Promise<Simpl
     }
 
     const results = new Map<string, SimplifyResult>();
+    const totalBatches = Math.ceil(items.length / SIMPLIFY_BATCH_SIZE);
 
-    // Process in batches
     for (let i = 0; i < items.length; i += SIMPLIFY_BATCH_SIZE) {
-        const batch = items.slice(i, i + SIMPLIFY_BATCH_SIZE);
+        const chunk = items.slice(i, i + SIMPLIFY_BATCH_SIZE);
+        const batchNum = Math.floor(i / SIMPLIFY_BATCH_SIZE) + 1;
 
-        let batchResults: SimplifyBatchResult;
+        console.log(`[AI Simplify] Processing batch ${batchNum}/${totalBatches}`);
+
         try {
             // Try primary model first
-            batchResults = await processBatch(batch, apiKey, AI_SIMPLIFY_MODEL);
-        } catch (error) {
+            const batchResults = await processBatch(chunk, AI_SIMPLIFY_MODEL);
+            batchResults.forEach((val, key) => results.set(key, val));
+        } catch (error: any) {
             console.warn(`[AI Simplify] Primary model failed, falling back to free model: ${FREE_FALLBACK_MODEL}`);
+
+            // If it's a rate limit error, wait a bit before fallback
+            if (error?.message?.includes("429")) {
+                console.log("[AI Simplify] Rate limit hit on primary, waiting 2s before fallback...");
+                await delay(2000);
+            }
+
             try {
-                // Fallback to free model
-                batchResults = await processBatch(batch, apiKey, FREE_FALLBACK_MODEL);
-            } catch (fallbackError) {
+                // Mandatory delay before using free model if we're in a loop to avoid its own 16 req/min limit
+                if (batchNum > 1) {
+                    console.log("[AI Simplify] Throttling for free model (3s delay)...");
+                    await delay(3000);
+                }
+
+                // Try fallback model
+                const fallbackResults = await processBatch(chunk, FREE_FALLBACK_MODEL);
+                fallbackResults.forEach((val, key) => results.set(key, val));
+            } catch (fallbackError: any) {
+                // One more retry if the free model itself hit a 429
+                if (fallbackError?.message?.includes("429")) {
+                    console.warn("[AI Simplify] Free model rate limited, waiting 10s for retry...");
+                    await delay(10000);
+                    try {
+                        const retryResults = await processBatch(chunk, FREE_FALLBACK_MODEL);
+                        retryResults.forEach((val, key) => results.set(key, val));
+                        continue; // Success on retry
+                    } catch (finalError) {
+                        console.error("[AI Simplify] Both models and retry failed.");
+                    }
+                }
+
                 console.error("[AI Simplify] Both models failed, using hard fallback");
-                batchResults = createFallbackResults(batch);
+                // Hard fallback: return the sanitized description as simplified
+                chunk.forEach(item => {
+                    results.set(item.id, {
+                        simplified: item.sanitized_description.substring(0, 50),
+                        confidence: 0.3,
+                        matchedRule: "hard_fallback",
+                        typeHint: "other",
+                    });
+                });
             }
         }
-
-        // Merge batch results
-        batchResults.forEach((result, id) => {
-            results.set(id, result);
-        });
     }
 
     return results;

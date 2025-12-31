@@ -80,17 +80,18 @@ export const ES_SHOPPING: MerchantPattern[] = [
  * Spanish banking operations (labels, not merchants)
  */
 export const ES_OPERATIONS: OperationPattern[] = [
-    { pattern: /\b(TRANSFERENCIA|TRANSF)\b/i, label: "Transfer", category: "Transfers" },
+    { pattern: /\b(TRANSFERENCIA|TRANSF|TRASPASO|GIRO)\b/i, label: "Transfer", category: "Transfers" },
     { pattern: /\bBIZUM\b/i, label: "Bizum", category: "Transfers" },
-    { pattern: /\b(REEMBOLSO|DEVOLUCION)\b/i, label: "Refund", category: "Other" },
-    { pattern: /\b(COMISION|COMISIONES)\b/i, label: "Bank Fee", category: "Bank Fees" },
-    { pattern: /\b(CARGO|CARGOS)\b/i, label: "Charge", category: "Other" },
-    { pattern: /\b(RECIBO|DOMICILIACION)\b/i, label: "Direct Debit", category: "Other" },
-    { pattern: /\b(NOMINA|SALARIO)\b/i, label: "Salary", category: "Income" },
-    { pattern: /\b(PENSION|PRESTACION)\b/i, label: "Pension", category: "Income" },
-    { pattern: /\b(TARJETA|TPV)\b/i, label: "Card Payment", category: "Other" },
-    { pattern: /\b(CAJERO|RETIRADA)\b/i, label: "ATM Withdrawal", category: "Bank Fees" },
-    { pattern: /\b(COMPRA|PAGO)\b/i, label: "Purchase", category: "Other" },
+    { pattern: /\b(REEMBOLSO|DEVOLUCION|ABONO)\b/i, label: "Refund", category: "Other" },
+    { pattern: /\b(COMISION|COMISIONES|INTERESES|LIQUIDACION|GASTOS)\b/i, label: "Bank Fee", category: "Bank Fees" },
+    { pattern: /\b(CARGO|ADEUDO)\b/i, label: "Charge", category: "Other" },
+    { pattern: /\b(RECIBO|DOMICILIACION|PRLV|ADEUDO\s+SEPA)\b/i, label: "Direct Debit", category: "Other" },
+    { pattern: /\b(NOMINA|SALARIO|HABERES)\b/i, label: "Salary", category: "Income" },
+    { pattern: /\b(PENSION|PRESTACION|AYUDA|SUBVENCION)\b/i, label: "Pension", category: "Income" },
+    { pattern: /\b(TARJETA|TPV|LIQUIDACION\s+TARJETA)\b/i, label: "Card Payment", category: "Other" },
+    { pattern: /\b(CAJERO|RETIRADA|REINTEGRO|EFECTIVO)\b/i, label: "ATM Withdrawal", category: "Bank Fees" },
+    { pattern: /\b(COMPRA|PAGO|ADQUISICION)\b/i, label: "Purchase", category: "Other" },
+    { pattern: /\b(RECARGA|TOP-UP)\b/i, label: "Top-up", category: "Transfers" },
 ];
 
 /**

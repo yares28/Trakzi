@@ -6,6 +6,11 @@ const AI_CATEGORY_MODEL = process.env.OPENROUTER_CATEGORY_MODEL || "anthropic/cl
 const FREE_FALLBACK_MODEL = "google/gemini-2.0-flash-exp:free";
 const CATEGORIZE_BATCH_SIZE = 50; // Smaller batches for better reliability
 
+/**
+ * Utility to wait for N milliseconds
+ */
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 type CategorizeBatchItem = {
     id: string;
     simplified_description: string;
@@ -37,30 +42,62 @@ export async function aiCategorizeBatch(
     }
 
     const results = new Map<string, CategorizeResult>();
+    const totalBatches = Math.ceil(items.length / CATEGORIZE_BATCH_SIZE);
 
     // Process in batches
     for (let i = 0; i < items.length; i += CATEGORIZE_BATCH_SIZE) {
         const batch = items.slice(i, i + CATEGORIZE_BATCH_SIZE);
+        const batchNum = Math.floor(i / CATEGORIZE_BATCH_SIZE) + 1;
 
-        let batchResults: CategorizeBatchResult;
+        console.log(`[AI Categorize] Processing batch ${batchNum}/${totalBatches}`);
+
         try {
             // Try primary model first
-            batchResults = await processBatch(batch, categories, apiKey, AI_CATEGORY_MODEL);
-        } catch (error) {
+            const batchResults = await processBatch(batch, categories, apiKey, AI_CATEGORY_MODEL);
+            batchResults.forEach((val, key) => results.set(key, val));
+        } catch (error: any) {
             console.warn(`[AI Categorize] Primary model failed, falling back to free model: ${FREE_FALLBACK_MODEL}`);
+
+            // If it's a rate limit error, wait a bit before fallback
+            if (error?.message?.includes("429")) {
+                console.log("[AI Categorize] Rate limit hit on primary, waiting 2s before fallback...");
+                await delay(2000);
+            }
+
             try {
-                // Fallback to free model
-                batchResults = await processBatch(batch, categories, apiKey, FREE_FALLBACK_MODEL);
-            } catch (fallbackError) {
+                // Mandatory delay before using free model if we're in a loop to avoid its own 16 req/min limit
+                if (batchNum > 1) {
+                    console.log("[AI Categorize] Throttling for free model (3s delay)...");
+                    await delay(3000);
+                }
+
+                // Try fallback model
+                const fallbackResults = await processBatch(batch, categories, apiKey, FREE_FALLBACK_MODEL);
+                fallbackResults.forEach((val, key) => results.set(key, val));
+            } catch (fallbackError: any) {
+                // One more retry if the free model itself hit a 429
+                if (fallbackError?.message?.includes("429")) {
+                    console.warn("[AI Categorize] Free model rate limited, waiting 10s for retry...");
+                    await delay(10000);
+                    try {
+                        const retryResults = await processBatch(batch, categories, apiKey, FREE_FALLBACK_MODEL);
+                        retryResults.forEach((val, key) => results.set(key, val));
+                        continue; // Success on retry
+                    } catch (finalError) {
+                        console.error("[AI Categorize] Both models and retry failed.");
+                    }
+                }
+
                 console.error("[AI Categorize] Both models failed, using hard fallback");
-                batchResults = createFallbackCategories(batch);
+                // Hard fallback: return "Other"
+                batch.forEach(item => {
+                    results.set(item.id, {
+                        category: "Other",
+                        confidence: 0.1,
+                    });
+                });
             }
         }
-
-        // Merge batch results
-        batchResults.forEach((result, id) => {
-            results.set(id, result);
-        });
     }
 
     return results;
