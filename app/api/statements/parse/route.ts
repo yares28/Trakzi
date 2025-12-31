@@ -4,7 +4,7 @@ import { saveFileToNeon } from "@/lib/files/saveFileToNeon";
 import { parseCsvToRows, type CsvDiagnostics, coerceNumber } from "@/lib/parsing/parseCsvToRows";
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv";
 import { buildStatementParseQuality } from "@/lib/parsing/statement-parse-quality";
-import { categoriseTransactions } from "@/lib/ai/categoriseTransactions";
+import { processHybridPipelineV2 } from "@/lib/ai/hybrid-pipeline-v2";
 import { TxRow } from "@/lib/types/transactions";
 import { getSiteName, getSiteUrl } from "@/lib/env";
 import { getCurrentUserId } from "@/lib/auth";
@@ -1114,14 +1114,24 @@ export const POST = async (req: NextRequest) => {
                 console.warn("[PARSE API] Failed to load category preferences:", preferenceError);
             }
 
-            console.log(`[PARSE API] Calling categoriseTransactions with ${rows.length} rows`);
-            withCategories = await categoriseTransactions(rows, customCategories, {
+            console.log(`[PARSE API] Using Hybrid Pipeline v2 for ${rows.length} rows`);
+
+            // Use v2 pipeline (now the default and only option)
+            withCategories = await processHybridPipelineV2(rows, {
                 preferencesByKey,
                 userId: userId ?? undefined,
+                customCategories,
             });
+
             const categorizedCount = withCategories.filter(r => r.category && r.category !== "Other").length;
-            console.log(`[PARSE API] Categorization complete: ${categorizedCount}/${withCategories.length} have non-Other categories`);
-            console.log(`[PARSE API] Sample categories:`, withCategories.slice(0, 5).map(r => ({ desc: r.description.substring(0, 30), cat: r.category })));
+            const simplifiedCount = withCategories.filter(r => r.simplifiedDescription).length;
+
+            console.log(`[PARSE API] v2 Pipeline complete: ${categorizedCount}/${withCategories.length} categorized, ${simplifiedCount} simplified`);
+            console.log(`[PARSE API] Sample:`, withCategories.slice(0, 3).map(r => ({
+                desc: r.description.substring(0, 30),
+                simplified: r.simplifiedDescription,
+                cat: r.category
+            })));
         } catch (aiErr: any) {
             const errorMessage = aiErr?.message || String(aiErr) || "Unknown AI categorization error";
             console.error("[PARSE API] AI categorization error:", errorMessage);

@@ -29,6 +29,10 @@ import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { ChartExpandButton } from "@/components/chart-expand-button"
 import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
+import {
+  FALLBACK_DATE_FILTER,
+  normalizeDateFilterValue,
+} from "@/lib/date-filter"
 
 interface ChartTransactionCalendarProps {
   data?: Array<{
@@ -126,9 +130,11 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
   const { formatCurrency } = useCurrency()
   const [mounted, setMounted] = useState(false)
   const [dateFilter, setDateFilter] = useState<string | null>(null)
-  const dailyUrl = dateFilter
-    ? `/api/transactions/daily?filter=${encodeURIComponent(dateFilter)}`
-    : "/api/transactions/daily"
+  const effectiveDateFilter = normalizeDateFilterValue(
+    dateFilter,
+    FALLBACK_DATE_FILTER,
+  )
+  const dailyUrl = `/api/transactions/daily?filter=${encodeURIComponent(effectiveDateFilter)}`
   const cachedDaily = propData
     ? undefined
     : getCachedResponse<Array<{ day: string; value: number }>>(dailyUrl)
@@ -155,15 +161,11 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
     if (typeof window === "undefined") return
 
     const saved = window.localStorage.getItem("dateFilter")
-    setDateFilter(saved || null)
+    setDateFilter(normalizeDateFilterValue(saved, FALLBACK_DATE_FILTER))
 
     const handleFilterChange = (event: Event) => {
       const detail = (event as CustomEvent).detail
-      if (typeof detail === "string" || detail === null) {
-        setDateFilter(detail)
-      } else {
-        setDateFilter(null)
-      }
+      setDateFilter(normalizeDateFilterValue(detail, FALLBACK_DATE_FILTER))
     }
 
     window.addEventListener("dateFilterChanged", handleFilterChange as EventListener)
@@ -196,7 +198,6 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
       setIsLoading(false)
       return
     }
-
     const fetchDailyTransactions = async () => {
       const cached = getCachedResponse<Array<{ day: string; value: number }>>(dailyUrl)
       if (cached !== undefined) {

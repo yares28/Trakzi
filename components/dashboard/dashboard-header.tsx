@@ -3,12 +3,18 @@
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { DateFilter, DateFilterType } from "@/components/date-filter"
+import {
+    FALLBACK_DATE_FILTER,
+    isValidDateFilterValue,
+    normalizeDateFilterValue,
+} from "@/lib/date-filter"
 import { useState, useEffect } from "react"
 
 // Dashboard header - has date filter, no palette/theme switcher
 export function DashboardHeader() {
     const [dateFilter, setDateFilter] = useState<DateFilterType | null>(null)
     const [availableYears, setAvailableYears] = useState<number[]>([])
+    const [isReady, setIsReady] = useState(false)
 
     // Fetch available years on mount
     useEffect(() => {
@@ -28,26 +34,29 @@ export function DashboardHeader() {
 
     // Store filter in localStorage and notify via custom event
     useEffect(() => {
-        if (dateFilter !== null) {
-            localStorage.setItem("dateFilter", dateFilter)
-        } else {
-            localStorage.removeItem("dateFilter")
-        }
-        window.dispatchEvent(new CustomEvent("dateFilterChanged", { detail: dateFilter }))
-    }, [dateFilter])
+        if (!isReady) return
+        const nextFilter = normalizeDateFilterValue(dateFilter)
+        localStorage.setItem("dateFilter", nextFilter)
+        window.dispatchEvent(new CustomEvent("dateFilterChanged", { detail: nextFilter }))
+    }, [dateFilter, isReady])
 
     // Load filter from localStorage on mount
     useEffect(() => {
         const savedFilter = localStorage.getItem("dateFilter")
-        if (savedFilter) {
-            setDateFilter(savedFilter as DateFilterType)
-        } else {
-            const defaultTimePeriod = localStorage.getItem("default-time-period")
-            if (defaultTimePeriod && defaultTimePeriod !== "all") {
-                setDateFilter(defaultTimePeriod as DateFilterType)
-                localStorage.setItem("dateFilter", defaultTimePeriod)
-            }
+        if (isValidDateFilterValue(savedFilter)) {
+            setDateFilter(savedFilter)
+            localStorage.setItem("dateFilter", savedFilter)
+            setIsReady(true)
+            return
         }
+
+        const defaultTimePeriod = localStorage.getItem("default-time-period")
+        const resolvedFilter = isValidDateFilterValue(defaultTimePeriod)
+            ? defaultTimePeriod
+            : FALLBACK_DATE_FILTER
+        setDateFilter(resolvedFilter)
+        localStorage.setItem("dateFilter", resolvedFilter)
+        setIsReady(true)
     }, [])
 
     return (

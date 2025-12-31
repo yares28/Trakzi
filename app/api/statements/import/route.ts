@@ -268,22 +268,37 @@ export const POST = async (req: NextRequest) => {
 
         // 6) Build transactions rows for Neon with proper category_id
         const timestamp = new Date().toISOString();
-        const txRows = rowsToInsert.map((r) => ({
-            user_id: userId,
-            statement_id: statementId,
-            tx_date: r.date,
-            tx_time: r.time ?? null,
-            description: r.description,
-            amount: r.amount,
-            balance: r.balance,
-            currency: "EUR",
-            category_id: r.category && categoryNameToId.has(r.category)
-                ? categoryNameToId.get(r.category)!
-                : null,
-            raw_csv_row: JSON.stringify(r),
-            created_at: timestamp,
-            updated_at: timestamp
-        }));
+        const txRows = rowsToInsert.map((r) => {
+            // Build v2 metadata (if available from _metadata property)
+            const hasV2Metadata = (r as any)._metadata;
+            const metadata = hasV2Metadata ? (r as any)._metadata : {
+                // Legacy structure for v1 imports
+                date: r.date,
+                time: r.time,
+                description: r.description,
+                amount: r.amount,
+                balance: r.balance,
+                category: r.category
+            };
+
+            return {
+                user_id: userId,
+                statement_id: statementId,
+                tx_date: r.date,
+                tx_time: r.time ?? null,
+                description: r.description,
+                simplified_description: r.simplifiedDescription ?? null, // NEW: v2 pipeline
+                amount: r.amount,
+                balance: r.balance,
+                currency: "EUR",
+                category_id: r.category && categoryNameToId.has(r.category)
+                    ? categoryNameToId.get(r.category)!
+                    : null,
+                raw_csv_row: JSON.stringify(metadata), // v2 metadata or legacy
+                created_at: timestamp,
+                updated_at: timestamp
+            };
+        });
 
         await neonInsert("transactions", txRows, {
             returnRepresentation: false
