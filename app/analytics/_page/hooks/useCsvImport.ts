@@ -22,7 +22,8 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
   // CSV drop-to-import state
   const [isDragging, setIsDragging] = useState(false)
   const [droppedFile, setDroppedFile] = useState<File | null>(null)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
+  const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false)
   const [isParsing, setIsParsing] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
   const [importProgress, setImportProgress] = useState(0)
@@ -207,7 +208,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     const fileType = file.type || file.name.split(".").pop()?.toLowerCase() || "unknown"
 
     setDroppedFile(file)
-    setIsDialogOpen(true)
+    setIsUploadDialogOpen(true)
     setIsParsing(true)
     setParsingProgress(0)
     setParseError(null)
@@ -395,6 +396,10 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
       setParsingProgress(0)
     } finally {
       setIsParsing(false)
+
+      // After successful parse, close upload dialog and open review dialog
+      setIsUploadDialogOpen(false)
+      setIsReviewDialogOpen(true)
     }
   }, [resetPreferenceUpdates])
 
@@ -523,7 +528,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
         transaction_count: data.inserted,
       })
 
-      setIsDialogOpen(false)
+      setIsReviewDialogOpen(false)
       setDroppedFile(null)
       setParsedCsv(null)
       setFileId(null)
@@ -564,18 +569,42 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     }
   }, [droppedFile, parsedCsv, fileId, refreshAnalyticsData, transactionCount])
 
-  const handleCancel = useCallback(() => {
+  const handleCancelUpload = useCallback(() => {
     if (csvRegenerationTimerRef.current) {
       clearTimeout(csvRegenerationTimerRef.current)
       csvRegenerationTimerRef.current = null
     }
-    setIsDialogOpen(false)
+    setIsUploadDialogOpen(false)
     setDroppedFile(null)
     setParsedCsv(null)
     setFileId(null)
     setTransactionCount(0)
     setParseError(null)
   }, [])
+
+  const handleCancelReview = useCallback(() => {
+    if (csvRegenerationTimerRef.current) {
+      clearTimeout(csvRegenerationTimerRef.current)
+      csvRegenerationTimerRef.current = null
+    }
+    setIsReviewDialogOpen(false)
+    setDroppedFile(null)
+    setParsedCsv(null)
+    setFileId(null)
+    setTransactionCount(0)
+    setParseError(null)
+  }, [])
+
+  const handleFilesChange = useCallback((files: File[]) => {
+    if (files.length > 0) {
+      setDroppedFile(files[0])
+    }
+  }, [])
+
+  const handleContinueUpload = useCallback(async () => {
+    if (!droppedFile) return
+    await parseFile(droppedFile, { parseMode: "auto" })
+  }, [droppedFile, parseFile])
 
   useEffect(() => {
     return () => {
@@ -590,24 +619,28 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     droppedFile,
     fileId,
     handleAiReparse,
-    handleCancel,
+    handleCancelReview,
+    handleCancelUpload,
     handleCategoryChange,
     handleConfirm,
+    handleContinueUpload,
     handleDeleteRow,
     handleDeleteSelectedRows,
     handleDragEnter,
     handleDragLeave,
     handleDragOver,
     handleDrop,
+    handleFilesChange,
     handleSelectAllParsedRows,
     handleToggleParsedRow,
     importProgress,
     isAiReparseOpen,
     isAiReparsing,
-    isDialogOpen,
     isDragging,
     isImporting,
     isParsing,
+    isReviewDialogOpen,
+    isUploadDialogOpen,
     parseError,
     parsedCsv,
     parsedRows,
@@ -615,7 +648,8 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     selectedParsedRowIds,
     setAiReparseContext,
     setIsAiReparseOpen,
-    setIsDialogOpen,
+    setIsReviewDialogOpen,
+    setIsUploadDialogOpen,
     transactionCount,
   }
 }
