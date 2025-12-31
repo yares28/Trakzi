@@ -1048,10 +1048,10 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
 
     if (options?.returnDiagnostics) {
         return {
-            rows: validRows,
+            rows: validRows as TxRow[],
             diagnostics
         } as ParseCsvReturn<T>;
     }
 
-    return validRows as ParseCsvReturn<T>;
+    return validRows as unknown as ParseCsvReturn<T>;
 }

@@ -177,7 +177,7 @@ export function ReviewDialog({
               </p>
               <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center justify-center gap-1.5">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
-                AI extraction may not be perfect ƒ?" please double-check for better tracking
+                AI extraction may not be perfect ?" please double-check for better tracking
               </p>
             </div>
 
@@ -187,7 +187,7 @@ export function ReviewDialog({
                   {activeReviewReceipt.storeName ? (
                     <span className="font-medium text-foreground">{activeReviewReceipt.storeName}</span>
                   ) : null}
-                  {activeReviewReceipt.storeName && (activeReviewReceipt.receiptDate ?? activeReviewReceipt.fileName) ? " ƒ?½ " : null}
+                  {activeReviewReceipt.storeName && (activeReviewReceipt.receiptDate ?? activeReviewReceipt.fileName) ? " ?Â½ " : null}
                   {activeReviewReceipt.receiptDate ?? activeReviewReceipt.fileName}
                 </div>
                 {reviewReceipts.length > 1 ? (

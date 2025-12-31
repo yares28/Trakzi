@@ -259,7 +259,7 @@ function buildQuality(params: {
     let quality: "high" | "medium" | "low" = "high"
     if (params.validation?.missing_line_items || params.validation?.total_mismatch) {
         quality = "low"
-    } else if (params.validation?.line_item_mismatch_rate > 0.3) {
+    } else if ((params.validation?.line_item_mismatch_rate ?? 0) > 0.3) {
         quality = "low"
     } else if (reasons.length > 0 || params.warnings.length > 0) {
         quality = "medium"

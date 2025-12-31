@@ -234,7 +234,7 @@ export function SpendingActivityRings({ data, config, theme, ringLimits = {}, ge
                           />
                           <div className="flex justify-between items-center leading-none gap-4">
                             <span className="text-muted-foreground">Status:</span>
-                            <span className="text-foreground font-mono font-medium tabular-nums" style={{ color: '#ef4444' }}>ƒsÿ Exceeded</span>
+                            <span className="text-foreground font-mono font-medium tabular-nums" style={{ color: '#ef4444' }}>sÃ¿ Exceeded</span>
                           </div>
                         </div>
                       )}

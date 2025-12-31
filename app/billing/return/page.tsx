@@ -9,6 +9,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { mutate } from "swr";
 
+export const dynamic = 'force-dynamic';
+
 export default function BillingReturnPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
