@@ -190,14 +190,26 @@ export const DELETE = async (
       await neonQuery(deleteFileQuery, [fileId, userId])
     }
 
-    // Invalidate data-library cache to ensure UI reflects deletion instantly
-    console.log('[Delete Receipt API] Invalidating cache for user:', userId)
-    await invalidateUserCachePrefix(userId, 'data-library')
+    // Invalidate ALL affected caches to ensure deleted receipt items don't appear anywhere
+    console.log('[Delete Receipt API] Invalidating all affected caches for user:', userId)
+    await Promise.all([
+      invalidateUserCachePrefix(userId, 'data-library'),
+      invalidateUserCachePrefix(userId, 'analytics'),
+      invalidateUserCachePrefix(userId, 'home'),
+      invalidateUserCachePrefix(userId, 'fridge'),
+      invalidateUserCachePrefix(userId, 'trends'),
+      invalidateUserCachePrefix(userId, 'savings'),
+    ])
     console.log('[Delete Receipt API] Cache invalidation completed')
 
-    // Revalidate the data library page to clear Vercel's edge cache
+    // Revalidate all affected pages to clear Vercel's edge cache
     revalidatePath('/data-library')
-    console.log('[Delete Receipt API] Revalidated /data-library path')
+    revalidatePath('/analytics')
+    revalidatePath('/home')
+    revalidatePath('/fridge')
+    revalidatePath('/savings')
+    revalidatePath('/trends')
+    console.log('[Delete Receipt API] Revalidated all paths')
 
     return NextResponse.json({ success: true, message: "Receipt deleted successfully" })
   } catch (error: any) {

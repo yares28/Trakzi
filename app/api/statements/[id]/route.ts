@@ -65,11 +65,21 @@ export const DELETE = async (
         `;
         await neonQuery(deleteStatementQuery, [statementId, userId]);
 
-        // Invalidate data-library cache to ensure UI reflects deletion instantly
-        await invalidateUserCachePrefix(userId, 'data-library');
+        // Invalidate ALL affected caches to ensure deleted transactions don't appear anywhere
+        await Promise.all([
+            invalidateUserCachePrefix(userId, 'data-library'),
+            invalidateUserCachePrefix(userId, 'analytics'),
+            invalidateUserCachePrefix(userId, 'home'),
+            invalidateUserCachePrefix(userId, 'trends'),
+            invalidateUserCachePrefix(userId, 'savings'),
+        ]);
 
-        // Revalidate the data library page to clear Vercel's edge cache
+        // Revalidate all affected pages to clear Vercel's edge cache
         revalidatePath('/data-library');
+        revalidatePath('/analytics');
+        revalidatePath('/home');
+        revalidatePath('/savings');
+        revalidatePath('/trends');
 
         return NextResponse.json({ success: true });
     } catch (error: any) {
