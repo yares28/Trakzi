@@ -5,7 +5,6 @@ import { parseCsvToRows, type CsvDiagnostics, coerceNumber } from "@/lib/parsing
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv";
 import { buildStatementParseQuality } from "@/lib/parsing/statement-parse-quality";
 import { categoriseTransactions } from "@/lib/ai/categoriseTransactions";
-import { processHybridPipelineV2 } from "@/lib/ai/hybrid-pipeline-v2";
 import { TxRow } from "@/lib/types/transactions";
 import { getSiteName, getSiteUrl } from "@/lib/env";
 import { getCurrentUserId } from "@/lib/auth";
@@ -1115,42 +1114,14 @@ export const POST = async (req: NextRequest) => {
                 console.warn("[PARSE API] Failed to load category preferences:", preferenceError);
             }
 
-            // Feature flag for v2 pipeline
-            const useV2Pipeline = process.env.ENABLE_HYBRID_PIPELINE_V2 === "true";
-
-            if (useV2Pipeline) {
-                console.log(`[PARSE API] Using Hybrid Pipeline v2 for ${rows.length} rows`);
-
-                // Use new v2 pipeline
-                withCategories = await processHybridPipelineV2(rows, {
-                    preferencesByKey,
-                    userId: userId ?? undefined,
-                    customCategories,
-                    enableV2: true,
-                });
-
-                const categorizedCount = withCategories.filter(r => r.category && r.category !== "Other").length;
-                const simplifiedCount = withCategories.filter(r => r.simplifiedDescription).length;
-
-                console.log(`[PARSE API] v2 Pipeline complete: ${categorizedCount}/${withCategories.length} categorized, ${simplifiedCount} simplified`);
-                console.log(`[PARSE API] Sample:`, withCategories.slice(0, 3).map(r => ({
-                    desc: r.description.substring(0, 30),
-                    simplified: r.simplifiedDescription,
-                    cat: r.category
-                })));
-            } else {
-                // Fall back to v1 (existing) pipeline  
-                console.log(`[PARSE API] Using v1 pipeline (ENABLE_HYBRID_PIPELINE_V2 not enabled)`);
-
-                withCategories = await categoriseTransactions(rows, customCategories, {
-                    preferencesByKey,
-                    userId: userId ?? undefined,
-                });
-
-                const categorizedCount = withCategories.filter(r => r.category && r.category !== "Other").length;
-                console.log(`[PARSE API] Categorization complete: ${categorizedCount}/${withCategories.length} have non-Other categories`);
-                console.log(`[PARSE API] Sample categories:`, withCategories.slice(0, 5).map(r => ({ desc: r.description.substring(0, 30), cat: r.category })));
-            }
+            console.log(`[PARSE API] Calling categoriseTransactions with ${rows.length} rows`);
+            withCategories = await categoriseTransactions(rows, customCategories, {
+                preferencesByKey,
+                userId: userId ?? undefined,
+            });
+            const categorizedCount = withCategories.filter(r => r.category && r.category !== "Other").length;
+            console.log(`[PARSE API] Categorization complete: ${categorizedCount}/${withCategories.length} have non-Other categories`);
+            console.log(`[PARSE API] Sample categories:`, withCategories.slice(0, 5).map(r => ({ desc: r.description.substring(0, 30), cat: r.category })));
         } catch (aiErr: any) {
             const errorMessage = aiErr?.message || String(aiErr) || "Unknown AI categorization error";
             console.error("[PARSE API] AI categorization error:", errorMessage);

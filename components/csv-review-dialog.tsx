@@ -18,7 +18,6 @@ export type CsvReviewRow = {
     date: string
     time?: string
     description: string
-    simplifiedDescription?: string
     amount: number | string
     category?: string
 }
@@ -253,8 +252,8 @@ export function CsvReviewDialog({
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="min-w-[350px] max-w-[600px]">
-                                                    <div className="truncate" title={`Raw: ${row.description}`}>
-                                                        {row.simplifiedDescription || row.description}
+                                                    <div className="truncate" title={row.description}>
+                                                        {row.description}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className={cn("text-right font-medium w-24 flex-shrink-0", amount < 0 ? "text-red-500" : "text-green-500")}>
