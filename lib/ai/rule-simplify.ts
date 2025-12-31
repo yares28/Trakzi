@@ -22,14 +22,13 @@ export function ruleSimplifyBatch(descriptions: string[]): SimplifyResult[] {
         return [];
     }
 
-    // Load patterns based on detected language (once per batch)
-    if (!cachedRules) {
-        const ruleSet = loadRulesForLanguage(descriptions);
-        cachedRules = {
-            merchants: ruleSet.merchants,
-            operations: ruleSet.operations,
-        };
-    }
+    // ALWAYS reload rules for each batch to ensure correct language detection
+    // and avoid cross-request contamination in long-running processes.
+    const ruleSet = loadRulesForLanguage(descriptions);
+    cachedRules = {
+        merchants: ruleSet.merchants,
+        operations: ruleSet.operations,
+    };
 
     // Simplify each description
     return descriptions.map(desc => ruleSimplifyDescription(desc));
@@ -65,6 +64,7 @@ export function ruleSimplifyDescription(sanitized: string): SimplifyResult {
                         confidence: 0.85,
                         matchedRule: `transfer:${pattern.merchant.toLowerCase()}`,
                         typeHint: "transfer",
+                        category: pattern.category,
                     };
                 }
             }

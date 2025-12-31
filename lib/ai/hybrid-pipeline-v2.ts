@@ -112,7 +112,10 @@ export async function processHybridPipelineV2(
     const ruleMatchedCount = enrichedRows.filter(r => r.simplifiedDescription).length;
     console.log(`[Hybrid Pipeline v2] Rule coverage: ${ruleMatchedCount}/${rows.length} (${Math.round(ruleMatchedCount / rows.length * 100)}%)`);
 
-    // Step 3: AI Simplify (only unmatched transactions)
+    if (needsAiSimplify.length > 0) {
+        const sampleUnmatched = needsAiSimplify.slice(0, 5).map(i => i.sanitized).join(", ");
+        console.log(`[Hybrid Pipeline v2] Sample of unmatched descriptions (AI fallback): ${sampleUnmatched}${needsAiSimplify.length > 5 ? "..." : ""}`);
+    }
     if (needsAiSimplify.length > 0) {
         console.log(`[Hybrid Pipeline v2] Step 3: AI Simplify (${needsAiSimplify.length} items)`);
 
@@ -183,6 +186,7 @@ export async function processHybridPipelineV2(
         if (ruleCategory) {
             // Apply category DIRECTLY to enrichedRows[i]
             enrichedRows[i].category = ruleCategory;
+            rulesApplied++;
 
             // Add category to metadata
             if (row._metadata) {
@@ -265,10 +269,20 @@ export async function processHybridPipelineV2(
     }
 
     const elapsed = Date.now() - startTime;
+    const ruleCount = enrichedRows.filter(r => r._metadata?.simplify.source === "rules").length;
+    const aiSimplifyCount = enrichedRows.filter(r => r._metadata?.simplify.source === "ai").length;
+    const aiCategorizeCount = enrichedRows.filter(r => r._metadata?.categorize.source === "ai").length;
+    const preferenceCount = enrichedRows.filter(r => r._metadata?.categorize.source === "preference").length;
     const categorizedCount = enrichedRows.filter(r => r.category && r.category !== "Other").length;
 
-    console.log(`[Hybrid Pipeline v2] Complete in ${elapsed}ms`);
-    console.log(`[Hybrid Pipeline v2] Results: ${categorizedCount}/${rows.length} categorized (${Math.round(categorizedCount / rows.length * 100)}%)`);
+    console.log(`[Hybrid Pipeline v2] Execution Summary (${elapsed}ms):`);
+    console.log(` - Total Rows: ${rows.length}`);
+    console.log(` - Simplified by Rules: ${ruleCount} (${Math.round(ruleCount / rows.length * 100)}%)`);
+    console.log(` - Simplified by AI: ${aiSimplifyCount} (${Math.round(aiSimplifyCount / rows.length * 100)}%)`);
+    console.log(` - Categorized by Rules: ${rulesApplied} (${Math.round(rulesApplied / rows.length * 100)}%)`);
+    console.log(` - Categorized by AI: ${aiCategorizeCount} (${Math.round(aiCategorizeCount / rows.length * 100)}%)`);
+    console.log(` - User Preferences applied: ${preferenceCount}`);
+    console.log(` - Total Results: ${categorizedCount}/${rows.length} categorized (${Math.round(categorizedCount / rows.length * 100)}%)`);
 
     return enrichedRows;
 }

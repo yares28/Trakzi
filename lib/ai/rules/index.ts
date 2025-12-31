@@ -44,7 +44,7 @@ export function loadRulesForLanguage(descriptions: string[]): RuleSet {
             break;
         case "unknown":
             // Default to Spanish (most common in your app) or load all
-            console.log("[Rules] Unknown language, loading Spanish as default");
+            console.warn("[Rules] Language detection failed (Unknown), falling back to Spanish rules as default");
             languagePatterns = ES_ALL_PATTERNS;
             languageOperations = ES_OPERATIONS;
             break;

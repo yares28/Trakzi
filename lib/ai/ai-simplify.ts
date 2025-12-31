@@ -2,7 +2,8 @@
 import { SimplifyResult } from "@/lib/types/transactions";
 
 const AI_SIMPLIFY_MODEL = process.env.OPENROUTER_SIMPLIFY_MODEL || "anthropic/claude-3.5-sonnet";
-const SIMPLIFY_BATCH_SIZE = 100;
+const FREE_FALLBACK_MODEL = "google/gemini-2.0-flash-exp:free";
+const SIMPLIFY_BATCH_SIZE = 25; // Smaller batches for better reliability
 
 type SimplifyBatchItem = {
     id: string;
@@ -13,7 +14,7 @@ type SimplifyBatchResult = Map<string, SimplifyResult>;
 
 /**
  * AI-based simplification (fallback when rules don't match).
- * Batches transactions for efficiency.
+ * Batches transactions for efficiency with automatic free model fallback.
  * 
  * @param items - Array of items to simplify (id + sanitized description)
  * @returns Map of id -> SimplifyResult
@@ -29,10 +30,24 @@ export async function aiSimplifyBatch(items: SimplifyBatchItem[]): Promise<Simpl
 
     const results = new Map<string, SimplifyResult>();
 
-    // Process in batches to avoid token limits
+    // Process in batches
     for (let i = 0; i < items.length; i += SIMPLIFY_BATCH_SIZE) {
         const batch = items.slice(i, i + SIMPLIFY_BATCH_SIZE);
-        const batchResults = await processBatch(batch, apiKey);
+
+        let batchResults: SimplifyBatchResult;
+        try {
+            // Try primary model first
+            batchResults = await processBatch(batch, apiKey, AI_SIMPLIFY_MODEL);
+        } catch (error) {
+            console.warn(`[AI Simplify] Primary model failed, falling back to free model: ${FREE_FALLBACK_MODEL}`);
+            try {
+                // Fallback to free model
+                batchResults = await processBatch(batch, apiKey, FREE_FALLBACK_MODEL);
+            } catch (fallbackError) {
+                console.error("[AI Simplify] Both models failed, using hard fallback");
+                batchResults = createFallbackResults(batch);
+            }
+        }
 
         // Merge batch results
         batchResults.forEach((result, id) => {
@@ -48,7 +63,8 @@ export async function aiSimplifyBatch(items: SimplifyBatchItem[]): Promise<Simpl
  */
 async function processBatch(
     batch: SimplifyBatchItem[],
-    apiKey: string
+    apiKey: string,
+    model: string = AI_SIMPLIFY_MODEL
 ): Promise<SimplifyBatchResult> {
     const systemPrompt = `You are a transaction description simplifier. Your task is to extract clean, concise merchant names or labels from bank transaction descriptions.
 
@@ -94,47 +110,46 @@ IMPORTANT:
         }))
     );
 
-    try {
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${apiKey}`,
-                "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-                "X-Title": "Trakzi - Transaction Simplification",
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                model: AI_SIMPLIFY_MODEL,
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userPrompt },
-                ],
-                temperature: 0.3, // Lower temp for consistency
-                response_format: { type: "json_object" },
-            }),
-        });
+    const fetchStart = Date.now();
+    console.log(`[AI Simplify] Calling OpenRouter: model="${model}", batchSize=${batch.length}`);
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error("[AI Simplify] OpenRouter API error:", response.status, errorText.substring(0, 200));
-            return createFallbackResults(batch);
-        }
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+            "X-Title": "Trakzi - Transaction Simplification",
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            model: model,
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt },
+            ],
+            temperature: 0.3,
+            response_format: { type: "json_object" },
+        }),
+    });
 
-        const json = await response.json();
-        const content = json.choices?.[0]?.message?.content;
+    const duration = Date.now() - fetchStart;
 
-        if (!content) {
-            console.error("[AI Simplify] No content in API response");
-            return createFallbackResults(batch);
-        }
-
-        // Parse AI response
-        return parseAiResponse(content, batch);
-
-    } catch (error) {
-        console.error("[AI Simplify] Error calling OpenRouter API:", error);
-        return createFallbackResults(batch);
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[AI Simplify] OpenRouter Error ${response.status} (${duration}ms):`, errorText.substring(0, 150));
+        throw new Error(`OpenRouter API error: ${response.status} ${errorText.substring(0, 100)}`);
     }
+
+    const json = await response.json();
+    console.log(`[AI Simplify] Success from "${model}" (${duration}ms)`);
+    const content = json.choices?.[0]?.message?.content;
+
+    if (!content) {
+        throw new Error("[AI Simplify] No content in API response");
+    }
+
+    // Parse AI response
+    return parseAiResponse(content, batch);
 }
 
 /**

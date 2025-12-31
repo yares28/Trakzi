@@ -3,7 +3,8 @@ import { CategorizeResult } from "@/lib/types/transactions";
 import { DEFAULT_CATEGORIES } from '@/lib/categories';
 
 const AI_CATEGORY_MODEL = process.env.OPENROUTER_CATEGORY_MODEL || "anthropic/claude-3.5-sonnet";
-const CATEGORIZE_BATCH_SIZE = 150;
+const FREE_FALLBACK_MODEL = "google/gemini-2.0-flash-exp:free";
+const CATEGORIZE_BATCH_SIZE = 50; // Smaller batches for better reliability
 
 type CategorizeBatchItem = {
     id: string;
@@ -17,6 +18,7 @@ type CategorizeBatchResult = Map<string, CategorizeResult>;
 /**
  * AI-based categorization using simplified descriptions (v2 pipeline).
  * This is optimized for simplified merchant names rather than raw descriptions.
+ * Batches transactions with automatic free model fallback.
  * 
  * @param items - Array of items to categorize
  * @param categories - Available category names
@@ -39,7 +41,21 @@ export async function aiCategorizeBatch(
     // Process in batches
     for (let i = 0; i < items.length; i += CATEGORIZE_BATCH_SIZE) {
         const batch = items.slice(i, i + CATEGORIZE_BATCH_SIZE);
-        const batchResults = await processBatch(batch, categories, apiKey);
+
+        let batchResults: CategorizeBatchResult;
+        try {
+            // Try primary model first
+            batchResults = await processBatch(batch, categories, apiKey, AI_CATEGORY_MODEL);
+        } catch (error) {
+            console.warn(`[AI Categorize] Primary model failed, falling back to free model: ${FREE_FALLBACK_MODEL}`);
+            try {
+                // Fallback to free model
+                batchResults = await processBatch(batch, categories, apiKey, FREE_FALLBACK_MODEL);
+            } catch (fallbackError) {
+                console.error("[AI Categorize] Both models failed, using hard fallback");
+                batchResults = createFallbackCategories(batch);
+            }
+        }
 
         // Merge batch results
         batchResults.forEach((result, id) => {
@@ -56,7 +72,8 @@ export async function aiCategorizeBatch(
 async function processBatch(
     batch: CategorizeBatchItem[],
     categories: string[],
-    apiKey: string
+    apiKey: string,
+    model: string = AI_CATEGORY_MODEL
 ): Promise<CategorizeBatchResult> {
     const categoryList = categories.join(", ");
 
@@ -101,47 +118,46 @@ IMPORTANT:
         }))
     );
 
-    try {
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${apiKey}`,
-                "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-                "X-Title": "Trakzi - Transaction Categorization",
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                model: AI_CATEGORY_MODEL,
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userPrompt },
-                ],
-                temperature: 0.1, // Very low for consistency
-                response_format: { type: "json_object" },
-            }),
-        });
+    const fetchStart = Date.now();
+    console.log(`[AI Categorize] Calling OpenRouter: model="${model}", batchSize=${batch.length}`);
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error("[AI Categorize] OpenRouter API error:", response.status, errorText.substring(0, 200));
-            return createFallbackCategories(batch);
-        }
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+            "X-Title": "Trakzi - Transaction Categorization",
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            model: model,
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt },
+            ],
+            temperature: 0.1, // Very low for consistency
+            response_format: { type: "json_object" },
+        }),
+    });
 
-        const json = await response.json();
-        const content = json.choices?.[0]?.message?.content;
+    const duration = Date.now() - fetchStart;
 
-        if (!content) {
-            console.error("[AI Categorize] No content in API response");
-            return createFallbackCategories(batch);
-        }
-
-        // Parse AI response
-        return parseAiResponse(content, batch, categories);
-
-    } catch (error) {
-        console.error("[AI Categorize] Error calling OpenRouter API:", error);
-        return createFallbackCategories(batch);
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[AI Categorize] OpenRouter Error ${response.status} (${duration}ms):`, errorText.substring(0, 150));
+        throw new Error(`OpenRouter API error: ${response.status} ${errorText.substring(0, 100)}`);
     }
+
+    const json = await response.json();
+    console.log(`[AI Categorize] Success from "${model}" (${duration}ms)`);
+    const content = json.choices?.[0]?.message?.content;
+
+    if (!content) {
+        throw new Error("[AI Categorize] No content in API response");
+    }
+
+    // Parse AI response
+    return parseAiResponse(content, batch, categories);
 }
 
 /**
