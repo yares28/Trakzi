@@ -161,9 +161,9 @@ export async function processHybridPipelineV2(
     // Step 4: Categorize (use rules first, AI for remaining)
     console.log("[Hybrid Pipeline v2] Step 4: Categorize");
 
-    // Separate transactions with and without categories from rules
-    const withRuleCategories: typeof enrichedRows = [];
-    const needsAiCategory: typeof enrichedRows = [];
+    // Apply categories from rules directly, track which need AI
+    let rulesApplied = 0;
+    const needsAiIndexes: number[] = [];
 
     for (let i = 0; i < enrichedRows.length; i++) {
         const row = enrichedRows[i];
@@ -181,11 +181,8 @@ export async function processHybridPipelineV2(
         }
 
         if (ruleCategory) {
-            // Use category from rules
-            withRuleCategories.push({
-                ...row,
-                category: ruleCategory,
-            });
+            // Apply category DIRECTLY to enrichedRows[i]
+            enrichedRows[i].category = ruleCategory;
 
             // Add category to metadata
             if (row._metadata) {
@@ -195,21 +192,21 @@ export async function processHybridPipelineV2(
                 };
             }
         } else {
-            // Needs AI categorization
-            needsAiCategory.push(row);
+            // Track which indexes need AI
+            needsAiIndexes.push(i);
         }
     }
 
-    console.log(`[Hybrid Pipeline v2] ${withRuleCategories.length} categorized by rules, ${needsAiCategory.length} need AI`);
+    console.log(`[Hybrid Pipeline v2] ${rulesApplied} categorized by rules, ${needsAiIndexes.length} need AI`);
 
     try {
         // Only call AI for transactions that need it
-        if (needsAiCategory.length > 0) {
-            const categorizationInput = needsAiCategory.map((row, localIdx) => ({
-                id: `tx_${localIdx}`,
-                simplified_description: row.simplifiedDescription || row._metadata?.sanitized_description || row.description,
-                sanitized_description: row._metadata?.sanitized_description || row.description,
-                amount: row.amount,
+        if (needsAiIndexes.length > 0) {
+            const categorizationInput = needsAiIndexes.map((idx) => ({
+                id: `tx_${idx}`,
+                simplified_description: enrichedRows[idx].simplifiedDescription || enrichedRows[idx]._metadata?.sanitized_description || enrichedRows[idx].description,
+                sanitized_description: enrichedRows[idx]._metadata?.sanitized_description || enrichedRows[idx].description,
+                amount: enrichedRows[idx].amount,
             }));
 
             const categories = customCategories && customCategories.length > 0
