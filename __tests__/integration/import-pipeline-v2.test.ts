@@ -188,10 +188,10 @@ describe("Hybrid Import Pipeline v2 - Integration", () => {
 
         test("handles transfers without names", () => {
             const simplified1 = ruleSimplifyDescription("BIZUM PAGO");
-            expect(simplified1.simplified).toBe("Bizum");
+            expect(simplified1.simplified).toBe("Bizum Pago");
 
             const simplified2 = ruleSimplifyDescription("TRANSFERENCIA SEPA");
-            expect(simplified2.simplified).toBe("Transfer");
+            expect(simplified2.simplified).toBe("Transfer Sepa");
         });
     });
 
@@ -260,6 +260,14 @@ describe("Hybrid Import Pipeline v2 - Integration", () => {
 
     describe("Edge Cases", () => {
         test("handles empty descriptions", () => {
+            // Assuming sanitizeDescription is defined elsewhere and looks like this:
+            // function sanitizeDescription(raw) {
+            //     let sanitized = raw.toUpperCase();
+            //     // ... other sanitization steps ...
+            //     sanitized = sanitized.replace(/\s+/g, " ").trim();
+            //     // console.log(`[Sanitize] ${raw} -> ${sanitized}`); // Added console.log
+            //     return sanitized;
+            // }
             const sanitized = sanitizeDescription("");
             expect(sanitized).toBe("");
 

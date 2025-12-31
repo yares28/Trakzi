@@ -49,8 +49,8 @@ export const MemoizedTableRow = memo(
           </div>
         </TableCell>
         <TableCell className="min-w-[350px] max-w-[600px]">
-          <div className="truncate" title={row.description}>
-            {row.description}
+          <div className="truncate" title={`Raw: ${row.description}`}>
+            {row.simplifiedDescription || row.description}
           </div>
         </TableCell>
         <TableCell

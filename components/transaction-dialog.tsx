@@ -43,6 +43,8 @@ import {
 import { ChevronDown } from "lucide-react"
 import { CategorySelect } from "@/components/category-select"
 import { toast } from "sonner"
+import { sanitizeDescription } from "@/lib/ai/sanitize-description"
+import { ruleSimplifyDescription } from "@/lib/ai/rule-simplify"
 
 interface Category {
   id: number
@@ -211,6 +213,11 @@ export function TransactionDialog({
         if (formData.statement_id && formData.statement_id !== "none") {
           payload.statement_id = Number(formData.statement_id)
         }
+
+        // Add simplified description for manual entries
+        const sanitized = sanitizeDescription(payload.description)
+        const ruleResult = ruleSimplifyDescription(sanitized)
+        payload.simplified_description = ruleResult.simplified || sanitized.substring(0, 50)
 
         const response = await fetch("/api/transactions", {
           method: "POST",

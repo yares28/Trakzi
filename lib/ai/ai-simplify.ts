@@ -2,8 +2,7 @@
 import { SimplifyResult } from "@/lib/types/transactions";
 
 const AI_SIMPLIFY_MODEL = process.env.OPENROUTER_SIMPLIFY_MODEL || "anthropic/claude-3.5-sonnet";
-const FREE_FALLBACK_MODEL = "google/gemini-2.0-flash-exp:free";
-const SIMPLIFY_BATCH_SIZE = 25; // Smaller batches for better reliability
+const SIMPLIFY_BATCH_SIZE = 100;
 
 type SimplifyBatchItem = {
     id: string;
@@ -14,20 +13,12 @@ type SimplifyBatchResult = Map<string, SimplifyResult>;
 
 /**
  * AI-based simplification (fallback when rules don't match).
- * Batches transactions for efficiency with automatic free model fallback.
+ * Batches transactions for efficiency.
  * 
  * @param items - Array of items to simplify (id + sanitized description)
  * @returns Map of id -> SimplifyResult
- * Utility to wait for N milliseconds
  */
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-/**
- * AI Simplification with batching and fallback
- */
-export async function aiSimplifyBatch(
-    items: SimplifyBatchItem[]
-): Promise<SimplifyBatchResult> {
+export async function aiSimplifyBatch(items: SimplifyBatchItem[]): Promise<SimplifyBatchResult> {
     if (items.length === 0) return new Map();
 
     const apiKey = process.env.OPENROUTER_API_KEY;
@@ -37,63 +28,16 @@ export async function aiSimplifyBatch(
     }
 
     const results = new Map<string, SimplifyResult>();
-    const totalBatches = Math.ceil(items.length / SIMPLIFY_BATCH_SIZE);
 
+    // Process in batches to avoid token limits
     for (let i = 0; i < items.length; i += SIMPLIFY_BATCH_SIZE) {
-        const chunk = items.slice(i, i + SIMPLIFY_BATCH_SIZE);
-        const batchNum = Math.floor(i / SIMPLIFY_BATCH_SIZE) + 1;
+        const batch = items.slice(i, i + SIMPLIFY_BATCH_SIZE);
+        const batchResults = await processBatch(batch, apiKey);
 
-        console.log(`[AI Simplify] Processing batch ${batchNum}/${totalBatches}`);
-
-        try {
-            // Try primary model first
-            const batchResults = await processBatch(chunk, AI_SIMPLIFY_MODEL);
-            batchResults.forEach((val, key) => results.set(key, val));
-        } catch (error: any) {
-            console.warn(`[AI Simplify] Primary model failed, falling back to free model: ${FREE_FALLBACK_MODEL}`);
-
-            // If it's a rate limit error, wait a bit before fallback
-            if (error?.message?.includes("429")) {
-                console.log("[AI Simplify] Rate limit hit on primary, waiting 2s before fallback...");
-                await delay(2000);
-            }
-
-            try {
-                // Mandatory delay before using free model if we're in a loop to avoid its own 16 req/min limit
-                if (batchNum > 1) {
-                    console.log("[AI Simplify] Throttling for free model (3s delay)...");
-                    await delay(3000);
-                }
-
-                // Try fallback model
-                const fallbackResults = await processBatch(chunk, FREE_FALLBACK_MODEL);
-                fallbackResults.forEach((val, key) => results.set(key, val));
-            } catch (fallbackError: any) {
-                // One more retry if the free model itself hit a 429
-                if (fallbackError?.message?.includes("429")) {
-                    console.warn("[AI Simplify] Free model rate limited, waiting 10s for retry...");
-                    await delay(10000);
-                    try {
-                        const retryResults = await processBatch(chunk, FREE_FALLBACK_MODEL);
-                        retryResults.forEach((val, key) => results.set(key, val));
-                        continue; // Success on retry
-                    } catch (finalError) {
-                        console.error("[AI Simplify] Both models and retry failed.");
-                    }
-                }
-
-                console.error("[AI Simplify] Both models failed, using hard fallback");
-                // Hard fallback: return the sanitized description as simplified
-                chunk.forEach(item => {
-                    results.set(item.id, {
-                        simplified: item.sanitized_description.substring(0, 50),
-                        confidence: 0.3,
-                        matchedRule: "hard_fallback",
-                        typeHint: "other",
-                    });
-                });
-            }
-        }
+        // Merge batch results
+        batchResults.forEach((result, id) => {
+            results.set(id, result);
+        });
     }
 
     return results;
@@ -104,8 +48,7 @@ export async function aiSimplifyBatch(
  */
 async function processBatch(
     batch: SimplifyBatchItem[],
-    apiKey: string,
-    model: string = AI_SIMPLIFY_MODEL
+    apiKey: string
 ): Promise<SimplifyBatchResult> {
     const systemPrompt = `You are a transaction description simplifier. Your task is to extract clean, concise merchant names or labels from bank transaction descriptions.
 
@@ -151,46 +94,47 @@ IMPORTANT:
         }))
     );
 
-    const fetchStart = Date.now();
-    console.log(`[AI Simplify] Calling OpenRouter: model="${model}", batchSize=${batch.length}`);
+    try {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+                "X-Title": "Trakzi - Transaction Simplification",
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                model: AI_SIMPLIFY_MODEL,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userPrompt },
+                ],
+                temperature: 0.3, // Lower temp for consistency
+                response_format: { type: "json_object" },
+            }),
+        });
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${apiKey}`,
-            "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-            "X-Title": "Trakzi - Transaction Simplification",
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-            model: model,
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userPrompt },
-            ],
-            temperature: 0.3,
-            response_format: { type: "json_object" },
-        }),
-    });
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("[AI Simplify] OpenRouter API error:", response.status, errorText.substring(0, 200));
+            return createFallbackResults(batch);
+        }
 
-    const duration = Date.now() - fetchStart;
+        const json = await response.json();
+        const content = json.choices?.[0]?.message?.content;
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[AI Simplify] OpenRouter Error ${response.status} (${duration}ms):`, errorText.substring(0, 150));
-        throw new Error(`OpenRouter API error: ${response.status} ${errorText.substring(0, 100)}`);
+        if (!content) {
+            console.error("[AI Simplify] No content in API response");
+            return createFallbackResults(batch);
+        }
+
+        // Parse AI response
+        return parseAiResponse(content, batch);
+
+    } catch (error) {
+        console.error("[AI Simplify] Error calling OpenRouter API:", error);
+        return createFallbackResults(batch);
     }
-
-    const json = await response.json();
-    console.log(`[AI Simplify] Success from "${model}" (${duration}ms)`);
-    const content = json.choices?.[0]?.message?.content;
-
-    if (!content) {
-        throw new Error("[AI Simplify] No content in API response");
-    }
-
-    // Parse AI response
-    return parseAiResponse(content, batch);
 }
 
 /**

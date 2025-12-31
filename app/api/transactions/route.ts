@@ -117,6 +117,7 @@ export const GET = async (request: Request) => {
                         t.amount, 
                         t.balance, 
                         t.category_id, 
+                        t.simplified_description,
                         t.raw_csv_row,
                         c.name as category_name
                      FROM transactions t
@@ -150,6 +151,7 @@ export const GET = async (request: Request) => {
             amount: number;
             balance: number | null;
             category_id: number | null;
+            simplified_description: string | null;
             raw_csv_row: string | null;
             category_name: string | null;
         }>;
@@ -180,6 +182,7 @@ export const GET = async (request: Request) => {
                 amount: number;
                 balance: number | null;
                 category_id: number | null;
+                simplified_description: string | null;
                 raw_csv_row: string | null;
                 category_name: string | null;
             }>(query, params);
@@ -264,6 +267,7 @@ export const GET = async (request: Request) => {
                 id: tx.id,
                 date: dateStr,
                 description: tx.description,
+                simplifiedDescription: tx.simplified_description,
                 amount: Number(tx.amount),
                 balance: tx.balance ? Number(tx.balance) : null,
                 category: category
@@ -304,7 +308,7 @@ export const POST = async (request: Request) => {
         const body = await request.json();
 
         // Validate required fields
-        const { date, description, amount, category_id, statement_id } = body;
+        const { date, description, amount, category_id, statement_id, simplified_description } = body;
 
         if (!date || !description || amount === undefined || amount === null) {
             return NextResponse.json(
@@ -376,15 +380,16 @@ export const POST = async (request: Request) => {
 
         // Insert the transaction
         const insertQuery = `
-            INSERT INTO transactions (user_id, statement_id, tx_date, description, amount, category_id, currency)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING id, tx_date, description, amount, balance, category_id, statement_id, created_at
+            INSERT INTO transactions (user_id, statement_id, tx_date, description, simplified_description, amount, category_id, currency)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING id, tx_date, description, simplified_description, amount, balance, category_id, statement_id, created_at
         `;
 
         const result = await neonQuery<{
             id: number;
             tx_date: Date | string;
             description: string;
+            simplified_description: string | null;
             amount: number;
             balance: number | null;
             category_id: number | null;
@@ -395,6 +400,7 @@ export const POST = async (request: Request) => {
             statementId,
             dateStr,
             description.trim(),
+            simplified_description || null,
             amountNum,
             categoryId,
             'EUR'
@@ -437,6 +443,7 @@ export const POST = async (request: Request) => {
             id: transaction.id,
             date: dateFormatted,
             description: transaction.description,
+            simplifiedDescription: transaction.simplified_description,
             amount: Number(transaction.amount),
             balance: transaction.balance ? Number(transaction.balance) : null,
             category: categoryName,

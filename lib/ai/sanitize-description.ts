@@ -29,18 +29,18 @@ export function sanitizeDescription(raw: string): string {
     // 2. Mask IBAN-like sequences (2 letters + 20+ digits/letters)
     sanitized = sanitized.replace(/\b[A-Z]{2}\d{2}[A-Z0-9]{16,}\b/gi, "IBAN");
 
-    // 3. Mask phone numbers
-    // Patterns: +34 123 456 789, 123-456-7890, etc.
-    sanitized = sanitized.replace(/\+?\d{1,3}[\s.-]?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{3,4}/g, "PHONE");
+    // 3. Mask reference numbers with REF: prefix
+    sanitized = sanitized.replace(/\bREF\s*[:.]?\s*\d{8,}\b/gi, "REF");
 
     // 4. Mask authorization codes (AUTH, AUTORIZACION, etc. followed by alphanumeric)
     sanitized = sanitized.replace(/\b(AUTH|AUTORIZACION|AUTHORIZATION|AUT|AUTN?)\s*[:.]?\s*[A-Z0-9]{6,}\b/gi, "AUTH");
 
-    // 5. Mask long numeric sequences (likely transaction IDs, references)
-    sanitized = sanitized.replace(/\b\d{12,}\b/g, "REF");
+    // 5. Mask phone numbers
+    // Patterns: +34 123 456 789, 123-456-7890, etc.
+    sanitized = sanitized.replace(/\+?\d{1,3}[\s.-]?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{3,4}/g, "PHONE");
 
-    // 6. Mask reference numbers with REF: prefix
-    sanitized = sanitized.replace(/\bREF\s*[:.]?\s*\d{8,}\b/gi, "REF");
+    // 6. Mask long numeric sequences (likely transaction IDs, references)
+    sanitized = sanitized.replace(/\b\d{12,}\b/g, "REF");
 
     // 7. Clean up multiple spaces
     sanitized = sanitized.replace(/\s+/g, " ").trim();

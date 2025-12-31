@@ -6,6 +6,7 @@ export type HomeTransaction = {
   id: number
   date: string
   description: string
+  simplifiedDescription?: string | null
   amount: number
   balance: number | null
   category: string
