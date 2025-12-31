@@ -8,6 +8,7 @@ const ALLOWED_ORIGINS = [
     'https://trakzi.com',
     'https://www.trakzi.com',
     'https://trakzi.vercel.app',
+    'https://dev.trakzi.com',
     // Add other Vercel preview URLs if needed
 ];
 
