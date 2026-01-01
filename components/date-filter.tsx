@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { IconFilter, IconCheck } from "@tabler/icons-react"
+import { IconFilter, IconCheck, IconHome } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -10,6 +10,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
   Tooltip,
@@ -37,7 +40,7 @@ export function DateFilter({ value, onChange, availableYears }: DateFilterProps)
   const effectiveOnChange = onChange || setGlobalFilter
 
   const getFilterLabel = (filter: DateFilterType | null): string => {
-    if (!filter) return "YTD" // Default display
+    if (!filter) return "Last Year" // Default display
     switch (filter) {
       case "last7days":
         return "Last 7 Days"
@@ -67,22 +70,6 @@ export function DateFilter({ value, onChange, availableYears }: DateFilterProps)
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuLabel>Time Period</DropdownMenuLabel>
-        <DropdownMenuItem onClick={() => effectiveOnChange("last7days")}>
-          <span className="flex-1">Last 7 Days</span>
-          {effectiveValue === "last7days" && <IconCheck className="size-4" />}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => effectiveOnChange("last30days")}>
-          <span className="flex-1">Last 30 Days</span>
-          {effectiveValue === "last30days" && <IconCheck className="size-4" />}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => effectiveOnChange("last3months")}>
-          <span className="flex-1">Last 3 Months</span>
-          {effectiveValue === "last3months" && <IconCheck className="size-4" />}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => effectiveOnChange("last6months")}>
-          <span className="flex-1">Last 6 Months</span>
-          {effectiveValue === "last6months" && <IconCheck className="size-4" />}
-        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => effectiveOnChange("lastyear")}>
           <span className="flex-1">Last Year</span>
           {effectiveValue === "lastyear" && <IconCheck className="size-4" />}
@@ -100,19 +87,43 @@ export function DateFilter({ value, onChange, availableYears }: DateFilterProps)
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => effectiveOnChange("last7days")}>
+          <span className="flex-1">Last 7 Days</span>
+          {effectiveValue === "last7days" && <IconCheck className="size-4" />}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => effectiveOnChange("last30days")}>
+          <span className="flex-1">Last 30 Days</span>
+          {effectiveValue === "last30days" && <IconCheck className="size-4" />}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => effectiveOnChange("last3months")}>
+          <span className="flex-1">Last 3 Months</span>
+          {effectiveValue === "last3months" && <IconCheck className="size-4" />}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => effectiveOnChange("last6months")}>
+          <span className="flex-1">Last 6 Months</span>
+          {effectiveValue === "last6months" && <IconCheck className="size-4" />}
+        </DropdownMenuItem>
         {availableYears.length > 0 && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Specific Years</DropdownMenuLabel>
-            {availableYears.map((year) => (
-              <DropdownMenuItem
-                key={year}
-                onClick={() => effectiveOnChange(year.toString())}
-              >
-                <span className="flex-1">{year}</span>
-                {effectiveValue === year.toString() && <IconCheck className="size-4" />}
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <IconHome className="size-4 mr-2" />
+                <span>Specific Years</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {availableYears.map((year) => (
+                  <DropdownMenuItem
+                    key={year}
+                    onClick={() => effectiveOnChange(year.toString())}
+                  >
+                    <span className="flex-1">{year}</span>
+                    {effectiveValue === year.toString() && <IconCheck className="size-4" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
           </>
         )}
       </DropdownMenuContent>
