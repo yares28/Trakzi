@@ -39,6 +39,12 @@ function getDateRange(filter: string | null): { startDate: string | null; endDat
       startDate.setFullYear(startDate.getFullYear() - 1);
       return { startDate: formatDate(startDate), endDate: formatDate(today) };
     }
+    case "ytd": {
+      // Year To Date: January 1st of current year to today
+      const startDate = new Date(today.getFullYear(), 0, 1);
+      return { startDate: formatDate(startDate), endDate: formatDate(today) };
+    }
+
     default: {
       const year = parseInt(filter, 10);
       if (!isNaN(year)) {
