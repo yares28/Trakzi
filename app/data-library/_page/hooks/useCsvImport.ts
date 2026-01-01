@@ -11,7 +11,7 @@ import { toast } from "sonner"
 import { TxRow } from "@/lib/types/transactions"
 
 import type { ParsedRow } from "../types"
-import { clearAnalyticsCache } from "../cache"
+import { clearAnalyticsCache } from "@/app/analytics/_page/cache"
 import { isFileDragEvent } from "../utils/file-dnd"
 import { useCategoryPreferences } from "./useCategoryPreferences"
 
@@ -179,7 +179,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     }, 100)
   }, [selectedParsedRowIds])
 
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
+  const handleDragEnter = useCallback((e: React.DragEvent<HTMLElement>) => {
     if (!isFileDragEvent(e)) return
     e.preventDefault()
     e.stopPropagation()
@@ -189,7 +189,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     }
   }, [])
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLElement>) => {
     if (!isFileDragEvent(e)) return
     e.preventDefault()
     e.stopPropagation()
@@ -199,7 +199,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     }
   }, [])
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLElement>) => {
     if (!isFileDragEvent(e)) return
     e.preventDefault()
     e.stopPropagation()
@@ -447,7 +447,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     }
   }, [resetPreferenceUpdates])
 
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
+  const handleDrop = useCallback(async (e: React.DragEvent<HTMLElement>) => {
     if (!isFileDragEvent(e)) return
     e.preventDefault()
     e.stopPropagation()

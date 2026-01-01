@@ -430,6 +430,385 @@ function normalizeStatementRows(rows: StatementRow[]): StatementRow[] {
         .filter((row) => Object.values(row).some((value) => String(value ?? "").trim().length > 0));
 }
 
+type CsvTemplate = {
+    id: string;
+    match: (csv: string, bankName: string) => boolean;
+    parse: (csv: string) => StatementRow[];
+};
+
+type PdfTemplate = {
+    id: string;
+    match: (text: string, bankName: string) => boolean;
+    parse: (text: string) => StatementRow[];
+};
+
+const AMOUNT_TOKEN_REGEX = /\u20AC?\s*[-\u2212]?\d[\d.,]*[.,]\d{2}\s*\u20AC?/g;
+const SANTANDER_DATE_LINE_REGEX = /^\d{1,2}\s+[A-Za-z]{3,4}\s+\d{4}$/;
+const REVOLUT_ROW_REGEX = /^([A-Za-z]{3}\s+\d{1,2},\s+\d{4})\s+([A-Za-z]{3}\s+\d{1,2},\s+\d{4})\s+(.+)$/;
+
+function normalizeBankName(value: string | null | undefined): string {
+    if (!value) return "";
+    const trimmed = value.trim().toLowerCase();
+    return trimmed === "unknown" ? "" : trimmed;
+}
+
+function detectCsvDelimiter(csv: string): string {
+    const lines = csv.split(/\r?\n/).filter(line => line.trim() !== "").slice(0, 10);
+    if (lines.length === 0) return ",";
+
+    let bestDelimiter = ",";
+    let bestScore = 0;
+    const candidates = [",", ";", "\t", "|"];
+
+    for (const delimiter of candidates) {
+        let totalSeparators = 0;
+        let matchedLines = 0;
+
+        for (const line of lines) {
+            const count = line.split(delimiter).length - 1;
+            if (count > 0) {
+                totalSeparators += count;
+                matchedLines += 1;
+            }
+        }
+
+        if (matchedLines === 0) continue;
+        const avgSeparators = totalSeparators / matchedLines;
+        const coverageBonus = matchedLines / lines.length;
+        const score = avgSeparators + coverageBonus;
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestDelimiter = delimiter;
+        }
+    }
+
+    return bestDelimiter;
+}
+
+function sliceCsvToHeader(csv: string, matcher: (line: string) => boolean): string {
+    const lines = csv.split(/\r?\n/);
+    const headerIndex = lines.findIndex((line) => matcher(line));
+    if (headerIndex < 0) return csv;
+    return lines.slice(headerIndex).join("\n");
+}
+
+function getRowValue(row: Record<string, unknown>, key: string): string {
+    if (row[key] != null) return String(row[key]);
+    const match = Object.keys(row).find((candidate) => candidate.toLowerCase() === key.toLowerCase());
+    return match ? String(row[match] ?? "") : "";
+}
+
+function extractAmountTokens(line: string): string[] {
+    return line.match(AMOUNT_TOKEN_REGEX) ?? [];
+}
+
+function cleanAmountTokens(line: string): string {
+    return line.replace(AMOUNT_TOKEN_REGEX, "").replace(/\s{2,}/g, " ").trim();
+}
+
+function parseSantanderCsvTemplate(csv: string): StatementRow[] {
+    const trimmed = sliceCsvToHeader(csv, (line) => {
+        const lower = line.toLowerCase();
+        return lower.includes("transaction date") && lower.includes("description") && lower.includes("amount");
+    });
+    const delimiter = detectCsvDelimiter(trimmed);
+    const parsed = Papa.parse(trimmed, {
+        header: true,
+        skipEmptyLines: true,
+        delimiter,
+    });
+
+    return (parsed.data as Record<string, unknown>[])
+        .map((row) => {
+            const date = getRowValue(row, "Transaction date") || getRowValue(row, "Value date");
+            const description = getRowValue(row, "Description");
+            const amount = getRowValue(row, "Amount");
+            const balance = getRowValue(row, "Balance");
+            const currency = getRowValue(row, "Currency");
+            if (!date && !description && !amount && !balance && !currency) return null;
+            return {
+                date,
+                description,
+                amount,
+                balance,
+            } as StatementRow;
+        })
+        .filter((row): row is StatementRow => row !== null);
+}
+
+function parseRevolutCsvTemplate(csv: string): StatementRow[] {
+    const delimiter = detectCsvDelimiter(csv);
+    const parsed = Papa.parse(csv, {
+        header: true,
+        skipEmptyLines: true,
+        delimiter,
+    });
+
+    return (parsed.data as Record<string, unknown>[])
+        .map((row) => {
+            const completed = getRowValue(row, "Completed Date");
+            const started = getRowValue(row, "Started Date");
+            const date = completed || started;
+            const description = getRowValue(row, "Description");
+            const amount = getRowValue(row, "Amount");
+            const balance = getRowValue(row, "Balance");
+            const type = getRowValue(row, "Type");
+            if (!date && !description && !amount && !balance && !type) return null;
+            return {
+                date,
+                description,
+                amount,
+                balance,
+                type,
+            } as StatementRow;
+        })
+        .filter((row): row is StatementRow => row !== null);
+}
+
+function shouldSkipRevolutLine(line: string): boolean {
+    const normalized = normalizeStatementHeader(line);
+    const compact = line.replace(/\s+/g, "");
+    if (/^[A-Z]{2}\d{2}[A-Z0-9]{10,}$/.test(compact)) return true;
+    if (/^[A-Z0-9]{8,11}$/.test(compact)) return true;
+    return (
+        normalized.startsWith("eur statement") ||
+        normalized.startsWith("generated on") ||
+        normalized.startsWith("revolut bank") ||
+        normalized.startsWith("page of") ||
+        normalized.includes("report lost") ||
+        normalized.includes("get help directly") ||
+        normalized.includes("scan the qr") ||
+        normalized.startsWith("balance summary") ||
+        normalized.startsWith("product opening balance") ||
+        normalized.startsWith("account transactions") ||
+        normalized.startsWith("transaction date value date") ||
+        normalized === "iban" ||
+        normalized === "bic" ||
+        normalized.startsWith("account current account") ||
+        normalized.startsWith("deposit") ||
+        normalized.startsWith("total")
+    );
+}
+
+function applyRevolutAmountSign(amount: number, description: string): number {
+    const normalized = description.toLowerCase();
+    const incoming = /(transfer from|from:|refund|cashback|salary|interest|dividend|reversal|chargeback|top up|credit)/;
+    const outgoing = /(transfer to|to:|card|payment|fee|withdrawal|atm|cash|charge|purchase)/;
+    if (incoming.test(normalized)) {
+        return Math.abs(amount);
+    }
+    if (outgoing.test(normalized)) {
+        return -Math.abs(amount);
+    }
+    return -Math.abs(amount);
+}
+
+function parseSantanderPdfTemplate(text: string): StatementRow[] {
+    const lines = text
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+    const rows: StatementRow[] = [];
+    let activeRow: StatementRow | null = null;
+    let descriptionParts: string[] = [];
+    let pendingAmount: number | null = null;
+    let pendingBalance: number | null = null;
+
+    const pushRow = () => {
+        if (!activeRow) return;
+        const description = descriptionParts.join(" ").trim();
+        if (!description && pendingAmount == null) return;
+        activeRow.description = description;
+        if (pendingAmount != null) activeRow.amount = pendingAmount;
+        if (pendingBalance != null) activeRow.balance = pendingBalance;
+        rows.push(activeRow);
+        activeRow = null;
+        descriptionParts = [];
+        pendingAmount = null;
+        pendingBalance = null;
+    };
+
+    for (const line of lines) {
+        if (shouldSkipStatementLine(line)) continue;
+        if (SANTANDER_DATE_LINE_REGEX.test(line)) {
+            pushRow();
+            activeRow = { date: line };
+            continue;
+        }
+
+        if (!activeRow) continue;
+        const lower = line.toLowerCase();
+        if (lower.startsWith("value date")) {
+            continue;
+        }
+
+        const tokens = extractAmountTokens(line);
+        if (tokens.length > 0) {
+            const cleaned = cleanAmountTokens(line);
+            if (cleaned) {
+                descriptionParts.push(cleaned);
+            }
+            const numbers = tokens
+                .map((token) => coerceNumber(token))
+                .filter((value): value is number => value != null);
+            if (numbers.length >= 2) {
+                pendingAmount = numbers[numbers.length - 2];
+                pendingBalance = numbers[numbers.length - 1];
+            } else if (numbers.length === 1) {
+                pendingAmount = numbers[0];
+            }
+            continue;
+        }
+
+        descriptionParts.push(line);
+    }
+
+    pushRow();
+    return rows;
+}
+
+function parseRevolutPdfTemplate(text: string): StatementRow[] {
+    const lines = text
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+    const rows: StatementRow[] = [];
+    let activeRow: StatementRow | null = null;
+    let descriptionParts: string[] = [];
+    let pendingAmount: number | null = null;
+    let pendingBalance: number | null = null;
+    let pendingNeedsSign = false;
+
+    const pushRow = () => {
+        if (!activeRow) return;
+        const description = descriptionParts.join(" ").trim();
+        if (!description && pendingAmount == null) return;
+        let amount = pendingAmount;
+        if (amount != null && pendingNeedsSign) {
+            amount = applyRevolutAmountSign(amount, description);
+        }
+        activeRow.description = description;
+        if (amount != null) activeRow.amount = amount;
+        if (pendingBalance != null) activeRow.balance = pendingBalance;
+        rows.push(activeRow);
+        activeRow = null;
+        descriptionParts = [];
+        pendingAmount = null;
+        pendingBalance = null;
+        pendingNeedsSign = false;
+    };
+
+    for (const line of lines) {
+        if (shouldSkipRevolutLine(line)) continue;
+        const match = line.match(REVOLUT_ROW_REGEX);
+        if (match) {
+            pushRow();
+            const dateValue = match[1];
+            const remainder = match[3];
+            const tokens = extractAmountTokens(remainder);
+            const cleaned = cleanAmountTokens(remainder);
+            descriptionParts = cleaned ? [cleaned] : [];
+            const numbers = tokens
+                .map((token) => coerceNumber(token))
+                .filter((value): value is number => value != null);
+
+            pendingAmount = null;
+            pendingBalance = null;
+            pendingNeedsSign = false;
+
+            if (numbers.length >= 3) {
+                const moneyOut = numbers[numbers.length - 3];
+                const moneyIn = numbers[numbers.length - 2];
+                pendingBalance = numbers[numbers.length - 1];
+                pendingAmount = moneyIn - Math.abs(moneyOut);
+            } else if (numbers.length >= 2) {
+                pendingAmount = numbers[numbers.length - 2];
+                pendingBalance = numbers[numbers.length - 1];
+                pendingNeedsSign = true;
+            } else if (numbers.length === 1) {
+                pendingAmount = numbers[0];
+            }
+
+            activeRow = { date: dateValue };
+            continue;
+        }
+
+        if (!activeRow) continue;
+        descriptionParts.push(line);
+    }
+
+    pushRow();
+    return rows;
+}
+
+const CSV_TEMPLATES: CsvTemplate[] = [
+    {
+        id: "santander",
+        match: (csv, bankName) => {
+            const normalizedBank = normalizeBankName(bankName);
+            if (normalizedBank.includes("santander")) return true;
+            const sample = csv.split(/\r?\n/).slice(0, 20).join("\n").toLowerCase();
+            return sample.includes("santander") ||
+                (sample.includes("transaction date") && sample.includes("value date") && sample.includes("currency"));
+        },
+        parse: parseSantanderCsvTemplate,
+    },
+    {
+        id: "revolut",
+        match: (csv, bankName) => {
+            const normalizedBank = normalizeBankName(bankName);
+            if (normalizedBank.includes("revolut")) return true;
+            const sample = csv.split(/\r?\n/).slice(0, 10).join("\n").toLowerCase();
+            return sample.includes("started date") && sample.includes("completed date") && sample.includes("fee");
+        },
+        parse: parseRevolutCsvTemplate,
+    },
+];
+
+const PDF_TEMPLATES: PdfTemplate[] = [
+    {
+        id: "santander",
+        match: (text, bankName) => {
+            const normalizedBank = normalizeBankName(bankName);
+            if (normalizedBank.includes("santander")) return true;
+            const sample = text.slice(0, 2000).toLowerCase();
+            return (sample.includes("your account activity") && sample.includes("value date")) ||
+                (sample.includes("account es") && sample.includes("value date"));
+        },
+        parse: parseSantanderPdfTemplate,
+    },
+    {
+        id: "revolut",
+        match: (text, bankName) => {
+            const normalizedBank = normalizeBankName(bankName);
+            if (normalizedBank.includes("revolut")) return true;
+            return /revolut/i.test(text);
+        },
+        parse: parseRevolutPdfTemplate,
+    },
+];
+
+function detectCsvTemplate(csv: string, bankName: string): CsvTemplate | null {
+    return CSV_TEMPLATES.find((template) => template.match(csv, bankName)) ?? null;
+}
+
+function detectPdfTemplate(text: string, bankName: string): PdfTemplate | null {
+    return PDF_TEMPLATES.find((template) => template.match(text, bankName)) ?? null;
+}
+
+function parseCsvWithTemplate(
+    csvContent: string,
+    template: CsvTemplate
+): { rows: TxRow[]; diagnostics: CsvDiagnostics } {
+    const templateRows = normalizeStatementRows(template.parse(csvContent));
+    if (templateRows.length === 0) {
+        throw new Error(`Template ${template.id} produced no rows.`);
+    }
+    const csv = buildCanonicalCsvFromStatementRows(templateRows);
+    return parseCsvToRows(csv, { returnDiagnostics: true });
+}
+
 function buildCanonicalCsvFromStatementRows(rows: StatementRow[]): string {
     return Papa.unparse(rows, { columns: STATEMENT_COLUMNS });
 }
@@ -673,6 +1052,20 @@ async function parseStatementText(params: {
     const languageHint = languageDetection.locale !== "unknown" ? languageDetection.locale : null;
 
     if (!params.forceAi) {
+        const pdfTemplate = detectPdfTemplate(params.text, params.bankName);
+        if (pdfTemplate) {
+            try {
+                const extractedRows = normalizeStatementRows(pdfTemplate.parse(params.text));
+                if (extractedRows.length > 0) {
+                    const csv = buildCanonicalCsvFromStatementRows(extractedRows);
+                    const parsed = parseCsvToRows(csv, { returnDiagnostics: true });
+                    assertParseQuality(parsed.rows, parsed.diagnostics);
+                    return { rows: parsed.rows, diagnostics: parsed.diagnostics, parseMode: "auto" };
+                }
+            } catch (error) {
+                console.warn(`[Statements PDF] Template ${pdfTemplate.id} failed, falling back.`, error);
+            }
+        }
         try {
             const extractedRows = normalizeStatementRows(extractStatementRowsFromText(params.text));
             if (extractedRows.length === 0) {
@@ -958,6 +1351,7 @@ export const POST = async (req: NextRequest) => {
         let parseModeUsed: "auto" | "ai" = "auto";
         const sourceLabel = isCsv ? "csv" : isExcel ? "xlsx" : "pdf";
         let sheetName: string | null = null;
+        let templateUsed: string | null = null;
 
         const parseMode = String(formData.get("parseMode") ?? "auto").toLowerCase();
         const aiContextValue = formData.get("aiContext");
@@ -980,17 +1374,37 @@ export const POST = async (req: NextRequest) => {
                     csvContent = csvContent.slice(1);
                 }
 
-                if (parseMode === "ai") {
-                    const aiResult = await parseCsvWithAiFallback({ csvContent, context: aiContext });
-                    rows = aiResult.rows;
-                    diagnostics = aiResult.diagnostics;
-                    parseModeUsed = "ai";
-                    assertParseQuality(rows, diagnostics);
-                } else {
-                    const parsed = parseCsvToRows(csvContent, { returnDiagnostics: true });
-                    rows = parsed.rows;
-                    diagnostics = parsed.diagnostics;
-                    assertParseQuality(rows, diagnostics);
+                if (parseMode !== "ai") {
+                    const csvTemplate = detectCsvTemplate(csvContent, bankName);
+                    if (csvTemplate) {
+                        try {
+                            const templateResult = parseCsvWithTemplate(csvContent, csvTemplate);
+                            rows = templateResult.rows;
+                            diagnostics = templateResult.diagnostics;
+                            templateUsed = csvTemplate.id;
+                            assertParseQuality(rows, diagnostics);
+                        } catch (templateError) {
+                            console.warn(`[Statements CSV] Template ${csvTemplate.id} failed, falling back.`, templateError);
+                            rows = [];
+                            diagnostics = null;
+                            templateUsed = null;
+                        }
+                    }
+                }
+
+                if (rows.length === 0) {
+                    if (parseMode === "ai") {
+                        const aiResult = await parseCsvWithAiFallback({ csvContent, context: aiContext });
+                        rows = aiResult.rows;
+                        diagnostics = aiResult.diagnostics;
+                        parseModeUsed = "ai";
+                        assertParseQuality(rows, diagnostics);
+                    } else {
+                        const parsed = parseCsvToRows(csvContent, { returnDiagnostics: true });
+                        rows = parsed.rows;
+                        diagnostics = parsed.diagnostics;
+                        assertParseQuality(rows, diagnostics);
+                    }
                 }
             } catch (parseErr: any) {
                 if (parseMode !== "ai" && csvContentReady) {
@@ -1008,7 +1422,7 @@ export const POST = async (req: NextRequest) => {
                             source: sourceLabel,
                             error: aiErr,
                             diagnostics,
-                            extra: { sheetName, originalError: parseErr?.message ?? String(parseErr) },
+                            extra: { sheetName, templateUsed, originalError: parseErr?.message ?? String(parseErr) },
                         });
                         return NextResponse.json({
                             error: GENERIC_PARSE_ERROR
@@ -1022,7 +1436,7 @@ export const POST = async (req: NextRequest) => {
                         source: sourceLabel,
                         error: parseErr,
                         diagnostics,
-                        extra: { sheetName },
+                        extra: { sheetName, templateUsed },
                     });
                     return NextResponse.json({
                         error: GENERIC_PARSE_ERROR
@@ -1078,7 +1492,7 @@ export const POST = async (req: NextRequest) => {
             parseMode: parseModeUsed,
             source: sourceLabel,
             diagnostics,
-            extra: sheetName ? { sheetName } : undefined,
+            extra: sheetName || templateUsed ? { sheetName, templateUsed } : undefined,
         });
 
         // 3) AI categorisation
