@@ -71,7 +71,7 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
       setParsedRows((prevRows) => {
         const updatedRows = prevRows.map((row) => {
           if (row.id === rowId) {
-            return { ...row, category: newCategory }
+            return { ...row, category: newCategory, needsReview: false, reviewReason: null }
           }
           return row
         })

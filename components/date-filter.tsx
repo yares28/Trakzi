@@ -11,6 +11,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 import type { DateFilterType } from "@/lib/date-filter"
 
@@ -31,7 +37,7 @@ export function DateFilter({ value, onChange, availableYears }: DateFilterProps)
   const effectiveOnChange = onChange || setGlobalFilter
 
   const getFilterLabel = (filter: DateFilterType | null): string => {
-    if (!filter) return "Last 6 Months" // Default display
+    if (!filter) return "YTD" // Default display
     switch (filter) {
       case "last7days":
         return "Last 7 Days"
@@ -43,6 +49,8 @@ export function DateFilter({ value, onChange, availableYears }: DateFilterProps)
         return "Last 6 Months"
       case "lastyear":
         return "Last Year"
+      case "ytd":
+        return "YTD"
       default:
         // It's a year string
         return filter
@@ -79,6 +87,19 @@ export function DateFilter({ value, onChange, availableYears }: DateFilterProps)
           <span className="flex-1">Last Year</span>
           {effectiveValue === "lastyear" && <IconCheck className="size-4" />}
         </DropdownMenuItem>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuItem onClick={() => effectiveOnChange("ytd")}>
+                <span className="flex-1">YTD</span>
+                {effectiveValue === "ytd" && <IconCheck className="size-4" />}
+              </DropdownMenuItem>
+            </TooltipTrigger>
+            <TooltipContent side="left">
+              <p>Year To Date</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         {availableYears.length > 0 && (
           <>
             <DropdownMenuSeparator />
@@ -98,64 +119,3 @@ export function DateFilter({ value, onChange, availableYears }: DateFilterProps)
     </DropdownMenu>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

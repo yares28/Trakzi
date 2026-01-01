@@ -11,11 +11,23 @@ export function rowsToCanonicalCsv(rows: TxRow[]): string {
         amount: r.amount,
         balance: r.balance,
         category: r.category || "", // Use empty string instead of undefined
-        summary: r.summary || ""    // Clean merchant name
+        summary: r.summary || "",   // Clean merchant name
+        needs_review: r.needsReview ? "true" : "",
+        review_reason: r.reviewReason || ""
     }));
 
     const csv = Papa.unparse(rowsWithCategories, {
-        columns: ["date", "time", "description", "amount", "balance", "category", "summary"]
+        columns: [
+            "date",
+            "time",
+            "description",
+            "amount",
+            "balance",
+            "category",
+            "summary",
+            "needs_review",
+            "review_reason"
+        ]
     });
 
     // Verify category column is in the CSV

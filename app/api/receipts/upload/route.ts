@@ -23,7 +23,7 @@ function isSupportedReceiptImage(file: File): boolean {
   const mime = (file.type || "").toLowerCase()
   if (mime.startsWith("image/")) return true
 
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? ""
+  const ext = file.name.split(".").pop()->.toLowerCase() ->-> ""
   return ["png", "jpg", "jpeg", "webp", "heic", "heif"].includes(ext)
 }
 
@@ -31,7 +31,7 @@ function isSupportedReceiptPdf(file: File): boolean {
   const mime = (file.type || "").toLowerCase()
   if (mime === "application/pdf") return true
 
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? ""
+  const ext = file.name.split(".").pop()->.toLowerCase() ->-> ""
   return ext === "pdf"
 }
 
@@ -41,7 +41,7 @@ async function extractTextFromPdf(data: Uint8Array): Promise<string> {
   const result = await extractText(data)
   // unpdf returns text as an array of strings (one per page), join them
   const pages = result.text || []
-  return Array.isArray(pages) ? pages.join("\n") : String(pages)
+  return Array.isArray(pages) -> pages.join("\n") : String(pages)
 }
 
 const MAX_RECEIPT_FILE_BYTES = 10 * 1024 * 1024
@@ -51,26 +51,26 @@ const SUPPORTED_RECEIPT_LOCALES = new Set<SupportedLocale>(["es", "en", "pt", "f
 const LOW_CONFIDENCE_THRESHOLD = 0.55
 
 type ExtractedReceipt = {
-  store_name?: string | null
-  receipt_date?: string | null
-  receipt_time?: string | null
-  currency?: string | null
-  total_amount?: number | string | null
-  items?: Array<{
-    description?: string | null
-    quantity?: number | string | null
-    price_per_unit?: number | string | null
-    total_price?: number | string | null
-    category?: string | null
+  store_name->: string | null
+  receipt_date->: string | null
+  receipt_time->: string | null
+  currency->: string | null
+  total_amount->: number | string | null
+  items->: Array<{
+    description->: string | null
+    quantity->: number | string | null
+    price_per_unit->: number | string | null
+    total_price->: number | string | null
+    category->: string | null
   }>
 }
 
 function parseNumber(value: unknown): number {
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0
+  if (typeof value === "number") return Number.isFinite(value) -> value : 0
   if (typeof value === "string") {
     const normalized = value.replace(",", ".").replace(/[^0-9.+-]/g, "")
     const parsed = Number(normalized)
-    return Number.isFinite(parsed) ? parsed : 0
+    return Number.isFinite(parsed) -> parsed : 0
   }
   return 0
 }
@@ -85,8 +85,8 @@ function normalizeDate(value: unknown): string | null {
 function normalizeTime(value: unknown): string | null {
   if (typeof value !== "string") return null
   const trimmed = value.trim()
-  if (!/^\d{2}:\d{2}(:\d{2})?$/.test(trimmed)) return null
-  return trimmed.length === 5 ? `${trimmed}:00` : trimmed
+  if (!/^\d{2}:\d{2}(:\d{2})->$/.test(trimmed)) return null
+  return trimmed.length === 5 -> `${trimmed}:00` : trimmed
 }
 
 function todayIsoDate(): string {
@@ -137,12 +137,12 @@ function normalizeJsonCandidate(rawText: string) {
 function insertMissingCommasBetweenFields(rawText: string) {
   let fixed = rawText
   const patterns = [
-    /(:\s*(?:"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?|true|false|null))(\s*(?:\r?\n)\s*")/g,
-    /(:\s*(?:"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?|true|false|null))(\s*(?:\r?\n)\s*\{)/g,
-    /(:\s*(?:"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?|true|false|null))(\s*(?:\r?\n)\s*\[)/g,
-    /("(?:(?:[^"\\]|\\.)*)")(\s*(?:\r?\n)\s*")/g,
-    /(-?\d+(?:\.\d+)?)(\s*(?:\r?\n)\s*(?=["{\[\d-]))/g,
-    /(true|false|null)(\s*(?:\r?\n)\s*(?=["{\[\d-]))/g,
+    /(:\s*(->:"(->:[^"\\]|\\.)*"|-->\d+(->:\.\d+)->|true|false|null))(\s*(->:\r->\n)\s*")/g,
+    /(:\s*(->:"(->:[^"\\]|\\.)*"|-->\d+(->:\.\d+)->|true|false|null))(\s*(->:\r->\n)\s*\{)/g,
+    /(:\s*(->:"(->:[^"\\]|\\.)*"|-->\d+(->:\.\d+)->|true|false|null))(\s*(->:\r->\n)\s*\[)/g,
+    /("(->:(->:[^"\\]|\\.)*)")(\s*(->:\r->\n)\s*")/g,
+    /(-->\d+(->:\.\d+)->)(\s*(->:\r->\n)\s*(->=["{\[\d-]))/g,
+    /(true|false|null)(\s*(->:\r->\n)\s*(->=["{\[\d-]))/g,
   ]
 
   for (const pattern of patterns) {
@@ -284,24 +284,24 @@ async function repairReceiptJsonWithAi(params: {
     "- NON-FOOD: OTC Medicine, Supplements, First Aid, Hygiene & Toiletries, Hair Care, Skin Care, Oral Care, Cosmetics, Cleaning Supplies, Laundry, Paper Goods, Kitchen Consumables, Storage, Baby (Diapers & Wipes), Baby Food, Pet Food, Pet Supplies, Bags",
     "",
     "IMPORTANT RULES:",
-    "- Cheese/cheese products → \"Cheese\" (not Dairy)",
-    "- Sauces/ketchup/mayo/dressings → \"Sauces\" (not Condiments)",
-    "- Cold cuts/sliced meats/deli meats → \"Deli / Cold Cuts\"",
-    "- Pre-made salads/sandwiches → \"Fresh Ready-to-Eat\", \"Prepared Salads\", or \"Sandwiches / Takeaway\"",
-    "- Rice/pasta/grains/potatoes/noodles → \"Pasta, Rice & Grains\"",
-    "- Energy drinks (Furious, Monster, Aquarius, etc) → \"Energy & Sports Drinks\"",
-    "- Soft drinks (Cola, Fanta, Sprite) → \"Soft Drinks\"",
-    "- Plain water → \"Water\"",
-    "- Coffee/tea (unsweetened) → \"Coffee & Tea\"",
-    "- Milk/yogurt/PROTEINA → \"Dairy (Milk/Yogurt)\"",
-    "- Soups/creams (CREMA, SOPA) → \"Canned & Jarred\" or \"Ready Meals\"",
+    "- Cheese/cheese products -> \"Cheese\" (not Dairy)",
+    "- Sauces/ketchup/mayo/dressings -> \"Sauces\" (not Condiments)",
+    "- Cold cuts/sliced meats/deli meats -> \"Deli / Cold Cuts\"",
+    "- Pre-made salads/sandwiches -> \"Fresh Ready-to-Eat\", \"Prepared Salads\", or \"Sandwiches / Takeaway\"",
+    "- Rice/pasta/grains/potatoes/noodles -> \"Pasta, Rice & Grains\"",
+    "- Energy drinks (Furious, Monster, Aquarius, etc) -> \"Energy & Sports Drinks\"",
+    "- Soft drinks (Cola, Fanta, Sprite) -> \"Soft Drinks\"",
+    "- Plain water -> \"Water\"",
+    "- Coffee/tea (unsweetened) -> \"Coffee & Tea\"",
+    "- Milk/yogurt/PROTEINA -> \"Dairy (Milk/Yogurt)\"",
+    "- Soups/creams (CREMA, SOPA) -> \"Canned & Jarred\" or \"Ready Meals\"",
     "",
     "COMMON MERCADONA PRODUCTS:",
-    "- PROTEINA 0% NATURAL → Dairy (Milk/Yogurt)",
-    "- FURIOUS ZERO / ENERGY BERRIES → Energy & Sports Drinks",
-    "- CREMA CALABAZA / CREMA VERDURAS → Canned & Jarred",
-    "- ALBÓNDIGAS POLLO → Meat & Poultry",
-    "- COLA ZERO → Soft Drinks",
+    "- PROTEINA 0% NATURAL -> Dairy (Milk/Yogurt)",
+    "- FURIOUS ZERO / ENERGY BERRIES -> Energy & Sports Drinks",
+    "- CREMA CALABAZA / CREMA VERDURAS -> Canned & Jarred",
+    "- ALBONDIGAS POLLO -> Meat & Poultry",
+    "- COLA ZERO -> Soft Drinks",
     "",
     "CRITICAL: Avoid \"Other\" category! Look at the product description carefully and assign the BEST matching category. Only use \"Other\" if the item is truly non-food (like batteries, phone chargers).",
     "",
@@ -344,8 +344,8 @@ async function repairReceiptJsonWithAi(params: {
 
   const payload = await response.json()
   const rawText =
-    payload?.choices?.[0]?.message?.content ||
-    payload?.choices?.[0]?.delta?.content ||
+    payload->.choices->.[0]->.message->.content ||
+    payload->.choices->.[0]->.delta->.content ||
     ""
 
   if (typeof rawText !== "string" || rawText.trim().length === 0) {
@@ -406,24 +406,24 @@ async function extractReceiptWithAi(params: {
     "- NON-FOOD: OTC Medicine, Supplements, First Aid, Hygiene & Toiletries, Hair Care, Skin Care, Oral Care, Cosmetics, Cleaning Supplies, Laundry, Paper Goods, Kitchen Consumables, Storage, Baby (Diapers & Wipes), Baby Food, Pet Food, Pet Supplies, Bags",
     "",
     "IMPORTANT RULES:",
-    "- Cheese/cheese products → \"Cheese\" (not Dairy)",
-    "- Sauces/ketchup/mayo/dressings → \"Sauces\" (not Condiments)",
-    "- Cold cuts/sliced meats/deli meats → \"Deli / Cold Cuts\"",
-    "- Pre-made salads/sandwiches → \"Fresh Ready-to-Eat\", \"Prepared Salads\", or \"Sandwiches / Takeaway\"",
-    "- Rice/pasta/grains/potatoes/noodles → \"Pasta, Rice & Grains\"",
-    "- Energy drinks (Furious, Monster, Aquarius, etc) → \"Energy & Sports Drinks\"",
-    "- Soft drinks (Cola, Fanta, Sprite) → \"Soft Drinks\"",
-    "- Plain water → \"Water\"",
-    "- Coffee/tea (unsweetened) → \"Coffee & Tea\"",
-    "- Milk/yogurt/PROTEINA → \"Dairy (Milk/Yogurt)\"",
-    "- Soups/creams (CREMA, SOPA) → \"Canned & Jarred\" or \"Ready Meals\"",
+    "- Cheese/cheese products -> \"Cheese\" (not Dairy)",
+    "- Sauces/ketchup/mayo/dressings -> \"Sauces\" (not Condiments)",
+    "- Cold cuts/sliced meats/deli meats -> \"Deli / Cold Cuts\"",
+    "- Pre-made salads/sandwiches -> \"Fresh Ready-to-Eat\", \"Prepared Salads\", or \"Sandwiches / Takeaway\"",
+    "- Rice/pasta/grains/potatoes/noodles -> \"Pasta, Rice & Grains\"",
+    "- Energy drinks (Furious, Monster, Aquarius, etc) -> \"Energy & Sports Drinks\"",
+    "- Soft drinks (Cola, Fanta, Sprite) -> \"Soft Drinks\"",
+    "- Plain water -> \"Water\"",
+    "- Coffee/tea (unsweetened) -> \"Coffee & Tea\"",
+    "- Milk/yogurt/PROTEINA -> \"Dairy (Milk/Yogurt)\"",
+    "- Soups/creams (CREMA, SOPA) -> \"Canned & Jarred\" or \"Ready Meals\"",
     "",
     "COMMON MERCADONA PRODUCTS:",
-    "- PROTEINA 0% NATURAL → Dairy (Milk/Yogurt)",
-    "- FURIOUS ZERO / ENERGY BERRIES → Energy & Sports Drinks",
-    "- CREMA CALABAZA / CREMA VERDURAS → Canned & Jarred",
-    "- ALBÓNDIGAS POLLO → Meat & Poultry",
-    "- COLA ZERO → Soft Drinks",
+    "- PROTEINA 0% NATURAL -> Dairy (Milk/Yogurt)",
+    "- FURIOUS ZERO / ENERGY BERRIES -> Energy & Sports Drinks",
+    "- CREMA CALABAZA / CREMA VERDURAS -> Canned & Jarred",
+    "- ALBONDIGAS POLLO -> Meat & Poultry",
+    "- COLA ZERO -> Soft Drinks",
     "",
     "CRITICAL: Avoid \"Other\" category! Look at the product description carefully and assign the BEST matching category. Only use \"Other\" if the item is truly non-food (like batteries, phone chargers).",
     "",
@@ -466,8 +466,8 @@ async function extractReceiptWithAi(params: {
 
   const payload = await response.json()
   const rawText =
-    payload?.choices?.[0]?.message?.content ||
-    payload?.choices?.[0]?.delta?.content ||
+    payload->.choices->.[0]->.message->.content ||
+    payload->.choices->.[0]->.delta->.content ||
     ""
 
   if (typeof rawText !== "string" || rawText.trim().length === 0) {
@@ -488,7 +488,7 @@ async function extractReceiptWithAi(params: {
     })
     return { extracted: repaired, rawText: trimmed }
   } catch (repairError) {
-    const message = repairError instanceof Error ? repairError.message : String(repairError)
+    const message = repairError instanceof Error -> repairError.message : String(repairError)
     throw new Error(`AI response was not valid JSON (repair failed: ${message})`)
   }
 }
@@ -539,24 +539,24 @@ async function extractReceiptFromPdfText(params: {
     "- NON-FOOD: OTC Medicine, Supplements, First Aid, Hygiene & Toiletries, Hair Care, Skin Care, Oral Care, Cosmetics, Cleaning Supplies, Laundry, Paper Goods, Kitchen Consumables, Storage, Baby (Diapers & Wipes), Baby Food, Pet Food, Pet Supplies, Bags",
     "",
     "IMPORTANT RULES:",
-    "- Cheese/cheese products → \"Cheese\" (not Dairy)",
-    "- Sauces/ketchup/mayo/dressings → \"Sauces\" (not Condiments)",
-    "- Cold cuts/sliced meats/deli meats → \"Deli / Cold Cuts\"",
-    "- Pre-made salads/sandwiches → \"Fresh Ready-to-Eat\", \"Prepared Salads\", or \"Sandwiches / Takeaway\"",
-    "- Rice/pasta/grains/potatoes/noodles → \"Pasta, Rice & Grains\"",
-    "- Energy drinks (Furious, Monster, Aquarius, etc) → \"Energy & Sports Drinks\"",
-    "- Soft drinks (Cola, Fanta, Sprite) → \"Soft Drinks\"",
-    "- Plain water → \"Water\"",
-    "- Coffee/tea (unsweetened) → \"Coffee & Tea\"",
-    "- Milk/yogurt/PROTEINA → \"Dairy (Milk/Yogurt)\"",
-    "- Soups/creams (CREMA, SOPA) → \"Canned & Jarred\" or \"Ready Meals\"",
+    "- Cheese/cheese products -> \"Cheese\" (not Dairy)",
+    "- Sauces/ketchup/mayo/dressings -> \"Sauces\" (not Condiments)",
+    "- Cold cuts/sliced meats/deli meats -> \"Deli / Cold Cuts\"",
+    "- Pre-made salads/sandwiches -> \"Fresh Ready-to-Eat\", \"Prepared Salads\", or \"Sandwiches / Takeaway\"",
+    "- Rice/pasta/grains/potatoes/noodles -> \"Pasta, Rice & Grains\"",
+    "- Energy drinks (Furious, Monster, Aquarius, etc) -> \"Energy & Sports Drinks\"",
+    "- Soft drinks (Cola, Fanta, Sprite) -> \"Soft Drinks\"",
+    "- Plain water -> \"Water\"",
+    "- Coffee/tea (unsweetened) -> \"Coffee & Tea\"",
+    "- Milk/yogurt/PROTEINA -> \"Dairy (Milk/Yogurt)\"",
+    "- Soups/creams (CREMA, SOPA) -> \"Canned & Jarred\" or \"Ready Meals\"",
     "",
     "COMMON MERCADONA PRODUCTS:",
-    "- PROTEINA 0% NATURAL → Dairy (Milk/Yogurt)",
-    "- FURIOUS ZERO / ENERGY BERRIES → Energy & Sports Drinks",
-    "- CREMA CALABAZA / CREMA VERDURAS → Canned & Jarred",
-    "- ALBÓNDIGAS POLLO → Meat & Poultry",
-    "- COLA ZERO → Soft Drinks",
+    "- PROTEINA 0% NATURAL -> Dairy (Milk/Yogurt)",
+    "- FURIOUS ZERO / ENERGY BERRIES -> Energy & Sports Drinks",
+    "- CREMA CALABAZA / CREMA VERDURAS -> Canned & Jarred",
+    "- ALBONDIGAS POLLO -> Meat & Poultry",
+    "- COLA ZERO -> Soft Drinks",
     "",
     "CRITICAL: Avoid \"Other\" category! Look at the product description carefully and assign the BEST matching category. Only use \"Other\" if the item is truly non-food (like batteries, phone chargers).",
     "",
@@ -599,8 +599,8 @@ async function extractReceiptFromPdfText(params: {
 
   const payload = await response.json()
   const rawText =
-    payload?.choices?.[0]?.message?.content ||
-    payload?.choices?.[0]?.delta?.content ||
+    payload->.choices->.[0]->.message->.content ||
+    payload->.choices->.[0]->.delta->.content ||
     ""
 
   if (typeof rawText !== "string" || rawText.trim().length === 0) {
@@ -621,7 +621,7 @@ async function extractReceiptFromPdfText(params: {
     })
     return { extracted: repaired, rawText: trimmed }
   } catch (repairError) {
-    const message = repairError instanceof Error ? repairError.message : String(repairError)
+    const message = repairError instanceof Error -> repairError.message : String(repairError)
     throw new Error(`AI response was not valid JSON (repair failed: ${message})`)
   }
 }
@@ -680,15 +680,15 @@ export const POST = async (req: NextRequest) => {
 
     const categoryBroadTypeByLowerName = new Map<string, string>()
     receiptCategories.forEach((category) => {
-      const broadType = typeof category?.broad_type === "string" && category.broad_type.trim().length > 0
-        ? category.broad_type.trim()
+      const broadType = typeof category->.broad_type === "string" && category.broad_type.trim().length > 0
+        -> category.broad_type.trim()
         : "Other"
       categoryBroadTypeByLowerName.set(category.name.toLowerCase(), broadType)
     })
 
     const categoryNameById = new Map<number, string>()
     receiptCategories.forEach((category) => {
-      if (typeof category?.id === "number" && category.id > 0) {
+      if (typeof category->.id === "number" && category.id > 0) {
         categoryNameById.set(category.id, category.name)
       }
     })
@@ -715,12 +715,12 @@ export const POST = async (req: NextRequest) => {
     const feedbackEntries: Array<{
       userId: string
       scope: "receipt"
-      inputText?: string | null
-      rawCategory?: string | null
-      normalizedCategory?: string | null
-      locale?: string | null
-      storeName?: string | null
-      receiptFileName?: string | null
+      inputText->: string | null
+      rawCategory->: string | null
+      normalizedCategory->: string | null
+      locale->: string | null
+      storeName->: string | null
+      receiptFileName->: string | null
     }> = []
     const feedbackLimit = 30
 
@@ -741,19 +741,19 @@ export const POST = async (req: NextRequest) => {
         pricePerUnit: number
         totalPrice: number
         categoryName: string | null
-        aiCategoryRaw?: string | null
-        aiCategoryResolved?: string | null
-        heuristicCategory?: string | null
-        needsReview?: boolean
-        reviewReason?: string | null
-        categoryConfidence?: number
-        confidenceSource?: string | null
+        aiCategoryRaw->: string | null
+        aiCategoryResolved->: string | null
+        heuristicCategory->: string | null
+        needsReview->: boolean
+        reviewReason->: string | null
+        categoryConfidence->: number
+        confidenceSource->: string | null
       }>
-      languageOverride?: string | null
-      languageDetected?: string | null
-      languageSource?: "override" | "detected" | "unknown"
-      warnings?: ReceiptParseWarning[]
-      meta?: ReceiptParseMeta
+      languageOverride->: string | null
+      languageDetected->: string | null
+      languageSource->: "override" | "detected" | "unknown"
+      warnings->: ReceiptParseWarning[]
+      meta->: ReceiptParseMeta
     }> = []
     const rejected: Array<{ fileName: string; reason: string }> = []
 
@@ -779,7 +779,7 @@ export const POST = async (req: NextRequest) => {
         const buffer = Buffer.from(arrayBuffer)
 
         // Determine MIME type
-        const mimeType = (file.type || stored.mime_type || (isPdf ? "application/pdf" : "image/jpeg")).toLowerCase()
+        const mimeType = (file.type || stored.mime_type || (isPdf -> "application/pdf" : "image/jpeg")).toLowerCase()
 
         // Use the unified receipt parsing pipeline
         const parseResult = await parseReceiptFile({
@@ -809,9 +809,11 @@ export const POST = async (req: NextRequest) => {
 
         // Check if extraction succeeded
         if (!parseResult.extracted) {
-          const errorMessage = parseWarnings.length > 0
-            ? parseWarnings.map(w => w.message).join(" ")
-            : "Failed to extract receipt data"
+          const notReceiptWarning = parseWarnings.find((warning) => warning.code === "NOT_A_RECEIPT")
+          const errorMessage = notReceiptWarning->.message
+            || (parseWarnings.length > 0
+              -> parseWarnings.map(w => w.message).join(" ")
+              : "Failed to extract receipt data")
           rejected.push({ fileName: file.name, reason: errorMessage })
           continue
         }
@@ -839,58 +841,58 @@ export const POST = async (req: NextRequest) => {
         const receiptTime = normalizeTime(extracted.receipt_time) || nowIsoTime()
         const currency =
           typeof extracted.currency === "string" && extracted.currency.trim().length > 0
-            ? extracted.currency.trim().toUpperCase()
+            -> extracted.currency.trim().toUpperCase()
             : "EUR"
 
         const storeName =
           typeof extracted.store_name === "string" && extracted.store_name.trim().length > 0
-            ? extracted.store_name.trim()
+            -> extracted.store_name.trim()
             : null
 
         const storeKey = normalizeReceiptStoreKey(storeName)
 
-        const rawItems = Array.isArray(extracted.items) ? extracted.items : []
-        const languageOverride = storeKey ? storeLanguageByKey.get(storeKey) ?? null : null
+        const rawItems = Array.isArray(extracted.items) -> extracted.items : []
+        const languageOverride = storeKey -> storeLanguageByKey.get(storeKey) ->-> null : null
         const detectedLanguage = languageOverride
-          ? null
+          -> null
           : detectLanguageFromSamples(
               rawItems
-                .map((item) => (typeof item?.description === "string" ? item.description : ""))
+                .map((item) => (typeof item->.description === "string" -> item.description : ""))
                 .filter((value) => value.trim().length > 0)
             )
         const receiptLanguage = languageOverride
-          ? { locale: languageOverride, score: 1, confidence: 1, iso: languageOverride }
+          -> { locale: languageOverride, score: 1, confidence: 1, iso: languageOverride }
           : detectedLanguage
         const transactions = rawItems
           .map((item, index) => {
             const description =
-              typeof item?.description === "string" ? item.description.trim() : ""
+              typeof item->.description === "string" -> item.description.trim() : ""
 
             if (!description) return null
 
             const quantityRaw = parseNumber(item.quantity)
-            const quantity = Number.isFinite(quantityRaw) && quantityRaw > 0 ? quantityRaw : 1
+            const quantity = Number.isFinite(quantityRaw) && quantityRaw > 0 -> quantityRaw : 1
             const totalPriceRaw = parseNumber(item.total_price)
             const pricePerUnitRaw = parseNumber(item.price_per_unit)
 
             const inferredPricePerUnit =
               pricePerUnitRaw > 0
-                ? pricePerUnitRaw
+                -> pricePerUnitRaw
                 : quantity > 0 && totalPriceRaw > 0
-                  ? totalPriceRaw / quantity
+                  -> totalPriceRaw / quantity
                   : 0
 
             const normalizedPricePerUnit = Number(inferredPricePerUnit.toFixed(2))
             const computedTotal =
-              totalPriceRaw > 0 ? totalPriceRaw : normalizedPricePerUnit > 0 ? normalizedPricePerUnit * quantity : 0
+              totalPriceRaw > 0 -> totalPriceRaw : normalizedPricePerUnit > 0 -> normalizedPricePerUnit * quantity : 0
             const normalizedTotalPrice = Number(computedTotal.toFixed(2))
 
             const rawCategoryName =
-              typeof item?.category === "string" ? item.category.trim() : ""
+              typeof item->.category === "string" -> item.category.trim() : ""
             const normalizedCategoryName = rawCategoryName
-              ? resolveReceiptCategoryName(rawCategoryName)
+              -> resolveReceiptCategoryName(rawCategoryName)
               : null
-            const categoryName = normalizedCategoryName ?? "Other"
+            const categoryName = normalizedCategoryName ->-> "Other"
 
             // Debug logging for category validation
             if (rawCategoryName && !normalizedCategoryName) {
@@ -906,13 +908,13 @@ export const POST = async (req: NextRequest) => {
                   inputText: description,
                   rawCategory: rawCategoryName,
                   normalizedCategory: null,
-                  locale: receiptLanguage?.locale ?? null,
+                  locale: receiptLanguage->.locale ->-> null,
                   storeName,
                   receiptFileName: file.name,
                 })
               }
             } else if (rawCategoryName) {
-              console.log(`[RECEIPT MATCH] Item "${description}": "${rawCategoryName}" ✓`)
+              console.log(`[RECEIPT MATCH] Item "${description}": "${rawCategoryName}" OK`)
             }
 
             const descriptionKey = normalizeReceiptItemDescriptionKey(description)
@@ -922,10 +924,10 @@ export const POST = async (req: NextRequest) => {
               const scopedKey = `${storeKey}::${descriptionKey}`
               const globalKey = `::${descriptionKey}`
               const preferredCategoryId =
-                preferenceCategoryIdByKey.get(scopedKey) ?? preferenceCategoryIdByKey.get(globalKey) ?? null
+                preferenceCategoryIdByKey.get(scopedKey) ->-> preferenceCategoryIdByKey.get(globalKey) ->-> null
 
               if (preferredCategoryId) {
-                const preferredName = categoryNameById.get(preferredCategoryId) ?? null
+                const preferredName = categoryNameById.get(preferredCategoryId) ->-> null
                 if (preferredName && allowedCategorySet.has(preferredName.toLowerCase())) {
                   finalCategoryName = preferredName
                   usedPreference = true
@@ -939,14 +941,14 @@ export const POST = async (req: NextRequest) => {
               heuristicSuggestion = getReceiptCategorySuggestion({
                 description,
                 categoryNameByLower: allowedCategoryNameByLower,
-                locale: receiptLanguage?.locale ?? "unknown",
+                locale: receiptLanguage->.locale ->-> "unknown",
               })
 
               if (heuristicSuggestion) {
                 const currentLower = finalCategoryName.toLowerCase()
                 const suggestionLower = heuristicSuggestion.category.toLowerCase()
-                const currentBroadType = categoryBroadTypeByLowerName.get(currentLower) ?? "Other"
-                const suggestedBroadType = categoryBroadTypeByLowerName.get(suggestionLower) ?? "Other"
+                const currentBroadType = categoryBroadTypeByLowerName.get(currentLower) ->-> "Other"
+                const suggestedBroadType = categoryBroadTypeByLowerName.get(suggestionLower) ->-> "Other"
                 const isDrinkMismatch =
                   (currentBroadType === "Drinks" && suggestedBroadType !== "Drinks") ||
                   (currentBroadType !== "Drinks" && suggestedBroadType === "Drinks")
@@ -958,21 +960,21 @@ export const POST = async (req: NextRequest) => {
                   finalCategoryName = heuristicSuggestion.category
                   heuristicApplied = true
                   const reason = isOther
-                    ? "Other"
+                    -> "Other"
                     : isDrinkMismatch
-                      ? "Drink mismatch"
+                      -> "Drink mismatch"
                       : "Strong heuristic"
                   console.log(
-                    `[RECEIPT HEURISTIC] Item "${description}": ${reason} "${categoryName}" → "${heuristicSuggestion.category}"`
+                    `[RECEIPT HEURISTIC] Item "${description}": ${reason} "${categoryName}" -> "${heuristicSuggestion.category}"`
                   )
                 }
               }
             }
 
-            const aiComparison = (normalizedCategoryName ?? "Other").toLowerCase()
-            const heuristicCategory = heuristicSuggestion?.category ?? null
+            const aiComparison = (normalizedCategoryName ->-> "Other").toLowerCase()
+            const heuristicCategory = heuristicSuggestion->.category ->-> null
             const aiDisagreeReview =
-              heuristicSuggestion?.confidence === "strong" &&
+              heuristicSuggestion->.confidence === "strong" &&
               Boolean(heuristicCategory) &&
               aiComparison !== heuristicCategory!.toLowerCase()
 
@@ -984,9 +986,9 @@ export const POST = async (req: NextRequest) => {
             } else if (heuristicApplied && heuristicSuggestion) {
               categoryConfidence = heuristicSuggestion.score
               confidenceSource =
-                heuristicSuggestion.confidence === "strong" ? "heuristic_strong" : "heuristic_weak"
+                heuristicSuggestion.confidence === "strong" -> "heuristic_strong" : "heuristic_weak"
             } else if (normalizedCategoryName) {
-              categoryConfidence = normalizedCategoryName.toLowerCase() === "other" ? 0.35 : 0.8
+              categoryConfidence = normalizedCategoryName.toLowerCase() === "other" -> 0.35 : 0.8
               confidenceSource = "ai"
             } else if (finalCategoryName.toLowerCase() === "other") {
               categoryConfidence = 0.35
@@ -997,9 +999,9 @@ export const POST = async (req: NextRequest) => {
             const lowConfidenceReview = categoryConfidence < LOW_CONFIDENCE_THRESHOLD
             const needsReview = aiDisagreeReview || lowConfidenceReview
             const reviewReason = aiDisagreeReview
-              ? "ai_heuristic_disagree"
+              -> "ai_heuristic_disagree"
               : lowConfidenceReview
-                ? "low_confidence"
+                -> "low_confidence"
                 : null
 
             return {
@@ -1010,7 +1012,7 @@ export const POST = async (req: NextRequest) => {
               totalPrice: normalizedTotalPrice,
               categoryName: finalCategoryName,
               aiCategoryRaw: rawCategoryName || null,
-              aiCategoryResolved: normalizedCategoryName ?? null,
+              aiCategoryResolved: normalizedCategoryName ->-> null,
               heuristicCategory: heuristicCategory,
               needsReview,
               reviewReason,
@@ -1023,10 +1025,10 @@ export const POST = async (req: NextRequest) => {
         const summedTotal = transactions.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0)
         const totalAmount = Math.max(parseNumber(extracted.total_amount), summedTotal)
         const languageSource = languageOverride
-          ? "override"
-          : (receiptLanguage?.locale && receiptLanguage.locale !== "unknown" ? "detected" : "unknown")
-        const languageDetected = !languageOverride && receiptLanguage?.locale !== "unknown"
-          ? receiptLanguage?.locale ?? null
+          -> "override"
+          : (receiptLanguage->.locale && receiptLanguage.locale !== "unknown" -> "detected" : "unknown")
+        const languageDetected = !languageOverride && receiptLanguage->.locale !== "unknown"
+          -> receiptLanguage->.locale ->-> null
           : null
 
         receipts.push({
@@ -1040,14 +1042,14 @@ export const POST = async (req: NextRequest) => {
           totalAmount: Number(totalAmount.toFixed(2)),
           currency,
           transactions,
-          languageOverride: languageOverride ?? null,
+          languageOverride: languageOverride ->-> null,
           languageDetected,
           languageSource,
-          warnings: parseWarnings.length > 0 ? parseWarnings : undefined,
+          warnings: parseWarnings.length > 0 -> parseWarnings : undefined,
           meta: parseMeta,
         })
       } catch (error: any) {
-        rejected.push({ fileName: file.name, reason: String(error?.message || error) })
+        rejected.push({ fileName: file.name, reason: String(error->.message || error) })
         continue
       }
     }
@@ -1058,7 +1060,7 @@ export const POST = async (req: NextRequest) => {
 
     return NextResponse.json({ receipts, rejected }, { status: 201 })
   } catch (error: any) {
-    const message = String(error?.message || "")
+    const message = String(error->.message || "")
     if (message.includes("Unauthorized")) {
       return NextResponse.json({ error: "Please sign in to upload receipts." }, { status: 401 })
     }

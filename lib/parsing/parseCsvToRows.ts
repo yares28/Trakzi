@@ -268,6 +268,15 @@ function normalizeTime(timeStr: string): string | null {
     return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
+function parseBoolean(value: unknown): boolean {
+    if (typeof value === "boolean") return value;
+    if (typeof value === "number") return value !== 0;
+    const normalized = String(value ?? "")
+        .trim()
+        .toLowerCase();
+    return normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "y";
+}
+
 function extractTime(value: string): string | null {
     if (value == null) return null;
     const trimmed = String(value).trim();
@@ -966,6 +975,11 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
         const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(normalizedDate);
         const descriptionMissing = normalizedDescription.length === 0;
 
+        const rawNeedsReview =
+            r.needs_review ?? r.Needs_Review ?? r.NEEDS_REVIEW ?? r.needsReview ?? r.NeedsReview ?? r.NEEDSREVIEW;
+        const rawReviewReason =
+            r.review_reason ?? r.Review_Reason ?? r.REVIEW_REASON ?? r.reviewReason ?? r.ReviewReason ?? r.REVIEWREASON;
+
         return {
             date: normalizedDate || "",
             time: normalizedTime ?? null,
@@ -973,6 +987,8 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
             amount: parsedAmount ?? 0,
             balance: parsedBalance ?? null,
             category: (r.category ?? r.Category ?? r.CATEGORY ?? "").trim() || undefined,
+            needsReview: parseBoolean(rawNeedsReview),
+            reviewReason: String(rawReviewReason ?? "").trim() || null,
             __rowIndex: index,
             __dateValid: dateValid,
             __amountMissing: amountMissing,

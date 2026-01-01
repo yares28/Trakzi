@@ -46,6 +46,8 @@ export function HomeStatementReviewDialog({
         description: row.description,
         amount: row.amount,
         category: row.category,
+        needsReview: row.needsReview,
+        reviewReason: row.reviewReason ?? null,
     }))
 
     return (

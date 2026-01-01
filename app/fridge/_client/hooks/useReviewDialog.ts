@@ -197,7 +197,13 @@ export function useReviewDialog({
       )
       setShowReviewOnly(hasReviewItems)
       if (receipts.length === 0) {
-        toast.error("No receipts were uploaded")
+        const warningMessage = warnings.length > 0
+          ? warnings.map((warning) => `${warning.fileName}: ${warning.reason}`).join(" | ")
+          : "No receipts were uploaded."
+        toast.error("No receipts were uploaded", {
+          description: warningMessage,
+          duration: 8000,
+        })
         return
       }
       setIsReviewDialogOpen(true)
