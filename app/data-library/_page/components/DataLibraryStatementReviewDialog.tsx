@@ -1,9 +1,9 @@
-import { CsvReviewDialog, type CsvReviewRow } from "@/components/csv-review-dialog"
+import { StatementReviewDialog, type StatementReviewRow } from "@/components/statement-review-dialog"
 import type { ParseQualitySummary } from "@/lib/parsing/statement-parse-quality"
 
 import type { ParsedRow } from "../types"
 
-type CsvReviewDialogWrapperProps = {
+type StatementReviewDialogWrapperProps = {
     open: boolean
     onOpenChange: (open: boolean) => void
     fileName: string | null
@@ -21,7 +21,7 @@ type CsvReviewDialogWrapperProps = {
     onCancel: () => void
 }
 
-export function DataLibraryCsvReviewDialog({
+export function DataLibraryStatementReviewDialog({
     open,
     onOpenChange,
     fileName,
@@ -37,9 +37,9 @@ export function DataLibraryCsvReviewDialog({
     onDeleteSelectedRows,
     onCommitImport,
     onCancel,
-}: CsvReviewDialogWrapperProps) {
-    // Convert ParsedRow to CsvReviewRow
-    const reviewRows: CsvReviewRow[] = parsedRows.map((row) => ({
+}: StatementReviewDialogWrapperProps) {
+    // Convert ParsedRow to StatementReviewRow
+    const reviewRows: StatementReviewRow[] = parsedRows.map((row) => ({
         id: row.id,
         date: row.date,
         time: row.time || undefined,
@@ -49,7 +49,7 @@ export function DataLibraryCsvReviewDialog({
     }))
 
     return (
-        <CsvReviewDialog
+        <StatementReviewDialog
             open={open}
             onOpenChange={onOpenChange}
             fileName={fileName}

@@ -23,13 +23,13 @@ import {
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
-export type FileUploadCsvLead = {
+export type FileUploadStatementLead = {
     id: string
     name: string
     imageUrl?: string | null
 }
 
-export interface FileUploadCsvProps {
+export interface FileUploadStatementProps {
     files: File[]
     fileProgresses?: Record<string, number>
     isBusy?: boolean
@@ -38,7 +38,7 @@ export interface FileUploadCsvProps {
 
     projectName: string
     onProjectNameChange: (next: string) => void
-    projectLead?: FileUploadCsvLead | null
+    projectLead?: FileUploadStatementLead | null
 
     accept?: string
     onFilesChange: (nextFiles: File[]) => void
@@ -67,7 +67,7 @@ function getFileKey(file: File) {
     return `${file.name}::${file.size}::${file.lastModified}`
 }
 
-export function FileUploadCsv({
+export function FileUploadStatement({
     files,
     fileProgresses = {},
     isBusy = false,
@@ -81,7 +81,7 @@ export function FileUploadCsv({
     onCancel,
     onContinue,
     continueLabel = "Parse file",
-}: FileUploadCsvProps) {
+}: FileUploadStatementProps) {
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     const handleFileSelect = (selected: FileList | null) => {

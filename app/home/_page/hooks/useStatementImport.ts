@@ -15,12 +15,12 @@ import { clearAnalyticsCache } from "@/app/analytics/_page/cache"
 import { isFileDragEvent } from "../utils/file-dnd"
 import { useCategoryPreferences } from "./useCategoryPreferences"
 
-type UseCsvImportOptions = {
+type UseStatementImportOptions = {
   refreshAnalyticsData: () => Promise<void> | void
 }
 
-export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
-  // CSV drop-to-import state
+export function useStatementImport({ refreshAnalyticsData }: UseStatementImportOptions) {
+  // Statement drop-to-import state
   const [isDragging, setIsDragging] = useState(false)
   const [droppedFile, setDroppedFile] = useState<File | null>(null)
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
