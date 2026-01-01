@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { IconFilter, IconCheck, IconHome } from "@tabler/icons-react"
+import { IconFilter, IconCheck } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -10,9 +10,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
   Tooltip,
@@ -107,23 +104,16 @@ export function DateFilter({ value, onChange, availableYears }: DateFilterProps)
         {availableYears.length > 0 && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <IconHome className="size-4 mr-2" />
-                <span>Specific Years</span>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                {availableYears.map((year) => (
-                  <DropdownMenuItem
-                    key={year}
-                    onClick={() => effectiveOnChange(year.toString())}
-                  >
-                    <span className="flex-1">{year}</span>
-                    {effectiveValue === year.toString() && <IconCheck className="size-4" />}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
+            <DropdownMenuLabel>Specific Years</DropdownMenuLabel>
+            {availableYears.map((year) => (
+              <DropdownMenuItem
+                key={year}
+                onClick={() => effectiveOnChange(year.toString())}
+              >
+                <span className="flex-1">{year}</span>
+                {effectiveValue === year.toString() && <IconCheck className="size-4" />}
+              </DropdownMenuItem>
+            ))}
           </>
         )}
       </DropdownMenuContent>

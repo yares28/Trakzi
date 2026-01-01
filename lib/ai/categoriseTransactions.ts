@@ -301,7 +301,9 @@ const MERCHANT_PATTERNS: MerchantPattern[] = [
     { pattern: /hbo\s*max|hbomax/i, summary: "HBO Max", category: "Subscriptions", priority: 85 },
     { pattern: /youtube\s*premium/i, summary: "YouTube Premium", category: "Subscriptions", priority: 80 },
     { pattern: /google\s*play/i, summary: "Google Play", category: "Subscriptions", priority: 80 },
-    { pattern: /apple\.com\/bill|itunes|app\s*store/i, summary: "Apple Services", category: "Subscriptions", priority: 85 },
+    { pattern: /apple\.com\/bill|apple\s*com\s*bill|itunes|app\s*store/i, summary: "Apple Services", category: "Subscriptions", priority: 85 },
+    { pattern: /apple\s*music|apple\s*tv|apple\s*one|apple\s*arcade|icloud|apple\s*services|apple\s*play/i, summary: "Apple Services", category: "Subscriptions", priority: 85 },
+    { pattern: /open\s*ai|openai|chatgpt/i, summary: "OpenAI", category: "Subscriptions", priority: 80 },
     { pattern: /adobe|canva|dropbox|notion|microsoft\s*365|office\s*365/i, summary: "Digital Subscription", category: "Subscriptions", priority: 75 },
 
     // Travel
@@ -341,7 +343,7 @@ const MERCHANT_PATTERNS: MerchantPattern[] = [
     { pattern: /just\s*eat|justeat/i, summary: "Just Eat", category: "Takeaway/Delivery", priority: 65 },
     { pattern: /deliveroo/i, summary: "Deliveroo", category: "Takeaway/Delivery", priority: 65 },
     { pattern: /telepizza/i, summary: "Telepizza", category: "Takeaway/Delivery", priority: 60 },
-    { pattern: /dominos|pizza\s*hut/i, summary: "Pizza", category: "Takeaway/Delivery", priority: 60 },
+    { pattern: /domino\s*s|domino\s*pizza|dominos|pizza\s*hut/i, summary: "Pizza", category: "Takeaway/Delivery", priority: 60 },
     { pattern: /mcdonalds|mcdonald/i, summary: "McDonalds", category: "Restaurants", priority: 60 },
     { pattern: /burger\s*king/i, summary: "Burger King", category: "Restaurants", priority: 60 },
     { pattern: /\bkfc\b/i, summary: "KFC", category: "Restaurants", priority: 60 },
@@ -350,10 +352,10 @@ const MERCHANT_PATTERNS: MerchantPattern[] = [
     { pattern: /vips|goiko|100\s*montaditos/i, summary: "Restaurant", category: "Restaurants", priority: 55 },
 
     // Shopping
-    { pattern: /apple\s*store|apple\s*retail/i, summary: "Apple Store", category: "Electronics", priority: 45 },
-    { pattern: /amazon|amzn/i, summary: "Amazon", category: "Home Goods", priority: 40 },
+    { pattern: /apple\s*store|apple\s*retail|apple\s*shop|store\.apple|apple\s*com\s*shop/i, summary: "Apple Store", category: "Electronics", priority: 45 },
+    { pattern: /amazon|amzn/i, summary: "Amazon", category: "Shopping", priority: 40 },
     { pattern: /zalando|aliexpress|ebay|shein|asos/i, summary: "Online Retailer", category: "Clothing", priority: 40 },
-    { pattern: /zara|bershka|pull\s*&\s*bear|stradivarius|mango|massimo\s*dutti|oysho|lefties|primark|uniqlo|h&m|hm\b/i, summary: "Fashion Retailer", category: "Clothing", priority: 40 },
+    { pattern: /zara|bershka|pull\s*(?:and|&)?\s*bear|stradivarius|mango|massimo\s*dutti|oysho|lefties|primark|uniqlo|h\s*&\s*m|h\s*m|hm\b/i, summary: "Fashion Retailer", category: "Clothing", priority: 40 },
     { pattern: /fnac|mediamarkt|media\s*markt|pccomponentes/i, summary: "Electronics Retailer", category: "Electronics", priority: 40 },
     { pattern: /ikea/i, summary: "Ikea", category: "Home Goods", priority: 40 },
     { pattern: /leroy\s*merlin|bricomart|brico\s*depot/i, summary: "Home Supplies", category: "Home Supplies", priority: 40 },
@@ -373,6 +375,7 @@ const MERCHANT_PATTERNS: MerchantPattern[] = [
     // Transfers and income
     { pattern: /bizum/i, summary: "Bizum", category: "Transfers", priority: 45 },
     { pattern: /paypal/i, summary: "PayPal", category: "Transfers", priority: 45 },
+    { pattern: /revolut/i, summary: "Revolut", category: "Transfers", priority: 45 },
     { pattern: /transferencia|transfer\b|traspaso|sepa/i, summary: "Bank Transfer", category: "Transfers", priority: 40 },
     { pattern: /nomina|salario|sueldo|payroll|pension|prestacion|sepe/i, summary: "Income", category: "Income", priority: 40 },
 
@@ -384,7 +387,14 @@ const MERCHANT_PATTERNS: MerchantPattern[] = [
 const CATEGORY_RULES: CategoryRule[] = [
     { category: "Refunds/Reimbursements", amountSign: "any", patterns: [/refund|reembolso|devolucion|abono|reintegro|chargeback|reimburse/] },
     { category: "Refunds", amountSign: "any", patterns: [/refund|reembolso|devolucion|abono|reintegro|chargeback/] },
-    { category: "Transfers", amountSign: "any", patterns: [/bizum|transferencia|transfer\b|traspaso|sepa|paypal|p2p/] },
+    { category: "Transfers", amountSign: "any", patterns: [
+        /bizum|transferencia|transfer\b|traspaso|sepa|paypal|p2p/,
+        /\btransfer\s+(to|from)\b/,
+        /\btrf\b|\bxfer\b/,
+        /\bwire\b|\bach\b/,
+        /\bzelle\b|\bvenmo\b|\bcash\s*app\b/,
+        /\brevolut\b/,
+    ] },
     { category: "Salary", amountSign: "positive", patterns: [/nomina|salario|sueldo|payroll|salary|wage/] },
     { category: "Bonus", amountSign: "positive", patterns: [/bonus|incentive|incentivo/] },
     { category: "Freelance", amountSign: "positive", patterns: [/freelance|invoice|factura|honorarios|autonomo/] },
@@ -409,10 +419,10 @@ const CATEGORY_RULES: CategoryRule[] = [
     { category: "Groceries", amountSign: "negative", patterns: [/supermercad|grocer|mercadona|carrefour|lidl|aldi|eroski|alcampo|hipercor|supercor|consum|bonpreu|condis|caprabo|ahorramas|froiz|gadis|hiperdino|coviran|spar|kaufland|auchan/] },
     { category: "Restaurants", amountSign: "negative", patterns: [/restaurante|restaurant|comida|diner|bistro|tapas|vips|goiko|100\s*montaditos/] },
     { category: "Coffee", amountSign: "negative", patterns: [/coffee|cafe|cafeteria|starbucks|espresso/] },
-    { category: "Takeaway/Delivery", amountSign: "negative", patterns: [/delivery|takeaway|uber[\s_-]*eats|ubereats|glovo|just\s*eat|deliveroo|telepizza|dominos|pizza\s*hut/] },
+    { category: "Takeaway/Delivery", amountSign: "negative", patterns: [/delivery|takeaway|uber[\s_-]*eats|ubereats|glovo|just\s*eat|deliveroo|telepizza|domino\s*s|domino\s*pizza|dominos|pizza\s*hut/] },
     { category: "Bars", amountSign: "negative", patterns: [/\bbar\b|cerveceria|pub|discoteca|club|copas/] },
-    { category: "Clothing", amountSign: "negative", patterns: [/clothing|ropa|calzado|shoes|zara|bershka|stradivarius|mango|primark|h&m|hm\b|uniqlo|oysho|lefties/] },
-    { category: "Electronics", amountSign: "negative", patterns: [/electronics|electronica|mediamarkt|media\s*markt|fnac|pccomponentes|apple\s*store/] },
+    { category: "Clothing", amountSign: "negative", patterns: [/clothing|ropa|calzado|shoes|zara|bershka|pull\s*(?:and|&)?\s*bear|stradivarius|mango|primark|h\s*&\s*m|h\s*m|hm\b|uniqlo|oysho|lefties|decathlon/] },
+    { category: "Electronics", amountSign: "negative", patterns: [/electronics|electronica|mediamarkt|media\s*markt|fnac|pccomponentes|apple\s*store|apple\s*shop|store\.apple|apple\s*com\s*shop/] },
     { category: "Home Goods", amountSign: "negative", patterns: [/home\s*goods|furniture|muebles|ikea|corte\s*ingles|decor/] },
     { category: "Home Maintenance", amountSign: "negative", patterns: [/home\s*repair|reparacion|mantenimiento|plumber|fontanero|electricista|pintura|reforma/] },
     { category: "Home Supplies", amountSign: "negative", patterns: [/ferreteria|hardware|leroy\s*merlin|bricomart|brico\s*depot|home\s*improvement/] },
@@ -424,7 +434,7 @@ const CATEGORY_RULES: CategoryRule[] = [
     { category: "Health & Fitness", amountSign: "negative", patterns: [/farmacia|pharmacy|hospital|clinica|clinic|dentist|dentista|gym|fitness|crossfit/] },
     { category: "Entertainment", amountSign: "negative", patterns: [/cine|teatro|concierto|festival|ticketmaster|entradas|museo|eventbrite|ocio/] },
     { category: "Education", amountSign: "negative", patterns: [/universidad|colegio|escuela|academia|curso|tuition|udemy|coursera|edx|masterclass/] },
-    { category: "Subscriptions", amountSign: "negative", patterns: [/subscription|suscrip|netflix|spotify|disney|hbo\s*max|hbomax|prime\s*video|amazon\s*prime|apple\.com\/bill|itunes|app\s*store|google\s*play|youtube\s*premium|adobe|dropbox|microsoft\s*365|office\s*365/] },
+    { category: "Subscriptions", amountSign: "negative", patterns: [/subscription|suscrip|netflix|spotify|disney|hbo\s*max|hbomax|prime\s*video|amazon\s*prime|apple\.com\/bill|apple\s*com\s*bill|itunes|app\s*store|google\s*play|youtube\s*premium|adobe|dropbox|microsoft\s*365|office\s*365|apple\s*music|apple\s*tv|apple\s*one|apple\s*arcade|icloud|apple\s*services|apple\s*play|open\s*ai|openai|chatgpt/] },
     { category: "Travel", amountSign: "negative", patterns: [/booking|airbnb|hotel|flight|airline|vueling|ryanair|iberia|air\s*europa|easyjet|expedia|skyscanner|tripadvisor|logitravel|edreams/] },
     { category: "Services", amountSign: "negative", patterns: [/peluqueria|barberia|lavanderia|limpieza|servicio\s*tecnico|gestoria|notaria|abogado|consultoria|mudanza/] },
     { category: "Savings", amountSign: "any", patterns: [/ahorro|savings|plan\s*ahorro/] },
@@ -474,7 +484,7 @@ const CATEGORY_KEYWORDS: Record<string, CategoryKeywordRule> = {
     },
     "Takeaway/Delivery": {
         amountSign: "negative",
-        keywords: ["delivery", "takeaway", "ubereats", "uber eats", "glovo", "just eat", "justeat", "deliveroo", "to go", "telepizza", "dominos"]
+        keywords: ["delivery", "takeaway", "ubereats", "uber eats", "glovo", "just eat", "justeat", "deliveroo", "to go", "telepizza", "dominos", "domino s", "domino pizza", "pizza hut"]
     },
     "Rent": { amountSign: "negative", keywords: ["rent", "alquiler", "arrendamiento"] },
     "Mortgage": { amountSign: "negative", keywords: ["mortgage", "hipoteca"] },
@@ -528,11 +538,11 @@ const CATEGORY_KEYWORDS: Record<string, CategoryKeywordRule> = {
     "Fitness": { amountSign: "negative", keywords: ["gym", "gimnasio", "fitness", "crossfit", "pilates"] },
     "Clothing": {
         amountSign: "negative",
-        keywords: ["clothing", "ropa", "shoes", "calzado", "zara", "bershka", "mango", "primark", "h&m", "uniqlo"]
+        keywords: ["clothing", "ropa", "shoes", "calzado", "zara", "bershka", "pull and bear", "pull bear", "stradivarius", "mango", "primark", "h m", "hm", "uniqlo", "oysho", "lefties", "decathlon"]
     },
     "Electronics": {
         amountSign: "negative",
-        keywords: ["electronics", "electronica", "gadget", "mediamarkt", "fnac", "apple store", "pccomponentes"]
+        keywords: ["electronics", "electronica", "gadget", "mediamarkt", "fnac", "apple store", "apple shop", "apple retail", "store apple", "pccomponentes"]
     },
     "Home Goods": {
         amountSign: "negative",
@@ -559,7 +569,7 @@ const CATEGORY_KEYWORDS: Record<string, CategoryKeywordRule> = {
     "Investments": { amountSign: "any", keywords: ["investment", "invest", "broker", "acciones", "bolsa", "crypto", "fondo"] },
     "Transfers": {
         amountSign: "any",
-        keywords: ["transfer", "transferencia", "bizum", "paypal", "sepa", "p2p", "trf"]
+        keywords: ["transfer", "transfer to", "transfer from", "transferencia", "bizum", "paypal", "sepa", "p2p", "trf", "xfer", "wire", "ach", "zelle", "venmo", "cash app", "revolut", "sent", "received", "incoming", "outgoing"]
     },
     "Entertainment": {
         amountSign: "negative",
@@ -571,7 +581,7 @@ const CATEGORY_KEYWORDS: Record<string, CategoryKeywordRule> = {
     },
     "Subscriptions": {
         amountSign: "negative",
-        keywords: ["subscription", "suscripcion", "membership", "streaming", "prime", "netflix", "spotify", "disney", "hbo"]
+        keywords: ["subscription", "suscripcion", "membership", "streaming", "prime", "netflix", "spotify", "disney", "hbo", "prime video", "apple music", "apple tv", "apple one", "apple arcade", "icloud", "itunes", "app store", "apple services", "openai", "open ai", "chatgpt", "google play", "youtube premium"]
     },
     "Travel": {
         amountSign: "negative",
@@ -591,7 +601,7 @@ const CATEGORY_KEYWORDS: Record<string, CategoryKeywordRule> = {
     },
     "Shopping": {
         amountSign: "negative",
-        keywords: ["shopping", "tienda", "store", "retail", "clothes", "clothing", "ropa", "shoes", "calzado", "electronics", "electronica", "gadget", "furniture", "muebles", "home", "hogar"]
+        keywords: ["shopping", "tienda", "store", "retail", "amazon", "amzn", "electronics", "electronica", "gadget", "furniture", "muebles", "home", "hogar"]
     },
     "Health & Fitness": {
         amountSign: "negative",
@@ -938,10 +948,12 @@ function resolveCategoryName(value: string | null | undefined, resolver: Categor
     return resolver(value);
 }
 
-function matchMerchantPattern(description: string): MerchantPattern | null {
+function matchMerchantPattern(description: string, alternate?: string): MerchantPattern | null {
     let best: MerchantPattern | null = null;
     for (const pattern of MERCHANT_PATTERNS) {
-        if (!pattern.pattern.test(description)) continue;
+        const matchesPrimary = pattern.pattern.test(description);
+        const matchesAlternate = alternate ? pattern.pattern.test(alternate) : false;
+        if (!matchesPrimary && !matchesAlternate) continue;
         if (!best || (pattern.priority ?? 0) > (best.priority ?? 0)) {
             best = pattern;
         }
@@ -954,9 +966,10 @@ function matchMerchantPattern(description: string): MerchantPattern | null {
 function extractSummary(description: string): string {
     const desc = description.trim();
     const normalized = normalizeText(desc);
+    const normalizedKeyword = normalizeKeywordText(desc);
 
     // Check against known merchant patterns first
-    const matched = matchMerchantPattern(normalized);
+    const matched = matchMerchantPattern(normalized, normalizedKeyword);
     if (matched) {
         return matched.summary;
     }
@@ -1016,8 +1029,9 @@ function extractSummary(description: string): string {
  * Get category suggestion from known patterns
  */
 function getCategoryFromPattern(description: string, resolveCategory: CategoryResolver): string | null {
-    const normalized = normalizeKeywordText(description);
-    const matched = matchMerchantPattern(normalized);
+    const normalized = normalizeText(description);
+    const normalizedKeyword = normalizeKeywordText(description);
+    const matched = matchMerchantPattern(normalized, normalizedKeyword);
     if (!matched || !matched.category) return null;
     return resolveCategoryName(matched.category, resolveCategory);
 }
@@ -1029,7 +1043,7 @@ function getCategoryFromKeywords(
     resolveCategory: CategoryResolver,
     customRules?: Record<string, CategoryKeywordRule>
 ): { category: string; score: number } | null {
-    const normalized = normalizeText(description);
+    const normalized = normalizeKeywordText(description);
     const keywordRules = getKeywordRulesForLocale(locale ?? "unknown", customRules);
     let bestMatch: { category: string; score: number; weightedScore: number } | null = null;
 
@@ -1148,18 +1162,41 @@ export async function categoriseTransactions(
     });
 
     // Find rows that still need AI categorization (no preference/category match)
-    const rowsNeedingAI = enrichedRows.filter(r => !r._preferenceCategory && !r._statementCategory && !r._patternCategory);
+    const rowsNeedingAI = enrichedRows.filter(
+        r => !r._preferenceCategory && !r._statementCategory && !r._patternCategory
+    );
+    const aiCandidates = rowsNeedingAI.filter((r) => {
+        const keywordMatch = getCategoryFromKeywords(
+            `${r.summary ?? ""} ${r.description}`,
+            r.amount,
+            r._locale,
+            resolveCategory,
+            customKeywordRules
+        );
+        return !keywordMatch;
+    });
 
-    // Build a compact payload for the LLM (only rows without pattern-based categories)
-    const items = rowsNeedingAI.map(r => ({
+    // Build a compact payload for the LLM (only rows without pattern/keyword categories)
+    const items = aiCandidates.map(r => ({
         index: r._index,
         description: r.summary || r.description.substring(0, 100),
         raw: r.description.substring(0, 200),
         amount: r.amount
     }));
+
+    const MAX_AI_ITEMS = Math.max(0, Number(process.env.OPENROUTER_CATEGORY_MAX_ITEMS ?? "120"));
+    const configuredBatchSize = Math.max(1, Number(process.env.OPENROUTER_CATEGORY_BATCH_SIZE ?? "60"));
+    const AI_BATCH_SIZE = MAX_AI_ITEMS > 0 ? Math.min(configuredBatchSize, MAX_AI_ITEMS) : 0;
+    const AI_MAX_TOKENS = Math.max(128, Number(process.env.OPENROUTER_CATEGORY_MAX_TOKENS ?? "700"));
+
+    const aiItems = MAX_AI_ITEMS > 0 ? items.slice(0, MAX_AI_ITEMS) : [];
+    if (items.length > aiItems.length) {
+        console.warn(`[AI] Limiting AI categorization to ${aiItems.length}/${items.length} rows`);
+    }
+
     const itemByIndex = new Map<number, { raw: string; description: string }>();
     if (options?.userId) {
-        items.forEach((item) => {
+        aiItems.forEach((item) => {
             itemByIndex.set(item.index, { raw: item.raw, description: item.description });
         });
     }
@@ -1175,7 +1212,7 @@ export async function categoriseTransactions(
     }> = [];
     const feedbackLimit = 40;
 
-    if (items.length > 0) {
+    if (aiItems.length > 0) {
         const categoryGuidance = CATEGORIES
             .map((category) => `- ${category}: ${CATEGORY_DEFINITIONS[category] ?? "Use the closest match based on the name."}`)
             .join("\n");
@@ -1192,11 +1229,13 @@ export async function categoriseTransactions(
         ].join("\n");
         const globalHints = [
             "Global hints:",
-            "- Amazon, Ikea -> Home Goods.",
-            "- Zara, H&M -> Clothing.",
+            "- Amazon -> Shopping; Ikea -> Home Goods.",
+            "- Zara, H&M, Pull and Bear, Decathlon -> Clothing.",
             "- MediaMarkt, Apple Store -> Electronics.",
-            "- Netflix, Spotify, Disney Plus -> Subscriptions.",
-            "- Uber, Lyft, Bolt -> Taxi/Rideshare."
+            "- Netflix, Spotify, Disney Plus, Apple Music, iCloud, OpenAI -> Subscriptions.",
+            "- Uber, Lyft, Bolt -> Taxi/Rideshare.",
+            "- Revolut -> Transfers.",
+            "- Dominos, Pizza Hut -> Takeaway/Delivery."
         ].join("\n");
         const languageHints = [
             "Language hints:",
@@ -1210,7 +1249,21 @@ export async function categoriseTransactions(
         const customGlossaryBlock = customGlossary
             ? `\nCUSTOM CATEGORY GLOSSARY:\n${customGlossary}\n`
             : "";
-        const systemPrompt = `
+        // Using OpenRouter API
+        const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+        const SITE_URL = getSiteUrl();
+        const SITE_NAME = getSiteName();
+
+        if (!OPENROUTER_API_KEY) {
+            console.warn("[AI] No OpenRouter API key found, using pattern-based categorization only");
+        } else {
+            let aiDisabled = false;
+            for (let start = 0, batchIndex = 1; start < aiItems.length; start += AI_BATCH_SIZE, batchIndex += 1) {
+                if (aiDisabled) break;
+                const batch = aiItems.slice(start, start + AI_BATCH_SIZE);
+                if (batch.length === 0) break;
+
+                const systemPrompt = `
 You are an expert financial transaction classifier. Analyze each transaction and assign the most appropriate category.
 
 AVAILABLE CATEGORIES:
@@ -1251,87 +1304,85 @@ RESPONSE FORMAT - Return ONLY valid JSON:
   ]
 }
 
-You MUST include ALL ${items.length} transactions. Each entry needs:
+You MUST include ALL ${batch.length} transactions. Each entry needs:
 - "index": exact index from input (0, 1, 2, ...)
 - "category": one of the exact categories listed above
 `.trim();
 
-        const userPrompt = JSON.stringify(items);
+                const userPrompt = JSON.stringify(batch);
 
-        // Using OpenRouter API
-        const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-        const SITE_URL = getSiteUrl();
-        const SITE_NAME = getSiteName();
+                try {
+                    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+                            "HTTP-Referer": SITE_URL,
+                            "X-Title": SITE_NAME,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            model: AI_CATEGORY_MODEL,
+                            messages: [
+                                { role: "system", content: systemPrompt },
+                                { role: "user", content: userPrompt }
+                            ],
+                            temperature: 0.1,
+                            max_tokens: AI_MAX_TOKENS,
+                            response_format: { type: "json_object" },
+                            provider: {
+                                sort: "throughput"
+                            }
+                        })
+                    });
 
-        if (!OPENROUTER_API_KEY) {
-            console.warn("[AI] No OpenRouter API key found, using pattern-based categorization only");
-        } else {
-            try {
-                const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                    method: "POST",
-                    headers: {
-                        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-                        "HTTP-Referer": SITE_URL,
-                        "X-Title": SITE_NAME,
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        model: AI_CATEGORY_MODEL,
-                        messages: [
-                            { role: "system", content: systemPrompt },
-                            { role: "user", content: userPrompt }
-                        ],
-                        temperature: 0.1,
-                        response_format: { type: "json_object" },
-                        provider: {
-                            sort: "throughput"
+                    if (!res.ok) {
+                        const errorText = await res.text();
+                        console.error("[AI] OpenRouter API error:", res.status, errorText.substring(0, 200));
+                        if (res.status === 402) {
+                            aiDisabled = true;
+                            console.warn("[AI] Disabling further AI calls due to insufficient credits");
                         }
-                    })
-                });
+                    } else {
+                        const json = await res.json();
+                        const content = json.choices[0]?.message?.content;
 
-                if (!res.ok) {
-                    const errorText = await res.text();
-                    console.error("[AI] OpenRouter API error:", res.status, errorText.substring(0, 200));
-                } else {
-                    const json = await res.json();
-                    const content = json.choices[0]?.message?.content;
+                        if (content) {
+                            try {
+                                const parsed = JSON.parse(content);
+                                const mapping = parsed.map || parsed.categories || parsed.results ||
+                                    (Array.isArray(parsed) ? parsed : []);
 
-                    if (content) {
-                        try {
-                            const parsed = JSON.parse(content);
-                            const mapping = parsed.map || parsed.categories || parsed.results ||
-                                (Array.isArray(parsed) ? parsed : []);
+                                for (const m of mapping) {
+                                    const idx = m.index ?? m.i ?? m.id;
+                                    const cat = m.category ?? m.cat ?? m.c;
 
-                            for (const m of mapping) {
-                                const idx = m.index ?? m.i ?? m.id;
-                                const cat = m.category ?? m.cat ?? m.c;
-
-                                if (typeof idx === "number" && typeof cat === "string") {
-                                    const normalizedCat = resolveCategoryName(cat, resolveCategory);
-                                    if (normalizedCat) {
-                                        aiMapping.set(idx, normalizedCat);
-                                    } else if (options?.userId && feedbackEntries.length < feedbackLimit) {
-                                        const item = itemByIndex.get(idx);
-                                        const locale = localeByIndex.get(idx) ?? languageHint.locale ?? "unknown";
-                                        feedbackEntries.push({
-                                            userId: options.userId,
-                                            scope: "transaction",
-                                            inputText: item?.raw ?? item?.description ?? null,
-                                            rawCategory: cat,
-                                            normalizedCategory: null,
-                                            locale
-                                        });
+                                    if (typeof idx === "number" && typeof cat === "string") {
+                                        const normalizedCat = resolveCategoryName(cat, resolveCategory);
+                                        if (normalizedCat) {
+                                            aiMapping.set(idx, normalizedCat);
+                                        } else if (options?.userId && feedbackEntries.length < feedbackLimit) {
+                                            const item = itemByIndex.get(idx);
+                                            const locale = localeByIndex.get(idx) ?? languageHint.locale ?? "unknown";
+                                            feedbackEntries.push({
+                                                userId: options.userId,
+                                                scope: "transaction",
+                                                inputText: item?.raw ?? item?.description ?? null,
+                                                rawCategory: cat,
+                                                normalizedCategory: null,
+                                                locale
+                                            });
+                                        }
                                     }
                                 }
+                                console.log(`[AI] Successfully categorized ${aiMapping.size}/${aiItems.length} transactions (batch ${batchIndex})`);
+                            } catch (parseErr) {
+                                console.error("[AI] Failed to parse response:", parseErr);
                             }
-                            console.log(`[AI] Successfully categorized ${aiMapping.size}/${items.length} transactions`);
-                        } catch (parseErr) {
-                            console.error("[AI] Failed to parse response:", parseErr);
                         }
                     }
+                } catch (fetchErr) {
+                    console.error("[AI] Fetch error:", fetchErr);
                 }
-            } catch (fetchErr) {
-                console.error("[AI] Fetch error:", fetchErr);
             }
         }
     }
@@ -1340,8 +1391,23 @@ You MUST include ALL ${items.length} transactions. Each entry needs:
     }
 
     // Helper function for fallback categorization
-    const applyFallbackCategory = (row: TxRow, locale?: SupportedLocale): { category: string; source: "fallback_pattern" | "fallback_keyword" | "fallback_other" } => {
-        const desc = normalizeText(row.description);
+    const resolveFallbackDefaultCategory = (row: TxRow): string | null => {
+        const positiveDefault =
+            resolveCategoryName("Transfers", resolveCategory) ??
+            resolveCategoryName("Income", resolveCategory) ??
+            resolveCategoryName("Refunds/Reimbursements", resolveCategory) ??
+            null;
+        const negativeDefault =
+            resolveCategoryName("Shopping", resolveCategory) ??
+            resolveCategoryName("Services", resolveCategory) ??
+            resolveCategoryName("Home Goods", resolveCategory) ??
+            null;
+        if (row.amount >= 0) return positiveDefault;
+        return negativeDefault;
+    };
+
+    const applyFallbackCategory = (row: TxRow, locale?: SupportedLocale): { category: string; source: "fallback_pattern" | "fallback_keyword" | "fallback_default" | "fallback_other" } => {
+        const desc = normalizeKeywordText(row.description);
         const conflictMatches: Array<{ category: string; score: number }> = [];
         for (const rule of CATEGORY_RULES) {
             if (rule.amountSign === "positive" && row.amount <= 0) continue;
@@ -1370,6 +1436,10 @@ You MUST include ALL ${items.length} transactions. Each entry needs:
         if (keywordMatch) {
             return { category: keywordMatch.category, source: "fallback_keyword" };
         }
+        const defaultCategory = resolveFallbackDefaultCategory(row);
+        if (defaultCategory) {
+            return { category: defaultCategory, source: "fallback_default" };
+        }
         return {
             category: resolveCategoryName("Other", resolveCategory) || CATEGORIES[CATEGORIES.length - 1] || "Other",
             source: "fallback_other"
@@ -1393,6 +1463,7 @@ You MUST include ALL ${items.length} transactions. Each entry needs:
             | "ai"
             | "fallback_pattern"
             | "fallback_keyword"
+            | "fallback_default"
             | "fallback_other"
             | "keyword" = "fallback_other";
         let category: string;
@@ -1441,11 +1512,17 @@ You MUST include ALL ${items.length} transactions. Each entry needs:
         }
 
         const localeSource = r._localeSource ?? "unknown";
+        const reviewFromFallback =
+            categorySource === "keyword" ||
+            categorySource === "fallback_keyword" ||
+            categorySource === "fallback_default" ||
+            categorySource === "fallback_other";
         const reviewFromLanguageRules =
-            (localeSource === "rules" || localeSource === "hybrid") &&
-            (categorySource === "keyword" || categorySource === "fallback_keyword");
-        const needsReview = reviewFromLanguageRules;
-        const reviewReason = reviewFromLanguageRules ? "Language-based rule match" : null;
+            (localeSource === "rules" || localeSource === "hybrid") && reviewFromFallback;
+        const needsReview = reviewFromFallback || reviewFromLanguageRules;
+        const reviewReason = needsReview
+            ? (reviewFromLanguageRules ? "Language-based rule match" : "Heuristic category fallback")
+            : null;
 
         return {
             date: r.date,
