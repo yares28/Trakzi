@@ -415,7 +415,7 @@ const CATEGORY_RULES: CategoryRule[] = [
     { category: "Taxi/Rideshare", amountSign: "negative", patterns: [/uber(?![\s_-]*eats)|cabify|bolt|lyft|taxi|rideshare/] },
     { category: "Parking/Tolls", amountSign: "negative", patterns: [/parking|aparcamiento|peaje|toll|autopista/] },
     { category: "Car Maintenance", amountSign: "negative", patterns: [/taller|mecanico|mecanica|itv|revision|car\s*service|oil\s*change|neumatico|tire/] },
-    { category: "Transport", amountSign: "negative", patterns: [/uber|cabify|bolt|lyft|taxi|renfe|rodalies|cercanias|metro|emt\b|tmb\b|fgc|tram|tranvia|autobus|bus\b|alsa|avanza|parking|aparcamiento|peaje|autopista|blablacar/] },
+    { category: "Transport", amountSign: "negative", patterns: [/renfe|rodalies|cercanias|metro|emt\b|tmb\b|fgc|tram|tranvia|autobus|bus\b|alsa|avanza|parking|aparcamiento|peaje|autopista|blablacar/] },
     { category: "Groceries", amountSign: "negative", patterns: [/supermercad|grocer|mercadona|carrefour|lidl|aldi|eroski|alcampo|hipercor|supercor|consum|bonpreu|condis|caprabo|ahorramas|froiz|gadis|hiperdino|coviran|spar|kaufland|auchan/] },
     { category: "Restaurants", amountSign: "negative", patterns: [/restaurante|restaurant|comida|diner|bistro|tapas|vips|goiko|100\s*montaditos/] },
     { category: "Coffee", amountSign: "negative", patterns: [/coffee|cafe|cafeteria|starbucks|espresso/] },
@@ -597,7 +597,7 @@ const CATEGORY_KEYWORDS: Record<string, CategoryKeywordRule> = {
     },
     "Transport": {
         amountSign: "negative",
-        keywords: ["transport", "transit", "bus", "train", "metro", "subway", "taxi", "cab", "parking", "toll", "peaje", "autopista", "uber", "cabify", "bolt", "lyft", "renfe"]
+        keywords: ["transport", "transit", "bus", "train", "metro", "subway", "parking", "toll", "peaje", "autopista", "renfe"]
     },
     "Shopping": {
         amountSign: "negative",
@@ -948,6 +948,32 @@ function resolveCategoryName(value: string | null | undefined, resolver: Categor
     return resolver(value);
 }
 
+function parseJsonPayload(content: string): any | null {
+    if (!content) return null;
+    try {
+        return JSON.parse(content);
+    } catch {
+        const start = content.indexOf("{");
+        const end = content.lastIndexOf("}");
+        if (start >= 0 && end > start) {
+            try {
+                return JSON.parse(content.slice(start, end + 1));
+            } catch {
+                return null;
+            }
+        }
+    }
+    return null;
+}
+
+function extractAffordableTokens(errorText: string): number | null {
+    if (!errorText) return null;
+    const match = errorText.match(/can only afford\s+(\d+)/i);
+    if (!match) return null;
+    const parsed = Number(match[1]);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
 function matchMerchantPattern(description: string, alternate?: string): MerchantPattern | null {
     let best: MerchantPattern | null = null;
     for (const pattern of MERCHANT_PATTERNS) {
@@ -1125,6 +1151,15 @@ export async function categoriseTransactions(
         return detection.locale;
     };
 
+    const transportCategoryOverrides = new Set([
+        "Transport",
+        "Transportation",
+        "Taxi/Rideshare",
+        "Public Transport",
+        "Parking/Tolls",
+        "Car Maintenance",
+    ]);
+
     // First pass: extract summaries and apply pattern-based categories
     const enrichedRows = rows.map((r, idx) => {
         const summary = extractSummary(r.description);
@@ -1143,12 +1178,19 @@ export async function categoriseTransactions(
             resolveCategory,
             customKeywordRules
         );
-        const statementCategory =
+        let statementCategory =
             rawCategory && rawCategoryKey !== "other" && rawCategoryKey !== "uncategorized"
                 ? resolveCategoryName(rawCategory, resolveCategory)
                     ?? statementKeywordMatch?.category
                     ?? null
                 : null;
+        if (
+            statementCategory &&
+            patternCategory === "Takeaway/Delivery" &&
+            transportCategoryOverrides.has(statementCategory)
+        ) {
+            statementCategory = null;
+        }
         return {
             ...r,
             summary,
@@ -1311,44 +1353,54 @@ You MUST include ALL ${batch.length} transactions. Each entry needs:
 
                 const userPrompt = JSON.stringify(batch);
 
-                try {
-                    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                        method: "POST",
-                        headers: {
-                            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-                            "HTTP-Referer": SITE_URL,
-                            "X-Title": SITE_NAME,
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({
-                            model: AI_CATEGORY_MODEL,
-                            messages: [
-                                { role: "system", content: systemPrompt },
-                                { role: "user", content: userPrompt }
-                            ],
-                            temperature: 0.1,
-                            max_tokens: AI_MAX_TOKENS,
-                            response_format: { type: "json_object" },
-                            provider: {
-                                sort: "throughput"
+                let maxTokensForBatch = AI_MAX_TOKENS;
+                let retriedForBatch = false;
+                while (true) {
+                    try {
+                        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                            method: "POST",
+                            headers: {
+                                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+                                "HTTP-Referer": SITE_URL,
+                                "X-Title": SITE_NAME,
+                                "Content-Type": "application/json"
+                            },
+                            body: JSON.stringify({
+                                model: AI_CATEGORY_MODEL,
+                                messages: [
+                                    { role: "system", content: systemPrompt },
+                                    { role: "user", content: userPrompt }
+                                ],
+                                temperature: 0.1,
+                                max_tokens: maxTokensForBatch,
+                                response_format: { type: "json_object" },
+                                provider: {
+                                    sort: "throughput"
+                                }
+                            })
+                        });
+
+                        if (!res.ok) {
+                            const errorText = await res.text();
+                            console.error("[AI] OpenRouter API error:", res.status, errorText.substring(0, 200));
+                            if (res.status === 402) {
+                                const affordable = extractAffordableTokens(errorText);
+                                if (!retriedForBatch && affordable && affordable < maxTokensForBatch) {
+                                    maxTokensForBatch = Math.max(128, affordable - 8);
+                                    retriedForBatch = true;
+                                    console.warn(`[AI] Retrying batch ${batchIndex} with max_tokens=${maxTokensForBatch}`);
+                                    continue;
+                                }
+                                aiDisabled = true;
+                                console.warn("[AI] Disabling further AI calls due to insufficient credits");
                             }
-                        })
-                    });
-
-                    if (!res.ok) {
-                        const errorText = await res.text();
-                        console.error("[AI] OpenRouter API error:", res.status, errorText.substring(0, 200));
-                        if (res.status === 402) {
-                            aiDisabled = true;
-                            console.warn("[AI] Disabling further AI calls due to insufficient credits");
-                        }
-                    } else {
-                        const json = await res.json();
-                        const content = json.choices[0]?.message?.content;
-
-                        if (content) {
-                            try {
-                                const parsed = JSON.parse(content);
+                        } else {
+                            const json = await res.json();
+                            const content = json.choices[0]?.message?.content;
+                            const parsed = content ? parseJsonPayload(content) : null;
+                            if (!parsed) {
+                                console.error("[AI] Failed to parse response payload");
+                            } else {
                                 const mapping = parsed.map || parsed.categories || parsed.results ||
                                     (Array.isArray(parsed) ? parsed : []);
 
@@ -1375,17 +1427,16 @@ You MUST include ALL ${batch.length} transactions. Each entry needs:
                                     }
                                 }
                                 console.log(`[AI] Successfully categorized ${aiMapping.size}/${aiItems.length} transactions (batch ${batchIndex})`);
-                            } catch (parseErr) {
-                                console.error("[AI] Failed to parse response:", parseErr);
                             }
                         }
+                    } catch (fetchErr) {
+                        console.error("[AI] Fetch error:", fetchErr);
                     }
-                } catch (fetchErr) {
-                    console.error("[AI] Fetch error:", fetchErr);
+                    break;
                 }
             }
         }
-    }
+        }
     if (feedbackEntries.length > 0) {
         await logAiCategoryFeedbackBatch(feedbackEntries);
     }
