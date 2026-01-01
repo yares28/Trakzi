@@ -198,7 +198,7 @@ export function ReviewDialog({
               </p>
               <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center justify-center gap-1.5">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
-                AI extraction may not be perfect ?" please double-check for better tracking
+                AI extraction may not be perfect - please double-check for better tracking
               </p>
             </div>
 
@@ -208,7 +208,7 @@ export function ReviewDialog({
                   {activeReviewReceipt.storeName ? (
                     <span className="font-medium text-foreground">{activeReviewReceipt.storeName}</span>
                   ) : null}
-                  {activeReviewReceipt.storeName && (activeReviewReceipt.receiptDate ?? activeReviewReceipt.fileName) ? " ?½ " : null}
+                  {activeReviewReceipt.storeName && (activeReviewReceipt.receiptDate ?? activeReviewReceipt.fileName) ? " - " : null}
                   {activeReviewReceipt.receiptDate ?? activeReviewReceipt.fileName}
                 </div>
                 {reviewReceipts.length > 1 ? (
@@ -302,7 +302,7 @@ export function ReviewDialog({
             {reviewUploadWarnings.length > 0 ? (
               <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
                 Skipped {reviewUploadWarnings.length} receipt(s) that failed to upload:{" "}
-                {reviewUploadWarnings.map((warning) => warning.fileName).join(", ")}
+                {reviewUploadWarnings.map((warning) => `${warning.fileName}: ${warning.reason}`).join(" | ")}
               </div>
             ) : null}
 

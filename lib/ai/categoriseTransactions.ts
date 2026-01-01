@@ -3,7 +3,7 @@ import { TxRow } from "../types/transactions";
 import { getSiteUrl, getSiteName } from '@/lib/env';
 import { DEFAULT_CATEGORIES as MAIN_DEFAULT_CATEGORIES } from '@/lib/categories';
 import { normalizeTransactionDescriptionKey } from "@/lib/transactions/transaction-category-preferences";
-import { detectLanguage, detectLanguageFromSamples, SupportedLocale } from "@/lib/language/language-detection";
+import { detectLanguage, detectLanguageFromSamples, SupportedLocale, type LanguageDetection } from "@/lib/language/language-detection";
 import { logAiCategoryFeedbackBatch } from "@/lib/ai/ai-category-feedback";
 
 // Default categories - synced with lib/categories.ts
@@ -1028,7 +1028,7 @@ function getCategoryFromKeywords(
     locale: SupportedLocale | undefined,
     resolveCategory: CategoryResolver,
     customRules?: Record<string, CategoryKeywordRule>
-): string | null {
+): { category: string; score: number } | null {
     const normalized = normalizeText(description);
     const keywordRules = getKeywordRulesForLocale(locale ?? "unknown", customRules);
     let bestMatch: { category: string; score: number; weightedScore: number } | null = null;
@@ -1059,7 +1059,7 @@ function getCategoryFromKeywords(
         }
     }
 
-    return bestMatch ? bestMatch.category : null;
+    return bestMatch ? { category: bestMatch.category, score: bestMatch.score } : null;
 }
 
 export async function categoriseTransactions(
@@ -1091,9 +1091,13 @@ export async function categoriseTransactions(
         languageHint.score >= 0.4 &&
         languageHint.confidence >= 0.1;
     const localeByIndex = new Map<number, SupportedLocale>();
+    const localeSourceByIndex = new Map<number, LanguageDetection["source"]>();
 
     const getLocaleForRow = (row: TxRow, index: number): SupportedLocale => {
-        if (useGlobalLocale) return languageHint.locale;
+        if (useGlobalLocale) {
+            localeSourceByIndex.set(index, languageHint.source ?? "unknown");
+            return languageHint.locale;
+        }
         if (localeByIndex.has(index)) {
             return localeByIndex.get(index) ?? "unknown";
         }
@@ -1103,6 +1107,7 @@ export async function categoriseTransactions(
             minDelta: 0.08,
         });
         localeByIndex.set(index, detection.locale);
+        localeSourceByIndex.set(index, detection.source ?? "unknown");
         return detection.locale;
     };
 
@@ -1114,18 +1119,36 @@ export async function categoriseTransactions(
         const normalizedPreference = preferenceCategory ? resolveCategoryName(preferenceCategory, resolveCategory) : null;
         const patternCategory = getCategoryFromPattern(r.description, resolveCategory);
         const locale = getLocaleForRow(r, idx);
+        const localeSource = localeSourceByIndex.get(idx) ?? languageHint.source ?? "unknown";
+        const rawCategory = typeof r.category === "string" ? r.category.trim() : "";
+        const rawCategoryKey = rawCategory.toLowerCase();
+        const statementKeywordMatch = getCategoryFromKeywords(
+            rawCategory,
+            r.amount,
+            locale,
+            resolveCategory,
+            customKeywordRules
+        );
+        const statementCategory =
+            rawCategory && rawCategoryKey !== "other" && rawCategoryKey !== "uncategorized"
+                ? resolveCategoryName(rawCategory, resolveCategory)
+                    ?? statementKeywordMatch?.category
+                    ?? null
+                : null;
         return {
             ...r,
             summary,
             _preferenceCategory: normalizedPreference,
+            _statementCategory: statementCategory,
             _patternCategory: patternCategory,
             _locale: locale,
+            _localeSource: localeSource,
             _index: idx
         };
     });
 
-    // Find rows that still need AI categorization (no pattern match)
-    const rowsNeedingAI = enrichedRows.filter(r => !r._preferenceCategory && !r._patternCategory);
+    // Find rows that still need AI categorization (no preference/category match)
+    const rowsNeedingAI = enrichedRows.filter(r => !r._preferenceCategory && !r._statementCategory && !r._patternCategory);
 
     // Build a compact payload for the LLM (only rows without pattern-based categories)
     const items = rowsNeedingAI.map(r => ({
@@ -1317,7 +1340,7 @@ You MUST include ALL ${items.length} transactions. Each entry needs:
     }
 
     // Helper function for fallback categorization
-    const applyFallbackCategory = (row: TxRow, locale?: SupportedLocale): string => {
+    const applyFallbackCategory = (row: TxRow, locale?: SupportedLocale): { category: string; source: "fallback_pattern" | "fallback_keyword" | "fallback_other" } => {
         const desc = normalizeText(row.description);
         const conflictMatches: Array<{ category: string; score: number }> = [];
         for (const rule of CATEGORY_RULES) {
@@ -1331,57 +1354,98 @@ You MUST include ALL ${items.length} transactions. Each entry needs:
                     conflictMatches.push({ category: normalized, score: matchCount });
                     continue;
                 }
-                return normalized;
+                return { category: normalized, source: "fallback_pattern" };
             }
         }
         if (conflictMatches.length > 0) {
-            return pickConflictWinner(conflictMatches);
+            return { category: pickConflictWinner(conflictMatches), source: "fallback_pattern" };
         }
-        const keywordCategory = getCategoryFromKeywords(
+        const keywordMatch = getCategoryFromKeywords(
             `${row.summary ?? ""} ${row.description}`,
             row.amount,
             locale,
             resolveCategory,
             customKeywordRules
         );
-        if (keywordCategory) return keywordCategory;
-        return resolveCategoryName("Other", resolveCategory) || CATEGORIES[CATEGORIES.length - 1] || "Other";
+        if (keywordMatch) {
+            return { category: keywordMatch.category, source: "fallback_keyword" };
+        }
+        return {
+            category: resolveCategoryName("Other", resolveCategory) || CATEGORIES[CATEGORIES.length - 1] || "Other",
+            source: "fallback_other"
+        };
     };
 
     // Combine all categorization sources
     const result = enrichedRows.map(r => {
-        // Priority: 1) Pattern match, 2) AI, 3) Fallback
+        // Priority: 1) Preferences, 2) Statement category, 3) Pattern match, 4) AI, 5) Fallback
         const hasPreference = Boolean(r._preferenceCategory);
+        const hasStatement = Boolean(r._statementCategory);
         const hasPattern = Boolean(r._patternCategory);
         const aiCategory = aiMapping.get(r._index);
         const effectiveAiCategory =
             aiCategory && aiCategory.toLowerCase() !== "other" ? aiCategory : null;
-        let category =
-            r._preferenceCategory ||
-            r._patternCategory ||
-            effectiveAiCategory ||
-            applyFallbackCategory(r, r._locale);
+
+        let categorySource:
+            | "preference"
+            | "statement"
+            | "pattern"
+            | "ai"
+            | "fallback_pattern"
+            | "fallback_keyword"
+            | "fallback_other"
+            | "keyword" = "fallback_other";
+        let category: string;
+
+        if (r._preferenceCategory) {
+            category = r._preferenceCategory;
+            categorySource = "preference";
+        } else if (r._statementCategory) {
+            category = r._statementCategory;
+            categorySource = "statement";
+        } else if (r._patternCategory) {
+            category = r._patternCategory;
+            categorySource = "pattern";
+        } else if (effectiveAiCategory) {
+            category = effectiveAiCategory;
+            categorySource = "ai";
+        } else {
+            const fallback = applyFallbackCategory(r, r._locale);
+            category = fallback.category;
+            categorySource = fallback.source;
+        }
+
         let normalizedCategory = resolveCategoryName(category, resolveCategory);
 
-        if (!hasPreference && !hasPattern && normalizedCategory === "Other") {
-            const keywordCategory = getCategoryFromKeywords(
+        if (!hasPreference && !hasStatement && !hasPattern && normalizedCategory === "Other") {
+            const keywordMatch = getCategoryFromKeywords(
                 `${r.summary ?? ""} ${r.description}`,
                 r.amount,
                 r._locale,
                 resolveCategory,
                 customKeywordRules
             );
-            if (keywordCategory) {
-                normalizedCategory = keywordCategory;
-                category = keywordCategory;
+            if (keywordMatch) {
+                normalizedCategory = keywordMatch.category;
+                category = keywordMatch.category;
+                categorySource = "keyword";
             }
         }
 
         if (normalizedCategory) {
             category = normalizedCategory;
         } else {
-            category = applyFallbackCategory(r, r._locale);
+            const fallback = applyFallbackCategory(r, r._locale);
+            category = fallback.category;
+            categorySource = fallback.source;
         }
+
+        const localeSource = r._localeSource ?? "unknown";
+        const reviewFromLanguageRules =
+            (localeSource === "rules" || localeSource === "hybrid") &&
+            (categorySource === "keyword" || categorySource === "fallback_keyword");
+        const needsReview = reviewFromLanguageRules;
+        const reviewReason = reviewFromLanguageRules ? "Language-based rule match" : null;
 
         return {
             date: r.date,
@@ -1390,14 +1454,17 @@ You MUST include ALL ${items.length} transactions. Each entry needs:
             amount: r.amount,
             balance: r.balance,
             category,
-            summary: r.summary
+            summary: r.summary,
+            needsReview,
+            reviewReason
         } as TxRow;
     });
 
     const categorizedCount = result.filter(r => r.category && r.category !== "Other").length;
     const preferenceMatched = enrichedRows.filter(r => r._preferenceCategory).length;
+    const statementMatched = enrichedRows.filter(r => r._statementCategory).length;
     const patternMatched = enrichedRows.filter(r => r._patternCategory).length;
-    console.log(`[AI] Final: ${categorizedCount}/${result.length} categorized (${preferenceMatched} from preferences, ${patternMatched} from patterns, ${aiMapping.size} from AI)`);
+    console.log(`[AI] Final: ${categorizedCount}/${result.length} categorized (${preferenceMatched} from preferences, ${statementMatched} from statement categories, ${patternMatched} from patterns, ${aiMapping.size} from AI)`);
 
     return result;
 }

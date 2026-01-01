@@ -61,6 +61,14 @@ export function getDateRange(filter: string | null): { startDate: string | null;
                 endDate: formatDate(today)
             };
         }
+        case "ytd": {
+            // Year To Date: January 1st of current year to today
+            const startDate = new Date(Date.UTC(today.getUTCFullYear(), 0, 1));
+            return {
+                startDate: formatDate(startDate),
+                endDate: formatDate(today)
+            };
+        }
         default: {
             // Assume it's a year string (e.g., "2024")
             const year = parseInt(filter);

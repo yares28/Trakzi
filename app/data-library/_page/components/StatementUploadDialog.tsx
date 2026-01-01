@@ -37,6 +37,8 @@ export function StatementUploadDialog({
   const fileProgresses = droppedFile ? { [`${droppedFile.name}::${droppedFile.size}::${droppedFile.lastModified}`]: parsingProgress } : {}
 
   const parsingStatus = isParsing ? `Parsing file... ${Math.round(parsingProgress)}%` : null
+  const accept =
+    ".csv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.webp,.heic,.heif,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf,image/png,image/jpeg,image/webp,image/heic,image/heif"
 
   const projectLead = useMemo<FileUploadStatementLead | null>(() => {
     if (!isUserLoaded || !user) return null
@@ -59,6 +61,7 @@ export function StatementUploadDialog({
           projectName={projectName}
           onProjectNameChange={onProjectNameChange}
           projectLead={projectLead}
+          accept={accept}
           onFilesChange={onFilesChange}
           onCancel={onCancel}
           onContinue={onContinue}

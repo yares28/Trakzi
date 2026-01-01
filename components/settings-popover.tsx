@@ -68,6 +68,7 @@ const timePeriods = [
   { value: "last3months", label: "Last 3 Months" },
   { value: "last6months", label: "Last 6 Months" },
   { value: "lastyear", label: "Last Year" },
+  { value: "ytd", label: "YTD (Year To Date)" },
 ]
 
 const CURRENCY_STORAGE_KEY = "selected-currency"
@@ -78,7 +79,7 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
   const { colorScheme, setColorScheme } = useColorScheme()
   const [mounted, setMounted] = React.useState(false)
   const [currency, setCurrency] = React.useState<string>("USD")
-  const [defaultTimePeriod, setDefaultTimePeriod] = React.useState<string>("last6months")
+  const [defaultTimePeriod, setDefaultTimePeriod] = React.useState<string>("ytd")
   const [open, setOpen] = React.useState(false)
   const isMobile = useIsMobile()
 
@@ -95,9 +96,9 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
       // Skip "all" value for migration purposes
       setDefaultTimePeriod(savedTimePeriod)
     } else {
-      // Default to last 6 months for new users or users who had "all" selected
-      setDefaultTimePeriod("last6months")
-      localStorage.setItem(DEFAULT_TIME_PERIOD_KEY, "last6months")
+      // Default to YTD for new users or users who had "all" selected
+      setDefaultTimePeriod("ytd")
+      localStorage.setItem(DEFAULT_TIME_PERIOD_KEY, "ytd")
     }
   }, [])
 
@@ -309,16 +310,3 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
     </Popover>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -4,6 +4,7 @@ import { saveFileToNeon } from "@/lib/files/saveFileToNeon";
 import { parseCsvToRows, type CsvDiagnostics, coerceNumber } from "@/lib/parsing/parseCsvToRows";
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv";
 import { buildStatementParseQuality } from "@/lib/parsing/statement-parse-quality";
+import { detectDocumentKindFromText } from "@/lib/parsing/detect-document-kind";
 import { categoriseTransactions } from "@/lib/ai/categoriseTransactions";
 import { TxRow } from "@/lib/types/transactions";
 import { getSiteName, getSiteUrl } from "@/lib/env";
@@ -1446,6 +1447,13 @@ export const POST = async (req: NextRequest) => {
         } else if (isPdf) {
             try {
                 const pdfTextResult = await extractStatementTextFromPdf(new Uint8Array(buffer));
+                const docKind = detectDocumentKindFromText(pdfTextResult.text);
+                if (docKind.kind === "receipt") {
+                    return NextResponse.json({
+                        error: "This file looks like a receipt, not a bank statement. Please upload it to the Fridge page.",
+                        code: "NOT_A_STATEMENT"
+                    }, { status: 400 });
+                }
                 const pdfParsed = await parseStatementText({
                     text: pdfTextResult.text,
                     pages: pdfTextResult.pages,

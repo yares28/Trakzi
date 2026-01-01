@@ -39,6 +39,11 @@ function getDateRange(filter: string | null): { startDate: string | null; endDat
             startDate.setFullYear(startDate.getFullYear() - 1);
             return { startDate: formatDate(startDate), endDate: formatDate(today) };
         }
+        case "ytd": {
+            // Year To Date: January 1st of current year to today
+            const startDate = new Date(today.getFullYear(), 0, 1);
+            return { startDate: formatDate(startDate), endDate: formatDate(today) };
+        }
         default: {
             const year = parseInt(filter, 10);
             if (!isNaN(year)) {
@@ -101,14 +106,14 @@ export const GET = async (request: NextRequest) => {
         // Format the data for the calendar chart
         // Convert day to YYYY-MM-DD format and ensure value is a number
         const formattedData = dailyData.map((item) => {
-            const day = item.day instanceof Date 
+            const day = item.day instanceof Date
                 ? item.day.toISOString().split('T')[0]
                 : typeof item.day === 'string'
-                ? item.day.split('T')[0]
-                : String(item.day).split('T')[0];
-            
-            const value = typeof item.value === 'string' 
-                ? parseFloat(item.value) 
+                    ? item.day.split('T')[0]
+                    : String(item.day).split('T')[0];
+
+            const value = typeof item.value === 'string'
+                ? parseFloat(item.value)
                 : (item.value as number) || 0;
 
             return {

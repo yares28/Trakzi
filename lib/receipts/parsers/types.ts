@@ -65,6 +65,7 @@ export type ReceiptParseWarningCode =
     | "MISSING_LINE_ITEMS"
     | "LINE_ITEM_MISMATCH"
     | "REPAIR_ATTEMPTED"
+    | "NOT_A_RECEIPT"
 
 /** User-visible warning from the parse pipeline */
 export type ReceiptParseWarning = {

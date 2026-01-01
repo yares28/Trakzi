@@ -19,10 +19,10 @@ function getDateRange(filter: string | null): { startDate: string | null; endDat
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const formatDate = (date: Date) => date.toISOString().split('T')[0];
-    
+
     let startDate: Date;
     let endDate: Date = today;
-    
+
     switch (filter) {
         case "last7days": {
             startDate = new Date(today);
@@ -84,6 +84,19 @@ function getDateRange(filter: string | null): { startDate: string | null; endDat
                 previousEndDate: formatDate(new Date(startDate.getTime() - 1))
             };
         }
+        case "ytd": {
+            // Year To Date: January 1st of current year to today
+            // Previous period: Same period last year (Jan 1 to same date last year)
+            startDate = new Date(today.getFullYear(), 0, 1);
+            const previousStartDate = new Date(today.getFullYear() - 1, 0, 1);
+            const previousEndDate = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+            return {
+                startDate: formatDate(startDate),
+                endDate: formatDate(endDate),
+                previousStartDate: formatDate(previousStartDate),
+                previousEndDate: formatDate(previousEndDate)
+            };
+        }
         default: {
             // Assume it's a year string (e.g., "2024")
             const year = parseInt(filter);
@@ -130,19 +143,19 @@ export const GET = async (request: Request) => {
                 netWorthChange: 0
             });
         }
-        
+
         // Get filter from query params
         const { searchParams } = new URL(request.url);
         const filter = searchParams.get("filter");
-        
+
         // Get date ranges based on filter
         const { startDate, endDate, previousStartDate, previousEndDate } = getDateRange(filter);
-        
+
         // Optimized query using SQL aggregations instead of fetching all rows
         // This is much faster as it does calculations in the database
         let currentPeriodQuery: string;
         const currentParams: any[] = [userId];
-        
+
         if (startDate && endDate) {
             currentPeriodQuery = `
                 SELECT 
@@ -161,32 +174,32 @@ export const GET = async (request: Request) => {
                 WHERE user_id = $1
             `;
         }
-        
+
         // Fetch aggregated stats for current period
         const currentStats = await neonQuery<{
             total_income: number | string;
             total_expenses: number | string;
         }>(currentPeriodQuery, currentParams);
-        
+
         const currentResult = currentStats[0] || { total_income: 0, total_expenses: 0 };
-        
+
         // Helper function to safely convert to number
         const toNumber = (value: any): number => {
             if (value === null || value === undefined) return 0;
             const num = typeof value === 'string' ? parseFloat(value) : Number(value);
             return isNaN(num) ? 0 : num;
         };
-        
+
         const currentIncome = toNumber(currentResult.total_income);
         const currentExpenses = toNumber(currentResult.total_expenses);
         // Net worth is calculated as income minus expenses
         const netWorth = currentIncome - currentExpenses;
-        
+
         // Get previous period stats if we have a filter
         let previousIncome = 0;
         let previousExpenses = 0;
         let previousNetWorth = 0;
-        
+
         if (previousStartDate && previousEndDate) {
             const previousPeriodQuery = `
                 SELECT 
@@ -195,47 +208,47 @@ export const GET = async (request: Request) => {
                 FROM transactions 
                 WHERE user_id = $1 AND tx_date >= $2 AND tx_date <= $3
             `;
-            
+
             const previousStats = await neonQuery<{
                 total_income: number | string;
                 total_expenses: number | string;
             }>(previousPeriodQuery, [userId, previousStartDate, previousEndDate]);
-            
+
             const previousResult = previousStats[0] || { total_income: 0, total_expenses: 0 };
             previousIncome = toNumber(previousResult.total_income);
             previousExpenses = toNumber(previousResult.total_expenses);
             // Previous net worth is also calculated as income minus expenses
             previousNetWorth = previousIncome - previousExpenses;
         }
-        
+
         // Calculate savings rate
-        const currentSavingsRate = currentIncome > 0 
-            ? ((currentIncome - currentExpenses) / currentIncome) * 100 
+        const currentSavingsRate = currentIncome > 0
+            ? ((currentIncome - currentExpenses) / currentIncome) * 100
             : 0;
-        
-        const previousSavingsRate = previousIncome > 0 
-            ? ((previousIncome - previousExpenses) / previousIncome) * 100 
+
+        const previousSavingsRate = previousIncome > 0
+            ? ((previousIncome - previousExpenses) / previousIncome) * 100
             : 0;
-        
+
         // Net worth = income - expenses (calculated above)
-        
+
         // Calculate percentage changes
-        const incomeChange = previousIncome > 0 
-            ? ((currentIncome - previousIncome) / previousIncome) * 100 
+        const incomeChange = previousIncome > 0
+            ? ((currentIncome - previousIncome) / previousIncome) * 100
             : (currentIncome > 0 ? 100 : 0);
-        
-        const expensesChange = previousExpenses > 0 
-            ? ((currentExpenses - previousExpenses) / previousExpenses) * 100 
+
+        const expensesChange = previousExpenses > 0
+            ? ((currentExpenses - previousExpenses) / previousExpenses) * 100
             : (currentExpenses > 0 ? 100 : 0);
-        
-        const savingsRateChange = previousSavingsRate !== 0 
-            ? currentSavingsRate - previousSavingsRate 
+
+        const savingsRateChange = previousSavingsRate !== 0
+            ? currentSavingsRate - previousSavingsRate
             : (currentSavingsRate > 0 ? 100 : 0);
-        
-        const netWorthChange = previousNetWorth > 0 
-            ? ((netWorth - previousNetWorth) / previousNetWorth) * 100 
+
+        const netWorthChange = previousNetWorth > 0
+            ? ((netWorth - previousNetWorth) / previousNetWorth) * 100
             : (netWorth > 0 ? 100 : 0);
-        
+
         const result = {
             totalIncome: currentIncome,
             totalExpenses: currentExpenses,
@@ -246,9 +259,9 @@ export const GET = async (request: Request) => {
             savingsRateChange: savingsRateChange,
             netWorthChange: netWorthChange
         };
-        
+
         console.log("[Stats API] Calculated stats:", result);
-        
+
         // Add caching headers for better performance
         // Cache for 30 seconds, revalidate in background
         return NextResponse.json(result, {
@@ -265,7 +278,7 @@ export const GET = async (request: Request) => {
             cause: error.cause
         });
         return NextResponse.json(
-            { 
+            {
                 error: error.message || "Failed to fetch stats",
                 details: process.env.NODE_ENV === 'development' ? error.stack : undefined
             },

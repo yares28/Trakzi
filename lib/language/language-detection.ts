@@ -1,4 +1,5 @@
 import { francAll } from "franc-min"
+import { detectLanguageByRules } from "@/lib/language/rules"
 
 export type SupportedLocale = "es" | "en" | "pt" | "fr" | "it" | "de" | "nl" | "ca" | "unknown"
 
@@ -27,6 +28,7 @@ export type LanguageDetection = {
   score: number
   confidence: number
   iso: string | null
+  source: "franc" | "rules" | "hybrid" | "unknown"
 }
 
 const DEFAULT_OPTIONS: Required<DetectOptions> = {
@@ -36,6 +38,11 @@ const DEFAULT_OPTIONS: Required<DetectOptions> = {
   maxSampleLength: 1200,
 }
 
+const RULE_OVERRIDE_CONFIDENCE = 0.18
+const RULE_OVERRIDE_SCORE = 4
+const RULE_BOOST_CONFIDENCE = 0.22
+const RULE_BOOST_SCORE = 4
+
 function normalizeSample(text: string): string {
   return text
     .replace(/\d+/g, " ")
@@ -44,10 +51,17 @@ function normalizeSample(text: string): string {
     .trim()
 }
 
+function normalizeSampleForRules(text: string): string {
+  return normalizeSample(text)
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+}
+
 function pickDetection(
   results: Array<[string, number]>,
   options: Required<DetectOptions>
-): LanguageDetection {
+): Omit<LanguageDetection, "source"> {
   if (!results.length) {
     return { locale: "unknown", score: 0, confidence: 0, iso: null }
   }
@@ -78,21 +92,61 @@ function pickDetection(
 export function detectLanguage(text: string, options?: DetectOptions): LanguageDetection {
   const resolved = { ...DEFAULT_OPTIONS, ...options }
   if (!text) {
-    return { locale: "unknown", score: 0, confidence: 0, iso: null }
+    return { locale: "unknown", score: 0, confidence: 0, iso: null, source: "unknown" }
   }
 
   const normalized = normalizeSample(text)
   if (normalized.length < resolved.minLength) {
-    return { locale: "unknown", score: 0, confidence: 0, iso: null }
+    return { locale: "unknown", score: 0, confidence: 0, iso: null, source: "unknown" }
   }
 
   const sample = normalized.slice(0, resolved.maxSampleLength)
+  const rulesSample = normalizeSampleForRules(text).slice(0, resolved.maxSampleLength)
   const results = francAll(sample, {
     only: SUPPORTED_ISO,
     minLength: resolved.minLength,
   })
 
-  return pickDetection(results, resolved)
+  const francDetection = pickDetection(results, resolved)
+  const ruleDetection = detectLanguageByRules(rulesSample)
+
+  if (francDetection.locale === "unknown") {
+    if (ruleDetection.locale !== "unknown" && ruleDetection.score >= RULE_OVERRIDE_SCORE) {
+      return {
+        locale: ruleDetection.locale as SupportedLocale,
+        score: ruleDetection.score,
+        confidence: ruleDetection.confidence,
+        iso: null,
+        source: "rules",
+      }
+    }
+    return { ...francDetection, source: "unknown" }
+  }
+
+  if (
+    ruleDetection.locale !== "unknown" &&
+    ruleDetection.locale !== francDetection.locale &&
+    ruleDetection.score >= RULE_OVERRIDE_SCORE &&
+    francDetection.confidence < RULE_OVERRIDE_CONFIDENCE
+  ) {
+    return {
+      locale: ruleDetection.locale as SupportedLocale,
+      score: ruleDetection.score,
+      confidence: ruleDetection.confidence,
+      iso: null,
+      source: "rules",
+    }
+  }
+
+  if (
+    ruleDetection.locale === francDetection.locale &&
+    ruleDetection.score >= RULE_BOOST_SCORE &&
+    francDetection.confidence < RULE_BOOST_CONFIDENCE
+  ) {
+    return { ...francDetection, source: "hybrid" }
+  }
+
+  return { ...francDetection, source: "franc" }
 }
 
 export function detectLanguageFromSamples(
@@ -105,7 +159,7 @@ export function detectLanguageFromSamples(
     .filter((sample) => sample.length > 0)
 
   if (chunks.length === 0) {
-    return { locale: "unknown", score: 0, confidence: 0, iso: null }
+    return { locale: "unknown", score: 0, confidence: 0, iso: null, source: "unknown" }
   }
 
   let combined = ""

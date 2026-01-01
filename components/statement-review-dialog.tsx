@@ -21,6 +21,8 @@ export type StatementReviewRow = {
     description: string
     amount: number | string
     category?: string
+    needsReview?: boolean
+    reviewReason?: string | null
 }
 
 type StatementReviewDialogProps = {
@@ -81,6 +83,10 @@ export function StatementReviewDialog({
             const categoryValue = row.category?.trim().toLowerCase() ?? ""
             if (!categoryValue || categoryValue === "other" || categoryValue === "uncategorized") {
                 reasons.push("Uncategorized")
+            }
+
+            if (row.needsReview) {
+                reasons.push(row.reviewReason || "Suggested review")
             }
 
             const needsReview = reasons.length > 0

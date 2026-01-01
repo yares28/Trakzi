@@ -71,7 +71,7 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
       setParsedRows((prevRows) => {
         const updatedRows = prevRows.map((row) => {
           if (row.id === rowId) {
-            return { ...row, category: newCategory }
+            return { ...row, category: newCategory, needsReview: false, reviewReason: null }
           }
           return row
         })
@@ -219,6 +219,100 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
     })
 
     let parseSucceeded = false
+    const uploadReceiptFallback = async (): Promise<boolean> => {
+      try {
+        const formData = new FormData()
+        formData.append("files", file)
+
+        const response = await fetch("/api/receipts/upload", {
+          method: "POST",
+          body: formData,
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          if (response.status === 403 && errorData?.code === "LIMIT_EXCEEDED") {
+            toast.error("Transaction Limit Reached", {
+              description: errorData.message || "You've reached your transaction limit. Upgrade for more capacity.",
+              duration: 8000,
+              action: {
+                label: "Upgrade",
+                onClick: () => { window.location.href = "/billing" },
+              },
+            })
+            return false
+          }
+
+          const errorMessage = errorData?.error || "Failed to upload receipt."
+          setParseError(errorMessage)
+          toast.error("Receipt Upload Failed", {
+            description: errorMessage,
+            duration: 8000,
+          })
+          return false
+        }
+
+        const payload = await response.json()
+        const receipts = Array.isArray(payload?.receipts) ? payload.receipts : []
+        const rejected = Array.isArray(payload?.rejected) ? payload.rejected : []
+
+        if (receipts.length === 0) {
+          const rejectionMessage = rejected.length > 0
+            ? rejected.map((entry: { fileName?: string; reason?: string }) => {
+                const name = entry?.fileName || "Receipt"
+                const reason = entry?.reason || "Failed to upload"
+                return `${name}: ${reason}`
+              }).join(" | ")
+            : "No receipts were uploaded."
+          setParseError(rejectionMessage)
+          toast.error("Receipt Upload Failed", {
+            description: rejectionMessage,
+            duration: 8000,
+          })
+          return false
+        }
+
+        if (rejected.length > 0) {
+          const rejectedMessage = rejected.map((entry: { fileName?: string; reason?: string }) => {
+            const name = entry?.fileName || "Receipt"
+            const reason = entry?.reason || "Failed to upload"
+            return `${name}: ${reason}`
+          }).join(" | ")
+          toast.warning("Some receipts were skipped", {
+            description: rejectedMessage,
+            duration: 8000,
+          })
+        }
+
+        toast.success("Receipt uploaded", {
+          description: "Receipt added to your Data Library.",
+        })
+
+        clearResponseCache()
+        clearAnalyticsCache()
+        window.dispatchEvent(new CustomEvent("transactionsUpdated"))
+        await refreshAnalyticsData()
+
+        setIsUploadDialogOpen(false)
+        setDroppedFile(null)
+        setParsedCsv(null)
+        setParseQuality(null)
+        setFileId(null)
+        setTransactionCount(0)
+        setParseError(null)
+        setSelectedParsedRowIds(new Set())
+        setParsingProgress(0)
+        return true
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Failed to upload receipt."
+        setParseError(errorMessage)
+        toast.error("Receipt Upload Failed", {
+          description: errorMessage,
+          duration: 8000,
+        })
+        return false
+      }
+    }
     try {
       setIsParsing(true)
       setParsingProgress(0)
@@ -229,6 +323,12 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
       setTransactionCount(0)
       setSelectedParsedRowIds(new Set())
       resetPreferenceUpdates()
+
+      const isImage = file.type.startsWith("image/") || /\.(png|jpg|jpeg|webp|heic|heif)$/i.test(file.name)
+      if (isImage) {
+        await uploadReceiptFallback()
+        return
+      }
 
       setParsingProgress(5)
 
@@ -282,13 +382,22 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
 
       if (!response.ok) {
         let errorMessage = `HTTP error! status: ${response.status}`
+        let errorCode: string | null = null
         const responseText = await response.text()
 
         try {
           const errorData = JSON.parse(responseText)
           errorMessage = errorData.error || errorMessage
+          errorCode = typeof errorData.code === "string" ? errorData.code : null
         } catch {
           errorMessage = responseText || errorMessage
+        }
+
+        if (errorCode === "NOT_A_STATEMENT") {
+          const receiptUploaded = await uploadReceiptFallback()
+          if (receiptUploaded) {
+            return
+          }
         }
 
         throw new Error(errorMessage)
@@ -445,7 +554,7 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
         setIsReviewDialogOpen(true)
       }
     }
-  }, [resetPreferenceUpdates])
+  }, [refreshAnalyticsData, resetPreferenceUpdates])
 
   const handleDrop = useCallback(async (e: React.DragEvent<HTMLElement>) => {
     if (!isFileDragEvent(e)) return

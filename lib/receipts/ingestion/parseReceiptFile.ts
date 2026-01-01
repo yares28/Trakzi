@@ -13,8 +13,8 @@
  * 5. Warning/metadata collection for UI feedback
  * 
  * FLOW:
- * - PDF: unpdf → text → merchant check → deterministic or AI
- * - Image: OCR → text → merchant check → deterministic or AI
+ * - PDF: unpdf -> text -> merchant check -> deterministic or AI
+ * - Image: OCR -> text -> merchant check -> deterministic or AI
  * 
  * =============================================================================
  */
@@ -28,6 +28,7 @@ import type {
 } from "../parsers/types"
 import { mercadonaParser, tryParseMercadonaFromText } from "../parsers/mercadona"
 import { extractTextFromImage } from "../ocr"
+import { detectDocumentKindFromText } from "../../parsing/detect-document-kind"
 
 /** Parameters for the unified receipt parser */
 export type ParseReceiptFileParams = {
@@ -449,6 +450,23 @@ async function parsePdfReceipt(params: ParseReceiptFileParams): Promise<ReceiptP
         return { extracted: null, rawText: null, warnings: globalWarnings, meta }
     }
 
+    const documentKind = detectDocumentKindFromText(primaryText || secondaryText || "")
+    if (documentKind.kind === "statement") {
+        addWarning(globalWarnings, {
+            code: "NOT_A_RECEIPT",
+            message: "This file looks like a bank statement, not a receipt. Please upload it to the Analytics page.",
+        })
+        const quality = buildQuality({
+            validation: null,
+            warnings: globalWarnings,
+            pdfMetrics,
+            usedOcrForPdf: meta.ocr_used_for_pdf,
+        })
+        meta.quality = quality.quality
+        meta.quality_reasons = quality.reasons
+        return { extracted: null, rawText: primaryText || pdfText, warnings: globalWarnings, meta }
+    }
+
     const candidates: ReceiptParseCandidate[] = []
     let repairAttempted = false
 
@@ -713,6 +731,17 @@ async function parseImageReceipt(params: ParseReceiptFileParams): Promise<Receip
         return finalizeResult(null, null)
     }
 
+    if (ocrText) {
+        const documentKind = detectDocumentKindFromText(ocrText)
+        if (documentKind.kind === "statement") {
+            addWarning(warnings, {
+                code: "NOT_A_RECEIPT",
+                message: "This file looks like a bank statement, not a receipt. Please upload it to the Analytics page.",
+            })
+            return finalizeResult(null, ocrText)
+        }
+    }
+
     if (ocrText && mercadonaParser.canParse(ocrText)) {
         meta.merchant_detected = "mercadona"
 
@@ -751,6 +780,9 @@ async function parseImageReceipt(params: ParseReceiptFileParams): Promise<Receip
                 meta.repair_attempted = true
                 const aiWarnings: ReceiptParseWarning[] = []
                 const aiResult = await tryAiImageFallback(params, aiWarnings)
+                if (aiWarnings.length > 0) {
+                    warnings.push(...aiWarnings)
+                }
                 if (aiResult) {
                     const aiValidation = buildReceiptValidation(aiResult.extracted)
                     const aiScore = scoreValidation(aiValidation)
@@ -758,7 +790,6 @@ async function parseImageReceipt(params: ParseReceiptFileParams): Promise<Receip
                         extracted = aiResult.extracted
                         rawText = aiResult.rawText
                         meta.extraction_method = "ai_fallback"
-                        warnings.push(...aiWarnings)
                         validation = aiValidation
                         score = aiScore
                         repairUsed = true
