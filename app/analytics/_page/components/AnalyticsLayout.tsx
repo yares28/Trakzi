@@ -9,10 +9,10 @@ import { IconUpload } from "@tabler/icons-react"
 type AnalyticsLayoutProps = {
   children: ReactNode
   isDragging: boolean
-  onDragEnter: (event: DragEvent) => void
-  onDragLeave: (event: DragEvent) => void
-  onDragOver: (event: DragEvent) => void
-  onDrop: (event: DragEvent) => void
+  onDragEnter: (event: DragEvent<HTMLElement>) => void
+  onDragLeave: (event: DragEvent<HTMLElement>) => void
+  onDragOver: (event: DragEvent<HTMLElement>) => void
+  onDrop: (event: DragEvent<HTMLElement>) => void
 }
 
 export function AnalyticsLayout({

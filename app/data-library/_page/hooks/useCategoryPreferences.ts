@@ -35,7 +35,7 @@ export const useCategoryPreferences = () => {
     [flushPreferenceUpdates]
   )
 
-  const resetPreferenceQueue = useCallback(() => {
+  const resetPreferenceUpdates = useCallback(() => {
     pendingPreferenceEntriesRef.current = []
     if (preferenceUpdateTimerRef.current) {
       clearTimeout(preferenceUpdateTimerRef.current)
@@ -53,6 +53,6 @@ export const useCategoryPreferences = () => {
 
   return {
     schedulePreferenceUpdate,
-    resetPreferenceQueue,
+    resetPreferenceUpdates,
   }
 }

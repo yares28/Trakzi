@@ -12,6 +12,7 @@ import { AiReparseDialog } from "./components/AiReparseDialog"
 import { CategoriesTable } from "./components/CategoriesTable"
 import { CategoryDialogs } from "./components/CategoryDialogs"
 import { CsvUploadDialog } from "./components/CsvUploadDialog"
+import { DataLibraryCsvReviewDialog } from "./components/DataLibraryCsvReviewDialog"
 import { DataLibraryLayout } from "./components/DataLibraryLayout"
 import { LimitDialogs } from "./components/LimitDialogs"
 import { ReceiptCategoriesTable } from "./components/ReceiptCategoriesTable"
@@ -122,45 +123,11 @@ export default function DataLibraryPage() {
     setIsCategoryLimitDialogOpen(true)
   }
 
-  const { schedulePreferenceUpdate, resetPreferenceQueue } =
+  const { schedulePreferenceUpdate, resetPreferenceUpdates } =
     useCategoryPreferences()
 
-  const {
-    isDragging,
-    droppedFile,
-    isDialogOpen,
-    setIsDialogOpen,
-    isParsing,
-    isImporting,
-    importProgress,
-    parsingProgress,
-    parsedCsv,
-    parsedRows,
-    parseError,
-    isAiReparseOpen,
-    setIsAiReparseOpen,
-    aiReparseContext,
-    setAiReparseContext,
-    isAiReparsing,
-    selectedParsedRowIds,
-    transactionCount,
-    handleCategoryChange,
-    handleToggleParsedRow,
-    handleSelectAllParsedRows,
-    handleDeleteRow,
-    handleDeleteSelectedRows,
-    handleDragEnter,
-    handleDragLeave,
-    handleDragOver,
-    handleDrop,
-    handleAiReparse,
-    handleConfirm,
-    handleCancel,
-  } = useCsvImport({
-    fetchLibraryData,
-    onTransactionLimit: handleTransactionLimit,
-    schedulePreferenceUpdate,
-    resetPreferenceQueue,
+  const csvImport = useCsvImport({
+    refreshAnalyticsData: fetchLibraryData,
   })
 
   const {
@@ -255,11 +222,11 @@ export default function DataLibraryPage() {
 
   return (
     <DataLibraryLayout
-      isDragging={isDragging}
-      onDragEnter={handleDragEnter}
-      onDragLeave={handleDragLeave}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
+      isDragging={csvImport.isDragging}
+      onDragEnter={csvImport.handleDragEnter}
+      onDragLeave={csvImport.handleDragLeave}
+      onDragOver={csvImport.handleDragOver}
+      onDrop={csvImport.handleDrop}
     >
       <div className="@container/main flex flex-1 flex-col gap-2">
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
@@ -529,38 +496,45 @@ export default function DataLibraryPage() {
       />
 
       <AiReparseDialog
-        open={isAiReparseOpen}
-        onOpenChange={setIsAiReparseOpen}
-        aiReparseContext={aiReparseContext}
-        onContextChange={setAiReparseContext}
-        onConfirm={handleAiReparse}
-        isAiReparsing={isAiReparsing}
-        hasFile={!!droppedFile}
+        open={csvImport.isAiReparseOpen}
+        onOpenChange={csvImport.setIsAiReparseOpen}
+        aiReparseContext={csvImport.aiReparseContext}
+        onContextChange={csvImport.setAiReparseContext}
+        onConfirm={csvImport.handleAiReparse}
+        isAiReparsing={csvImport.isAiReparsing}
+        hasFile={!!csvImport.droppedFile}
       />
 
       <CsvUploadDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        droppedFile={droppedFile}
-        transactionCount={transactionCount}
-        parsedCsv={parsedCsv}
-        parsedRows={parsedRows}
-        selectedParsedRowIds={selectedParsedRowIds}
-        isParsing={isParsing}
-        parsingProgress={parsingProgress}
-        parseError={parseError}
-        isImporting={isImporting}
-        importProgress={importProgress}
-        isAiReparsing={isAiReparsing}
-        onOpenAiReparse={() => setIsAiReparseOpen(true)}
-        onDeleteSelectedRows={handleDeleteSelectedRows}
-        onSelectAll={handleSelectAllParsedRows}
-        onToggleRow={handleToggleParsedRow}
-        onCategoryChange={handleCategoryChange}
-        onDeleteRow={handleDeleteRow}
-        formatCurrency={formatCurrency}
-        onCancel={handleCancel}
-        onConfirm={handleConfirm}
+        open={csvImport.isUploadDialogOpen}
+        onOpenChange={csvImport.setIsUploadDialogOpen}
+        droppedFile={csvImport.droppedFile}
+        isParsing={csvImport.isParsing}
+        parsingProgress={csvImport.parsingProgress}
+        parseError={csvImport.parseError}
+        projectName={csvImport.projectName}
+        onProjectNameChange={csvImport.setProjectName}
+        onFilesChange={(files) => csvImport.handleFilesChange(files)}
+        onCancel={csvImport.handleCancelUpload}
+        onContinue={csvImport.handleContinueUpload}
+      />
+
+      <DataLibraryCsvReviewDialog
+        open={csvImport.isReviewDialogOpen}
+        onOpenChange={csvImport.setIsReviewDialogOpen}
+        fileName={csvImport.droppedFile?.name || null}
+        parsedRows={csvImport.parsedRows}
+        parseQuality={csvImport.parseQuality}
+        selectedParsedRowIds={csvImport.selectedParsedRowIds}
+        isImporting={csvImport.isImporting}
+        importProgress={csvImport.importProgress}
+        onSelectAll={csvImport.handleSelectAllParsedRows}
+        onToggleRow={csvImport.handleToggleParsedRow}
+        onCategoryChange={csvImport.handleCategoryChange}
+        onDeleteRow={csvImport.handleDeleteRow}
+        onDeleteSelectedRows={csvImport.handleDeleteSelectedRows}
+        onCommitImport={csvImport.handleConfirm}
+        onCancel={csvImport.handleCancelReview}
       />
 
       <LimitDialogs
