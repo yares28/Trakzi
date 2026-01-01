@@ -11,16 +11,16 @@ import { toast } from "sonner"
 import { TxRow } from "@/lib/types/transactions"
 
 import type { ParsedRow } from "../types"
-import { clearAnalyticsCache } from "@/app/analytics/_page/cache"
+import { clearAnalyticsCache } from "../cache"
 import { isFileDragEvent } from "../utils/file-dnd"
 import { useCategoryPreferences } from "./useCategoryPreferences"
 
-type UseCsvImportOptions = {
+type UseStatementImportOptions = {
   refreshAnalyticsData: () => Promise<void> | void
 }
 
-export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
-  // CSV drop-to-import state
+export function useStatementImport({ refreshAnalyticsData }: UseStatementImportOptions) {
+  // Statement drop-to-import state
   const [isDragging, setIsDragging] = useState(false)
   const [droppedFile, setDroppedFile] = useState<File | null>(null)
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
@@ -179,7 +179,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     }, 100)
   }, [selectedParsedRowIds])
 
-  const handleDragEnter = useCallback((e: React.DragEvent<HTMLElement>) => {
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
     if (!isFileDragEvent(e)) return
     e.preventDefault()
     e.stopPropagation()
@@ -189,7 +189,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     }
   }, [])
 
-  const handleDragLeave = useCallback((e: React.DragEvent<HTMLElement>) => {
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
     if (!isFileDragEvent(e)) return
     e.preventDefault()
     e.stopPropagation()
@@ -199,7 +199,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     }
   }, [])
 
-  const handleDragOver = useCallback((e: React.DragEvent<HTMLElement>) => {
+  const handleDragOver = useCallback((e: React.DragEvent) => {
     if (!isFileDragEvent(e)) return
     e.preventDefault()
     e.stopPropagation()
@@ -447,7 +447,7 @@ export function useCsvImport({ refreshAnalyticsData }: UseCsvImportOptions) {
     }
   }, [resetPreferenceUpdates])
 
-  const handleDrop = useCallback(async (e: React.DragEvent<HTMLElement>) => {
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
     if (!isFileDragEvent(e)) return
     e.preventDefault()
     e.stopPropagation()

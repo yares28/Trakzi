@@ -192,7 +192,10 @@ export function useReviewDialog({
       setReviewUploadWarnings(warnings)
       setActiveReviewReceiptIndex(0)
       setReviewCommitError(null)
-      setShowReviewOnly(false)
+      const hasReviewItems = receipts.some((receipt) =>
+        receipt.transactions.some((transaction) => Boolean(transaction.needsReview))
+      )
+      setShowReviewOnly(hasReviewItems)
       if (receipts.length === 0) {
         toast.error("No receipts were uploaded")
         return

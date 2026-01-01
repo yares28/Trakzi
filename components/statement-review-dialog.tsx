@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Info } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -13,7 +14,7 @@ import { IconTrash } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 import { buildStatementParseQuality, type ParseQualitySummary } from "@/lib/parsing/statement-parse-quality"
 
-export type CsvReviewRow = {
+export type StatementReviewRow = {
     id: number
     date: string
     time?: string
@@ -22,11 +23,11 @@ export type CsvReviewRow = {
     category?: string
 }
 
-type CsvReviewDialogProps = {
+type StatementReviewDialogProps = {
     open: boolean
     onOpenChange: (open: boolean) => void
     fileName: string | null
-    parsedRows: CsvReviewRow[]
+    parsedRows: StatementReviewRow[]
     parseQuality?: ParseQualitySummary | null
     selectedParsedRowIds: Set<number>
     isImporting: boolean
@@ -40,7 +41,7 @@ type CsvReviewDialogProps = {
     onCancel: () => void
 }
 
-export function CsvReviewDialog({
+export function StatementReviewDialog({
     open,
     onOpenChange,
     fileName,
@@ -56,8 +57,54 @@ export function CsvReviewDialog({
     onDeleteSelectedRows,
     onCommitImport,
     onCancel,
-}: CsvReviewDialogProps) {
+}: StatementReviewDialogProps) {
     const { formatCurrency } = useCurrency()
+    const [showReviewOnly, setShowReviewOnly] = useState(false)
+    const wasOpenRef = useRef(false)
+
+    const reviewMeta = useMemo(() => {
+        const map = new Map<number, { needsReview: boolean; reasons: string[] }>()
+        let count = 0
+
+        parsedRows.forEach((row) => {
+            const reasons: string[] = []
+            const dateValue = row.date?.trim() ?? ""
+            const hasValidDate = /^\d{4}-\d{2}-\d{2}$/.test(dateValue)
+            if (!hasValidDate) reasons.push("Missing/invalid date")
+
+            const descriptionValue = row.description?.trim() ?? ""
+            if (!descriptionValue) reasons.push("Missing description")
+
+            const amountValue = typeof row.amount === "number" ? row.amount : Number.parseFloat(String(row.amount))
+            if (!Number.isFinite(amountValue)) reasons.push("Missing amount")
+
+            const categoryValue = row.category?.trim().toLowerCase() ?? ""
+            if (!categoryValue || categoryValue === "other" || categoryValue === "uncategorized") {
+                reasons.push("Uncategorized")
+            }
+
+            const needsReview = reasons.length > 0
+            if (needsReview) count += 1
+            map.set(row.id, { needsReview, reasons })
+        })
+
+        return { map, count }
+    }, [parsedRows])
+
+    useEffect(() => {
+        if (open && !wasOpenRef.current) {
+            setShowReviewOnly(reviewMeta.count > 0)
+        }
+        if (!open && wasOpenRef.current) {
+            setShowReviewOnly(false)
+        }
+        wasOpenRef.current = open
+    }, [open, reviewMeta.count])
+
+    const reviewQueueLabel = reviewMeta.count > 0 ? `Review queue (${reviewMeta.count})` : "Review queue"
+    const visibleRows = showReviewOnly
+        ? parsedRows.filter((row) => reviewMeta.map.get(row.id)?.needsReview)
+        : parsedRows
 
     // Calculate category breakdown
     const categoryTotals = new Map<string, number>()
@@ -162,6 +209,15 @@ export function CsvReviewDialog({
                                     </PopoverContent>
                                 </Popover>
                                 <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={showReviewOnly ? "default" : "outline"}
+                                    onClick={() => setShowReviewOnly(!showReviewOnly)}
+                                    disabled={reviewMeta.count === 0 && !showReviewOnly}
+                                >
+                                    {reviewQueueLabel}
+                                </Button>
+                                <Button
                                     variant="destructive"
                                     size="sm"
                                     onClick={onDeleteSelectedRows}
@@ -229,13 +285,23 @@ export function CsvReviewDialog({
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    parsedRows.map((row) => {
+                                    visibleRows.map((row) => {
                                         const amount = typeof row.amount === "number" ? row.amount : parseFloat(String(row.amount)) || 0
                                         const category = row.category || "Other"
                                         const isSelected = selectedParsedRowIds.has(row.id)
+                                        const reviewInfo = reviewMeta.map.get(row.id)
+                                        const needsReview = Boolean(reviewInfo?.needsReview)
+                                        const reviewHint = reviewInfo?.reasons.join(" | ")
 
                                         return (
-                                            <TableRow key={row.id}>
+                                            <TableRow
+                                                key={row.id}
+                                                className={cn(
+                                                    needsReview
+                                                        ? "bg-amber-50/60 dark:bg-amber-950/30"
+                                                        : null
+                                                )}
+                                            >
                                                 <TableCell className="w-12">
                                                     <Checkbox
                                                         checked={isSelected}
@@ -252,8 +318,19 @@ export function CsvReviewDialog({
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="min-w-[350px] max-w-[600px]">
-                                                    <div className="truncate" title={row.description}>
-                                                        {row.description}
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <div className="truncate" title={row.description}>
+                                                            {row.description}
+                                                        </div>
+                                                        {needsReview ? (
+                                                            <Badge
+                                                                variant="outline"
+                                                                title={reviewHint || "Review suggested"}
+                                                                className="border-amber-300 text-amber-700 bg-amber-50/80"
+                                                            >
+                                                                Review
+                                                            </Badge>
+                                                        ) : null}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className={cn("text-right font-medium w-24 flex-shrink-0", amount < 0 ? "text-red-500" : "text-green-500")}>
@@ -283,13 +360,24 @@ export function CsvReviewDialog({
                                 )}
                             </TableBody>
                         </Table>
+                        {showReviewOnly && visibleRows.length === 0 ? (
+                            <div className="text-sm text-muted-foreground mt-4">
+                                No transactions are flagged for review.
+                            </div>
+                        ) : null}
                     </div>
 
                     <div className="pt-4 border-t border-border/60 flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">
                             {parsedRows.length > 0 && (
                                 <>
-                                    <span>{parsedRows.length} transaction{parsedRows.length !== 1 ? "s" : ""} </span>
+                                    {showReviewOnly ? (
+                                        <span>
+                                            Showing {visibleRows.length} of {parsedRows.length} transaction(s)
+                                        </span>
+                                    ) : (
+                                        <span>{parsedRows.length} transaction{parsedRows.length !== 1 ? "s" : ""} </span>
+                                    )}
                                 </>
                             )}
                         </div>

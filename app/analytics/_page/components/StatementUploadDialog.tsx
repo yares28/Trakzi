@@ -2,9 +2,9 @@ import { useMemo } from "react"
 import { useUser } from "@clerk/nextjs"
 
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { FileUploadCsv, type FileUploadCsvLead } from "@/components/file-upload-csv"
+import { FileUploadStatement, type FileUploadStatementLead } from "@/components/file-upload-statement"
 
-type CsvUploadDialogProps = {
+type StatementUploadDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   droppedFile: File | null
@@ -18,7 +18,7 @@ type CsvUploadDialogProps = {
   onContinue: () => void
 }
 
-export function CsvUploadDialog({
+export function StatementUploadDialog({
   open,
   onOpenChange,
   droppedFile,
@@ -30,7 +30,7 @@ export function CsvUploadDialog({
   onFilesChange,
   onCancel,
   onContinue,
-}: CsvUploadDialogProps) {
+}: StatementUploadDialogProps) {
   const { user, isLoaded: isUserLoaded } = useUser()
 
   const files = droppedFile ? [droppedFile] : []
@@ -38,7 +38,7 @@ export function CsvUploadDialog({
 
   const parsingStatus = isParsing ? `Parsing file... ${Math.round(parsingProgress)}%` : null
 
-  const projectLead = useMemo<FileUploadCsvLead | null>(() => {
+  const projectLead = useMemo<FileUploadStatementLead | null>(() => {
     if (!isUserLoaded || !user) return null
     return {
       id: user.id,
@@ -50,7 +50,7 @@ export function CsvUploadDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="p-0 border-0 bg-transparent shadow-none sm:max-w-[95vw] md:max-w-[720px]">
-        <FileUploadCsv
+        <FileUploadStatement
           files={files}
           fileProgresses={fileProgresses}
           isBusy={isParsing}
