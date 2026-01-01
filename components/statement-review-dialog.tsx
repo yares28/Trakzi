@@ -434,7 +434,21 @@ export function StatementReviewDialog({
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto overflow-x-hidden pt-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40">
+                    {/* Main content area with side panel */}
+
+
+                    <div className="flex gap-4 flex-1 overflow-hidden">
+
+
+                        {/* Left: Main table */}
+
+
+                        <div className={cn(
+
+
+                            "flex-1 overflow-y-auto overflow-x-hidden pt-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40",
+                            !!sidePanelView ? "w-[70%]" : "w-full"
+                        )}>
                         <Table className="w-full">
                             <TableHeader className="bg-muted sticky top-0 z-10">
                                 <TableRow>
@@ -535,11 +549,23 @@ export function StatementReviewDialog({
                                 )}
                             </TableBody>
                         </Table>
-                        {showReviewOnly && visibleRows.length === 0 ? (
+                        {sidePanelView === 'review' && visibleRows.length === 0 ? (
                             <div className="text-sm text-muted-foreground mt-4">
                                 No transactions are flagged for review.
                             </div>
                         ) : null}
+                    </div>
+                    
+                    {/* Right: Side panel */}
+                    {sidePanelView && (
+                        <div className="w-[30%] border-l border-border/60 pl-4 flex flex-col overflow-hidden">
+                            {sidePanelView === 'review' ? (
+                                <ReviewQueuePanel />
+                            ) : (
+                                <GroupsPanel />
+                            )}
+                        </div>
+                    )}
                     </div>
 
                     <div className="pt-4 border-t border-border/60 flex items-center justify-between">
