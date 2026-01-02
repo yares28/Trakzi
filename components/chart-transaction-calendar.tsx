@@ -506,9 +506,6 @@ export function ChartTransactionCalendar({
           </div>
           <CardAction className="flex flex-wrap items-center gap-2">
             {renderInfoTrigger()}
-            <span className="text-xs text-muted-foreground">
-              Showing {formatFilterLabel(dateFilter)}
-            </span>
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
@@ -540,9 +537,6 @@ export function ChartTransactionCalendar({
           </div>
           <CardAction className="flex flex-wrap items-center gap-2">
             {renderInfoTrigger()}
-            <span className="text-xs text-muted-foreground">
-              Showing {formatFilterLabel(dateFilter)}
-            </span>
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
@@ -585,9 +579,6 @@ export function ChartTransactionCalendar({
           </div>
           <CardAction className="flex flex-wrap items-center gap-2">
             {renderInfoTrigger()}
-            <span className="text-xs text-muted-foreground">
-              Showing {formatFilterLabel(dateFilter)}
-            </span>
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
