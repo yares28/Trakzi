@@ -67,6 +67,13 @@ export function ChartsGrid({
   setRingLimits,
   chartData,
 }: ChartsGridProps) {
+  // Debug logging to trace bundle data
+  console.log('[ChartsGrid] bundleData:', bundleData)
+  console.log('[ChartsGrid] bundleLoading:', bundleLoading)
+  console.log('[ChartsGrid] bundleData?.needsWants:', bundleData?.needsWants)
+  console.log('[ChartsGrid] bundleData?.cashFlow:', bundleData?.cashFlow)
+  console.log('[ChartsGrid] bundleData?.dailySpending:', bundleData?.dailySpending)
+
   const {
     activityConfig,
     activityData,
