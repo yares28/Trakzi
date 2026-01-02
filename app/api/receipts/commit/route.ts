@@ -273,8 +273,17 @@ export const POST = async (req: NextRequest) => {
     const totalInserted = receipts.reduce((sum, r) => sum + r.itemsInserted, 0)
     const totalSkipped = receipts.reduce((sum, r) => sum + r.itemsSkipped, 0)
 
-    // Invalidate cache to ensure UI updates instantly
-    await invalidateUserCachePrefix(userId, 'data-library');
+    // Invalidate ALL affected caches to ensure UI updates instantly
+    // This is critical - without this, the fridge page will show stale data
+    await Promise.all([
+      invalidateUserCachePrefix(userId, 'fridge'),
+      invalidateUserCachePrefix(userId, 'data-library'),
+      invalidateUserCachePrefix(userId, 'analytics'),
+      invalidateUserCachePrefix(userId, 'home'),
+      invalidateUserCachePrefix(userId, 'trends'),
+      invalidateUserCachePrefix(userId, 'savings'),
+    ]);
+    revalidatePath('/fridge');
     revalidatePath('/data-library');
 
     return NextResponse.json({

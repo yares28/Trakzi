@@ -694,136 +694,21 @@ export function useAnalyticsChartData({
   type SpendingTier = "Essentials" | "Mandatory" | "Wants"
 
   const needsWantsPieData = useMemo(() => {
-    // Use bundle data if available (pre-computed by server)
-    if (bundleData?.needsWants && bundleData.needsWants.length > 0) {
-      const slices = bundleData.needsWants
-        .map(item => ({ id: item.classification, label: item.classification, value: item.total }))
-        .filter(slice => slice.value > 0)
-      // For bundle data, categories are the tier names themselves
-      return { slices, categories: bundleData.needsWants.map(n => n.classification) }
-    }
-
-    // Fallback to rawTransactions
-    if (!rawTransactions || rawTransactions.length === 0) {
+    // Bundle-only mode: Use pre-computed data from Redis cache
+    // No fallback to rawTransactions to avoid race conditions
+    if (!bundleData?.needsWants || bundleData.needsWants.length === 0) {
       return {
         slices: [] as Array<{ id: string; label: string; value: number }>,
         categories: [] as string[],
       }
     }
 
-    const categorySet = new Set<string>()
-    rawTransactions.forEach((tx) => {
-      if (tx.amount < 0) {
-        categorySet.add(normalizeCategoryName(tx.category))
-      }
-    })
+    const slices = bundleData.needsWants
+      .map(item => ({ id: item.classification, label: item.classification, value: item.total }))
+      .filter(slice => slice.value > 0)
 
-    const filteredSource =
-      needsWantsVisibility.hiddenCategorySet.size === 0
-        ? rawTransactions
-        : rawTransactions.filter((tx) => {
-          const category = normalizeCategoryName(tx.category)
-          return !needsWantsVisibility.hiddenCategorySet.has(category)
-        })
-
-    const totals: Record<SpendingTier, number> = {
-      Essentials: 0,
-      Mandatory: 0,
-      Wants: 0,
-    }
-
-    const classifySpendingTier = (normalizedCategory: string): SpendingTier => {
-      if (typeof window !== "undefined") {
-        try {
-          const key = normalizedCategory.trim().toLowerCase()
-          const raw = window.localStorage.getItem("needsWantsCategoryTier")
-          if (raw) {
-            const map = JSON.parse(raw) as Record<string, SpendingTier>
-            const override = map[key]
-            if (override) {
-              return override
-            }
-          }
-        } catch {
-          // ignore storage errors and fall back to keyword rules
-        }
-      }
-
-      const lower = normalizedCategory.toLowerCase()
-
-      const essentialKeywords = [
-        "grocery",
-        "groceries",
-        "supermarket",
-        "rent",
-        "mortgage",
-        "utility",
-        "utilities",
-        "electric",
-        "water",
-        "gas",
-        "fuel",
-        "transport",
-        "transit",
-        "bus",
-        "train",
-        "subway",
-        "health",
-        "pharmacy",
-      ]
-
-      const mandatoryKeywords = ["insurance", "tax", "fee", "loan", "debt"]
-
-      const wantsKeywords = [
-        "shopping",
-        "entertainment",
-        "travel",
-        "vacation",
-        "subscription",
-        "subscriptions",
-        "restaurant",
-        "restaurants",
-        "dining",
-        "bar",
-        "coffee",
-        "services",
-        "education",
-      ]
-
-      if (essentialKeywords.some((k) => lower.includes(k))) {
-        return "Essentials"
-      }
-      if (mandatoryKeywords.some((k) => lower.includes(k))) {
-        return "Mandatory"
-      }
-      if (wantsKeywords.some((k) => lower.includes(k))) {
-        return "Wants"
-      }
-      return "Wants"
-    }
-
-    filteredSource
-      .filter((tx) => tx.amount < 0)
-      .forEach((tx) => {
-        const normalized = normalizeCategoryName(tx.category)
-        const tier = classifySpendingTier(normalized)
-        const amount = Math.abs(Number(tx.amount) || 0)
-        totals[tier] += amount
-      })
-
-    const slices = (["Essentials", "Mandatory", "Wants"] as SpendingTier[])
-      .map((tier) => ({
-        id: tier,
-        label: tier,
-        value: totals[tier],
-      }))
-      .filter((slice) => slice.value > 0)
-
-    return {
-      slices,
-      categories: Array.from(categorySet),
-    }
-  }, [bundleData?.needsWants, rawTransactions, needsWantsVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
+    return { slices, categories: bundleData.needsWants.map(n => n.classification) }
+  }, [bundleData?.needsWants])
 
   const needsWantsControls = needsWantsVisibility.buildCategoryControls(needsWantsPieData.categories, {
     description: "Hide a category to exclude it from the Needs vs Wants grouping.",
@@ -1155,134 +1040,22 @@ export function useAnalyticsChartData({
 
 
   const sankeyData = useMemo(() => {
-    // Use bundle data if available
-    if (bundleData?.cashFlow && bundleData.cashFlow.nodes.length > 0) {
-      const categorySet = new Set<string>(bundleData.cashFlow.nodes.filter(n => n.id !== 'income' && n.id !== 'savings' && n.id !== 'expenses').map(n => n.id))
-      return { graph: bundleData.cashFlow, categories: Array.from(categorySet) }
-    }
-
-    // Fallback to rawTransactions
-    if (!rawTransactions || rawTransactions.length === 0) {
-      return { graph: { nodes: [], links: [] as Array<{ source: string; target: string; value: number }> }, categories: [] as string[] }
-    }
-
-    const categorySet = new Set<string>()
-    rawTransactions.forEach((tx) => {
-      categorySet.add(normalizeCategoryName(tx.category))
-    })
-
-    const filteredSource =
-      sankeyVisibility.hiddenCategorySet.size === 0
-        ? rawTransactions
-        : rawTransactions.filter((tx) => {
-          const category = normalizeCategoryName(tx.category)
-          return !sankeyVisibility.hiddenCategorySet.has(category)
-        })
-
-    if (!filteredSource.length) {
-      return { graph: { nodes: [], links: [] }, categories: Array.from(categorySet) }
-    }
-
-    const rootNode = { id: "root:total-income", label: "Total Income" }
-    const inflowTotals = new Map<string, number>()
-    const outflowTotals = new Map<string, number>()
-
-    filteredSource.forEach((tx) => {
-      const amount = Number(tx.amount) || 0
-      if (amount === 0) return
-
-      const categoryName = tx.category?.trim() || "Other"
-      if (amount > 0) {
-        inflowTotals.set(categoryName, (inflowTotals.get(categoryName) || 0) + amount)
-      } else {
-        outflowTotals.set(categoryName, (outflowTotals.get(categoryName) || 0) + Math.abs(amount))
-      }
-    })
-
-    const totalIncome = Array.from(inflowTotals.values()).reduce((sum, value) => sum + value, 0)
-    const totalExpenses = Array.from(outflowTotals.values()).reduce((sum, value) => sum + value, 0)
-
-    if (totalIncome === 0 && totalExpenses === 0) {
-      return { graph: { nodes: [], links: [] }, categories: Array.from(categorySet) }
-    }
-
-    const limitEntries = (sourceMap: Map<string, number>, limit: number, otherLabel: string) => {
-      const entries = Array.from(sourceMap.entries())
-        .filter(([, value]) => value > 0)
-        .sort((a, b) => b[1] - a[1])
-
-      if (entries.length <= limit) {
-        return entries
-      }
-
-      const slicePoint = Math.max(limit - 1, 1)
-      const topEntries = entries.slice(0, slicePoint)
-      const remainderTotal = entries.slice(slicePoint).reduce((sum, [, value]) => sum + value, 0)
-
-      if (remainderTotal > 0) {
-        topEntries.push([otherLabel, remainderTotal])
-      }
-
-      return topEntries
-    }
-
-    const inflowEntries = limitEntries(inflowTotals, 4, "Other Income")
-    const outflowEntries = limitEntries(outflowTotals, 8, "Other Expenses")
-    const surplusValue = totalIncome - totalExpenses
-    const surplusNode =
-      surplusValue >= 0 ? { id: "node:net-profit", label: "Net Profit" } : { id: "node:net-deficit", label: "Net Deficit" }
-
-    const nodeMap = new Map<string, { id: string; label?: string }>()
-    const ensureNode = (id: string, label?: string) => {
-      if (!nodeMap.has(id)) {
-        nodeMap.set(id, { id, label })
-      }
-    }
-
-    ensureNode(rootNode.id, rootNode.label)
-
-    const inflowLinks = inflowEntries.map(([label, value]) => {
-      const nodeId = `inflow:${label}`
-      ensureNode(nodeId, label)
+    // Bundle-only mode: Use pre-computed data from Redis cache
+    // No fallback to rawTransactions to avoid race conditions
+    if (!bundleData?.cashFlow || bundleData.cashFlow.nodes.length === 0) {
       return {
-        source: nodeId,
-        target: rootNode.id,
-        value,
+        graph: { nodes: [], links: [] as Array<{ source: string; target: string; value: number }> },
+        categories: [] as string[]
       }
-    })
-
-    const outflowLinks = outflowEntries.map(([label, value]) => {
-      const nodeId = `outflow:${label}`
-      ensureNode(nodeId, label)
-      return {
-        source: rootNode.id,
-        target: nodeId,
-        value,
-      }
-    })
-
-    if (surplusValue !== 0) {
-      ensureNode(surplusNode.id, surplusNode.label)
-      outflowLinks.push({
-        source: rootNode.id,
-        target: surplusNode.id,
-        value: Math.abs(surplusValue),
-      })
     }
 
-    const links = [...inflowLinks, ...outflowLinks].filter((link) => link.value > 0)
-
-    if (links.length === 0) {
-      return { graph: { nodes: [], links: [] }, categories: Array.from(categorySet) }
-    }
-
-    const nodes = Array.from(nodeMap.values())
-
-    return {
-      graph: { nodes, links },
-      categories: Array.from(categorySet),
-    }
-  }, [bundleData?.cashFlow, rawTransactions, sankeyVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
+    const categorySet = new Set<string>(
+      bundleData.cashFlow.nodes
+        .filter(n => n.id !== 'income' && n.id !== 'savings' && n.id !== 'expenses')
+        .map(n => n.id)
+    )
+    return { graph: bundleData.cashFlow, categories: Array.from(categorySet) }
+  }, [bundleData?.cashFlow])
 
   const sankeyControls = sankeyVisibility.buildCategoryControls(sankeyData.categories, {
     description: "Hide sources to remove them from the cash-flow Sankey.",
