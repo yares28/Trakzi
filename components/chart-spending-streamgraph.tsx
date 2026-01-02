@@ -34,6 +34,8 @@ interface ChartSpendingStreamgraphProps {
   keys?: string[]
   categoryControls?: ChartInfoPopoverCategoryControls
   isLoading?: boolean
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
 const FALLBACK_COLORS = ["#7dd3fc", "#c084fc", "#f472b6", "#f97316", "#34d399", "#f87171", "#fb7185"]
@@ -59,7 +61,14 @@ const monthFormatter = (monthKey: string) => {
   return `${parsedYear}-${normalizedMonth}`
 }
 
-export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControls, isLoading = false }: ChartSpendingStreamgraphProps) {
+export function ChartSpendingStreamgraph({
+  data = [],
+  keys = [],
+  categoryControls,
+  isLoading = false,
+  emptyTitle,
+  emptyDescription
+}: ChartSpendingStreamgraphProps) {
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const { resolvedTheme } = useTheme()
@@ -254,7 +263,11 @@ export function ChartSpendingStreamgraph({ data = [], keys = [], categoryControl
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-          <ChartLoadingState isLoading={isLoading} />
+          <ChartLoadingState
+            isLoading={isLoading}
+            emptyTitle={emptyTitle}
+            emptyDescription={emptyDescription}
+          />
         </CardContent>
       </Card>
     )

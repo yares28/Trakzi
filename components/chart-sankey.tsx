@@ -34,6 +34,8 @@ interface ChartSankeyProps {
   }
   categoryControls?: ChartInfoPopoverCategoryControls
   isLoading?: boolean
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
 const formatNodeId = (id: string) => {
@@ -60,7 +62,13 @@ const formatNodeId = (id: string) => {
   return value.replace(/\b\w/g, char => char.toUpperCase())
 }
 
-export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls, isLoading = false }: ChartSankeyProps) {
+export function ChartSankey({
+  data = { nodes: [], links: [] },
+  categoryControls,
+  isLoading = false,
+  emptyTitle,
+  emptyDescription
+}: ChartSankeyProps) {
   const { getPalette } = useColorScheme()
   const { resolvedTheme } = useTheme()
   const { formatCurrency } = useCurrency()
@@ -152,7 +160,11 @@ export function ChartSankey({ data = { nodes: [], links: [] }, categoryControls,
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
           <div className="h-full w-full min-h-[250px]">
-            <ChartLoadingState isLoading={isLoading} />
+            <ChartLoadingState
+              isLoading={isLoading}
+              emptyTitle={emptyTitle}
+              emptyDescription={emptyDescription}
+            />
           </div>
         </CardContent>
       </Card>

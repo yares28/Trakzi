@@ -37,9 +37,17 @@ interface ChartCirclePackingProps {
   data?: CirclePackingNode
   categoryControls?: ChartInfoPopoverCategoryControls
   isLoading?: boolean
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
-export function ChartCirclePacking({ data = { name: "", children: [] }, categoryControls, isLoading = false }: ChartCirclePackingProps) {
+export function ChartCirclePacking({
+  data = { name: "", children: [] },
+  categoryControls,
+  isLoading = false,
+  emptyTitle,
+  emptyDescription
+}: ChartCirclePackingProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const sanitizedData = useMemo(() => sanitizeCirclePackingNode(data), [data])
@@ -64,7 +72,7 @@ export function ChartCirclePacking({ data = { name: "", children: [] }, category
       />
     </div>
   )
-  
+
   // Check if data is empty
   if (!sanitizedData || !sanitizedData.children || sanitizedData.children.length === 0) {
     return (
@@ -78,12 +86,16 @@ export function ChartCirclePacking({ data = { name: "", children: [] }, category
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-          <ChartLoadingState isLoading={isLoading} />
+          <ChartLoadingState
+            isLoading={isLoading}
+            emptyTitle={emptyTitle}
+            emptyDescription={emptyDescription}
+          />
         </CardContent>
       </Card>
     )
   }
-  
+
   return (
     <Card>
       <CardHeader>

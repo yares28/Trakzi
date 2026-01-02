@@ -30,6 +30,8 @@ interface ChartSpendingFunnelProps {
   categoryControls?: ChartInfoPopoverCategoryControls
   maxExpenseCategories?: number
   isLoading?: boolean
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
 // Dark colors that require white text
@@ -46,7 +48,14 @@ const getTextColor = (sliceColor: string, colorScheme?: string): string => {
   return darkColors.includes(sliceColor) ? "#ffffff" : "#000000"
 }
 
-export function ChartSpendingFunnel({ data = [], categoryControls, maxExpenseCategories = 2, isLoading = false }: ChartSpendingFunnelProps) {
+export function ChartSpendingFunnel({
+  data = [],
+  categoryControls,
+  maxExpenseCategories = 2,
+  isLoading = false,
+  emptyTitle,
+  emptyDescription
+}: ChartSpendingFunnelProps) {
   const { resolvedTheme } = useTheme()
   const { colorScheme, getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -186,7 +195,11 @@ export function ChartSpendingFunnel({ data = [], categoryControls, maxExpenseCat
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
           <div className="h-full w-full min-h-[250px]">
-            <ChartLoadingState isLoading={isLoading} />
+            <ChartLoadingState
+              isLoading={isLoading}
+              emptyTitle={emptyTitle}
+              emptyDescription={emptyDescription}
+            />
           </div>
         </CardContent>
       </Card>

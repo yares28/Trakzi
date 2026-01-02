@@ -41,9 +41,16 @@ type SeriesDatum = {
 interface ChartCategoryBubbleProps {
   data?: Transaction[]
   isLoading?: boolean
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
-export function ChartCategoryBubble({ data = [], isLoading = false }: ChartCategoryBubbleProps) {
+export function ChartCategoryBubble({
+  data = [],
+  isLoading = false,
+  emptyTitle,
+  emptyDescription
+}: ChartCategoryBubbleProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -480,7 +487,11 @@ export function ChartCategoryBubble({ data = [], isLoading = false }: ChartCateg
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-          <ChartLoadingState isLoading={isLoading} />
+          <ChartLoadingState
+            isLoading={isLoading}
+            emptyTitle={emptyTitle}
+            emptyDescription={emptyDescription}
+          />
         </CardContent>
       </Card>
     )

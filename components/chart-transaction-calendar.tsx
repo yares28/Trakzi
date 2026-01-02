@@ -40,6 +40,8 @@ interface ChartTransactionCalendarProps {
     value: number
   }>
   dateFilter?: string | null
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
 const getRangeForFilter = (filter: string) => {
@@ -102,7 +104,12 @@ const formatFilterLabel = (filter: string | null) => {
   }
 }
 
-export function ChartTransactionCalendar({ data: propData, dateFilter: propDateFilter }: ChartTransactionCalendarProps) {
+export function ChartTransactionCalendar({
+  data: propData,
+  dateFilter: propDateFilter,
+  emptyTitle,
+  emptyDescription
+}: ChartTransactionCalendarProps) {
   const currentYear = new Date().getFullYear()
   const [selectedYear, setSelectedYear] = useState(currentYear.toString())
   const { resolvedTheme } = useTheme()
@@ -578,7 +585,11 @@ export function ChartTransactionCalendar({ data: propData, dateFilter: propDateF
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
           <div className="h-[250px] w-full">
-            <ChartLoadingState isLoading />
+            <ChartLoadingState
+              isLoading
+              emptyTitle={emptyTitle}
+              emptyDescription={emptyDescription}
+            />
           </div>
         </CardContent>
       </Card>
@@ -634,8 +645,8 @@ export function ChartTransactionCalendar({ data: propData, dateFilter: propDateF
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
           <div className="h-[250px] w-full">
             <ChartLoadingState
-              emptyTitle="No daily activity yet"
-              emptyDescription="Import your bank statements to see a calendar heatmap of your spending"
+              emptyTitle={emptyTitle || "No daily activity yet"}
+              emptyDescription={emptyDescription || "Import your bank statements to see a calendar heatmap of your spending"}
             />
           </div>
         </CardContent>

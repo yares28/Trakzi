@@ -102,6 +102,15 @@ export function ChartsGrid({
     setRingCategories,
   } = chartData
 
+  // Smart empty state messages - show helpful message when no data for current period
+  const hasDataInOtherPeriods = bundleData?.hasDataInOtherPeriods ?? false
+  const emptyTitle = hasDataInOtherPeriods
+    ? "No data for this period"
+    : "No data yet"
+  const emptyDescription = hasDataInOtherPeriods
+    ? "Try selecting a different time period to see your data"
+    : "Import your bank statements or receipts to see insights here"
+
   const [ringCategoryPopoverIndex, setRingCategoryPopoverIndex] = useState<number | null>(null)
   const [ringCategoryPopoverValue, setRingCategoryPopoverValue] = useState<string | null>(null)
   const [ringLimitPopoverValue, setRingLimitPopoverValue] = useState<string>("")
@@ -201,7 +210,11 @@ export function ChartsGrid({
             return (
               <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                 <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                  <ChartSwarmPlot data={swarmPlotData} />
+                  <ChartSwarmPlot
+                    data={swarmPlotData}
+                    emptyTitle={emptyTitle}
+                    emptyDescription={emptyDescription}
+                  />
                 </div>
               </SortableGridItem>
             )
@@ -216,6 +229,8 @@ export function ChartsGrid({
                     dayOfWeekCategoryData={bundleData?.dayOfWeekCategory}
                     categoryControls={dayOfWeekSpendingControls}
                     isLoading={isLoadingTransactions}
+                    emptyTitle={emptyTitle}
+                    emptyDescription={emptyDescription}
                   />
                 </div>
               </SortableGridItem>
@@ -232,6 +247,8 @@ export function ChartsGrid({
                     categoryControls={monthOfYearSpendingControls}
                     isLoading={isLoadingTransactions}
                     bundleLoading={bundleLoading}
+                    emptyTitle={emptyTitle}
+                    emptyDescription={emptyDescription}
                   />
                 </div>
               </SortableGridItem>
@@ -247,6 +264,8 @@ export function ChartsGrid({
                     categoryControls={incomeExpenseTopControls}
                     isLoading={isLoadingTransactions}
                     data={incomeExpenseTopChartData}
+                    emptyTitle={emptyTitle}
+                    emptyDescription={emptyDescription}
                   />
                 </div>
               </SortableGridItem>
@@ -262,6 +281,8 @@ export function ChartsGrid({
                     categoryControls={incomeExpenseControls}
                     isLoading={isLoadingTransactions}
                     data={incomeExpenseChart.data}
+                    emptyTitle={emptyTitle}
+                    emptyDescription={emptyDescription}
                   />
                 </div>
               </SortableGridItem>
@@ -276,6 +297,8 @@ export function ChartsGrid({
                     categoryControls={categoryFlowControls}
                     data={categoryFlowChart.data}
                     isLoading={isLoadingTransactions}
+                    emptyTitle={emptyTitle}
+                    emptyDescription={emptyDescription}
                   />
                 </div>
               </SortableGridItem>
@@ -290,6 +313,8 @@ export function ChartsGrid({
                     categoryControls={treeMapControls}
                     data={treeMapData}
                     isLoading={isLoadingTransactions}
+                    emptyTitle={emptyTitle}
+                    emptyDescription={emptyDescription}
                   />
                 </div>
               </SortableGridItem>
@@ -305,6 +330,8 @@ export function ChartsGrid({
                     data={spendingFunnelChart.data}
                     maxExpenseCategories={moneyFlowMaxExpenseCategories}
                     isLoading={isLoadingTransactions}
+                    emptyTitle={emptyTitle}
+                    emptyDescription={emptyDescription}
                   />
                 </div>
               </SortableGridItem>
@@ -319,6 +346,8 @@ export function ChartsGrid({
                     categoryControls={expensesPieControls}
                     data={expensesPieData.slices}
                     isLoading={isLoadingTransactions}
+                    emptyTitle={emptyTitle}
+                    emptyDescription={emptyDescription}
                   />
                 </div>
               </SortableGridItem>
@@ -333,6 +362,8 @@ export function ChartsGrid({
                     categoryControls={needsWantsControls}
                     data={needsWantsPieData.slices}
                     isLoading={bundleLoading}
+                    emptyTitle={emptyTitle}
+                    emptyDescription={emptyDescription}
                   />
                 </div>
               </SortableGridItem>
@@ -346,6 +377,8 @@ export function ChartsGrid({
                   <ChartCategoryBubble
                     data={rawTransactions}
                     isLoading={isLoadingTransactions}
+                    emptyTitle={emptyTitle}
+                    emptyDescription={emptyDescription}
                   />
                 </div>
               </SortableGridItem>
@@ -361,6 +394,8 @@ export function ChartsGrid({
                     data={polarBarData.data}
                     keys={polarBarData.keys}
                     isLoading={isLoadingTransactions}
+                    emptyTitle={emptyTitle}
+                    emptyDescription={emptyDescription}
                   />
                 </div>
               </SortableGridItem>
@@ -373,6 +408,8 @@ export function ChartsGrid({
                 <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                   <ChartRadar
                     dateFilter={dateFilter}
+                    emptyTitle={emptyTitle}
+                    emptyDescription={emptyDescription}
                   />
                 </div>
               </SortableGridItem>
@@ -587,8 +624,8 @@ export function ChartsGrid({
                       <div className="absolute inset-0 flex flex-col items-center justify-between pt-20 pb-4">
                         {activityData.length === 0 ? (
                           <ChartLoadingState
-                            emptyTitle="No spending categories yet"
-                            emptyDescription="Import your bank statements to see activity rings"
+                            emptyTitle={emptyTitle || "No spending categories yet"}
+                            emptyDescription={emptyDescription || "Import your bank statements to see activity rings"}
                           />
                         ) : (
                           <>
@@ -649,6 +686,8 @@ export function ChartsGrid({
                     data={spendingStreamData.data}
                     keys={spendingStreamData.keys}
                     isLoading={isLoadingTransactions}
+                    emptyTitle={emptyTitle}
+                    emptyDescription={emptyDescription}
                   />
                 </div>
               </SortableGridItem>
@@ -663,6 +702,8 @@ export function ChartsGrid({
                     dateFilter={dateFilter}
                     monthlyCategoriesData={bundleData?.monthlyCategories}
                     bundleLoading={bundleLoading}
+                    emptyTitle={emptyTitle}
+                    emptyDescription={emptyDescription}
                   />
                 </div>
               </SortableGridItem>
@@ -677,6 +718,8 @@ export function ChartsGrid({
                     dateFilter={dateFilter}
                     bundleData={bundleData?.dayOfWeekCategory}
                     bundleLoading={bundleLoading}
+                    emptyTitle={emptyTitle}
+                    emptyDescription={emptyDescription}
                   />
                 </div>
               </SortableGridItem>
@@ -697,6 +740,8 @@ export function ChartsGrid({
                   <ChartTransactionCalendar
                     data={calendarData}
                     dateFilter={dateFilter}
+                    emptyTitle={emptyTitle}
+                    emptyDescription={emptyDescription}
                   />
                 </div>
               </SortableGridItem>
@@ -711,6 +756,8 @@ export function ChartsGrid({
                     data={sankeyData.graph}
                     categoryControls={sankeyControls}
                     isLoading={bundleLoading}
+                    emptyTitle={emptyTitle}
+                    emptyDescription={emptyDescription}
                   />
                 </div>
               </SortableGridItem>

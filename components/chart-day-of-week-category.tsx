@@ -38,6 +38,8 @@ interface ChartDayOfWeekCategoryProps {
   // Optional: pass bundle data directly (for context-based rendering)
   bundleData?: Array<{ dayOfWeek: number; category: string; total: number }>
   bundleLoading?: boolean
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
 type DayOfWeekData = {
@@ -51,7 +53,13 @@ const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satu
 const buildDayOfWeekUrl = (params: URLSearchParams) =>
   `/api/analytics/day-of-week-category?${params.toString()}`
 
-export function ChartDayOfWeekCategory({ dateFilter, bundleData, bundleLoading }: ChartDayOfWeekCategoryProps) {
+export function ChartDayOfWeekCategory({
+  dateFilter,
+  bundleData,
+  bundleLoading,
+  emptyTitle,
+  emptyDescription
+}: ChartDayOfWeekCategoryProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette, colorScheme } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -590,7 +598,11 @@ export function ChartDayOfWeekCategory({ dateFilter, bundleData, bundleLoading }
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-          <ChartLoadingState isLoading />
+          <ChartLoadingState
+            isLoading
+            emptyTitle={emptyTitle}
+            emptyDescription={emptyDescription}
+          />
         </CardContent>
       </Card>
     )
@@ -614,7 +626,11 @@ export function ChartDayOfWeekCategory({ dateFilter, bundleData, bundleLoading }
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-          <ChartLoadingState isLoading />
+          <ChartLoadingState
+            isLoading
+            emptyTitle={emptyTitle}
+            emptyDescription={emptyDescription}
+          />
         </CardContent>
       </Card>
     )
@@ -639,8 +655,8 @@ export function ChartDayOfWeekCategory({ dateFilter, bundleData, bundleLoading }
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
           <ChartLoadingState
-            emptyTitle="No spending data"
-            emptyDescription="Import your bank statements to see spending by day of week"
+            emptyTitle={emptyTitle || "No spending data"}
+            emptyDescription={emptyDescription || "Import your bank statements to see spending by day of week"}
           />
         </CardContent>
       </Card>
@@ -729,8 +745,8 @@ export function ChartDayOfWeekCategory({ dateFilter, bundleData, bundleLoading }
             </div>
           ) : (
             <ChartLoadingState
-              emptyTitle="No spending data"
-              emptyDescription="No transactions recorded for this day yet"
+              emptyTitle={emptyTitle || "No spending data"}
+              emptyDescription={emptyDescription || "No transactions recorded for this day yet"}
             />
           )}
         </CardContent>
