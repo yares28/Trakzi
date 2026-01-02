@@ -11,6 +11,7 @@ import {
 interface DateFilterContextType {
     filter: DateFilterType | null
     setFilter: (filter: DateFilterType | null) => void
+    isReady: boolean // True when filter has been resolved from localStorage
 }
 
 const DateFilterContext = createContext<DateFilterContextType | undefined>(undefined)
@@ -55,11 +56,13 @@ export function useDateFilter() {
 
 export function DateFilterProvider({ children }: { children: ReactNode }) {
     const [filter, setFilterState] = useState<DateFilterType | null>(FALLBACK_DATE_FILTER)
+    const [isReady, setIsReady] = useState(false)
 
     useEffect(() => {
         if (typeof window === "undefined") return
         const stored = resolveStoredFilter()
         setFilterState((prev) => (prev === stored ? prev : stored))
+        setIsReady(true) // Mark as ready after resolving from localStorage
         try {
             localStorage.setItem(DATE_FILTER_STORAGE_KEY, stored)
             localStorage.setItem(LEGACY_DATE_FILTER_STORAGE_KEY, stored)
@@ -99,7 +102,7 @@ export function DateFilterProvider({ children }: { children: ReactNode }) {
     }
 
     return (
-        <DateFilterContext.Provider value={{ filter, setFilter }}>
+        <DateFilterContext.Provider value={{ filter, setFilter, isReady }}>
             {children}
         </DateFilterContext.Provider>
     )

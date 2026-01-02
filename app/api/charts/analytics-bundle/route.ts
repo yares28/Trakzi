@@ -38,12 +38,6 @@ export const GET = async (request: Request) => {
             CACHE_TTL.analytics
         )
 
-        // Debug logging to trace bundle data
-        console.log('[Analytics Bundle API] Filter:', filter)
-        console.log('[Analytics Bundle API] needsWants length:', data.needsWants?.length)
-        console.log('[Analytics Bundle API] dailySpending length:', data.dailySpending?.length)
-        console.log('[Analytics Bundle API] cashFlow nodes:', data.cashFlow?.nodes?.length)
-
         return NextResponse.json(data, {
             headers: {
                 'Content-Type': 'application/json',
