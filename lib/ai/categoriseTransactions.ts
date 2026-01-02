@@ -9,7 +9,7 @@ import { logAiCategoryFeedbackBatch } from "@/lib/ai/ai-category-feedback";
 // Default categories - synced with lib/categories.ts
 // These are the categories the AI can assign to transactions
 const DEFAULT_CATEGORIES = MAIN_DEFAULT_CATEGORIES;
-const AI_CATEGORY_MODEL = process.env.OPENROUTER_CATEGORY_MODEL || "anthropic/claude-3.5-sonnet";
+const AI_CATEGORY_MODEL = process.env.OPENROUTER_CATEGORY_MODEL || "google/gemini-2.0-flash-001";
 
 // Common merchant patterns for smart summarization
 type MerchantPattern = {
@@ -387,14 +387,16 @@ const MERCHANT_PATTERNS: MerchantPattern[] = [
 const CATEGORY_RULES: CategoryRule[] = [
     { category: "Refunds/Reimbursements", amountSign: "any", patterns: [/refund|reembolso|devolucion|abono|reintegro|chargeback|reimburse/] },
     { category: "Refunds", amountSign: "any", patterns: [/refund|reembolso|devolucion|abono|reintegro|chargeback/] },
-    { category: "Transfers", amountSign: "any", patterns: [
-        /bizum|transferencia|transfer\b|traspaso|sepa|paypal|p2p/,
-        /\btransfer\s+(to|from)\b/,
-        /\btrf\b|\bxfer\b/,
-        /\bwire\b|\bach\b/,
-        /\bzelle\b|\bvenmo\b|\bcash\s*app\b/,
-        /\brevolut\b/,
-    ] },
+    {
+        category: "Transfers", amountSign: "any", patterns: [
+            /bizum|transferencia|transfer\b|traspaso|sepa|paypal|p2p/,
+            /\btransfer\s+(to|from)\b/,
+            /\btrf\b|\bxfer\b/,
+            /\bwire\b|\bach\b/,
+            /\bzelle\b|\bvenmo\b|\bcash\s*app\b/,
+            /\brevolut\b/,
+        ]
+    },
     { category: "Salary", amountSign: "positive", patterns: [/nomina|salario|sueldo|payroll|salary|wage/] },
     { category: "Bonus", amountSign: "positive", patterns: [/bonus|incentive|incentivo/] },
     { category: "Freelance", amountSign: "positive", patterns: [/freelance|invoice|factura|honorarios|autonomo/] },
@@ -1181,8 +1183,8 @@ export async function categoriseTransactions(
         let statementCategory =
             rawCategory && rawCategoryKey !== "other" && rawCategoryKey !== "uncategorized"
                 ? resolveCategoryName(rawCategory, resolveCategory)
-                    ?? statementKeywordMatch?.category
-                    ?? null
+                ?? statementKeywordMatch?.category
+                ?? null
                 : null;
         if (
             statementCategory &&
@@ -1436,7 +1438,7 @@ You MUST include ALL ${batch.length} transactions. Each entry needs:
                 }
             }
         }
-        }
+    }
     if (feedbackEntries.length > 0) {
         await logAiCategoryFeedbackBatch(feedbackEntries);
     }
