@@ -259,7 +259,7 @@ export function useAnalyticsChartData({
         color,
       }
     })
-  }, [rawTransactions, palette, ringCategories, ringLimits])
+  }, [rawTransactions, palette, ringCategories, ringLimits, dateFilter])
 
   const incomeExpenseChart = useMemo(() => {
     // Use bundle data if available (pre-computed by server)
@@ -306,7 +306,7 @@ export function useAnalyticsChartData({
       data: Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date)),
       categories: Array.from(categorySet),
     }
-  }, [bundleData?.dailySpending, bundleData?.categorySpending, rawTransactions, incomeExpenseVisibility.hiddenCategorySet])
+  }, [bundleData?.dailySpending, bundleData?.categorySpending, rawTransactions, incomeExpenseVisibility.hiddenCategorySet, dateFilter])
 
   const incomeExpenseControls = incomeExpenseVisibility.buildCategoryControls(
     incomeExpenseChart.categories,
@@ -479,7 +479,7 @@ export function useAnalyticsChartData({
       categories.add(normalizeCategoryName(tx.category))
     })
     return Array.from(categories).sort((a, b) => a.localeCompare(b))
-  }, [bundleData?.categorySpending, rawTransactions, normalizeCategoryName])
+  }, [bundleData?.categorySpending, rawTransactions, normalizeCategoryName, dateFilter])
 
   const treeMapControls = treeMapVisibility.buildCategoryControls(treeMapCategories, {
     description: "Hide categories to remove them from this treemap view.",
@@ -823,7 +823,7 @@ export function useAnalyticsChartData({
       slices,
       categories: Array.from(categorySet),
     }
-  }, [bundleData?.needsWants, rawTransactions, needsWantsVisibility.hiddenCategorySet, normalizeCategoryName])
+  }, [bundleData?.needsWants, rawTransactions, needsWantsVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
 
   const needsWantsControls = needsWantsVisibility.buildCategoryControls(needsWantsPieData.categories, {
     description: "Hide a category to exclude it from the Needs vs Wants grouping.",
@@ -882,7 +882,7 @@ export function useAnalyticsChartData({
       },
       categories: Array.from(categorySet),
     }
-  }, [bundleData?.categorySpending, rawTransactions, circlePackingVisibility.hiddenCategorySet, normalizeCategoryName])
+  }, [bundleData?.categorySpending, rawTransactions, circlePackingVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
 
   const circlePackingControls = circlePackingVisibility.buildCategoryControls(
     circlePackingData.categories,
@@ -1147,7 +1147,7 @@ export function useAnalyticsChartData({
     })
 
     return { data, keys, categories: Array.from(categorySet) }
-  }, [bundleData?.monthlyByCategory, rawTransactions, streamgraphVisibility.hiddenCategorySet])
+  }, [bundleData?.monthlyByCategory, rawTransactions, streamgraphVisibility.hiddenCategorySet, dateFilter])
 
   const streamgraphControls = streamgraphVisibility.buildCategoryControls(spendingStreamData.categories, {
     description: "Select which categories flow through this streamgraph.",
@@ -1282,7 +1282,7 @@ export function useAnalyticsChartData({
       graph: { nodes, links },
       categories: Array.from(categorySet),
     }
-  }, [bundleData?.cashFlow, rawTransactions, sankeyVisibility.hiddenCategorySet, normalizeCategoryName])
+  }, [bundleData?.cashFlow, rawTransactions, sankeyVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
 
   const sankeyControls = sankeyVisibility.buildCategoryControls(sankeyData.categories, {
     description: "Hide sources to remove them from the cash-flow Sankey.",
@@ -1348,7 +1348,7 @@ export function useAnalyticsChartData({
       desktop: incomeByDate.get(date) || 0,
       mobile: cumulativeExpensesByDate.get(date) || 0,
     }))
-  }, [rawTransactions, incomeExpenseTopVisibility.hiddenCategorySet, normalizeCategoryName])
+  }, [rawTransactions, incomeExpenseTopVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
 
   const treeMapData = useMemo(() => {
     const filteredSource =
@@ -1414,7 +1414,7 @@ export function useAnalyticsChartData({
           return bTotal - aTotal
         }),
     }
-  }, [rawTransactions, treeMapVisibility.hiddenCategorySet, normalizeCategoryName])
+  }, [rawTransactions, treeMapVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
 
   const dayOfWeekSpendingControls = useMemo(() => {
     const categories = Array.from(
@@ -1469,7 +1469,7 @@ export function useAnalyticsChartData({
         date: tx.date.split("T")[0],
         description: tx.description,
       }))
-  }, [bundleData?.transactionHistory, rawTransactions])
+  }, [bundleData?.transactionHistory, rawTransactions, dateFilter])
 
   return {
     activityConfig,

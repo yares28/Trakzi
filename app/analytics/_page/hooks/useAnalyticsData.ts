@@ -41,24 +41,24 @@ export function useAnalyticsData(dateFilter: string | null) {
 
     try {
       const startTime = performance.now()
-      console.log("[Analytics] Starting parallel data fetch...")
+      console.log("[Analytics] Starting parallel data fetch for filter:", dateFilter)
 
       // Fetch ALL data in parallel - this is the key optimization
       const [
-        transactionsData,
+        transactionsResult,
         budgetsData,
         categoriesData,
         financialHealthData,
         dailyTransactionsData,
       ] = await Promise.all([
         // 1. Transactions (use all=true to fetch all for charts)
-        deduplicatedFetch<any[]>(
+        deduplicatedFetch<any>(
           dateFilter
             ? `/api/transactions?all=true&filter=${encodeURIComponent(dateFilter)}`
             : "/api/transactions?all=true",
         ).catch(err => {
           console.error("[Analytics] Transactions fetch error:", err)
-          return []
+          return { data: [] }
         }),
 
         // 2. Budgets
@@ -77,7 +77,9 @@ export function useAnalyticsData(dateFilter: string | null) {
 
         // 4. Financial Health
         deduplicatedFetch<{ data: any[]; years: any[] }>(
-          "/api/financial-health",
+          dateFilter
+            ? `/api/financial-health?filter=${encodeURIComponent(dateFilter)}`
+            : "/api/financial-health",
         ).catch(() => ({ data: [], years: [] })),
 
         // 5. Daily Transactions
@@ -97,30 +99,27 @@ export function useAnalyticsData(dateFilter: string | null) {
       console.log(`[Analytics] All data fetched in ${(endTime - startTime).toFixed(2)}ms`)
 
       // Set transactions - handle paginated response format {data: [], pagination: {}}
-      let nextTransactions = cachedEntry?.transactions ?? []
-      const txArray = Array.isArray(transactionsData)
-        ? transactionsData
-        : ((transactionsData as { data?: any[] } | undefined)?.data ?? [])
-      if (Array.isArray(txArray) && txArray.length > 0) {
-        nextTransactions = normalizeTransactions(txArray) as AnalyticsTransaction[]
-        console.log(`[Analytics] Setting ${txArray.length} transactions`)
-        setRawTransactions(nextTransactions)
-      }
+      const txArray = Array.isArray(transactionsResult)
+        ? transactionsResult
+        : (transactionsResult?.data ?? [])
+
+      const nextTransactions = normalizeTransactions(txArray) as AnalyticsTransaction[]
+      console.log(`[Analytics] Setting ${nextTransactions.length} transactions (filter: ${dateFilter})`)
+      setRawTransactions(nextTransactions)
 
       // Set budgets
-      let nextRingLimits = cachedEntry?.ringLimits ?? {}
-      if (budgetsData && typeof budgetsData === "object") {
-        nextRingLimits = budgetsData as Record<string, number>
-        setRingLimits(nextRingLimits)
-      }
+      const nextRingLimits = (budgetsData && typeof budgetsData === "object")
+        ? (budgetsData as Record<string, number>)
+        : (cachedEntry?.ringLimits ?? {})
 
-      if (txArray.length > 0) {
-        setAnalyticsCacheEntry(dateFilter, {
-          transactions: nextTransactions,
-          ringLimits: nextRingLimits,
-          fetchedAt: Date.now(),
-        })
-      }
+      setRingLimits(nextRingLimits)
+
+      // Update cache even if empty, so we don't hit the API again for empty filters
+      setAnalyticsCacheEntry(dateFilter, {
+        transactions: nextTransactions,
+        ringLimits: nextRingLimits,
+        fetchedAt: Date.now(),
+      })
     } catch (error) {
       console.error("Error fetching analytics data:", error)
       toast.error("Network Error", {
