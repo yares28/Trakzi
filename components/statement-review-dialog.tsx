@@ -69,6 +69,9 @@ export function StatementReviewDialog({
     const [sidePanelView, setSidePanelView] = useState<'review' | 'groups' | null>(null)
     const [expandedGroupKeys, setExpandedGroupKeys] = useState<Set<string>>(new Set())
 
+    // Ref for groups panel scroll container to preserve scroll position
+    const groupsPanelScrollRef = useRef<HTMLDivElement>(null)
+
     const reviewMeta = useMemo(() => {
         const map = new Map<number, { needsReview: boolean; reasons: string[] }>()
         let count = 0
@@ -173,43 +176,52 @@ export function StatementReviewDialog({
     // Review Queue Panel Component
     function ReviewQueuePanel() {
         return (
-            <div className="flex flex-col h-full">
-                <div className="flex items-center justify-between mb-3">
+            <div className="flex flex-col h-full bg-muted/10 border-l border-border/60">
+                <div className="flex items-center justify-between p-4 border-b border-border/40 bg-muted/20">
                     <div>
-                        <h3 className="font-semibold text-sm">Review Queue</h3>
-                        <p className="text-xs text-muted-foreground">
-                            {reviewMeta.count} transaction{reviewMeta.count !== 1 ? 's' : ''} need review
-                        </p>
+                        <h3 className="font-semibold text-sm flex items-center gap-2">
+                            Review Queue
+                            <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
+                                {reviewMeta.count}
+                            </Badge>
+                        </h3>
                     </div>
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6"
+                        className="h-7 w-7 rounded-full text-muted-foreground hover:bg-background"
                         onClick={() => setSidePanelView(null)}
                     >
                         <X className="h-4 w-4" />
                     </Button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto space-y-2">
+                <div className="flex-1 overflow-y-auto p-3 space-y-3 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40">
                     {visibleRows.map((row) => {
                         const reviewInfo = reviewMeta.map.get(row.id)
                         const amount = typeof row.amount === 'number' ? row.amount : parseFloat(String(row.amount)) || 0
 
                         return (
-                            <div key={row.id} className="border rounded-lg p-3 bg-amber-50/60 dark:bg-amber-950/30">
-                                <div className="flex items-start justify-between gap-2 mb-2">
+                            <div key={row.id} className="group relative border rounded-xl p-3 bg-background shadow-sm hover:shadow-md transition-all hover:border-amber-500/30">
+                                {reviewInfo?.needsReview && (
+                                    <div className="absolute left-0 top-3 bottom-3 w-[3px] bg-amber-500 rounded-r-full" />
+                                )}
+                                <div className="flex items-start justify-between gap-3 mb-2 pl-2">
                                     <div className="flex-1 min-w-0">
-                                        <div className="font-medium truncate">{row.description}</div>
-                                        <div className="text-xs text-muted-foreground">{row.date}</div>
+                                        <div className="font-medium text-sm truncate text-foreground">{row.description}</div>
+                                        <div className="text-[11px] text-muted-foreground font-mono mt-0.5">{row.date}</div>
                                     </div>
-                                    <div className={cn("font-medium text-sm", amount < 0 ? "text-red-500" : "text-green-500")}>
+                                    <div className={cn("font-medium text-sm tabular-nums whitespace-nowrap", amount < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400")}>
                                         {formatCurrency(amount)}
                                     </div>
                                 </div>
                                 {reviewInfo?.reasons && reviewInfo.reasons.length > 0 && (
-                                    <div className="text-xs text-amber-700 dark:text-amber-400">
-                                        {reviewInfo.reasons.join(" • ")}
+                                    <div className="flex flex-wrap gap-1.5 pl-2 mt-2">
+                                        {reviewInfo.reasons.map((reason, i) => (
+                                            <Badge key={i} variant="outline" className="text-[10px] border-amber-200 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-400 px-1.5 py-0 h-5 font-normal">
+                                                {reason}
+                                            </Badge>
+                                        ))}
                                     </div>
                                 )}
                             </div>
@@ -223,33 +235,42 @@ export function StatementReviewDialog({
     // Groups Panel Component
     function GroupsPanel() {
         return (
-            <div className="flex flex-col h-full">
-                <div className="flex items-center justify-between mb-3">
+            <div className="flex flex-col h-full bg-muted/10 border-l border-border/60">
+                <div className="flex items-center justify-between p-4 border-b border-border/40 bg-muted/20">
                     <div>
-                        <h3 className="font-semibold text-sm">Grouped Transactions</h3>
-                        <p className="text-xs text-muted-foreground">
-                            {groupsWithMetadata.length} group{groupsWithMetadata.length !== 1 ? 's' : ''} found
-                        </p>
+                        <h3 className="font-semibold text-sm flex items-center gap-2">
+                            Grouped Transactions
+                            <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
+                                {groupsWithMetadata.length}
+                            </Badge>
+                        </h3>
                     </div>
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6"
+                        className="h-7 w-7 rounded-full text-muted-foreground hover:bg-background"
                         onClick={() => setSidePanelView(null)}
                     >
                         <X className="h-4 w-4" />
                     </Button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto space-y-2">
+                <div
+                    ref={groupsPanelScrollRef}
+                    className="flex-1 overflow-y-auto p-3 space-y-3 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40"
+                >
                     {groupsWithMetadata.map((group) => {
                         const isExpanded = expandedGroupKeys.has(group.key)
 
                         return (
-                            <div key={group.key} className="border rounded-lg p-3 space-y-2">
+                            <div key={group.key} className={cn(
+                                "border rounded-xl bg-background shadow-sm transition-all overflow-hidden",
+                                isExpanded ? "border-primary/20 ring-1 ring-primary/5 shadow-md" : "hover:shadow-md hover:border-border/80"
+                            )}>
                                 <div
-                                    className="flex items-center gap-2 cursor-pointer"
+                                    className="flex items-center gap-3 p-3 cursor-pointer select-none hover:bg-muted/30 transition-colors"
                                     onClick={() => {
+                                        const scrollTop = groupsPanelScrollRef.current?.scrollTop ?? 0
                                         const newSet = new Set(expandedGroupKeys)
                                         if (newSet.has(group.key)) {
                                             newSet.delete(group.key)
@@ -257,6 +278,11 @@ export function StatementReviewDialog({
                                             newSet.add(group.key)
                                         }
                                         setExpandedGroupKeys(newSet)
+                                        requestAnimationFrame(() => {
+                                            if (groupsPanelScrollRef.current) {
+                                                groupsPanelScrollRef.current.scrollTop = scrollTop
+                                            }
+                                        })
                                     }}
                                 >
                                     {isExpanded ? (
@@ -265,44 +291,50 @@ export function StatementReviewDialog({
                                         <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                                     )}
                                     <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between gap-2 mb-0.5">
+                                            <span className="font-medium text-sm truncate text-foreground">{group.description}</span>
+                                            <span className="text-xs font-mono text-muted-foreground tabular-nums">
+                                                {formatCurrency(group.totalAmount)}
+                                            </span>
+                                        </div>
                                         <div className="flex items-center gap-2">
-                                            <span className="font-medium truncate">{group.description}</span>
-                                            <Badge variant="secondary" className="text-xs shrink-0">
+                                            <Badge variant="secondary" className="text-[10px] h-4 px-1 rounded-sm text-muted-foreground font-normal">
                                                 {group.count} items
                                             </Badge>
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">
-                                            Total: {formatCurrency(group.totalAmount)}
                                         </div>
                                     </div>
                                 </div>
 
-                                <CategorySelect
-                                    value={group.commonCategory}
-                                    onValueChange={(category) => {
-                                        // Apply to all items in group
-                                        group.items.forEach(item => onCategoryChange(item.id, category))
-                                    }}
-                                />
+                                <div className={cn(
+                                    "border-t border-border/40 bg-muted/20 transition-all duration-300 ease-in-out",
+                                    isExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0 overflow-hidden"
+                                )}>
+                                    <div className="p-3 space-y-3">
+                                        <CategorySelect
+                                            value={group.commonCategory}
+                                            onValueChange={(category) => {
+                                                group.items.forEach(item => onCategoryChange(item.id, category))
+                                            }}
+                                        />
 
-                                {isExpanded && (
-                                    <div className="pl-6 space-y-2 border-l-2 border-border/40 ml-2 mt-2">
-                                        {group.items.map((item) => {
-                                            const amount = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0
-                                            return (
-                                                <div key={item.id} className="text-xs space-y-0.5">
-                                                    <div className="flex justify-between gap-2">
-                                                        <span className="text-muted-foreground">{item.date}</span>
-                                                        <span className={cn(amount < 0 ? "text-red-500" : "text-green-500", "font-medium")}>
+                                        <div className="space-y-1.5 pl-1">
+                                            {group.items.map((item) => {
+                                                const amount = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0
+                                                return (
+                                                    <div key={item.id} className="flex items-center justify-between text-xs py-1 px-2 rounded hover:bg-background/80">
+                                                        <div className="flex items-center gap-2 overflow-hidden">
+                                                            <span className="text-muted-foreground font-mono text-[10px] shrink-0">{item.date}</span>
+                                                            <span className="text-muted-foreground/90 truncate">{item.description}</span>
+                                                        </div>
+                                                        <span className={cn("font-medium ml-2 tabular-nums shrink-0", amount < 0 ? "text-red-500" : "text-emerald-500")}>
                                                             {formatCurrency(amount)}
                                                         </span>
                                                     </div>
-                                                    <div className="text-muted-foreground/80 truncate text-xs">{item.description}</div>
-                                                </div>
-                                            )
-                                        })}
+                                                )
+                                            })}
+                                        </div>
                                     </div>
-                                )}
+                                </div>
                             </div>
                         )
                     })}
@@ -320,125 +352,152 @@ export function StatementReviewDialog({
                     : "sm:max-w-[95vw] md:max-w-[1400px]"
             )}>
                 <div className="flex flex-col max-h-[85vh] overflow-hidden">
-                    <div className="flex flex-col gap-3 pb-4 border-b border-border/60">
-                        <div className="text-center">
-                            <h2 className="text-2xl font-bold tracking-tight">Review Transactions</h2>
-                            <p className="text-sm text-muted-foreground mt-2">
-                                Review and adjust categories before importing to your database.
-                            </p>
-                            {fileName && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    File: {fileName}
+                    {/* Modern Glassmorphic Header */}
+                    <div className="flex-none flex flex-col gap-4 p-6 pb-4 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-br from-foreground to-muted-foreground bg-clip-text text-transparent">
+                                    Review Transactions
+                                </h2>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                    {fileName ? (
+                                        <span className="flex items-center gap-2">
+                                            {fileName}
+                                            <span className="w-1 h-1 rounded-full bg-border" />
+                                            {transactionCount} transactions
+                                        </span>
+                                    ) : (
+                                        "Review and adjust categories before importing."
+                                    )}
                                 </p>
-                            )}
+                            </div>
+
+                            {/* Top Actions */}
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={onCancel}
+                                    className="h-8 w-8 rounded-full"
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-2">
-                                <span className="font-medium text-foreground">
-                                    {transactionCount} transaction{transactionCount !== 1 ? "s" : ""}
-                                </span>
+                        {/* Modern Toolbar */}
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                            {/* Left: View Toggles & Selection */}
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center p-1 bg-muted/50 rounded-full border border-border/50">
+                                    <Button
+                                        variant={sidePanelView === 'review' ? "secondary" : "ghost"}
+                                        size="sm"
+                                        onClick={() => setSidePanelView(sidePanelView === 'review' ? null : 'review')}
+                                        disabled={reviewMeta.count === 0}
+                                        className={cn(
+                                            "h-7 rounded-full px-3 text-xs font-medium transition-all",
+                                            sidePanelView === 'review' && "bg-background shadow-sm text-foreground"
+                                        )}
+                                    >
+                                        Review Queue
+                                        {reviewMeta.count > 0 && (
+                                            <span className="ml-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500/10 text-[9px] text-amber-600 font-bold">
+                                                {reviewMeta.count}
+                                            </span>
+                                        )}
+                                    </Button>
+                                    <div className="w-px h-3 bg-border/50 mx-1" />
+                                    <Button
+                                        variant={sidePanelView === 'groups' ? "secondary" : "ghost"}
+                                        size="sm"
+                                        onClick={() => setSidePanelView(sidePanelView === 'groups' ? null : 'groups')}
+                                        disabled={groupsWithMetadata.length === 0}
+                                        className={cn(
+                                            "h-7 rounded-full px-3 text-xs font-medium transition-all",
+                                            sidePanelView === 'groups' && "bg-background shadow-sm text-foreground"
+                                        )}
+                                    >
+                                        Groups
+                                        <span className="ml-1.5 text-[9px] text-muted-foreground">
+                                            {groupsWithMetadata.length}
+                                        </span>
+                                    </Button>
+                                </div>
+
                                 {selectedCount > 0 && (
-                                    <Badge variant="outline" className="text-xs">
-                                        {selectedCount} selected
-                                    </Badge>
+                                    <>
+                                        <div className="w-px h-4 bg-border" />
+                                        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-200">
+                                            <Badge variant="secondary" className="text-xs h-7 px-2.5 rounded-full font-normal">
+                                                {selectedCount} selected
+                                            </Badge>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={onDeleteSelectedRows}
+                                                disabled={isImporting}
+                                                className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10 text-xs rounded-full"
+                                            >
+                                                Delete
+                                            </Button>
+                                        </div>
+                                    </>
                                 )}
                             </div>
 
+                            {/* Right: Insights & Settings */}
                             <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/30 border border-border/40 text-xs text-muted-foreground">
+                                    <span className={cn(
+                                        "w-2 h-2 rounded-full",
+                                        parseQualitySummary.level === "high" ? "bg-emerald-500" :
+                                            parseQualitySummary.level === "medium" ? "bg-amber-500" : "bg-red-500"
+                                    )} />
+                                    <span>Quality: {parseQualityScore}%</span>
+                                </div>
                                 <Popover>
                                     <PopoverTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-8 w-8 p-0 rounded-full hover:bg-primary/10"
-                                            aria-label="View category percentages"
-                                        >
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
                                             <Info className="h-4 w-4 text-muted-foreground" />
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-64" align="end">
-                                        <div className="space-y-3">
-                                            <div className="space-y-1">
-                                                <p className="text-sm font-semibold">Category breakdown</p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    Percent of total spending in this file.
-                                                </p>
+                                    <PopoverContent className="w-72 p-0 rounded-xl" align="end">
+                                        <div className="p-4 border-b border-border/50 bg-muted/10">
+                                            <h4 className="font-semibold text-sm">Parse Quality</h4>
+                                            <div className="flex flex-wrap gap-1 mt-2">
+                                                {parseQualityReasons.map((reason, i) => (
+                                                    <Badge key={i} variant="outline" className="text-[10px] bg-background/50">
+                                                        {reason}
+                                                    </Badge>
+                                                ))}
                                             </div>
-                                            {categoryBreakdown.length > 0 ? (
-                                                <div className="max-h-64 space-y-2 overflow-auto pr-1">
-                                                    {categoryBreakdown.map((item) => (
-                                                        <div key={item.category} className="flex items-center justify-between gap-3 text-xs">
-                                                            <span className="font-medium text-foreground">{item.category}</span>
-                                                            <span className="text-muted-foreground">{item.percentage.toFixed(1)}%</span>
+                                        </div>
+                                        <div className="p-4 space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <h4 className="font-semibold text-sm">Breakdown</h4>
+                                                <span className="text-xs text-muted-foreground">By spend</span>
+                                            </div>
+                                            <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2">
+                                                {categoryBreakdown.map((item) => (
+                                                    <div key={item.category} className="flex items-center justify-between text-xs">
+                                                        <span className="text-foreground/80">{item.category}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                                                                <div
+                                                                    className="h-full bg-primary/70 rounded-full"
+                                                                    style={{ width: `${item.percentage}%` }}
+                                                                />
+                                                            </div>
+                                                            <span className="w-8 text-right text-muted-foreground">{item.percentage.toFixed(0)}%</span>
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <p className="text-xs text-muted-foreground">
-                                                    No spending categories detected yet.
-                                                </p>
-                                            )}
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     </PopoverContent>
                                 </Popover>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant={sidePanelView === 'review' ? "default" : "outline"}
-                                    onClick={() => setSidePanelView(sidePanelView === 'review' ? null : 'review')}
-                                    disabled={reviewMeta.count === 0}
-                                >
-                                    {reviewQueueLabel}
-                                </Button>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant={sidePanelView === 'groups' ? "default" : "outline"}
-                                    onClick={() => setSidePanelView(sidePanelView === 'groups' ? null : 'groups')}
-                                    disabled={groupsWithMetadata.length === 0}
-                                >
-                                    Group View ({groupsWithMetadata.length})
-                                </Button>
-                                <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    onClick={onDeleteSelectedRows}
-                                    disabled={selectedCount === 0 || isImporting}
-                                >
-                                    Delete selected
-                                </Button>
                             </div>
-                        </div>
-
-                        {/* Parse Quality Insights */}
-                        <div className="rounded-xl border border-border/60 bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
-                            <div className="flex flex-wrap items-center gap-2 text-sm">
-                                <span className="font-medium text-foreground">Parse quality</span>
-                                <Badge variant="outline" className={qualityBadgeClass}>
-                                    {parseQualityLabel}
-                                </Badge>
-                                {Number.isFinite(parseQualityScore) ? (
-                                    <Badge variant="outline" className={scoreBadgeClass}>
-                                        {parseQualityScore}%
-                                    </Badge>
-                                ) : null}
-                                {parseModeLabel ? (
-                                    <Badge variant="outline" className="border-sky-500/40 bg-sky-500/10 text-sky-700">
-                                        {parseModeLabel}
-                                    </Badge>
-                                ) : null}
-                                {fileName && (
-                                    <Badge variant="outline" className="border-sky-500/40 bg-sky-500/10 text-sky-700">
-                                        {fileName}
-                                    </Badge>
-                                )}
-                            </div>
-                            {parseQualityReasons.length > 0 && (
-                                <div className="mt-1">
-                                    Signals: {parseQualityReasons.join(" | ")}
-                                </div>
-                            )}
                         </div>
                     </div>
 
@@ -452,32 +511,30 @@ export function StatementReviewDialog({
 
 
                         <div className={cn(
-
-
-                            "flex-1 overflow-y-auto overflow-x-hidden pt-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40",
+                            "flex-1 overflow-y-auto overflow-x-hidden pt-0 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40",
                             !!sidePanelView ? "w-[70%]" : "w-full"
                         )}>
-                            <Table className="w-full">
-                                <TableHeader className="bg-muted sticky top-0 z-10">
-                                    <TableRow>
-                                        <TableHead className="w-12">
+                            <Table className="w-full relative">
+                                <TableHeader className="bg-muted/50 sticky top-0 z-10 backdrop-blur-sm">
+                                    <TableRow className="border-b border-border/50 hover:bg-transparent">
+                                        <TableHead className="w-12 pl-4">
                                             <Checkbox
                                                 checked={parsedRows.length > 0 && selectedParsedRowIds.size === parsedRows.length}
                                                 onCheckedChange={(checked) => onSelectAll(checked === true)}
                                                 aria-label="Select all transactions"
                                             />
                                         </TableHead>
-                                        <TableHead>Date</TableHead>
-                                        <TableHead>Description</TableHead>
-                                        <TableHead className="text-right">Amount</TableHead>
-                                        <TableHead>Category</TableHead>
+                                        <TableHead className="font-medium text-xs uppercase tracking-wider text-muted-foreground">Date</TableHead>
+                                        <TableHead className="font-medium text-xs uppercase tracking-wider text-muted-foreground">Description</TableHead>
+                                        <TableHead className="text-right font-medium text-xs uppercase tracking-wider text-muted-foreground">Amount</TableHead>
+                                        <TableHead className="font-medium text-xs uppercase tracking-wider text-muted-foreground w-[160px]">Category</TableHead>
                                         <TableHead className="w-12"></TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {parsedRows.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="h-24 text-center">
+                                            <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
                                                 No transactions found
                                             </TableCell>
                                         </TableRow>
@@ -494,56 +551,65 @@ export function StatementReviewDialog({
                                                 <TableRow
                                                     key={row.id}
                                                     className={cn(
-                                                        needsReview
-                                                            ? "bg-amber-50/60 dark:bg-amber-950/30"
-                                                            : null
+                                                        "group border-b border-border/40 transition-colors hover:bg-muted/30 data-[state=selected]:bg-muted",
+                                                        needsReview && "bg-amber-500/5 hover:bg-amber-500/10"
                                                     )}
+                                                    data-state={isSelected ? "selected" : undefined}
                                                 >
-                                                    <TableCell className="w-12">
+                                                    <TableCell className="w-12 pl-4 relative">
+                                                        {needsReview && (
+                                                            <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-amber-500 rounded-r-full" title={reviewHint} />
+                                                        )}
                                                         <Checkbox
                                                             checked={isSelected}
                                                             onCheckedChange={(checked) => onToggleRow(row.id, checked === true)}
                                                             aria-label="Select transaction"
                                                         />
                                                     </TableCell>
-                                                    <TableCell className="w-28 flex-shrink-0">
-                                                        <div className="flex flex-col">
-                                                            <span>{row.date}</span>
+                                                    <TableCell className="w-32 flex-shrink-0">
+                                                        <div className="flex flex-col items-start gap-1">
+                                                            <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground border-border/50 bg-background/50">
+                                                                {row.date}
+                                                            </Badge>
                                                             {row.time ? (
-                                                                <span className="text-xs text-muted-foreground">{row.time}</span>
+                                                                <span className="text-[10px] text-muted-foreground pl-1">{row.time}</span>
                                                             ) : null}
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell className="min-w-[350px] max-w-[600px]">
+                                                    <TableCell className="min-w-[300px] max-w-[500px]">
                                                         <div className="flex items-center gap-2 min-w-0">
-                                                            <div className="truncate" title={row.description}>
+                                                            <div className="truncate font-medium text-sm" title={row.description}>
                                                                 {row.description}
                                                             </div>
                                                             {needsReview ? (
-                                                                <Badge
-                                                                    variant="outline"
+                                                                <div
+                                                                    className="flex items-center justify-center w-5 h-5 rounded-full bg-amber-500/10 text-amber-600 shrink-0"
                                                                     title={reviewHint || "Review suggested"}
-                                                                    className="border-amber-300 text-amber-700 bg-amber-50/80"
                                                                 >
-                                                                    Review
-                                                                </Badge>
+                                                                    <Info className="w-3 h-3" />
+                                                                </div>
                                                             ) : null}
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell className={cn("text-right font-medium w-24 flex-shrink-0", amount < 0 ? "text-red-500" : "text-green-500")}>
-                                                        {formatCurrency(amount)}
+                                                    <TableCell className="text-right w-28 flex-shrink-0">
+                                                        <span className={cn(
+                                                            "font-medium tabular-nums text-sm",
+                                                            amount < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
+                                                        )}>
+                                                            {formatCurrency(amount)}
+                                                        </span>
                                                     </TableCell>
-                                                    <TableCell className="w-[140px] flex-shrink-0">
+                                                    <TableCell className="w-[160px] flex-shrink-0">
                                                         <CategorySelect
                                                             value={category}
                                                             onValueChange={(value) => onCategoryChange(row.id, value)}
                                                         />
                                                     </TableCell>
-                                                    <TableCell className="w-12 flex-shrink-0">
+                                                    <TableCell className="w-12 flex-shrink-0 pr-4">
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
-                                                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
                                                             onClick={() => onDeleteRow(row.id)}
                                                             disabled={isImporting}
                                                         >
