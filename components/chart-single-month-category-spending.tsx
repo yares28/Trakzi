@@ -40,7 +40,7 @@ interface ChartSingleMonthCategorySpendingProps {
 
 type MonthData = {
   category: string
-  month: string | number
+  month: number
   total: number
 }
 
@@ -59,6 +59,40 @@ const MONTH_NAMES = [
   "December",
 ]
 
+const SHORT_MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+// Parse "Jan 2024" or "Jan" to month number 1-12
+const parseMonthToNumber = (m: string | number): number => {
+  if (typeof m === 'number') return m
+  const monthStr = String(m).split(' ')[0] // Extract "Jan" from "Jan 2024"
+  const idx = SHORT_MONTH_NAMES.indexOf(monthStr)
+  return idx >= 0 ? idx + 1 : 1
+}
+
+// Transform and aggregate bundle data by month number (combines all years)
+const aggregateBundleData = (
+  data: Array<{ category: string; month: string | number; total: number }>
+): MonthData[] => {
+  const aggregated = new Map<string, Map<number, number>>() // category -> (month -> total)
+
+  data.forEach((d) => {
+    const monthNum = parseMonthToNumber(d.month)
+    if (!aggregated.has(d.category)) {
+      aggregated.set(d.category, new Map())
+    }
+    const categoryMap = aggregated.get(d.category)!
+    categoryMap.set(monthNum, (categoryMap.get(monthNum) || 0) + d.total)
+  })
+
+  const result: MonthData[] = []
+  aggregated.forEach((monthMap, category) => {
+    monthMap.forEach((total, month) => {
+      result.push({ category, month, total })
+    })
+  })
+  return result
+}
+
 const buildMonthlyCategoryUrl = (params: URLSearchParams) =>
   `/api/analytics/monthly-category-duplicate?${params.toString()}`
 
@@ -73,23 +107,13 @@ export function ChartSingleMonthCategorySpending({
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const buildMonthParams = React.useCallback(
-    (month?: string | number | null) => {
+    (month?: number | null) => {
       const params = new URLSearchParams()
       if (dateFilter) {
         params.append("filter", dateFilter)
       }
-      if (month !== null && month !== undefined) {
-        // For API calls, convert to number if it's a string like "Jan 2024"
-        if (typeof month === 'string') {
-          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-          const parts = month.split(' ')
-          const monthIdx = monthNames.indexOf(parts[0])
-          if (monthIdx >= 0) {
-            params.append("month", (monthIdx + 1).toString())
-          }
-        } else {
-          params.append("month", month.toString())
-        }
+      if (typeof month === "number") {
+        params.append("month", month.toString())
       }
       return params
     },
@@ -113,10 +137,10 @@ export function ChartSingleMonthCategorySpending({
   const [data, setData] = React.useState<MonthData[]>(
     () => cachedSelected?.data ?? [],
   )
-  const [availableMonths, setAvailableMonths] = React.useState<(string | number)[]>(
+  const [availableMonths, setAvailableMonths] = React.useState<number[]>(
     () => initialAvailableMonths,
   )
-  const [selectedMonth, setSelectedMonth] = React.useState<string | number | null>(
+  const [selectedMonth, setSelectedMonth] = React.useState<number | null>(
     () => initialSelectedMonth,
   )
   const [loading, setLoading] = React.useState(
@@ -161,16 +185,9 @@ export function ChartSingleMonthCategorySpending({
       }
       // Use monthlyCategoriesData if provided
       if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
-        // Parse 'Mon YYYY' format to sort chronologically
-        const parseMonthYear = (m: string | number): number => {
-          if (typeof m === 'number') return m
-          const parts = m.split(' ')
-          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-          const monthIdx = monthNames.indexOf(parts[0])
-          const year = parseInt(parts[1] || '2024', 10)
-          return year * 12 + (monthIdx >= 0 ? monthIdx : 0)
-        }
-        const months = [...new Set(monthlyCategoriesData.map(d => d.month))].sort((a, b) => parseMonthYear(a) - parseMonthYear(b))
+        // Transform bundle data: parse "Mon YYYY" strings to month numbers and aggregate across years
+        const normalizedData = aggregateBundleData(monthlyCategoriesData)
+        const months = [...new Set(normalizedData.map(d => d.month))].sort((a, b) => a - b)
         setAvailableMonths(months)
         if (months.length > 0) {
           setSelectedMonth((prev) => {
@@ -205,7 +222,7 @@ export function ChartSingleMonthCategorySpending({
 
           if (months.length > 0) {
             setSelectedMonth((prev) => {
-              if (prev === null || !months.some(m => String(m) === String(prev))) {
+              if (prev === null || !months.includes(prev)) {
                 return months[0]
               }
               return prev
@@ -227,7 +244,7 @@ export function ChartSingleMonthCategorySpending({
         if (months.length > 0) {
           setSelectedMonth((prev) => {
             // Only update if current selection is not in the new list
-            if (prev === null || !months.some(m => String(m) === String(prev))) {
+            if (prev === null || !months.includes(prev)) {
               return months[0]
             }
             return prev
@@ -261,11 +278,12 @@ export function ChartSingleMonthCategorySpending({
       }
       // Use bundleData if available
       if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
+        // Transform bundle data: parse "Mon YYYY" strings to month numbers and aggregate across years
+        const normalizedData = aggregateBundleData(monthlyCategoriesData)
         if (selectedMonth === null) {
           setData([])
         } else {
-          // Compare as strings for bundle data, or as numbers for API data
-          const filtered = monthlyCategoriesData.filter(d => String(d.month) === String(selectedMonth))
+          const filtered = normalizedData.filter(d => d.month === selectedMonth)
           setData(filtered)
         }
         setLoading(false)
@@ -717,11 +735,11 @@ export function ChartSingleMonthCategorySpending({
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
             <Select
-              value={selectedMonth !== null ? String(selectedMonth) : ""}
-              onValueChange={(value) => setSelectedMonth(value)}
+              value={selectedMonth !== null ? selectedMonth.toString() : ""}
+              onValueChange={(value) => setSelectedMonth(parseInt(value, 10))}
             >
               <SelectTrigger
-                className="w-40"
+                className="w-32"
                 size="sm"
                 aria-label="Select month"
               >
@@ -729,8 +747,8 @@ export function ChartSingleMonthCategorySpending({
               </SelectTrigger>
               <SelectContent className="rounded-xl">
                 {availableMonths.map((month) => (
-                  <SelectItem key={String(month)} value={String(month)} className="rounded-lg">
-                    {typeof month === 'number' ? MONTH_NAMES[month - 1] : month}
+                  <SelectItem key={month} value={month.toString()} className="rounded-lg">
+                    {MONTH_NAMES[month - 1]}
                   </SelectItem>
                 ))}
               </SelectContent>
