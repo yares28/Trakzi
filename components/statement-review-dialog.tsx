@@ -213,29 +213,31 @@ export function StatementReviewDialog({
                                 "border rounded-xl bg-background shadow-sm transition-all overflow-hidden",
                                 isExpanded ? "border-primary/20 ring-1 ring-primary/5 shadow-md" : "hover:shadow-md hover:border-border/80"
                             )}>
-                                <div
-                                    className="flex items-center gap-3 p-3 cursor-pointer select-none hover:bg-muted/30 transition-colors"
-                                    onClick={() => {
-                                        const scrollTop = groupsPanelScrollRef.current?.scrollTop ?? 0
-                                        const newSet = new Set(expandedGroupKeys)
-                                        if (newSet.has(group.key)) {
-                                            newSet.delete(group.key)
-                                        } else {
-                                            newSet.add(group.key)
-                                        }
-                                        setExpandedGroupKeys(newSet)
-                                        requestAnimationFrame(() => {
-                                            if (groupsPanelScrollRef.current) {
-                                                groupsPanelScrollRef.current.scrollTop = scrollTop
+                                <div className="flex items-center gap-3 p-3 hover:bg-muted/30 transition-colors">
+                                    <div
+                                        className="cursor-pointer select-none shrink-0"
+                                        onClick={() => {
+                                            const scrollTop = groupsPanelScrollRef.current?.scrollTop ?? 0
+                                            const newSet = new Set(expandedGroupKeys)
+                                            if (newSet.has(group.key)) {
+                                                newSet.delete(group.key)
+                                            } else {
+                                                newSet.add(group.key)
                                             }
-                                        })
-                                    }}
-                                >
-                                    {isExpanded ? (
-                                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                                    ) : (
-                                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                                    )}
+                                            setExpandedGroupKeys(newSet)
+                                            requestAnimationFrame(() => {
+                                                if (groupsPanelScrollRef.current) {
+                                                    groupsPanelScrollRef.current.scrollTop = scrollTop
+                                                }
+                                            })
+                                        }}
+                                    >
+                                        {isExpanded ? (
+                                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                        ) : (
+                                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                        )}
+                                    </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between gap-2 mb-0.5">
                                             <span className="font-medium text-sm truncate text-foreground">{group.description}</span>
@@ -249,36 +251,35 @@ export function StatementReviewDialog({
                                             </Badge>
                                         </div>
                                     </div>
-                                </div>
-
-                                <div className={cn(
-                                    "border-t border-border/40 bg-muted/20 transition-all duration-300 ease-in-out",
-                                    isExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0 overflow-hidden"
-                                )}>
-                                    <div className="p-3 space-y-3">
+                                    <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
                                         <CategorySelect
                                             value={group.commonCategory}
                                             onValueChange={(category) => {
                                                 group.items.forEach(item => onCategoryChange(item.id, category))
                                             }}
                                         />
+                                    </div>
+                                </div>
 
-                                        <div className="space-y-1.5 pl-1">
-                                            {group.items.map((item) => {
-                                                const amount = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0
-                                                return (
-                                                    <div key={item.id} className="flex items-center justify-between text-xs py-1 px-2 rounded hover:bg-background/80">
-                                                        <div className="flex items-center gap-2 overflow-hidden">
-                                                            <span className="text-muted-foreground font-mono text-[10px] shrink-0">{item.date}</span>
-                                                            <span className="text-muted-foreground/90 truncate">{item.description}</span>
-                                                        </div>
-                                                        <span className={cn("font-medium ml-2 tabular-nums shrink-0", amount < 0 ? "text-red-500" : "text-emerald-500")}>
-                                                            {formatCurrency(amount)}
-                                                        </span>
+                                <div className={cn(
+                                    "border-t border-border/40 bg-muted/20 transition-all duration-300 ease-in-out",
+                                    isExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0 overflow-hidden"
+                                )}>
+                                    <div className="p-3 space-y-1.5 pl-1">
+                                        {group.items.map((item) => {
+                                            const amount = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0
+                                            return (
+                                                <div key={item.id} className="flex items-center justify-between text-xs py-1 px-2 rounded hover:bg-background/80">
+                                                    <div className="flex items-center gap-2 overflow-hidden">
+                                                        <span className="text-muted-foreground font-mono text-[10px] shrink-0">{item.date}</span>
+                                                        <span className="text-muted-foreground/90 truncate">{item.description}</span>
                                                     </div>
-                                                )
-                                            })}
-                                        </div>
+                                                    <span className={cn("font-medium ml-2 tabular-nums shrink-0", amount < 0 ? "text-red-500" : "text-emerald-500")}>
+                                                        {formatCurrency(amount)}
+                                                    </span>
+                                                </div>
+                                            )
+                                        })}
                                     </div>
                                 </div>
                             </div>
