@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react"
 import { ChevronDown, ChevronRight, Info, X } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -310,7 +310,12 @@ export function StatementReviewDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="border bg-background sm:max-w-[95vw] md:max-w-[1400px] max-h-[90vh] overflow-hidden">
+            <DialogContent className={cn(
+                "border bg-background max-h-[90vh] overflow-hidden",
+                sidePanelView 
+                    ? "sm:max-w-[98vw] md:max-w-[1600px] lg:max-w-[1800px]"
+                    : "sm:max-w-[95vw] md:max-w-[1400px]"
+            )}>
                 <div className="flex flex-col max-h-[85vh] overflow-hidden">
                     <div className="flex flex-col gap-3 pb-4 border-b border-border/60">
                         <div className="text-center">
