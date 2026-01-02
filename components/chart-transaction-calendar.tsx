@@ -86,23 +86,6 @@ const getRangeForFilter = (filter: string) => {
   }
 }
 
-const formatFilterLabel = (filter: string | null) => {
-  if (!filter) return "Last 6 Months" // Default display
-  switch (filter) {
-    case "last7days":
-      return "Last 7 Days"
-    case "last30days":
-      return "Last 30 Days"
-    case "last3months":
-      return "Last 3 Months"
-    case "last6months":
-      return "Last 6 Months"
-    case "lastyear":
-      return "Last Year"
-    default:
-      return filter
-  }
-}
 
 export function ChartTransactionCalendar({
   data: propData,

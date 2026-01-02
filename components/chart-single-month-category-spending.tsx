@@ -14,6 +14,7 @@ import {
   Card,
   CardAction,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -115,6 +116,7 @@ export function ChartSingleMonthCategorySpending({
   const containerRef = React.useRef<HTMLDivElement>(null)
   const [tooltip, setTooltip] = React.useState<{ label: string; value: number; color: string } | null>(null)
   const [tooltipPosition, setTooltipPosition] = React.useState<{ x: number; y: number } | null>(null)
+  const mousePositionRef = React.useRef<{ x: number; y: number } | null>(null)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
   const [refreshNonce, setRefreshNonce] = React.useState(0)
 
@@ -335,79 +337,105 @@ export function ChartSingleMonthCategorySpending({
 
 
   // ECharts event handlers for custom tooltip
-  const handleChartMouseOver = (params: any) => {
-    if (!containerRef.current) return
+  const handleChartMouseOver = React.useCallback(
+    (params: any) => {
+      if (!containerRef.current) return
 
-    const rect = containerRef.current.getBoundingClientRect()
-    let mouseX = 0
-    let mouseY = 0
-    const ecEvent = (params && (params.event?.event || params.event)) as
-      | (MouseEvent & { offsetX?: number; offsetY?: number })
-      | undefined
+      const rect = containerRef.current.getBoundingClientRect()
+      let mouseX = 0
+      let mouseY = 0
+      const ecEvent = (params && (params.event?.event || params.event)) as
+        | (MouseEvent & { offsetX?: number; offsetY?: number })
+        | undefined
 
-    if (ecEvent) {
-      if (
-        typeof ecEvent.clientX === "number" &&
-        typeof ecEvent.clientY === "number"
-      ) {
-        mouseX = ecEvent.clientX - rect.left
-        mouseY = ecEvent.clientY - rect.top
-      } else if (
-        typeof ecEvent.offsetX === "number" &&
-        typeof ecEvent.offsetY === "number"
-      ) {
-        mouseX = ecEvent.offsetX
-        mouseY = ecEvent.offsetY
+      if (ecEvent) {
+        if (
+          typeof ecEvent.clientX === "number" &&
+          typeof ecEvent.clientY === "number"
+        ) {
+          mouseX = ecEvent.clientX - rect.left
+          mouseY = ecEvent.clientY - rect.top
+        } else if (
+          typeof ecEvent.offsetX === "number" &&
+          typeof ecEvent.offsetY === "number"
+        ) {
+          mouseX = ecEvent.offsetX
+          mouseY = ecEvent.offsetY
+        }
       }
-    }
 
-    setTooltipPosition({
-      x: mouseX,
-      y: mouseY,
-    })
+      const position = { x: mouseX, y: mouseY }
+      mousePositionRef.current = position
+      setTooltipPosition(position)
 
-    if (params && params.name) {
-      const category = params.name || ""
-      let value = 0
-      if (Array.isArray(params.value)) {
-        value = params.value[1] || params.value[0] || 0
-      } else if (params.data && Array.isArray(params.data)) {
-        value = params.data[1] || 0
-      } else {
-        value = params.value || 0
-      }
-      const index = params.dataIndex || 0
-      const color = palette[index % palette.length]
+      if (params && params.name) {
+        const category = params.name || ""
+        let value = 0
+        if (Array.isArray(params.value)) {
+          value = params.value[1] || params.value[0] || 0
+        } else if (params.data && Array.isArray(params.data)) {
+          value = params.data[1] || 0
+        } else {
+          value = params.value || 0
+        }
+        const index = params.dataIndex || 0
+        const color = palette[index % palette.length]
 
-      setTooltip({
-        label: category,
-        value,
-        color,
-      })
-    }
-  }
-
-  const handleChartMouseOut = () => {
-    setTooltip(null)
-    setTooltipPosition(null)
-  }
-
-  // Track mouse movement for tooltip positioning
-  React.useEffect(() => {
-    if (tooltip && containerRef.current) {
-      const handleMouseMove = (e: MouseEvent) => {
-        if (!containerRef.current) return
-        const rect = containerRef.current.getBoundingClientRect()
-        setTooltipPosition({
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
+        setTooltip({
+          label: category,
+          value,
+          color,
         })
       }
+    },
+    [palette],
+  )
 
-      window.addEventListener('mousemove', handleMouseMove)
-      return () => {
-        window.removeEventListener('mousemove', handleMouseMove)
+  const handleChartMouseOut = React.useCallback(() => {
+    setTooltip(null)
+    setTooltipPosition(null)
+    mousePositionRef.current = null
+  }, [])
+
+  const chartEvents = React.useMemo(
+    () => ({
+      mouseover: handleChartMouseOver,
+      mouseout: handleChartMouseOut,
+      // Ensure tooltip clears even if the cursor leaves the chart entirely
+      globalout: handleChartMouseOut,
+    }),
+    [handleChartMouseOver, handleChartMouseOut],
+  )
+
+  // Track mouse movement continuously for tooltip positioning
+  React.useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = container.getBoundingClientRect()
+      const position = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
       }
+      mousePositionRef.current = position
+      if (tooltip) {
+        setTooltipPosition(position)
+      }
+    }
+
+    const handleMouseLeave = () => {
+      setTooltip(null)
+      setTooltipPosition(null)
+      mousePositionRef.current = null
+    }
+
+    container.addEventListener('mousemove', handleMouseMove)
+    container.addEventListener('mouseleave', handleMouseLeave)
+
+    return () => {
+      container.removeEventListener('mousemove', handleMouseMove)
+      container.removeEventListener('mouseleave', handleMouseLeave)
     }
   }, [tooltip])
 
@@ -521,6 +549,41 @@ export function ChartSingleMonthCategorySpending({
     }
   }, [data, selectedMonth, palette, resolvedTheme])
 
+  // Ensure tooltip clears when leaving the chart canvas entirely
+  React.useEffect(() => {
+    if (!chartRef.current) return
+    const instance = chartRef.current.getEchartsInstance?.()
+    if (!instance || !instance.getZr) return
+
+    const zr = instance.getZr()
+    const handleGlobalOut = () => {
+      setTooltip(null)
+      setTooltipPosition(null)
+      mousePositionRef.current = null
+    }
+
+    zr.on("globalout", handleGlobalOut)
+    return () => {
+      zr.off("globalout", handleGlobalOut)
+    }
+  }, [])
+
+  // Memoize the heavy chart element so tooltip state changes
+  // do not cause the ECharts instance to be recreated.
+  const chartElement = React.useMemo(() => {
+    if (!option) return null
+    return (
+      <ReactECharts
+        ref={chartRef}
+        option={option}
+        style={{ height: "100%", width: "100%" }}
+        opts={{ renderer: "svg" }}
+        notMerge={true}
+        onEvents={chartEvents}
+      />
+    )
+  }, [option, chartEvents])
+
   if (!mounted) {
     return (
       <Card className="@container/card">
@@ -630,6 +693,7 @@ export function ChartSingleMonthCategorySpending({
             />
             <CardTitle>Single Month Category Spending</CardTitle>
           </div>
+          <CardDescription>Compare spending across categories by month</CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
             <Select
@@ -660,19 +724,7 @@ export function ChartSingleMonthCategorySpending({
                 Total: {formatCurrency(data.reduce((sum, item) => sum + item.total, 0))}
               </div>
               <div ref={containerRef} className="relative flex-1 min-h-0" style={{ minHeight: 0, minWidth: 0 }}>
-                {option && (
-                  <ReactECharts
-                    ref={chartRef}
-                    option={option}
-                    style={{ height: "100%", width: "100%" }}
-                    opts={{ renderer: "svg" }}
-                    notMerge={true}
-                    onEvents={{
-                      mouseover: handleChartMouseOver,
-                      mouseout: handleChartMouseOut,
-                    }}
-                  />
-                )}
+                {chartElement}
                 {tooltip && tooltipPosition && (
                   <div
                     className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
