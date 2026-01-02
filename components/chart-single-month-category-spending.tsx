@@ -32,7 +32,7 @@ import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 
 interface ChartSingleMonthCategorySpendingProps {
   dateFilter?: string | null
-  monthlyCategoriesData?: Array<{ category: string; month: number; total: number }>
+  monthlyCategoriesData?: Array<{ category: string; month: string | number; total: number }>
   bundleLoading?: boolean
   emptyTitle?: string
   emptyDescription?: string
@@ -40,7 +40,7 @@ interface ChartSingleMonthCategorySpendingProps {
 
 type MonthData = {
   category: string
-  month: number
+  month: string | number
   total: number
 }
 
@@ -73,13 +73,23 @@ export function ChartSingleMonthCategorySpending({
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const buildMonthParams = React.useCallback(
-    (month?: number | null) => {
+    (month?: string | number | null) => {
       const params = new URLSearchParams()
       if (dateFilter) {
         params.append("filter", dateFilter)
       }
-      if (typeof month === "number") {
-        params.append("month", month.toString())
+      if (month !== null && month !== undefined) {
+        // For API calls, convert to number if it's a string like "Jan 2024"
+        if (typeof month === 'string') {
+          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+          const parts = month.split(' ')
+          const monthIdx = monthNames.indexOf(parts[0])
+          if (monthIdx >= 0) {
+            params.append("month", (monthIdx + 1).toString())
+          }
+        } else {
+          params.append("month", month.toString())
+        }
       }
       return params
     },
@@ -103,10 +113,10 @@ export function ChartSingleMonthCategorySpending({
   const [data, setData] = React.useState<MonthData[]>(
     () => cachedSelected?.data ?? [],
   )
-  const [availableMonths, setAvailableMonths] = React.useState<number[]>(
+  const [availableMonths, setAvailableMonths] = React.useState<(string | number)[]>(
     () => initialAvailableMonths,
   )
-  const [selectedMonth, setSelectedMonth] = React.useState<number | null>(
+  const [selectedMonth, setSelectedMonth] = React.useState<string | number | null>(
     () => initialSelectedMonth,
   )
   const [loading, setLoading] = React.useState(
@@ -151,7 +161,16 @@ export function ChartSingleMonthCategorySpending({
       }
       // Use monthlyCategoriesData if provided
       if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
-        const months = [...new Set(monthlyCategoriesData.map(d => d.month))].sort((a, b) => a - b)
+        // Parse 'Mon YYYY' format to sort chronologically
+        const parseMonthYear = (m: string | number): number => {
+          if (typeof m === 'number') return m
+          const parts = m.split(' ')
+          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+          const monthIdx = monthNames.indexOf(parts[0])
+          const year = parseInt(parts[1] || '2024', 10)
+          return year * 12 + (monthIdx >= 0 ? monthIdx : 0)
+        }
+        const months = [...new Set(monthlyCategoriesData.map(d => d.month))].sort((a, b) => parseMonthYear(a) - parseMonthYear(b))
         setAvailableMonths(months)
         if (months.length > 0) {
           setSelectedMonth((prev) => {
@@ -186,7 +205,7 @@ export function ChartSingleMonthCategorySpending({
 
           if (months.length > 0) {
             setSelectedMonth((prev) => {
-              if (prev === null || !months.includes(prev)) {
+              if (prev === null || !months.some(m => String(m) === String(prev))) {
                 return months[0]
               }
               return prev
@@ -208,7 +227,7 @@ export function ChartSingleMonthCategorySpending({
         if (months.length > 0) {
           setSelectedMonth((prev) => {
             // Only update if current selection is not in the new list
-            if (prev === null || !months.includes(prev)) {
+            if (prev === null || !months.some(m => String(m) === String(prev))) {
               return months[0]
             }
             return prev
@@ -245,7 +264,8 @@ export function ChartSingleMonthCategorySpending({
         if (selectedMonth === null) {
           setData([])
         } else {
-          const filtered = monthlyCategoriesData.filter(d => d.month === selectedMonth)
+          // Compare as strings for bundle data, or as numbers for API data
+          const filtered = monthlyCategoriesData.filter(d => String(d.month) === String(selectedMonth))
           setData(filtered)
         }
         setLoading(false)
@@ -697,11 +717,11 @@ export function ChartSingleMonthCategorySpending({
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
             <Select
-              value={selectedMonth !== null ? selectedMonth.toString() : ""}
-              onValueChange={(value) => setSelectedMonth(parseInt(value, 10))}
+              value={selectedMonth !== null ? String(selectedMonth) : ""}
+              onValueChange={(value) => setSelectedMonth(value)}
             >
               <SelectTrigger
-                className="w-32"
+                className="w-40"
                 size="sm"
                 aria-label="Select month"
               >
@@ -709,8 +729,8 @@ export function ChartSingleMonthCategorySpending({
               </SelectTrigger>
               <SelectContent className="rounded-xl">
                 {availableMonths.map((month) => (
-                  <SelectItem key={month} value={month.toString()} className="rounded-lg">
-                    {MONTH_NAMES[month - 1]}
+                  <SelectItem key={String(month)} value={String(month)} className="rounded-lg">
+                    {typeof month === 'number' ? MONTH_NAMES[month - 1] : month}
                   </SelectItem>
                 ))}
               </SelectContent>
