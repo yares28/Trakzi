@@ -32,13 +32,22 @@ interface ChartDayOfWeekSpendingProps {
   dayOfWeekCategoryData?: Array<{ dayOfWeek: number; category: string; total: number }>
   categoryControls?: ChartInfoPopoverCategoryControls
   isLoading?: boolean
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
 // Week starts on Monday (ISO 8601 standard)
 const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 const dayNamesShort = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-export function ChartDayOfWeekSpending({ data = [], dayOfWeekCategoryData, categoryControls: propCategoryControls, isLoading = false }: ChartDayOfWeekSpendingProps) {
+export function ChartDayOfWeekSpending({
+  data = [],
+  dayOfWeekCategoryData,
+  categoryControls: propCategoryControls,
+  isLoading = false,
+  emptyTitle,
+  emptyDescription
+}: ChartDayOfWeekSpendingProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -658,7 +667,11 @@ export function ChartDayOfWeekSpending({ data = [], dayOfWeekCategoryData, categ
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-          <ChartLoadingState isLoading={isLoading} />
+          <ChartLoadingState
+            isLoading={isLoading}
+            emptyTitle={emptyTitle}
+            emptyDescription={emptyDescription}
+          />
         </CardContent>
       </Card>
     )

@@ -33,6 +33,8 @@ interface ChartSingleMonthCategorySpendingProps {
   dateFilter?: string | null
   monthlyCategoriesData?: Array<{ category: string; month: number; total: number }>
   bundleLoading?: boolean
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
 type MonthData = {
@@ -59,7 +61,13 @@ const MONTH_NAMES = [
 const buildMonthlyCategoryUrl = (params: URLSearchParams) =>
   `/api/analytics/monthly-category-duplicate?${params.toString()}`
 
-export function ChartSingleMonthCategorySpending({ dateFilter, monthlyCategoriesData, bundleLoading }: ChartSingleMonthCategorySpendingProps) {
+export function ChartSingleMonthCategorySpending({
+  dateFilter,
+  monthlyCategoriesData,
+  bundleLoading,
+  emptyTitle,
+  emptyDescription
+}: ChartSingleMonthCategorySpendingProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -531,7 +539,11 @@ export function ChartSingleMonthCategorySpending({ dateFilter, monthlyCategories
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-          <ChartLoadingState isLoading />
+          <ChartLoadingState
+            isLoading
+            emptyTitle={emptyTitle}
+            emptyDescription={emptyDescription}
+          />
         </CardContent>
       </Card>
     )
@@ -555,7 +567,11 @@ export function ChartSingleMonthCategorySpending({ dateFilter, monthlyCategories
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-          <ChartLoadingState isLoading />
+          <ChartLoadingState
+            isLoading
+            emptyTitle={emptyTitle}
+            emptyDescription={emptyDescription}
+          />
         </CardContent>
       </Card>
     )
@@ -580,8 +596,8 @@ export function ChartSingleMonthCategorySpending({ dateFilter, monthlyCategories
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
           <ChartLoadingState
-            emptyTitle="No monthly data yet"
-            emptyDescription="Import your bank statements to see monthly category spending"
+            emptyTitle={emptyTitle || "No monthly data yet"}
+            emptyDescription={emptyDescription || "Import your bank statements to see monthly category spending"}
           />
         </CardContent>
       </Card>
@@ -681,8 +697,8 @@ export function ChartSingleMonthCategorySpending({ dateFilter, monthlyCategories
             </div>
           ) : (
             <ChartLoadingState
-              emptyTitle="No spending data"
-              emptyDescription="No transactions recorded for this month yet"
+              emptyTitle={emptyTitle || "No spending data"}
+              emptyDescription={emptyDescription || "No transactions recorded for this month yet"}
             />
           )}
         </CardContent>

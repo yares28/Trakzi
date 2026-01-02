@@ -29,6 +29,8 @@ interface ChartExpensesPieProps {
   }>
   categoryControls?: ChartInfoPopoverCategoryControls
   isLoading?: boolean
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
 // Dark colors that require white text
@@ -45,7 +47,13 @@ const getTextColor = (sliceColor: string, colorScheme?: string): string => {
   return darkColors.includes(sliceColor) ? "#ffffff" : "#000000"
 }
 
-export function ChartExpensesPie({ data: baseData = [], categoryControls, isLoading = false }: ChartExpensesPieProps) {
+export function ChartExpensesPie({
+  data: baseData = [],
+  categoryControls,
+  isLoading = false,
+  emptyTitle,
+  emptyDescription
+}: ChartExpensesPieProps) {
   const { resolvedTheme } = useTheme()
   const { colorScheme, getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -204,7 +212,11 @@ export function ChartExpensesPie({ data: baseData = [], categoryControls, isLoad
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
           <div className="h-full w-full min-h-[250px]">
-            <ChartLoadingState isLoading={isLoading} />
+            <ChartLoadingState
+              isLoading={isLoading}
+              emptyTitle={emptyTitle}
+              emptyDescription={emptyDescription}
+            />
           </div>
         </CardContent>
       </Card>

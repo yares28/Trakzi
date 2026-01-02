@@ -38,9 +38,18 @@ interface ChartAreaInteractiveProps {
   categoryControls?: ChartInfoPopoverCategoryControls
   chartId?: ChartId
   isLoading?: boolean
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
-export function ChartAreaInteractive({ data = [], categoryControls, chartId = "incomeExpensesTracking1", isLoading = false }: ChartAreaInteractiveProps) {
+export function ChartAreaInteractive({
+  data = [],
+  categoryControls,
+  chartId = "incomeExpensesTracking1",
+  isLoading = false,
+  emptyTitle,
+  emptyDescription
+}: ChartAreaInteractiveProps) {
   const { colorScheme, getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const { resolvedTheme } = useTheme()
@@ -200,7 +209,11 @@ export function ChartAreaInteractive({ data = [], categoryControls, chartId = "i
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
           <div className="h-[250px] w-full">
-            <ChartLoadingState isLoading={isLoading} />
+            <ChartLoadingState
+              isLoading={isLoading}
+              emptyTitle={emptyTitle || "No financial data yet"}
+              emptyDescription={emptyDescription || "Import your bank statements to see your cash flow"}
+            />
           </div>
         </CardContent>
       </Card>

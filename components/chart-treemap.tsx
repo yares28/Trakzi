@@ -33,9 +33,17 @@ interface ChartTreeMapProps {
   data?: TreeMapNode
   categoryControls?: ChartInfoPopoverCategoryControls
   isLoading?: boolean
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
-export function ChartTreeMap({ data = { name: "", children: [] }, categoryControls, isLoading = false }: ChartTreeMapProps) {
+export function ChartTreeMap({
+  data = { name: "", children: [] },
+  categoryControls,
+  isLoading = false,
+  emptyTitle,
+  emptyDescription
+}: ChartTreeMapProps) {
   const { getPalette, colorScheme } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const { resolvedTheme } = useTheme()
@@ -166,7 +174,11 @@ export function ChartTreeMap({ data = { name: "", children: [] }, categoryContro
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-          <ChartLoadingState isLoading={isLoading} />
+          <ChartLoadingState
+            isLoading={isLoading}
+            emptyTitle={emptyTitle}
+            emptyDescription={emptyDescription}
+          />
         </CardContent>
       </Card>
     )

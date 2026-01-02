@@ -49,11 +49,13 @@ type EnhancedChartDatum = ChartSwarmPlotDatum & { categoryLabel: string }
 
 interface ChartSwarmPlotProps {
   data?: ChartSwarmPlotDatum[]
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
 // Removed MAX_VISIBLE_GROUPS limit - now shows all categories
 
-export function ChartSwarmPlot({ data }: ChartSwarmPlotProps) {
+export function ChartSwarmPlot({ data, emptyTitle, emptyDescription }: ChartSwarmPlotProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -464,7 +466,11 @@ export function ChartSwarmPlot({ data }: ChartSwarmPlotProps) {
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-          <ChartLoadingState isLoading={true} />
+          <ChartLoadingState
+            isLoading={true}
+            emptyTitle={emptyTitle}
+            emptyDescription={emptyDescription}
+          />
         </CardContent>
       </Card>
     )
@@ -514,7 +520,11 @@ export function ChartSwarmPlot({ data }: ChartSwarmPlotProps) {
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-          <ChartLoadingState isLoading={false} />
+          <ChartLoadingState
+            isLoading={false}
+            emptyTitle={emptyTitle}
+            emptyDescription={emptyDescription}
+          />
         </CardContent>
       </Card>
     )

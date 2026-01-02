@@ -32,6 +32,8 @@ interface ChartAllMonthsCategorySpendingProps {
   categoryControls?: ChartInfoPopoverCategoryControls
   isLoading?: boolean
   bundleLoading?: boolean
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
 const monthNames = [
@@ -79,7 +81,15 @@ const buildMonthTotals = (
   return totals
 }
 
-export function ChartAllMonthsCategorySpending({ data = [], monthlyCategoriesData, categoryControls: propCategoryControls, isLoading = false, bundleLoading }: ChartAllMonthsCategorySpendingProps) {
+export function ChartAllMonthsCategorySpending({
+  data = [],
+  monthlyCategoriesData,
+  categoryControls: propCategoryControls,
+  isLoading = false,
+  bundleLoading,
+  emptyTitle,
+  emptyDescription
+}: ChartAllMonthsCategorySpendingProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -854,7 +864,11 @@ export function ChartAllMonthsCategorySpending({ data = [], monthlyCategoriesDat
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-          <ChartLoadingState isLoading={isLoading} />
+          <ChartLoadingState
+            isLoading={isLoading}
+            emptyTitle={emptyTitle}
+            emptyDescription={emptyDescription}
+          />
         </CardContent>
       </Card>
     )

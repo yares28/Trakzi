@@ -3,6 +3,7 @@ import { getCurrentUserId, getCurrentUserIdOrNull } from '@/lib/auth'
 import { getAnalyticsBundle, type AnalyticsSummary } from '@/lib/charts/aggregations'
 import { getCachedOrCompute, buildCacheKey, CACHE_TTL } from '@/lib/cache/upstash'
 import { autoEnforceTransactionCap } from '@/lib/limits/auto-enforce-cap'
+import { neonQuery } from '@/lib/neonClient'
 
 export const GET = async (request: Request) => {
     try {
@@ -38,7 +39,23 @@ export const GET = async (request: Request) => {
             CACHE_TTL.analytics
         )
 
-        return NextResponse.json(data, {
+        // Check if user has data in other time periods
+        // This is used to show a helpful message when current filter has no data
+        const isCurrentPeriodEmpty =
+            (!data.dailySpending || data.dailySpending.length === 0) &&
+            (!data.categorySpending || data.categorySpending.length === 0)
+
+        let hasDataInOtherPeriods = false
+        if (isCurrentPeriodEmpty) {
+            // Check if user has ANY transactions (regardless of filter)
+            const totalCount = await neonQuery<{ count: string }>(
+                'SELECT COUNT(*)::text as count FROM transactions WHERE user_id = $1 LIMIT 1',
+                [userId]
+            )
+            hasDataInOtherPeriods = parseInt(totalCount[0]?.count || '0', 10) > 0
+        }
+
+        return NextResponse.json({ ...data, hasDataInOtherPeriods }, {
             headers: {
                 'Content-Type': 'application/json',
                 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',

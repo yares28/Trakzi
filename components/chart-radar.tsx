@@ -51,9 +51,16 @@ type FinancialHealthResponse = {
 interface ChartRadarProps {
   categoryControls?: ChartInfoPopoverCategoryControls
   dateFilter?: string | null
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
-export function ChartRadar({ categoryControls, dateFilter }: ChartRadarProps) {
+export function ChartRadar({
+  categoryControls,
+  dateFilter,
+  emptyTitle,
+  emptyDescription
+}: ChartRadarProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -444,8 +451,8 @@ export function ChartRadar({ categoryControls, dateFilter }: ChartRadarProps) {
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
         <ChartLoadingState
           isLoading={isLoading}
-          emptyTitle="No financial data yet"
-          emptyDescription="Import your bank statements to see your financial health score"
+          emptyTitle={emptyTitle || "No financial data yet"}
+          emptyDescription={emptyDescription || "Import your bank statements to see your financial health score"}
         />
       </CardContent>
     </Card>

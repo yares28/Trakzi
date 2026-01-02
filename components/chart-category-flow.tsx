@@ -30,9 +30,17 @@ interface ChartCategoryFlowProps {
   }>
   categoryControls?: ChartInfoPopoverCategoryControls
   isLoading?: boolean
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
-export function ChartCategoryFlow({ data = [], categoryControls, isLoading = false }: ChartCategoryFlowProps) {
+export function ChartCategoryFlow({
+  data = [],
+  categoryControls,
+  isLoading = false,
+  emptyTitle,
+  emptyDescription
+}: ChartCategoryFlowProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -108,7 +116,11 @@ export function ChartCategoryFlow({ data = [], categoryControls, isLoading = fal
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
           <div className="h-full w-full min-h-[250px]">
-            <ChartLoadingState isLoading={isLoading} />
+            <ChartLoadingState
+              isLoading={isLoading}
+              emptyTitle={emptyTitle || "No spending data yet"}
+              emptyDescription={emptyDescription || "Import your bank statements to see category rankings"}
+            />
           </div>
         </CardContent>
       </Card>
