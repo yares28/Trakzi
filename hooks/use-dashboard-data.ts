@@ -306,11 +306,12 @@ async function fetchCategories(): Promise<Category[]> {
  * Analytics page bundle - pre-aggregated data with Redis caching
  */
 export function useAnalyticsBundleData() {
-    const { filter } = useDateFilter()
+    const { filter, isReady } = useDateFilter()
 
     return useQuery({
         queryKey: ["analytics-bundle", filter],
         queryFn: () => fetchAnalyticsBundle(filter),
+        enabled: isReady, // Only fetch when filter is resolved from localStorage
     })
 }
 
@@ -318,11 +319,12 @@ export function useAnalyticsBundleData() {
  * Home page bundle - pre-aggregated data with Redis caching
  */
 export function useHomeBundleData() {
-    const { filter } = useDateFilter()
+    const { filter, isReady } = useDateFilter()
 
     return useQuery({
         queryKey: ["home-bundle", filter],
         queryFn: () => fetchHomeBundle(filter),
+        enabled: isReady,
     })
 }
 
@@ -330,11 +332,12 @@ export function useHomeBundleData() {
  * Trends page bundle - category trends with Redis caching
  */
 export function useTrendsBundleData() {
-    const { filter } = useDateFilter()
+    const { filter, isReady } = useDateFilter()
 
     return useQuery({
         queryKey: ["trends-bundle", filter],
         queryFn: () => fetchTrendsBundle(filter),
+        enabled: isReady,
     })
 }
 
@@ -342,11 +345,12 @@ export function useTrendsBundleData() {
  * Savings page bundle - savings data with Redis caching
  */
 export function useSavingsBundleData() {
-    const { filter } = useDateFilter()
+    const { filter, isReady } = useDateFilter()
 
     return useQuery({
         queryKey: ["savings-bundle", filter],
         queryFn: () => fetchSavingsBundle(filter),
+        enabled: isReady,
     })
 }
 
@@ -354,11 +358,12 @@ export function useSavingsBundleData() {
  * Fridge page bundle - fridge data with Redis caching
  */
 export function useFridgeBundleData() {
-    const { filter } = useDateFilter()
+    const { filter, isReady } = useDateFilter()
 
     return useQuery({
         queryKey: ["fridge-bundle", filter],
         queryFn: () => fetchFridgeBundle(filter),
+        enabled: isReady,
     })
 }
 
@@ -370,12 +375,13 @@ export function useFridgeBundleData() {
  * Raw transactions - use for DataTable or when raw data is needed
  */
 export function useTransactions(filter?: string | null) {
-    const { filter: contextFilter } = useDateFilter()
+    const { filter: contextFilter, isReady } = useDateFilter()
     const effectiveFilter = filter !== undefined ? filter : contextFilter
 
     return useQuery({
         queryKey: ["transactions", effectiveFilter],
         queryFn: () => fetchTransactions(effectiveFilter),
+        enabled: isReady,
     })
 }
 

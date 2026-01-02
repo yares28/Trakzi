@@ -696,13 +696,7 @@ export function useAnalyticsChartData({
   const needsWantsPieData = useMemo(() => {
     // Bundle-only mode: Use pre-computed data from Redis cache
     // No fallback to rawTransactions to avoid race conditions
-
-    // Debug logging to trace bundle data issues
-    console.log('[NeedsWantsPieData] bundleData:', bundleData)
-    console.log('[NeedsWantsPieData] bundleData?.needsWants:', bundleData?.needsWants)
-
     if (!bundleData?.needsWants || bundleData.needsWants.length === 0) {
-      console.log('[NeedsWantsPieData] Returning empty - no bundle data')
       return {
         slices: [] as Array<{ id: string; label: string; value: number }>,
         categories: [] as string[],
