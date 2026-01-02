@@ -62,15 +62,21 @@ export function StatementReviewDialog({
     onCancel,
 }: StatementReviewDialogProps) {
     const { formatCurrency } = useCurrency()
+
+    // State
+    const [isGroupsView, setIsGroupsView] = useState(false)
     const [showReviewOnly, setShowReviewOnly] = useState(false)
-    const wasOpenRef = useRef(false)
-
-    // Side panel state
-    const [sidePanelView, setSidePanelView] = useState<'review' | 'groups' | null>(null)
     const [expandedGroupKeys, setExpandedGroupKeys] = useState<Set<string>>(new Set())
-
-    // Ref for groups panel scroll container to preserve scroll position
     const groupsPanelScrollRef = useRef<HTMLDivElement>(null)
+
+    // Reset state on open
+    useEffect(() => {
+        if (open) {
+            setIsGroupsView(false)
+            setShowReviewOnly(false)
+            setExpandedGroupKeys(new Set())
+        }
+    }, [open])
 
     const reviewMeta = useMemo(() => {
         const map = new Map<number, { needsReview: boolean; reasons: string[] }>()
@@ -105,20 +111,16 @@ export function StatementReviewDialog({
         return { map, count }
     }, [parsedRows])
 
-    useEffect(() => {
-        if (open && !wasOpenRef.current) {
-            setShowReviewOnly(false)
-        }
-        if (!open && wasOpenRef.current) {
-            setShowReviewOnly(false)
-        }
-        wasOpenRef.current = open
-    }, [open])
+
 
     const reviewQueueLabel = reviewMeta.count > 0 ? `Review queue (${reviewMeta.count})` : "Review queue"
-    const visibleRows = sidePanelView === 'review'
-        ? parsedRows.filter((row) => reviewMeta.map.get(row.id)?.needsReview)
-        : parsedRows
+    const visibleRows = useMemo(() => {
+        let rows = parsedRows
+        if (showReviewOnly) {
+            rows = rows.filter(row => reviewMeta.map.get(row.id)?.needsReview)
+        }
+        return rows
+    }, [parsedRows, showReviewOnly, reviewMeta])
 
     // Calculate category breakdown
     const categoryTotals = new Map<string, number>()
@@ -145,8 +147,9 @@ export function StatementReviewDialog({
 
     // Group transactions by description
     const groupedTransactions = useMemo(() => {
-        return groupItemsByDescription(parsedRows)
-    }, [parsedRows])
+        if (!isGroupsView) return []
+        return groupItemsByDescription(visibleRows)
+    }, [isGroupsView, visibleRows])
 
     const groupsWithMetadata = useMemo(() => {
         return groupedTransactions.map(group => ({
@@ -174,63 +177,7 @@ export function StatementReviewDialog({
 
 
     // Review Queue Panel Component
-    function ReviewQueuePanel() {
-        return (
-            <div className="flex flex-col h-full bg-muted/10 border-l border-border/60">
-                <div className="flex items-center justify-between p-4 border-b border-border/40 bg-muted/20">
-                    <div>
-                        <h3 className="font-semibold text-sm flex items-center gap-2">
-                            Review Queue
-                            <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
-                                {reviewMeta.count}
-                            </Badge>
-                        </h3>
-                    </div>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 rounded-full text-muted-foreground hover:bg-background"
-                        onClick={() => setSidePanelView(null)}
-                    >
-                        <X className="h-4 w-4" />
-                    </Button>
-                </div>
 
-                <div className="flex-1 overflow-y-auto p-3 space-y-3 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40">
-                    {visibleRows.map((row) => {
-                        const reviewInfo = reviewMeta.map.get(row.id)
-                        const amount = typeof row.amount === 'number' ? row.amount : parseFloat(String(row.amount)) || 0
-
-                        return (
-                            <div key={row.id} className="group relative border rounded-xl p-3 bg-background shadow-sm hover:shadow-md transition-all hover:border-amber-500/30">
-                                {reviewInfo?.needsReview && (
-                                    <div className="absolute left-0 top-3 bottom-3 w-[3px] bg-amber-500 rounded-r-full" />
-                                )}
-                                <div className="flex items-start justify-between gap-3 mb-2 pl-2">
-                                    <div className="flex-1 min-w-0">
-                                        <div className="font-medium text-sm truncate text-foreground">{row.description}</div>
-                                        <div className="text-[11px] text-muted-foreground font-mono mt-0.5">{row.date}</div>
-                                    </div>
-                                    <div className={cn("font-medium text-sm tabular-nums whitespace-nowrap", amount < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400")}>
-                                        {formatCurrency(amount)}
-                                    </div>
-                                </div>
-                                {reviewInfo?.reasons && reviewInfo.reasons.length > 0 && (
-                                    <div className="flex flex-wrap gap-1.5 pl-2 mt-2">
-                                        {reviewInfo.reasons.map((reason, i) => (
-                                            <Badge key={i} variant="outline" className="text-[10px] border-amber-200 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-400 px-1.5 py-0 h-5 font-normal">
-                                                {reason}
-                                            </Badge>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )
-                    })}
-                </div>
-            </div>
-        )
-    }
 
     // Groups Panel Component
     function GroupsPanel() {
@@ -249,7 +196,7 @@ export function StatementReviewDialog({
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 rounded-full text-muted-foreground hover:bg-background"
-                        onClick={() => setSidePanelView(null)}
+                        onClick={() => setIsGroupsView(false)}
                     >
                         <X className="h-4 w-4" />
                     </Button>
@@ -298,7 +245,7 @@ export function StatementReviewDialog({
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <Badge variant="secondary" className="text-[10px] h-4 px-1 rounded-sm text-muted-foreground font-normal">
+                                            <Badge className="text-[10px] h-4 px-1 rounded-sm font-normal text-white dark:text-black">
                                                 {group.count} items
                                             </Badge>
                                         </div>
@@ -346,8 +293,8 @@ export function StatementReviewDialog({
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className={cn(
-                "border bg-background max-h-[90vh] overflow-hidden",
-                sidePanelView
+                "border bg-background max-h-[90vh] overflow-hidden [&>button]:hidden",
+                isGroupsView
                     ? "sm:max-w-[98vw] md:max-w-[1600px] lg:max-w-[1800px]"
                     : "sm:max-w-[95vw] md:max-w-[1400px]"
             )}>
@@ -391,13 +338,13 @@ export function StatementReviewDialog({
                             <div className="flex items-center gap-3">
                                 <div className="flex items-center p-1 bg-muted/50 rounded-full border border-border/50">
                                     <Button
-                                        variant={sidePanelView === 'review' ? "secondary" : "ghost"}
+                                        variant={showReviewOnly ? "secondary" : "ghost"}
                                         size="sm"
-                                        onClick={() => setSidePanelView(sidePanelView === 'review' ? null : 'review')}
+                                        onClick={() => setShowReviewOnly(!showReviewOnly)}
                                         disabled={reviewMeta.count === 0}
                                         className={cn(
                                             "h-7 rounded-full px-3 text-xs font-medium transition-all",
-                                            sidePanelView === 'review' && "bg-background shadow-sm text-foreground"
+                                            showReviewOnly && "bg-background shadow-sm text-foreground ring-1 ring-border/50"
                                         )}
                                     >
                                         Review Queue
@@ -409,13 +356,13 @@ export function StatementReviewDialog({
                                     </Button>
                                     <div className="w-px h-3 bg-border/50 mx-1" />
                                     <Button
-                                        variant={sidePanelView === 'groups' ? "secondary" : "ghost"}
+                                        variant={isGroupsView ? "secondary" : "ghost"}
                                         size="sm"
-                                        onClick={() => setSidePanelView(sidePanelView === 'groups' ? null : 'groups')}
+                                        onClick={() => setIsGroupsView(!isGroupsView)}
                                         disabled={groupsWithMetadata.length === 0}
                                         className={cn(
                                             "h-7 rounded-full px-3 text-xs font-medium transition-all",
-                                            sidePanelView === 'groups' && "bg-background shadow-sm text-foreground"
+                                            isGroupsView && "bg-background shadow-sm text-foreground ring-1 ring-border/50"
                                         )}
                                     >
                                         Groups
@@ -512,7 +459,7 @@ export function StatementReviewDialog({
 
                         <div className={cn(
                             "flex-1 overflow-y-auto overflow-x-hidden pt-0 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40",
-                            !!sidePanelView ? "w-[70%]" : "w-full"
+                            isGroupsView ? "w-[70%]" : "w-full"
                         )}>
                             <Table className="w-full relative">
                                 <TableHeader className="bg-muted/50 sticky top-0 z-10 backdrop-blur-sm">
@@ -623,21 +570,20 @@ export function StatementReviewDialog({
                                     )}
                                 </TableBody>
                             </Table>
-                            {sidePanelView === 'review' && visibleRows.length === 0 ? (
-                                <div className="text-sm text-muted-foreground mt-4">
-                                    No transactions are flagged for review.
+                            {showReviewOnly && visibleRows.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center h-48 text-muted-foreground text-sm">
+                                    <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
+                                        <Info className="w-6 h-6 text-emerald-500/50" />
+                                    </div>
+                                    <p>All clear! No transactions flagged for review.</p>
                                 </div>
                             ) : null}
                         </div>
 
-                        {/* Right: Side panel */}
-                        {sidePanelView && (
-                            <div className="w-[30%] border-l border-border/60 pl-4 flex flex-col overflow-hidden">
-                                {sidePanelView === 'review' ? (
-                                    <ReviewQueuePanel />
-                                ) : (
-                                    <GroupsPanel />
-                                )}
+                        {/* Side Panel for Groups */}
+                        {isGroupsView && (
+                            <div className="w-[30%] min-w-[350px] max-w-[450px] animate-in slide-in-from-right-4 duration-300">
+                                <GroupsPanel />
                             </div>
                         )}
                     </div>
