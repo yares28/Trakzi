@@ -637,7 +637,7 @@ export function ChartSingleMonthCategorySpending({
               onValueChange={(value) => setSelectedMonth(parseInt(value, 10))}
             >
               <SelectTrigger
-                className="w-32 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
+                className="w-32"
                 size="sm"
                 aria-label="Select month"
               >
