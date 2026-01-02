@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { neonQuery } from "@/lib/neonClient"
 import { getCurrentUserId } from "@/lib/auth"
+import { getDateRange } from "@/app/api/transactions/route"
 
 type FinancialAggregateRow = {
   year: number
@@ -60,23 +61,29 @@ const selectYears = (
   return selected.slice(0, MAX_YEARS).sort((a, b) => b - a)
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const userId = await getCurrentUserId()
+    const { searchParams } = new URL(request.url)
+    const filter = searchParams.get("filter")
+    const { startDate, endDate } = getDateRange(filter)
 
-    const aggregates = await neonQuery<FinancialAggregateRow>(
-      `
+    let query = `
         SELECT 
           EXTRACT(YEAR FROM tx_date)::int AS year,
           SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) AS income,
           SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END) AS expenses
         FROM transactions
         WHERE user_id = $1
-        GROUP BY year
-        ORDER BY year DESC
-      `,
-      [userId]
-    )
+    `
+    const params: (string | number)[] = [userId]
+    if (startDate && endDate) {
+      query += ` AND tx_date >= $2 AND tx_date <= $3`
+      params.push(startDate, endDate)
+    }
+    query += ` GROUP BY year ORDER BY year DESC`
+
+    const aggregates = await neonQuery<FinancialAggregateRow>(query, params)
 
     const aggregateMap = aggregates.reduce<Record<number, { income: number; expenses: number }>>(
       (acc, row) => {
@@ -127,12 +134,7 @@ export async function GET() {
       return row
     })
 
-    const categoryExpenses = await neonQuery<{
-      year: number
-      category: string | null
-      total_expense: number | string | null
-    }>(
-      `
+    let catQuery = `
         SELECT 
           EXTRACT(YEAR FROM tx_date)::int AS year,
           COALESCE(NULLIF(TRIM(c.name), ''), 'Other') AS category,
@@ -141,10 +143,19 @@ export async function GET() {
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE t.user_id = $1
           AND amount < 0
-        GROUP BY year, category
-      `,
-      [userId]
-    )
+    `
+    const catParams: (string | number)[] = [userId]
+    if (startDate && endDate) {
+      catQuery += ` AND tx_date >= $2 AND tx_date <= $3`
+      catParams.push(startDate, endDate)
+    }
+    catQuery += ` GROUP BY year, category`
+
+    const categoryExpenses = await neonQuery<{
+      year: number
+      category: string | null
+      total_expense: number | string | null
+    }>(catQuery, catParams)
 
     const categoryTotals = new Map<string, number>()
     const categoryYearMap = new Map<string, Map<number, number>>()
