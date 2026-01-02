@@ -697,7 +697,7 @@ export function ChartDayOfWeekCategory({
               onValueChange={(value) => setSelectedDay(parseInt(value, 10))}
             >
               <SelectTrigger
-                className="w-32 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
+                className="w-32"
                 size="sm"
                 aria-label="Select day of week"
               >

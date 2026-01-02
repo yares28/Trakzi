@@ -110,8 +110,6 @@ export function ChartTransactionCalendar({
   emptyTitle,
   emptyDescription
 }: ChartTransactionCalendarProps) {
-  const currentYear = new Date().getFullYear()
-  const [selectedYear, setSelectedYear] = useState(currentYear.toString())
   const { resolvedTheme } = useTheme()
   const [isFullscreen, setIsFullscreen] = useState(false)
 
@@ -161,8 +159,6 @@ export function ChartTransactionCalendar({
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
   const [refreshNonce, setRefreshNonce] = useState(0)
 
-  // Check if YTD is selected
-  const isYTD = selectedYear === "YTD"
   const isGlobalFilterActive = Boolean(dateFilter)
 
   // Listen for global date filter changes (only if prop is not provided)
@@ -249,21 +245,7 @@ export function ChartTransactionCalendar({
     setMounted(true)
   }, [])
 
-  // Generate list of available years from data, or use current year if no data
-  const availableYears = React.useMemo(() => {
-    const years = new Set<number>()
-    allData.forEach(item => {
-      const year = new Date(item.day).getFullYear()
-      years.add(year)
-    })
-    // If no data, default to current year
-    if (years.size === 0) {
-      years.add(currentYear)
-    }
-    return Array.from(years).sort((a, b) => b - a)
-  }, [allData, currentYear])
-
-  // Calculate date range based on global filter or local year selection.
+  // Calculate date range based on global filter.
   const { fromDate, toDate, enforcedByFilter } = useMemo(() => {
     if (dateFilter) {
       const range = getRangeForFilter(dateFilter)
@@ -272,23 +254,16 @@ export function ChartTransactionCalendar({
       }
     }
 
-    if (isYTD) {
-      const today = new Date()
-      const oneYearAgo = new Date(today)
-      oneYearAgo.setDate(oneYearAgo.getDate() - 365)
-      return {
-        fromDate: oneYearAgo.toISOString().split("T")[0],
-        toDate: today.toISOString().split("T")[0],
-        enforcedByFilter: false,
-      }
-    }
-
+    // Default to last year if no filter
+    const today = new Date()
+    const oneYearAgo = new Date(today)
+    oneYearAgo.setDate(oneYearAgo.getDate() - 365)
     return {
-      fromDate: `${selectedYear}-01-01`,
-      toDate: `${selectedYear}-12-31`,
+      fromDate: oneYearAgo.toISOString().split("T")[0],
+      toDate: today.toISOString().split("T")[0],
       enforcedByFilter: false,
     }
-  }, [dateFilter, isYTD, selectedYear])
+  }, [dateFilter])
 
   // Filter data based on selection, excluding days with value 0 and future dates
   const filteredData = useMemo(() => {
@@ -313,29 +288,7 @@ export function ChartTransactionCalendar({
     return filteredData.map((item) => [item.day, item.value])
   }, [filteredData])
 
-  // If there is no data for the selected year/YTD, automatically switch to the closest year that has data.
-  useEffect(() => {
-    // Don't auto-switch if a global filter is active
-    if (dateFilter) return
-    // Don't switch if we have no data at all
-    if (!allData || allData.length === 0 || availableYears.length === 0) return
-    // If the chart already has data, do nothing
-    if (chartData.length > 0) return
 
-    // Find the closest year to current year that has data
-    const closestYear = availableYears.reduce((best, year) => {
-      const bestDiff = Math.abs(best - currentYear)
-      const yearDiff = Math.abs(year - currentYear)
-      if (yearDiff < bestDiff) return year
-      if (yearDiff === bestDiff) return year > best ? year : best
-      return best
-    }, availableYears[0])
-
-    // Avoid unnecessary state updates
-    if (selectedYear !== closestYear.toString()) {
-      setSelectedYear(closestYear.toString())
-    }
-  }, [dateFilter, chartData, allData, availableYears, currentYear, selectedYear])
 
   const values = useMemo(() => {
     return chartData
@@ -553,34 +506,9 @@ export function ChartTransactionCalendar({
           </div>
           <CardAction className="flex flex-wrap items-center gap-2">
             {renderInfoTrigger()}
-            <Select
-              value={selectedYear}
-              onValueChange={setSelectedYear}
-              disabled={isGlobalFilterActive}
-            >
-              <SelectTrigger
-                className="w-32 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
-                size="sm"
-                aria-label="Select year"
-              >
-                <SelectValue placeholder={selectedYear === "YTD" ? "YTD" : selectedYear || currentYear.toString()} />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                <SelectItem value="YTD" className="rounded-lg">
-                  YTD
-                </SelectItem>
-                {availableYears.map((year) => (
-                  <SelectItem key={year} value={year.toString()} className="rounded-lg">
-                    {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {isGlobalFilterActive && (
-              <span className="text-xs text-muted-foreground">
-                Showing {formatFilterLabel(dateFilter)}
-              </span>
-            )}
+            <span className="text-xs text-muted-foreground">
+              Showing {formatFilterLabel(dateFilter)}
+            </span>
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
@@ -612,34 +540,9 @@ export function ChartTransactionCalendar({
           </div>
           <CardAction className="flex flex-wrap items-center gap-2">
             {renderInfoTrigger()}
-            <Select
-              value={selectedYear}
-              onValueChange={setSelectedYear}
-              disabled={isGlobalFilterActive}
-            >
-              <SelectTrigger
-                className="w-32 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
-                size="sm"
-                aria-label="Select year"
-              >
-                <SelectValue placeholder={selectedYear === "YTD" ? "YTD" : selectedYear || currentYear.toString()} />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                <SelectItem value="YTD" className="rounded-lg">
-                  YTD
-                </SelectItem>
-                {availableYears.map((year) => (
-                  <SelectItem key={year} value={year.toString()} className="rounded-lg">
-                    {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {isGlobalFilterActive && (
-              <span className="text-xs text-muted-foreground">
-                Showing {formatFilterLabel(dateFilter)}
-              </span>
-            )}
+            <span className="text-xs text-muted-foreground">
+              Showing {formatFilterLabel(dateFilter)}
+            </span>
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
@@ -682,34 +585,9 @@ export function ChartTransactionCalendar({
           </div>
           <CardAction className="flex flex-wrap items-center gap-2">
             {renderInfoTrigger()}
-            <Select
-              value={selectedYear}
-              onValueChange={setSelectedYear}
-              disabled={isGlobalFilterActive}
-            >
-              <SelectTrigger
-                className="w-32 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
-                size="sm"
-                aria-label="Select year"
-              >
-                <SelectValue placeholder={selectedYear === "YTD" ? "YTD" : selectedYear || currentYear.toString()} />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                <SelectItem value="YTD" className="rounded-lg">
-                  YTD
-                </SelectItem>
-                {availableYears.map((year) => (
-                  <SelectItem key={year} value={year.toString()} className="rounded-lg">
-                    {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {isGlobalFilterActive && (
-              <span className="text-xs text-muted-foreground">
-                Showing {formatFilterLabel(dateFilter)}
-              </span>
-            )}
+            <span className="text-xs text-muted-foreground">
+              Showing {formatFilterLabel(dateFilter)}
+            </span>
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
