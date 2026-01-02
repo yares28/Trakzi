@@ -90,6 +90,9 @@ export function DateFilterProvider({ children }: { children: ReactNode }) {
         try {
             localStorage.setItem(DATE_FILTER_STORAGE_KEY, nextFilter)
             localStorage.setItem(LEGACY_DATE_FILTER_STORAGE_KEY, nextFilter)
+
+            // Notify legacy listeners
+            window.dispatchEvent(new CustomEvent("dateFilterChanged", { detail: nextFilter }))
         } catch (error) {
             console.error("Failed to save date filter to localStorage:", error)
         }

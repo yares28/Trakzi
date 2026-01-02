@@ -179,538 +179,539 @@ export function ChartsGrid({
   })
 
   return (
-              <div className="w-full mb-4 px-4 lg:px-6">
-                <SortableGridProvider
-                  chartOrder={analyticsChartOrder}
-                  onOrderChange={handleChartOrderChange}
-                >
-                  {analyticsChartOrder.map((chartId, index) => {
-                    // Determine default size and position for a chart
-                    const getDefaultSize = (id: string) => {
-                      return DEFAULT_CHART_SIZES[id] || { w: 12, h: 6, x: 0, y: 0 }  // Fallback to large if not found
-                    }
-                    const defaultSize = getDefaultSize(chartId)
-                    // Get min/max size constraints from config
-                    const sizeConfig = getChartCardSize(chartId as ChartId)
-                    // Use defaultSize for initial render to avoid hydration mismatch
-                    // Saved sizes will be applied by GridStack after mount via load() method
-                    const initialW = defaultSize.w
-                    const initialH = defaultSize.h
+    <div className="w-full mb-4 px-4 lg:px-6">
+      <SortableGridProvider
+        chartOrder={analyticsChartOrder}
+        onOrderChange={handleChartOrderChange}
+      >
+        {analyticsChartOrder.map((chartId, index) => {
+          // Determine default size and position for a chart
+          const getDefaultSize = (id: string) => {
+            return DEFAULT_CHART_SIZES[id] || { w: 12, h: 6, x: 0, y: 0 }  // Fallback to large if not found
+          }
+          const defaultSize = getDefaultSize(chartId)
+          // Get min/max size constraints from config
+          const sizeConfig = getChartCardSize(chartId as ChartId)
+          // Use defaultSize for initial render to avoid hydration mismatch
+          // Saved sizes will be applied by GridStack after mount via load() method
+          const initialW = defaultSize.w
+          const initialH = defaultSize.h
 
-                    if (chartId === "transactionHistory") {
-                      return (
-                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <ChartSwarmPlot data={swarmPlotData} />
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
+          if (chartId === "transactionHistory") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  <ChartSwarmPlot data={swarmPlotData} />
+                </div>
+              </SortableGridItem>
+            )
+          }
 
-                    if (chartId === "dayOfWeekSpending") {
-                      return (
-                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <ChartDayOfWeekSpending
-                              data={rawTransactions}
-                              dayOfWeekCategoryData={bundleData?.dayOfWeekCategory}
-                              categoryControls={dayOfWeekSpendingControls}
-                              isLoading={isLoadingTransactions}
-                            />
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
+          if (chartId === "dayOfWeekSpending") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  <ChartDayOfWeekSpending
+                    data={rawTransactions}
+                    dayOfWeekCategoryData={bundleData?.dayOfWeekCategory}
+                    categoryControls={dayOfWeekSpendingControls}
+                    isLoading={isLoadingTransactions}
+                  />
+                </div>
+              </SortableGridItem>
+            )
+          }
 
-                    if (chartId === "allMonthsCategorySpending") {
-                      return (
-                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <ChartAllMonthsCategorySpending
-                              data={rawTransactions}
-                              monthlyCategoriesData={bundleData?.monthlyCategories}
-                              categoryControls={monthOfYearSpendingControls}
-                              isLoading={isLoadingTransactions}
-                              bundleLoading={bundleLoading}
-                            />
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
+          if (chartId === "allMonthsCategorySpending") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  <ChartAllMonthsCategorySpending
+                    data={rawTransactions}
+                    monthlyCategoriesData={bundleData?.monthlyCategories}
+                    categoryControls={monthOfYearSpendingControls}
+                    isLoading={isLoadingTransactions}
+                    bundleLoading={bundleLoading}
+                  />
+                </div>
+              </SortableGridItem>
+            )
+          }
 
-                    if (chartId === "incomeExpensesTracking1") {
-                      return (
-                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <ChartAreaInteractive
-                              chartId="incomeExpensesTracking1"
-                              categoryControls={incomeExpenseTopControls}
-                              isLoading={isLoadingTransactions}
-                              data={incomeExpenseTopChartData}
-                            />
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
+          if (chartId === "incomeExpensesTracking1") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  <ChartAreaInteractive
+                    chartId="incomeExpensesTracking1"
+                    categoryControls={incomeExpenseTopControls}
+                    isLoading={isLoadingTransactions}
+                    data={incomeExpenseTopChartData}
+                  />
+                </div>
+              </SortableGridItem>
+            )
+          }
 
-                    if (chartId === "incomeExpensesTracking2") {
-                      return (
-                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <ChartAreaInteractive
-                              chartId="incomeExpensesTracking2"
-                              categoryControls={incomeExpenseControls}
-                              isLoading={isLoadingTransactions}
-                              data={incomeExpenseChart.data}
-                            />
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
+          if (chartId === "incomeExpensesTracking2") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  <ChartAreaInteractive
+                    chartId="incomeExpensesTracking2"
+                    categoryControls={incomeExpenseControls}
+                    isLoading={isLoadingTransactions}
+                    data={incomeExpenseChart.data}
+                  />
+                </div>
+              </SortableGridItem>
+            )
+          }
 
-                    if (chartId === "spendingCategoryRankings") {
-                      return (
-                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <ChartCategoryFlow
-                              categoryControls={categoryFlowControls}
-                              data={categoryFlowChart.data}
-                              isLoading={isLoadingTransactions}
-                            />
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
+          if (chartId === "spendingCategoryRankings") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  <ChartCategoryFlow
+                    categoryControls={categoryFlowControls}
+                    data={categoryFlowChart.data}
+                    isLoading={isLoadingTransactions}
+                  />
+                </div>
+              </SortableGridItem>
+            )
+          }
 
-                    if (chartId === "netWorthAllocation") {
-                      return (
-                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <ChartTreeMap
-                              categoryControls={treeMapControls}
-                              data={treeMapData}
-                              isLoading={isLoadingTransactions}
-                            />
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
+          if (chartId === "netWorthAllocation") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  <ChartTreeMap
+                    categoryControls={treeMapControls}
+                    data={treeMapData}
+                    isLoading={isLoadingTransactions}
+                  />
+                </div>
+              </SortableGridItem>
+            )
+          }
 
-                    if (chartId === "moneyFlow") {
-                      return (
-                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <ChartSpendingFunnel
-                              categoryControls={spendingFunnelControls}
-                              data={spendingFunnelChart.data}
-                              maxExpenseCategories={moneyFlowMaxExpenseCategories}
-                              isLoading={isLoadingTransactions}
-                            />
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
+          if (chartId === "moneyFlow") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  <ChartSpendingFunnel
+                    categoryControls={spendingFunnelControls}
+                    data={spendingFunnelChart.data}
+                    maxExpenseCategories={moneyFlowMaxExpenseCategories}
+                    isLoading={isLoadingTransactions}
+                  />
+                </div>
+              </SortableGridItem>
+            )
+          }
 
-                    if (chartId === "expenseBreakdown") {
-                      return (
-                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <ChartExpensesPie
-                              categoryControls={expensesPieControls}
-                              data={expensesPieData.slices}
-                              isLoading={isLoadingTransactions}
-                            />
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
+          if (chartId === "expenseBreakdown") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  <ChartExpensesPie
+                    categoryControls={expensesPieControls}
+                    data={expensesPieData.slices}
+                    isLoading={isLoadingTransactions}
+                  />
+                </div>
+              </SortableGridItem>
+            )
+          }
 
-                    if (chartId === "needsWantsBreakdown") {
-                      return (
-                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <ChartNeedsWantsPie
-                              categoryControls={needsWantsControls}
-                              data={needsWantsPieData.slices}
-                              isLoading={isLoadingTransactions}
-                            />
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
+          if (chartId === "needsWantsBreakdown") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  <ChartNeedsWantsPie
+                    categoryControls={needsWantsControls}
+                    data={needsWantsPieData.slices}
+                    isLoading={isLoadingTransactions}
+                  />
+                </div>
+              </SortableGridItem>
+            )
+          }
 
-                    if (chartId === "categoryBubbleMap") {
-                      return (
-                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <ChartCategoryBubble
-                              data={rawTransactions}
-                              isLoading={isLoadingTransactions}
-                            />
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
+          if (chartId === "categoryBubbleMap") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  <ChartCategoryBubble
+                    data={rawTransactions}
+                    isLoading={isLoadingTransactions}
+                  />
+                </div>
+              </SortableGridItem>
+            )
+          }
 
-                    if (chartId === "householdSpendMix") {
-                      return (
-                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <ChartPolarBar
-                              categoryControls={polarBarControls}
-                              data={polarBarData.data}
-                              keys={polarBarData.keys}
-                              isLoading={isLoadingTransactions}
-                            />
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
+          if (chartId === "householdSpendMix") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  <ChartPolarBar
+                    categoryControls={polarBarControls}
+                    data={polarBarData.data}
+                    keys={polarBarData.keys}
+                    isLoading={isLoadingTransactions}
+                  />
+                </div>
+              </SortableGridItem>
+            )
+          }
 
-                    if (chartId === "financialHealthScore") {
-                      return (
-                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <ChartRadar
-                            />
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
+          if (chartId === "financialHealthScore") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  <ChartRadar
+                    dateFilter={dateFilter}
+                  />
+                </div>
+              </SortableGridItem>
+            )
+          }
 
-                    if (chartId === "spendingActivityRings") {
-                      return (
-                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <Card className="h-full flex flex-col">
-                              <CardHeader className="relative flex flex-row items-start justify-between gap-2 flex-1 min-h-[420px] pb-6">
-                                <div className="space-y-1 z-10">
-                                  <div className="flex items-center gap-2">
-                                    <GridStackCardDragHandle />
-                                    <ChartFavoriteButton
-                                      chartId="spendingActivityRings"
-                                      chartTitle="Spending Activity Rings"
-                                      size="md"
-                                    />
-                                    <CardTitle className="mb-0">Spending Activity Rings</CardTitle>
-                                    <ChartInfoPopover
-                                      title="Spending Activity Rings"
-                                      description="Top spending categories from your Neon transactions"
-                                      details={[
-                                        "Each ring shows how much a category has consumed relative to its budget.",
-                                        "Budgets come from your saved limits or a default amount for the selected date filter.",
-                                      ]}
-                                    />
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2 z-10">
-                                  {activityData.length > 0 && (
-                                    <div className="flex flex-col gap-1 z-10 w-[140px]">
-                                      <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground text-right">
-                                        Limits
-                                      </span>
-                                      <div className="flex flex-col gap-1">
-                                        {activityData.map((item, idx) => {
-                                          const category: string =
-                                            (item as { category?: string }).category ??
-                                            (item.label ?? "Other")
-                                          const storedLimit = ringLimits[category]
-                                          const limit =
-                                            typeof storedLimit === "number" &&
-                                              storedLimit > 0
-                                              ? storedLimit
-                                              : getDefaultRingLimit(dateFilter)
-                                          const percent = (item.value * 100).toFixed(1)
-                                          const spent =
-                                            typeof (item as { spent?: number }).spent ===
-                                              "number"
-                                              ? (item as { spent?: number }).spent!
-                                              : null
-                                          return (
-                                            <Popover
-                                              key={`${category}-${idx}`}
-                                              open={ringCategoryPopoverIndex === idx}
-                                              onOpenChange={(open) => {
-                                                if (
-                                                  open &&
-                                                  allExpenseCategories &&
-                                                  allExpenseCategories.length
-                                                ) {
-                                                  const currentCategory =
-                                                    (category as string) ||
-                                                    allExpenseCategories[0]
-                                                  setRingCategoryPopoverIndex(idx)
-                                                  setRingCategoryPopoverValue(
-                                                    currentCategory
-                                                  )
-                                                  const currentLimitRaw =
-                                                    ringLimits[currentCategory]
-                                                  const currentLimit =
-                                                    typeof currentLimitRaw === "number" &&
-                                                      currentLimitRaw > 0
-                                                      ? currentLimitRaw
-                                                      : getDefaultRingLimit(dateFilter)
-                                                  setRingLimitPopoverValue(
-                                                    currentLimit.toString()
-                                                  )
-                                                } else {
-                                                  setRingCategoryPopoverIndex(null)
-                                                  setRingCategoryPopoverValue(null)
-                                                  setRingLimitPopoverValue("")
-                                                }
-                                              }}
-                                            >
-                                              <PopoverTrigger asChild>
-                                                <div className="flex items-center gap-1 bg-background/80 backdrop-blur-sm p-1 rounded border cursor-pointer">
-                                                  <button
-                                                    type="button"
-                                                    className="px-1.5 py-0.5 text-[0.7rem] rounded w-full flex items-center justify-between gap-1.5 hover:bg-muted/80 bg-muted"
-                                                    title={
-                                                      limit
-                                                        ? `${category} – ${percent}% of limit (${item.value} of 1.0)`
-                                                        : `${category} – no limit set`
-                                                    }
-                                                  >
-                                                    <span className="max-w-[170px] whitespace-normal">
-                                                      {category}
-                                                    </span>
-                                                    <span className="text-[0.65rem] font-medium text-muted-foreground flex-shrink-0 text-right">
-                                                      {spent !== null
-                                                        ? `$${spent.toFixed(2)}`
-                                                        : `${percent}%`}
-                                                    </span>
-                                                  </button>
-                                                </div>
-                                              </PopoverTrigger>
-                                              <PopoverContent className="w-56" align="end">
-                                                <RingPopoverContent
-                                                  initialCategory={ringCategoryPopoverValue ?? (category as string)}
-                                                  initialLimit={
-                                                    ringLimitPopoverValue
-                                                      ? parseFloat(ringLimitPopoverValue) || limit
-                                                      : limit
+          if (chartId === "spendingActivityRings") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  <Card className="h-full flex flex-col">
+                    <CardHeader className="relative flex flex-row items-start justify-between gap-2 flex-1 min-h-[420px] pb-6">
+                      <div className="space-y-1 z-10">
+                        <div className="flex items-center gap-2">
+                          <GridStackCardDragHandle />
+                          <ChartFavoriteButton
+                            chartId="spendingActivityRings"
+                            chartTitle="Spending Activity Rings"
+                            size="md"
+                          />
+                          <CardTitle className="mb-0">Spending Activity Rings</CardTitle>
+                          <ChartInfoPopover
+                            title="Spending Activity Rings"
+                            description="Top spending categories from your Neon transactions"
+                            details={[
+                              "Each ring shows how much a category has consumed relative to its budget.",
+                              "Budgets come from your saved limits or a default amount for the selected date filter.",
+                            ]}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 z-10">
+                        {activityData.length > 0 && (
+                          <div className="flex flex-col gap-1 z-10 w-[140px]">
+                            <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground text-right">
+                              Limits
+                            </span>
+                            <div className="flex flex-col gap-1">
+                              {activityData.map((item, idx) => {
+                                const category: string =
+                                  (item as { category?: string }).category ??
+                                  (item.label ?? "Other")
+                                const storedLimit = ringLimits[category]
+                                const limit =
+                                  typeof storedLimit === "number" &&
+                                    storedLimit > 0
+                                    ? storedLimit
+                                    : getDefaultRingLimit(dateFilter)
+                                const percent = (item.value * 100).toFixed(1)
+                                const spent =
+                                  typeof (item as { spent?: number }).spent ===
+                                    "number"
+                                    ? (item as { spent?: number }).spent!
+                                    : null
+                                return (
+                                  <Popover
+                                    key={`${category}-${idx}`}
+                                    open={ringCategoryPopoverIndex === idx}
+                                    onOpenChange={(open) => {
+                                      if (
+                                        open &&
+                                        allExpenseCategories &&
+                                        allExpenseCategories.length
+                                      ) {
+                                        const currentCategory =
+                                          (category as string) ||
+                                          allExpenseCategories[0]
+                                        setRingCategoryPopoverIndex(idx)
+                                        setRingCategoryPopoverValue(
+                                          currentCategory
+                                        )
+                                        const currentLimitRaw =
+                                          ringLimits[currentCategory]
+                                        const currentLimit =
+                                          typeof currentLimitRaw === "number" &&
+                                            currentLimitRaw > 0
+                                            ? currentLimitRaw
+                                            : getDefaultRingLimit(dateFilter)
+                                        setRingLimitPopoverValue(
+                                          currentLimit.toString()
+                                        )
+                                      } else {
+                                        setRingCategoryPopoverIndex(null)
+                                        setRingCategoryPopoverValue(null)
+                                        setRingLimitPopoverValue("")
+                                      }
+                                    }}
+                                  >
+                                    <PopoverTrigger asChild>
+                                      <div className="flex items-center gap-1 bg-background/80 backdrop-blur-sm p-1 rounded border cursor-pointer">
+                                        <button
+                                          type="button"
+                                          className="px-1.5 py-0.5 text-[0.7rem] rounded w-full flex items-center justify-between gap-1.5 hover:bg-muted/80 bg-muted"
+                                          title={
+                                            limit
+                                              ? `${category} – ${percent}% of limit (${item.value} of 1.0)`
+                                              : `${category} – no limit set`
+                                          }
+                                        >
+                                          <span className="max-w-[170px] whitespace-normal">
+                                            {category}
+                                          </span>
+                                          <span className="text-[0.65rem] font-medium text-muted-foreground flex-shrink-0 text-right">
+                                            {spent !== null
+                                              ? `$${spent.toFixed(2)}`
+                                              : `${percent}%`}
+                                          </span>
+                                        </button>
+                                      </div>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-56" align="end">
+                                      <RingPopoverContent
+                                        initialCategory={ringCategoryPopoverValue ?? (category as string)}
+                                        initialLimit={
+                                          ringLimitPopoverValue
+                                            ? parseFloat(ringLimitPopoverValue) || limit
+                                            : limit
+                                        }
+                                        allCategories={allExpenseCategories}
+                                        onSave={async (savedCategory, savedLimit) => {
+                                          if (!savedCategory) {
+                                            setRingCategoryPopoverIndex(null)
+                                            setRingCategoryPopoverValue(null)
+                                            setRingLimitPopoverValue("")
+                                            return
+                                          }
+                                          setRingCategories((prev) => {
+                                            const base =
+                                              prev && prev.length
+                                                ? [...prev]
+                                                : activityData.map(
+                                                  (ringItem) => {
+                                                    const ringCategory =
+                                                      (ringItem as {
+                                                        category?: string
+                                                      }).category ??
+                                                      ringItem.label
+                                                    return ringCategory as string
                                                   }
-                                                  allCategories={allExpenseCategories}
-                                                  onSave={async (savedCategory, savedLimit) => {
-                                                    if (!savedCategory) {
-                                                      setRingCategoryPopoverIndex(null)
-                                                      setRingCategoryPopoverValue(null)
-                                                      setRingLimitPopoverValue("")
-                                                      return
-                                                    }
-                                                    setRingCategories((prev) => {
-                                                      const base =
-                                                        prev && prev.length
-                                                          ? [...prev]
-                                                          : activityData.map(
-                                                            (ringItem) => {
-                                                              const ringCategory =
-                                                                (ringItem as {
-                                                                  category?: string
-                                                                }).category ??
-                                                                ringItem.label
-                                                              return ringCategory as string
-                                                            }
-                                                          )
-                                                      base[ringCategoryPopoverIndex ?? idx] = savedCategory
-                                                      return base
-                                                    })
-                                                    if (savedLimit) {
-                                                      const limitValue = parseFloat(savedLimit)
-                                                      if (!isNaN(limitValue) && limitValue >= 0) {
-                                                        setRingLimits((prev) => {
-                                                          const updated = {
-                                                            ...prev,
-                                                            [savedCategory]: limitValue,
-                                                          }
-                                                          if (typeof window !== "undefined") {
-                                                            localStorage.setItem(
-                                                              "activityRingLimits",
-                                                              JSON.stringify(updated)
-                                                            )
-                                                          }
-                                                          return updated
-                                                        })
+                                                )
+                                            base[ringCategoryPopoverIndex ?? idx] = savedCategory
+                                            return base
+                                          })
+                                          if (savedLimit) {
+                                            const limitValue = parseFloat(savedLimit)
+                                            if (!isNaN(limitValue) && limitValue >= 0) {
+                                              setRingLimits((prev) => {
+                                                const updated = {
+                                                  ...prev,
+                                                  [savedCategory]: limitValue,
+                                                }
+                                                if (typeof window !== "undefined") {
+                                                  localStorage.setItem(
+                                                    "activityRingLimits",
+                                                    JSON.stringify(updated)
+                                                  )
+                                                }
+                                                return updated
+                                              })
 
-                                                        // Save to database with current filter
-                                                        try {
-                                                          const res = await fetch("/api/budgets", {
-                                                            method: "POST",
-                                                            headers: {
-                                                              "Content-Type": "application/json",
-                                                            },
-                                                            body: JSON.stringify({
-                                                              categoryName: savedCategory,
-                                                              budget: limitValue,
-                                                              filter: dateFilter, // Include current filter
-                                                            }),
-                                                          })
+                                              // Save to database with current filter
+                                              try {
+                                                const res = await fetch("/api/budgets", {
+                                                  method: "POST",
+                                                  headers: {
+                                                    "Content-Type": "application/json",
+                                                  },
+                                                  body: JSON.stringify({
+                                                    categoryName: savedCategory,
+                                                    budget: limitValue,
+                                                    filter: dateFilter, // Include current filter
+                                                  }),
+                                                })
 
-                                                          if (res.ok) {
-                                                            // Track budget limit set
-                                                            safeCapture('budget_limit_set', {
-                                                              category_name: savedCategory,
-                                                              budget_amount: limitValue,
-                                                              date_filter: dateFilter || 'all_time',
-                                                            })
-                                                          } else {
-                                                            console.error(
-                                                              "[Analytics] Failed to save ring limit:",
-                                                              await res.text()
-                                                            )
-                                                          }
-                                                        } catch (error) {
-                                                          console.error("[Analytics] Error saving ring limit:", error)
-                                                        }
-                                                      }
-                                                    }
-                                                    setRingCategoryPopoverIndex(null)
-                                                    setRingCategoryPopoverValue(null)
-                                                    setRingLimitPopoverValue("")
-                                                  }}
-                                                  onCancel={() => {
-                                                    setRingCategoryPopoverIndex(null)
-                                                    setRingCategoryPopoverValue(null)
-                                                    setRingLimitPopoverValue("")
-                                                  }}
-                                                />
-                                              </PopoverContent>
-                                            </Popover>
-                                          )
-                                        })}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                                {/* Chart overlay layer */}
-                                <div className="absolute inset-0 flex flex-col items-center justify-between pt-20 pb-4">
-                                  {activityData.length === 0 ? (
-                                    <ChartLoadingState
-                                      emptyTitle="No spending categories yet"
-                                      emptyDescription="Import your bank statements to see activity rings"
+                                                if (res.ok) {
+                                                  // Track budget limit set
+                                                  safeCapture('budget_limit_set', {
+                                                    category_name: savedCategory,
+                                                    budget_amount: limitValue,
+                                                    date_filter: dateFilter || 'all_time',
+                                                  })
+                                                } else {
+                                                  console.error(
+                                                    "[Analytics] Failed to save ring limit:",
+                                                    await res.text()
+                                                  )
+                                                }
+                                              } catch (error) {
+                                                console.error("[Analytics] Error saving ring limit:", error)
+                                              }
+                                            }
+                                          }
+                                          setRingCategoryPopoverIndex(null)
+                                          setRingCategoryPopoverValue(null)
+                                          setRingLimitPopoverValue("")
+                                        }}
+                                        onCancel={() => {
+                                          setRingCategoryPopoverIndex(null)
+                                          setRingCategoryPopoverValue(null)
+                                          setRingLimitPopoverValue("")
+                                        }}
+                                      />
+                                    </PopoverContent>
+                                  </Popover>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {/* Chart overlay layer */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-between pt-20 pb-4">
+                        {activityData.length === 0 ? (
+                          <ChartLoadingState
+                            emptyTitle="No spending categories yet"
+                            emptyDescription="Import your bank statements to see activity rings"
+                          />
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-center w-full flex-1 min-h-0">
+                              <SpendingActivityRings
+                                key={`rings-${dateFilter}-${ringCategories?.join(',') || ''}`}
+                                data={activityData}
+                                config={activityConfig}
+                                theme={activityTheme as "light" | "dark"}
+                                ringLimits={ringLimits}
+                                getDefaultLimit={() => getDefaultRingLimit(dateFilter)}
+                              />
+                            </div>
+                            <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
+                              {activityData.map((item) => {
+                                const category =
+                                  (item as { category?: string }).category ??
+                                  item.label
+                                return (
+                                  <div
+                                    key={category}
+                                    className="flex items-center gap-1.5"
+                                  >
+                                    <span
+                                      className="h-2 w-2 rounded-full"
+                                      style={{
+                                        backgroundColor:
+                                          (item as { color?: string }).color ||
+                                          "#a1a1aa",
+                                      }}
                                     />
-                                  ) : (
-                                    <>
-                                      <div className="flex items-center justify-center w-full flex-1 min-h-0">
-                                        <SpendingActivityRings
-                                          key={`rings-${dateFilter}-${ringCategories?.join(',') || ''}`}
-                                          data={activityData}
-                                          config={activityConfig}
-                                          theme={activityTheme as "light" | "dark"}
-                                          ringLimits={ringLimits}
-                                          getDefaultLimit={() => getDefaultRingLimit(dateFilter)}
-                                        />
-                                      </div>
-                                      <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
-                                        {activityData.map((item) => {
-                                          const category =
-                                            (item as { category?: string }).category ??
-                                            item.label
-                                          return (
-                                            <div
-                                              key={category}
-                                              className="flex items-center gap-1.5"
-                                            >
-                                              <span
-                                                className="h-2 w-2 rounded-full"
-                                                style={{
-                                                  backgroundColor:
-                                                    (item as { color?: string }).color ||
-                                                    "#a1a1aa",
-                                                }}
-                                              />
-                                              <span className="font-medium">
-                                                {category}
-                                              </span>
-                                              <span className="text-[0.7rem]">
-                                                {(item.value * 100).toFixed(0)}%
-                                              </span>
-                                            </div>
-                                          )
-                                        })}
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                              </CardHeader>
-                            </Card>
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
+                                    <span className="font-medium">
+                                      {category}
+                                    </span>
+                                    <span className="text-[0.7rem]">
+                                      {(item.value * 100).toFixed(0)}%
+                                    </span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </CardHeader>
+                  </Card>
+                </div>
+              </SortableGridItem>
+            )
+          }
 
-                    if (chartId === "spendingStreamgraph") {
-                      return (
-                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <ChartSpendingStreamgraph
-                              categoryControls={streamgraphControls}
-                              data={spendingStreamData.data}
-                              keys={spendingStreamData.keys}
-                              isLoading={isLoadingTransactions}
-                            />
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
+          if (chartId === "spendingStreamgraph") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  <ChartSpendingStreamgraph
+                    categoryControls={streamgraphControls}
+                    data={spendingStreamData.data}
+                    keys={spendingStreamData.keys}
+                    isLoading={isLoadingTransactions}
+                  />
+                </div>
+              </SortableGridItem>
+            )
+          }
 
-                    if (chartId === "singleMonthCategorySpending") {
-                      return (
-                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <ChartSingleMonthCategorySpending
-                              dateFilter={dateFilter}
-                              monthlyCategoriesData={bundleData?.monthlyCategories}
-                              bundleLoading={bundleLoading}
-                            />
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
+          if (chartId === "singleMonthCategorySpending") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  <ChartSingleMonthCategorySpending
+                    dateFilter={dateFilter}
+                    monthlyCategoriesData={bundleData?.monthlyCategories}
+                    bundleLoading={bundleLoading}
+                  />
+                </div>
+              </SortableGridItem>
+            )
+          }
 
-                    if (chartId === "dayOfWeekCategory") {
-                      return (
-                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <ChartDayOfWeekCategory
-                              dateFilter={dateFilter}
-                              bundleData={bundleData?.dayOfWeekCategory}
-                              bundleLoading={bundleLoading}
-                            />
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
+          if (chartId === "dayOfWeekCategory") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  <ChartDayOfWeekCategory
+                    dateFilter={dateFilter}
+                    bundleData={bundleData?.dayOfWeekCategory}
+                    bundleLoading={bundleLoading}
+                  />
+                </div>
+              </SortableGridItem>
+            )
+          }
 
 
 
-                    if (chartId === "dailyTransactionActivity") {
-                      return (
-                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <ChartTransactionCalendar />
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
+          if (chartId === "dailyTransactionActivity") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  <ChartTransactionCalendar dateFilter={dateFilter} />
+                </div>
+              </SortableGridItem>
+            )
+          }
 
-                    if (chartId === "cashFlowSankey") {
-                      return (
-                        <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <ChartSankey
-                              data={sankeyData.graph}
-                              categoryControls={sankeyControls}
-                              isLoading={isLoadingTransactions}
-                            />
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
+          if (chartId === "cashFlowSankey") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  <ChartSankey
+                    data={sankeyData.graph}
+                    categoryControls={sankeyControls}
+                    isLoading={isLoadingTransactions}
+                  />
+                </div>
+              </SortableGridItem>
+            )
+          }
 
-                    return null
-                  })}
-                </SortableGridProvider>
-              </div>
+          return null
+        })}
+      </SortableGridProvider>
+    </div>
   )
 }

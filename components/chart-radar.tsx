@@ -50,9 +50,10 @@ type FinancialHealthResponse = {
 
 interface ChartRadarProps {
   categoryControls?: ChartInfoPopoverCategoryControls
+  dateFilter?: string | null
 }
 
-export function ChartRadar({ categoryControls }: ChartRadarProps) {
+export function ChartRadar({ categoryControls, dateFilter }: ChartRadarProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -152,7 +153,7 @@ export function ChartRadar({ categoryControls }: ChartRadarProps) {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [dateFilter])
 
   const sanitizedData = useMemo(() => {
     if (!chartData || chartData.length === 0) return []

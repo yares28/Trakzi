@@ -9,12 +9,12 @@ import {
     normalizeDateFilterValue,
 } from "@/lib/date-filter"
 import { useState, useEffect } from "react"
+import { useDateFilter } from "@/components/date-filter-provider"
 
 // Dashboard header - has date filter, no palette/theme switcher
 export function DashboardHeader() {
-    const [dateFilter, setDateFilter] = useState<DateFilterType | null>(null)
+    const { filter: dateFilter, setFilter: setDateFilter } = useDateFilter()
     const [availableYears, setAvailableYears] = useState<number[]>([])
-    const [isReady, setIsReady] = useState(false)
 
     // Fetch available years on mount
     useEffect(() => {
@@ -32,32 +32,7 @@ export function DashboardHeader() {
         fetchYears()
     }, [])
 
-    // Store filter in localStorage and notify via custom event
-    useEffect(() => {
-        if (!isReady) return
-        const nextFilter = normalizeDateFilterValue(dateFilter)
-        localStorage.setItem("dateFilter", nextFilter)
-        window.dispatchEvent(new CustomEvent("dateFilterChanged", { detail: nextFilter }))
-    }, [dateFilter, isReady])
 
-    // Load filter from localStorage on mount
-    useEffect(() => {
-        const savedFilter = localStorage.getItem("dateFilter")
-        if (isValidDateFilterValue(savedFilter)) {
-            setDateFilter(savedFilter)
-            localStorage.setItem("dateFilter", savedFilter)
-            setIsReady(true)
-            return
-        }
-
-        const defaultTimePeriod = localStorage.getItem("default-time-period")
-        const resolvedFilter = isValidDateFilterValue(defaultTimePeriod)
-            ? defaultTimePeriod
-            : FALLBACK_DATE_FILTER
-        setDateFilter(resolvedFilter)
-        localStorage.setItem("dateFilter", resolvedFilter)
-        setIsReady(true)
-    }, [])
 
     return (
         <header className="flex h-[var(--header-height)] shrink-0 items-center gap-2 border-b transition-[width,height] duration-300 ease-in-out will-change-[width,height] group-has-data-[collapsible=icon]/sidebar-wrapper:h-[var(--header-height)] ml-[5px]">
