@@ -147,9 +147,8 @@ export function StatementReviewDialog({
 
     // Group transactions by description
     const groupedTransactions = useMemo(() => {
-        if (!isGroupsView) return []
-        return groupItemsByDescription(visibleRows)
-    }, [isGroupsView, visibleRows])
+        return groupItemsByDescription(parsedRows)
+    }, [parsedRows])
 
     const groupsWithMetadata = useMemo(() => {
         return groupedTransactions.map(group => ({
