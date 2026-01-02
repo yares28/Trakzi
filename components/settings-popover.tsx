@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useDateFilter } from "@/components/date-filter-provider"
 
 type ColorScheme = "sunset" | "dark" | "colored" | "gold" | "aqua" | "dull" | "dry" | "greens" | "chrome" | "beach" | "jolly" | "gothic"
 
@@ -110,15 +111,15 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
     }
   }, [currency, mounted])
 
+  const { filter: dateFilter, setFilter: setDateFilter } = useDateFilter()
+
   // Handle default time period changes
   const handleTimePeriodChange = (value: string) => {
-    setDefaultTimePeriod(value)
+    setDefaultTimePeriod(value as any)
     localStorage.setItem(DEFAULT_TIME_PERIOD_KEY, value)
 
-    // Apply this as the current filter immediately
-    localStorage.setItem("dateFilter", value)
-    // Dispatch event to notify all pages of the filter change
-    window.dispatchEvent(new CustomEvent("dateFilterChanged", { detail: value }))
+    // Apply this as the current filter immediately using the global provider
+    setDateFilter(value as any)
   }
 
   const toggleTheme = () => {

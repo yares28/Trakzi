@@ -39,6 +39,7 @@ interface ChartTransactionCalendarProps {
     day: string
     value: number
   }>
+  dateFilter?: string | null
 }
 
 const getRangeForFilter = (filter: string) => {
@@ -101,7 +102,7 @@ const formatFilterLabel = (filter: string | null) => {
   }
 }
 
-export function ChartTransactionCalendar({ data: propData }: ChartTransactionCalendarProps) {
+export function ChartTransactionCalendar({ data: propData, dateFilter: propDateFilter }: ChartTransactionCalendarProps) {
   const currentYear = new Date().getFullYear()
   const [selectedYear, setSelectedYear] = useState(currentYear.toString())
   const { resolvedTheme } = useTheme()
@@ -129,7 +130,9 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
   const { colorScheme, getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const [mounted, setMounted] = useState(false)
-  const [dateFilter, setDateFilter] = useState<string | null>(null)
+  // Determine the date filter to use: prop > local state
+  const [localDateFilter, setLocalDateFilter] = useState<string | null>(null)
+  const dateFilter = propDateFilter !== undefined ? propDateFilter : localDateFilter
   const effectiveDateFilter = normalizeDateFilterValue(
     dateFilter,
     FALLBACK_DATE_FILTER,
@@ -155,24 +158,25 @@ export function ChartTransactionCalendar({ data: propData }: ChartTransactionCal
   const isYTD = selectedYear === "YTD"
   const isGlobalFilterActive = Boolean(dateFilter)
 
-  // Listen for global date filter changes
+  // Listen for global date filter changes (only if prop is not provided)
   useEffect(() => {
     if (propData) return
+    if (propDateFilter !== undefined) return // Don't use event listener if prop is explicitly passed
     if (typeof window === "undefined") return
 
     const saved = window.localStorage.getItem("dateFilter")
-    setDateFilter(normalizeDateFilterValue(saved, FALLBACK_DATE_FILTER))
+    setLocalDateFilter(normalizeDateFilterValue(saved, FALLBACK_DATE_FILTER))
 
     const handleFilterChange = (event: Event) => {
       const detail = (event as CustomEvent).detail
-      setDateFilter(normalizeDateFilterValue(detail, FALLBACK_DATE_FILTER))
+      setLocalDateFilter(normalizeDateFilterValue(detail, FALLBACK_DATE_FILTER))
     }
 
     window.addEventListener("dateFilterChanged", handleFilterChange as EventListener)
     return () => {
       window.removeEventListener("dateFilterChanged", handleFilterChange as EventListener)
     }
-  }, [propData])
+  }, [propData, propDateFilter])
 
   // Listen for transactions updated event (triggered after file uploads)
   useEffect(() => {

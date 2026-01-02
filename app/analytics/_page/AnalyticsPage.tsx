@@ -50,25 +50,6 @@ export default function AnalyticsPage() {
 
   const statementImport = useStatementImport({ refreshAnalyticsData: fetchAllAnalyticsData })
 
-  // Listen for date filter changes from SiteHeader
-  useEffect(() => {
-    const handleFilterChange = (event: CustomEvent) => {
-      setDateFilter(event.detail)
-    }
-
-    window.addEventListener("dateFilterChanged", handleFilterChange as EventListener)
-
-    // Load initial filter from localStorage
-    const savedFilter = localStorage.getItem("dateFilter")
-    if (savedFilter) {
-      setDateFilter(savedFilter)
-    }
-
-    return () => {
-      window.removeEventListener("dateFilterChanged", handleFilterChange as EventListener)
-    }
-  }, [setDateFilter])
-
   return (
     <AnalyticsLayout
       isDragging={statementImport.isDragging}

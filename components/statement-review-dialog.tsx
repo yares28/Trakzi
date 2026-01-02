@@ -190,12 +190,12 @@ export function StatementReviewDialog({
                         <X className="h-4 w-4" />
                     </Button>
                 </div>
-                
+
                 <div className="flex-1 overflow-y-auto space-y-2">
                     {visibleRows.map((row) => {
                         const reviewInfo = reviewMeta.map.get(row.id)
                         const amount = typeof row.amount === 'number' ? row.amount : parseFloat(String(row.amount)) || 0
-                        
+
                         return (
                             <div key={row.id} className="border rounded-lg p-3 bg-amber-50/60 dark:bg-amber-950/30">
                                 <div className="flex items-start justify-between gap-2 mb-2">
@@ -240,11 +240,11 @@ export function StatementReviewDialog({
                         <X className="h-4 w-4" />
                     </Button>
                 </div>
-                
+
                 <div className="flex-1 overflow-y-auto space-y-2">
                     {groupsWithMetadata.map((group) => {
                         const isExpanded = expandedGroupKeys.has(group.key)
-                        
+
                         return (
                             <div key={group.key} className="border rounded-lg p-3 space-y-2">
                                 <div
@@ -276,7 +276,7 @@ export function StatementReviewDialog({
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <CategorySelect
                                     value={group.commonCategory}
                                     onValueChange={(category) => {
@@ -284,17 +284,20 @@ export function StatementReviewDialog({
                                         group.items.forEach(item => onCategoryChange(item.id, category))
                                     }}
                                 />
-                                
+
                                 {isExpanded && (
-                                    <div className="pl-6 space-y-1 border-l-2 border-border/40 ml-2 mt-2">
+                                    <div className="pl-6 space-y-2 border-l-2 border-border/40 ml-2 mt-2">
                                         {group.items.map((item) => {
                                             const amount = typeof item.amount === 'number' ? item.amount : parseFloat(String(item.amount)) || 0
                                             return (
-                                                <div key={item.id} className="text-xs text-muted-foreground flex justify-between gap-2">
-                                                    <span>{item.date}</span>
-                                                    <span className={cn(amount < 0 ? "text-red-500" : "text-green-500")}>
-                                                        {formatCurrency(amount)}
-                                                    </span>
+                                                <div key={item.id} className="text-xs space-y-0.5">
+                                                    <div className="flex justify-between gap-2">
+                                                        <span className="text-muted-foreground">{item.date}</span>
+                                                        <span className={cn(amount < 0 ? "text-red-500" : "text-green-500", "font-medium")}>
+                                                            {formatCurrency(amount)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-muted-foreground/80 truncate text-xs">{item.description}</div>
                                                 </div>
                                             )
                                         })}
@@ -312,7 +315,7 @@ export function StatementReviewDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className={cn(
                 "border bg-background max-h-[90vh] overflow-hidden",
-                sidePanelView 
+                sidePanelView
                     ? "sm:max-w-[98vw] md:max-w-[1600px] lg:max-w-[1800px]"
                     : "sm:max-w-[95vw] md:max-w-[1400px]"
             )}>
@@ -454,123 +457,123 @@ export function StatementReviewDialog({
                             "flex-1 overflow-y-auto overflow-x-hidden pt-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40",
                             !!sidePanelView ? "w-[70%]" : "w-full"
                         )}>
-                        <Table className="w-full">
-                            <TableHeader className="bg-muted sticky top-0 z-10">
-                                <TableRow>
-                                    <TableHead className="w-12">
-                                        <Checkbox
-                                            checked={parsedRows.length > 0 && selectedParsedRowIds.size === parsedRows.length}
-                                            onCheckedChange={(checked) => onSelectAll(checked === true)}
-                                            aria-label="Select all transactions"
-                                        />
-                                    </TableHead>
-                                    <TableHead>Date</TableHead>
-                                    <TableHead>Description</TableHead>
-                                    <TableHead className="text-right">Amount</TableHead>
-                                    <TableHead>Category</TableHead>
-                                    <TableHead className="w-12"></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {parsedRows.length === 0 ? (
+                            <Table className="w-full">
+                                <TableHeader className="bg-muted sticky top-0 z-10">
                                     <TableRow>
-                                        <TableCell colSpan={6} className="h-24 text-center">
-                                            No transactions found
-                                        </TableCell>
+                                        <TableHead className="w-12">
+                                            <Checkbox
+                                                checked={parsedRows.length > 0 && selectedParsedRowIds.size === parsedRows.length}
+                                                onCheckedChange={(checked) => onSelectAll(checked === true)}
+                                                aria-label="Select all transactions"
+                                            />
+                                        </TableHead>
+                                        <TableHead>Date</TableHead>
+                                        <TableHead>Description</TableHead>
+                                        <TableHead className="text-right">Amount</TableHead>
+                                        <TableHead>Category</TableHead>
+                                        <TableHead className="w-12"></TableHead>
                                     </TableRow>
-                                ) : (
-                                    visibleRows.map((row) => {
-                                        const amount = typeof row.amount === "number" ? row.amount : parseFloat(String(row.amount)) || 0
-                                        const category = row.category || "Other"
-                                        const isSelected = selectedParsedRowIds.has(row.id)
-                                        const reviewInfo = reviewMeta.map.get(row.id)
-                                        const needsReview = Boolean(reviewInfo?.needsReview)
-                                        const reviewHint = reviewInfo?.reasons.join(" | ")
+                                </TableHeader>
+                                <TableBody>
+                                    {parsedRows.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="h-24 text-center">
+                                                No transactions found
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        visibleRows.map((row) => {
+                                            const amount = typeof row.amount === "number" ? row.amount : parseFloat(String(row.amount)) || 0
+                                            const category = row.category || "Other"
+                                            const isSelected = selectedParsedRowIds.has(row.id)
+                                            const reviewInfo = reviewMeta.map.get(row.id)
+                                            const needsReview = Boolean(reviewInfo?.needsReview)
+                                            const reviewHint = reviewInfo?.reasons.join(" | ")
 
-                                        return (
-                                            <TableRow
-                                                key={row.id}
-                                                className={cn(
-                                                    needsReview
-                                                        ? "bg-amber-50/60 dark:bg-amber-950/30"
-                                                        : null
-                                                )}
-                                            >
-                                                <TableCell className="w-12">
-                                                    <Checkbox
-                                                        checked={isSelected}
-                                                        onCheckedChange={(checked) => onToggleRow(row.id, checked === true)}
-                                                        aria-label="Select transaction"
-                                                    />
-                                                </TableCell>
-                                                <TableCell className="w-28 flex-shrink-0">
-                                                    <div className="flex flex-col">
-                                                        <span>{row.date}</span>
-                                                        {row.time ? (
-                                                            <span className="text-xs text-muted-foreground">{row.time}</span>
-                                                        ) : null}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="min-w-[350px] max-w-[600px]">
-                                                    <div className="flex items-center gap-2 min-w-0">
-                                                        <div className="truncate" title={row.description}>
-                                                            {row.description}
+                                            return (
+                                                <TableRow
+                                                    key={row.id}
+                                                    className={cn(
+                                                        needsReview
+                                                            ? "bg-amber-50/60 dark:bg-amber-950/30"
+                                                            : null
+                                                    )}
+                                                >
+                                                    <TableCell className="w-12">
+                                                        <Checkbox
+                                                            checked={isSelected}
+                                                            onCheckedChange={(checked) => onToggleRow(row.id, checked === true)}
+                                                            aria-label="Select transaction"
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell className="w-28 flex-shrink-0">
+                                                        <div className="flex flex-col">
+                                                            <span>{row.date}</span>
+                                                            {row.time ? (
+                                                                <span className="text-xs text-muted-foreground">{row.time}</span>
+                                                            ) : null}
                                                         </div>
-                                                        {needsReview ? (
-                                                            <Badge
-                                                                variant="outline"
-                                                                title={reviewHint || "Review suggested"}
-                                                                className="border-amber-300 text-amber-700 bg-amber-50/80"
-                                                            >
-                                                                Review
-                                                            </Badge>
-                                                        ) : null}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className={cn("text-right font-medium w-24 flex-shrink-0", amount < 0 ? "text-red-500" : "text-green-500")}>
-                                                    {formatCurrency(amount)}
-                                                </TableCell>
-                                                <TableCell className="w-[140px] flex-shrink-0">
-                                                    <CategorySelect
-                                                        value={category}
-                                                        onValueChange={(value) => onCategoryChange(row.id, value)}
-                                                    />
-                                                </TableCell>
-                                                <TableCell className="w-12 flex-shrink-0">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                        onClick={() => onDeleteRow(row.id)}
-                                                        disabled={isImporting}
-                                                    >
-                                                        <IconTrash className="h-4 w-4" />
-                                                        <span className="sr-only">Delete</span>
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        )
-                                    })
-                                )}
-                            </TableBody>
-                        </Table>
-                        {sidePanelView === 'review' && visibleRows.length === 0 ? (
-                            <div className="text-sm text-muted-foreground mt-4">
-                                No transactions are flagged for review.
-                            </div>
-                        ) : null}
-                    </div>
-                    
-                    {/* Right: Side panel */}
-                    {sidePanelView && (
-                        <div className="w-[30%] border-l border-border/60 pl-4 flex flex-col overflow-hidden">
-                            {sidePanelView === 'review' ? (
-                                <ReviewQueuePanel />
-                            ) : (
-                                <GroupsPanel />
-                            )}
+                                                    </TableCell>
+                                                    <TableCell className="min-w-[350px] max-w-[600px]">
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <div className="truncate" title={row.description}>
+                                                                {row.description}
+                                                            </div>
+                                                            {needsReview ? (
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    title={reviewHint || "Review suggested"}
+                                                                    className="border-amber-300 text-amber-700 bg-amber-50/80"
+                                                                >
+                                                                    Review
+                                                                </Badge>
+                                                            ) : null}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className={cn("text-right font-medium w-24 flex-shrink-0", amount < 0 ? "text-red-500" : "text-green-500")}>
+                                                        {formatCurrency(amount)}
+                                                    </TableCell>
+                                                    <TableCell className="w-[140px] flex-shrink-0">
+                                                        <CategorySelect
+                                                            value={category}
+                                                            onValueChange={(value) => onCategoryChange(row.id, value)}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell className="w-12 flex-shrink-0">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                            onClick={() => onDeleteRow(row.id)}
+                                                            disabled={isImporting}
+                                                        >
+                                                            <IconTrash className="h-4 w-4" />
+                                                            <span className="sr-only">Delete</span>
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            )
+                                        })
+                                    )}
+                                </TableBody>
+                            </Table>
+                            {sidePanelView === 'review' && visibleRows.length === 0 ? (
+                                <div className="text-sm text-muted-foreground mt-4">
+                                    No transactions are flagged for review.
+                                </div>
+                            ) : null}
                         </div>
-                    )}
+
+                        {/* Right: Side panel */}
+                        {sidePanelView && (
+                            <div className="w-[30%] border-l border-border/60 pl-4 flex flex-col overflow-hidden">
+                                {sidePanelView === 'review' ? (
+                                    <ReviewQueuePanel />
+                                ) : (
+                                    <GroupsPanel />
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     <div className="pt-4 border-t border-border/60 flex items-center justify-between">
