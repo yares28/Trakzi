@@ -339,7 +339,7 @@ export function ChartsGrid({
                   <ChartNeedsWantsPie
                     categoryControls={needsWantsControls}
                     data={needsWantsPieData.slices}
-                    isLoading={isLoadingTransactions}
+                    isLoading={bundleLoading}
                   />
                 </div>
               </SortableGridItem>
@@ -717,7 +717,7 @@ export function ChartsGrid({
                   <ChartSankey
                     data={sankeyData.graph}
                     categoryControls={sankeyControls}
-                    isLoading={isLoadingTransactions}
+                    isLoading={bundleLoading}
                   />
                 </div>
               </SortableGridItem>
