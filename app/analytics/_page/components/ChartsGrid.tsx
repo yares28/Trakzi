@@ -686,10 +686,18 @@ export function ChartsGrid({
 
 
           if (chartId === "dailyTransactionActivity") {
+            // Transform dailySpending from bundle format to calendar format
+            const calendarData = bundleData?.dailySpending?.map((d: { date: string; expense: number }) => ({
+              day: d.date,
+              value: Math.abs(d.expense)
+            }))
             return (
               <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                 <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                  <ChartTransactionCalendar dateFilter={dateFilter} />
+                  <ChartTransactionCalendar
+                    data={calendarData}
+                    dateFilter={dateFilter}
+                  />
                 </div>
               </SortableGridItem>
             )
