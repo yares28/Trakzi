@@ -88,15 +88,17 @@ export function useHomeData({ dateFilter }: UseHomeDataOptions) {
   }, [fetchTransactions, setRefreshCallback])
 
   useEffect(() => {
-    const handleTransactionAdded = () => {
+    const handleTransactionUpdate = () => {
       setTimeout(() => {
         fetchTransactions(true)
       }, 300)
     }
 
-    window.addEventListener("transactionAdded", handleTransactionAdded, true)
+    window.addEventListener("transactionAdded", handleTransactionUpdate, true)
+    window.addEventListener("transactionsUpdated", handleTransactionUpdate, true)
     return () => {
-      window.removeEventListener("transactionAdded", handleTransactionAdded, true)
+      window.removeEventListener("transactionAdded", handleTransactionUpdate, true)
+      window.removeEventListener("transactionsUpdated", handleTransactionUpdate, true)
     }
   }, [fetchTransactions])
 
