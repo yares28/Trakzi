@@ -48,7 +48,7 @@ The application uses **Next.js 16 App Router**, **Clerk** for authentication, **
 
 ### Core Financial Features
 - ✅ CSV bank statement import with automatic parsing
-- ✅ AI-powered transaction categorization using OpenRouter/Claude
+- ✅ AI-powered transaction categorization using OpenRouter/Gemini
 - ✅ Manual transaction entry
 - ✅ 22 default expense/income categories
 - ✅ Category-based budgeting
@@ -106,7 +106,6 @@ flowchart TB
     end
 
     subgraph AI["AI Services (OpenRouter)"]
-        Claude["Claude 3.5 Sonnet"]
         Gemini["Gemini 2.0 Flash"]
     end
 
@@ -161,7 +160,7 @@ flowchart TB
 | **Database** | Neon PostgreSQL (serverless) |
 | **ORM** | Direct SQL via @neondatabase/serverless |
 | **Payments** | Stripe |
-| **AI/LLM** | OpenRouter (Claude, Gemini) |
+| **AI/LLM** | OpenRouter (Gemini) |
 | **Analytics** | PostHog, Vercel Analytics |
 | **Animations** | Framer Motion |
 | **Testing** | Jest, Playwright |
@@ -1348,7 +1347,7 @@ sequenceDiagram
 
 3. **AI Categorization**
    - Build prompt with categories and guidance
-   - Call OpenRouter (Claude 3.5 Sonnet)
+   - Call OpenRouter (Gemini 2.0 Flash)
    - Parse JSON response
 
 4. **Fallback Rules**
@@ -1482,7 +1481,7 @@ ON DELETE SET NULL -- Some foreign keys
 | `SITE_NAME` | `lib/env.ts` | Site name | "Trakzi" |
 | `BYPASS_CLERK_AUTH` | `middleware.ts` | Dev auth bypass | false |
 | `DEMO_USER_ID` | `app/api/transactions/route.ts` | Demo mode | - |
-| `OPENROUTER_CATEGORY_MODEL` | `lib/ai/categoriseTransactions.ts` | AI model | claude-3.5-sonnet |
+| `OPENROUTER_CATEGORY_MODEL` | `lib/ai/categoriseTransactions.ts` | AI model | gemini-2.0-flash |
 | `NEXT_PUBLIC_POSTHOG_KEY` | `instrumentation-client.ts` | Analytics | - |
 | `NEXT_PUBLIC_POSTHOG_HOST` | `instrumentation-client.ts` | Analytics host | - |
 

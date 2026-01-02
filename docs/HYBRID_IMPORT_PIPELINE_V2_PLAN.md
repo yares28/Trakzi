@@ -762,7 +762,7 @@ describe("ruleSimplifyDescription", () => {
 import { SimplifyResult } from "@/lib/types/transactions";
 import { getSiteUrl, getSiteName } from "@/lib/env";
 
-const AI_SIMPLIFY_MODEL = process.env.OPENROUTER_SIMPLIFY_MODEL || "anthropic/claude-3.5-sonnet";
+const AI_SIMPLIFY_MODEL = process.env.OPENROUTER_SIMPLIFY_MODEL || "google/gemini-2.0-flash-001";
 const SIMPLIFY_BATCH_SIZE = 100;
 
 type SimplifyBatchItem = {
