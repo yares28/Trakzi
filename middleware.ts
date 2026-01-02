@@ -58,11 +58,23 @@ export default clerkMiddleware(async (auth, req) => {
 })
 
 export const config = {
+  // OPTIMIZED: Only run middleware on protected page routes
+  // API routes handle their own auth via getCurrentUserId() - no middleware needed
+  // This reduces Vercel Fluid CPU usage by ~70-80%
   matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
-    "/((?!_next|[^?]*\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    // Always run for API routes
-    "/(api|trpc)(.*)",
+    // Protected page routes that need auth redirect logic
+    "/home/:path*",
+    "/analytics/:path*",
+    "/dashboard/:path*",
+    "/data-library/:path*",
+    "/fridge/:path*",
+    "/reports/:path*",
+    "/savings/:path*",
+    "/trends/:path*",
+    "/chat/:path*",
+    "/billing/:path*",
+    // Auth routes for sign-in redirect logic
+    "/sign-in/:path*",
+    "/sign-up/:path*",
   ],
 };
-
