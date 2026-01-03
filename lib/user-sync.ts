@@ -126,7 +126,12 @@ export async function ensureUserExists(): Promise<string> {
             await neonQuery(`DELETE FROM transactions WHERE user_id = $1::text`, [oldId])
             await neonQuery(`DELETE FROM statements WHERE user_id = $1::text`, [oldId])
             await neonQuery(`DELETE FROM receipts WHERE user_id = $1::text`, [oldId])
-            await neonQuery(`DELETE FROM budgets WHERE user_id = $1::text`, [oldId])
+            try {
+                await neonQuery(`DELETE FROM budgets WHERE user_id = $1::text`, [oldId])
+            } catch (e) {
+                // budgets table may not exist yet - this is fine
+                console.log(`[User Sync] Skipping budgets cleanup (table may not exist)`)
+            }
             await neonQuery(`DELETE FROM users WHERE id = $1::text`, [oldId])
 
             console.log(`[User Sync] Deleted old account ${oldId}. Will create new account.`)
