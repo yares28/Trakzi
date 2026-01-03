@@ -170,9 +170,9 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Generic fallback - don't expose internal error details
+        // Generic fallback - expose internal error for debugging
         return NextResponse.json(
-            { error: 'Unable to start checkout. Please try again or contact support if the problem persists.' },
+            { error: `Unable to start checkout: ${errorMessage || String(error)}` },
             { status: 500 }
         );
     }
