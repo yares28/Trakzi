@@ -25,10 +25,10 @@ const pricingPlans = [
     price: "Free",
     description: "Try it out",
     features: [
-      "100 transactions",
-      "10 receipt scans/month",
+      "100 transactions (~ 4 months)",
+      "10 scans/month",
       "Basic charts",
-      "1 custom category",
+      "2 custom category",
     ],
     popular: false,
     cta: "Get Started",
@@ -40,11 +40,11 @@ const pricingPlans = [
     annualPrice: 19.99,
     description: "Perfect for getting started",
     features: [
-      "400 transactions (~1 year)",
-      "20 receipt scans/month",
+      "400 transactions (~ 1 year)",
+      "20 scans/month",
       "1 AI chat/day",
       "Advanced charts",
-      "5 custom categories",
+      "10 custom categories",
     ],
     popular: false,
     ctaMonthly: "Go Basic",
@@ -59,10 +59,11 @@ const pricingPlans = [
     description: "For serious trackers",
     features: [
       "3,000 transactions (~6 years)",
-      "50 receipt scans/month",
+      "50 scans/month",
       "5 AI chats/day",
+      "Everything in Basic",
       "AI insights & categorization",
-      "20 custom categories",
+      "40 custom categories",
     ],
     popular: true,
     ctaMonthly: "Go PRO",
@@ -77,11 +78,10 @@ const pricingPlans = [
     description: "For power users",
     features: [
       "15,000 transactions",
-      "100 receipt scans/month",
+      "100 scans/month",
       "20 AI chats/day",
       "Everything in PRO",
-      "50 custom categories",
-      "Priority support",
+      "100 custom categories",
     ],
     popular: false,
     ctaMonthly: "Go MAX",
@@ -295,7 +295,7 @@ export function PricingSection() {
         </motion.div>
 
         {/* Pricing Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
           {pricingPlans.map((plan, index) => (
             <motion.div
               key={plan.name}
@@ -304,7 +304,7 @@ export function PricingSection() {
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: index * 0.1 }}
               whileHover={{ y: -5 }}
-              className={`relative rounded-2xl p-8 backdrop-blur-sm border transition-all duration-300 ${plan.popular
+              className={`relative rounded-2xl p-8 backdrop-blur-sm border transition-all duration-300 flex flex-col h-full ${plan.popular
                 ? "bg-gradient-to-b from-[#e78a53]/10 to-transparent border-[#e78a53]/30 shadow-lg shadow-[#e78a53]/10"
                 : "bg-white/5 border-white/10 hover:border-white/20"
                 }`}
@@ -347,7 +347,7 @@ export function PricingSection() {
                 <p className="text-white/60 text-sm">{plan.description}</p>
               </div>
 
-              <ul className="space-y-4 mb-8">
+              <ul className="space-y-4 mb-8 flex-grow">
                 {plan.features.map((feature, featureIndex) => (
                   <li key={featureIndex} className="flex items-center gap-3">
                     <Check className="w-5 h-5 text-[#e78a53] flex-shrink-0" />
@@ -361,7 +361,7 @@ export function PricingSection() {
                 whileTap={{ scale: 0.98 }}
                 disabled={loadingPlan === plan.name}
                 onClick={() => handlePlanSelect(plan)}
-                className={`w-full py-3 px-6 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed ${plan.popular
+                className={`w-full py-3 px-6 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed mt-auto ${plan.popular
                   ? "bg-gradient-to-r from-[#e78a53] to-[#e78a53]/80 text-white shadow-lg shadow-[#e78a53]/25 hover:shadow-[#e78a53]/40"
                   : "bg-white/10 text-white border border-white/20 hover:bg-white/20"
                   }`}
