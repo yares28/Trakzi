@@ -271,8 +271,8 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
 
       {/* Actions */}
       <div className="flex gap-2">
-        <SubscriptionDialog>
-          <Button variant="outline" size="sm" className="flex-1" onClick={() => setOpen(false)}>
+        <SubscriptionDialog onOpenChange={(newOpen) => { if (newOpen) setOpen(false); }}>
+          <Button variant="outline" size="sm" className="flex-1">
             <CreditCard className="h-4 w-4 mr-2" />
             Subscription
           </Button>
