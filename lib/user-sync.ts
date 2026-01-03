@@ -110,15 +110,37 @@ export async function ensureUserExists(): Promise<string> {
 
     // If user exists, return their ID
     if (existingUsers.length > 0) {
+        const existingUser = existingUsers[0]
+
+        // Handle Case: User recreated account (same email, new Clerk ID)
+        // This happens if user deletes Clerk account but DB record remains
+        if (existingUser.id !== clerkUserId) {
+            console.log(`[User Sync] ID mismatch for ${email}. Migrating ${existingUser.id} to ${clerkUserId}`)
+
+            try {
+                // Migrate the user record to the new ID
+                // Note: This assumes foreign keys have ON UPDATE CASCADE or there are no blockers
+                await neonQuery(
+                    `UPDATE users SET id = $1::text WHERE id = $2::text`,
+                    [clerkUserId, existingUser.id]
+                )
+                // Use the new ID for subsequent updates
+                existingUser.id = clerkUserId
+            } catch (err: any) {
+                console.error('[User Sync] Failed to migrate user ID:', err)
+                throw new Error(`Account sync failed: Email ${email} is linked to a previous account. Please contact support to resolve this ID conflict.`)
+            }
+        }
+
         // Update user info if needed (email or name changed)
         const updateQuery = `
             UPDATE users 
             SET email = $1::text, name = $2::text
             WHERE id = $3::text
         `
-        await neonQuery(updateQuery, [email, name, existingUsers[0].id])
+        await neonQuery(updateQuery, [email, name, existingUser.id])
 
-        return existingUsers[0].id
+        return existingUser.id
     }
 
     // User doesn't exist, create them
