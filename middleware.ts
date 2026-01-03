@@ -32,6 +32,14 @@ const isProtectedRoute = createRouteMatcher([
 ])
 
 export default clerkMiddleware(async (auth, req) => {
+  const path = req.nextUrl.pathname
+
+  // FAST PATH: Skip auth() for API routes - they handle auth internally via getCurrentUserId()
+  // Middleware still runs to set up Clerk context, but we avoid the expensive auth() call
+  if (path.startsWith('/api/')) {
+    return NextResponse.next()
+  }
+
   // BYPASS: Skip all auth checks in development when enabled
   if (BYPASS_AUTH) {
     if (process.env.NODE_ENV === 'development') {
@@ -40,17 +48,18 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.next()
   }
 
+  // Only call auth() for page routes that need redirect logic
   const { userId } = await auth()
 
   // If user is signed in and trying to access sign-in/sign-up, redirect to home
-  if (userId && (req.nextUrl.pathname.startsWith('/sign-in') || req.nextUrl.pathname.startsWith('/sign-up'))) {
+  if (userId && (path.startsWith('/sign-in') || path.startsWith('/sign-up'))) {
     return NextResponse.redirect(new URL('/home', req.url))
   }
 
   // If user is not signed in and trying to access protected routes, redirect to sign-in
   if (!userId && isProtectedRoute(req)) {
     const signInUrl = new URL('/sign-in', req.url)
-    signInUrl.searchParams.set('redirect_url', req.nextUrl.pathname)
+    signInUrl.searchParams.set('redirect_url', path)
     return NextResponse.redirect(signInUrl)
   }
 
@@ -58,9 +67,8 @@ export default clerkMiddleware(async (auth, req) => {
 })
 
 export const config = {
-  // OPTIMIZED: Only run middleware on protected page routes
-  // API routes handle their own auth via getCurrentUserId() - no middleware needed
-  // This reduces Vercel Fluid CPU usage by ~70-80%
+  // Middleware must run on routes that need Clerk auth() to work
+  // Clerk's auth() returns null if middleware doesn't run on the route
   matcher: [
     // Protected page routes that need auth redirect logic
     "/home/:path*",
@@ -76,5 +84,7 @@ export const config = {
     // Auth routes for sign-in redirect logic
     "/sign-in/:path*",
     "/sign-up/:path*",
+    // API routes need middleware for auth() to work
+    "/api/:path*",
   ],
 };
