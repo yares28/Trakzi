@@ -32,6 +32,8 @@ export async function POST(request: NextRequest) {
         // Validate priceId against allowed prices (defense in depth)
         // Stripe will also validate, but this prevents unnecessary API calls
         const allowedPriceIds = [
+            STRIPE_PRICES.BASIC_MONTHLY,
+            STRIPE_PRICES.BASIC_ANNUAL,
             STRIPE_PRICES.PRO_MONTHLY,
             STRIPE_PRICES.PRO_ANNUAL,
             STRIPE_PRICES.MAX_MONTHLY,
@@ -67,7 +69,7 @@ export async function POST(request: NextRequest) {
         // CRITICAL FIX: Always create Stripe customer before checkout (t3dotgg recommendation)
         // This prevents "split brain" issues and race conditions
         let customerId: string | undefined;
-        
+
         if (existingSubscription?.stripeCustomerId) {
             // Reuse existing customer
             customerId = existingSubscription.stripeCustomerId;
