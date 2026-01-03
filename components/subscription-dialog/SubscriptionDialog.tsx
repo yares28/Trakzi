@@ -486,7 +486,7 @@ export function SubscriptionDialog({ children, open: openProp, onOpenChange }: {
                         {children}
                     </DialogTrigger>
                 )}
-                <DialogContent className="w-[calc(100vw-2rem)] max-w-5xl max-h-[85vh] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/40">
+                <DialogContent className="w-[calc(100vw-2rem)] max-w-lg max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/40">
                     <DialogHeader className="text-center">
                         <DialogTitle className="flex items-center justify-center gap-2">
                             <CreditCard className="h-5 w-5 text-primary" />
