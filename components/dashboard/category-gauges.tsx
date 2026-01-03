@@ -1,7 +1,6 @@
 "use client"
 
 import { Card, CardContent } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
 import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
 
@@ -9,12 +8,12 @@ interface CategoryGaugeProps {
     label: string
     used: number
     cap: number
-    color: string
+    color?: string
     className?: string
 }
 
-function CategoryGauge({ label, used, cap, color, className }: CategoryGaugeProps) {
-    const percentage = cap > 0 ? (used / cap) * 100 : 0
+function CategoryGauge({ label, used, cap, className }: CategoryGaugeProps) {
+    const percentage = cap > 0 ? Math.min(100, (used / cap) * 100) : 0
     const remaining = Math.max(0, cap - used)
 
     // Color based on usage
@@ -30,14 +29,12 @@ function CategoryGauge({ label, used, cap, color, className }: CategoryGaugeProp
                     {used} / {cap}
                 </span>
             </div>
-            <Progress
-                value={percentage}
-                className="h-2"
-                style={{
-                    // @ts-ignore
-                    '--progress-background': color
-                } as React.CSSProperties}
-            />
+            <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                <div
+                    className="h-full transition-all bg-primary"
+                    style={{ width: `${percentage}%` }}
+                />
+            </div>
             <p className="text-xs text-muted-foreground mt-1">
                 {remaining} remaining
             </p>
