@@ -218,11 +218,6 @@ const data = {
       icon: IconHome,
     },
     {
-      title: "Savings",
-      url: "/savings",
-      icon: IconSavings,
-    },
-    {
       title: "Analytics",
       url: "/analytics",
       icon: IconAnalytics,
@@ -233,14 +228,19 @@ const data = {
       icon: IconTrends,
     },
     {
-      title: "Chat",
-      url: "/chat",
-      icon: IconChat,
-    },
-    {
       title: "Fridge",
       url: "/fridge",
       icon: IconFridge,
+    },
+    {
+      title: "Savings",
+      url: "/savings",
+      icon: IconSavings,
+    },
+    {
+      title: "Chat",
+      url: "/chat",
+      icon: IconChat,
     },
   ],
   navClouds: [
