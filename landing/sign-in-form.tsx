@@ -47,16 +47,13 @@ export function SignInForm() {
   }
 
   const handleOAuthSignIn = async (strategy: "oauth_google") => {
-    if (!isLoaded || !signIn) return
+    if (!isLoaded) return
 
     try {
-      // Use authenticateWithRedirect for OAuth - this properly handles:
-      // 1. Existing users -> signs them in
-      // 2. New users -> automatically creates account (sign-up transfer)
       await signIn.authenticateWithRedirect({
         strategy,
-        redirectUrl: `${window.location.origin}/sso-callback`,
-        redirectUrlComplete: `${window.location.origin}/home`,
+        redirectUrl: "/sso-callback",
+        redirectUrlComplete: "/home",
       })
     } catch (err: any) {
       console.error("OAuth error:", err)
@@ -226,5 +223,3 @@ export function SignInForm() {
     </div>
   )
 }
-
-

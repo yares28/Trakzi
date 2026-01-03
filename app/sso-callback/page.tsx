@@ -14,35 +14,26 @@ export default function SSOCallback() {
     const handleCallback = async () => {
       try {
         // handleRedirectCallback processes the OAuth response
-        // With authenticateWithRedirect, Clerk handles sign-in/sign-up transfer automatically
         await handleRedirectCallback({
           afterSignInUrl: "/home",
           afterSignUpUrl: "/home",
         })
 
-        // After successful OAuth, trigger user sync to handle:
-        // - New users: create database record
-        // - Returning users with deleted Clerk accounts: cleanup old data, create fresh record
+        // After successful OAuth, trigger user sync
         setStatus("Setting up your account...")
         try {
-          await fetch("/api/debug/sync-user", { method: "POST" })
+          await fetch("/api/debug/sync-user")
         } catch (syncError) {
-          // Sync error is not critical - the first API call will handle it
           console.log("User sync during callback:", syncError)
         }
 
-        // Redirect should happen automatically via handleRedirectCallback
-        // But if we're still here after 2 seconds, manually redirect
-        setTimeout(() => {
-          router.push("/home")
-        }, 2000)
+        // Redirect should happen automatically, but fallback after 2 seconds
+        setTimeout(() => router.push("/home"), 2000)
 
       } catch (err: any) {
         console.error("SSO callback error:", err)
         const errorMessage = err?.errors?.[0]?.message || "Authentication failed"
         setError(errorMessage)
-
-        // Redirect to sign-in after a delay
         setTimeout(() => router.push("/sign-in"), 3000)
       }
     }
