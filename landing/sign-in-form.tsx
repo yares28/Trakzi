@@ -47,34 +47,20 @@ export function SignInForm() {
   }
 
   const handleOAuthSignIn = async (strategy: "oauth_google") => {
-    if (!isLoaded) return
+    if (!isLoaded || !signIn) return
 
     try {
-      // Use signIn.create to initiate OAuth and get the redirect URL
-      const result = await signIn.create({
+      // Use authenticateWithRedirect for OAuth - this properly handles:
+      // 1. Existing users -> signs them in
+      // 2. New users -> automatically creates account (sign-up transfer)
+      await signIn.authenticateWithRedirect({
         strategy,
         redirectUrl: `${window.location.origin}/sso-callback`,
-        actionCompleteRedirectUrl: `${window.location.origin}/home`,
+        redirectUrlComplete: `${window.location.origin}/home`,
       })
-
-      const { firstFactorVerification } = result
-      const redirectUrl = firstFactorVerification?.externalVerificationRedirectURL
-
-      if (redirectUrl) {
-        // For Google, append prompt=select_account to force account picker
-        if (strategy === "oauth_google") {
-          const url = new URL(redirectUrl.href)
-          url.searchParams.set("prompt", "select_account")
-          window.location.href = url.toString()
-        } else {
-          window.location.href = redirectUrl.href
-        }
-      } else {
-        setError("Failed to get OAuth redirect URL")
-      }
-    } catch (err) {
+    } catch (err: any) {
       console.error("OAuth error:", err)
-      setError("Failed to sign in with OAuth")
+      setError(err?.errors?.[0]?.message || "Failed to sign in with Google")
     }
   }
 
