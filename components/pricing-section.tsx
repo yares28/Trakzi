@@ -15,21 +15,20 @@ import Image from "next/image"
 const planLogos = {
   Starter: "/Trakzi/subs/freeiconB.png",
   Basic: "/Trakzi/subs/TrakziBasiciconB.png",
-  PRO: "/Trakzi/subs/TrakziProLogoB.png",
-  MAX: "/Trakzi/subs/TrakziMaxLogoB.png",
+  PRO: "/Trakzi/subs/TrakziProIconB.png",
+  MAX: "/Trakzi/subs/TrakziMaxIconB.png",
 } as const
 
 const pricingPlans = [
   {
     name: "Starter",
     price: "Free",
-    description: "Perfect for getting started",
+    description: "Try it out",
     features: [
-      "400 transactions    (~ 1 year worth of stats)",
-      "Unlimited receipt and file scans",
-      "5 AI chat messages/day",
-      "Advanced analytics charts",
-      "10 custom categories",
+      "100 transactions",
+      "10 receipt scans/month",
+      "Basic charts",
+      "1 custom category",
     ],
     popular: false,
     cta: "Get Started",
@@ -39,12 +38,13 @@ const pricingPlans = [
     name: "Basic",
     monthlyPrice: 1.99,
     annualPrice: 19.99,
-    description: "Support development & get more features",
+    description: "Perfect for getting started",
     features: [
-      "Everything in Starter",
-      "More AI chat messages/day",
-      "AI-powered categorization",
-      "Priority support",
+      "400 transactions (~1 year)",
+      "20 receipt scans/month",
+      "1 AI chat/day",
+      "Advanced charts",
+      "5 custom categories",
     ],
     popular: false,
     ctaMonthly: "Go Basic",
@@ -56,14 +56,13 @@ const pricingPlans = [
     name: "PRO",
     monthlyPrice: 4.99,
     annualPrice: 49.99,
-    description: "For anyone who wants to track their finances seriously",
+    description: "For serious trackers",
     features: [
-      "3,000 transactions    (~ 6 years worth of stats)",
-      "Unlimited receipt scans",
-      "Unlimited AI chat messages",
-      "AI-powered insights & summaries",
-      "Unlimited custom categories",
-      "Export to CSV",
+      "3,000 transactions (~6 years)",
+      "50 receipt scans/month",
+      "5 AI chats/day",
+      "AI insights & categorization",
+      "20 custom categories",
     ],
     popular: true,
     ctaMonthly: "Go PRO",
@@ -75,14 +74,14 @@ const pricingPlans = [
     name: "MAX",
     monthlyPrice: 19.99,
     annualPrice: 199.99,
-    description: "For power users who want everything",
+    description: "For power users",
     features: [
-      "Unlimited transactions",
+      "15,000 transactions",
+      "100 receipt scans/month",
+      "20 AI chats/day",
       "Everything in PRO",
+      "50 custom categories",
       "Priority support",
-      "Early access to new features",
-      "Create sub accounts to separate your data (coming soon)",
-      "Custom API with your data (coming soon)",
     ],
     popular: false,
     ctaMonthly: "Go MAX",
@@ -296,7 +295,7 @@ export function PricingSection() {
         </motion.div>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
           {pricingPlans.map((plan, index) => (
             <motion.div
               key={plan.name}
@@ -325,7 +324,7 @@ export function PricingSection() {
                     <Image
                       src={planLogos[plan.name as keyof typeof planLogos]}
                       alt={`${plan.name} plan`}
-                      width={plan.name === "Starter" ? 80 : 120}
+                      width={80}
                       height={40}
                       className="object-contain"
                     />

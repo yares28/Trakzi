@@ -97,16 +97,16 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     // FREE PLAN
     // =========================================================================
     free: {
-        maxTotalTransactions: 400,
-        maxReceiptScansPerMonth: 20,
+        maxTotalTransactions: 100,
+        maxReceiptScansPerMonth: 10,
         receiptOcrEnabled: true,
-        aiChatEnabled: true,
-        aiChatMessagesPerDay: 1,
+        aiChatEnabled: false,
+        aiChatMessagesPerDay: 0,
         aiInsightsEnabled: false,
         aiCategorizationEnabled: false,
-        advancedChartsEnabled: true,
-        customTransactionCategoriesLimit: 5,
-        customFridgeCategoriesLimit: 5,
+        advancedChartsEnabled: false,
+        customTransactionCategoriesLimit: 1,
+        customFridgeCategoriesLimit: 1,
     },
 
     // =========================================================================
