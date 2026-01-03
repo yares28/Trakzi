@@ -1,28 +1,47 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useClerk } from "@clerk/nextjs"
 import { useRouter } from "next/navigation"
 
 export default function SSOCallback() {
   const { handleRedirectCallback } = useClerk()
   const router = useRouter()
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const handleCallback = async () => {
       try {
+        // handleRedirectCallback processes the OAuth response
+        // With authenticateWithRedirect, Clerk handles sign-in/sign-up transfer automatically
         await handleRedirectCallback({
           afterSignInUrl: "/home",
           afterSignUpUrl: "/home",
         })
-      } catch (err) {
+      } catch (err: any) {
         console.error("SSO callback error:", err)
-        router.push("/sign-in")
+        const errorMessage = err?.errors?.[0]?.message || "Authentication failed"
+        setError(errorMessage)
+
+        // Redirect to sign-in after a delay
+        setTimeout(() => router.push("/sign-in"), 3000)
       }
     }
 
     handleCallback()
   }, [handleRedirectCallback, router])
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center max-w-md px-4">
+          <div className="text-red-400 mb-4 text-lg">{error}</div>
+          <p className="text-zinc-400 mb-4">Please try again or use a different sign-in method.</p>
+          <p className="text-zinc-500 text-sm">Redirecting to sign in...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center">
@@ -33,33 +52,3 @@ export default function SSOCallback() {
     </div>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
