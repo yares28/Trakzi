@@ -152,7 +152,7 @@ function PlanCard({
     const info = PLAN_INFO[plan];
     const Icon = info.icon;
 
-    const planOrder: PlanType[] = ["free", "pro", "max"];
+    const planOrder: PlanType[] = ["free", "basic", "pro", "max"];
     const currentIndex = planOrder.indexOf(currentUserPlan);
     const thisIndex = planOrder.indexOf(plan);
     const isUpgrade = thisIndex > currentIndex;
@@ -750,7 +750,7 @@ export function SubscriptionCard() {
                 </CardHeader>
 
                 <CardContent className="relative">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {orderedPlans.map((plan) => (
                             <PlanCard
                                 key={plan}
