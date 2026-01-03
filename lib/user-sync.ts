@@ -119,22 +119,39 @@ export async function ensureUserExists(): Promise<string> {
             console.log(`[User Sync] ID mismatch for ${email}. Deleting old account ${existingUser.id} to create fresh`)
 
             // Delete all dependent records first, then the user
+            // Wrap each in try-catch to handle tables that may not exist or have issues
             const oldId = existingUser.id
-            await neonQuery(`DELETE FROM subscriptions WHERE user_id = $1::text`, [oldId])
-            await neonQuery(`DELETE FROM categories WHERE user_id = $1::text`, [oldId])
-            await neonQuery(`DELETE FROM receipt_categories WHERE user_id = $1::text`, [oldId])
-            await neonQuery(`DELETE FROM transactions WHERE user_id = $1::text`, [oldId])
-            await neonQuery(`DELETE FROM statements WHERE user_id = $1::text`, [oldId])
-            await neonQuery(`DELETE FROM receipts WHERE user_id = $1::text`, [oldId])
-            try {
-                await neonQuery(`DELETE FROM budgets WHERE user_id = $1::text`, [oldId])
-            } catch (e) {
-                // budgets table may not exist yet - this is fine
-                console.log(`[User Sync] Skipping budgets cleanup (table may not exist)`)
-            }
-            await neonQuery(`DELETE FROM users WHERE id = $1::text`, [oldId])
+            const tablesToClean = [
+                'subscriptions',
+                'categories',
+                'receipt_categories',
+                'transactions',
+                'statements',
+                'receipts',
+                'budgets',
+            ]
 
-            console.log(`[User Sync] Deleted old account ${oldId}. Will create new account.`)
+            for (const table of tablesToClean) {
+                try {
+                    await neonQuery(`DELETE FROM ${table} WHERE user_id = $1::text`, [oldId])
+                    console.log(`[User Sync] Cleaned ${table} for old user ${oldId}`)
+                } catch (e: any) {
+                    // Table may not exist or have different schema - continue cleanup
+                    console.log(`[User Sync] Skipping ${table} cleanup: ${e.message?.slice(0, 50) || 'unknown error'}`)
+                }
+            }
+
+            // Finally delete the user record
+            try {
+                await neonQuery(`DELETE FROM users WHERE id = $1::text`, [oldId])
+                console.log(`[User Sync] Deleted old user record ${oldId}`)
+            } catch (e: any) {
+                console.error(`[User Sync] Failed to delete old user ${oldId}: ${e.message}`)
+                // If we can't delete the old user, we can't proceed with creating a new one
+                throw new Error(`Failed to clean up old account. Please contact support.`)
+            }
+
+            console.log(`[User Sync] Successfully cleaned up old account ${oldId}. Creating new account.`)
             // Fall through to create new user below
         } else {
             // Same ID, just update info
