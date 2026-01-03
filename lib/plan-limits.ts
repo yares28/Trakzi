@@ -71,14 +71,6 @@ export interface PlanLimits {
     advancedChartsEnabled: boolean;
 
     // -------------------------------------------------------------------------
-    // DATA EXPORT
-    // Ability to export data as CSV/PDF
-    // Used when: User clicks export buttons
-    // Recommendation: Free disabled, Pro/Max enabled (good upsell feature)
-    // -------------------------------------------------------------------------
-    exportEnabled: boolean;
-
-    // -------------------------------------------------------------------------
     // CUSTOM TRANSACTION CATEGORIES
     // Extra categories user can create beyond the 21 default ones
     // For bank transactions (Groceries, Shopping, etc.)
@@ -93,15 +85,6 @@ export interface PlanLimits {
     // Recommendation: Free 5-10, Pro 30-50, Max unlimited
     // -------------------------------------------------------------------------
     customFridgeCategoriesLimit: number;
-
-    // -------------------------------------------------------------------------
-    // DATA RETENTION
-    // How many months of historical data to keep
-    // Older data is archived/deleted after this period
-    // Recommendation: Free 6-12, Pro 24-36, Max unlimited
-    // Note: Currently not enforced - for future use
-    // -------------------------------------------------------------------------
-    dataRetentionMonths: number;
 }
 
 // ============================================================================
@@ -114,54 +97,64 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     // FREE PLAN
     // =========================================================================
     free: {
-        maxTotalTransactions: 400,       // Total transactions ever stored
-        maxReceiptScansPerMonth: Infinity,
+        maxTotalTransactions: 400,
+        maxReceiptScansPerMonth: 20,
         receiptOcrEnabled: true,
         aiChatEnabled: true,
-        aiChatMessagesPerDay: 5,
+        aiChatMessagesPerDay: 1,
         aiInsightsEnabled: false,
-        aiCategorizationEnabled: true,
+        aiCategorizationEnabled: false,
         advancedChartsEnabled: true,
-        exportEnabled: false,
-        customTransactionCategoriesLimit: 10,
-        customFridgeCategoriesLimit: 10,
-        dataRetentionMonths: Infinity,
+        customTransactionCategoriesLimit: 5,
+        customFridgeCategoriesLimit: 5,
+    },
+
+    // =========================================================================
+    // BASIC PLAN
+    // =========================================================================
+    basic: {
+        maxTotalTransactions: 400,       // User will customize
+        maxReceiptScansPerMonth: 20,
+        receiptOcrEnabled: true,
+        aiChatEnabled: true,
+        aiChatMessagesPerDay: 1,
+        aiInsightsEnabled: false,
+        aiCategorizationEnabled: false,
+        advancedChartsEnabled: true,
+        customTransactionCategoriesLimit: 5,
+        customFridgeCategoriesLimit: 5,
     },
 
     // =========================================================================
     // PRO PLAN
     // =========================================================================
     pro: {
-        maxTotalTransactions: 3000,      // Total transactions ever stored
-        maxReceiptScansPerMonth: Infinity,
+        maxTotalTransactions: 3000,
+        maxReceiptScansPerMonth: 50,
         receiptOcrEnabled: true,
         aiChatEnabled: true,
-        aiChatMessagesPerDay: Infinity,
+        aiChatMessagesPerDay: 5,
         aiInsightsEnabled: true,
         aiCategorizationEnabled: true,
         advancedChartsEnabled: true,
-        exportEnabled: true,
-        customTransactionCategoriesLimit: Infinity,
-        customFridgeCategoriesLimit: Infinity,
-        dataRetentionMonths: Infinity,
+        customTransactionCategoriesLimit: 20,
+        customFridgeCategoriesLimit: 20,
     },
 
     // =========================================================================
     // MAX PLAN
     // =========================================================================
     max: {
-        maxTotalTransactions: 15000,     // High limit for Max plan
-        maxReceiptScansPerMonth: Infinity,
+        maxTotalTransactions: 15000,
+        maxReceiptScansPerMonth: 100,
         receiptOcrEnabled: true,
         aiChatEnabled: true,
-        aiChatMessagesPerDay: Infinity,
+        aiChatMessagesPerDay: 20,
         aiInsightsEnabled: true,
         aiCategorizationEnabled: true,
         advancedChartsEnabled: true,
-        exportEnabled: true,
-        customTransactionCategoriesLimit: Infinity,
-        customFridgeCategoriesLimit: Infinity,
-        dataRetentionMonths: Infinity,
+        customTransactionCategoriesLimit: 50,
+        customFridgeCategoriesLimit: 50,
     },
 };
 
@@ -184,6 +177,7 @@ export function isFeatureEnabled(plan: PlanType, feature: keyof PlanLimits): boo
 export function getPlanDisplayName(plan: PlanType): string {
     switch (plan) {
         case 'free': return 'Free';
+        case 'basic': return 'Basic';
         case 'pro': return 'Pro';
         case 'max': return 'Max';
         default: return 'Free';
@@ -191,7 +185,7 @@ export function getPlanDisplayName(plan: PlanType): string {
 }
 
 export function needsUpgrade(currentPlan: PlanType, requiredPlan: PlanType): boolean {
-    const planOrder: PlanType[] = ['free', 'pro', 'max'];
+    const planOrder: PlanType[] = ['free', 'basic', 'pro', 'max'];
     return planOrder.indexOf(currentPlan) < planOrder.indexOf(requiredPlan);
 }
 
@@ -203,9 +197,10 @@ export function getUpgradePlans(currentPlan: PlanType): PlanType[] {
     const upgrades: PlanType[] = [];
 
     if (currentPlan === 'free') {
+        upgrades.push('basic', 'pro', 'max');
+    } else if (currentPlan === 'basic') {
         upgrades.push('pro', 'max');
     } else if (currentPlan === 'pro') {
-        // Only suggest max if it has higher cap
         if (PLAN_LIMITS.max.maxTotalTransactions > currentCap) {
             upgrades.push('max');
         }

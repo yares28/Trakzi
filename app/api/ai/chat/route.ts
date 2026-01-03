@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth";
 import { neonQuery } from "@/lib/neonClient";
 import { getSiteUrl, getSiteName } from "@/lib/env";
-import { checkAiChatLimit } from "@/lib/feature-access";
+import { checkAiChatLimit, recordAiChatMessage } from "@/lib/feature-access";
 import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limiter";
 import { sanitizeForAI } from "@/lib/security/input-sanitizer";
 
@@ -332,39 +332,38 @@ export const POST = async (req: NextRequest) => {
             });
         }
 
-        const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-        const SITE_URL = getSiteUrl();
-        const SITE_NAME = getSiteName();
+        const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-        if (!OPENROUTER_API_KEY) {
+        if (!GEMINI_API_KEY) {
             return NextResponse.json(
                 { error: "AI service not configured" },
                 { status: 500 }
             );
         }
 
-        // Make streaming request to OpenRouter with Olmo 3.1 32B Think
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        // Make streaming request to Gemini
+        const geminiMessages = apiMessages.map(m => ({
+            role: m.role === "assistant" ? "model" : "user",
+            parts: [{ text: m.content }]
+        }));
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`, {
             method: "POST",
             headers: {
-                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-                "HTTP-Referer": SITE_URL,
-                "X-Title": SITE_NAME,
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                model: "allenai/olmo-3.1-32b-think:free",
-                messages: apiMessages,
-                stream: true,
-                max_tokens: 2000,
-                temperature: 0.7,
-                reasoning: { enabled: true }  // Enable thinking/reasoning
+                contents: geminiMessages,
+                generationConfig: {
+                    maxOutputTokens: 2000,
+                    temperature: 0.7
+                }
             })
         });
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error("[Chat API] OpenRouter error:", response.status, errorText.substring(0, 200));
+            console.error("[Chat API] Gemini error:", response.status, errorText.substring(0, 200));
             return NextResponse.json(
                 { error: "Failed to generate response" },
                 { status: 500 }
@@ -396,14 +395,13 @@ export const POST = async (req: NextRequest) => {
                         for (const line of lines) {
                             if (line.startsWith("data: ")) {
                                 const data = line.slice(6);
-                                if (data === "[DONE]") {
-                                    controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+                                if (data === "[DONE]" || data.trim() === "") {
                                     continue;
                                 }
 
                                 try {
                                     const parsed = JSON.parse(data);
-                                    const content = parsed.choices?.[0]?.delta?.content;
+                                    const content = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
                                     if (content) {
                                         controller.enqueue(
                                             encoder.encode(`data: ${JSON.stringify({ content })}\n\n`)
@@ -418,6 +416,12 @@ export const POST = async (req: NextRequest) => {
                 } catch (error) {
                     console.error("[Chat API] Stream error:", error);
                 } finally {
+                    // Record successful message for daily limit tracking
+                    try {
+                        await recordAiChatMessage(userId);
+                    } catch (recordErr) {
+                        console.error("[Chat API] Failed to record chat message:", recordErr);
+                    }
                     controller.close();
                 }
             }

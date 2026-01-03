@@ -243,12 +243,10 @@ async function repairReceiptJsonWithAi(params: {
   fileName: string
   allowedCategories: string[]
 }): Promise<ExtractedReceipt> {
-  const apiKey = process.env.OPENROUTER_API_KEY
-  const siteUrl = getSiteUrl()
-  const siteName = getSiteName()
+  const apiKey = process.env.GEMINI_API_KEY
 
   if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY is not set")
+    throw new Error("GEMINI_API_KEY is not set")
   }
 
   // DEBUG: Remove "Other" to force AI to choose specific categories
@@ -313,40 +311,31 @@ async function repairReceiptJsonWithAi(params: {
     params.rawText,
   ].join("\n")
 
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "HTTP-Referer": siteUrl,
-      "X-Title": siteName,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: RECEIPT_MODEL,
-      temperature: 0,
-      max_tokens: 1200,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
+      contents: [
+        { role: "user", parts: [{ text: prompt }] }
       ],
-      response_format: { type: "json_object" },
-      provider: { sort: "throughput" },
-      reasoning: { enabled: true },
+      generationConfig: {
+        temperature: 0,
+        maxOutputTokens: 1200,
+        responseMimeType: "application/json"
+      }
     }),
   })
 
   if (!response.ok) {
     const errorText = await response.text()
-    throw new Error(`OpenRouter error ${response.status}: ${errorText.substring(0, 500)}`)
+    throw new Error(`Gemini error ${response.status}: ${errorText.substring(0, 500)}`)
   }
 
   const payload = await response.json()
   const rawText =
-    payload?.choices?.[0]?.message?.content ||
-    payload?.choices?.[0]?.delta?.content ||
-    ""
+    payload?.candidates?.[0]?.content?.parts?.[0]?.text || ""
 
   if (typeof rawText !== "string" || rawText.trim().length === 0) {
     throw new Error("AI repair response was empty")
@@ -365,12 +354,10 @@ async function extractReceiptWithAi(params: {
   fileName: string
   allowedCategories: string[]
 }): Promise<{ extracted: ExtractedReceipt; rawText: string }> {
-  const apiKey = process.env.OPENROUTER_API_KEY
-  const siteUrl = getSiteUrl()
-  const siteName = getSiteName()
+  const apiKey = process.env.GEMINI_API_KEY
 
   if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY is not set")
+    throw new Error("GEMINI_API_KEY is not set")
   }
 
   // DEBUG: Remove "Other" to force AI to choose specific categories
@@ -432,43 +419,45 @@ async function extractReceiptWithAi(params: {
     `Receipt file name: ${params.fileName}`,
   ].join("\n")
 
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  // Extract base64 data from data URL
+  const base64Match = params.base64DataUrl.match(/^data:([^;]+);base64,(.+)$/)
+  if (!base64Match) {
+    throw new Error("Invalid base64 data URL format")
+  }
+  const mimeType = base64Match[1]
+  const base64Data = base64Match[2]
+
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "HTTP-Referer": siteUrl,
-      "X-Title": siteName,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: RECEIPT_MODEL,
-      temperature: 0,
-      max_tokens: 1200,
-      messages: [
+      contents: [
         {
           role: "user",
-          content: [
-            { type: "text", text: prompt },
-            { type: "image_url", image_url: { url: params.base64DataUrl } },
-          ],
-        },
+          parts: [
+            { text: prompt },
+            { inlineData: { mimeType, data: base64Data } }
+          ]
+        }
       ],
-      response_format: { type: "json_object" },
-      provider: { sort: "throughput" },
-      reasoning: { enabled: true },
+      generationConfig: {
+        temperature: 0,
+        maxOutputTokens: 1200,
+        responseMimeType: "application/json"
+      }
     }),
   })
 
   if (!response.ok) {
     const errorText = await response.text()
-    throw new Error(`OpenRouter error ${response.status}: ${errorText.substring(0, 500)}`)
+    throw new Error(`Gemini error ${response.status}: ${errorText.substring(0, 500)}`)
   }
 
   const payload = await response.json()
   const rawText =
-    payload?.choices?.[0]?.message?.content ||
-    payload?.choices?.[0]?.delta?.content ||
-    ""
+    payload?.candidates?.[0]?.content?.parts?.[0]?.text || ""
 
   if (typeof rawText !== "string" || rawText.trim().length === 0) {
     throw new Error("AI response was empty")
@@ -498,12 +487,10 @@ async function extractReceiptFromPdfText(params: {
   fileName: string
   allowedCategories: string[]
 }): Promise<{ extracted: ExtractedReceipt; rawText: string }> {
-  const apiKey = process.env.OPENROUTER_API_KEY
-  const siteUrl = getSiteUrl()
-  const siteName = getSiteName()
+  const apiKey = process.env.GEMINI_API_KEY
 
   if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY is not set")
+    throw new Error("GEMINI_API_KEY is not set")
   }
 
   // DEBUG: Remove "Other" to force AI to choose specific categories
@@ -568,40 +555,31 @@ async function extractReceiptFromPdfText(params: {
     params.pdfText,
   ].join("\n")
 
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "HTTP-Referer": siteUrl,
-      "X-Title": siteName,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: RECEIPT_MODEL,
-      temperature: 0,
-      max_tokens: 1200,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
+      contents: [
+        { role: "user", parts: [{ text: prompt }] }
       ],
-      response_format: { type: "json_object" },
-      provider: { sort: "throughput" },
-      reasoning: { enabled: true },
+      generationConfig: {
+        temperature: 0,
+        maxOutputTokens: 1200,
+        responseMimeType: "application/json"
+      }
     }),
   })
 
   if (!response.ok) {
     const errorText = await response.text()
-    throw new Error(`OpenRouter error ${response.status}: ${errorText.substring(0, 500)}`)
+    throw new Error(`Gemini error ${response.status}: ${errorText.substring(0, 500)}`)
   }
 
   const payload = await response.json()
   const rawText =
-    payload?.choices?.[0]?.message?.content ||
-    payload?.choices?.[0]?.delta?.content ||
-    ""
+    payload?.candidates?.[0]?.content?.parts?.[0]?.text || ""
 
   if (typeof rawText !== "string" || rawText.trim().length === 0) {
     throw new Error("AI response was empty")
@@ -856,10 +834,10 @@ export const POST = async (req: NextRequest) => {
         const detectedLanguage = languageOverride
           ? null
           : detectLanguageFromSamples(
-              rawItems
-                .map((item) => (typeof item?.description === "string" ? item.description : ""))
-                .filter((value) => value.trim().length > 0)
-            )
+            rawItems
+              .map((item) => (typeof item?.description === "string" ? item.description : ""))
+              .filter((value) => value.trim().length > 0)
+          )
         const receiptLanguage = languageOverride
           ? { locale: languageOverride, score: 1, confidence: 1, iso: languageOverride }
           : detectedLanguage

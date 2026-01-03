@@ -156,11 +156,43 @@ export async function checkAiChatLimit(userId: string): Promise<FeatureAccessRes
         return { allowed: true, plan };
     }
 
+    // Count today's messages
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const result = await neonQuery<{ count: string }>(
+        `SELECT COUNT(*) as count FROM ai_chat_usage 
+         WHERE user_id = $1 AND DATE(created_at) = $2`,
+        [userId, today]
+    );
+
+    const currentCount = parseInt(result[0]?.count || '0');
+
+    if (currentCount >= limits.aiChatMessagesPerDay) {
+        return {
+            allowed: false,
+            reason: `You've reached your daily limit of ${limits.aiChatMessagesPerDay} AI chat messages. Resets at midnight.`,
+            currentUsage: currentCount,
+            limit: limits.aiChatMessagesPerDay,
+            plan,
+            upgradeRequired: true,
+        };
+    }
+
     return {
         allowed: true,
+        currentUsage: currentCount,
         limit: limits.aiChatMessagesPerDay,
         plan,
     };
+}
+
+/**
+ * Record that a user sent an AI chat message (call after successful response)
+ */
+export async function recordAiChatMessage(userId: string): Promise<void> {
+    await neonQuery(
+        `INSERT INTO ai_chat_usage (user_id, created_at) VALUES ($1, NOW())`,
+        [userId]
+    );
 }
 
 /**

@@ -31,7 +31,7 @@ export function PlanCard({
 }: PlanCardProps) {
     const info = PLAN_INFO[plan];
 
-    const planOrder: PlanType[] = ["free", "pro", "max"];
+    const planOrder: PlanType[] = ["free", "basic", "pro", "max"];
     const currentIndex = planOrder.indexOf(currentUserPlan);
     const thisIndex = planOrder.indexOf(plan);
     const isUpgrade = thisIndex > currentIndex;

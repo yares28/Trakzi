@@ -3,7 +3,7 @@
 
 import { neonQuery } from './neonClient';
 
-export type PlanType = 'free' | 'pro' | 'max';
+export type PlanType = 'free' | 'basic' | 'pro' | 'max';
 export type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'paused';
 
 export interface Subscription {
@@ -198,7 +198,7 @@ export async function upsertSubscription(params: {
     if (stripePriceId && plan !== 'free') {
         const { getPlanFromPriceId } = await import('./stripe');
         const pricePlan = getPlanFromPriceId(stripePriceId);
-        
+
         // If price ID maps to a different plan, log warning
         // Note: This could happen during plan transitions, so it's a warning not an error
         if (pricePlan !== plan && pricePlan !== 'free') {
@@ -309,7 +309,7 @@ export async function syncSubscriptionToClerk(
                 currentPeriodEnd: currentPeriodEnd?.toISOString(),
             },
         });
-        
+
         console.log(`[Subscriptions] Successfully synced subscription to Clerk for user ${userId}`);
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -320,7 +320,7 @@ export async function syncSubscriptionToClerk(
             error: errorMessage,
             // Log full error for debugging but don't expose to user
         });
-        
+
         // Don't throw - Clerk sync is best-effort
         // Database is source of truth, Clerk metadata is for convenience
         // However, this should be monitored for patterns indicating systemic issues

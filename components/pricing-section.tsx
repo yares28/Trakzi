@@ -14,6 +14,7 @@ import Image from "next/image"
 // Plan logos for landing page (these replace the plan name text)
 const planLogos = {
   Starter: "/Trakzi/subs/freeiconB.png",
+  Basic: "/Trakzi/subs/TrakziBasiciconB.png",
   PRO: "/Trakzi/subs/TrakziProLogoB.png",
   MAX: "/Trakzi/subs/TrakziMaxLogoB.png",
 } as const
@@ -33,6 +34,23 @@ const pricingPlans = [
     popular: false,
     cta: "Get Started",
     priceId: null, // Free plan - no Stripe price
+  },
+  {
+    name: "Basic",
+    monthlyPrice: 1.99,
+    annualPrice: 19.99,
+    description: "Support development & get more features",
+    features: [
+      "Everything in Starter",
+      "More AI chat messages/day",
+      "AI-powered categorization",
+      "Priority support",
+    ],
+    popular: false,
+    ctaMonthly: "Go Basic",
+    ctaAnnual: "Go Basic",
+    monthlyPriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_BASIC_MONTHLY,
+    annualPriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_BASIC_ANNUAL,
   },
   {
     name: "PRO",
@@ -303,7 +321,7 @@ export function PricingSection() {
               <div className="text-center mb-8">
                 <div className="flex items-center justify-center gap-2 mb-2 h-10">
                   {/* Show plan logo for all plans */}
-                  {(plan.name === "PRO" || plan.name === "MAX" || plan.name === "Starter") ? (
+                  {(plan.name === "PRO" || plan.name === "MAX" || plan.name === "Starter" || plan.name === "Basic") ? (
                     <Image
                       src={planLogos[plan.name as keyof typeof planLogos]}
                       alt={`${plan.name} plan`}

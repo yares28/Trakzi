@@ -941,7 +941,6 @@ async function extractStatementTextFromPdf(data: Uint8Array) {
             source: "pdf_text" as const,
             metrics,
             ocrUsed: false,
-            ocrRetryUsed: false,
         };
     }
 }
@@ -952,7 +951,14 @@ async function extractStatementRowsWithAI(params: {
     bankName: string;
     languageHint?: string | null;
 }) {
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    // ==========================================================================
+    // AI STATEMENT PARSING DISABLED
+    // To re-enable: remove this throw statement
+    // ==========================================================================
+    throw new Error("AI statement parsing is disabled. Please upload a CSV file instead.");
+    // ==========================================================================
+
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
         throw new Error("AI parsing is not configured.");
     }
@@ -1029,11 +1035,15 @@ Rules:
                 throw new Error("AI statement parse response was not valid JSON.");
             }
 
-            const extractedRows = Array.isArray(parsed)
-                ? parsed
-                : Array.isArray(parsed?.rows)
-                    ? parsed.rows
-                    : [];
+            let extractedRows: StatementRow[] = [];
+            if (Array.isArray(parsed)) {
+                extractedRows = parsed as StatementRow[];
+            } else {
+                const parsedObj = parsed as { rows?: StatementRow[] };
+                if (parsedObj.rows && Array.isArray(parsedObj.rows)) {
+                    extractedRows = parsedObj.rows!;
+                }
+            }
 
             rows.push(...extractedRows);
         }
@@ -1101,6 +1111,13 @@ async function inferCsvSchemaWithAI(
     context: string | null,
     languageHint?: string | null
 ): Promise<AiParseHint> {
+    // ==========================================================================
+    // AI CSV SCHEMA INFERENCE DISABLED
+    // To re-enable: remove this throw statement
+    // ==========================================================================
+    throw new Error("AI CSV parsing is disabled. Please ensure your CSV has standard column headers.");
+    // ==========================================================================
+
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
         throw new Error("AI parsing is not configured.");
