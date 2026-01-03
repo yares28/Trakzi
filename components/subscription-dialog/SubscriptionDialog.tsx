@@ -28,13 +28,18 @@ import { PLAN_INFO } from "./plan-info";
 import { PlanCard } from "./PlanCard";
 import type { PlanType, SubscriptionStatus } from "./types";
 
-export function SubscriptionDialog({ children }: { children: React.ReactNode }) {
+export function SubscriptionDialog({ children, onOpenChange }: { children: React.ReactNode; onOpenChange?: (open: boolean) => void }) {
     const [status, setStatus] = useState<SubscriptionStatus | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isManaging, setIsManaging] = useState(false);
     const [open, setOpen] = useState(false);
     const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("monthly");
+
+    const handleOpenChange = (newOpen: boolean) => {
+        setOpen(newOpen);
+        onOpenChange?.(newOpen);
+    };
     // Confirmation dialog states
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
     const [showDowngradeConfirm, setShowDowngradeConfirm] = useState<PlanType | null>(null);
@@ -463,7 +468,7 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
 
     return (
         <>
-            <Dialog open={open} onOpenChange={setOpen}>
+            <Dialog open={open} onOpenChange={handleOpenChange}>
                 <DialogTrigger asChild>
                     {children}
                 </DialogTrigger>
