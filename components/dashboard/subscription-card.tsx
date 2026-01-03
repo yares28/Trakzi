@@ -24,6 +24,10 @@ const planIcons = {
         light: "/Trakzi/subs/freeicon.png",
         dark: "/Trakzi/subs/freeiconB.png",
     },
+    basic: {
+        light: "/Trakzi/subs/TrakziBasicicon.png",
+        dark: "/Trakzi/subs/TrakziBasicicon.png",
+    },
     pro: {
         light: "/Trakzi/subs/TrakziProIcon.png",
         dark: "/Trakzi/subs/TrakziProIconB.png",
@@ -35,14 +39,13 @@ const planIcons = {
 } as const;
 
 type SubscriptionStatus = {
-    plan: "free" | "pro" | "max";
+    plan: "free" | "basic" | "pro" | "max";
     status: string;
     limits: {
         maxTotalTransactions: number;
         aiChatEnabled: boolean;
         aiChatMessagesPerDay: number;
         aiInsightsEnabled: boolean;
-        exportEnabled: boolean;
         customTransactionCategoriesLimit: number;
         customFridgeCategoriesLimit: number;
     };
@@ -74,6 +77,19 @@ const PLAN_INFO = {
             "5 AI chat/day",
             "Analytics charts",
             "10 custom categories",
+        ],
+    },
+    basic: {
+        name: "Basic",
+        price: "€1.99/mo",
+        icon: Zap,
+        iconColor: "text-blue-500",
+        badgeClass: "bg-gradient-to-r from-blue-500 to-blue-400 text-white border-0",
+        features: [
+            "Everything in Free",
+            "More AI chat/day",
+            "AI categorization",
+            "Priority support",
         ],
     },
     pro: {
@@ -108,7 +124,7 @@ const PLAN_INFO = {
     },
 };
 
-type PlanType = "free" | "pro" | "max";
+type PlanType = "free" | "basic" | "pro" | "max";
 
 function PlanCard({
     plan,
@@ -308,7 +324,7 @@ export function SubscriptionCard() {
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
     const [showDowngradeConfirm, setShowDowngradeConfirm] = useState<PlanType | null>(null);
     const [showUpgradeConfirm, setShowUpgradeConfirm] = useState<PlanType | null>(null);
-    
+
     // Cancel preview state (how many transactions will be deleted)
     const [cancelPreview, setCancelPreview] = useState<{
         loading: boolean;
@@ -335,7 +351,6 @@ export function SubscriptionCard() {
                         aiChatEnabled: data.limits?.ai_chat_enabled ?? true,
                         aiChatMessagesPerDay: data.limits?.ai_chat_messages_per_day ?? 5,
                         aiInsightsEnabled: data.limits?.ai_insights_enabled ?? false,
-                        exportEnabled: data.limits?.export_enabled ?? false,
                         customTransactionCategoriesLimit: 10,
                         customFridgeCategoriesLimit: 10,
                     },
@@ -490,7 +505,6 @@ export function SubscriptionCard() {
                     aiChatEnabled: data.limits?.ai_chat_enabled ?? true,
                     aiChatMessagesPerDay: data.limits?.ai_chat_messages_per_day ?? 5,
                     aiInsightsEnabled: data.limits?.ai_insights_enabled ?? false,
-                    exportEnabled: data.limits?.export_enabled ?? false,
                     customTransactionCategoriesLimit: 10,
                     customFridgeCategoriesLimit: 10,
                 },
@@ -515,6 +529,9 @@ export function SubscriptionCard() {
     };
 
     const getPriceIdForPlan = (plan: PlanType): string | null => {
+        if (plan === 'basic') {
+            return process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_BASIC_MONTHLY || null;
+        }
         if (plan === 'pro') {
             return process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY || null;
         }
@@ -681,7 +698,7 @@ export function SubscriptionCard() {
     }
 
     // Order plans with current plan first
-    const allPlans: PlanType[] = ["free", "pro", "max"];
+    const allPlans: PlanType[] = ["free", "basic", "pro", "max"];
     const orderedPlans: PlanType[] = [
         status.plan,
         ...allPlans.filter((p) => p !== status.plan),
@@ -801,7 +818,7 @@ export function SubscriptionCard() {
                                                     Transaction Limit Warning
                                                 </p>
                                                 <p className="text-sm text-amber-800 dark:text-amber-200">
-                                                    You currently have <strong>{cancelPreview.currentTotal.toLocaleString()}</strong> transactions. 
+                                                    You currently have <strong>{cancelPreview.currentTotal.toLocaleString()}</strong> transactions.
                                                     The free plan allows up to <strong>{cancelPreview.freePlanCap.toLocaleString()}</strong> transactions.
                                                 </p>
                                                 <p className="text-sm font-medium text-amber-900 dark:text-amber-100 mt-2">

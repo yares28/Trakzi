@@ -30,6 +30,8 @@ export function getStripe(): Stripe {
 
 // Price IDs from environment
 export const STRIPE_PRICES = {
+    BASIC_MONTHLY: process.env.STRIPE_PRICE_ID_BASIC_MONTHLY,
+    BASIC_ANNUAL: process.env.STRIPE_PRICE_ID_BASIC_ANNUAL,
     PRO_MONTHLY: process.env.STRIPE_PRICE_ID_PRO_MONTHLY,
     PRO_ANNUAL: process.env.STRIPE_PRICE_ID_PRO_ANNUAL,
     MAX_MONTHLY: process.env.STRIPE_PRICE_ID_MAX_MONTHLY,
@@ -37,29 +39,34 @@ export const STRIPE_PRICES = {
 } as const;
 
 // Map price IDs to plan names
-export function getPlanFromPriceId(priceId: string): 'pro' | 'max' | 'free' {
+export function getPlanFromPriceId(priceId: string): 'basic' | 'pro' | 'max' | 'free' {
     if (!priceId) {
         console.warn('[Stripe] Empty price ID provided to getPlanFromPriceId');
         return 'free';
     }
-    
+
+    if (priceId === STRIPE_PRICES.BASIC_MONTHLY || priceId === STRIPE_PRICES.BASIC_ANNUAL) {
+        return 'basic';
+    }
     if (priceId === STRIPE_PRICES.PRO_MONTHLY || priceId === STRIPE_PRICES.PRO_ANNUAL) {
         return 'pro';
     }
     if (priceId === STRIPE_PRICES.MAX_MONTHLY || priceId === STRIPE_PRICES.MAX_ANNUAL) {
         return 'max';
     }
-    
+
     // Log unknown price ID for investigation (should not happen in production)
     console.error('[Stripe] Unknown price ID:', priceId, {
         knownPrices: {
+            BASIC_MONTHLY: STRIPE_PRICES.BASIC_MONTHLY,
+            BASIC_ANNUAL: STRIPE_PRICES.BASIC_ANNUAL,
             PRO_MONTHLY: STRIPE_PRICES.PRO_MONTHLY,
             PRO_ANNUAL: STRIPE_PRICES.PRO_ANNUAL,
             MAX_MONTHLY: STRIPE_PRICES.MAX_MONTHLY,
             MAX_ANNUAL: STRIPE_PRICES.MAX_ANNUAL,
         },
     });
-    
+
     // Return 'free' as safe default, but log error for investigation
     // Callers should validate this doesn't happen
     return 'free';

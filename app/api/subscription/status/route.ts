@@ -27,7 +27,6 @@ export async function GET() {
                 aiChatMessagesPerDay: sanitizeInfinity(summary.limits.aiChatMessagesPerDay),
                 customTransactionCategoriesLimit: sanitizeInfinity(summary.limits.customTransactionCategoriesLimit),
                 customFridgeCategoriesLimit: sanitizeInfinity(summary.limits.customFridgeCategoriesLimit),
-                dataRetentionMonths: sanitizeInfinity(summary.limits.dataRetentionMonths),
             },
             usage: {
                 bankTransactions: usage.bankTransactions,

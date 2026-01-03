@@ -70,7 +70,6 @@ export async function GET() {
                 ai_chat_enabled: limits.aiChatEnabled,
                 ai_chat_messages_per_day: safeNumber(limits.aiChatMessagesPerDay),
                 ai_insights_enabled: limits.aiInsightsEnabled,
-                export_enabled: limits.exportEnabled,
             },
         });
     } catch (error: any) {

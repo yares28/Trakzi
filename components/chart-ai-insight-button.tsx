@@ -36,8 +36,7 @@ interface InsightData {
   tips?: string[]
 }
 
-// Cache for insights to avoid repeated API calls
-const insightCache = new Map<string, InsightData>()
+// LocalStorage cache used in component instead of in-memory maps
 
 export function ChartAiInsightButton({
   chartId,
@@ -54,14 +53,32 @@ export function ChartAiInsightButton({
   const [error, setError] = useState<string | null>(null)
   const fetchedRef = useRef(false)
 
-  const fetchInsight = useCallback(async () => {
-    // Check cache first
-    const cacheKey = `${chartId}-${JSON.stringify(chartData || {}).substring(0, 100)}`
-    if (insightCache.has(cacheKey)) {
-      setInsight(insightCache.get(cacheKey)!)
-      return
+  // Helper to generate a robust cache key based on data content
+  const getCacheKey = useCallback(async () => {
+    if (!chartData) return `${chartId}-no-data`
+
+    // Create a deterministic string representation of the data
+    // We sort keys to ensure object order doesn't affect hash
+    const stableStringify = (obj: any): string => {
+      if (typeof obj !== 'object' || obj === null) return String(obj)
+      if (Array.isArray(obj)) return `[${obj.map(stableStringify).join(',')}]`
+      return `{${Object.keys(obj).sort().map(k => `${k}:${stableStringify(obj[k])}`).join(',')}}`
     }
 
+    try {
+      const dataString = stableStringify(chartData)
+      const msgBuffer = new TextEncoder().encode(dataString)
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer)
+      const hashArray = Array.from(new Uint8Array(hashBuffer))
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+      return `ai_insight_v1_${chartId}_${hashHex}`
+    } catch (e) {
+      console.warn("Hashing failed, falling back to simple key", e)
+      return `ai_insight_v1_${chartId}_${JSON.stringify(chartData).length}`
+    }
+  }, [chartId, chartData])
+
+  const fetchInsight = useCallback(async () => {
     // Prevent duplicate fetches
     if (fetchedRef.current || isLoading) return
     fetchedRef.current = true
@@ -69,6 +86,23 @@ export function ChartAiInsightButton({
     setError(null)
 
     try {
+      // 1. Check LocalStorage Cache
+      const cacheKey = await getCacheKey()
+
+      const cachedRaw = localStorage.getItem(cacheKey)
+      if (cachedRaw) {
+        try {
+          const cachedData = JSON.parse(cachedRaw)
+          // valid cache hit
+          setInsight(cachedData)
+          setIsLoading(false)
+          return
+        } catch (e) {
+          localStorage.removeItem(cacheKey) // Corrupt cache
+        }
+      }
+
+      // 2. Fetch from API if miss
       const response = await fetch("/api/ai/chart-insight", {
         method: "POST",
         headers: {
@@ -88,15 +122,37 @@ export function ChartAiInsightButton({
       }
 
       const data: InsightData = await response.json()
+
+      // 3. Save to Cache
       setInsight(data)
-      insightCache.set(cacheKey, data)
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(data))
+
+        // Cleanup old keys occasionally (simple probabilistic cleanup)
+        if (Math.random() < 0.1) {
+          // 10% chance to run cleanup
+          const now = Date.now()
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i)
+            if (key && key.startsWith('ai_insight_v1_')) {
+              // Logic to remove very old keys could go here if we stored timestamp
+              // For now, simple cleanup is just rely on manual clearing or browser limits
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to save to localStorage (likely quota)", e)
+      }
+
     } catch (err: any) {
       console.error("[ChartAiInsight] Error:", err)
       setError(err.message || "Unable to generate insight")
     } finally {
       setIsLoading(false)
+      // Allow re-fetch on error, but keep blocked on success to avoid loops
+      if (error) fetchedRef.current = false
     }
-  }, [chartId, chartTitle, chartDescription, chartData, isLoading])
+  }, [chartId, chartTitle, chartDescription, chartData, isLoading, getCacheKey])
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open)

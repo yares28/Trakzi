@@ -4,10 +4,10 @@
  * =============================================================================
  * 
  * Generic OCR for extracting text from receipt images.
- * Uses OpenRouter's NVIDIA Nemotron Nano 12B VL model for vision-based OCR.
+ * Uses Google Gemini for vision-based OCR.
  * 
  * Environment variables:
- * - OPENROUTER_API_KEY: API key for OpenRouter (existing key, no new setup needed)
+ * - GEMINI_API_KEY: API key for Google Gemini
  * 
  * This module is merchant-agnostic. Merchant-specific OCR normalization
  * belongs in the respective parser files (e.g., mercadona.ts).
@@ -66,10 +66,10 @@ function analyzeOcrText(text: string) {
 }
 
 /**
- * OpenRouter NVIDIA Nemotron VL OCR implementation.
+ * Gemini OCR implementation.
  * Uses the multimodal vision-language model to extract text from images.
  */
-class OpenRouterNemotronOcrProvider implements OcrProvider {
+class GeminiOcrProvider implements OcrProvider {
     private apiKey: string
 
     constructor(apiKey: string) {
@@ -83,63 +83,46 @@ class OpenRouterNemotronOcrProvider implements OcrProvider {
     ): Promise<OcrResult> {
         const buffer = data instanceof Buffer ? data : Buffer.from(data)
         const base64Image = buffer.toString("base64")
-        const base64DataUrl = `data:${mimeType};base64,${base64Image}`
 
-        const siteUrl = getSiteUrl()
-        const siteName = getSiteName()
         const prompt = promptOverride || DEFAULT_OCR_PROMPT
 
-        // First API call with reasoning enabled for better OCR accuracy
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        // API call to Gemini
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${OCR_MODEL}:generateContent?key=${this.apiKey}`, {
             method: "POST",
             headers: {
-                Authorization: `Bearer ${this.apiKey}`,
-                "HTTP-Referer": siteUrl,
-                "X-Title": siteName,
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                model: OCR_MODEL,
-                messages: [
+                contents: [
                     {
                         role: "user",
-                        content: [
-                            {
-                                type: "text",
-                                text: prompt,
-                            },
-                            {
-                                type: "image_url",
-                                image_url: { url: base64DataUrl },
-                            },
-                        ],
-                    },
+                        parts: [
+                            { text: prompt },
+                            { inlineData: { mimeType, data: base64Image } }
+                        ]
+                    }
                 ],
-                reasoning: { enabled: true },
-                temperature: 0,
-                max_tokens: 2000,
+                generationConfig: {
+                    temperature: 0,
+                    maxOutputTokens: 2000
+                }
             }),
         })
 
         if (!response.ok) {
             const errorText = await response.text()
-            throw new Error(`OCR_FAILED: OpenRouter API error ${response.status}: ${errorText.substring(0, 200)}`)
+            throw new Error(`OCR_FAILED: Gemini API error ${response.status}: ${errorText.substring(0, 200)}`)
         }
 
         const result = await response.json()
 
         // Check for API-level errors
         if (result.error) {
-            throw new Error(`OCR_FAILED: ${result.error.message || "Unknown OpenRouter error"}`)
+            throw new Error(`OCR_FAILED: ${result.error.message || "Unknown Gemini error"}`)
         }
 
         // Extract the text content
-        const assistantMessage = result.choices?.[0]?.message
-        if (!assistantMessage) {
-            throw new Error("OCR_FAILED: No response from OCR model")
-        }
-
-        const text = assistantMessage.content?.trim() || ""
+        const text = result.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ""
 
         if (!text || text.length < 10) {
             throw new Error("OCR_FAILED: No text detected in image")
@@ -155,18 +138,18 @@ class OpenRouterNemotronOcrProvider implements OcrProvider {
 
 /**
  * Get the configured OCR provider.
- * Uses OpenRouter with NVIDIA Nemotron VL model.
- * Throws if OPENROUTER_API_KEY is not configured.
+ * Uses Gemini for vision-based OCR.
+ * Throws if GEMINI_API_KEY is not configured.
  */
 function getOcrProvider(): OcrProvider {
-    const apiKey = process.env.OPENROUTER_API_KEY
+    const apiKey = process.env.GEMINI_API_KEY
 
     if (apiKey) {
-        return new OpenRouterNemotronOcrProvider(apiKey)
+        return new GeminiOcrProvider(apiKey)
     }
 
     throw new Error(
-        "OCR_FAILED: OCR not configured. Please set OPENROUTER_API_KEY environment variable."
+        "OCR_FAILED: OCR not configured. Please set GEMINI_API_KEY environment variable."
     )
 }
 
@@ -186,6 +169,13 @@ export async function extractTextFromImage(params: {
     retryPromptOverride?: string
     preprocess?: boolean
 }): Promise<OcrResult> {
+    // ==========================================================================
+    // OCR TEMPORARILY DISABLED
+    // To re-enable: remove this block and the OCR will work again
+    // ==========================================================================
+    throw new Error("OCR_DISABLED: Image OCR is temporarily disabled. Please upload a PDF receipt instead.")
+    // ==========================================================================
+
     const { data, mimeType } = params
 
     // Validate input
@@ -221,8 +211,8 @@ export async function extractTextFromImage(params: {
                 ocrData = preprocessed.buffer
                 ocrMimeType = preprocessed.mimeType
                 preprocessMeta = preprocessed.meta
-            } catch (error) {
-                const message = error instanceof Error ? error.message : String(error)
+            } catch (error: unknown) {
+                const message = (error instanceof Error) ? (error as Error).message : String(error)
                 console.warn("[OCR] Preprocess failed, using original image:", message)
             }
         }
@@ -252,8 +242,8 @@ export async function extractTextFromImage(params: {
             preprocess: preprocessMeta,
             retryUsed,
         }
-    } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
+    } catch (error: unknown) {
+        const message = (error instanceof Error) ? (error as Error).message : String(error)
         // Ensure all errors have OCR_FAILED prefix for proper handling
         if (message.startsWith("OCR_FAILED:")) {
             throw error

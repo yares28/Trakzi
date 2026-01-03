@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Sparkles, Crown, Zap } from "lucide-react";
+import { Sparkles, Crown, Zap, Star } from "lucide-react";
 
 import type { PlanType } from "./types";
 
@@ -8,6 +8,10 @@ export const planIcons: Record<PlanType, { light: string; dark: string }> = {
     free: {
         light: "/Trakzi/subs/freeicon.png",
         dark: "/Trakzi/subs/freeiconB.png",
+    },
+    basic: {
+        light: "/Trakzi/subs/TrakziBasicicon.png",
+        dark: "/Trakzi/subs/TrakziBasicicon.png",
     },
     pro: {
         light: "/Trakzi/subs/TrakziProLogo.png",
@@ -42,6 +46,19 @@ export const PLAN_INFO: Record<PlanType, PlanInfo> = {
             "5 AI chat/day",
             "Analytics charts",
             "10 custom categories",
+        ],
+    },
+    basic: {
+        name: "Basic",
+        price: "€1.99/mo",
+        icon: Star,
+        iconColor: "text-blue-500",
+        badgeClass: "bg-gradient-to-r from-blue-500 to-blue-400 text-white border-0",
+        features: [
+            "Everything in Free",
+            "More AI chat/day",
+            "AI categorization",
+            "Priority support",
         ],
     },
     pro: {

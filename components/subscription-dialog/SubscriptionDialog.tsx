@@ -52,7 +52,7 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
         targetCap: number;
         toDelete: number;
     } | null>(null);
-    
+
     // Cancel preview state (how many transactions will be deleted)
     const [cancelPreview, setCancelPreview] = useState<{
         loading: boolean;
@@ -63,7 +63,7 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
     } | null>(null);
 
     // Plan caps for downgrade warning
-    const PLAN_CAPS: Record<PlanType, number> = { free: 400, pro: 3000, max: 15000 };
+    const PLAN_CAPS: Record<PlanType, number> = { free: 400, basic: 400, pro: 3000, max: 15000 };
 
     // Fetch subscription status with usage data
     const fetchStatus = async () => {
@@ -130,7 +130,7 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
 
         return () => clearInterval(pollInterval);
     }, [open]);
-    
+
     // Fetch cancel preview when cancel dialog opens
     useEffect(() => {
         if (showCancelConfirm && status?.plan !== 'free') {
@@ -267,6 +267,9 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
     // Get price ID for a plan
     const getPriceIdForPlan = (plan: PlanType): string | null => {
         // Use NEXT_PUBLIC_ env vars since this is client-side
+        if (plan === 'basic') {
+            return process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_BASIC_MONTHLY || null;
+        }
         if (plan === 'pro') {
             return process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY || null;
         }
@@ -446,7 +449,7 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
     };
 
     // Order plans with current plan first
-    const allPlans: PlanType[] = ["free", "pro", "max"];
+    const allPlans: PlanType[] = ["free", "basic", "pro", "max"];
     const orderedPlans: PlanType[] = status
         ? [status.plan, ...allPlans.filter((p) => p !== status.plan)]
         : allPlans;
@@ -605,7 +608,7 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                                                     Transaction Limit Warning
                                                 </p>
                                                 <p className="text-sm text-amber-800 dark:text-amber-200">
-                                                    You currently have <strong>{cancelPreview.currentTotal.toLocaleString()}</strong> transactions. 
+                                                    You currently have <strong>{cancelPreview.currentTotal.toLocaleString()}</strong> transactions.
                                                     The free plan allows up to <strong>{cancelPreview.freePlanCap.toLocaleString()}</strong> transactions.
                                                 </p>
                                                 <p className="text-sm font-medium text-amber-900 dark:text-amber-100 mt-2">
@@ -691,7 +694,7 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                                                 30% Off Your Next Month
                                             </p>
                                             <p className="text-sm text-green-800 dark:text-green-200">
-                                                Stay with us for one more month and get 30% off your next invoice. 
+                                                Stay with us for one more month and get 30% off your next invoice.
                                                 Your subscription will continue automatically after that.
                                             </p>
                                         </div>

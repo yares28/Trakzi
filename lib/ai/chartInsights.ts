@@ -71,11 +71,9 @@ USER CONTEXT:
 Analyze this chart data and provide a personalized insight for the user.
 `.trim();
 
-    const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-    const SITE_URL = getSiteUrl();
-    const SITE_NAME = getSiteName();
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-    if (!OPENROUTER_API_KEY) {
+    if (!GEMINI_API_KEY) {
         return {
             insight: "Unable to generate insights. Please configure your API key.",
             sentiment: "neutral"
@@ -83,23 +81,20 @@ Analyze this chart data and provide a personalized insight for the user.
     }
 
     try {
-        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
             method: "POST",
             headers: {
-                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-                "HTTP-Referer": SITE_URL,
-                "X-Title": SITE_NAME,
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                model: "google/gemini-2.0-flash-001",
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userPrompt }
+                contents: [
+                    { role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }
                 ],
-                response_format: { type: "json_object" },
-                max_tokens: 500,
-                temperature: 0.7
+                generationConfig: {
+                    maxOutputTokens: 500,
+                    temperature: 0.7,
+                    responseMimeType: "application/json"
+                }
             })
         });
 
@@ -113,7 +108,7 @@ Analyze this chart data and provide a personalized insight for the user.
         }
 
         const json = await res.json();
-        const content = json.choices[0]?.message?.content;
+        const content = json.candidates?.[0]?.content?.parts?.[0]?.text;
 
         if (!content) {
             return {

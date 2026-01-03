@@ -9,7 +9,7 @@ import { logAiCategoryFeedbackBatch } from "@/lib/ai/ai-category-feedback";
 // Default categories - synced with lib/categories.ts
 // These are the categories the AI can assign to transactions
 const DEFAULT_CATEGORIES = MAIN_DEFAULT_CATEGORIES;
-const AI_CATEGORY_MODEL = process.env.OPENROUTER_CATEGORY_MODEL || "google/gemini-2.0-flash-001";
+const AI_CATEGORY_MODEL = "gemini-2.0-flash";
 
 // Common merchant patterns for smart summarization
 type MerchantPattern = {
@@ -1228,10 +1228,10 @@ export async function categoriseTransactions(
         amount: r.amount
     }));
 
-    const MAX_AI_ITEMS = Math.max(0, Number(process.env.OPENROUTER_CATEGORY_MAX_ITEMS ?? "120"));
-    const configuredBatchSize = Math.max(1, Number(process.env.OPENROUTER_CATEGORY_BATCH_SIZE ?? "60"));
+    const MAX_AI_ITEMS = Math.max(0, Number(process.env.GEMINI_CATEGORY_MAX_ITEMS ?? "120"));
+    const configuredBatchSize = Math.max(1, Number(process.env.GEMINI_CATEGORY_BATCH_SIZE ?? "60"));
     const AI_BATCH_SIZE = MAX_AI_ITEMS > 0 ? Math.min(configuredBatchSize, MAX_AI_ITEMS) : 0;
-    const AI_MAX_TOKENS = Math.max(128, Number(process.env.OPENROUTER_CATEGORY_MAX_TOKENS ?? "700"));
+    const AI_MAX_TOKENS = Math.max(128, Number(process.env.GEMINI_CATEGORY_MAX_TOKENS ?? "700"));
 
     const aiItems = MAX_AI_ITEMS > 0 ? items.slice(0, MAX_AI_ITEMS) : [];
     if (items.length > aiItems.length) {
@@ -1293,13 +1293,11 @@ export async function categoriseTransactions(
         const customGlossaryBlock = customGlossary
             ? `\nCUSTOM CATEGORY GLOSSARY:\n${customGlossary}\n`
             : "";
-        // Using OpenRouter API
-        const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-        const SITE_URL = getSiteUrl();
-        const SITE_NAME = getSiteName();
+        // Using Gemini API
+        const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-        if (!OPENROUTER_API_KEY) {
-            console.warn("[AI] No OpenRouter API key found, using pattern-based categorization only");
+        if (!GEMINI_API_KEY) {
+            console.warn("[AI] No Gemini API key found, using pattern-based categorization only");
         } else {
             let aiDisabled = false;
             for (let start = 0, batchIndex = 1; start < aiItems.length; start += AI_BATCH_SIZE, batchIndex += 1) {
@@ -1359,46 +1357,33 @@ You MUST include ALL ${batch.length} transactions. Each entry needs:
                 let retriedForBatch = false;
                 while (true) {
                     try {
-                        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${AI_CATEGORY_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
                             method: "POST",
                             headers: {
-                                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-                                "HTTP-Referer": SITE_URL,
-                                "X-Title": SITE_NAME,
                                 "Content-Type": "application/json"
                             },
                             body: JSON.stringify({
-                                model: AI_CATEGORY_MODEL,
-                                messages: [
-                                    { role: "system", content: systemPrompt },
-                                    { role: "user", content: userPrompt }
+                                contents: [
+                                    { role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }
                                 ],
-                                temperature: 0.1,
-                                max_tokens: maxTokensForBatch,
-                                response_format: { type: "json_object" },
-                                provider: {
-                                    sort: "throughput"
+                                generationConfig: {
+                                    temperature: 0.1,
+                                    maxOutputTokens: maxTokensForBatch,
+                                    responseMimeType: "application/json"
                                 }
                             })
                         });
 
                         if (!res.ok) {
                             const errorText = await res.text();
-                            console.error("[AI] OpenRouter API error:", res.status, errorText.substring(0, 200));
-                            if (res.status === 402) {
-                                const affordable = extractAffordableTokens(errorText);
-                                if (!retriedForBatch && affordable && affordable < maxTokensForBatch) {
-                                    maxTokensForBatch = Math.max(128, affordable - 8);
-                                    retriedForBatch = true;
-                                    console.warn(`[AI] Retrying batch ${batchIndex} with max_tokens=${maxTokensForBatch}`);
-                                    continue;
-                                }
+                            console.error("[AI] Gemini API error:", res.status, errorText.substring(0, 200));
+                            if (res.status === 429) {
                                 aiDisabled = true;
-                                console.warn("[AI] Disabling further AI calls due to insufficient credits");
+                                console.warn("[AI] Disabling further AI calls due to rate limit");
                             }
                         } else {
                             const json = await res.json();
-                            const content = json.choices[0]?.message?.content;
+                            const content = json.candidates?.[0]?.content?.parts?.[0]?.text;
                             const parsed = content ? parseJsonPayload(content) : null;
                             if (!parsed) {
                                 console.error("[AI] Failed to parse response payload");
