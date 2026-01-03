@@ -8,7 +8,7 @@ import { getUserSubscription, upsertSubscription } from '@/lib/subscriptions';
 import { clerkClient } from '@clerk/nextjs/server';
 
 // Plan hierarchy for determining upgrade vs downgrade
-const PLAN_HIERARCHY = { free: 0, pro: 1, max: 2 } as const;
+const PLAN_HIERARCHY = { free: 0, basic: 1, pro: 2, max: 3 } as const;
 
 /**
  * Safely convert Unix timestamp to Date
@@ -46,9 +46,9 @@ export async function POST(request: NextRequest) {
         }
 
         // Validate target plan
-        if (!['pro', 'max'].includes(targetPlan)) {
+        if (!['basic', 'pro', 'max'].includes(targetPlan)) {
             return NextResponse.json(
-                { error: 'Invalid target plan. Use pro or max.' },
+                { error: 'Invalid target plan. Use basic, pro or max.' },
                 { status: 400 }
             );
         }
@@ -57,6 +57,8 @@ export async function POST(request: NextRequest) {
 
         // Validate priceId against allowed prices
         const allowedPriceIds = [
+            STRIPE_PRICES.BASIC_MONTHLY,
+            STRIPE_PRICES.BASIC_ANNUAL,
             STRIPE_PRICES.PRO_MONTHLY,
             STRIPE_PRICES.PRO_ANNUAL,
             STRIPE_PRICES.MAX_MONTHLY,
@@ -157,7 +159,7 @@ export async function POST(request: NextRequest) {
 
         // Get current subscription to find the subscription item ID
         const stripeSubscription = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
-        
+
         // Validate subscription has items
         if (!stripeSubscription.items?.data || stripeSubscription.items.data.length === 0) {
             console.error('[Change Plan] Subscription has no items', {
@@ -169,7 +171,7 @@ export async function POST(request: NextRequest) {
                 { status: 500 }
             );
         }
-        
+
         const subscriptionItemId = stripeSubscription.items.data[0]?.id;
 
         if (!subscriptionItemId) {

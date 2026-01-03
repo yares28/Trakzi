@@ -48,7 +48,10 @@ export function PlanCard({
                 </div>
             )}
 
-            {/* Orange glow effect based on plan tier */}
+            {/* Glow effect based on plan tier */}
+            {plan === "basic" && (
+                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 opacity-10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+            )}
             {plan === "pro" && (
                 <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-orange-400 to-orange-600 opacity-10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
             )}

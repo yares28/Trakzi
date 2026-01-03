@@ -465,7 +465,7 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                 <DialogTrigger asChild>
                     {children}
                 </DialogTrigger>
-                <DialogContent className="w-[calc(100vw-2rem)] max-w-3xl max-h-[85vh] overflow-y-auto">
+                <DialogContent className="w-[calc(100vw-2rem)] max-w-5xl max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <CreditCard className="h-5 w-5 text-primary" />
@@ -477,8 +477,8 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                     </DialogHeader>
 
                     {isLoading ? (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4">
-                            {[1, 2, 3].map((i) => (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 py-4">
+                            {[1, 2, 3, 4].map((i) => (
                                 <div key={i} className="h-56 bg-muted rounded-xl animate-pulse" />
                             ))}
                         </div>
@@ -531,7 +531,7 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                             )}
 
                             {/* Plan cards */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                 {orderedPlans.map((plan) => (
                                     <PlanCard
                                         key={plan}
