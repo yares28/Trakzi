@@ -114,33 +114,33 @@ export async function ensureUserExists(): Promise<string> {
 
         // Handle Case: User recreated account (same email, new Clerk ID)
         // This happens if user deletes Clerk account but DB record remains
+        // Solution: Delete old account data and let them start fresh
         if (existingUser.id !== clerkUserId) {
-            console.log(`[User Sync] ID mismatch for ${email}. Migrating ${existingUser.id} to ${clerkUserId}`)
+            console.log(`[User Sync] ID mismatch for ${email}. Deleting old account ${existingUser.id} to create fresh`)
 
-            try {
-                // Migrate the user record to the new ID
-                // Note: This assumes foreign keys have ON UPDATE CASCADE or there are no blockers
-                await neonQuery(
-                    `UPDATE users SET id = $1::text WHERE id = $2::text`,
-                    [clerkUserId, existingUser.id]
-                )
-                // Use the new ID for subsequent updates
-                existingUser.id = clerkUserId
-            } catch (err: any) {
-                console.error('[User Sync] Failed to migrate user ID:', err)
-                throw new Error(`Account sync failed: Email ${email} is linked to a previous account. Please contact support to resolve this ID conflict.`)
-            }
+            // Delete all dependent records first, then the user
+            const oldId = existingUser.id
+            await neonQuery(`DELETE FROM subscriptions WHERE user_id = $1::text`, [oldId])
+            await neonQuery(`DELETE FROM categories WHERE user_id = $1::text`, [oldId])
+            await neonQuery(`DELETE FROM receipt_categories WHERE user_id = $1::text`, [oldId])
+            await neonQuery(`DELETE FROM transactions WHERE user_id = $1::text`, [oldId])
+            await neonQuery(`DELETE FROM statements WHERE user_id = $1::text`, [oldId])
+            await neonQuery(`DELETE FROM receipts WHERE user_id = $1::text`, [oldId])
+            await neonQuery(`DELETE FROM budgets WHERE user_id = $1::text`, [oldId])
+            await neonQuery(`DELETE FROM users WHERE id = $1::text`, [oldId])
+
+            console.log(`[User Sync] Deleted old account ${oldId}. Will create new account.`)
+            // Fall through to create new user below
+        } else {
+            // Same ID, just update info
+            const updateQuery = `
+                UPDATE users 
+                SET email = $1::text, name = $2::text
+                WHERE id = $3::text
+            `
+            await neonQuery(updateQuery, [email, name, existingUser.id])
+            return existingUser.id
         }
-
-        // Update user info if needed (email or name changed)
-        const updateQuery = `
-            UPDATE users 
-            SET email = $1::text, name = $2::text
-            WHERE id = $3::text
-        `
-        await neonQuery(updateQuery, [email, name, existingUser.id])
-
-        return existingUser.id
     }
 
     // User doesn't exist, create them
