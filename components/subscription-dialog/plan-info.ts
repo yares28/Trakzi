@@ -26,6 +26,7 @@ export const planIcons: Record<PlanType, { light: string; dark: string }> = {
 type PlanInfo = {
     name: string;
     price: string;
+    annualPrice: string;
     icon: LucideIcon;
     iconColor: string;
     badgeClass: string;
@@ -37,6 +38,7 @@ export const PLAN_INFO: Record<PlanType, PlanInfo> = {
     free: {
         name: "Free",
         price: "€0",
+        annualPrice: "€0",
         icon: Zap,
         iconColor: "text-muted-foreground",
         badgeClass: "bg-muted text-muted-foreground",
@@ -51,9 +53,10 @@ export const PLAN_INFO: Record<PlanType, PlanInfo> = {
     basic: {
         name: "Basic",
         price: "€1.99/mo",
+        annualPrice: "€19.99/yr",
         icon: Star,
         iconColor: "text-blue-500",
-        badgeClass: "bg-gradient-to-r from-blue-500 to-blue-400 text-white border-0",
+        badgeClass: "bg-gradient-to-r from-primary to-primary/80 text-white border-0",
         features: [
             "Everything in Free",
             "More AI chat/day",
@@ -64,6 +67,7 @@ export const PLAN_INFO: Record<PlanType, PlanInfo> = {
     pro: {
         name: "PRO",
         price: "€4.99/mo",
+        annualPrice: "€49.99/yr",
         icon: Sparkles,
         iconColor: "text-primary",
         badgeClass: "bg-gradient-to-r from-primary to-primary/80 text-white border-0",
@@ -79,6 +83,7 @@ export const PLAN_INFO: Record<PlanType, PlanInfo> = {
     max: {
         name: "MAX",
         price: "€19.99/mo",
+        annualPrice: "€199.99/yr",
         icon: Crown,
         iconColor: "text-amber-500",
         badgeClass: "bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0",

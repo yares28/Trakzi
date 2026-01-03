@@ -16,6 +16,7 @@ type PlanCardProps = {
     onReactivate: () => void;
     isManaging: boolean;
     isCancelPending: boolean;
+    billingPeriod: "monthly" | "annual";
 };
 
 export function PlanCard({
@@ -28,8 +29,10 @@ export function PlanCard({
     onReactivate,
     isManaging,
     isCancelPending,
+    billingPeriod,
 }: PlanCardProps) {
     const info = PLAN_INFO[plan];
+    const displayPrice = billingPeriod === "annual" ? info.annualPrice : info.price;
 
     const planOrder: PlanType[] = ["free", "basic", "pro", "max"];
     const currentIndex = planOrder.indexOf(currentUserPlan);
@@ -83,7 +86,7 @@ export function PlanCard({
                         <span className="font-semibold">{info.name}</span>
                     </div>
                     <Badge className={info.badgeClass}>
-                        {info.price}
+                        {displayPrice}
                     </Badge>
                 </div>
 
@@ -152,7 +155,7 @@ export function PlanCard({
                             ) : (
                                 <>
                                     <ArrowUp className="h-4 w-4 mr-1" />
-                                    Upgrade
+                                    Upgrade to {info.name}
                                 </>
                             )}
                         </Button>
@@ -169,7 +172,7 @@ export function PlanCard({
                             ) : (
                                 <>
                                     <ArrowDown className="h-4 w-4 mr-1" />
-                                    Downgrade
+                                    Downgrade to {info.name}
                                 </>
                             )}
                         </Button>
