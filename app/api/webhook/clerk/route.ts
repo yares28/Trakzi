@@ -18,21 +18,41 @@ interface ClerkUserEvent {
 
 /**
  * Delete all user data from the database
+ * Each deletion is wrapped in try-catch to handle missing tables gracefully
  */
 async function deleteUserData(userId: string): Promise<void> {
     console.log(`[Clerk Webhook] Deleting all data for user ${userId}`);
 
-    // Delete in order to respect foreign key constraints
-    await neonQuery(`DELETE FROM subscriptions WHERE user_id = $1::text`, [userId]);
-    await neonQuery(`DELETE FROM categories WHERE user_id = $1::text`, [userId]);
-    await neonQuery(`DELETE FROM receipt_categories WHERE user_id = $1::text`, [userId]);
-    await neonQuery(`DELETE FROM transactions WHERE user_id = $1::text`, [userId]);
-    await neonQuery(`DELETE FROM statements WHERE user_id = $1::text`, [userId]);
-    await neonQuery(`DELETE FROM receipts WHERE user_id = $1::text`, [userId]);
-    await neonQuery(`DELETE FROM budgets WHERE user_id = $1::text`, [userId]);
-    await neonQuery(`DELETE FROM users WHERE id = $1::text`, [userId]);
+    // Tables to clean up - order matters for foreign key constraints
+    const tablesToClean = [
+        'subscriptions',
+        'categories',
+        'receipt_categories',
+        'transactions',
+        'statements',
+        'receipts',
+        'budgets',
+    ];
 
-    console.log(`[Clerk Webhook] Successfully deleted all data for user ${userId}`);
+    for (const table of tablesToClean) {
+        try {
+            await neonQuery(`DELETE FROM ${table} WHERE user_id = $1::text`, [userId]);
+            console.log(`[Clerk Webhook] Cleaned ${table} for user ${userId}`);
+        } catch (e: any) {
+            // Table may not exist or have different schema - continue cleanup
+            console.log(`[Clerk Webhook] Skipping ${table}: ${e.message?.slice(0, 50) || 'unknown error'}`);
+        }
+    }
+
+    // Finally delete the user record
+    try {
+        await neonQuery(`DELETE FROM users WHERE id = $1::text`, [userId]);
+        console.log(`[Clerk Webhook] Deleted user record ${userId}`);
+    } catch (e: any) {
+        console.error(`[Clerk Webhook] Failed to delete user ${userId}: ${e.message}`);
+    }
+
+    console.log(`[Clerk Webhook] Cleanup completed for user ${userId}`);
 }
 
 export async function POST(request: NextRequest) {
