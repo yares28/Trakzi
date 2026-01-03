@@ -82,6 +82,7 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
   const [currency, setCurrency] = React.useState<string>("USD")
   const [defaultTimePeriod, setDefaultTimePeriod] = React.useState<string>("lastyear")
   const [open, setOpen] = React.useState(false)
+  const [subscriptionOpen, setSubscriptionOpen] = React.useState(false)
   const isMobile = useIsMobile()
 
   React.useEffect(() => {
@@ -129,6 +130,12 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
 
   const handleRandomizeLayout = () => {
     window.dispatchEvent(new CustomEvent("gridstack:randomize"))
+  }
+
+  const handleOpenSubscription = () => {
+    setOpen(false)
+    // Small delay to let the popover close before opening the dialog
+    setTimeout(() => setSubscriptionOpen(true), 100)
   }
 
   if (!mounted) {
@@ -271,12 +278,10 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
 
       {/* Actions */}
       <div className="flex gap-2">
-        <SubscriptionDialog onOpenChange={(newOpen) => { if (newOpen) setOpen(false); }}>
-          <Button variant="outline" size="sm" className="flex-1">
-            <CreditCard className="h-4 w-4 mr-2" />
-            Subscription
-          </Button>
-        </SubscriptionDialog>
+        <Button variant="outline" size="sm" className="flex-1" onClick={handleOpenSubscription}>
+          <CreditCard className="h-4 w-4 mr-2" />
+          Subscription
+        </Button>
         <BugReportDialog />
       </div>
     </div>
@@ -285,29 +290,35 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
   // On mobile, use a Drawer for better UX
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerTrigger asChild>
-          {children}
-        </DrawerTrigger>
-        <DrawerContent className="px-4 pb-6">
-          <DrawerHeader className="text-left">
-            <DrawerTitle>Settings</DrawerTitle>
-          </DrawerHeader>
-          {settingsContent}
-        </DrawerContent>
-      </Drawer>
+      <>
+        <Drawer open={open} onOpenChange={setOpen}>
+          <DrawerTrigger asChild>
+            {children}
+          </DrawerTrigger>
+          <DrawerContent className="px-4 pb-6">
+            <DrawerHeader className="text-left">
+              <DrawerTitle>Settings</DrawerTitle>
+            </DrawerHeader>
+            {settingsContent}
+          </DrawerContent>
+        </Drawer>
+        <SubscriptionDialog open={subscriptionOpen} onOpenChange={setSubscriptionOpen} />
+      </>
     )
   }
 
   // On desktop, use a Popover
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        {children}
-      </PopoverTrigger>
-      <PopoverContent className="w-80" align="end" side="right">
-        {settingsContent}
-      </PopoverContent>
-    </Popover>
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          {children}
+        </PopoverTrigger>
+        <PopoverContent className="w-80" align="end" side="right">
+          {settingsContent}
+        </PopoverContent>
+      </Popover>
+      <SubscriptionDialog open={subscriptionOpen} onOpenChange={setSubscriptionOpen} />
+    </>
   )
 }
