@@ -277,23 +277,29 @@ export function SubscriptionDialog({ children, open: openProp, onOpenChange }: {
         }
     };
 
-    // Get price ID for a plan
-    const getPriceIdForPlan = (plan: PlanType): string | null => {
+    // Get price ID for a plan based on billing period
+    const getPriceIdForPlan = (plan: PlanType, period: "monthly" | "annual" = "monthly"): string | null => {
         // Use NEXT_PUBLIC_ env vars since this is client-side
         if (plan === 'basic') {
-            return process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_BASIC_MONTHLY || null;
+            return period === 'annual'
+                ? process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_BASIC_ANNUAL || null
+                : process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_BASIC_MONTHLY || null;
         }
         if (plan === 'pro') {
-            return process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY || null;
+            return period === 'annual'
+                ? process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_ANNUAL || null
+                : process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY || null;
         }
         if (plan === 'max') {
-            return process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_MAX_MONTHLY || null;
+            return period === 'annual'
+                ? process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_MAX_ANNUAL || null
+                : process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_MAX_MONTHLY || null;
         }
         return null;
     };
 
     const handleUpgrade = async (targetPlan: PlanType) => {
-        const priceId = getPriceIdForPlan(targetPlan);
+        const priceId = getPriceIdForPlan(targetPlan, billingPeriod);
         if (!priceId) {
             toast.error("Unable to process upgrade. Please try again later.");
             return;
@@ -339,7 +345,7 @@ export function SubscriptionDialog({ children, open: openProp, onOpenChange }: {
             return;
         }
 
-        const priceId = getPriceIdForPlan(targetPlan);
+        const priceId = getPriceIdForPlan(targetPlan, billingPeriod);
         if (!priceId) {
             toast.error("Unable to process downgrade. Please try again later.");
             return;
@@ -430,7 +436,7 @@ export function SubscriptionDialog({ children, open: openProp, onOpenChange }: {
             setUpgradePreview({ loading: true, error: null, prorationAmount: null, daysRemaining: null, nextBillingAmount: null, currency: 'eur' });
 
             try {
-                const priceId = getPriceIdForPlan(plan);
+                const priceId = getPriceIdForPlan(plan, billingPeriod);
                 if (!priceId) {
                     setUpgradePreview(prev => ({ ...prev, loading: false, error: 'Unable to get pricing information' }));
                     return;
@@ -480,13 +486,13 @@ export function SubscriptionDialog({ children, open: openProp, onOpenChange }: {
                         {children}
                     </DialogTrigger>
                 )}
-                <DialogContent className="w-[calc(100vw-2rem)] max-w-5xl max-h-[85vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
+                <DialogContent className="w-[calc(100vw-2rem)] max-w-5xl max-h-[85vh] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/40">
+                    <DialogHeader className="text-center">
+                        <DialogTitle className="flex items-center justify-center gap-2">
                             <CreditCard className="h-5 w-5 text-primary" />
                             Manage Subscription
                         </DialogTitle>
-                        <DialogDescription>
+                        <DialogDescription className="text-center">
                             View your current plan, upgrade, or manage your subscription.
                         </DialogDescription>
                     </DialogHeader>
@@ -563,7 +569,7 @@ export function SubscriptionDialog({ children, open: openProp, onOpenChange }: {
                                         value="annual"
                                         className="px-4 py-2 text-sm font-medium rounded-md data-[state=on]:bg-background data-[state=on]:shadow-sm"
                                     >
-                                        Annual <span className="text-xs text-green-600 ml-1">(Save ~17%)</span>
+                                        Annual
                                     </ToggleGroupItem>
                                 </ToggleGroup>
                             </div>
