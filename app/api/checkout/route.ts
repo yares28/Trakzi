@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { getStripe, getAppUrl, STRIPE_PRICES } from '@/lib/stripe';
 import { getUserSubscription, upsertSubscription } from '@/lib/subscriptions';
+import { ensureUserExists } from '@/lib/user-sync';
 
 export async function POST(request: NextRequest) {
     try {
@@ -97,6 +98,10 @@ export async function POST(request: NextRequest) {
             });
 
             customerId = newCustomer.id;
+
+            // Ensure user exists in our database before creating subscription
+            // This fixes foreign key constraint violations
+            await ensureUserExists();
 
             // Store customer ID in database immediately (before checkout)
             // This ensures we have the binding even if checkout fails
