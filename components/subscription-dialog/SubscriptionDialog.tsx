@@ -28,16 +28,22 @@ import { PLAN_INFO } from "./plan-info";
 import { PlanCard } from "./PlanCard";
 import type { PlanType, SubscriptionStatus } from "./types";
 
-export function SubscriptionDialog({ children, onOpenChange }: { children: React.ReactNode; onOpenChange?: (open: boolean) => void }) {
+export function SubscriptionDialog({ children, open: openProp, onOpenChange }: { children?: React.ReactNode; open?: boolean; onOpenChange?: (open: boolean) => void }) {
     const [status, setStatus] = useState<SubscriptionStatus | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isManaging, setIsManaging] = useState(false);
-    const [open, setOpen] = useState(false);
+    const [internalOpen, setInternalOpen] = useState(false);
     const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("monthly");
 
+    // Support both controlled and uncontrolled mode
+    const isControlled = openProp !== undefined;
+    const open = isControlled ? openProp : internalOpen;
+
     const handleOpenChange = (newOpen: boolean) => {
-        setOpen(newOpen);
+        if (!isControlled) {
+            setInternalOpen(newOpen);
+        }
         onOpenChange?.(newOpen);
     };
     // Confirmation dialog states
@@ -469,9 +475,11 @@ export function SubscriptionDialog({ children, onOpenChange }: { children: React
     return (
         <>
             <Dialog open={open} onOpenChange={handleOpenChange}>
-                <DialogTrigger asChild>
-                    {children}
-                </DialogTrigger>
+                {children && (
+                    <DialogTrigger asChild>
+                        {children}
+                    </DialogTrigger>
+                )}
                 <DialogContent className="w-[calc(100vw-2rem)] max-w-5xl max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
