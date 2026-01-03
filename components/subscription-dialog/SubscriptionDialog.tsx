@@ -20,6 +20,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Sparkles, AlertCircle, Check, ArrowUp, ArrowDown, CreditCard, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -33,6 +34,7 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
     const [error, setError] = useState<string | null>(null);
     const [isManaging, setIsManaging] = useState(false);
     const [open, setOpen] = useState(false);
+    const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("monthly");
     // Confirmation dialog states
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
     const [showDowngradeConfirm, setShowDowngradeConfirm] = useState<PlanType | null>(null);
@@ -477,7 +479,7 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                     </DialogHeader>
 
                     {isLoading ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 py-4">
+                        <div className="flex flex-col gap-4 max-w-md mx-auto py-4">
                             {[1, 2, 3, 4].map((i) => (
                                 <div key={i} className="h-56 bg-muted rounded-xl animate-pulse" />
                             ))}
@@ -530,8 +532,31 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                                 </div>
                             )}
 
-                            {/* Plan cards */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {/* Billing Period Toggle */}
+                            <div className="flex justify-center">
+                                <ToggleGroup
+                                    type="single"
+                                    value={billingPeriod}
+                                    onValueChange={(value) => value && setBillingPeriod(value as "monthly" | "annual")}
+                                    className="bg-muted rounded-lg p-1"
+                                >
+                                    <ToggleGroupItem
+                                        value="monthly"
+                                        className="px-4 py-2 text-sm font-medium rounded-md data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                                    >
+                                        Monthly
+                                    </ToggleGroupItem>
+                                    <ToggleGroupItem
+                                        value="annual"
+                                        className="px-4 py-2 text-sm font-medium rounded-md data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                                    >
+                                        Annual <span className="text-xs text-green-600 ml-1">(Save ~17%)</span>
+                                    </ToggleGroupItem>
+                                </ToggleGroup>
+                            </div>
+
+                            {/* Plan cards - Single column layout */}
+                            <div className="flex flex-col gap-4 max-w-md mx-auto">
                                 {orderedPlans.map((plan) => (
                                     <PlanCard
                                         key={plan}
@@ -544,6 +569,7 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                                         onReactivate={handleReactivate}
                                         isManaging={isManaging}
                                         isCancelPending={status.subscription?.cancelAtPeriodEnd || false}
+                                        billingPeriod={billingPeriod}
                                     />
                                 ))}
                             </div>
