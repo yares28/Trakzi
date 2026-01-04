@@ -15,15 +15,6 @@ export const currencies: Record<string, {
     USD: { symbol: "$", code: "USD", name: "US Dollar", position: "before", locale: "en-US" },
     EUR: { symbol: "€", code: "EUR", name: "Euro", position: "after", locale: "de-DE" },
     GBP: { symbol: "£", code: "GBP", name: "British Pound", position: "before", locale: "en-GB" },
-    JPY: { symbol: "¥", code: "JPY", name: "Japanese Yen", position: "before", locale: "ja-JP" },
-    CAD: { symbol: "C$", code: "CAD", name: "Canadian Dollar", position: "before", locale: "en-CA" },
-    AUD: { symbol: "A$", code: "AUD", name: "Australian Dollar", position: "before", locale: "en-AU" },
-    CHF: { symbol: "Fr", code: "CHF", name: "Swiss Franc", position: "after", locale: "de-CH" },
-    CNY: { symbol: "¥", code: "CNY", name: "Chinese Yuan", position: "before", locale: "zh-CN" },
-    INR: { symbol: "₹", code: "INR", name: "Indian Rupee", position: "before", locale: "en-IN" },
-    BRL: { symbol: "R$", code: "BRL", name: "Brazilian Real", position: "before", locale: "pt-BR" },
-    MXN: { symbol: "$", code: "MXN", name: "Mexican Peso", position: "before", locale: "es-MX" },
-    KRW: { symbol: "₩", code: "KRW", name: "South Korean Won", position: "before", locale: "ko-KR" },
 }
 
 // Detect default currency from browser locale
@@ -35,9 +26,7 @@ function detectDefaultCurrency(): string {
 
     // Map regions to currencies
     const regionToCurrency: Record<string, string> = {
-        US: "USD", GB: "GBP", CA: "CAD", AU: "AUD", JP: "JPY",
-        CN: "CNY", IN: "INR", BR: "BRL", MX: "MXN", KR: "KRW",
-        CH: "CHF",
+        US: "USD", GB: "GBP",
         // European countries use EUR
         DE: "EUR", FR: "EUR", ES: "EUR", IT: "EUR", NL: "EUR",
         BE: "EUR", AT: "EUR", PT: "EUR", IE: "EUR", FI: "EUR",
