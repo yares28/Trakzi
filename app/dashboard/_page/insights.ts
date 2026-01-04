@@ -15,11 +15,21 @@ export const getAnalyticsInsight = (stats: DashboardStats | null): ScoreInsight 
   const needsPercent = stats.analytics.needsPercent ?? 0
   const wantsPercent = stats.analytics.wantsPercent ?? 0
   const score = stats.analytics.score ?? 0
-  const savingsPercent = 100 - needsPercent - wantsPercent
+  const otherPercent = stats.analytics.otherPercent ?? 0
+  // API returns savingsPercent as (100 - needs - wants), so it includes other.
+  // We calculate true savings by subtracting otherPercent.
+  const savingsPercent = Math.max(0, 100 - needsPercent - wantsPercent - otherPercent)
 
   if (score >= 80) {
+    const parts = [
+      `Needs: ${needsPercent}%`,
+      `Wants: ${wantsPercent}%`,
+      savingsPercent > 0 ? `Savings: ${savingsPercent}%` : null,
+      otherPercent > 0 ? `Other: ${otherPercent}%` : null
+    ].filter(Boolean)
+
     return {
-      reason: `Great balance! Needs: ${needsPercent}%, Wants: ${wantsPercent}%, Other: ${savingsPercent}%`,
+      reason: `Great balance! ${parts.join(", ")}`,
       tips: [
         { text: "You're following the 50/30/20 rule well!", icon: "celebrate" },
         { text: "Keep maintaining this healthy spending balance", icon: "track" },
@@ -46,12 +56,26 @@ export const getAnalyticsInsight = (stats: DashboardStats | null): ScoreInsight 
     tips.push({ text: "Try a no-spend challenge for non-essentials this week", icon: "goal" })
   }
 
+  if (otherPercent > 20) {
+    tips.push({
+      text: `${otherPercent}% of spending is uncategorized/other. Categorize transactions to improve accuracy`,
+      icon: "categorize"
+    })
+  }
+
   if (tips.length === 0) {
     tips.push({ text: "You're close to the ideal 50/30/20 balance!", icon: "track" })
   }
 
+  const parts = [
+    `Needs ${needsPercent}%`,
+    `Wants ${wantsPercent}%`,
+    savingsPercent > 0 ? `Savings ${savingsPercent}%` : null,
+    otherPercent > 0 ? `Other ${otherPercent}%` : null
+  ].filter(Boolean)
+
   return {
-    reason: `Budget breakdown: Needs ${needsPercent}%, Wants ${wantsPercent}%, Other ${savingsPercent}%`,
+    reason: `Budget breakdown: ${parts.join(", ")}`,
     tips,
     priority: score < 50 ? "high" : "medium",
   }
