@@ -269,7 +269,7 @@ export function ChartTimeOfDaySpendingFridge({ data = [], isLoading = false }: C
       yAxis: {
         type: "value",
         axisLabel: {
-          formatter: (value: number) => `${symbol}${value.toLocaleString()}`,
+          formatter: (value: number) => formatCurrency(value, { maximumFractionDigits: 0 }),
           color: textColor,
         },
         axisTick: {

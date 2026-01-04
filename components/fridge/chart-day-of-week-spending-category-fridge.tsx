@@ -350,7 +350,7 @@ export function ChartDayOfWeekSpendingCategoryFridge({ receiptTransactions = [],
                 tickText.setAttribute("alignment-baseline", "middle")
                 tickText.setAttribute("fill", textColor)
                 tickText.setAttribute("font-size", "12")
-                tickText.textContent = `${symbol}${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                tickText.textContent = formatCurrency(value, { maximumFractionDigits: 0 })
                 yAxisGroup.appendChild(tickText)
             }
             svg.appendChild(yAxisGroup)
