@@ -254,7 +254,7 @@ export function ChartDayOfWeekSpendingFridge({ data = [], dayOfWeekSpendingData,
       yAxis: {
         type: "value",
         axisLabel: {
-          formatter: (value: number) => `${symbol}${value.toLocaleString()}`,
+          formatter: (value: number) => formatCurrency(value, { maximumFractionDigits: 0 }),
           color: textColor,
         },
         axisTick: {
