@@ -26,12 +26,14 @@ export default function SignInPage() {
           appearance={{
             elements: {
               rootBox: "mx-auto",
-              card: "bg-zinc-900/50 backdrop-blur-xl border border-zinc-800 shadow-xl",
+              card: "bg-[#212126] backdrop-blur-xl border border-zinc-800 shadow-xl",
               headerTitle: "text-white",
               headerSubtitle: "text-zinc-400",
               socialButtonsBlockButton:
-                "bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:bg-white hover:text-black hover:border-white transition-all duration-200",
-              socialButtonsBlockButtonText: "text-zinc-300",
+                "flex-1 bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:bg-white hover:text-black hover:border-white transition-all duration-200",
+              socialButtonsBlockButtonText: "text-zinc-300 font-medium",
+              socialButtonsProviderIcon: "w-5 h-5",
+              socialButtons: "flex flex-col gap-2",
               dividerLine: "bg-zinc-800",
               dividerText: "text-zinc-500",
               formFieldLabel: "text-zinc-300",
