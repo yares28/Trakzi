@@ -90,6 +90,14 @@ export async function POST(request: NextRequest) {
 
     let event: Stripe.Event;
 
+    // DEBUG: Temporary logging to diagnose signature verification issues
+    console.log('[Webhook DEBUG] ========================================');
+    console.log('[Webhook DEBUG] Secret starts with:', webhookSecret?.substring(0, 12) + '...');
+    console.log('[Webhook DEBUG] Signature header:', signature?.substring(0, 50) + '...');
+    console.log('[Webhook DEBUG] Body length:', body.length);
+    console.log('[Webhook DEBUG] Body first 100 chars:', body.substring(0, 100));
+    console.log('[Webhook DEBUG] ========================================');
+
     try {
         const stripe = getStripe();
         event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
@@ -111,7 +119,7 @@ export async function POST(request: NextRequest) {
     // CRITICAL: Check idempotency using event ID (Stripe best practice)
     const eventId = event.id;
     const alreadyProcessed = await isEventProcessed(eventId);
-    
+
     if (alreadyProcessed) {
         console.log(`[Webhook] Event ${eventId} already processed, skipping (idempotency)`);
         return NextResponse.json({ received: true });
@@ -120,7 +128,7 @@ export async function POST(request: NextRequest) {
     // Mark as processing to prevent concurrent processing
     const customerId = (event.data.object as any).customer;
     const subscriptionId = (event.data.object as any).id;
-    
+
     await markEventAsProcessing(eventId, event.type, {
         customerId: typeof customerId === 'string' ? customerId : customerId?.id,
         subscriptionId: event.type.includes('subscription') ? subscriptionId : undefined,
@@ -175,14 +183,14 @@ export async function POST(request: NextRequest) {
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         console.error(`[Webhook] Error processing ${event.type} (${eventId}):`, error);
-        
+
         // Mark event as failed (allows Stripe to retry)
         const errorForLogging = error instanceof Error ? error : String(error);
         await markEventAsFailed(eventId, errorForLogging, {
             customerId: typeof customerId === 'string' ? customerId : customerId?.id,
             subscriptionId: event.type.includes('subscription') ? subscriptionId : undefined,
         });
-        
+
         // Return 500 so Stripe retries automatically (Stripe handles retries for 3 days)
         return NextResponse.json(
             { error: 'Webhook processing failed' },
@@ -221,8 +229,8 @@ async function syncSubscriptionToClerk(userId: string, plan: string, status: str
  */
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     const userId = session.metadata?.userId;
-    const customerId = typeof session.customer === 'string' 
-        ? session.customer 
+    const customerId = typeof session.customer === 'string'
+        ? session.customer
         : session.customer?.id;
     const subscriptionId = typeof session.subscription === 'string'
         ? session.subscription
@@ -262,7 +270,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     const subscriptionResponse = await stripe.subscriptions.retrieve(subscriptionId);
     // Use our interface type for proper typing
     const subscription = subscriptionResponse as unknown as StripeSubscriptionData;
-    
+
     // Validate subscription has items
     if (!subscription.items?.data || subscription.items.data.length === 0) {
         console.error('[Webhook] Subscription has no items', {
@@ -272,9 +280,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         });
         return;
     }
-    
+
     const priceId = subscription.items.data[0]?.price.id;
-    
+
     if (!priceId) {
         console.error('[Webhook] Subscription item has no price ID', {
             subscriptionId,
@@ -283,9 +291,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         });
         return;
     }
-    
+
     const plan = getPlanFromPriceId(priceId);
-    
+
     // Validate plan mapping (should not be 'free' for paid subscriptions)
     if (plan === 'free' && priceId) {
         console.error('[Webhook] Price ID maps to free plan unexpectedly', {
@@ -324,14 +332,14 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
     const customerId = typeof subscription.customer === 'string'
         ? subscription.customer
         : subscription.customer?.id;
-    
+
     if (!customerId) {
         console.error('[Webhook] Invalid customer ID in subscription update', {
             subscriptionId: subscription.id,
         });
         return;
     }
-    
+
     // Validate subscription has items
     if (!subscription.items?.data || subscription.items.data.length === 0) {
         console.error('[Webhook] Subscription has no items', {
@@ -340,9 +348,9 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
         });
         return;
     }
-    
+
     const priceId = subscription.items.data[0]?.price.id;
-    
+
     if (!priceId) {
         console.error('[Webhook] Subscription item has no price ID', {
             subscriptionId: subscription.id,
@@ -350,9 +358,9 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
         });
         return;
     }
-    
+
     const newPlan = getPlanFromPriceId(priceId);
-    
+
     // Validate plan mapping
     if (newPlan === 'free' && priceId) {
         console.error('[Webhook] Price ID maps to free plan unexpectedly', {
@@ -363,7 +371,7 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
         // Don't process - this indicates a configuration error
         return;
     }
-    
+
     const status = mapStripeStatus(subscription.status);
     const periodEnd = safeTimestampToDate(subscription.current_period_end);
 
@@ -383,7 +391,7 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
             return;
         }
         userId = metaUserId;
-        
+
         // Create new subscription record
         await upsertSubscription({
             userId,
@@ -395,7 +403,7 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
             currentPeriodEnd: periodEnd ?? undefined,
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
         });
-        
+
         // Sync to Clerk
         await syncSubscriptionToClerk(userId, newPlan, status, customerId, periodEnd);
         console.log(`[Webhook] Subscription created for user ${userId}, plan: ${newPlan}`);
@@ -482,14 +490,14 @@ async function handleSubscriptionDeleted(subscription: StripeSubscriptionData) {
     const customerId = typeof subscription.customer === 'string'
         ? subscription.customer
         : subscription.customer?.id;
-    
+
     if (!customerId) {
         console.error('[Webhook] Invalid customer ID in subscription deleted', {
             subscriptionId: subscription.id,
         });
         return;
     }
-    
+
     const periodEnd = safeTimestampToDate(subscription.current_period_end);
 
     const existingSub = await getSubscriptionByStripeCustomerId(customerId);
@@ -497,11 +505,11 @@ async function handleSubscriptionDeleted(subscription: StripeSubscriptionData) {
     if (existingSub) {
         const userId = existingSub.userId;
         const currentPlan = existingSub.plan;
-        
+
         // Only enforce cap if user is downgrading from a paid plan to free
         // If already on free plan, skip enforcement (prevents double deletion)
         const isDowngradingToFree = currentPlan !== 'free';
-        
+
         await upsertSubscription({
             userId,
             plan: 'free',
@@ -515,7 +523,7 @@ async function handleSubscriptionDeleted(subscription: StripeSubscriptionData) {
             const freePlanCap = getTransactionCap('free');
             console.log(`[Webhook] Subscription canceled - enforcing free plan cap of ${freePlanCap} for user ${userId} (downgrading from ${currentPlan})`);
             const capResult = await enforceTransactionCap(userId, freePlanCap);
-            
+
             if (capResult.deleted > 0) {
                 console.log(`[Webhook] Auto-deleted ${capResult.deleted} oldest transactions for user ${userId} to fit free plan cap`);
             }
@@ -543,14 +551,14 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
     const customerId = typeof invoice.customer === 'string'
         ? invoice.customer
         : invoice.customer?.id;
-    
+
     if (!customerId) {
         console.error('[Webhook] Invalid customer ID in payment failed invoice', {
             invoiceId: invoice.id,
         });
         return;
     }
-    
+
     const attemptCount = invoice.attempt_count || 1;
 
     console.log(`[Webhook] Payment failed for customer ${customerId}, attempt ${attemptCount}`);
@@ -594,14 +602,14 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
     const customerId = typeof charge.customer === 'string'
         ? charge.customer
         : charge.customer?.id;
-    
+
     if (!customerId) {
         console.error('[Webhook] Invalid customer ID in refunded charge', {
             chargeId: charge.id,
         });
         return;
     }
-    
+
     const amountRefunded = charge.amount_refunded;
     const refundedFull = charge.refunded; // true if fully refunded
 
@@ -634,11 +642,11 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
 
     const userId = existingSub.userId;
     const currentPlan = existingSub.plan;
-    
+
     // Only enforce cap if user is downgrading from a paid plan to free
     // If already on free plan, skip enforcement (prevents double deletion)
     const isDowngradingToFree = currentPlan !== 'free';
-    
+
     // Update our database - downgrade to free and mark as canceled
     await upsertSubscription({
         userId,
@@ -654,7 +662,7 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
         const freePlanCap = getTransactionCap('free');
         console.log(`[Webhook] Subscription canceled due to refund - enforcing free plan cap of ${freePlanCap} for user ${userId} (downgrading from ${currentPlan})`);
         const capResult = await enforceTransactionCap(userId, freePlanCap);
-        
+
         if (capResult.deleted > 0) {
             console.log(`[Webhook] Auto-deleted ${capResult.deleted} oldest transactions for user ${userId} to fit free plan cap`);
         }
