@@ -149,7 +149,7 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
                                             {['sunset', 'dark', 'colored', 'gold', 'aqua', 'dull', 'dry', 'greens', 'chrome', 'beach', 'jolly', 'gothic'].map((scheme) => (
                                                 <button
                                                     key={scheme}
-                                                    onClick={() => setColorScheme(scheme as any)}
+                                                    onClick={() => setColorScheme(scheme as keyof typeof colorPalettes)}
                                                     className={cn(
                                                         "relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all hover:bg-muted/50",
                                                         colorScheme === scheme
@@ -158,7 +158,7 @@ export function SettingsPopover({ children }: { children: React.ReactNode }) {
                                                     )}
                                                 >
                                                     <div className="w-full h-12 rounded-lg flex overflow-hidden shadow-sm">
-                                                        {colorPalettes[scheme as any]?.slice(0, 4).map((c, i) => (
+                                                        {colorPalettes[scheme as keyof typeof colorPalettes]?.slice(0, 4).map((c, i) => (
                                                             <div key={i} className="flex-1 h-full" style={{ backgroundColor: c }} />
                                                         ))}
                                                     </div>
