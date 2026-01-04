@@ -37,7 +37,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import type { PlanType, SubscriptionStatus } from "@/components/subscription-dialog/types"
 import { AnimatedThemeSwitcher } from "@/components/animated-theme-switcher"
 
-type SettingsSection = "appearance" | "currency" | "time-period" | "layout" | "subscription" | "bug-report"
+type SettingsSection = "appearance" | "currency" | "time-period" | "subscription" | "bug-report"
 
 interface SettingsPanelProps {
     children: React.ReactNode
@@ -47,7 +47,6 @@ const sidebarItems: { id: SettingsSection; label: string; icon: React.ReactNode 
     { id: "appearance", label: "Appearance", icon: <IconPalette className="size-4" /> },
     { id: "currency", label: "Currency", icon: <IconCoin className="size-4" /> },
     { id: "time-period", label: "Time Period", icon: <IconCalendar className="size-4" /> },
-    { id: "layout", label: "Layout", icon: <IconLayoutGrid className="size-4" /> },
     { id: "subscription", label: "Subscription", icon: <IconCrown className="size-4" /> },
     { id: "bug-report", label: "Bug Report", icon: <IconBug className="size-4" /> },
 ]
@@ -75,7 +74,6 @@ const timeFilterOptions = [
     { value: "last-6-months", label: "Last 6 Months" },
     { value: "last-year", label: "Last Year" },
     { value: "ytd", label: "Year to Date" },
-    { value: "all-time", label: "All Time" },
 ]
 
 export function SettingsPanel({ children }: SettingsPanelProps) {
@@ -125,7 +123,6 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                         {activeSection === "appearance" && <AppearanceSection />}
                         {activeSection === "currency" && <CurrencySection />}
                         {activeSection === "time-period" && <TimePeriodSection />}
-                        {activeSection === "layout" && <LayoutSection />}
                         {activeSection === "subscription" && <SubscriptionSection />}
                         {activeSection === "bug-report" && <BugReportSection />}
                     </main>
@@ -189,6 +186,36 @@ function AppearanceSection() {
                     })}
                 </div>
             </div>
+
+            {/* Layout Randomize */}
+            <div>
+                <h3 className="text-sm font-medium mb-3">Shuffle Layout</h3>
+                <p className="text-xs text-muted-foreground mb-3">
+                    Randomize the position of dashboard cards
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                    <button
+                        onClick={() => {
+                            window.dispatchEvent(new CustomEvent("gridstack:randomize"))
+                            toast.success("Analytics cards shuffled!")
+                        }}
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-muted/40 hover:bg-muted/60 border border-transparent hover:border-primary/30 transition-all"
+                    >
+                        <span className="text-lg">📊</span>
+                        <span className="text-sm font-medium">Analytics</span>
+                    </button>
+                    <button
+                        onClick={() => {
+                            window.dispatchEvent(new CustomEvent("gridstack:randomize:fridge"))
+                            toast.success("Fridge cards shuffled!")
+                        }}
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-muted/40 hover:bg-muted/60 border border-transparent hover:border-primary/30 transition-all"
+                    >
+                        <span className="text-lg">🧊</span>
+                        <span className="text-sm font-medium">Fridge</span>
+                    </button>
+                </div>
+            </div>
         </div>
     )
 }
@@ -197,36 +224,61 @@ function AppearanceSection() {
 function CurrencySection() {
     const { currency, setCurrency } = useCurrency()
 
+    const currencyFlags: Record<string, string> = {
+        EUR: "🇪🇺",
+        USD: "🇺🇸",
+        GBP: "🇬🇧",
+    }
+
     return (
         <div className="space-y-4">
             <div>
-                <h3 className="text-sm font-medium mb-3">Currency</h3>
+                <h3 className="text-sm font-medium mb-1">Currency</h3>
                 <p className="text-xs text-muted-foreground mb-4">
-                    Select your preferred currency for displaying amounts
+                    Choose how monetary values are displayed throughout the app
                 </p>
-                <div className="space-y-2">
-                    {Object.entries(currencies).map(([code, config]) => (
+            </div>
+
+            {/* Currency Cards - Compact Grid */}
+            <div className="grid grid-cols-3 gap-2">
+                {Object.entries(currencies).map(([code, config]) => {
+                    const isSelected = currency === code
+                    return (
                         <button
                             key={code}
                             onClick={() => setCurrency(code)}
                             className={cn(
-                                "w-full flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors",
-                                currency === code
-                                    ? "border-primary bg-primary/5"
-                                    : "hover:border-primary/50"
+                                "relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200",
+                                isSelected
+                                    ? "border-primary bg-gradient-to-br from-primary/10 to-primary/5 shadow-md"
+                                    : "border-transparent bg-muted/40 hover:bg-muted/60 hover:border-muted-foreground/20"
                             )}
                         >
-                            <span className="text-lg font-semibold w-8">{config.symbol}</span>
-                            <div className="text-left">
-                                <div className="font-medium">{config.name}</div>
-                                <div className="text-xs text-muted-foreground">{code}</div>
+                            <span className="text-2xl">{currencyFlags[code]}</span>
+                            <div className="text-center">
+                                <div className={cn(
+                                    "text-xl font-bold transition-colors",
+                                    isSelected ? "text-primary" : "text-foreground"
+                                )}>
+                                    {config.symbol}
+                                </div>
+                                <div className="text-xs text-muted-foreground font-medium">{code}</div>
                             </div>
-                            {currency === code && (
-                                <span className="ml-auto text-primary">✓</span>
+                            {isSelected && (
+                                <div className="absolute -top-1 -right-1 size-5 bg-primary rounded-full flex items-center justify-center">
+                                    <span className="text-[10px] text-primary-foreground">✓</span>
+                                </div>
                             )}
                         </button>
-                    ))}
-                </div>
+                    )
+                })}
+            </div>
+
+            {/* Preview */}
+            <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-dashed">
+                <p className="text-xs text-muted-foreground text-center">
+                    Preview: <span className="font-semibold text-foreground">{currencies[currency as keyof typeof currencies]?.symbol}1,234.56</span>
+                </p>
             </div>
         </div>
     )
@@ -238,38 +290,62 @@ function TimePeriodSection() {
 
     const handleSetDefault = (value: string) => {
         setFilter(value)
-        // Also save as default
         if (typeof window !== "undefined") {
             localStorage.setItem("default-time-period", value)
         }
+        toast.success("Default time period updated", { description: `Set to ${timeFilterOptions.find(o => o.value === value)?.label}` })
+    }
+
+    const periodIcons: Record<string, string> = {
+        "last-30-days": "📅",
+        "last-3-months": "📆",
+        "last-6-months": "🗓️",
+        "last-year": "📊",
+        "ytd": "🎯",
+        "all-time": "♾️",
     }
 
     return (
         <div className="space-y-4">
             <div>
-                <h3 className="text-sm font-medium mb-3">Default Time Period</h3>
+                <h3 className="text-sm font-medium mb-1">Default Time Period</h3>
                 <p className="text-xs text-muted-foreground mb-4">
-                    Set the default time range for charts and data across the app
+                    Set the default date range for all charts and analytics
                 </p>
-                <div className="space-y-2">
-                    {timeFilterOptions.map((option) => (
+            </div>
+
+            {/* Time Period Grid */}
+            <div className="grid grid-cols-2 gap-2">
+                {timeFilterOptions.map((option) => {
+                    const isSelected = filter === option.value
+                    return (
                         <button
                             key={option.value}
                             onClick={() => handleSetDefault(option.value)}
                             className={cn(
-                                "w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-colors",
-                                filter === option.value
-                                    ? "border-primary bg-primary/5"
-                                    : "hover:border-primary/50"
+                                "relative flex items-center gap-3 p-3 rounded-xl border-2 transition-all duration-200 text-left",
+                                isSelected
+                                    ? "border-primary bg-gradient-to-br from-primary/10 to-primary/5 shadow-md"
+                                    : "border-transparent bg-muted/40 hover:bg-muted/60 hover:border-muted-foreground/20"
                             )}
                         >
-                            <span className="font-medium">{option.label}</span>
-                            {filter === option.value && (
-                                <span className="text-primary">✓</span>
+                            <span className="text-xl">{periodIcons[option.value]}</span>
+                            <div className="flex-1 min-w-0">
+                                <div className={cn(
+                                    "text-sm font-medium truncate transition-colors",
+                                    isSelected ? "text-primary" : "text-foreground"
+                                )}>
+                                    {option.label}
+                                </div>
+                            </div>
+                            {isSelected && (
+                                <div className="size-5 bg-primary rounded-full flex items-center justify-center shrink-0">
+                                    <span className="text-[10px] text-primary-foreground">✓</span>
+                                </div>
                             )}
                         </button>
-                    ))}
-                </div>
+                    )
+                })}
             </div>
         </div>
     )
@@ -282,19 +358,114 @@ function LayoutSection() {
         toast.success("Cards randomized!", { description: "The grid layout has been shuffled." })
     }
 
+    const layoutOptions = [
+        {
+            id: "randomize",
+            title: "Shuffle Layout",
+            description: "Randomize card positions",
+            icon: "🎲",
+            action: handleRandomize,
+            active: true,
+        },
+        {
+            id: "compact",
+            title: "Compact View",
+            description: "Minimize card spacing",
+            icon: "📦",
+            action: () => toast.info("Coming soon!", { description: "Compact view will be available soon." }),
+            active: false,
+            soon: true,
+        },
+        {
+            id: "reset",
+            title: "Reset Default",
+            description: "Restore original layout",
+            icon: "↩️",
+            action: () => toast.info("Coming soon!", { description: "Reset feature will be available soon." }),
+            active: false,
+            soon: true,
+        },
+        {
+            id: "save",
+            title: "Save Layout",
+            description: "Save current arrangement",
+            icon: "💾",
+            action: () => toast.info("Coming soon!", { description: "Save layout will be available soon." }),
+            active: false,
+            soon: true,
+        },
+    ]
+
+    const displayOptions = [
+        { id: "animations", label: "Smooth Animations", enabled: true },
+        { id: "shadows", label: "Card Shadows", enabled: true },
+        { id: "borders", label: "Card Borders", enabled: false },
+    ]
+
     return (
-        <div className="space-y-4">
+        <div className="space-y-6">
             <div>
-                <h3 className="text-sm font-medium mb-3">Layout</h3>
+                <h3 className="text-sm font-medium mb-1">Layout & Display</h3>
                 <p className="text-xs text-muted-foreground mb-4">
-                    Customize the layout of draggable cards on analytics pages
+                    Customize the dashboard layout and visual preferences
                 </p>
-                <Button onClick={handleRandomize} variant="outline">
-                    <IconLayoutGrid className="size-4 mr-2" />
-                    Randomize Cards
-                </Button>
-                <p className="text-xs text-muted-foreground mt-2">
-                    Applies to the current draggable grid layout
+            </div>
+
+            {/* Layout Actions Grid */}
+            <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Grid Actions</p>
+                <div className="grid grid-cols-2 gap-2">
+                    {layoutOptions.map((option) => (
+                        <button
+                            key={option.id}
+                            onClick={option.action}
+                            disabled={!option.active && option.soon}
+                            className={cn(
+                                "relative flex flex-col items-center gap-2 p-4 rounded-xl border transition-all duration-200 text-center",
+                                option.active
+                                    ? "bg-muted/40 hover:bg-muted/60 border-transparent hover:border-primary/30 cursor-pointer"
+                                    : "bg-muted/20 border-transparent opacity-60 cursor-not-allowed"
+                            )}
+                        >
+                            <span className="text-2xl">{option.icon}</span>
+                            <div>
+                                <div className="text-sm font-medium">{option.title}</div>
+                                <div className="text-[10px] text-muted-foreground">{option.description}</div>
+                            </div>
+                            {option.soon && (
+                                <span className="absolute top-2 right-2 text-[9px] bg-muted px-1.5 py-0.5 rounded-full font-medium">
+                                    Soon
+                                </span>
+                            )}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Display Preferences */}
+            <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Display Preferences</p>
+                <div className="space-y-2">
+                    {displayOptions.map((option) => (
+                        <div
+                            key={option.id}
+                            className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-transparent"
+                        >
+                            <span className="text-sm font-medium">{option.label}</span>
+                            <div className={cn(
+                                "w-10 h-6 rounded-full relative transition-colors cursor-pointer",
+                                option.enabled ? "bg-primary" : "bg-muted-foreground/30"
+                            )}>
+                                <div className={cn(
+                                    "absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all",
+                                    option.enabled ? "left-5" : "left-1"
+                                )} />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2 text-center">
+                    These settings will be functional in a future update
                 </p>
             </div>
         </div>
