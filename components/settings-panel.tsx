@@ -278,7 +278,7 @@ function CurrencySection() {
             <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-dashed">
                 <p className="text-xs text-muted-foreground text-center">
                     Preview: <span className="font-semibold text-foreground">
-                        {currency === "EUR" ? "1.234,56€" : currency === "GBP" ? "£1,234.56" : "$1,234.56"}
+                        {currency === "EUR" ? "1,234.56€" : currency === "GBP" ? "£1,234.56" : "$1,234.56"}
                     </span>
                 </p>
             </div>

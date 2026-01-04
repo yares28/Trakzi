@@ -100,9 +100,9 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         const minDigits = options?.minimumFractionDigits ?? Math.min(2, maxDigits)
         const showSign = options?.showSign ?? false
 
-        // Use the currency's native locale for formatting
+        // Always use en-US locale for consistent number formatting (1,000.00)
         const absAmount = Math.abs(amount)
-        const formatted = absAmount.toLocaleString(currencyConfig.locale, {
+        const formatted = absAmount.toLocaleString("en-US", {
             minimumFractionDigits: minDigits,
             maximumFractionDigits: maxDigits,
         })
