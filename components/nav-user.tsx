@@ -2,9 +2,9 @@
 
 import {
   IconLogin,
-  IconSettings,
   IconLogout,
   IconUser,
+  IconSettings,
 } from "@tabler/icons-react"
 import {
   SignedIn,
@@ -34,7 +34,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { SettingsPopover } from "@/components/settings-popover"
+import { SettingsPanel } from "@/components/settings-panel"
+
 
 export function NavUser() {
   const { user, isLoaded } = useUser()
@@ -50,7 +51,7 @@ export function NavUser() {
   }
 
   const settingsButton = (
-    <SettingsPopover>
+    <SettingsPanel>
       <SidebarMenuButton
         tooltip="Settings"
         size="lg"
@@ -61,7 +62,7 @@ export function NavUser() {
         <IconSettings />
         <span className="sr-only">Settings</span>
       </SidebarMenuButton>
-    </SettingsPopover>
+    </SettingsPanel>
   )
 
   // Show sign-in button when not authenticated

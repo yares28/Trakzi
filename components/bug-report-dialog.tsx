@@ -54,8 +54,27 @@ const Textarea = React.forwardRef<
 })
 Textarea.displayName = "Textarea"
 
-export function BugReportDialog() {
-    const [open, setOpen] = React.useState(false)
+export function BugReportDialog({
+    children,
+    open: openProp,
+    onOpenChange
+}: {
+    children?: React.ReactNode;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void
+} = {}) {
+    const [internalOpen, setInternalOpen] = React.useState(false)
+
+    // Support both controlled and uncontrolled mode
+    const isControlled = openProp !== undefined
+    const open = isControlled ? openProp : internalOpen
+
+    const handleOpenChange = (newOpen: boolean) => {
+        if (!isControlled) {
+            setInternalOpen(newOpen)
+        }
+        onOpenChange?.(newOpen)
+    }
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -84,18 +103,24 @@ export function BugReportDialog() {
         window.location.href = mailtoLink
 
         // Close dialog
-        setOpen(false)
+        handleOpenChange(false)
         form.reset()
     }
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-muted-foreground hover:text-foreground">
-                    <IconBug className="h-4 w-4" />
-                    <span>Bug / Feature</span>
-                </Button>
-            </DialogTrigger>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+            {children ? (
+                <DialogTrigger asChild>
+                    {children}
+                </DialogTrigger>
+            ) : (
+                <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-muted-foreground hover:text-foreground">
+                        <IconBug className="h-4 w-4" />
+                        <span>Bug / Feature</span>
+                    </Button>
+                </DialogTrigger>
+            )}
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                     <DialogTitle>Bug Report & Feature Request</DialogTitle>
@@ -178,7 +203,7 @@ export function BugReportDialog() {
                     </div>
 
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+                        <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Cancel</Button>
                         <Button type="submit">Submit</Button>
                     </DialogFooter>
                 </form>
