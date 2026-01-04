@@ -1,10 +1,11 @@
 import { Area, AreaChart, ResponsiveContainer, Tooltip } from "recharts"
 
 type ScoreSparklineProps = {
-  data: Array<{ month: string; score: number; savingsRate: number }>
+  data: Array<{ month: string; score: number; savingsRate?: number; otherPercent?: number }>
+  label?: string
 }
 
-export function ScoreSparkline({ data }: ScoreSparklineProps) {
+export function ScoreSparkline({ data, label = "Score History" }: ScoreSparklineProps) {
   if (!data || data.length < 2) {
     return null
   }
@@ -18,7 +19,7 @@ export function ScoreSparkline({ data }: ScoreSparklineProps) {
     <div className="mt-2">
       <div className="flex items-center gap-2 mb-1">
         <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-          Score History
+          {label}
         </span>
       </div>
       <div className="h-[40px] w-full">
@@ -38,7 +39,9 @@ export function ScoreSparkline({ data }: ScoreSparklineProps) {
                     <div className="bg-popover border rounded-md shadow-md px-2 py-1">
                       <p className="text-xs font-medium">{point.monthLabel}</p>
                       <p className="text-xs text-muted-foreground">
-                        Score: {point.score} | Rate: {point.savingsRate}%
+                        Score: {point.score}
+                        {point.savingsRate !== undefined && ` | Rate: ${point.savingsRate}%`}
+                        {point.otherPercent !== undefined && ` | Other: ${point.otherPercent}%`}
                       </p>
                     </div>
                   )
@@ -61,3 +64,4 @@ export function ScoreSparkline({ data }: ScoreSparklineProps) {
     </div>
   )
 }
+

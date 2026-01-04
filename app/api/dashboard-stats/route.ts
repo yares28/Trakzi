@@ -149,6 +149,7 @@ export const GET = async () => {
 
         // Calculate analytics score based on how close to 50/30/20 rule
         // Perfect: Needs <= 50%, Wants <= 30%, Savings >= 20%
+        // High "Other" category severely penalizes score (uncategorized = bad data quality)
         let analyticsScore = 100;
 
         // Penalize if needs > 50%
@@ -159,6 +160,19 @@ export const GET = async () => {
         // Penalize if wants > 30%
         if (wantsPercent > 30) {
             analyticsScore -= Math.min(30, (wantsPercent - 30) * 2);
+        }
+
+        // SEVERE PENALTY for high "Other" category (uncategorized transactions)
+        // 40-50% Other = moderate penalty, 50%+ = severe penalty
+        if (otherPercent >= 50) {
+            // 50%+ is very bad - most transactions are uncategorized
+            analyticsScore -= Math.min(50, 30 + (otherPercent - 50));
+        } else if (otherPercent >= 40) {
+            // 40-50% is moderately bad
+            analyticsScore -= Math.min(30, 15 + (otherPercent - 40) * 1.5);
+        } else if (otherPercent >= 30) {
+            // 30-40% is a mild concern
+            analyticsScore -= Math.min(15, (otherPercent - 30));
         }
 
         // Bonus for good balance
@@ -310,6 +324,69 @@ export const GET = async () => {
                 month: row.month_key,
                 score: Math.round(Math.max(0, Math.min(100, monthScore))),
                 savingsRate: rate
+            };
+        });
+
+        // === PHASE 4B: ANALYTICS SCORE HISTORY FOR SPARKLINE ===
+        // Calculate analytics score for each month in history
+        const analyticsHistoricalData = await neonQuery<{
+            month_key: string;
+            category_name: string;
+            total_spent: number | string;
+        }>(`
+            SELECT 
+                TO_CHAR(t.tx_date, 'YYYY-MM') as month_key,
+                COALESCE(c.name, 'Other') as category_name,
+                COALESCE(SUM(ABS(t.amount)), 0) as total_spent
+            FROM transactions t
+            LEFT JOIN categories c ON t.category_id = c.id
+            WHERE t.user_id = $1 
+                AND t.amount < 0
+                AND t.tx_date >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '6 months'
+            GROUP BY TO_CHAR(t.tx_date, 'YYYY-MM'), c.name
+            ORDER BY month_key ASC
+        `, [userId]);
+
+        // Group by month and calculate analytics score for each
+        const analyticsHistoryByMonth = new Map<string, { needsTotal: number; wantsTotal: number; savingsTotal: number; otherTotal: number }>();
+
+        analyticsHistoricalData.forEach(row => {
+            const month = row.month_key;
+            const spent = toNumber(row.total_spent);
+            const classification = classifyCategory(row.category_name);
+
+            if (!analyticsHistoryByMonth.has(month)) {
+                analyticsHistoryByMonth.set(month, { needsTotal: 0, wantsTotal: 0, savingsTotal: 0, otherTotal: 0 });
+            }
+            const monthData = analyticsHistoryByMonth.get(month)!;
+
+            switch (classification) {
+                case "needs": monthData.needsTotal += spent; break;
+                case "wants": monthData.wantsTotal += spent; break;
+                case "savings": monthData.savingsTotal += spent; break;
+                default: monthData.otherTotal += spent;
+            }
+        });
+
+        const analyticsScoreHistory = Array.from(analyticsHistoryByMonth.entries()).map(([month, data]) => {
+            const monthTotal = data.needsTotal + data.wantsTotal + data.savingsTotal + data.otherTotal;
+            const monthNeedsPercent = monthTotal > 0 ? Math.round((data.needsTotal / monthTotal) * 100) : 0;
+            const monthWantsPercent = monthTotal > 0 ? Math.round((data.wantsTotal / monthTotal) * 100) : 0;
+            const monthOtherPercent = monthTotal > 0 ? Math.round((data.otherTotal / monthTotal) * 100) : 0;
+
+            // Calculate score using same logic as overall analytics score
+            let monthScore = 100;
+            if (monthNeedsPercent > 50) monthScore -= Math.min(30, (monthNeedsPercent - 50) * 2);
+            if (monthWantsPercent > 30) monthScore -= Math.min(30, (monthWantsPercent - 30) * 2);
+            if (monthOtherPercent >= 50) monthScore -= Math.min(50, 30 + (monthOtherPercent - 50));
+            else if (monthOtherPercent >= 40) monthScore -= Math.min(30, 15 + (monthOtherPercent - 40) * 1.5);
+            else if (monthOtherPercent >= 30) monthScore -= Math.min(15, (monthOtherPercent - 30));
+            if (monthNeedsPercent <= 50 && monthWantsPercent <= 30) monthScore = Math.min(100, monthScore + 10);
+
+            return {
+                month,
+                score: Math.max(0, Math.min(100, Math.round(monthScore))),
+                otherPercent: monthOtherPercent
             };
         });
 
@@ -507,7 +584,10 @@ export const GET = async () => {
                     wants: Math.round(wantsTotal),
                     savings: Math.round(savingsTotal),
                     other: Math.round(otherTotal)
-                }
+                },
+                otherPercent,
+                // Score history for sparkline
+                scoreHistory: analyticsScoreHistory
             },
             fridge: {
                 transactionCount: receiptTransactionCount,

@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
+import { revalidatePath } from "next/cache"
 
 import { getCurrentUserId } from "@/lib/auth"
 import { DEFAULT_CATEGORIES } from "@/lib/categories"
 import { neonInsert, neonQuery } from "@/lib/neonClient"
+import { invalidateUserCachePrefix } from "@/lib/cache/upstash"
 
 type CategoryRow = {
   id: number
@@ -166,6 +168,15 @@ export const POST = async (req: NextRequest) => {
         color: paletteColor,
       }
     ) as Array<{ id: number; user_id: string; name: string; color: string }>
+
+    // Invalidate caches after successful category creation
+    invalidateUserCachePrefix(userId, 'data-library').catch((err) => {
+      console.error('[Categories API] Cache invalidation error:', err)
+    })
+    invalidateUserCachePrefix(userId, 'analytics').catch((err) => {
+      console.error('[Categories API] Analytics cache invalidation error:', err)
+    })
+    revalidatePath('/data-library')
 
     return NextResponse.json(
       {

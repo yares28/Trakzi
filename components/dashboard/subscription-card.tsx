@@ -83,8 +83,8 @@ const PLAN_INFO = {
         name: "Basic",
         price: "€1.99/mo",
         icon: Zap,
-        iconColor: "text-blue-500",
-        badgeClass: "bg-gradient-to-r from-blue-500 to-blue-400 text-white border-0",
+        iconColor: "text-primary",
+        badgeClass: "bg-gradient-to-r from-primary to-primary/80 text-white border-0",
         features: [
             "Everything in Free",
             "More AI chat/day",

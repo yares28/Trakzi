@@ -47,7 +47,7 @@ export async function POST(request: Request) {
             quantity: Number(quantity) || 1,
             price_per_unit: Number(amount),
             total_price: totalAmount,
-            category_id: categoryId === "none" ? null : Number(categoryId),
+            category_id: (categoryId === "none" || categoryId === null || categoryId === undefined) ? null : Number(categoryId),
             category_type_id: categoryTypeId ? Number(categoryTypeId) : null,
             receipt_date: receiptDate, // Denormalized
             receipt_time: receiptTime, // Denormalized
