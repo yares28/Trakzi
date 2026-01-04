@@ -384,8 +384,8 @@ export const POST = async (request: Request) => {
 
         // Insert the transaction
         const insertQuery = `
-            INSERT INTO transactions (user_id, statement_id, tx_date, description, amount, category_id, currency)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO transactions (user_id, statement_id, tx_date, description, amount, category_id, currency, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
             RETURNING id, tx_date, description, amount, balance, category_id, statement_id, created_at
         `;
 
