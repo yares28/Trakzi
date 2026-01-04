@@ -90,14 +90,6 @@ export async function POST(request: NextRequest) {
 
     let event: Stripe.Event;
 
-    // DEBUG: Temporary logging to diagnose signature verification issues
-    console.log('[Webhook DEBUG] ========================================');
-    console.log('[Webhook DEBUG] Secret starts with:', webhookSecret?.substring(0, 12) + '...');
-    console.log('[Webhook DEBUG] Signature header:', signature?.substring(0, 50) + '...');
-    console.log('[Webhook DEBUG] Body length:', body.length);
-    console.log('[Webhook DEBUG] Body first 100 chars:', body.substring(0, 100));
-    console.log('[Webhook DEBUG] ========================================');
-
     try {
         const stripe = getStripe();
         event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
