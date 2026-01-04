@@ -8,6 +8,12 @@ export type DashboardStats = {
     hasEnoughTransactions: boolean
     minRequired: number
     breakdown: { needs: number; wants: number; savings: number; other: number }
+    otherPercent: number
+    scoreHistory?: Array<{
+      month: string
+      score: number
+      otherPercent: number
+    }>
   }
   fridge: {
     transactionCount: number

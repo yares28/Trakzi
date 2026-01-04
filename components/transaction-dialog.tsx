@@ -464,7 +464,7 @@ export function TransactionDialog({
                           <DropdownMenuSubTrigger>
                             {typeName}
                           </DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent>
+                          <DropdownMenuSubContent className="max-h-[300px] overflow-y-auto">
                             {cats.map((cat) => (
                               <DropdownMenuItem
                                 key={cat.id}

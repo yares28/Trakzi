@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { revalidatePath } from "next/cache"
 
 import { getCurrentUserId } from "@/lib/auth"
 import { neonInsert, neonQuery } from "@/lib/neonClient"
@@ -6,6 +7,7 @@ import {
   ensureReceiptCategories,
   normalizeReceiptCategoryName,
 } from "@/lib/receipts/receipt-categories-db"
+import { invalidateUserCachePrefix } from "@/lib/cache/upstash"
 
 type ReceiptCategoryRow = {
   id: number
@@ -215,6 +217,16 @@ export const POST = async (req: NextRequest) => {
       `,
       [inserted.id, userId]
     )
+
+    // Invalidate caches after successful receipt category creation
+    invalidateUserCachePrefix(userId, 'data-library').catch((err) => {
+      console.error('[Receipt Categories API] Cache invalidation error:', err)
+    })
+    invalidateUserCachePrefix(userId, 'fridge').catch((err) => {
+      console.error('[Receipt Categories API] Fridge cache invalidation error:', err)
+    })
+    revalidatePath('/data-library')
+    revalidatePath('/fridge')
 
     return NextResponse.json(joined[0] ?? inserted, { status: 201 })
   } catch (error: any) {

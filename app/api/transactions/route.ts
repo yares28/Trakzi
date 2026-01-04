@@ -1,5 +1,6 @@
 // app/api/transactions/route.ts
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { neonQuery } from "@/lib/neonClient";
 import { getCurrentUserId, getCurrentUserIdOrNull } from "@/lib/auth";
 import { invalidateUserCachePrefix } from "@/lib/cache/upstash";
@@ -436,10 +437,15 @@ export const POST = async (request: Request) => {
                 ? transaction.tx_date.split('T')[0]
                 : new Date(transaction.tx_date as any).toISOString().split('T')[0];
 
-        // Invalidate analytics cache after successful transaction creation
+        // Invalidate caches after successful transaction creation
         invalidateUserCachePrefix(userId, 'analytics').catch((err) => {
-            console.error('[Transactions API] Cache invalidation error:', err)
+            console.error('[Transactions API] Analytics cache invalidation error:', err)
         })
+        invalidateUserCachePrefix(userId, 'data-library').catch((err) => {
+            console.error('[Transactions API] Data library cache invalidation error:', err)
+        })
+        revalidatePath('/data-library')
+        revalidatePath('/analytics')
 
         return NextResponse.json({
             id: transaction.id,
