@@ -35,6 +35,7 @@ import { useDateFilter } from "@/components/date-filter-provider"
 import { PlanCard } from "@/components/subscription-dialog/PlanCard"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import type { PlanType, SubscriptionStatus } from "@/components/subscription-dialog/types"
+import { AnimatedThemeSwitcher } from "@/components/animated-theme-switcher"
 
 type SettingsSection = "appearance" | "currency" | "time-period" | "layout" | "subscription" | "bug-report"
 
@@ -136,44 +137,14 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
 
 // ============ APPEARANCE SECTION ============
 function AppearanceSection() {
-    const { resolvedTheme, setTheme } = useTheme()
     const { colorScheme, setColorScheme } = useColorScheme()
-    const [mounted, setMounted] = React.useState(false)
-
-    React.useEffect(() => {
-        setMounted(true)
-    }, [])
-
-    const themeOptions = [
-        { value: "light", label: "Light", icon: <IconSun className="size-5" /> },
-        { value: "dark", label: "Dark", icon: <IconMoon className="size-5" /> },
-    ]
 
     return (
         <div className="space-y-6">
-            {/* Theme - Radio style like currency */}
+            {/* Theme - Animated switcher with Light/Dark/System */}
             <div>
                 <h3 className="text-sm font-medium mb-3">Theme</h3>
-                <div className="space-y-2">
-                    {themeOptions.map((option) => (
-                        <button
-                            key={option.value}
-                            onClick={() => setTheme(option.value)}
-                            className={cn(
-                                "w-full flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors",
-                                mounted && resolvedTheme === option.value
-                                    ? "border-primary bg-primary/5"
-                                    : "hover:border-primary/50"
-                            )}
-                        >
-                            <span className="text-muted-foreground">{option.icon}</span>
-                            <span className="font-medium">{option.label}</span>
-                            {mounted && resolvedTheme === option.value && (
-                                <span className="ml-auto text-primary">✓</span>
-                            )}
-                        </button>
-                    ))}
-                </div>
+                <AnimatedThemeSwitcher />
             </div>
 
             {/* Color Palette */}
