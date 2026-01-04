@@ -113,8 +113,8 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                         </div>
                     </nav>
 
-                    {/* Content Area */}
-                    <main className="flex-1 p-6 overflow-y-auto">
+                    {/* Content Area - improved vertical scroll */}
+                    <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/40">
                         {activeSection === "appearance" && <AppearanceSection />}
                         {activeSection === "currency" && <CurrencySection />}
                         {activeSection === "time-period" && <TimePeriodSection />}
@@ -610,15 +610,18 @@ function SubscriptionSection() {
 
     return (
         <div className="space-y-4">
-            {/* Subscription renewal info */}
-            {status.subscription?.currentPeriodEnd && (
-                <p className="text-center text-xs text-muted-foreground">
-                    {status.subscription.cancelAtPeriodEnd ? "Ends" : "Renews"} on{" "}
-                    <span className="font-medium">
-                        {new Date(status.subscription.currentPeriodEnd).toLocaleDateString()}
-                    </span>
-                </p>
-            )}
+            {/* Header */}
+            <div className="text-center">
+                <h3 className="text-base font-semibold">Manage Subscription</h3>
+                {status.subscription?.currentPeriodEnd && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                        {status.subscription.cancelAtPeriodEnd ? "Ends" : "Renews"} on{" "}
+                        <span className="font-medium">
+                            {new Date(status.subscription.currentPeriodEnd).toLocaleDateString()}
+                        </span>
+                    </p>
+                )}
+            </div>
 
             {/* Billing Period Toggle */}
             <div className="flex justify-center">
@@ -643,8 +646,8 @@ function SubscriptionSection() {
                 </ToggleGroup>
             </div>
 
-            {/* Plan Cards */}
-            <div className="space-y-3">
+            {/* Plan Cards - centered without horizontal scroll */}
+            <div className="space-y-3 max-w-md mx-auto">
                 {orderedPlans.map((plan) => (
                     <PlanCard
                         key={plan}
