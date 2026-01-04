@@ -199,7 +199,7 @@ function AppearanceSection() {
                             window.dispatchEvent(new CustomEvent("gridstack:randomize"))
                             toast.success("Analytics cards shuffled!")
                         }}
-                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-muted/40 hover:bg-muted/60 border border-transparent hover:border-primary/30 transition-all"
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-muted/40 hover:bg-muted/60 border border-muted-foreground/20 hover:border-primary/50 transition-all"
                     >
                         <span className="text-lg">📊</span>
                         <span className="text-sm font-medium">Analytics</span>
@@ -209,7 +209,7 @@ function AppearanceSection() {
                             window.dispatchEvent(new CustomEvent("gridstack:randomize:fridge"))
                             toast.success("Fridge cards shuffled!")
                         }}
-                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-muted/40 hover:bg-muted/60 border border-transparent hover:border-primary/30 transition-all"
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-muted/40 hover:bg-muted/60 border border-muted-foreground/20 hover:border-primary/50 transition-all"
                     >
                         <span className="text-lg">🧊</span>
                         <span className="text-sm font-medium">Fridge</span>
@@ -277,7 +277,9 @@ function CurrencySection() {
             {/* Preview */}
             <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-dashed">
                 <p className="text-xs text-muted-foreground text-center">
-                    Preview: <span className="font-semibold text-foreground">{currencies[currency as keyof typeof currencies]?.symbol}1,234.56</span>
+                    Preview: <span className="font-semibold text-foreground">
+                        {currency === "EUR" ? "1.234,56€" : currency === "GBP" ? "£1,234.56" : "$1,234.56"}
+                    </span>
                 </p>
             </div>
         </div>
