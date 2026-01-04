@@ -114,7 +114,13 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                     </nav>
 
                     {/* Content Area - improved vertical scroll */}
-                    <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/40">
+                    <main
+                        className="flex-1 p-6 overflow-y-auto overflow-x-hidden"
+                        style={{
+                            scrollbarWidth: 'thin',
+                            scrollbarColor: 'hsl(var(--muted-foreground) / 0.3) transparent'
+                        }}
+                    >
                         {activeSection === "appearance" && <AppearanceSection />}
                         {activeSection === "currency" && <CurrencySection />}
                         {activeSection === "time-period" && <TimePeriodSection />}
@@ -610,15 +616,13 @@ function SubscriptionSection() {
 
     return (
         <div className="space-y-4">
-            {/* Header */}
-            <div className="text-center">
-                <h3 className="text-base font-semibold">Manage Subscription</h3>
+            {/* Header - matching other sections style */}
+            <div>
+                <h3 className="text-sm font-medium mb-3">Manage Subscription</h3>
                 {status.subscription?.currentPeriodEnd && (
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground mb-4">
                         {status.subscription.cancelAtPeriodEnd ? "Ends" : "Renews"} on{" "}
-                        <span className="font-medium">
-                            {new Date(status.subscription.currentPeriodEnd).toLocaleDateString()}
-                        </span>
+                        {new Date(status.subscription.currentPeriodEnd).toLocaleDateString()}
                     </p>
                 )}
             </div>
