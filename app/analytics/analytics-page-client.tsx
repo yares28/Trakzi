@@ -40,6 +40,7 @@ import { SiteHeader } from "@/components/site-header"
 import { SortableAnalyticsChart } from "@/components/SortableAnalyticsChart"
 import { FileUpload01 } from "@/components/file-upload-01"
 import { useCurrency } from "@/components/currency-provider"
+import { clearResponseCache } from "@/lib/request-deduplication"
 import { toNumericValue } from "@/lib/utils"
 import {
   SidebarInset,
@@ -1031,13 +1032,16 @@ export default function AnalyticsPage() {
       const result = await response.json()
 
       toast.success("Import successful", {
-        description: `Imported ${result.imported || parsedRows.length} transactions`
+        description: `Imported ${result.inserted || parsedRows.length} transactions`
       })
 
       // Clear state and refresh page data
       setParsedRows([])
       setParsedCsv(null)
       setSelectedParsedRowIds(new Set())
+
+      // Clear client-side cache to ensure fresh data is fetched
+      clearResponseCache()
 
       // Refresh transactions
       await fetchTransactions()

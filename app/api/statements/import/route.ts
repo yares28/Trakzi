@@ -5,7 +5,7 @@ import Papa from "papaparse";
 import { neonInsert, neonQuery } from "@/lib/neonClient";
 import { getCurrentUserId } from "@/lib/auth";
 import { TxRow } from "@/lib/types/transactions";
-import { invalidateUserCachePrefix } from "@/lib/cache/upstash";
+import { invalidateUserCache } from "@/lib/cache/upstash";
 import {
     assertCapacityOrExplain,
     getRemainingCapacity,
@@ -311,9 +311,13 @@ export const POST = async (req: NextRequest) => {
             response.reachedCap = true;
         }
 
-        // Invalidate cache to ensure UI updates instantly
-        await invalidateUserCachePrefix(userId, 'data-library');
+        // Invalidate ALL cache to ensure UI updates instantly across all pages
+        await invalidateUserCache(userId);
         revalidatePath('/data-library');
+        revalidatePath('/home');
+        revalidatePath('/analytics');
+        revalidatePath('/fridge');
+        revalidatePath('/trends');
 
         return NextResponse.json(response, { status: 201 });
     } catch (error: any) {
