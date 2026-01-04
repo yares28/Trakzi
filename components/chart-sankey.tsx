@@ -74,6 +74,7 @@ export function ChartSankey({
   const { resolvedTheme } = useTheme()
   const { formatCurrency } = useCurrency()
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const isMobile = useIsMobile()
 
   // Use full palette colors, filtering out the neutral gray for more distinct flows
   const chartColors = useMemo(() => {
@@ -171,8 +172,6 @@ export function ChartSankey({
       </Card>
     )
   }
-
-  const isMobile = useIsMobile()
 
   // Helper to get truncated label for mobile
   const getMobileLabel = (id: string) => {
