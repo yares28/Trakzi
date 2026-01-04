@@ -21,6 +21,7 @@ import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { ChartExpandButton } from "@/components/chart-expand-button"
 import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 interface SankeyNode {
   id: string
@@ -170,8 +171,17 @@ export function ChartSankey({
       </Card>
     )
   }
-  // Render chart function for reuse
-  const renderChart = () => (
+
+  const isMobile = useIsMobile()
+
+  // Helper to get truncated label for mobile
+  const getMobileLabel = (id: string) => {
+    const label = getNodeLabel(id)
+    return label.length > 8 ? label.slice(0, 7) + '…' : label
+  }
+
+  // Render chart function for FULLSCREEN (full fidelity)
+  const renderFullChart = () => (
     <div
       key={resolvedTheme}
       className="h-full w-full"
@@ -227,6 +237,81 @@ export function ChartSankey({
     </div>
   )
 
+  // Render chart function for MOBILE (optimized: reduced margins, vertical labels, smaller spacing)
+  const renderMobileChart = () => (
+    <div
+      key={resolvedTheme}
+      className="h-full w-full"
+      style={{
+        isolation: 'isolate',
+        mixBlendMode: 'normal'
+      }}
+    >
+      <ResponsiveSankey
+        data={sanitizedData}
+        margin={{ top: 20, right: 50, bottom: 20, left: 50 }}
+        align="justify"
+        label={node => getMobileLabel(node.id)}
+        nodeTooltip={({ node }) => {
+          const label = getNodeLabel(node.id)
+          const value = typeof node.value === "number" ? node.value : 0
+          return (
+            <div className="rounded-md border border-border/60 bg-background/95 px-2 py-1.5 text-xs shadow-lg">
+              <div className="font-medium text-foreground">{label}</div>
+              <div className="text-muted-foreground">{formatCurrency(value)}</div>
+            </div>
+          )
+        }}
+        linkTooltip={({ link }) => {
+          const sourceLabel = getNodeLabel(link.source.id)
+          const targetLabel = getNodeLabel(link.target.id)
+          return (
+            <div className="rounded-md border border-border/60 bg-background/95 px-2 py-1.5 text-xs shadow-lg">
+              <div className="font-medium text-foreground">{sourceLabel} → {targetLabel}</div>
+              <div className="text-muted-foreground">{formatCurrency(toNumericValue(link.value))}</div>
+            </div>
+          )
+        }}
+        colors={chartColors}
+        theme={chartTheme}
+        nodeOpacity={1}
+        nodeHoverOthersOpacity={0.7}
+        nodeThickness={12}
+        nodeSpacing={16}
+        nodeBorderWidth={0}
+        nodeBorderRadius={2}
+        linkOpacity={0.95}
+        linkHoverOthersOpacity={0.6}
+        linkContract={2}
+        labelPosition="outside"
+        labelOrientation="vertical"
+        labelPadding={8}
+        labelTextColor={resolvedTheme === "dark" ? "#ffffff" : { from: "color", modifiers: [["darker", 1]] }}
+        legends={[]}
+        enableLinkGradient={true}
+        animate={false}
+      />
+    </div>
+  )
+
+  // Legend component for mobile (shows node labels since they're truncated)
+  const renderMobileLegend = () => (
+    <div className="flex flex-wrap gap-x-3 gap-y-1.5 px-2 pt-2 pb-1 text-[10px] text-muted-foreground">
+      {sanitizedData.nodes.slice(0, 8).map((node, index) => (
+        <div key={node.id} className="flex items-center gap-1">
+          <span
+            className="h-2 w-2 rounded-full shrink-0"
+            style={{ backgroundColor: chartColors[index % chartColors.length] }}
+          />
+          <span className="truncate max-w-[70px]">{node.label || formatNodeId(node.id)}</span>
+        </div>
+      ))}
+      {sanitizedData.nodes.length > 8 && (
+        <span className="text-muted-foreground/70">+{sanitizedData.nodes.length - 8} more</span>
+      )}
+    </div>
+  )
+
   return (
     <>
       <ChartFullscreenModal
@@ -237,7 +322,7 @@ export function ChartSankey({
         headerActions={renderInfoTrigger(true)}
       >
         <div className="h-full w-full min-h-[400px]">
-          {renderChart()}
+          {renderFullChart()}
         </div>
       </ChartFullscreenModal>
 
@@ -263,10 +348,13 @@ export function ChartSankey({
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
           <div className="h-full w-full min-h-[250px]">
-            {renderChart()}
+            {isMobile ? renderMobileChart() : renderFullChart()}
           </div>
+          {/* Mobile legend below chart */}
+          {isMobile && renderMobileLegend()}
         </CardContent>
       </Card>
     </>
   )
 }
+
