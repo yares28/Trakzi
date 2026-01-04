@@ -32,6 +32,9 @@ import { cn } from "@/lib/utils"
 import { useColorScheme, colorPalettes } from "@/components/color-scheme-provider"
 import { useCurrency, currencies } from "@/components/currency-provider"
 import { useDateFilter } from "@/components/date-filter-provider"
+import { PlanCard } from "@/components/subscription-dialog/PlanCard"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import type { PlanType, SubscriptionStatus } from "@/components/subscription-dialog/types"
 
 type SettingsSection = "appearance" | "currency" | "time-period" | "layout" | "subscription" | "bug-report"
 
@@ -321,16 +324,14 @@ function LayoutSection() {
     )
 }
 
-// ============ SUBSCRIPTION SECTION (INLINE) ============
+// ============ SUBSCRIPTION SECTION (INLINE WITH FULL FUNCTIONALITY) ============
 function SubscriptionSection() {
-    const [status, setStatus] = React.useState<{
-        plan: string
-        status: string
-        usage?: { totalTransactions: number; transactionLimit: number; percentUsed: number }
-        subscription?: { currentPeriodEnd: string; cancelAtPeriodEnd: boolean }
-    } | null>(null)
+    const [status, setStatus] = React.useState<SubscriptionStatus | null>(null)
     const [isLoading, setIsLoading] = React.useState(true)
+    const [isManaging, setIsManaging] = React.useState(false)
+    const [billingPeriod, setBillingPeriod] = React.useState<"monthly" | "annual">("monthly")
 
+    // Fetch subscription status
     React.useEffect(() => {
         const fetchStatus = async () => {
             try {
@@ -340,7 +341,10 @@ function SubscriptionSection() {
                     setStatus({
                         plan: data.plan,
                         status: data.status,
+                        limits: data.limits || {},
                         usage: {
+                            bankTransactions: data.usage?.bank_transactions || 0,
+                            fridgeItems: data.usage?.receipt_transactions || 0,
                             totalTransactions: data.used_total || 0,
                             transactionLimit: data.cap || 400,
                             percentUsed: data.cap > 0 ? Math.round((data.used_total / data.cap) * 100) : 0,
@@ -360,93 +364,311 @@ function SubscriptionSection() {
         fetchStatus()
     }, [])
 
-    const handleManageBilling = async () => {
+    // Get price ID for a plan
+    const getPriceIdForPlan = (plan: PlanType, period: "monthly" | "annual" = "monthly"): string | null => {
+        if (plan === 'basic') {
+            return period === 'annual'
+                ? process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_BASIC_ANNUAL || null
+                : process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_BASIC_MONTHLY || null
+        }
+        if (plan === 'pro') {
+            return period === 'annual'
+                ? process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_ANNUAL || null
+                : process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY || null
+        }
+        if (plan === 'max') {
+            return period === 'annual'
+                ? process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_MAX_ANNUAL || null
+                : process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_MAX_MONTHLY || null
+        }
+        return null
+    }
+
+    const handleUpgrade = async (targetPlan: PlanType) => {
+        const priceId = getPriceIdForPlan(targetPlan, billingPeriod)
+        if (!priceId) {
+            toast.error("Unable to process upgrade. Please try again later.")
+            return
+        }
+
+        setIsManaging(true)
         try {
-            const response = await fetch("/api/billing/portal", { method: "POST" })
+            const response = await fetch("/api/billing/change-plan", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ targetPlan, priceId }),
+            })
             const data = await response.json()
-            if (data.url) {
-                window.open(data.url, "_blank")
+
+            if (data.action === 'checkout' && data.url) {
+                window.location.href = data.url
+            } else if (data.success) {
+                toast.success(data.message || `Upgraded to ${targetPlan.toUpperCase()}!`)
+                // Refresh status
+                const statusResponse = await fetch("/api/subscription/me")
+                if (statusResponse.ok) {
+                    const newData = await statusResponse.json()
+                    setStatus({
+                        plan: newData.plan,
+                        status: newData.status,
+                        limits: newData.limits || {},
+                        usage: {
+                            bankTransactions: newData.usage?.bank_transactions || 0,
+                            fridgeItems: newData.usage?.receipt_transactions || 0,
+                            totalTransactions: newData.used_total || 0,
+                            transactionLimit: newData.cap || 400,
+                            percentUsed: newData.cap > 0 ? Math.round((newData.used_total / newData.cap) * 100) : 0,
+                        },
+                        subscription: {
+                            currentPeriodEnd: newData.current_period_end,
+                            cancelAtPeriodEnd: newData.cancel_at_period_end,
+                        },
+                    })
+                }
+            } else if (data.error) {
+                toast.error(data.error)
             } else {
-                toast.error("Unable to open billing portal")
+                toast.error("Unable to process upgrade")
             }
         } catch (err) {
-            toast.error("Failed to open billing portal")
+            console.error("Upgrade error:", err)
+            toast.error("Failed to upgrade subscription")
+        } finally {
+            setIsManaging(false)
+        }
+    }
+
+    const handleDowngrade = async (targetPlan: PlanType) => {
+        if (targetPlan === 'free') {
+            handleCancel()
+            return
+        }
+
+        const priceId = getPriceIdForPlan(targetPlan, billingPeriod)
+        if (!priceId) {
+            toast.error("Unable to process downgrade. Please try again later.")
+            return
+        }
+
+        setIsManaging(true)
+        try {
+            const response = await fetch("/api/billing/change-plan", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ targetPlan, priceId }),
+            })
+            const data = await response.json()
+
+            if (data.success) {
+                toast.success(data.message || `Downgraded to ${targetPlan.toUpperCase()}`)
+                // Refresh status
+                const statusResponse = await fetch("/api/subscription/me")
+                if (statusResponse.ok) {
+                    const newData = await statusResponse.json()
+                    setStatus({
+                        plan: newData.plan,
+                        status: newData.status,
+                        limits: newData.limits || {},
+                        usage: {
+                            bankTransactions: newData.usage?.bank_transactions || 0,
+                            fridgeItems: newData.usage?.receipt_transactions || 0,
+                            totalTransactions: newData.used_total || 0,
+                            transactionLimit: newData.cap || 400,
+                            percentUsed: newData.cap > 0 ? Math.round((newData.used_total / newData.cap) * 100) : 0,
+                        },
+                        subscription: {
+                            currentPeriodEnd: newData.current_period_end,
+                            cancelAtPeriodEnd: newData.cancel_at_period_end,
+                        },
+                    })
+                }
+            } else if (data.error) {
+                toast.error(data.error)
+            } else {
+                toast.error("Unable to process downgrade")
+            }
+        } catch (err) {
+            console.error("Downgrade error:", err)
+            toast.error("Failed to downgrade subscription")
+        } finally {
+            setIsManaging(false)
+        }
+    }
+
+    const handleCancel = async () => {
+        if (status?.plan === "free") {
+            toast.info("You are on the free plan")
+            return
+        }
+
+        setIsManaging(true)
+        try {
+            const response = await fetch("/api/billing/cancel", { method: "POST" })
+            const data = await response.json()
+
+            if (data.success) {
+                toast.success("Subscription cancelled", { description: data.message })
+                // Refresh status
+                const statusResponse = await fetch("/api/subscription/me")
+                if (statusResponse.ok) {
+                    const newData = await statusResponse.json()
+                    setStatus({
+                        plan: newData.plan,
+                        status: newData.status,
+                        limits: newData.limits || {},
+                        usage: {
+                            bankTransactions: newData.usage?.bank_transactions || 0,
+                            fridgeItems: newData.usage?.receipt_transactions || 0,
+                            totalTransactions: newData.used_total || 0,
+                            transactionLimit: newData.cap || 400,
+                            percentUsed: newData.cap > 0 ? Math.round((newData.used_total / newData.cap) * 100) : 0,
+                        },
+                        subscription: {
+                            currentPeriodEnd: newData.current_period_end,
+                            cancelAtPeriodEnd: newData.cancel_at_period_end,
+                        },
+                    })
+                }
+            } else if (data.error) {
+                toast.error(data.error)
+            } else {
+                toast.error("Unable to cancel subscription")
+            }
+        } catch (err) {
+            console.error("Cancel subscription error:", err)
+            toast.error("Failed to cancel subscription")
+        } finally {
+            setIsManaging(false)
+        }
+    }
+
+    const handleReactivate = async () => {
+        setIsManaging(true)
+        try {
+            const response = await fetch("/api/billing/reactivate", { method: "POST" })
+            const data = await response.json()
+
+            if (data.success) {
+                toast.success(data.message || "Subscription reactivated!")
+                // Refresh status
+                const statusResponse = await fetch("/api/subscription/me")
+                if (statusResponse.ok) {
+                    const newData = await statusResponse.json()
+                    setStatus({
+                        plan: newData.plan,
+                        status: newData.status,
+                        limits: newData.limits || {},
+                        usage: {
+                            bankTransactions: newData.usage?.bank_transactions || 0,
+                            fridgeItems: newData.usage?.receipt_transactions || 0,
+                            totalTransactions: newData.used_total || 0,
+                            transactionLimit: newData.cap || 400,
+                            percentUsed: newData.cap > 0 ? Math.round((newData.used_total / newData.cap) * 100) : 0,
+                        },
+                        subscription: {
+                            currentPeriodEnd: newData.current_period_end,
+                            cancelAtPeriodEnd: newData.cancel_at_period_end,
+                        },
+                    })
+                }
+            } else if (data.error) {
+                toast.error(data.error)
+            } else {
+                toast.error("Unable to reactivate subscription")
+            }
+        } catch (err) {
+            console.error("Reactivate error:", err)
+            toast.error("Failed to reactivate subscription")
+        } finally {
+            setIsManaging(false)
         }
     }
 
     if (isLoading) {
         return (
             <div className="space-y-4">
-                <h3 className="text-sm font-medium">Subscription</h3>
                 <div className="animate-pulse space-y-3">
-                    <div className="h-20 bg-muted rounded-lg" />
-                    <div className="h-12 bg-muted rounded-lg" />
+                    <div className="h-10 bg-muted rounded-lg w-1/2 mx-auto" />
+                    <div className="h-48 bg-muted rounded-xl" />
+                    <div className="h-48 bg-muted rounded-xl" />
                 </div>
             </div>
         )
     }
 
-    const planColors: Record<string, string> = {
-        free: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
-        basic: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-        pro: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-        max: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+    if (!status) {
+        return (
+            <div className="flex items-center justify-center h-40 text-muted-foreground">
+                Unable to load subscription info
+            </div>
+        )
     }
+
+    // Order plans with current plan first
+    const allPlans: PlanType[] = ["free", "basic", "pro", "max"]
+    const orderedPlans: PlanType[] = [status.plan, ...allPlans.filter((p) => p !== status.plan)]
 
     return (
         <div className="space-y-4">
-            <h3 className="text-sm font-medium">Subscription</h3>
-
-            {/* Current Plan Card */}
-            <div className="p-4 rounded-lg border bg-muted/20">
-                <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm text-muted-foreground">Current Plan</span>
-                    <span className={cn("px-2 py-1 rounded-md text-xs font-semibold uppercase", planColors[status?.plan || "free"])}>
-                        {status?.plan || "Free"}
-                    </span>
-                </div>
-
-                {status?.usage && (
-                    <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Transactions Used</span>
-                            <span className="font-medium">
-                                {status.usage.totalTransactions.toLocaleString()} / {status.usage.transactionLimit.toLocaleString()}
-                            </span>
-                        </div>
-                        <div className="w-full bg-muted rounded-full h-2">
-                            <div
-                                className="bg-primary h-2 rounded-full transition-all"
-                                style={{ width: `${Math.min(100, status.usage.percentUsed)}%` }}
-                            />
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            {status.usage.percentUsed}% of your limit used
-                        </p>
-                    </div>
-                )}
-
-                {status?.subscription?.currentPeriodEnd && (
-                    <p className="text-xs text-muted-foreground mt-3">
-                        {status.subscription.cancelAtPeriodEnd ? "Ends" : "Renews"} on{" "}
+            {/* Subscription renewal info */}
+            {status.subscription?.currentPeriodEnd && (
+                <p className="text-center text-xs text-muted-foreground">
+                    {status.subscription.cancelAtPeriodEnd ? "Ends" : "Renews"} on{" "}
+                    <span className="font-medium">
                         {new Date(status.subscription.currentPeriodEnd).toLocaleDateString()}
-                    </p>
-                )}
+                    </span>
+                </p>
+            )}
+
+            {/* Billing Period Toggle */}
+            <div className="flex justify-center">
+                <ToggleGroup
+                    type="single"
+                    value={billingPeriod}
+                    onValueChange={(value) => value && setBillingPeriod(value as "monthly" | "annual")}
+                    className="bg-muted rounded-lg p-1"
+                >
+                    <ToggleGroupItem
+                        value="monthly"
+                        className="px-4 py-2 text-sm font-medium rounded-md data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                    >
+                        Monthly
+                    </ToggleGroupItem>
+                    <ToggleGroupItem
+                        value="annual"
+                        className="px-4 py-2 text-sm font-medium rounded-md data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                    >
+                        Annual
+                    </ToggleGroupItem>
+                </ToggleGroup>
             </div>
 
-            {/* Actions */}
-            <div className="space-y-2">
-                <Button onClick={handleManageBilling} variant="outline" className="w-full justify-between">
-                    <span className="flex items-center gap-2">
-                        <IconCreditCard className="size-4" />
-                        Manage Billing
-                    </span>
-                    <IconExternalLink className="size-4" />
-                </Button>
-                <p className="text-xs text-muted-foreground">
-                    Opens Stripe billing portal to manage your subscription, update payment method, or view invoices.
-                </p>
+            {/* Plan Cards */}
+            <div className="space-y-3">
+                {orderedPlans.map((plan) => (
+                    <PlanCard
+                        key={plan}
+                        plan={plan}
+                        isCurrentPlan={plan === status.plan}
+                        currentUserPlan={status.plan}
+                        onManageSubscription={handleCancel}
+                        onUpgrade={handleUpgrade}
+                        onDowngrade={handleDowngrade}
+                        onReactivate={handleReactivate}
+                        isManaging={isManaging}
+                        isCancelPending={status.subscription?.cancelAtPeriodEnd || false}
+                        billingPeriod={billingPeriod}
+                    />
+                ))}
             </div>
+
+            {/* Help text */}
+            <p className="text-xs text-center text-muted-foreground">
+                Need help? Contact us at{" "}
+                <a href="mailto:help@trakzi.com" className="text-primary hover:underline">
+                    help@trakzi.com
+                </a>
+            </p>
         </div>
     )
 }
