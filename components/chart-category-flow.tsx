@@ -45,6 +45,7 @@ export function ChartCategoryFlow({
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const isMobile = useIsMobile()
 
   const isDark = resolvedTheme === "dark"
   // Use muted-foreground color to match ChartAreaInteractive
@@ -127,9 +128,6 @@ export function ChartCategoryFlow({
       </Card>
     )
   }
-
-
-  const isMobile = useIsMobile()
 
   // Chart render function for FULLSCREEN (full fidelity)
   const renderFullChart = () => (
