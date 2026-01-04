@@ -224,8 +224,15 @@ export function ChartCategoryFlow({
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
-          <div className="relative h-full w-full min-h-[250px]">
-            {renderChart()}
+          {/* Mobile: horizontal scroll container */}
+          <div className="relative h-full w-full min-h-[250px] overflow-x-auto md:overflow-x-visible">
+            <div className="h-full min-w-[700px] md:min-w-0 md:w-full">
+              {renderChart()}
+            </div>
+            {/* Mobile scroll hint */}
+            <div className="absolute bottom-0 right-0 px-2 py-1 text-[10px] text-muted-foreground bg-gradient-to-l from-background via-background to-transparent md:hidden">
+              Swipe →
+            </div>
           </div>
         </CardContent>
       </Card>
