@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveAreaBump } from "@nivo/bump"
-import { IconCalendar } from "@tabler/icons-react"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
@@ -17,28 +16,12 @@ import {
   CardTitle,
   CardFooter,
 } from "@/components/ui/card"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { ChartExpandButton } from "@/components/chart-expand-button"
 import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 
-// All time period options available in fullscreen
-const fullscreenTimeOptions = [
-  { value: "last-7-days", label: "7 Days" },
-  { value: "last-30-days", label: "30 Days" },
-  { value: "last-3-months", label: "3 Months" },
-  { value: "last-6-months", label: "6 Months" },
-  { value: "last-year", label: "1 Year" },
-  { value: "ytd", label: "YTD" },
-]
 interface ChartCategoryFlowProps {
   data?: Array<{
     id: string
@@ -63,7 +46,6 @@ export function ChartCategoryFlow({
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [fullscreenTimePeriod, setFullscreenTimePeriod] = useState("last-3-months") // Session-only filter
   const isMobile = useIsMobile()
 
   const isDark = resolvedTheme === "dark"
@@ -154,14 +136,17 @@ export function ChartCategoryFlow({
   const renderFullChart = () => (
     <ResponsiveAreaBump
       data={data}
-      margin={{ top: 40, right: 30, bottom: 40, left: 140 }}
-      spacing={12}
+      margin={{ top: 20, right: 15, bottom: 20, left: 85 }}
+      spacing={10}
       colors={colorConfig}
       blendMode="normal"
-      startLabel={(serie) => serie.id}
+      startLabel={(serie) => {
+        const label = serie.id as string
+        return label.length > 12 ? label.slice(0, 11) + '…' : label
+      }}
       endLabel={false}
       startLabelTextColor={textColor}
-      startLabelPadding={12}
+      startLabelPadding={8}
       interpolation="smooth"
       axisTop={{
         tickSize: 5,
@@ -298,38 +283,15 @@ export function ChartCategoryFlow({
     </div>
   )
 
-  // Fullscreen time period selector (session-only, doesn't affect global filter)
-  const renderFullscreenFilter = () => (
-    <Select value={fullscreenTimePeriod} onValueChange={setFullscreenTimePeriod}>
-      <SelectTrigger className="w-[110px] h-8 text-xs">
-        <IconCalendar className="h-3.5 w-3.5 mr-1" />
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent className="z-[10000]">
-        {fullscreenTimeOptions.map((option) => (
-          <SelectItem key={option.value} value={option.value} className="text-xs">
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  )
-
   return (
     <>
       <ChartFullscreenModal
         isOpen={isFullscreen}
-        onClose={() => {
-          setIsFullscreen(false)
-          // Reset to default when closing (session-only)
-          setFullscreenTimePeriod("last-3-months")
-        }}
+        onClose={() => setIsFullscreen(false)}
         title="Spending Category Rankings"
-        description="Track how your spending priorities shift over time"
         headerActions={renderInfoTrigger(true)}
-        filterControl={renderFullscreenFilter()}
       >
-        <div className="h-full w-full min-h-[400px]">
+        <div className="h-full w-full">
           {renderFullChart()}
         </div>
       </ChartFullscreenModal>
