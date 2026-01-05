@@ -117,7 +117,7 @@ export function ChartInfoPopover({
           className
         )}
       >
-        <div className="space-y-3 text-sm">
+        <div className="space-y-3 text-sm max-h-[300px] overflow-y-auto">
           <div className="space-y-1">
             <h4 className="text-sm font-semibold text-foreground">{title}</h4>
             <p className="text-xs text-muted-foreground">{description}</p>
@@ -184,7 +184,7 @@ export function ChartInfoPopover({
                 )}
               </div>
               {categoryPanelOpen && categoryControls.categories.length > 0 && (
-                <div className="mt-3 rounded-md border border-border/60 bg-muted/40 p-2">
+                <div className="mt-3 rounded-md border border-border/60 bg-muted/40 p-2 max-h-[200px] overflow-y-auto">
                   <p className="text-[0.7rem] text-muted-foreground mb-2">
                     Tap a category to hide or show it across analytics.
                   </p>
