@@ -334,7 +334,6 @@ export function ChartCategoryFlow({
         description="Track how your spending priorities shift over time"
         headerActions={renderInfoTrigger(true)}
         filterControl={renderFullscreenFilter()}
-        forceLandscape={true}
       >
         <div className="h-full w-full min-h-[400px]">
           {renderFullChart()}
