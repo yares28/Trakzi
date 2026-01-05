@@ -90,7 +90,7 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
             </DialogTrigger>
             <DialogContent className={cn(
                 "p-0 gap-0 overflow-hidden",
-                isMobile ? "max-w-[90vw] w-[90vw] h-[55vh] max-h-[55vh] rounded-xl" : "max-w-[700px]"
+                isMobile ? "max-w-[90vw] w-[90vw] h-[75vh] max-h-[75vh] rounded-xl" : "max-w-[700px]"
             )}>
                 <div className={cn(
                     "flex",
@@ -98,11 +98,11 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                 )}>
                     {/* Mobile: Horizontal tabs at top */}
                     {isMobile ? (
-                        <div className="border-b bg-muted/30">
-                            <DialogHeader className="p-3 pb-2">
-                                <DialogTitle className="text-base font-semibold">Settings</DialogTitle>
+                        <div className="border-b bg-muted/30 shrink-0">
+                            <DialogHeader className="px-4 py-3">
+                                <DialogTitle className="text-base font-semibold text-left">Settings</DialogTitle>
                             </DialogHeader>
-                            <div className="flex overflow-x-auto px-2 pb-2 gap-1 scrollbar-none">
+                            <div className="flex overflow-x-auto px-3 pb-3 gap-2 scrollbar-none">
                                 {sidebarItems.map((item) => (
                                     <button
                                         key={item.id}
