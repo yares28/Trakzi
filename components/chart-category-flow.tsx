@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveAreaBump } from "@nivo/bump"
+import { IconCalendar } from "@tabler/icons-react"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
@@ -16,11 +17,28 @@ import {
   CardTitle,
   CardFooter,
 } from "@/components/ui/card"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { ChartExpandButton } from "@/components/chart-expand-button"
 import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
+
+// All time period options available in fullscreen
+const fullscreenTimeOptions = [
+  { value: "last-7-days", label: "7 Days" },
+  { value: "last-30-days", label: "30 Days" },
+  { value: "last-3-months", label: "3 Months" },
+  { value: "last-6-months", label: "6 Months" },
+  { value: "last-year", label: "1 Year" },
+  { value: "ytd", label: "YTD" },
+]
 interface ChartCategoryFlowProps {
   data?: Array<{
     id: string
@@ -45,6 +63,7 @@ export function ChartCategoryFlow({
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [fullscreenTimePeriod, setFullscreenTimePeriod] = useState("last-3-months") // Session-only filter
   const isMobile = useIsMobile()
 
   const isDark = resolvedTheme === "dark"
@@ -189,22 +208,44 @@ export function ChartCategoryFlow({
     />
   )
 
-  // Chart render function for MOBILE (optimized: reduced margins, right labels only, smaller font)
+  // Month abbreviation helper for mobile x-axis
+  const getMonthAbbreviation = (monthStr: string): string => {
+    // Map month names or abbreviations to single letters
+    const monthMap: Record<string, string> = {
+      'jan': 'J', 'january': 'J',
+      'feb': 'F', 'february': 'F',
+      'mar': 'M', 'march': 'M',
+      'apr': 'A', 'april': 'A',
+      'may': 'M',
+      'jun': 'J', 'june': 'J',
+      'jul': 'J', 'july': 'J',
+      'aug': 'A', 'august': 'A',
+      'sep': 'S', 'september': 'S',
+      'oct': 'O', 'october': 'O',
+      'nov': 'N', 'november': 'N',
+      'dec': 'D', 'december': 'D',
+    }
+    const lowerMonth = monthStr.toLowerCase().trim()
+    // Try to match the start of the string
+    for (const [key, abbrev] of Object.entries(monthMap)) {
+      if (lowerMonth.startsWith(key)) {
+        return abbrev
+      }
+    }
+    // Fallback: return first letter
+    return monthStr.charAt(0).toUpperCase()
+  }
+
+  // Chart render function for MOBILE (optimized: no labels, abbreviated months)
   const renderMobileChart = () => (
     <ResponsiveAreaBump
       data={data}
-      margin={{ top: 24, right: 70, bottom: 24, left: 20 }}
+      margin={{ top: 24, right: 10, bottom: 24, left: 10 }}
       spacing={8}
       colors={colorConfig}
       blendMode="normal"
       startLabel={false}
-      endLabel={(serie) => {
-        // Truncate long labels for mobile
-        const label = serie.id as string
-        return label.length > 10 ? label.slice(0, 9) + '…' : label
-      }}
-      endLabelTextColor={textColor}
-      endLabelPadding={6}
+      endLabel={false}
       interpolation="smooth"
       axisTop={{
         tickSize: 3,
@@ -213,6 +254,7 @@ export function ChartCategoryFlow({
         legend: "",
         legendPosition: "middle",
         legendOffset: -20,
+        format: (value) => getMonthAbbreviation(String(value)),
       }}
       axisBottom={null}
       theme={{
@@ -262,14 +304,37 @@ export function ChartCategoryFlow({
     </div>
   )
 
+  // Fullscreen time period selector (session-only, doesn't affect global filter)
+  const renderFullscreenFilter = () => (
+    <Select value={fullscreenTimePeriod} onValueChange={setFullscreenTimePeriod}>
+      <SelectTrigger className="w-[120px] h-8 text-xs">
+        <IconCalendar className="h-3.5 w-3.5 mr-1.5" />
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {fullscreenTimeOptions.map((option) => (
+          <SelectItem key={option.value} value={option.value} className="text-xs">
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+
   return (
     <>
       <ChartFullscreenModal
         isOpen={isFullscreen}
-        onClose={() => setIsFullscreen(false)}
+        onClose={() => {
+          setIsFullscreen(false)
+          // Reset to default when closing (session-only)
+          setFullscreenTimePeriod("last-3-months")
+        }}
         title="Spending Category Rankings"
         description="Track how your spending priorities shift over time"
         headerActions={renderInfoTrigger(true)}
+        filterControl={renderFullscreenFilter()}
+        forceLandscape={true}
       >
         <div className="h-full w-full min-h-[400px]">
           {renderFullChart()}
