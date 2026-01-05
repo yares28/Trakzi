@@ -92,11 +92,11 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
             <DialogContent className={cn(
                 "p-0 gap-0 overflow-hidden [&>button]:hidden",
                 isMobile
-                    ? "w-[90vw] max-w-[90vw] h-[75vh] max-h-[75vh] landscape:w-[60vw] landscape:max-w-[60vw] landscape:h-[70vh] landscape:max-h-[70vh] rounded-2xl flex flex-col"
+                    ? "!grid-cols-1 w-[90vw] max-w-[90vw] h-[75vh] max-h-[75vh] landscape:!w-[60vw] landscape:!max-w-[60vw] landscape:!h-[70vh] landscape:!max-h-[70vh] rounded-2xl flex flex-col"
                     : "max-w-[700px]"
             )}>
                 <div className={cn(
-                    "flex w-full",
+                    "flex w-full overflow-hidden",
                     isMobile ? "flex-col h-full min-h-0" : "flex-row h-[500px]"
                 )}>
                     {/* Mobile: ChatGPT-style layout */}
