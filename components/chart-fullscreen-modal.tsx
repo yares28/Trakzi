@@ -2,8 +2,9 @@
 
 import * as React from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { IconX } from "@tabler/icons-react"
+import { IconX, IconDeviceDesktop } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 interface ChartFullscreenModalProps {
     isOpen: boolean
@@ -26,6 +27,27 @@ export function ChartFullscreenModal({
     headerActions,
     filterControl,
 }: ChartFullscreenModalProps) {
+    const isMobile = useIsMobile()
+    const [isPortrait, setIsPortrait] = React.useState(false)
+
+    // Detect portrait orientation
+    React.useEffect(() => {
+        if (!isOpen) return
+
+        const checkOrientation = () => {
+            setIsPortrait(window.innerHeight > window.innerWidth)
+        }
+
+        checkOrientation()
+        window.addEventListener("resize", checkOrientation)
+        window.addEventListener("orientationchange", checkOrientation)
+
+        return () => {
+            window.removeEventListener("resize", checkOrientation)
+            window.removeEventListener("orientationchange", checkOrientation)
+        }
+    }, [isOpen])
+
     // Lock body scroll when modal is open
     React.useEffect(() => {
         if (isOpen) {
@@ -38,27 +60,25 @@ export function ChartFullscreenModal({
         }
     }, [isOpen])
 
-    // Request landscape orientation when modal opens (mobile only, graceful fallback)
+    // Try to use Screen Orientation API (works on some Android browsers)
     React.useEffect(() => {
         if (!isOpen) return
 
         const lockOrientation = async () => {
             try {
-                // Try to lock to landscape using Screen Orientation API
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const orientation = screen.orientation as any
                 if (orientation?.lock) {
                     await orientation.lock('landscape')
                 }
             } catch {
-                // Orientation lock not supported or denied - that's okay
+                // Orientation lock not supported - we'll use CSS fallback
             }
         }
 
         lockOrientation()
 
         return () => {
-            // Unlock orientation when modal closes
             try {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const orientation = screen.orientation as any
@@ -82,6 +102,9 @@ export function ChartFullscreenModal({
         return () => window.removeEventListener("keydown", handleEscape)
     }, [isOpen, onClose])
 
+    // Should we rotate the content to force landscape?
+    const shouldRotate = isMobile && isPortrait
+
     return (
         <AnimatePresence>
             {isOpen && (
@@ -91,48 +114,53 @@ export function ChartFullscreenModal({
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
                     className="fixed inset-0 z-[9999] flex flex-col bg-background"
+                    style={shouldRotate ? {
+                        // Force horizontal by rotating 90 degrees
+                        transform: 'rotate(90deg)',
+                        transformOrigin: 'center center',
+                        width: '100vh',
+                        height: '100vw',
+                        position: 'fixed',
+                        top: '50%',
+                        left: '50%',
+                        marginTop: '-50vw',
+                        marginLeft: '-50vh',
+                    } : undefined}
                     onClick={(e) => {
                         if (e.target === e.currentTarget) onClose()
                     }}
                 >
                     {/* Header */}
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 shrink-0">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-border/50 shrink-0">
                         <div className="flex-1 min-w-0">
-                            <h2 className="text-lg font-semibold truncate">{title}</h2>
-                            {description && (
-                                <p className="text-sm text-muted-foreground truncate">{description}</p>
-                            )}
+                            <h2 className="text-sm font-semibold truncate">{title}</h2>
                         </div>
-                        <div className="flex items-center gap-2 ml-4">
+                        <div className="flex items-center gap-1.5 ml-2">
                             {filterControl}
                             {headerActions}
                             <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={onClose}
-                                className="h-9 w-9"
+                                className="h-8 w-8"
                                 aria-label="Close fullscreen"
                             >
-                                <IconX className="h-5 w-5" />
+                                <IconX className="h-4 w-4" />
                             </Button>
                         </div>
                     </div>
 
                     {/* Chart content - full available space */}
-                    <div className="flex-1 p-4 min-h-0 overflow-auto">
-                        <div className="h-full w-full min-h-[300px]">
+                    <div className="flex-1 p-2 min-h-0 overflow-hidden">
+                        <div className="h-full w-full">
                             {children}
                         </div>
-                    </div>
-
-                    {/* Hint for rotation on mobile */}
-                    <div className="px-4 py-2 text-center text-xs text-muted-foreground border-t border-border/50 shrink-0 md:hidden">
-                        Rotate device for better view
                     </div>
                 </motion.div>
             )}
         </AnimatePresence>
     )
 }
+
 
 
