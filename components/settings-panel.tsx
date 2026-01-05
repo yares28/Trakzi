@@ -132,17 +132,9 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                                 ))}
                             </div>
 
-                            {/* Section title with divider */}
-                            <div className="px-4 pt-4 pb-2 shrink-0">
-                                <h2 className="text-sm font-semibold text-foreground">
-                                    {sidebarItems.find(item => item.id === activeSection)?.label}
-                                </h2>
-                                <div className="mt-2 h-px bg-border" />
-                            </div>
-
                             {/* Content Area */}
                             <main
-                                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 pb-4"
+                                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 pt-4 pb-4"
                                 style={{
                                     scrollbarWidth: 'thin',
                                     scrollbarColor: 'hsl(var(--muted-foreground) / 0.3) transparent'
