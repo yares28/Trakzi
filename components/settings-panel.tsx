@@ -90,28 +90,39 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
             </DialogTrigger>
             <DialogContent className={cn(
                 "p-0 gap-0 overflow-hidden [&>button]:hidden",
-                isMobile ? "max-w-[90vw] w-[90vw] h-[75vh] max-h-[75vh] rounded-xl" : "max-w-[700px]"
+                isMobile ? "fixed inset-4 w-auto h-auto max-w-none max-h-none rounded-2xl" : "max-w-[700px]"
             )}>
                 <div className={cn(
                     "flex w-full",
                     isMobile ? "flex-col h-full" : "flex-row h-[500px]"
                 )}>
-                    {/* Mobile: Horizontal tabs at top */}
+                    {/* Mobile: ChatGPT-style layout */}
                     {isMobile ? (
-                        <div className="border-b bg-muted/30 shrink-0">
-                            <DialogHeader className="px-4 py-3">
-                                <DialogTitle className="text-base font-semibold text-left">Settings</DialogTitle>
-                            </DialogHeader>
-                            <div className="flex overflow-x-auto px-3 pb-3 gap-2 scrollbar-none">
+                        <>
+                            {/* Header with section title and close button */}
+                            <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
+                                <span className="text-base font-semibold">
+                                    {sidebarItems.find(item => item.id === activeSection)?.label || "Settings"}
+                                </span>
+                                <button
+                                    onClick={() => setOpen(false)}
+                                    className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                                >
+                                    <IconX className="h-5 w-5 text-muted-foreground" />
+                                </button>
+                            </div>
+
+                            {/* Wrapping tabs */}
+                            <div className="flex flex-wrap gap-2 px-4 py-3 border-b shrink-0">
                                 {sidebarItems.map((item) => (
                                     <button
                                         key={item.id}
                                         onClick={() => setActiveSection(item.id)}
                                         className={cn(
-                                            "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors",
+                                            "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors",
                                             activeSection === item.id
                                                 ? "bg-primary text-primary-foreground"
-                                                : "bg-background text-muted-foreground hover:bg-accent"
+                                                : "bg-muted text-muted-foreground hover:bg-accent"
                                         )}
                                     >
                                         {item.icon}
@@ -119,51 +130,73 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                                     </button>
                                 ))}
                             </div>
-                        </div>
+
+                            {/* Section title with divider */}
+                            <div className="px-4 pt-4 pb-2 shrink-0">
+                                <h2 className="text-sm font-semibold text-foreground">
+                                    {sidebarItems.find(item => item.id === activeSection)?.label}
+                                </h2>
+                                <div className="mt-2 h-px bg-border" />
+                            </div>
+
+                            {/* Content Area */}
+                            <main
+                                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 pb-4"
+                                style={{
+                                    scrollbarWidth: 'thin',
+                                    scrollbarColor: 'hsl(var(--muted-foreground) / 0.3) transparent'
+                                }}
+                            >
+                                {activeSection === "appearance" && <AppearanceSection />}
+                                {activeSection === "currency" && <CurrencySection />}
+                                {activeSection === "time-period" && <TimePeriodSection />}
+                                {activeSection === "subscription" && <SubscriptionSection />}
+                                {activeSection === "bug-report" && <BugReportSection />}
+                            </main>
+                        </>
                     ) : (
                         /* Desktop: Sidebar */
-                        <nav className="w-[200px] border-r bg-muted/30 flex flex-col">
-                            <DialogHeader className="p-4 pb-2">
-                                <DialogTitle className="text-lg font-semibold">Settings</DialogTitle>
-                            </DialogHeader>
-                            <div className="flex-1 p-2 space-y-1">
-                                {sidebarItems.map((item) => (
-                                    <button
-                                        key={item.id}
-                                        onClick={() => setActiveSection(item.id)}
-                                        className={cn(
-                                            "w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                                            "hover:bg-accent hover:text-accent-foreground",
-                                            activeSection === item.id
-                                                ? "bg-primary/10 text-primary border-l-2 border-primary"
-                                                : "text-muted-foreground"
-                                        )}
-                                    >
-                                        {item.icon}
-                                        {item.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </nav>
-                    )}
+                        <>
+                            <nav className="w-[200px] border-r bg-muted/30 flex flex-col">
+                                <DialogHeader className="p-4 pb-2">
+                                    <DialogTitle className="text-lg font-semibold">Settings</DialogTitle>
+                                </DialogHeader>
+                                <div className="flex-1 p-2 space-y-1">
+                                    {sidebarItems.map((item) => (
+                                        <button
+                                            key={item.id}
+                                            onClick={() => setActiveSection(item.id)}
+                                            className={cn(
+                                                "w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                                                "hover:bg-accent hover:text-accent-foreground",
+                                                activeSection === item.id
+                                                    ? "bg-primary/10 text-primary border-l-2 border-primary"
+                                                    : "text-muted-foreground"
+                                            )}
+                                        >
+                                            {item.icon}
+                                            {item.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </nav>
 
-                    {/* Content Area */}
-                    <main
-                        className={cn(
-                            "flex-1 min-h-0 overflow-y-auto overflow-x-hidden",
-                            isMobile ? "p-4" : "p-6"
-                        )}
-                        style={{
-                            scrollbarWidth: 'thin',
-                            scrollbarColor: 'hsl(var(--muted-foreground) / 0.3) transparent'
-                        }}
-                    >
-                        {activeSection === "appearance" && <AppearanceSection />}
-                        {activeSection === "currency" && <CurrencySection />}
-                        {activeSection === "time-period" && <TimePeriodSection />}
-                        {activeSection === "subscription" && <SubscriptionSection />}
-                        {activeSection === "bug-report" && <BugReportSection />}
-                    </main>
+                            {/* Content Area */}
+                            <main
+                                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6"
+                                style={{
+                                    scrollbarWidth: 'thin',
+                                    scrollbarColor: 'hsl(var(--muted-foreground) / 0.3) transparent'
+                                }}
+                            >
+                                {activeSection === "appearance" && <AppearanceSection />}
+                                {activeSection === "currency" && <CurrencySection />}
+                                {activeSection === "time-period" && <TimePeriodSection />}
+                                {activeSection === "subscription" && <SubscriptionSection />}
+                                {activeSection === "bug-report" && <BugReportSection />}
+                            </main>
+                        </>
+                    )}
                 </div>
             </DialogContent>
         </Dialog>
