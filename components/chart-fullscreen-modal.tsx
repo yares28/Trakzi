@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { IconX, IconDeviceDesktop } from "@tabler/icons-react"
+import { IconX } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import { useIsMobile } from "@/hooks/use-mobile"
 
@@ -130,28 +130,26 @@ export function ChartFullscreenModal({
                         if (e.target === e.currentTarget) onClose()
                     }}
                 >
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-3 py-2 border-b border-border/50 shrink-0">
-                        <div className="flex-1 min-w-0">
-                            <h2 className="text-sm font-semibold truncate">{title}</h2>
-                        </div>
-                        <div className="flex items-center gap-1.5 ml-2">
+                    {/* Header - compact */}
+                    <div className="flex items-center justify-between px-2 py-1 border-b border-border/50 shrink-0">
+                        <h2 className="text-xs font-semibold truncate">{title}</h2>
+                        <div className="flex items-center gap-1 ml-2">
                             {filterControl}
                             {headerActions}
                             <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={onClose}
-                                className="h-8 w-8"
+                                className="h-7 w-7"
                                 aria-label="Close fullscreen"
                             >
-                                <IconX className="h-4 w-4" />
+                                <IconX className="h-3.5 w-3.5" />
                             </Button>
                         </div>
                     </div>
 
                     {/* Chart content - full available space */}
-                    <div className="flex-1 p-2 min-h-0 overflow-hidden">
+                    <div className="flex-1 p-1 min-h-0 overflow-hidden">
                         <div className="h-full w-full">
                             {children}
                         </div>
