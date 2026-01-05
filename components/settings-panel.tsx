@@ -91,15 +91,15 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
             </DialogTrigger>
             <DialogContent className={cn(
                 "p-0 gap-0 overflow-hidden [&>button]:hidden",
-                isMobile ? "!fixed !inset-0 !top-4 !left-4 !right-4 !bottom-4 !translate-x-0 !translate-y-0 !w-auto !h-auto !max-w-none !max-h-none rounded-2xl" : "max-w-[700px]"
+                isMobile ? "!fixed !top-4 !left-4 !right-4 !bottom-4 !translate-x-0 !translate-y-0 !max-w-none !max-h-none !flex !flex-col rounded-2xl" : "max-w-[700px]"
             )}>
                 <div className={cn(
-                    "flex w-full",
-                    isMobile ? "flex-col h-full" : "flex-row h-[500px]"
+                    "flex w-full h-full",
+                    isMobile ? "flex-col" : "flex-row h-[500px]"
                 )}>
                     {/* Mobile: ChatGPT-style layout */}
                     {isMobile ? (
-                        <div className="flex flex-col h-full">
+                        <>
                             {/* Header with section title and close button */}
                             <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
                                 <span className="text-base font-semibold">
@@ -146,7 +146,7 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                                 {activeSection === "subscription" && <SubscriptionSection />}
                                 {activeSection === "bug-report" && <BugReportSection />}
                             </main>
-                        </div>
+                        </>
                     ) : (
                         /* Desktop: Sidebar */
                         <>
