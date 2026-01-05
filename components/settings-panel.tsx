@@ -36,6 +36,7 @@ import { PlanCard } from "@/components/subscription-dialog/PlanCard"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import type { PlanType, SubscriptionStatus } from "@/components/subscription-dialog/types"
 import { AnimatedThemeSwitcher } from "@/components/animated-theme-switcher"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 type SettingsSection = "appearance" | "currency" | "time-period" | "subscription" | "bug-report"
 
@@ -69,52 +70,89 @@ const paletteInfo: { id: string; label: string; enabled: boolean }[] = [
 
 // Date filter options
 const timeFilterOptions = [
-    { value: "last-30-days", label: "Last 30 Days" },
-    { value: "last-3-months", label: "Last 3 Months" },
-    { value: "last-6-months", label: "Last 6 Months" },
-    { value: "last-year", label: "Last Year" },
-    { value: "ytd", label: "Year to Date" },
+    { value: "last-7-days", label: "Last 7 Days", mobileVisible: true },
+    { value: "last-30-days", label: "Last 30 Days", mobileVisible: true },
+    { value: "last-3-months", label: "Last 3 Months", mobileVisible: true },
+    { value: "last-6-months", label: "Last 6 Months", mobileVisible: true },
+    { value: "last-year", label: "Last Year", mobileVisible: false },
+    { value: "ytd", label: "Year to Date", mobileVisible: false },
 ]
 
 export function SettingsPanel({ children }: SettingsPanelProps) {
     const [open, setOpen] = React.useState(false)
     const [activeSection, setActiveSection] = React.useState<SettingsSection>("appearance")
+    const isMobile = useIsMobile()
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 {children}
             </DialogTrigger>
-            <DialogContent className="max-w-[700px] p-0 gap-0 overflow-hidden">
-                <div className="flex h-[500px]">
-                    {/* Sidebar */}
-                    <nav className="w-[200px] border-r bg-muted/30 flex flex-col">
-                        <DialogHeader className="p-4 pb-2">
-                            <DialogTitle className="text-lg font-semibold">Settings</DialogTitle>
-                        </DialogHeader>
-                        <div className="flex-1 p-2 space-y-1">
-                            {sidebarItems.map((item) => (
-                                <button
-                                    key={item.id}
-                                    onClick={() => setActiveSection(item.id)}
-                                    className={cn(
-                                        "w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                                        "hover:bg-accent hover:text-accent-foreground",
-                                        activeSection === item.id
-                                            ? "bg-primary/10 text-primary border-l-2 border-primary"
-                                            : "text-muted-foreground"
-                                    )}
-                                >
-                                    {item.icon}
-                                    {item.label}
-                                </button>
-                            ))}
+            <DialogContent className={cn(
+                "p-0 gap-0 overflow-hidden",
+                isMobile ? "max-w-full w-full h-[85vh] max-h-[85vh]" : "max-w-[700px]"
+            )}>
+                <div className={cn(
+                    "flex",
+                    isMobile ? "flex-col h-full" : "flex-row h-[500px]"
+                )}>
+                    {/* Mobile: Horizontal tabs at top */}
+                    {isMobile ? (
+                        <div className="border-b bg-muted/30">
+                            <DialogHeader className="p-3 pb-2">
+                                <DialogTitle className="text-base font-semibold">Settings</DialogTitle>
+                            </DialogHeader>
+                            <div className="flex overflow-x-auto px-2 pb-2 gap-1 scrollbar-none">
+                                {sidebarItems.map((item) => (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => setActiveSection(item.id)}
+                                        className={cn(
+                                            "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors",
+                                            activeSection === item.id
+                                                ? "bg-primary text-primary-foreground"
+                                                : "bg-background text-muted-foreground hover:bg-accent"
+                                        )}
+                                    >
+                                        {item.icon}
+                                        {item.label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                    </nav>
+                    ) : (
+                        /* Desktop: Sidebar */
+                        <nav className="w-[200px] border-r bg-muted/30 flex flex-col">
+                            <DialogHeader className="p-4 pb-2">
+                                <DialogTitle className="text-lg font-semibold">Settings</DialogTitle>
+                            </DialogHeader>
+                            <div className="flex-1 p-2 space-y-1">
+                                {sidebarItems.map((item) => (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => setActiveSection(item.id)}
+                                        className={cn(
+                                            "w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                                            "hover:bg-accent hover:text-accent-foreground",
+                                            activeSection === item.id
+                                                ? "bg-primary/10 text-primary border-l-2 border-primary"
+                                                : "text-muted-foreground"
+                                        )}
+                                    >
+                                        {item.icon}
+                                        {item.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </nav>
+                    )}
 
-                    {/* Content Area - improved vertical scroll */}
+                    {/* Content Area */}
                     <main
-                        className="flex-1 p-6 overflow-y-auto overflow-x-hidden"
+                        className={cn(
+                            "flex-1 overflow-y-auto overflow-x-hidden",
+                            isMobile ? "p-4" : "p-6"
+                        )}
                         style={{
                             scrollbarWidth: 'thin',
                             scrollbarColor: 'hsl(var(--muted-foreground) / 0.3) transparent'
@@ -131,6 +169,7 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
         </Dialog>
     )
 }
+
 
 // ============ APPEARANCE SECTION ============
 function AppearanceSection() {
@@ -289,6 +328,12 @@ function CurrencySection() {
 // ============ TIME PERIOD SECTION ============
 function TimePeriodSection() {
     const { filter, setFilter } = useDateFilter()
+    const isMobile = useIsMobile()
+
+    // Filter options based on mobile visibility
+    const visibleOptions = isMobile
+        ? timeFilterOptions.filter(o => o.mobileVisible)
+        : timeFilterOptions
 
     const handleSetDefault = (value: string) => {
         setFilter(value)
@@ -299,10 +344,11 @@ function TimePeriodSection() {
     }
 
     const periodIcons: Record<string, string> = {
+        "last-7-days": "📆",
         "last-30-days": "📅",
-        "last-3-months": "📆",
-        "last-6-months": "🗓️",
-        "last-year": "📊",
+        "last-3-months": "🗓️",
+        "last-6-months": "📊",
+        "last-year": "📈",
         "ytd": "🎯",
         "all-time": "♾️",
     }
@@ -318,7 +364,7 @@ function TimePeriodSection() {
 
             {/* Time Period Grid */}
             <div className="grid grid-cols-2 gap-2">
-                {timeFilterOptions.map((option) => {
+                {visibleOptions.map((option) => {
                     const isSelected = filter === option.value
                     return (
                         <button
@@ -352,6 +398,7 @@ function TimePeriodSection() {
         </div>
     )
 }
+
 
 // ============ LAYOUT SECTION ============
 function LayoutSection() {
