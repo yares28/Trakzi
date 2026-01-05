@@ -91,11 +91,11 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
             </DialogTrigger>
             <DialogContent className={cn(
                 "p-0 gap-0 overflow-hidden [&>button]:hidden",
-                isMobile ? "!fixed !top-4 !left-4 !right-4 !bottom-4 !translate-x-0 !translate-y-0 !max-w-none !max-h-none !flex !flex-col rounded-2xl" : "max-w-[700px]"
+                isMobile ? "w-[90vw] max-w-[90vw] h-[75vh] max-h-[75vh] rounded-2xl flex flex-col" : "max-w-[700px]"
             )}>
                 <div className={cn(
-                    "flex w-full h-full",
-                    isMobile ? "flex-col" : "flex-row h-[500px]"
+                    "flex w-full",
+                    isMobile ? "flex-col h-full min-h-0" : "flex-row h-[500px]"
                 )}>
                     {/* Mobile: ChatGPT-style layout */}
                     {isMobile ? (
