@@ -38,6 +38,39 @@ export function ChartFullscreenModal({
         }
     }, [isOpen])
 
+    // Request landscape orientation when modal opens (mobile only, graceful fallback)
+    React.useEffect(() => {
+        if (!isOpen) return
+
+        const lockOrientation = async () => {
+            try {
+                // Try to lock to landscape using Screen Orientation API
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const orientation = screen.orientation as any
+                if (orientation?.lock) {
+                    await orientation.lock('landscape')
+                }
+            } catch {
+                // Orientation lock not supported or denied - that's okay
+            }
+        }
+
+        lockOrientation()
+
+        return () => {
+            // Unlock orientation when modal closes
+            try {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const orientation = screen.orientation as any
+                if (orientation?.unlock) {
+                    orientation.unlock()
+                }
+            } catch {
+                // Ignore unlock errors
+            }
+        }
+    }, [isOpen])
+
     // Close on escape key
     React.useEffect(() => {
         const handleEscape = (e: KeyboardEvent) => {

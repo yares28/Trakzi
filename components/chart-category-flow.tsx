@@ -91,6 +91,7 @@ export function ChartCategoryFlow({
   }
   colorConfig = colorConfig.slice(0, numCategories)
 
+  // Info trigger - in fullscreen mode, show category controls for filtering
   const renderInfoTrigger = (forFullscreen = false) => (
     <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
@@ -99,7 +100,8 @@ export function ChartCategoryFlow({
         details={[
           "Each colored area represents a spending category; the higher it sits, the larger its share that month.",
           "How it works: we calculate each category's percentage of total spend per month so you can see priorities rise or fall.",
-        ]}
+          forFullscreen ? "Use the checkboxes below to show/hide specific categories." : "",
+        ].filter(Boolean)}
         categoryControls={categoryControls}
       />
       <ChartAiInsightButton
@@ -148,20 +150,18 @@ export function ChartCategoryFlow({
     )
   }
 
-  // Chart render function for FULLSCREEN (full fidelity)
+  // Chart render function for FULLSCREEN (left labels only, abbreviated months)
   const renderFullChart = () => (
     <ResponsiveAreaBump
       data={data}
-      margin={{ top: 40, right: 120, bottom: 40, left: 140 }}
+      margin={{ top: 40, right: 30, bottom: 40, left: 140 }}
       spacing={12}
       colors={colorConfig}
       blendMode="normal"
       startLabel={(serie) => serie.id}
-      endLabel={(serie) => serie.id}
+      endLabel={false}
       startLabelTextColor={textColor}
-      endLabelTextColor={textColor}
       startLabelPadding={12}
-      endLabelPadding={12}
       interpolation="smooth"
       axisTop={{
         tickSize: 5,
@@ -170,19 +170,13 @@ export function ChartCategoryFlow({
         legend: "",
         legendPosition: "middle",
         legendOffset: -36,
+        format: (value) => getMonthAbbreviation(String(value)),
       }}
-      axisBottom={{
-        tickSize: 5,
-        tickPadding: 5,
-        tickRotation: 0,
-        legend: "",
-        legendPosition: "middle",
-        legendOffset: 32,
-      }}
+      axisBottom={null}
       theme={{
         text: {
           fill: textColor,
-          fontSize: 12,
+          fontSize: 11,
           fontFamily: 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
         },
         axis: {
@@ -307,11 +301,11 @@ export function ChartCategoryFlow({
   // Fullscreen time period selector (session-only, doesn't affect global filter)
   const renderFullscreenFilter = () => (
     <Select value={fullscreenTimePeriod} onValueChange={setFullscreenTimePeriod}>
-      <SelectTrigger className="w-[120px] h-8 text-xs">
-        <IconCalendar className="h-3.5 w-3.5 mr-1.5" />
+      <SelectTrigger className="w-[110px] h-8 text-xs">
+        <IconCalendar className="h-3.5 w-3.5 mr-1" />
         <SelectValue />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="z-[10000]">
         {fullscreenTimeOptions.map((option) => (
           <SelectItem key={option.value} value={option.value} className="text-xs">
             {option.label}
