@@ -99,7 +99,7 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                 )}>
                     {/* Mobile: ChatGPT-style layout */}
                     {isMobile ? (
-                        <>
+                        <div className="flex flex-col h-full">
                             {/* Header with section title and close button */}
                             <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
                                 <span className="text-base font-semibold">
@@ -132,7 +132,7 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                                 ))}
                             </div>
 
-                            {/* Content Area */}
+                            {/* Content Area - scrollable */}
                             <main
                                 className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 pt-4 pb-4"
                                 style={{
@@ -146,7 +146,7 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                                 {activeSection === "subscription" && <SubscriptionSection />}
                                 {activeSection === "bug-report" && <BugReportSection />}
                             </main>
-                        </>
+                        </div>
                     ) : (
                         /* Desktop: Sidebar */
                         <>
