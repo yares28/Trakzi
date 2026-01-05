@@ -90,7 +90,7 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
             </DialogTrigger>
             <DialogContent className={cn(
                 "p-0 gap-0 overflow-hidden",
-                isMobile ? "max-w-[95vw] w-[95vw] h-[70vh] max-h-[70vh]" : "max-w-[700px]"
+                isMobile ? "max-w-[90vw] w-[90vw] h-[55vh] max-h-[55vh] rounded-xl" : "max-w-[700px]"
             )}>
                 <div className={cn(
                     "flex",
