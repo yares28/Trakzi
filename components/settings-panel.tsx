@@ -91,7 +91,7 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
             </DialogTrigger>
             <DialogContent className={cn(
                 "p-0 gap-0 overflow-hidden [&>button]:hidden",
-                isMobile ? "fixed inset-4 w-auto h-auto max-w-none max-h-none rounded-2xl" : "max-w-[700px]"
+                isMobile ? "!fixed !inset-0 !top-4 !left-4 !right-4 !bottom-4 !translate-x-0 !translate-y-0 !w-auto !h-auto !max-w-none !max-h-none rounded-2xl" : "max-w-[700px]"
             )}>
                 <div className={cn(
                     "flex w-full",
