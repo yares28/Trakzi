@@ -89,11 +89,11 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                 {children}
             </DialogTrigger>
             <DialogContent className={cn(
-                "p-0 gap-0 overflow-hidden",
+                "p-0 gap-0 overflow-hidden [&>button]:hidden",
                 isMobile ? "max-w-[90vw] w-[90vw] h-[75vh] max-h-[75vh] rounded-xl" : "max-w-[700px]"
             )}>
                 <div className={cn(
-                    "flex",
+                    "flex w-full",
                     isMobile ? "flex-col h-full" : "flex-row h-[500px]"
                 )}>
                     {/* Mobile: Horizontal tabs at top */}
