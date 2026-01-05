@@ -17,6 +17,7 @@ import {
     IconPalette,
     IconCreditCard,
     IconExternalLink,
+    IconX,
 } from "@tabler/icons-react"
 import {
     Dialog,
