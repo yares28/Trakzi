@@ -343,7 +343,7 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
                       alt="Trakzi"
                       width={180}
                       height={60}
-                      className="h-16 w-auto object-contain block group-data-[state=collapsed]:hidden"
+                      className="h-16 w-auto object-contain block group-data-[state=collapsed]:hidden group-data-[state=collapsed]:opacity-0 group-data-[state=collapsed]:scale-90 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
                     />
                   ) : (
                     <div className="h-16 w-[180px] block group-data-[state=collapsed]:hidden" />
@@ -354,7 +354,7 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
                       alt="Trakzi icon"
                       width={64}
                       height={64}
-                      className="hidden h-12 w-auto object-contain group-data-[state=collapsed]:block"
+                      className="hidden h-12 w-auto object-contain group-data-[state=collapsed]:block opacity-0 scale-90 group-data-[state=collapsed]:opacity-100 group-data-[state=collapsed]:scale-100 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
                     />
                   ) : (
                     <div className="hidden h-12 w-[64px] group-data-[state=collapsed]:block" />
