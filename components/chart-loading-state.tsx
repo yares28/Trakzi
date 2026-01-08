@@ -17,7 +17,7 @@ interface ChartLoadingStateProps {
 export function ChartLoadingState({
   isLoading = false,
   className,
-  emptyTitle = "No data yet",
+  emptyTitle = "No data yet ..",
   emptyDescription = "Import your bank statements or receipts to see insights here",
   emptyIcon = "chart",
   height = "h-full"
@@ -46,7 +46,7 @@ export function ChartLoadingState({
           <div className="w-full h-0.5 bg-muted/60 rounded" />
         </div>
         <ShimmeringText
-          text="Loading data"
+          text="Loading .."
           className="text-muted-foreground font-medium text-sm mt-2"
           duration={1.8}
           repeatDelay={0.3}
