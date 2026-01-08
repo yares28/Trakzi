@@ -11,6 +11,7 @@ import { TransactionDialogProvider } from "@/components/transaction-dialog-provi
 import { FavoritesProvider } from "@/components/favorites-provider";
 import { DateFilterProvider } from "@/components/date-filter-provider";
 import { QueryProvider } from "@/components/query-provider";
+import { ChartResizeProvider } from "@/lib/chart-resize-context";
 import { Toaster } from "@/components/ui/sonner";
 import { PostHogUserIdentifier } from "@/components/posthog-user-identifier";
 
@@ -55,21 +56,23 @@ export default function RootLayout({
             storageKey="trakzi-theme"
           >
             <QueryProvider>
-              <ColorSchemeProvider>
-                <CurrencyProvider>
-                  <FavoritesProvider>
-                    <DateFilterProvider>
-                      <TransactionDialogProvider>
-                        <PostHogUserIdentifier />
-                        {children}
-                      </TransactionDialogProvider>
-                    </DateFilterProvider>
-                  </FavoritesProvider>
-                  <Toaster />
-                  <Analytics />
-                  <SpeedInsights />
-                </CurrencyProvider>
-              </ColorSchemeProvider>
+              <ChartResizeProvider>
+                <ColorSchemeProvider>
+                  <CurrencyProvider>
+                    <FavoritesProvider>
+                      <DateFilterProvider>
+                        <TransactionDialogProvider>
+                          <PostHogUserIdentifier />
+                          {children}
+                        </TransactionDialogProvider>
+                      </DateFilterProvider>
+                    </FavoritesProvider>
+                    <Toaster />
+                    <Analytics />
+                    <SpeedInsights />
+                  </CurrencyProvider>
+                </ColorSchemeProvider>
+              </ChartResizeProvider>
             </QueryProvider>
           </ThemeProvider>
         </body>

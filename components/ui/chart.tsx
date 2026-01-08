@@ -4,6 +4,7 @@ import * as React from "react"
 import * as RechartsPrimitive from "recharts"
 
 import { cn } from "@/lib/utils"
+import { useChartResize } from "@/lib/chart-resize-context"
 
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const
@@ -34,6 +35,118 @@ function useChart() {
   return context
 }
 
+/**
+ * Debounced ResponsiveContainer that prevents re-renders during layout transitions
+ */
+function DebouncedResponsiveContainer({
+  children,
+  chartId,
+  debounceMs = 150,
+}: {
+  children: React.ComponentProps<typeof RechartsPrimitive.ResponsiveContainer>["children"]
+  chartId: string
+  debounceMs?: number
+}) {
+  const { isPaused } = useChartResize()
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const [dimensions, setDimensions] = React.useState<{ width: number; height: number } | null>(null)
+  const debounceTimeout = React.useRef<NodeJS.Timeout | null>(null)
+  const lastDimensions = React.useRef<{ width: number; height: number } | null>(null)
+
+  // Observe container size changes with debouncing
+  React.useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+
+      const { width, height } = entry.contentRect
+      const newDimensions = { width: Math.floor(width), height: Math.floor(height) }
+
+      // Skip if dimensions haven't actually changed
+      if (
+        lastDimensions.current &&
+        lastDimensions.current.width === newDimensions.width &&
+        lastDimensions.current.height === newDimensions.height
+      ) {
+        return
+      }
+
+      lastDimensions.current = newDimensions
+
+      // If paused, don't update dimensions at all
+      if (isPaused) {
+        return
+      }
+
+      // Clear any pending debounce
+      if (debounceTimeout.current) {
+        clearTimeout(debounceTimeout.current)
+      }
+
+      // Debounce the dimension update
+      debounceTimeout.current = setTimeout(() => {
+        setDimensions(newDimensions)
+      }, debounceMs)
+    })
+
+    observer.observe(container)
+
+    // Initial measurement
+    const rect = container.getBoundingClientRect()
+    const initialDimensions = { width: Math.floor(rect.width), height: Math.floor(rect.height) }
+    lastDimensions.current = initialDimensions
+    setDimensions(initialDimensions)
+
+    return () => {
+      observer.disconnect()
+      if (debounceTimeout.current) {
+        clearTimeout(debounceTimeout.current)
+      }
+    }
+  }, [isPaused, debounceMs])
+
+  // When unpaused, update to current dimensions
+  React.useEffect(() => {
+    if (!isPaused && lastDimensions.current) {
+      // Small delay to batch with other updates
+      const timeout = setTimeout(() => {
+        if (lastDimensions.current) {
+          setDimensions(lastDimensions.current)
+        }
+      }, 50)
+      return () => clearTimeout(timeout)
+    }
+  }, [isPaused])
+
+  return (
+    <div 
+      ref={containerRef} 
+      style={{ 
+        width: '100%', 
+        height: '100%',
+        // CSS containment for better performance
+        contain: 'layout style',
+      }}
+    >
+      {dimensions && dimensions.width > 0 && dimensions.height > 0 ? (
+        <RechartsPrimitive.ResponsiveContainer
+          width={dimensions.width}
+          height={dimensions.height}
+          debounce={isPaused ? 1000 : 0}
+        >
+          {children}
+        </RechartsPrimitive.ResponsiveContainer>
+      ) : (
+        // Placeholder while measuring
+        <div style={{ width: '100%', height: '100%' }} />
+      )}
+    </div>
+  )
+}
+
 function ChartContainer({
   id,
   className,
@@ -58,12 +171,16 @@ function ChartContainer({
           "[&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/50 dark:[&_.recharts-cartesian-grid_line]:stroke-[#e5e7eb] [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border dark:[&_.recharts-polar-grid_line]:stroke-[#e5e7eb] [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-muted [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border dark:[&_.recharts-reference-line]:stroke-[#e5e7eb] flex aspect-video justify-center text-xs [&_.recharts-dot[stroke='#fff']]:stroke-transparent [&_.recharts-layer]:outline-hidden [&_.recharts-sector]:outline-hidden [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-surface]:outline-hidden",
           className
         )}
+        style={{
+          // CSS containment to prevent layout thrashing
+          contain: 'layout style',
+        }}
         {...props}
       >
         <ChartStyle id={chartId} config={config} />
-        <RechartsPrimitive.ResponsiveContainer>
+        <DebouncedResponsiveContainer chartId={chartId}>
           {children}
-        </RechartsPrimitive.ResponsiveContainer>
+        </DebouncedResponsiveContainer>
       </div>
     </ChartContext.Provider>
   )
