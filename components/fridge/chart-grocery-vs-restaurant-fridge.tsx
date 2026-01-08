@@ -1,6 +1,6 @@
 "use client"
 
-// Grocery vs Restaurant Spending Chart - Monthly stacked bar chart comparing spending
+// Home Food vs Outside Food Spending Chart - Monthly stacked bar chart comparing spending
 import * as React from "react"
 import { useMemo, useState, useEffect } from "react"
 import { useTheme } from "next-themes"
@@ -29,8 +29,8 @@ interface ChartGroceryVsRestaurantFridgeProps {
 
 interface MonthlyData {
     month: string
-    Groceries: number
-    Restaurants: number
+    "Home Food": number
+    "Outside Food": number
     [key: string]: string | number
 }
 
@@ -104,30 +104,31 @@ export function ChartGroceryVsRestaurantFridge({ dateFilter, groceryVsRestaurant
 
     // Calculate totals for AI insights
     const totals = useMemo(() => {
-        const groceries = data.reduce((sum, d) => sum + d.Groceries, 0)
-        const restaurants = data.reduce((sum, d) => sum + d.Restaurants, 0)
-        return { groceries, restaurants }
+        const homeFood = data.reduce((sum, d) => sum + (d["Home Food"] || 0), 0)
+        const outsideFood = data.reduce((sum, d) => sum + (d["Outside Food"] || 0), 0)
+        return { homeFood, outsideFood }
     }, [data])
 
     const renderInfoTrigger = () => (
         <div className="flex flex-col items-center gap-2">
             <ChartInfoPopover
-                title="Grocery vs Restaurant Spending"
-                description="Monthly comparison of grocery vs restaurant spending."
+                title="Home Food vs Outside Food"
+                description="Monthly comparison of home cooking vs eating out spending."
                 details={[
                     "This chart shows spending from your transaction categories, not receipt items.",
-                    "Categories are matched by name: Grocery/Groceries/Supermarket vs Restaurant/Dining/Food/Eating Out.",
-                    "Each bar shows a month, with groceries and restaurants stacked for comparison.",
+                    "Home Food: Grocery/Groceries/Supermarket categories.",
+                    "Outside Food: Restaurant/Dining/Food/Eating Out/Delivery/Takeout categories.",
+                    "Each bar shows a month, with home and outside food stacked for comparison.",
                 ]}
                 ignoredFootnote="Only expense transactions (amount < 0) are included."
             />
             <ChartAiInsightButton
                 chartId="fridge:groceryVsRestaurant"
-                chartTitle="Grocery vs Restaurant Spending"
-                chartDescription="Monthly comparison of grocery vs restaurant spending from transaction categories."
+                chartTitle="Home Food vs Outside Food"
+                chartDescription="Monthly comparison of home cooking vs eating out spending from transaction categories."
                 chartData={{
-                    totalGroceries: totals.groceries,
-                    totalRestaurants: totals.restaurants,
+                    totalHomeFood: totals.homeFood,
+                    totalOutsideFood: totals.outsideFood,
                     months: data.length,
                 }}
                 size="sm"
@@ -143,10 +144,10 @@ export function ChartGroceryVsRestaurantFridge({ dateFilter, groceryVsRestaurant
                         <GridStackCardDragHandle />
                         <ChartFavoriteButton
                             chartId="fridge:groceryVsRestaurant"
-                            chartTitle="Grocery vs Restaurant Spending"
+                            chartTitle="Home Food vs Outside Food"
                             size="md"
                         />
-                        <CardTitle>Grocery vs Restaurant</CardTitle>
+                        <CardTitle>Home Food vs Outside Food</CardTitle>
                     </div>
                     <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                         {renderInfoTrigger()}
@@ -161,7 +162,7 @@ export function ChartGroceryVsRestaurantFridge({ dateFilter, groceryVsRestaurant
         )
     }
 
-    const hasData = data.length > 0 && data.some(d => d.Groceries > 0 || d.Restaurants > 0)
+    const hasData = data.length > 0 && data.some(d => (d["Home Food"] || 0) > 0 || (d["Outside Food"] || 0) > 0)
 
     return (
         <Card className="@container/card">
@@ -170,16 +171,16 @@ export function ChartGroceryVsRestaurantFridge({ dateFilter, groceryVsRestaurant
                     <GridStackCardDragHandle />
                     <ChartFavoriteButton
                         chartId="fridge:groceryVsRestaurant"
-                        chartTitle="Grocery vs Restaurant Spending"
+                        chartTitle="Home Food vs Outside Food"
                         size="md"
                     />
-                    <CardTitle>Grocery vs Restaurant</CardTitle>
+                    <CardTitle>Home Food vs Outside Food</CardTitle>
                 </div>
                 <CardDescription>
                     <span className="hidden @[540px]/card:block">
-                        Monthly comparison of grocery vs restaurant spending
+                        Monthly comparison of home cooking vs eating out
                     </span>
-                    <span className="@[540px]/card:hidden">Groceries vs Dining</span>
+                    <span className="@[540px]/card:hidden">Home vs Outside</span>
                 </CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                     {renderInfoTrigger()}
@@ -192,7 +193,7 @@ export function ChartGroceryVsRestaurantFridge({ dateFilter, groceryVsRestaurant
                         <div className="flex-1 min-h-0" style={{ minHeight: "200px" }}>
                             <ResponsiveBar
                                 data={data as BarDatum[]}
-                                keys={["Groceries", "Restaurants"]}
+                                keys={["Home Food", "Outside Food"]}
                                 indexBy="month"
                                 margin={{ top: 10, right: 20, bottom: 50, left: 60 }}
                                 padding={0.3}
@@ -278,20 +279,20 @@ export function ChartGroceryVsRestaurantFridge({ dateFilter, groceryVsRestaurant
                                     className="h-3 w-3 rounded-sm"
                                     style={{ backgroundColor: palette[0] }}
                                 />
-                                <span className="text-muted-foreground">Groceries</span>
+                                <span className="text-muted-foreground">Home Food</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                                 <span
                                     className="h-3 w-3 rounded-sm"
                                     style={{ backgroundColor: palette[1] }}
                                 />
-                                <span className="text-muted-foreground">Restaurants</span>
+                                <span className="text-muted-foreground">Outside Food</span>
                             </div>
                         </div>
                     </div>
                 ) : (
                     <div className="h-full w-full min-h-[250px] flex items-center justify-center text-muted-foreground">
-                        No grocery or restaurant transactions found
+                        No home or outside food transactions found
                     </div>
                 )}
             </CardContent>

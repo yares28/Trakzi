@@ -353,8 +353,8 @@ export function ChartShoppingHeatmapDaysMonthsFridge({
                     </CardAction>
                 </CardHeader>
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
-                    <div className="h-full w-full min-h-[250px] flex items-center justify-center text-muted-foreground">
-                        No shopping data available
+                    <div className="h-full w-full min-h-[250px]">
+                        <ChartLoadingState emptyIcon="receipt" emptyDescription="Scan receipts to see monthly shopping patterns" />
                     </div>
                 </CardContent>
             </Card>

@@ -75,15 +75,16 @@ export const GET = async (request: NextRequest) => {
         const filter = searchParams.get("filter");
         const { startDate, endDate } = getDateRange(filter);
 
-        // Query for Grocery and Restaurant category spending by month from transactions
+        // Query for Home Food (Groceries) vs Outside Food (Restaurants + Delivery/Takeout) spending by month from transactions
         // Groups by month and category type
         let query = `
       SELECT 
         EXTRACT(MONTH FROM t.tx_date)::INTEGER AS month,
         EXTRACT(YEAR FROM t.tx_date)::INTEGER AS year,
         CASE 
-          WHEN LOWER(c.name) LIKE '%grocery%' OR LOWER(c.name) LIKE '%groceries%' OR LOWER(c.name) LIKE '%supermarket%' THEN 'Groceries'
-          WHEN LOWER(c.name) LIKE '%restaurant%' OR LOWER(c.name) LIKE '%dining%' OR LOWER(c.name) LIKE '%food%' OR LOWER(c.name) LIKE '%eating out%' THEN 'Restaurants'
+          WHEN LOWER(c.name) LIKE '%grocery%' OR LOWER(c.name) LIKE '%groceries%' OR LOWER(c.name) LIKE '%supermarket%' THEN 'Home Food'
+          WHEN LOWER(c.name) LIKE '%restaurant%' OR LOWER(c.name) LIKE '%dining%' OR LOWER(c.name) LIKE '%food%' OR LOWER(c.name) LIKE '%eating out%' 
+               OR LOWER(c.name) LIKE '%delivery%' OR LOWER(c.name) LIKE '%takeout%' OR LOWER(c.name) LIKE '%take out%' OR LOWER(c.name) LIKE '%takeaway%' THEN 'Outside Food'
           ELSE NULL
         END AS category_group,
         SUM(ABS(t.amount)) AS total
@@ -99,6 +100,10 @@ export const GET = async (request: NextRequest) => {
           OR LOWER(c.name) LIKE '%dining%' 
           OR LOWER(c.name) LIKE '%food%'
           OR LOWER(c.name) LIKE '%eating out%'
+          OR LOWER(c.name) LIKE '%delivery%'
+          OR LOWER(c.name) LIKE '%takeout%'
+          OR LOWER(c.name) LIKE '%take out%'
+          OR LOWER(c.name) LIKE '%takeaway%'
         )
     `;
 
@@ -122,10 +127,10 @@ export const GET = async (request: NextRequest) => {
         }>(query, params);
 
         // Transform data into monthly format for stacked bar chart
-        // Each row should have: { month: "Jan 2024", Groceries: 500, Restaurants: 200 }
+        // Each row should have: { month: "Jan 2024", "Home Food": 500, "Outside Food": 200 }
         const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-        const monthlyData = new Map<string, { month: string; Groceries: number; Restaurants: number }>();
+        const monthlyData = new Map<string, { month: string; "Home Food": number; "Outside Food": number }>();
 
         rows.forEach(row => {
             if (!row.category_group) return;
@@ -136,18 +141,18 @@ export const GET = async (request: NextRequest) => {
             if (!monthlyData.has(monthKey)) {
                 monthlyData.set(monthKey, {
                     month: monthLabel,
-                    Groceries: 0,
-                    Restaurants: 0,
+                    "Home Food": 0,
+                    "Outside Food": 0,
                 });
             }
 
             const entry = monthlyData.get(monthKey)!;
             const value = typeof row.total === "string" ? parseFloat(row.total) || 0 : row.total || 0;
 
-            if (row.category_group === "Groceries") {
-                entry.Groceries = value;
-            } else if (row.category_group === "Restaurants") {
-                entry.Restaurants = value;
+            if (row.category_group === "Home Food") {
+                entry["Home Food"] = value;
+            } else if (row.category_group === "Outside Food") {
+                entry["Outside Food"] = value;
             }
         });
 
