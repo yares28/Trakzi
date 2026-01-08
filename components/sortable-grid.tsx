@@ -205,6 +205,7 @@ export function SortableGridProvider({
                     style={{
                         gridAutoFlow: 'row dense', // Pack items densely row by row
                         gridAutoRows: '70px', // Fixed row height for 2D packing
+                        transition: 'grid-template-columns 300ms cubic-bezier(0.4, 0, 0.2, 1)',
                     }}
                 >
                     {children}
@@ -359,14 +360,17 @@ export function SortableGridItem({
                     // Smooth transitions only when not dragging
                     transition: isDragging
                         ? 'none'
-                        : `
-                            grid-row 400ms cubic-bezier(0.4, 0, 0.2, 1),
-                            grid-column 400ms cubic-bezier(0.4, 0, 0.2, 1),
-                            box-shadow 200ms ease,
-                            opacity 200ms ease
-                        `.replace(/\s+/g, ' ').trim(),
+                        : isResizing
+                            ? 'box-shadow 200ms ease, opacity 200ms ease'
+                            : `
+                                grid-row 300ms cubic-bezier(0.4, 0, 0.2, 1),
+                                grid-column 300ms cubic-bezier(0.4, 0, 0.2, 1),
+                                transform 300ms cubic-bezier(0.4, 0, 0.2, 1),
+                                box-shadow 200ms ease,
+                                opacity 200ms ease
+                            `.replace(/\s+/g, ' ').trim(),
                     // Visual feedback
-                    opacity: isDragging ? 0.8 : 1,
+                    opacity: isDragging ? 0.9 : 1,
                     zIndex: isDragging ? 1000 : isResizing ? 999 : undefined,
                     // Shadow effect based on state
                     boxShadow: isDragging
@@ -374,6 +378,8 @@ export function SortableGridItem({
                         : isResizing
                             ? '0 10px 25px -5px rgba(0, 0, 0, 0.15)'
                             : undefined,
+                    // GPU acceleration for smoother animations
+                    willChange: isDragging || isResizing ? 'transform, opacity' : 'auto',
                 }}
                 className={`${className} relative group`}
                 data-chart-id={id}
