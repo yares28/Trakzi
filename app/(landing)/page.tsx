@@ -1,5 +1,6 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import { useTheme } from "next-themes"
 import Hero from "@/landing/hero"
 import Features from "@/components/features"
 import { NewReleasePromo } from "@/components/new-release-promo"
@@ -12,9 +13,30 @@ import Link from "next/link"
 export default function Home() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const { setTheme } = useTheme()
+  const previousThemeRef = useRef<string | null>(null)
 
-  // Note: Landing page has its own dark styling (bg-black, dark text colors)
-  // We don't touch the global theme to avoid conflicts with user preferences
+  // Force dark mode on landing page, restore user's theme on unmount
+  useEffect(() => {
+    // Only run on client side
+    if (typeof window === 'undefined') return
+
+    // Store the user's actual preference from localStorage BEFORE we override it
+    // This is critical: setTheme("dark") will overwrite localStorage, so we must save first
+    const userPreference = localStorage.getItem('trakzi-theme') || 'light'
+    previousThemeRef.current = userPreference
+    
+    // Force dark mode for the landing page
+    setTheme("dark")
+
+    // Restore user's preference when leaving the landing page
+    return () => {
+      const themeToRestore = previousThemeRef.current || 'light'
+      // Restore both localStorage AND the theme state
+      localStorage.setItem('trakzi-theme', themeToRestore)
+      setTheme(themeToRestore)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const handleScroll = () => {
