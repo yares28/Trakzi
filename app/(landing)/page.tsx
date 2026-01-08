@@ -13,23 +13,28 @@ import Link from "next/link"
 export default function Home() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const { theme, setTheme } = useTheme()
-  const previousThemeRef = useRef<string | undefined>(undefined)
+  const { setTheme } = useTheme()
+  const previousThemeRef = useRef<string | null>(null)
 
   // Force dark mode on landing page, restore user's theme on unmount
   useEffect(() => {
-    // Store the user's current theme preference
-    previousThemeRef.current = theme
+    // Read the user's saved theme directly from localStorage before we override it
+    // This ensures we capture the real user preference, not the current theme state
+    const savedTheme = typeof window !== 'undefined' 
+      ? localStorage.getItem('trakzi-theme') 
+      : null
+    previousThemeRef.current = savedTheme
+    
     // Set dark mode for the landing page
     setTheme("dark")
 
     // Restore the user's theme when leaving the landing page
     return () => {
-      if (previousThemeRef.current && previousThemeRef.current !== "dark") {
+      if (previousThemeRef.current) {
         setTheme(previousThemeRef.current)
       }
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setTheme])
 
   useEffect(() => {
     const handleScroll = () => {

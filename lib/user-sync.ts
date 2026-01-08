@@ -8,27 +8,69 @@ import { ensureReceiptCategories } from '@/lib/receipts/receipt-categories-db'
 
 // Default category colors for transaction categories
 const CATEGORY_COLORS: Record<string, string> = {
+    // Food & Drink
     "Groceries": "#10b981",
     "Restaurants": "#f97316",
+    "Coffee": "#a16207",
     "Bars": "#a855f7",
+    "Takeaway/Delivery": "#ea580c",
+    // Housing
     "Rent": "#6366f1",
     "Mortgage": "#3b82f6",
-    "Utilities": "#0ea5e9",
+    "Home Maintenance": "#4f46e5",
+    "Home Supplies": "#7c3aed",
+    // Bills & Utilities
+    "Electricity": "#fbbf24",
+    "Gas": "#f59e0b",
+    "Water": "#06b6d4",
+    "Internet": "#0ea5e9",
+    "Mobile": "#0284c7",
+    "Utilities": "#0369a1",
+    // Transportation
     "Fuel": "#84cc16",
-    "Transport": "#14b8a6",
-    "Insurance": "#f43f5e",
-    "Taxes & Fees": "#dc2626",
+    "Public Transport": "#14b8a6",
+    "Taxi/Rideshare": "#22d3d3",
+    "Parking/Tolls": "#64748b",
+    "Car Maintenance": "#475569",
+    // Health & Fitness
+    "Pharmacy": "#22c55e",
+    "Medical": "#16a34a",
+    "Healthcare": "#15803d",
+    "Fitness": "#059669",
+    // Shopping
     "Shopping": "#ec4899",
+    "Clothing": "#db2777",
+    "Electronics": "#be185d",
+    "Home Goods": "#9d174d",
+    "Gifts": "#f472b6",
+    // Finance & Insurance
+    "Bank Fees": "#dc2626",
+    "Taxes & Fees": "#b91c1c",
+    "Insurance": "#f43f5e",
+    "Donation": "#e11d48",
+    // Income
+    "Salary": "#22c55e",
+    "Bonus": "#16a34a",
+    "Freelance": "#15803d",
+    "Refunds/Reimbursements": "#10b981",
+    "Cashback": "#059669",
+    "Top-ups": "#047857",
+    // Savings & Investments
+    "Savings": "#3b82f6",
+    "Investments": "#2563eb",
+    "Transfers": "#94a3b8",
+    "Loan": "#1d4ed8",
+    "Credit": "#1e40af",
+    "Wealth": "#1e3a8a",
+    // Entertainment & Lifestyle
     "Entertainment": "#8b5cf6",
     "Education": "#06b6d4",
-    "Health & Fitness": "#22c55e",
     "Subscriptions": "#6366f1",
     "Travel": "#0891b2",
     "Services": "#64748b",
-    "Income": "#22c55e",
-    "Transfers": "#94a3b8",
-    "Refunds": "#10b981",
-    "Savings": "#3b82f6",
+    // Other
+    "Cash": "#78716c",
+    "General": "#a8a29e",
     "Other": "#6b7280",
 }
 

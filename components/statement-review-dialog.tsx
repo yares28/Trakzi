@@ -203,7 +203,7 @@ export function StatementReviewDialog({
 
                 <div
                     ref={groupsPanelScrollRef}
-                    className="flex-1 overflow-y-auto p-3 space-y-3 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40"
+                    className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar"
                 >
                     {groupsWithMetadata.map((group) => {
                         const isExpanded = expandedGroupKeys.has(group.key)
@@ -458,7 +458,7 @@ export function StatementReviewDialog({
 
 
                         <div className={cn(
-                            "flex-1 overflow-y-auto overflow-x-hidden pt-0 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40",
+                            "flex-1 overflow-y-auto overflow-x-hidden pt-0 custom-scrollbar",
                             isGroupsView ? "w-[70%]" : "w-full"
                         )}>
                             <Table className="w-full relative">

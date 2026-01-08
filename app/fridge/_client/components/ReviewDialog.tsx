@@ -350,7 +350,7 @@ export function ReviewDialog({
             ) : null}
           </div>
 
-          <div className="flex-1 overflow-y-auto overflow-x-hidden pt-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden pt-4 custom-scrollbar">
             {activeReviewReceipt ? (
               <Table className="w-full table-fixed">
                 <TableHeader>

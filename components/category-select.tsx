@@ -6,7 +6,13 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { DEFAULT_CATEGORIES, DEFAULT_CATEGORY_GROUPS, type CategoryGroup } from "@/lib/categories"
+import { DEFAULT_CATEGORIES, DEFAULT_CATEGORY_GROUPS } from "@/lib/categories"
+
+// Local type for grouped categories display (simplified from lib/categories.ts)
+type DisplayCategoryGroup = {
+  label: string
+  categories: string[]
+}
 import { toast } from "sonner"
 import { ChevronDown, Plus } from "lucide-react"
 import { CategoryLimitDialog } from "@/components/category-limit-dialog"
@@ -112,7 +118,9 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [groupedOptions, setGroupedOptions] = useState<CategoryGroup[]>(DEFAULT_CATEGORY_GROUPS)
+  const [groupedOptions, setGroupedOptions] = useState<DisplayCategoryGroup[]>(() => 
+    DEFAULT_CATEGORY_GROUPS.map(g => ({ label: g.label, categories: g.categories.map(c => c.name) }))
+  )
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(DEFAULT_CATEGORY_GROUPS.map((group) => [group.label, false])),
   )
@@ -127,7 +135,7 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
   const collator = useMemo(() => new Intl.Collator(undefined, { sensitivity: "base" }), [])
 
   const buildGroupedCategories = useCallback(
-    (names: string[]): CategoryGroup[] => {
+    (names: string[]): { label: string; categories: string[] }[] => {
       const normalized = names
         .map((name) => name?.trim())
         .filter((name): name is string => !!name && name.length > 0)
@@ -143,9 +151,10 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
 
       const defaultNameSet = new Set(DEFAULT_CATEGORIES.map((cat) => cat.toLowerCase()))
 
+      // Convert CategoryDefinition[] to string[] for display
       const baseGroups = DEFAULT_CATEGORY_GROUPS.map((group) => ({
         label: group.label,
-        categories: group.categories,
+        categories: group.categories.map((cat) => cat.name),
       }))
 
       const customCategories = uniqueByLowercase.filter(
@@ -182,7 +191,7 @@ export const CategorySelect = memo(function CategorySelect({ value, onValueChang
     } catch (error) {
       console.error("[CategorySelect] Failed to load categories:", error)
       setCategories(DEFAULT_CATEGORIES)
-      setGroupedOptions(DEFAULT_CATEGORY_GROUPS)
+      setGroupedOptions(DEFAULT_CATEGORY_GROUPS.map(g => ({ label: g.label, categories: g.categories.map(c => c.name) })))
       updateGroups(DEFAULT_CATEGORIES)
       if (!hasShownCategoryLoadErrorToast) {
         toast.error("Unable to load categories. Using defaults.")
