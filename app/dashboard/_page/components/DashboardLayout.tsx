@@ -14,11 +14,12 @@ export function DashboardLayout({ children, overlay }: DashboardLayoutProps) {
     <SidebarProvider
       style={
         {
+          "--sidebar-width": "calc(var(--spacing) * 72 - 15px)",
           "--header-height": "calc(var(--spacing) * 12)",
         } as CSSProperties
       }
     >
-      <AppSidebar />
+      <AppSidebar variant="inset" />
       <SidebarInset>
         <DashboardHeader />
         {children}
