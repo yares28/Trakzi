@@ -103,9 +103,7 @@ tramp
 .LSOverride
 ._*
 .Spotlight-V100
-.Trashes
-
-# OS - Windows
+.Trashes# OS - Windows
 Thumbs.db
 Thumbs.db:encryptable
 ehthumbs.db
