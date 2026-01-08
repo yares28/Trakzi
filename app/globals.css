@@ -147,6 +147,55 @@ body {
   color: #121113;
 }
 
+/* ============================================
+   SIDEBAR SMOOTH TRANSITIONS
+   ============================================ */
+
+/* Sidebar wrapper and content smooth transitions */
+[data-slot="sidebar-wrapper"] {
+  transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Sidebar gap smooth transition */
+[data-slot="sidebar-gap"] {
+  transition: width 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: width;
+}
+
+/* Sidebar container smooth transition */
+[data-slot="sidebar-container"] {
+  transition: width 300ms cubic-bezier(0.4, 0, 0.2, 1), 
+              left 300ms cubic-bezier(0.4, 0, 0.2, 1), 
+              right 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: width, left, right;
+}
+
+/* Sidebar inner smooth transition */
+[data-slot="sidebar-inner"] {
+  transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Sidebar menu buttons smooth transition */
+[data-slot="sidebar-menu-button"] {
+  transition: width 300ms cubic-bezier(0.4, 0, 0.2, 1),
+              height 300ms cubic-bezier(0.4, 0, 0.2, 1),
+              padding 300ms cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 200ms ease,
+              color 200ms ease;
+}
+
+/* Sidebar group labels smooth fade */
+[data-slot="sidebar-group-label"] {
+  transition: opacity 250ms cubic-bezier(0.4, 0, 0.2, 1),
+              margin-top 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Sidebar main content area smooth margin transition */
+[data-slot="sidebar-inset"] {
+  transition: margin 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: margin;
+}
+
 /* Icons fill with primary color when their pages are active */
 [data-active="true"] .icon-home,
 [data-active="true"] .icon-savings,
@@ -310,6 +359,30 @@ button[data-active="true"] .icon-chat,
 }
 
 /* ============================================
+   FLUID LAYOUT TRANSITIONS
+   ============================================ */
+
+/* Smooth transitions for grid items during resize and sidebar toggle */
+[data-chart-id] {
+  transition: 
+    grid-column 300ms cubic-bezier(0.4, 0, 0.2, 1),
+    grid-row 300ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 300ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 200ms ease;
+  will-change: transform, opacity;
+}
+
+/* Disable transitions during actual drag operations */
+[data-chart-id][style*="transform: translate"] {
+  transition: none !important;
+}
+
+/* Smooth grid container transitions */
+.grid {
+  transition: gap 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================
    MOBILE LAYOUT UTILITIES
    ============================================ */
 
@@ -399,7 +472,12 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
 
   /* Smooth animations for GridStack items when not dragging */
   .grid-stack>.grid-stack-item {
-    transition: transform 0.15s ease-out, width 0.15s ease-out, height 0.15s ease-out, left 0.15s ease-out, top 0.15s ease-out;
+    transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1), 
+                width 300ms cubic-bezier(0.4, 0, 0.2, 1), 
+                height 300ms cubic-bezier(0.4, 0, 0.2, 1), 
+                left 300ms cubic-bezier(0.4, 0, 0.2, 1), 
+                top 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform, width, height, left, top;
   }
 
   /* Disable transitions during active drag for immediate responsiveness */

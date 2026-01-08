@@ -175,17 +175,12 @@ function Sidebar({
   collapsible?: "offcanvas" | "icon" | "none"
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
-  const desktopTransition =
-    collapsible === "icon"
-      ? {
-        gap: "transition-none",
-        container: "transition-none",
-      }
-      : {
-        gap: "transition-[width] duration-300 ease-in-out will-change-[width]",
-        container:
-          "transition-[left,right,width] duration-300 ease-in-out will-change-[left,right,width]",
-      }
+  
+  // Smooth transitions for all collapsible modes including icon
+  const desktopTransition = {
+    gap: "transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[width]",
+    container: "transition-[left,right,width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[left,right,width]",
+  }
 
   if (collapsible === "none") {
     return (
@@ -268,7 +263,7 @@ function Sidebar({
         <div
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
-          className="bg-sidebar dark:bg-zinc-900/50 group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col rounded-r-2xl group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm"
+          className="bg-sidebar dark:bg-zinc-900/50 group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col rounded-r-2xl group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
         >
           {children}
         </div>
@@ -312,6 +307,8 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
         "bg-background relative flex w-full flex-1 flex-col min-h-screen-mobile mobile-bg-gradient",
         // Desktop: Container scrolls for sticky header behavior
         "md:overflow-y-auto md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 md:peer-data-[variant=inset]:h-[calc(100svh-1rem)]",
+        // Smooth transition for margin changes when sidebar opens/closes
+        "transition-[margin] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
         className
       )}
       {...props}
@@ -376,6 +373,7 @@ function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
       data-sidebar="content"
       className={cn(
         "flex min-h-0 flex-1 flex-col gap-2 overflow-hidden group-data-[collapsible=icon]:overflow-hidden",
+        "transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
         className
       )}
       {...props}
