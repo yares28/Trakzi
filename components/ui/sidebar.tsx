@@ -7,6 +7,7 @@ import { PanelLeftIcon } from "lucide-react"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
+import { useChartResize } from "@/lib/chart-resize-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
@@ -31,6 +32,7 @@ const SIDEBAR_WIDTH = "21.875rem"  // 350px - increased to close gap with header
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
+const SIDEBAR_TRANSITION_DURATION = 300 // ms - should match CSS transition duration
 
 type SidebarContextProps = {
   state: "expanded" | "collapsed"
@@ -68,6 +70,8 @@ function SidebarProvider({
 }) {
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
+  const { pauseResize, resumeResize } = useChartResize()
+  const transitionTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
@@ -96,10 +100,41 @@ function SidebarProvider({
     [setOpenProp, open]
   )
 
-  // Helper to toggle the sidebar.
+  // Helper to toggle the sidebar with chart resize pausing for smooth animation
   const toggleSidebar = React.useCallback(() => {
-    return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open)
-  }, [isMobile, setOpen, setOpenMobile])
+    // Clear any pending transition timeout
+    if (transitionTimeoutRef.current) {
+      clearTimeout(transitionTimeoutRef.current)
+    }
+
+    // Pause chart resizing before transition starts (desktop only)
+    if (!isMobile) {
+      pauseResize()
+    }
+
+    // Toggle the sidebar
+    if (isMobile) {
+      setOpenMobile((open) => !open)
+    } else {
+      setOpen((open) => !open)
+    }
+
+    // Resume chart resizing after transition completes (desktop only)
+    if (!isMobile) {
+      transitionTimeoutRef.current = setTimeout(() => {
+        resumeResize()
+      }, SIDEBAR_TRANSITION_DURATION + 50) // Add small buffer
+    }
+  }, [isMobile, setOpen, setOpenMobile, pauseResize, resumeResize])
+
+  // Cleanup timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (transitionTimeoutRef.current) {
+        clearTimeout(transitionTimeoutRef.current)
+      }
+    }
+  }, [])
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
