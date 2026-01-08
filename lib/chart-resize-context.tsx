@@ -37,31 +37,22 @@ const frozenDimensions = new Map<string, { width: number; height: number }>()
 
 export function ChartResizeProvider({ children }: { children: React.ReactNode }) {
   const [isPaused, setIsPaused] = React.useState(false)
-  const resumeTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
   const windowResizeTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
   const globalIdCounter = React.useRef(0)
 
   const pauseResize = React.useCallback(() => {
-    // Clear any pending resume
-    if (resumeTimeoutRef.current) {
-      clearTimeout(resumeTimeoutRef.current)
-      resumeTimeoutRef.current = null
-    }
     setIsPaused(true)
   }, [])
 
   const resumeResize = React.useCallback(() => {
-    // Delay resume to let the transition complete smoothly
-    resumeTimeoutRef.current = setTimeout(() => {
+    // Immediate resume - use RAF for next frame
+    requestAnimationFrame(() => {
       setIsPaused(false)
-      // Clear frozen dimensions after a small delay to allow smooth update
-      setTimeout(() => {
-        frozenDimensions.clear()
-      }, 50)
-    }, 50) // Small delay after transition
+      frozenDimensions.clear()
+    })
   }, [])
 
-  // Debounce window resize events to prevent chart re-renders during resize
+  // Debounce window resize events - short delay for snappy feel
   React.useEffect(() => {
     let isResizing = false
     
@@ -76,15 +67,12 @@ export function ChartResizeProvider({ children }: { children: React.ReactNode })
         clearTimeout(windowResizeTimeoutRef.current)
       }
       
-      // Resume after resize stops
+      // Resume quickly after resize stops - 100ms is snappy but still batches
       windowResizeTimeoutRef.current = setTimeout(() => {
         isResizing = false
         setIsPaused(false)
-        // Clear frozen dimensions
-        setTimeout(() => {
-          frozenDimensions.clear()
-        }, 50)
-      }, 200) // Wait 200ms after last resize event
+        frozenDimensions.clear()
+      }, 100)
     }
     
     window.addEventListener('resize', handleResizeStart, { passive: true })
@@ -122,9 +110,6 @@ export function ChartResizeProvider({ children }: { children: React.ReactNode })
   // Cleanup on unmount
   React.useEffect(() => {
     return () => {
-      if (resumeTimeoutRef.current) {
-        clearTimeout(resumeTimeoutRef.current)
-      }
       if (windowResizeTimeoutRef.current) {
         clearTimeout(windowResizeTimeoutRef.current)
       }
