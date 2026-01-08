@@ -77,7 +77,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 // List of admin user IDs who can call this endpoint
 // TODO: Add your admin user IDs here
-const ADMIN_USER_IDS = [
+const ADMIN_USER_IDS: string[] = [
     // Add your Clerk user IDs here, e.g.:
     // "user_2abc123xyz"
 ]
@@ -94,7 +94,7 @@ export const POST = async (request: NextRequest) => {
     try {
         // Check if user is authenticated and is an admin
         const { userId } = await auth()
-        
+
         if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
         }
@@ -114,9 +114,9 @@ export const POST = async (request: NextRequest) => {
         if (limit > 0) {
             userQuery += ` LIMIT ${limit}`
         }
-        
+
         const users = await neonQuery<{ id: string }>(userQuery, [])
-        
+
         const results = {
             totalUsers: users.length,
             usersProcessed: 0,
@@ -177,7 +177,7 @@ export const POST = async (request: NextRequest) => {
         return NextResponse.json({
             success: true,
             dryRun,
-            message: dryRun 
+            message: dryRun
                 ? `Would add categories for ${results.usersUpdated} users (dry run)`
                 : `Added categories for ${results.usersUpdated} users`,
             ...results,
@@ -198,7 +198,7 @@ export const POST = async (request: NextRequest) => {
 export const GET = async () => {
     try {
         const { userId } = await auth()
-        
+
         if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
         }
