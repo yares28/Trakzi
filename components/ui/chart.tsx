@@ -36,24 +36,23 @@ function useChart() {
 }
 
 /**
- * Debounced ResponsiveContainer that prevents re-renders during layout transitions
+ * Optimized ResponsiveContainer that prevents re-renders during layout transitions
+ * Uses RAF for smooth, immediate updates when not paused
  */
 function DebouncedResponsiveContainer({
   children,
   chartId,
-  debounceMs = 150,
 }: {
   children: React.ComponentProps<typeof RechartsPrimitive.ResponsiveContainer>["children"]
   chartId: string
-  debounceMs?: number
 }) {
   const { isPaused } = useChartResize()
   const containerRef = React.useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = React.useState<{ width: number; height: number } | null>(null)
-  const debounceTimeout = React.useRef<NodeJS.Timeout | null>(null)
   const lastDimensions = React.useRef<{ width: number; height: number } | null>(null)
+  const rafId = React.useRef<number | null>(null)
 
-  // Observe container size changes with debouncing
+  // Observe container size changes
   React.useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -65,36 +64,36 @@ function DebouncedResponsiveContainer({
       const { width, height } = entry.contentRect
       const newDimensions = { width: Math.floor(width), height: Math.floor(height) }
 
-      // Skip if dimensions haven't actually changed
+      // Skip if dimensions haven't actually changed (with small tolerance)
       if (
         lastDimensions.current &&
-        lastDimensions.current.width === newDimensions.width &&
-        lastDimensions.current.height === newDimensions.height
+        Math.abs(lastDimensions.current.width - newDimensions.width) < 2 &&
+        Math.abs(lastDimensions.current.height - newDimensions.height) < 2
       ) {
         return
       }
 
       lastDimensions.current = newDimensions
 
-      // If paused, don't update dimensions at all
+      // If paused, store but don't update
       if (isPaused) {
         return
       }
 
-      // Clear any pending debounce
-      if (debounceTimeout.current) {
-        clearTimeout(debounceTimeout.current)
+      // Cancel any pending RAF
+      if (rafId.current) {
+        cancelAnimationFrame(rafId.current)
       }
 
-      // Debounce the dimension update
-      debounceTimeout.current = setTimeout(() => {
+      // Use RAF for smooth, immediate update on next frame
+      rafId.current = requestAnimationFrame(() => {
         setDimensions(newDimensions)
-      }, debounceMs)
+      })
     })
 
     observer.observe(container)
 
-    // Initial measurement
+    // Initial measurement - immediate
     const rect = container.getBoundingClientRect()
     const initialDimensions = { width: Math.floor(rect.width), height: Math.floor(rect.height) }
     lastDimensions.current = initialDimensions
@@ -102,22 +101,26 @@ function DebouncedResponsiveContainer({
 
     return () => {
       observer.disconnect()
-      if (debounceTimeout.current) {
-        clearTimeout(debounceTimeout.current)
+      if (rafId.current) {
+        cancelAnimationFrame(rafId.current)
       }
     }
-  }, [isPaused, debounceMs])
+  }, [isPaused])
 
-  // When unpaused, update to current dimensions
+  // When unpaused, immediately update to current dimensions
   React.useEffect(() => {
     if (!isPaused && lastDimensions.current) {
-      // Small delay to batch with other updates
-      const timeout = setTimeout(() => {
+      // Immediate update via RAF
+      rafId.current = requestAnimationFrame(() => {
         if (lastDimensions.current) {
           setDimensions(lastDimensions.current)
         }
-      }, 50)
-      return () => clearTimeout(timeout)
+      })
+      return () => {
+        if (rafId.current) {
+          cancelAnimationFrame(rafId.current)
+        }
+      }
     }
   }, [isPaused])
 
@@ -127,7 +130,6 @@ function DebouncedResponsiveContainer({
       style={{ 
         width: '100%', 
         height: '100%',
-        // CSS containment for better performance
         contain: 'layout style',
       }}
     >
@@ -135,12 +137,11 @@ function DebouncedResponsiveContainer({
         <RechartsPrimitive.ResponsiveContainer
           width={dimensions.width}
           height={dimensions.height}
-          debounce={isPaused ? 1000 : 0}
+          debounce={0}
         >
           {children}
         </RechartsPrimitive.ResponsiveContainer>
       ) : (
-        // Placeholder while measuring
         <div style={{ width: '100%', height: '100%' }} />
       )}
     </div>

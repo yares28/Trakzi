@@ -32,7 +32,7 @@ const SIDEBAR_WIDTH = "21.875rem"  // 350px - increased to close gap with header
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
-const SIDEBAR_TRANSITION_DURATION = 300 // ms - should match CSS transition duration
+const SIDEBAR_TRANSITION_DURATION = 280 // ms - slightly less than CSS duration for snappier feel
 
 type SidebarContextProps = {
   state: "expanded" | "collapsed"
@@ -123,7 +123,7 @@ function SidebarProvider({
     if (!isMobile) {
       transitionTimeoutRef.current = setTimeout(() => {
         resumeResize()
-      }, SIDEBAR_TRANSITION_DURATION + 50) // Add small buffer
+      }, SIDEBAR_TRANSITION_DURATION)
     }
   }, [isMobile, setOpen, setOpenMobile, pauseResize, resumeResize])
 
