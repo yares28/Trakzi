@@ -566,7 +566,6 @@ export function ChartRadar({
           <CardTitle>Financial Health Score</CardTitle>
         </div>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          {renderInfoTrigger()}
           {filterableCapabilities.length > 0 && (
             <DropdownMenu open={isCategorySelectorOpen} onOpenChange={setIsCategorySelectorOpen}>
               <DropdownMenuTrigger asChild>
@@ -626,6 +625,7 @@ export function ChartRadar({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          {renderInfoTrigger()}
         </CardAction>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">

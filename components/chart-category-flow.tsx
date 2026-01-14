@@ -187,32 +187,62 @@ export function ChartCategoryFlow({
     />
   )
 
-  // Month abbreviation helper for mobile x-axis
+  // Month abbreviation helper - converts various formats to "Jan'25" style
   const getMonthAbbreviation = (monthStr: string): string => {
-    // Map month names or abbreviations to single letters
-    const monthMap: Record<string, string> = {
-      'jan': 'J', 'january': 'J',
-      'feb': 'F', 'february': 'F',
-      'mar': 'M', 'march': 'M',
-      'apr': 'A', 'april': 'A',
-      'may': 'M',
-      'jun': 'J', 'june': 'J',
-      'jul': 'J', 'july': 'J',
-      'aug': 'A', 'august': 'A',
-      'sep': 'S', 'september': 'S',
-      'oct': 'O', 'october': 'O',
-      'nov': 'N', 'november': 'N',
-      'dec': 'D', 'december': 'D',
-    }
-    const lowerMonth = monthStr.toLowerCase().trim()
-    // Try to match the start of the string
-    for (const [key, abbrev] of Object.entries(monthMap)) {
-      if (lowerMonth.startsWith(key)) {
-        return abbrev
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    
+    // Handle YYYY-MM format (e.g., "2025-02")
+    const yyyyMmMatch = monthStr.match(/^(\d{4})-(\d{1,2})$/)
+    if (yyyyMmMatch) {
+      const year = yyyyMmMatch[1].slice(-2) // Get last 2 digits of year
+      const monthIndex = parseInt(yyyyMmMatch[2], 10) - 1
+      if (monthIndex >= 0 && monthIndex < 12) {
+        return `${monthNames[monthIndex]}'${year}`
       }
     }
-    // Fallback: return first letter
-    return monthStr.charAt(0).toUpperCase()
+    
+    // Handle MM format (e.g., "01", "02")
+    const mmMatch = monthStr.match(/^(\d{1,2})$/)
+    if (mmMatch) {
+      const monthIndex = parseInt(mmMatch[1], 10) - 1
+      if (monthIndex >= 0 && monthIndex < 12) {
+        return monthNames[monthIndex]
+      }
+    }
+    
+    // Handle month name formats (e.g., "Jan 2025", "January", "jan")
+    const monthNameMap: Record<string, number> = {
+      'jan': 0, 'january': 0,
+      'feb': 1, 'february': 1,
+      'mar': 2, 'march': 2,
+      'apr': 3, 'april': 3,
+      'may': 4,
+      'jun': 5, 'june': 5,
+      'jul': 6, 'july': 6,
+      'aug': 7, 'august': 7,
+      'sep': 8, 'september': 8,
+      'oct': 9, 'october': 9,
+      'nov': 10, 'november': 10,
+      'dec': 11, 'december': 11,
+    }
+    
+    const lowerMonth = monthStr.toLowerCase().trim()
+    
+    // Try to match month name and extract year if present (e.g., "Jan 2025")
+    for (const [key, monthIndex] of Object.entries(monthNameMap)) {
+      if (lowerMonth.startsWith(key)) {
+        // Check if there's a year after the month name
+        const yearMatch = monthStr.match(/\d{4}/)
+        if (yearMatch) {
+          const year = yearMatch[0].slice(-2)
+          return `${monthNames[monthIndex]}'${year}`
+        }
+        return monthNames[monthIndex]
+      }
+    }
+    
+    // Fallback: return original string
+    return monthStr
   }
 
   // Chart render function for MOBILE (optimized: no labels, abbreviated months)
