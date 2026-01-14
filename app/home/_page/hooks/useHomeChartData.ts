@@ -571,6 +571,7 @@ export function useHomeChartData({
   )
 
   // Sankey data computation from transactions
+  // Uses 3-layer model: Income Sources → Total Cash → Expenses/Savings
   const sankeyData = useMemo(() => {
     if (!chartTransactions || chartTransactions.length === 0) {
       return {
@@ -579,56 +580,84 @@ export function useHomeChartData({
       }
     }
 
-    // Calculate totals
-    const totalIncome = chartTransactions
+    // Group income by category (source)
+    const incomeByCategoryMap = new Map<string, number>()
+    chartTransactions
       .filter((tx) => tx.amount > 0)
-      .reduce((sum, tx) => sum + tx.amount, 0)
+      .forEach((tx) => {
+        const category = normalizeCategoryName(tx.category) || "Income"
+        const current = incomeByCategoryMap.get(category) || 0
+        incomeByCategoryMap.set(category, current + tx.amount)
+      })
 
-    const categoryTotals = new Map<string, number>()
+    // Group expenses by category
+    const expenseByCategoryMap = new Map<string, number>()
     chartTransactions
       .filter((tx) => tx.amount < 0)
       .forEach((tx) => {
         const category = normalizeCategoryName(tx.category)
         if (sankeyVisibility.hiddenCategorySet.has(category)) return
-        const current = categoryTotals.get(category) || 0
-        categoryTotals.set(category, current + Math.abs(tx.amount))
+        const current = expenseByCategoryMap.get(category) || 0
+        expenseByCategoryMap.set(category, current + Math.abs(tx.amount))
       })
 
-    const totalExpenses = Array.from(categoryTotals.values()).reduce(
-      (sum, amount) => sum + amount,
-      0
-    )
-
+    // Calculate totals
+    const totalIncome = Array.from(incomeByCategoryMap.values()).reduce((sum, v) => sum + v, 0)
+    const totalExpenses = Array.from(expenseByCategoryMap.values()).reduce((sum, v) => sum + v, 0)
     const savings = Math.max(0, totalIncome - totalExpenses)
 
-    // Build nodes
+    // Build nodes and links using 3-layer flow model
     const nodes: Array<{ id: string; label?: string }> = []
     const links: Array<{ source: string; target: string; value: number }> = []
 
-    if (totalIncome > 0) {
-      nodes.push({ id: "income", label: "Income" })
-    }
-
-    // Add category nodes and links from income to categories
-    const sortedCategories = Array.from(categoryTotals.entries())
+    // Layer 1: Income sources (left side) - top 5
+    const sortedIncomeSources = Array.from(incomeByCategoryMap.entries())
       .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
 
-    sortedCategories.forEach(([category, amount]) => {
+    for (const [category, amount] of sortedIncomeSources) {
       if (amount > 0) {
-        nodes.push({ id: category, label: category })
-        if (totalIncome > 0) {
-          links.push({ source: "income", target: category, value: amount })
-        }
+        nodes.push({ id: `income-${category}`, label: category })
+        // Connect income source to "Total Cash" central node
+        links.push({
+          source: `income-${category}`,
+          target: "total-cash",
+          value: Math.round(amount * 100) / 100,
+        })
       }
-    })
-
-    // Add savings node if there are savings
-    if (savings > 0 && totalIncome > 0) {
-      nodes.push({ id: "savings", label: "Savings" })
-      links.push({ source: "income", target: "savings", value: savings })
     }
 
-    const categories = Array.from(categoryTotals.keys())
+    // Layer 2: Central node - Total Cash (middle)
+    nodes.push({ id: "total-cash", label: "Total Cash" })
+
+    // Layer 3: Expenses (right side) - top 8
+    const sortedExpenses = Array.from(expenseByCategoryMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+
+    for (const [category, amount] of sortedExpenses) {
+      if (amount > 0) {
+        nodes.push({ id: `expense-${category}`, label: category })
+        // Connect "Total Cash" to each expense category
+        links.push({
+          source: "total-cash",
+          target: `expense-${category}`,
+          value: Math.round(amount * 100) / 100,
+        })
+      }
+    }
+
+    // Add savings if positive
+    if (savings > 0) {
+      nodes.push({ id: "savings", label: "Savings" })
+      links.push({
+        source: "total-cash",
+        target: "savings",
+        value: Math.round(savings * 100) / 100,
+      })
+    }
+
+    const categories = Array.from(expenseByCategoryMap.keys())
 
     return { graph: { nodes, links }, categories }
   }, [chartTransactions, sankeyVisibility.hiddenCategorySet, normalizeCategoryName])
