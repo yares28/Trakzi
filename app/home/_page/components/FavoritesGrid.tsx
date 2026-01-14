@@ -144,12 +144,14 @@ export function FavoritesGrid({
     expensesPieControls,
     treeMapControls,
     streamgraphControls,
+    sankeyControls,
     incomeExpensesChartData,
     categoryFlowChartData,
     spendingFunnelChartData,
     expensesPieChartData,
     polarBarChartData,
     spendingStreamData,
+    sankeyData,
     treeMapChartData,
     activityData,
     activityConfig,
@@ -506,7 +508,12 @@ export function FavoritesGrid({
                         )
                       }
                       if (chartId === "cashFlowSankey") {
-                        return <ChartSankey />
+                        return (
+                          <ChartSankey
+                            data={sankeyData.graph}
+                            categoryControls={sankeyControls}
+                          />
+                        )
                       }
                       if (chartId === "expenseBreakdown") {
                         return (
