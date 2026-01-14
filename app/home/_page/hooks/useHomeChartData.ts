@@ -38,12 +38,22 @@ export type HomeChartData = {
   streamgraphControls: ReturnType<
     ReturnType<typeof useChartCategoryVisibility>["buildCategoryControls"]
   >
+  sankeyControls: ReturnType<
+    ReturnType<typeof useChartCategoryVisibility>["buildCategoryControls"]
+  >
   incomeExpensesChartData: Array<{ date: string; desktop: number; mobile: number }>
   categoryFlowChartData: Array<{ id: string; data: Array<{ x: string; y: number }> }>
   spendingFunnelChartData: Array<{ id: string; value: number; label: string }>
   expensesPieChartData: Array<{ id: string; label: string; value: number }>
   polarBarChartData: { data: Array<Record<string, string | number>>; keys: string[] }
   spendingStreamData: StreamgraphData
+  sankeyData: {
+    graph: {
+      nodes: Array<{ id: string; label?: string }>
+      links: Array<{ source: string; target: string; value: number }>
+    }
+    categories: string[]
+  }
   treeMapChartData: {
     name: string
     children: Array<{ name: string; children: Array<{ name: string; loc: number; fullDescription: string }> }>
@@ -231,6 +241,12 @@ export function useHomeChartData({
 
   const streamgraphVisibility = useChartCategoryVisibility({
     chartId: "home:streamgraph",
+    storageScope: "home",
+    normalizeCategory: normalizeCategoryName,
+  })
+
+  const sankeyVisibility = useChartCategoryVisibility({
+    chartId: "home:sankey",
     storageScope: "home",
     normalizeCategory: normalizeCategoryName,
   })
@@ -554,6 +570,73 @@ export function useHomeChartData({
     }
   )
 
+  // Sankey data computation from transactions
+  const sankeyData = useMemo(() => {
+    if (!chartTransactions || chartTransactions.length === 0) {
+      return {
+        graph: { nodes: [], links: [] as Array<{ source: string; target: string; value: number }> },
+        categories: [] as string[]
+      }
+    }
+
+    // Calculate totals
+    const totalIncome = chartTransactions
+      .filter((tx) => tx.amount > 0)
+      .reduce((sum, tx) => sum + tx.amount, 0)
+
+    const categoryTotals = new Map<string, number>()
+    chartTransactions
+      .filter((tx) => tx.amount < 0)
+      .forEach((tx) => {
+        const category = normalizeCategoryName(tx.category)
+        if (sankeyVisibility.hiddenCategorySet.has(category)) return
+        const current = categoryTotals.get(category) || 0
+        categoryTotals.set(category, current + Math.abs(tx.amount))
+      })
+
+    const totalExpenses = Array.from(categoryTotals.values()).reduce(
+      (sum, amount) => sum + amount,
+      0
+    )
+
+    const savings = Math.max(0, totalIncome - totalExpenses)
+
+    // Build nodes
+    const nodes: Array<{ id: string; label?: string }> = []
+    const links: Array<{ source: string; target: string; value: number }> = []
+
+    if (totalIncome > 0) {
+      nodes.push({ id: "income", label: "Income" })
+    }
+
+    // Add category nodes and links from income to categories
+    const sortedCategories = Array.from(categoryTotals.entries())
+      .sort((a, b) => b[1] - a[1])
+
+    sortedCategories.forEach(([category, amount]) => {
+      if (amount > 0) {
+        nodes.push({ id: category, label: category })
+        if (totalIncome > 0) {
+          links.push({ source: "income", target: category, value: amount })
+        }
+      }
+    })
+
+    // Add savings node if there are savings
+    if (savings > 0 && totalIncome > 0) {
+      nodes.push({ id: "savings", label: "Savings" })
+      links.push({ source: "income", target: "savings", value: savings })
+    }
+
+    const categories = Array.from(categoryTotals.keys())
+
+    return { graph: { nodes, links }, categories }
+  }, [chartTransactions, sankeyVisibility.hiddenCategorySet, normalizeCategoryName])
+
+  const sankeyControls = sankeyVisibility.buildCategoryControls(sankeyData.categories, {
+    description: "Hide categories to remove them from the cash flow Sankey.",
+  })
+
   const treeMapChartData = useMemo(() => {
     const categoryMap = new Map<
       string,
@@ -644,12 +727,14 @@ export function useHomeChartData({
     expensesPieControls,
     treeMapControls,
     streamgraphControls,
+    sankeyControls,
     incomeExpensesChartData,
     categoryFlowChartData,
     spendingFunnelChartData,
     expensesPieChartData,
     polarBarChartData,
     spendingStreamData,
+    sankeyData,
     treeMapChartData,
     activityData,
     activityConfig,
