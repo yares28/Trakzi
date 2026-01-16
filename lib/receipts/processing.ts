@@ -13,7 +13,7 @@ import { getReceiptStoreLanguagePreference } from "@/lib/receipts/receipt-store-
 import { extractReceiptFromPdfTextWithParsers } from "@/lib/receipts/parsers"
 import { parseReceiptFile } from "@/lib/receipts/ingestion"
 import type { ReceiptParseWarning, ReceiptParseMeta } from "@/lib/receipts/parsers/types"
-import { getSiteUrl, getSiteName } from "@/lib/env"
+import { trackGeminiCall } from "@/lib/ai/posthog-gemini"
 
 const RECEIPT_MODEL = "allenai/olmo-3.1-32b-think:free"
 const SUPPORTED_RECEIPT_LOCALES = new Set<SupportedLocale>(["es", "en", "pt", "fr", "it", "de", "nl", "ca"])
@@ -293,6 +293,7 @@ async function repairReceiptJsonWithAi(params: {
     params.rawText,
   ].join("\n")
 
+  const startTime = Date.now()
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
     method: "POST",
     headers: {
@@ -309,15 +310,46 @@ async function repairReceiptJsonWithAi(params: {
       }
     }),
   })
+  const latencyMs = Date.now() - startTime
 
   if (!response.ok) {
     const errorText = await response.text()
+    
+    // Track failed call
+    await trackGeminiCall({
+      model: "gemini-2.0-flash",
+      inputText: prompt,
+      outputText: "",
+      latencyMs,
+      error: `HTTP ${response.status}: ${errorText.substring(0, 100)}`,
+      httpStatus: response.status,
+      feature: "receipt_json_repair",
+      properties: { file_name: params.fileName },
+      privacyMode: true
+    })
+    
     throw new Error(`Gemini error ${response.status}: ${errorText.substring(0, 500)}`)
   }
 
   const payload = await response.json()
   const rawText =
     payload?.candidates?.[0]?.content?.parts?.[0]?.text || ""
+  const inputTokens = payload?.usageMetadata?.promptTokenCount
+  const outputTokens = payload?.usageMetadata?.candidatesTokenCount
+
+  // Track successful call
+  await trackGeminiCall({
+    model: "gemini-2.0-flash",
+    inputText: prompt,
+    outputText: rawText,
+    inputTokens,
+    outputTokens,
+    latencyMs,
+    httpStatus: 200,
+    feature: "receipt_json_repair",
+    properties: { file_name: params.fileName },
+    privacyMode: true
+  })
 
   if (typeof rawText !== "string" || rawText.trim().length === 0) {
     throw new Error("AI repair response was empty")
@@ -405,6 +437,7 @@ async function extractReceiptWithAi(params: {
   const mimeType = base64Match[1]
   const base64Data = base64Match[2]
 
+  const startTime = Date.now()
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
     method: "POST",
     headers: {
@@ -427,15 +460,46 @@ async function extractReceiptWithAi(params: {
       }
     }),
   })
+  const latencyMs = Date.now() - startTime
 
   if (!response.ok) {
     const errorText = await response.text()
+    
+    // Track failed call
+    await trackGeminiCall({
+      model: "gemini-2.0-flash",
+      inputText: prompt,
+      outputText: "",
+      latencyMs,
+      error: `HTTP ${response.status}: ${errorText.substring(0, 100)}`,
+      httpStatus: response.status,
+      feature: "receipt_image_extraction",
+      properties: { file_name: params.fileName, mime_type: mimeType },
+      privacyMode: true
+    })
+    
     throw new Error(`Gemini error ${response.status}: ${errorText.substring(0, 500)}`)
   }
 
   const payload = await response.json()
   const rawText =
     payload?.candidates?.[0]?.content?.parts?.[0]?.text || ""
+  const inputTokens = payload?.usageMetadata?.promptTokenCount
+  const outputTokens = payload?.usageMetadata?.candidatesTokenCount
+
+  // Track successful call
+  await trackGeminiCall({
+    model: "gemini-2.0-flash",
+    inputText: prompt,
+    outputText: rawText,
+    inputTokens,
+    outputTokens,
+    latencyMs,
+    httpStatus: 200,
+    feature: "receipt_image_extraction",
+    properties: { file_name: params.fileName, mime_type: mimeType },
+    privacyMode: true
+  })
 
   if (typeof rawText !== "string" || rawText.trim().length === 0) {
     throw new Error("AI response was empty")
@@ -565,6 +629,7 @@ export async function processReceiptNow({ receiptId, userId }: EnqueueParams) {
           pdfText,
         ].join("\n")
 
+        const startTime = Date.now()
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
           method: "POST",
           headers: {
@@ -581,13 +646,45 @@ export async function processReceiptNow({ receiptId, userId }: EnqueueParams) {
             }
           }),
         })
+        const latencyMs = Date.now() - startTime
 
         if (!response.ok) {
+          // Track failed call
+          await trackGeminiCall({
+            model: "gemini-2.0-flash",
+            inputText: prompt,
+            outputText: "",
+            latencyMs,
+            error: `HTTP ${response.status}`,
+            httpStatus: response.status,
+            feature: "receipt_pdf_extraction",
+            distinctId: userId,
+            properties: { file_name: receiptFile.file_name },
+            privacyMode: true
+          })
           throw new Error(`Gemini error ${response.status}`)
         }
 
         const payload = await response.json()
         const respText = payload?.candidates?.[0]?.content?.parts?.[0]?.text || ""
+        const inputTokens = payload?.usageMetadata?.promptTokenCount
+        const outputTokens = payload?.usageMetadata?.candidatesTokenCount
+        
+        // Track successful call
+        await trackGeminiCall({
+          model: "gemini-2.0-flash",
+          inputText: prompt,
+          outputText: respText,
+          inputTokens,
+          outputTokens,
+          latencyMs,
+          httpStatus: 200,
+          feature: "receipt_pdf_extraction",
+          distinctId: userId,
+          properties: { file_name: receiptFile.file_name },
+          privacyMode: true
+        })
+        
         const parsed = tryParseReceiptJson(respText)
         if (!parsed) throw new Error("AI response was not valid JSON")
         return { extracted: parsed, rawText: respText }

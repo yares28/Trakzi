@@ -90,7 +90,7 @@ Analyze this chart data and provide a personalized insight for the user.
             responseMimeType: "application/json",
             posthog: {
                 distinctId: userId,
-                traceId: `chart_insight_${chartId}_${Date.now()}`,
+                spanName: "chart_insight_generation",
                 properties: {
                     feature: "chart_insights",
                     chart_id: chartId,
