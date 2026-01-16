@@ -352,9 +352,6 @@ export const POST = async (req: NextRequest) => {
             parts: [{ text: m.content }]
         }));
 
-        // Generate a trace ID for this conversation
-        const traceId = `chat_${userId}_${Date.now()}`;
-
         // Stream the response back to the client using PostHog-wrapped client
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
@@ -373,7 +370,7 @@ export const POST = async (req: NextRequest) => {
                         },
                         posthog: {
                             distinctId: userId,
-                            traceId,
+                            spanName: "ai_chat_response",
                             properties: {
                                 feature: "ai_chat",
                                 currency: userCurrency,
