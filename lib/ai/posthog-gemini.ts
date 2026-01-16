@@ -62,6 +62,7 @@ function calculateCost(model: string, inputTokens: number, outputTokens: number)
 
 /**
  * Capture AI generation event to PostHog
+ * IMPORTANT: This function awaits the flush to ensure events are sent in serverless environments
  */
 async function captureAIGeneration(
   options: {
@@ -75,9 +76,12 @@ async function captureAIGeneration(
     error?: string
     posthog?: PostHogAIOptions
   }
-) {
+): Promise<void> {
   const client = getPostHogClient()
-  if (!client) return
+  if (!client) {
+    console.warn('[PostHog AI] Client not available, skipping event capture')
+    return
+  }
 
   const {
     model,
@@ -119,10 +123,22 @@ async function captureAIGeneration(
       properties: eventProperties,
       ...(posthogOptions?.groups && { groups: posthogOptions.groups })
     })
-  } catch (err) {
+    
+    // CRITICAL: Flush immediately for serverless environments
+    // Without this, the event may not be sent before the function terminates
+    await client.flush()
+    
     if (process.env.NODE_ENV === 'development') {
-      console.warn('[PostHog AI] Failed to capture generation event:', err)
+      console.debug('[PostHog AI] Event captured and flushed:', {
+        model,
+        latencyMs,
+        inputTokens,
+        outputTokens,
+        distinctId: posthogOptions?.distinctId || 'anonymous'
+      })
     }
+  } catch (err) {
+    console.error('[PostHog AI] Failed to capture generation event:', err)
   }
 }
 
@@ -204,8 +220,8 @@ export class PostHogGeminiClient {
         content: c.content?.parts?.map(p => p.text).join('') || ''
       })) || []
 
-      // Capture to PostHog (async, non-blocking)
-      captureAIGeneration({
+      // Capture to PostHog - await to ensure flush completes in serverless
+      await captureAIGeneration({
         model,
         latencyMs,
         inputTokens,
@@ -224,8 +240,8 @@ export class PostHogGeminiClient {
       error = err.message || 'Unknown error'
       const latencyMs = Date.now() - startTime
 
-      // Capture error event
-      captureAIGeneration({
+      // Capture error event - await to ensure flush completes
+      await captureAIGeneration({
         model,
         latencyMs,
         input: typeof contents === 'string' ? [{ role: 'user', content: contents }] : contents,
@@ -298,8 +314,8 @@ export class PostHogGeminiClient {
 
       const latencyMs = Date.now() - startTime
 
-      // Capture to PostHog
-      captureAIGeneration({
+      // Capture to PostHog - await to ensure flush completes in serverless
+      await captureAIGeneration({
         model,
         latencyMs,
         inputTokens,
@@ -318,7 +334,8 @@ export class PostHogGeminiClient {
       error = err.message || 'Unknown error'
       const latencyMs = Date.now() - startTime
 
-      captureAIGeneration({
+      // Capture error event - await to ensure flush completes
+      await captureAIGeneration({
         model,
         latencyMs,
         input: typeof contents === 'string' ? [{ role: 'user', content: contents }] : contents,

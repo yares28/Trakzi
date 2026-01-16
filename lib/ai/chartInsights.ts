@@ -7,6 +7,7 @@ export interface ChartInsightRequest {
     chartTitle: string;
     chartDescription: string;
     chartData: Record<string, any>;
+    userId?: string; // For PostHog tracking
     userContext?: {
         totalIncome?: number;
         totalExpenses?: number;
@@ -25,7 +26,7 @@ export interface ChartInsightResponse {
  * Generate AI-powered insights for a specific chart based on its data
  */
 export async function generateChartInsight(request: ChartInsightRequest): Promise<ChartInsightResponse> {
-    const { chartId, chartTitle, chartDescription, chartData, userContext } = request;
+    const { chartId, chartTitle, chartDescription, chartData, userId, userContext } = request;
 
     const systemPrompt = `
 You are a friendly and knowledgeable personal finance advisor. Your job is to analyze financial chart data and provide helpful, actionable insights.
@@ -88,6 +89,7 @@ Analyze this chart data and provide a personalized insight for the user.
             temperature: 0.7,
             responseMimeType: "application/json",
             posthog: {
+                distinctId: userId,
                 traceId: `chart_insight_${chartId}_${Date.now()}`,
                 properties: {
                     feature: "chart_insights",
