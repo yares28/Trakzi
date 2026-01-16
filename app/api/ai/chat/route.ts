@@ -2,10 +2,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth";
 import { neonQuery } from "@/lib/neonClient";
-import { getSiteUrl, getSiteName } from "@/lib/env";
 import { checkAiChatLimit, recordAiChatMessage } from "@/lib/feature-access";
 import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limiter";
 import { sanitizeForAI } from "@/lib/security/input-sanitizer";
+import { getGeminiClient } from "@/lib/ai/posthog-gemini";
+import type { Content } from "@google/genai";
 
 // Currency configuration - mirrors frontend currency-provider.tsx
 const CURRENCY_CONFIG: Record<string, { symbol: string; position: "before" | "after"; locale: string }> = {
@@ -332,87 +333,54 @@ export const POST = async (req: NextRequest) => {
             });
         }
 
-        const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+        const geminiClient = getGeminiClient();
 
-        if (!GEMINI_API_KEY) {
+        if (!geminiClient) {
             return NextResponse.json(
                 { error: "AI service not configured" },
                 { status: 500 }
             );
         }
 
-        // Make streaming request to Gemini
-        const geminiMessages = apiMessages.map(m => ({
+        // Prepare contents for Gemini with PostHog tracking
+        // Extract system instruction and user/assistant messages
+        const systemMessage = apiMessages.find(m => m.role === "system");
+        const conversationMessages = apiMessages.filter(m => m.role !== "system");
+        
+        const geminiContents: Content[] = conversationMessages.map(m => ({
             role: m.role === "assistant" ? "model" : "user",
             parts: [{ text: m.content }]
         }));
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                contents: geminiMessages,
-                generationConfig: {
-                    maxOutputTokens: 2000,
-                    temperature: 0.7
-                }
-            })
-        });
+        // Generate a trace ID for this conversation
+        const traceId = `chat_${userId}_${Date.now()}`;
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error("[Chat API] Gemini error:", response.status, errorText.substring(0, 200));
-            return NextResponse.json(
-                { error: "Failed to generate response" },
-                { status: 500 }
-            );
-        }
-
-        // Stream the response back to the client
+        // Stream the response back to the client using PostHog-wrapped client
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
             async start(controller) {
-                const reader = response.body?.getReader();
-                if (!reader) {
-                    controller.close();
-                    return;
-                }
-
-                const decoder = new TextDecoder();
-                let buffer = "";
-
                 try {
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-
-                        buffer += decoder.decode(value, { stream: true });
-                        const lines = buffer.split("\n");
-                        buffer = lines.pop() || "";
-
-                        for (const line of lines) {
-                            if (line.startsWith("data: ")) {
-                                const data = line.slice(6);
-                                if (data === "[DONE]" || data.trim() === "") {
-                                    continue;
-                                }
-
-                                try {
-                                    const parsed = JSON.parse(data);
-                                    const content = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
-                                    if (content) {
-                                        controller.enqueue(
-                                            encoder.encode(`data: ${JSON.stringify({ content })}\n\n`)
-                                        );
-                                    }
-                                } catch {
-                                    // Skip malformed JSON
-                                }
+                    await geminiClient.generateContentStream({
+                        model: "gemini-2.0-flash",
+                        contents: geminiContents,
+                        systemInstruction: systemMessage?.content,
+                        maxOutputTokens: 2000,
+                        temperature: 0.7,
+                        onChunk: (text) => {
+                            controller.enqueue(
+                                encoder.encode(`data: ${JSON.stringify({ content: text })}\n\n`)
+                            );
+                        },
+                        posthog: {
+                            distinctId: userId,
+                            traceId,
+                            properties: {
+                                feature: "ai_chat",
+                                currency: userCurrency,
+                                has_financial_data: !!userContext && userContext.transactionCount > 0
                             }
                         }
-                    }
+                    });
                 } catch (error) {
                     console.error("[Chat API] Stream error:", error);
                 } finally {
