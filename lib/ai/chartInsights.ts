@@ -1,6 +1,6 @@
 // lib/ai/chartInsights.ts
 
-import { getSiteUrl, getSiteName } from '@/lib/env';
+import { getGeminiClient } from '@/lib/ai/posthog-gemini';
 
 export interface ChartInsightRequest {
     chartId: string;
@@ -71,9 +71,9 @@ USER CONTEXT:
 Analyze this chart data and provide a personalized insight for the user.
 `.trim();
 
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    const geminiClient = getGeminiClient();
 
-    if (!GEMINI_API_KEY) {
+    if (!geminiClient) {
         return {
             insight: "Unable to generate insights. Please configure your API key.",
             sentiment: "neutral"
@@ -81,34 +81,23 @@ Analyze this chart data and provide a personalized insight for the user.
     }
 
     try {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                contents: [
-                    { role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }
-                ],
-                generationConfig: {
-                    maxOutputTokens: 500,
-                    temperature: 0.7,
-                    responseMimeType: "application/json"
+        const response = await geminiClient.generateContent({
+            model: "gemini-2.0-flash",
+            contents: systemPrompt + "\n\n" + userPrompt,
+            maxOutputTokens: 500,
+            temperature: 0.7,
+            responseMimeType: "application/json",
+            posthog: {
+                traceId: `chart_insight_${chartId}_${Date.now()}`,
+                properties: {
+                    feature: "chart_insights",
+                    chart_id: chartId,
+                    chart_title: chartTitle
                 }
-            })
+            }
         });
 
-        if (!res.ok) {
-            const errorText = await res.text();
-            console.error("[ChartInsights] API error:", res.status, errorText.substring(0, 200));
-            return {
-                insight: "Unable to generate insight at this time. Please try again later.",
-                sentiment: "neutral"
-            };
-        }
-
-        const json = await res.json();
-        const content = json.candidates?.[0]?.content?.parts?.[0]?.text;
+        const content = response.text;
 
         if (!content) {
             return {
