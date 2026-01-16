@@ -93,6 +93,7 @@ export const POST = async (req: NextRequest) => {
             chartTitle,
             chartDescription: chartDescription || contextHint,
             chartData: chartData || {},
+            userId, // Pass userId for PostHog tracking
             userContext
         };
 
