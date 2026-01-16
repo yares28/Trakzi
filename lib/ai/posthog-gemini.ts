@@ -11,6 +11,7 @@
 
 import { GoogleGenAI, GenerateContentResponse, Content } from '@google/genai'
 import { getPostHogClient } from '@/lib/posthog-server'
+import { randomUUID } from 'crypto'
 
 // Pricing per 1M tokens (as of 2024 - update as needed)
 const GEMINI_PRICING: Record<string, { input: number; output: number }> = {
@@ -25,8 +26,12 @@ const GEMINI_PRICING: Record<string, { input: number; output: number }> = {
 interface PostHogAIOptions {
   /** User distinct ID for PostHog tracking */
   distinctId?: string
-  /** Trace ID to group related LLM calls */
-  traceId?: string
+  /** Session ID to group related traces (e.g., conversation ID) */
+  sessionId?: string
+  /** Parent span ID for nested spans */
+  parentSpanId?: string
+  /** Name for this span (e.g., "chart_insight", "chat_response") */
+  spanName?: string
   /** Custom properties to add to the event */
   properties?: Record<string, any>
   /** PostHog groups for the event */
@@ -50,19 +55,35 @@ interface StreamGenerateContentOptions extends GenerateContentOptions {
   onChunk?: (text: string) => void
 }
 
+interface CostBreakdown {
+  inputCost: number
+  outputCost: number
+  totalCost: number
+}
+
 /**
  * Calculate cost in USD based on token usage
  */
-function calculateCost(model: string, inputTokens: number, outputTokens: number): number {
+function calculateCost(model: string, inputTokens: number, outputTokens: number): CostBreakdown {
   const pricing = GEMINI_PRICING[model] || GEMINI_PRICING['gemini-2.0-flash']
   const inputCost = (inputTokens / 1_000_000) * pricing.input
   const outputCost = (outputTokens / 1_000_000) * pricing.output
-  return inputCost + outputCost
+  return {
+    inputCost,
+    outputCost,
+    totalCost: inputCost + outputCost
+  }
 }
 
 /**
  * Capture AI generation event to PostHog
  * IMPORTANT: This function awaits the flush to ensure events are sent in serverless environments
+ * 
+ * Properties captured follow PostHog LLM Analytics schema:
+ * - Essential: $ai_trace_id, $ai_span_id, $ai_model, $ai_provider, $ai_input, $ai_output_choices,
+ *              $ai_input_tokens, $ai_output_tokens, $ai_latency, $ai_total_cost_usd
+ * - Nice to have: $ai_session_id, $ai_span_name, $ai_is_error, $ai_error, $ai_base_url,
+ *                 $ai_input_cost_usd, $ai_output_cost_usd, $ai_http_status
  */
 async function captureAIGeneration(
   options: {
@@ -74,6 +95,7 @@ async function captureAIGeneration(
     outputChoices: any[]
     tools?: any[]
     error?: string
+    httpStatus?: number
     posthog?: PostHogAIOptions
   }
 ): Promise<void> {
@@ -92,21 +114,40 @@ async function captureAIGeneration(
     outputChoices,
     tools,
     error,
+    httpStatus,
     posthog: posthogOptions
   } = options
 
-  const totalCost = calculateCost(model, inputTokens, outputTokens)
+  const costs = calculateCost(model, inputTokens, outputTokens)
+
+  // Generate UUIDs - REQUIRED by PostHog LLM Analytics
+  const traceUUID = randomUUID()
+  const spanUUID = randomUUID()
 
   const eventProperties: Record<string, any> = {
+    // === ESSENTIAL PROPERTIES ===
+    $ai_trace_id: traceUUID,
+    $ai_span_id: spanUUID,
     $ai_provider: 'google',
     $ai_model: model,
-    $ai_latency: latencyMs / 1000, // Convert to seconds
     $ai_input_tokens: inputTokens,
     $ai_output_tokens: outputTokens,
-    $ai_total_cost_usd: totalCost,
-    ...(posthogOptions?.traceId && { $ai_trace_id: posthogOptions.traceId }),
+    $ai_latency: latencyMs / 1000, // Convert to seconds
+    $ai_total_cost_usd: costs.totalCost,
+    
+    // === NICE TO HAVE PROPERTIES ===
+    $ai_input_cost_usd: costs.inputCost,
+    $ai_output_cost_usd: costs.outputCost,
+    $ai_base_url: 'https://generativelanguage.googleapis.com',
+    $ai_is_error: !!error,
+    ...(httpStatus && { $ai_http_status: httpStatus }),
+    ...(posthogOptions?.sessionId && { $ai_session_id: posthogOptions.sessionId }),
+    ...(posthogOptions?.parentSpanId && { $ai_parent_id: posthogOptions.parentSpanId }),
+    ...(posthogOptions?.spanName && { $ai_span_name: posthogOptions.spanName }),
     ...(tools && { $ai_tools: tools }),
     ...(error && { $ai_error: error }),
+    
+    // Custom properties
     ...(posthogOptions?.properties || {})
   }
 
@@ -130,10 +171,13 @@ async function captureAIGeneration(
     
     if (process.env.NODE_ENV === 'development') {
       console.debug('[PostHog AI] Event captured and flushed:', {
+        traceId: traceUUID,
+        spanId: spanUUID,
         model,
         latencyMs,
         inputTokens,
         outputTokens,
+        isError: !!error,
         distinctId: posthogOptions?.distinctId || 'anonymous'
       })
     }
@@ -375,4 +419,84 @@ export function getGeminiClient(): PostHogGeminiClient | null {
     geminiClient = new PostHogGeminiClient(apiKey)
   }
   return geminiClient
+}
+
+/**
+ * Options for tracking a direct Gemini API call
+ */
+export interface TrackGeminiCallOptions {
+  model: string
+  inputText: string
+  outputText: string
+  inputTokens?: number
+  outputTokens?: number
+  latencyMs: number
+  error?: string
+  httpStatus?: number
+  feature: string
+  distinctId?: string
+  properties?: Record<string, any>
+  privacyMode?: boolean
+}
+
+/**
+ * Track a direct Gemini API call to PostHog
+ * 
+ * Use this when you have existing fetch-based Gemini calls that you want to track
+ * without refactoring to use PostHogGeminiClient.
+ * 
+ * Usage:
+ * ```typescript
+ * const startTime = Date.now()
+ * const response = await fetch('https://generativelanguage.googleapis.com/...')
+ * const latencyMs = Date.now() - startTime
+ * 
+ * await trackGeminiCall({
+ *   model: 'gemini-2.0-flash',
+ *   inputText: prompt,
+ *   outputText: responseText,
+ *   latencyMs,
+ *   feature: 'transaction_categorization',
+ *   distinctId: userId
+ * })
+ * ```
+ */
+export async function trackGeminiCall(options: TrackGeminiCallOptions): Promise<void> {
+  const {
+    model,
+    inputText,
+    outputText,
+    inputTokens,
+    outputTokens,
+    latencyMs,
+    error,
+    httpStatus,
+    feature,
+    distinctId,
+    properties,
+    privacyMode
+  } = options
+
+  // Estimate tokens if not provided (rough approximation: ~4 chars per token)
+  const estimatedInputTokens = inputTokens ?? Math.ceil(inputText.length / 4)
+  const estimatedOutputTokens = outputTokens ?? Math.ceil(outputText.length / 4)
+
+  await captureAIGeneration({
+    model,
+    latencyMs,
+    inputTokens: estimatedInputTokens,
+    outputTokens: estimatedOutputTokens,
+    input: privacyMode ? '[redacted]' : [{ role: 'user', content: inputText.substring(0, 10000) }],
+    outputChoices: privacyMode ? [] : [{ role: 'assistant', content: outputText.substring(0, 10000) }],
+    error,
+    httpStatus,
+    posthog: {
+      distinctId,
+      spanName: feature,
+      properties: {
+        feature,
+        ...properties
+      }
+    }
+  })
 }

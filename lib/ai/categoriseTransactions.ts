@@ -1,10 +1,10 @@
 // lib/ai/categoriseTransactions.ts
 import { TxRow } from "../types/transactions";
-import { getSiteUrl, getSiteName } from '@/lib/env';
 import { DEFAULT_CATEGORIES as MAIN_DEFAULT_CATEGORIES } from '@/lib/categories';
 import { normalizeTransactionDescriptionKey } from "@/lib/transactions/transaction-category-preferences";
 import { detectLanguage, detectLanguageFromSamples, SupportedLocale, type LanguageDetection } from "@/lib/language/language-detection";
 import { logAiCategoryFeedbackBatch } from "@/lib/ai/ai-category-feedback";
+import { trackGeminiCall } from "@/lib/ai/posthog-gemini";
 
 // Default categories - synced with lib/categories.ts
 // These are the categories the AI can assign to transactions
@@ -1355,7 +1355,9 @@ You MUST include ALL ${batch.length} transactions. Each entry needs:
 
                 let maxTokensForBatch = AI_MAX_TOKENS;
                 let retriedForBatch = false;
+                const inputPrompt = systemPrompt + "\n\n" + userPrompt;
                 while (true) {
+                    const startTime = Date.now();
                     try {
                         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${AI_CATEGORY_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
                             method: "POST",
@@ -1364,7 +1366,7 @@ You MUST include ALL ${batch.length} transactions. Each entry needs:
                             },
                             body: JSON.stringify({
                                 contents: [
-                                    { role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }
+                                    { role: "user", parts: [{ text: inputPrompt }] }
                                 ],
                                 generationConfig: {
                                     temperature: 0.1,
@@ -1374,9 +1376,30 @@ You MUST include ALL ${batch.length} transactions. Each entry needs:
                             })
                         });
 
+                        const latencyMs = Date.now() - startTime;
+
                         if (!res.ok) {
                             const errorText = await res.text();
                             console.error("[AI] Gemini API error:", res.status, errorText.substring(0, 200));
+                            
+                            // Track failed call to PostHog
+                            await trackGeminiCall({
+                                model: AI_CATEGORY_MODEL,
+                                inputText: inputPrompt,
+                                outputText: "",
+                                latencyMs,
+                                error: `HTTP ${res.status}: ${errorText.substring(0, 100)}`,
+                                httpStatus: res.status,
+                                feature: "transaction_categorization",
+                                distinctId: options?.userId,
+                                properties: {
+                                    batch_index: batchIndex,
+                                    batch_size: batch.length,
+                                    total_transactions: aiItems.length
+                                },
+                                privacyMode: true // Don't log transaction data
+                            });
+                            
                             if (res.status === 429) {
                                 aiDisabled = true;
                                 console.warn("[AI] Disabling further AI calls due to rate limit");
@@ -1384,7 +1407,30 @@ You MUST include ALL ${batch.length} transactions. Each entry needs:
                         } else {
                             const json = await res.json();
                             const content = json.candidates?.[0]?.content?.parts?.[0]?.text;
+                            const inputTokens = json.usageMetadata?.promptTokenCount;
+                            const outputTokens = json.usageMetadata?.candidatesTokenCount;
                             const parsed = content ? parseJsonPayload(content) : null;
+                            
+                            // Track successful call to PostHog
+                            await trackGeminiCall({
+                                model: AI_CATEGORY_MODEL,
+                                inputText: inputPrompt,
+                                outputText: content || "",
+                                inputTokens,
+                                outputTokens,
+                                latencyMs,
+                                httpStatus: 200,
+                                feature: "transaction_categorization",
+                                distinctId: options?.userId,
+                                properties: {
+                                    batch_index: batchIndex,
+                                    batch_size: batch.length,
+                                    total_transactions: aiItems.length,
+                                    parse_success: !!parsed
+                                },
+                                privacyMode: true // Don't log transaction data
+                            });
+                            
                             if (!parsed) {
                                 console.error("[AI] Failed to parse response payload");
                             } else {
@@ -1417,7 +1463,25 @@ You MUST include ALL ${batch.length} transactions. Each entry needs:
                             }
                         }
                     } catch (fetchErr) {
+                        const latencyMs = Date.now() - startTime;
+                        const errorMessage = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
                         console.error("[AI] Fetch error:", fetchErr);
+                        
+                        // Track error to PostHog
+                        await trackGeminiCall({
+                            model: AI_CATEGORY_MODEL,
+                            inputText: inputPrompt,
+                            outputText: "",
+                            latencyMs,
+                            error: errorMessage,
+                            feature: "transaction_categorization",
+                            distinctId: options?.userId,
+                            properties: {
+                                batch_index: batchIndex,
+                                batch_size: batch.length
+                            },
+                            privacyMode: true
+                        });
                     }
                     break;
                 }
