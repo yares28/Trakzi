@@ -95,6 +95,17 @@ export interface PostHogEventProperties {
     previous_period: 'monthly' | 'annual'
   }
 
+  'checkout_completed': {
+    plan_name: string
+    billing_period: string
+  }
+
+  'checkout_canceled': {
+    plan_name: string
+  }
+
+  'subscription_updated': Record<string, never>
+
   // Chat Events
   'ai_chat_message_sent': {
     message_length: number

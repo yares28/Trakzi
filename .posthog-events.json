@@ -63,5 +63,20 @@
     "event": "billing_period_toggled",
     "description": "User toggled between monthly and annual billing on pricing page",
     "file_path": "components/pricing-section.tsx"
+  },
+  {
+    "event": "checkout_completed",
+    "description": "User successfully completed Stripe checkout and subscribed to a plan (key conversion event)",
+    "file_path": "app/billing/return/page.tsx"
+  },
+  {
+    "event": "checkout_canceled",
+    "description": "User canceled Stripe checkout before completing (churn indicator)",
+    "file_path": "app/billing/return/page.tsx"
+  },
+  {
+    "event": "subscription_updated",
+    "description": "User's subscription was updated via Stripe portal",
+    "file_path": "app/billing/return/page.tsx"
   }
 ]

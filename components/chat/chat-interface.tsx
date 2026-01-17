@@ -537,7 +537,17 @@ export function ChatInterface() {
                         <motion.button
                           key={q}
                           variants={suggestionItem}
-                          onClick={() => sendMessage(q)}
+                          onClick={() => {
+                            // Track quick AI prompt click
+                            safeCapture('quick_ai_prompt_clicked', {
+                              prompt_type: q.toLowerCase().includes('spending') ? 'top_expenses' 
+                                : q.toLowerCase().includes('trends') ? 'seasonal_patterns'
+                                : q.toLowerCase().includes('saving') ? 'monthly_summary'
+                                : 'year_over_year',
+                              prompt_text: q
+                            })
+                            sendMessage(q)
+                          }}
                           disabled={isLoading}
                           className={cn(
                             "rounded-full border bg-background/60 px-4 py-2 text-xs font-medium shadow-sm",
