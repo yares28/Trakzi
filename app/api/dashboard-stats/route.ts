@@ -2,30 +2,49 @@
 import { NextResponse } from "next/server";
 import { neonQuery } from "@/lib/neonClient";
 import { getCurrentUserId } from "@/lib/auth";
+import { getCategoryType } from "@/lib/categories";
 
-// Category classification for 50/30/20 rule
-const NEEDS_CATEGORIES = [
-    "groceries", "rent", "mortgage", "utilities", "transport", "fuel",
-    "insurance", "health & fitness", "taxes & fees", "health care"
+// Savings-related categories for 50/30/20 rule (money set aside, not spent)
+const SAVINGS_CATEGORY_NAMES = [
+    "savings", "investments", "transfers", "wealth"
 ];
 
-const WANTS_CATEGORIES = [
-    "restaurants", "bars", "entertainment", "shopping", "subscriptions",
-    "travel", "services", "education", "alcohol", "soda & cola",
-    "energy drinks", "snacks"
+// Income categories (positive amounts, not expenses)
+const INCOME_CATEGORY_NAMES = [
+    "salary", "bonus", "freelance", "refunds/reimbursements", "cashback", "top-ups", "income", "refunds"
 ];
 
-const SAVINGS_CATEGORIES = ["savings", "transfers", "income", "refunds"];
-
-// Healthy vs unhealthy food categories for fridge scoring
+// Healthy food categories for fridge scoring
+// Based on lib/receipt-categories.ts - whole foods, fresh produce, lean proteins
 const HEALTHY_FOOD_CATEGORIES = [
-    "fruits", "vegetables", "meat", "fish & seafood", "eggs",
-    "plant-based protein", "dairy", "water", "juice", "coffee & tea"
+    // Fresh produce
+    "fruits", "vegetables", "herbs & fresh aromatics",
+    // Proteins
+    "meat & poultry", "fish & seafood", "eggs", "legumes", "deli / cold cuts",
+    // Dairy (moderate)
+    "dairy (milk/yogurt)", "cheese",
+    // Healthy staples
+    "pasta, rice & grains", "nuts & seeds",
+    // Frozen healthy
+    "frozen vegetables & fruit",
+    // Prepared (healthier options)
+    "prepared salads", "fresh ready-to-eat",
+    // Beverages
+    "water", "coffee & tea", "juice"
 ];
 
+// Unhealthy/processed food categories for fridge scoring
+// High sugar, highly processed, or alcohol
 const UNHEALTHY_FOOD_CATEGORIES = [
-    "snacks", "soda & cola", "energy drinks", "alcohol", "frozen foods",
-    "bread & bakery" // High carb processed foods
+    // Snacks & sweets
+    "salty snacks", "cookies & biscuits", "chocolate & candy",
+    "ice cream & desserts", "pastries",
+    // Sugary drinks
+    "soft drinks", "energy & sports drinks",
+    // Alcohol
+    "beer", "wine", "spirits",
+    // Highly processed
+    "frozen meals", "ready meals", "sandwiches / takeaway"
 ];
 
 // Benchmark averages (based on typical spending patterns)
@@ -43,9 +62,18 @@ const CATEGORY_BENCHMARKS: Record<string, { avgPercent: number; description: str
 
 function classifyCategory(categoryName: string): "needs" | "wants" | "savings" | "other" {
     const normalized = categoryName.toLowerCase().trim();
-    if (NEEDS_CATEGORIES.some(c => normalized.includes(c))) return "needs";
-    if (WANTS_CATEGORIES.some(c => normalized.includes(c))) return "wants";
-    if (SAVINGS_CATEGORIES.some(c => normalized.includes(c))) return "savings";
+    
+    // First check for savings/investment categories (money set aside)
+    if (SAVINGS_CATEGORY_NAMES.some(c => normalized.includes(c))) return "savings";
+    
+    // Check for income categories (should be excluded from expense analysis)
+    if (INCOME_CATEGORY_NAMES.some(c => normalized.includes(c))) return "savings";
+    
+    // Use the centralized category type definitions from lib/categories.ts
+    const categoryType = getCategoryType(categoryName);
+    if (categoryType === "need") return "needs";
+    if (categoryType === "want") return "wants";
+    
     return "other";
 }
 
