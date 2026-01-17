@@ -1,7 +1,9 @@
 // app/api/transactions/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getCurrentUserId } from "@/lib/auth";
 import { neonQuery, neonInsert } from "@/lib/neonClient";
+import { invalidateUserCachePrefix } from "@/lib/cache/upstash";
 
 export const DELETE = async (
     request: NextRequest,
@@ -26,6 +28,20 @@ export const DELETE = async (
         `;
         
         await neonQuery(deleteQuery, [transactionId, userId]);
+
+        // Invalidate caches after successful deletion
+        await Promise.all([
+            invalidateUserCachePrefix(userId, 'analytics'),
+            invalidateUserCachePrefix(userId, 'data-library'),
+            invalidateUserCachePrefix(userId, 'home'),
+            invalidateUserCachePrefix(userId, 'trends'),
+            invalidateUserCachePrefix(userId, 'savings'),
+        ]);
+
+        // Revalidate pages
+        revalidatePath('/data-library');
+        revalidatePath('/analytics');
+        revalidatePath('/home');
 
         return NextResponse.json({ success: true });
     } catch (error: any) {
@@ -102,6 +118,14 @@ export const PATCH = async (
                 { status: 404 }
             );
         }
+
+        // Invalidate caches after category update (affects analytics breakdown)
+        invalidateUserCachePrefix(userId, 'analytics').catch((err) => {
+            console.error('[Update Transaction] Analytics cache invalidation error:', err);
+        });
+        invalidateUserCachePrefix(userId, 'data-library').catch((err) => {
+            console.error('[Update Transaction] Data library cache invalidation error:', err);
+        });
 
         return NextResponse.json({ 
             success: true, 
