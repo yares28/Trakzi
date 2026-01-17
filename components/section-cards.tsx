@@ -31,10 +31,14 @@ interface SectionCardsProps {
   incomeTrend?: TrendDataPoint[]
   expensesTrend?: TrendDataPoint[]
   netWorthTrend?: TrendDataPoint[]
-  // New props for Transaction Summary
+  // Props for Transaction Summary (these are filtered by date)
   transactionCount?: number
   transactionTimeSpan?: string
   transactionTrend?: TrendDataPoint[]
+  // Total transactions across ALL time (ignores date filter)
+  totalAllTimeCount?: number
+  totalAllTimeTimeSpan?: string
+  totalAllTimeTrend?: TrendDataPoint[]
 }
 
 type CardId = "income" | "expenses" | "netWorth" | "transactions"
@@ -181,6 +185,10 @@ export function SectionCards({
   transactionCount = 0,
   transactionTimeSpan = "",
   transactionTrend = [],
+  // All-time totals (preferred for transactions card)
+  totalAllTimeCount,
+  totalAllTimeTimeSpan,
+  totalAllTimeTrend,
 }: SectionCardsProps) {
   // Ensure all values are numbers (handle case where API returns strings)
   const safeTotalIncome = Number(totalIncome) || 0
@@ -192,6 +200,11 @@ export function SectionCards({
   const safeSavingsRateChange = Number(savingsRateChange) || 0
   const safeNetWorthChange = Number(netWorthChange) || 0
   const safeTransactionCount = Number(transactionCount) || 0
+
+  // Use all-time data when available, otherwise fall back to filtered data
+  const displayTransactionCount = totalAllTimeCount ?? safeTransactionCount
+  const displayTransactionTimeSpan = totalAllTimeTimeSpan ?? transactionTimeSpan
+  const displayTransactionTrend = totalAllTimeTrend ?? transactionTrend
 
   const { getPalette } = useColorScheme()
 
@@ -211,15 +224,15 @@ export function SectionCards({
     transactions: {
       id: "transactions",
       title: "Total Transactions",
-      value: safeTransactionCount,
+      value: displayTransactionCount,
       change: 0, // No change metric for now, or calculate if needed
       description: "Total Transactions",
-      footerText: `Spanning ${transactionTimeSpan}`,
+      footerText: `Spanning ${displayTransactionTimeSpan}`,
       footerSubtext: "From first to last transaction",
       formatOptions: { minimumFractionDigits: 0, maximumFractionDigits: 0 },
       trendColor: trendColors[3],
       seed: 99,
-      trendData: transactionTrend,
+      trendData: displayTransactionTrend,
       isCurrency: false,
       showChange: false,
     },
@@ -281,9 +294,9 @@ export function SectionCards({
     incomeTrend,
     expensesTrend,
     netWorthTrend,
-    safeTransactionCount,
-    transactionTimeSpan,
-    transactionTrend,
+    displayTransactionCount,
+    displayTransactionTimeSpan,
+    displayTransactionTrend,
   ])
 
   // Put transactions first as requested ("top card" originally requested, now "with others") -> maybe first is best?

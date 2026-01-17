@@ -189,7 +189,7 @@ export function ChatMessage({
             {/* Bottom action row (assistant only) - always visible at bottom-right */}
             {!isUser && content?.trim() && !isStreaming && !isThinking && (
               <motion.div
-                className="absolute -bottom-3 right-2 flex items-center gap-1 rounded-full border bg-background/90 px-2 py-1 shadow-sm backdrop-blur"
+                className="absolute -bottom-5 right-2 flex items-center gap-1 rounded-full border bg-background/90 px-2 py-1 shadow-sm backdrop-blur"
                 initial={{ opacity: 0, y: 5, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.2, delay: 0.3 }}

@@ -1,4 +1,5 @@
 import { SectionCards } from "@/components/section-cards"
+import { useTotalTransactionCount } from "@/hooks/use-dashboard-data"
 
 import type { AnalyticsStats, AnalyticsStatsTrends, TransactionSummary } from "../types"
 
@@ -9,6 +10,9 @@ type StatsCardsProps = {
 }
 
 export function StatsCards({ stats, statsTrends, transactionSummary }: StatsCardsProps) {
+  // Fetch all-time transaction count (ignores date filter)
+  const { data: totalCount } = useTotalTransactionCount()
+
   return (
     <SectionCards
       totalIncome={stats.totalIncome}
@@ -25,6 +29,10 @@ export function StatsCards({ stats, statsTrends, transactionSummary }: StatsCard
       transactionCount={transactionSummary.count}
       transactionTimeSpan={transactionSummary.timeSpan}
       transactionTrend={transactionSummary.trend}
+      // All-time totals (ignores date filter for Total Transactions card)
+      totalAllTimeCount={totalCount?.count}
+      totalAllTimeTimeSpan={totalCount?.timeSpan}
+      totalAllTimeTrend={totalCount?.trend}
     />
   )
 }

@@ -299,6 +299,38 @@ async function fetchCategories(): Promise<Category[]> {
 }
 
 // ============================================
+// TOTAL TRANSACTION COUNT (all-time, no filter)
+// ============================================
+
+export interface TotalTransactionCount {
+    count: number
+    timeSpan: string
+    firstDate: string | null
+    lastDate: string | null
+    trend: Array<{ date: string; value: number }>
+}
+
+async function fetchTotalTransactionCount(): Promise<TotalTransactionCount> {
+    const response = await fetch('/api/transactions/total-count')
+    if (!response.ok) {
+        throw new Error(`Failed to fetch total transaction count: ${response.statusText}`)
+    }
+    return response.json()
+}
+
+/**
+ * Get total transaction count across all time (ignores date filter)
+ * Used for the "Total Transactions" card in home and analytics pages
+ */
+export function useTotalTransactionCount() {
+    return useQuery({
+        queryKey: ["total-transaction-count"],
+        queryFn: fetchTotalTransactionCount,
+        staleTime: 5 * 60 * 1000, // 5 minutes
+    })
+}
+
+// ============================================
 // BUNDLE HOOKS (use Redis-cached bundle APIs)
 // ============================================
 
