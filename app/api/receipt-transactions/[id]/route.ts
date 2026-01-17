@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { revalidatePath } from "next/cache"
 
 import { getCurrentUserId } from "@/lib/auth"
 import { neonQuery } from "@/lib/neonClient"
+import { invalidateUserCachePrefix } from "@/lib/cache/upstash"
 
 function toNumber(value: unknown): number {
   if (typeof value === "number") return value
@@ -74,5 +76,60 @@ export const PATCH = async (
 
     console.error("[Receipt Transaction API] PATCH error:", error)
     return NextResponse.json({ error: "Failed to update receipt transaction" }, { status: 500 })
+  }
+}
+
+export const DELETE = async (
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) => {
+  try {
+    const userId = await getCurrentUserId()
+    const { id } = await context.params
+    const receiptTransactionId = Number.parseInt(id, 10)
+
+    if (!Number.isFinite(receiptTransactionId)) {
+      return NextResponse.json({ error: "Invalid receipt transaction id" }, { status: 400 })
+    }
+
+    // Delete the receipt transaction (only if it belongs to the user)
+    const deleted = await neonQuery<{ id: number }>(
+      `
+        DELETE FROM receipt_transactions
+        WHERE id = $1 AND user_id = $2
+        RETURNING id
+      `,
+      [receiptTransactionId, userId]
+    )
+
+    if (deleted.length === 0) {
+      return NextResponse.json({ error: "Receipt transaction not found" }, { status: 404 })
+    }
+
+    // Invalidate caches after successful deletion
+    await Promise.all([
+      invalidateUserCachePrefix(userId, 'fridge'),
+      invalidateUserCachePrefix(userId, 'analytics'),
+      invalidateUserCachePrefix(userId, 'data-library'),
+      invalidateUserCachePrefix(userId, 'home'),
+      invalidateUserCachePrefix(userId, 'trends'),
+      invalidateUserCachePrefix(userId, 'savings'),
+    ])
+
+    // Revalidate pages
+    revalidatePath('/data-library')
+    revalidatePath('/fridge')
+    revalidatePath('/analytics')
+    revalidatePath('/home')
+
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    const message = String(error?.message || "")
+    if (message.includes("Unauthorized")) {
+      return NextResponse.json({ error: "Please sign in to delete receipt items." }, { status: 401 })
+    }
+
+    console.error("[Receipt Transaction API] DELETE error:", error)
+    return NextResponse.json({ error: "Failed to delete receipt transaction" }, { status: 500 })
   }
 }
