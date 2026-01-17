@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { mutate } from "swr";
+import { safeCapture } from "@/lib/posthog-safe";
 
 export const dynamic = 'force-dynamic';
 
@@ -44,10 +45,21 @@ export default function BillingReturnPage() {
 
                 if (checkoutStatus === "success") {
                     setMessage(`You're now subscribed to ${plan?.toUpperCase() || "PRO"}!`);
+                    // Track successful checkout completion
+                    safeCapture('checkout_completed', {
+                        plan_name: plan || 'unknown',
+                        billing_period: searchParams.get("period") || 'monthly'
+                    });
                 } else if (checkoutStatus === "canceled") {
                     setMessage("Checkout was cancelled.");
+                    // Track checkout cancellation
+                    safeCapture('checkout_canceled', {
+                        plan_name: plan || 'unknown'
+                    });
                 } else {
                     setMessage("Your subscription has been updated.");
+                    // Track subscription update
+                    safeCapture('subscription_updated', {});
                 }
 
                 // Redirect after short delay
