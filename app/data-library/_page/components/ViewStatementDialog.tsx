@@ -393,9 +393,9 @@ export function ViewStatementDialog({
               <IconLoader2 className="size-6 animate-spin text-muted-foreground" />
             </div>
           ) : visibleTransactions.length ? (
-            <div className="overflow-auto rounded-lg border flex-1 min-h-0">
+            <div className="overflow-auto rounded-lg border flex-1 min-h-0 custom-scrollbar relative">
               <Table>
-                <TableHeader className="bg-muted sticky top-0 z-10">
+                <TableHeader className="bg-muted sticky top-0 z-10 [&_th]:bg-muted">
                   <TableRow>
                     <TableHead className="w-12">
                       <Checkbox
