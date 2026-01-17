@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { neonQuery } from "@/lib/neonClient";
 import { getCurrentUserId } from "@/lib/auth";
-import { getCategoryType } from "@/lib/categories";
+import { NEEDS_CATEGORIES, WANTS_CATEGORIES } from "@/lib/categories";
 
 // Savings-related categories for 50/30/20 rule (money set aside, not spent)
 const SAVINGS_CATEGORY_NAMES = [
@@ -69,11 +69,14 @@ function classifyCategory(categoryName: string): "needs" | "wants" | "savings" |
     // Check for income categories (should be excluded from expense analysis)
     if (INCOME_CATEGORY_NAMES.some(c => normalized.includes(c))) return "savings";
     
-    // Use the centralized category type definitions from lib/categories.ts
-    const categoryType = getCategoryType(categoryName);
-    if (categoryType === "need") return "needs";
-    if (categoryType === "want") return "wants";
+    // Check if this category is in our defined lists from lib/categories.ts (case-insensitive)
+    const isKnownNeed = NEEDS_CATEGORIES.some((c: string) => c.toLowerCase() === normalized);
+    const isKnownWant = WANTS_CATEGORIES.some((c: string) => c.toLowerCase() === normalized);
     
+    if (isKnownNeed) return "needs";
+    if (isKnownWant) return "wants";
+    
+    // Unknown category - classify as "other"
     return "other";
 }
 
@@ -173,6 +176,7 @@ export const GET = async () => {
         const totalSpending = needsTotal + wantsTotal + savingsTotal + otherTotal;
         const needsPercent = totalSpending > 0 ? Math.round((needsTotal / totalSpending) * 100) : 0;
         const wantsPercent = totalSpending > 0 ? Math.round((wantsTotal / totalSpending) * 100) : 0;
+        const savingsPercent = totalSpending > 0 ? Math.round((savingsTotal / totalSpending) * 100) : 0;
         const otherPercent = totalSpending > 0 ? Math.round((otherTotal / totalSpending) * 100) : 0;
 
         // Calculate analytics score based on how close to 50/30/20 rule
@@ -604,7 +608,7 @@ export const GET = async () => {
                 score: analyticsScore,
                 needsPercent,
                 wantsPercent,
-                savingsPercent: 100 - needsPercent - wantsPercent,
+                savingsPercent,
                 hasEnoughTransactions,
                 minRequired: MIN_TRANSACTIONS,
                 breakdown: {
