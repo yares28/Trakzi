@@ -228,34 +228,44 @@ button[data-active="true"] .icon-chat,
     cursor: url('/cursors/cursor-orange.svg') 4 0, auto;
   }
 
-  /* Global custom scrollbar styling for all scrollable elements */
+  /* Global modern scrollbar styling */
   * {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--border)) transparent;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.25) transparent;
   }
   
   *::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
   
   *::-webkit-scrollbar-track {
     background: transparent;
+    border-radius: 3px;
   }
   
   *::-webkit-scrollbar-thumb {
-    background: hsl(var(--border));
-    border-radius: 9999px;
+    background: hsl(var(--muted-foreground) / 0.2);
+    border-radius: 3px;
+    transition: background 0.2s ease;
   }
   
   *::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.4);
+    background: hsl(var(--muted-foreground) / 0.35);
+  }
+  
+  *::-webkit-scrollbar-thumb:active {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+  
+  *::-webkit-scrollbar-corner {
+    background: transparent;
   }
 
   /* Legacy class for backwards compatibility */
   .custom-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--border)) transparent;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.25) transparent;
   }
 
   /* Interactive elements get the hand pointer cursor */
