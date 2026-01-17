@@ -1,5 +1,5 @@
-import { useState, type Dispatch, type SetStateAction } from "react"
-import { IconLoader2, IconPlus, IconTrash } from "@tabler/icons-react"
+import { useState, useEffect, useMemo, type Dispatch, type SetStateAction } from "react"
+import { IconLoader2, IconPlus, IconTrash, IconDeviceFloppy } from "@tabler/icons-react"
 import { toast } from "sonner"
 
 import { CategorySelect } from "@/components/category-select"
@@ -9,6 +9,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -68,6 +69,14 @@ type ViewStatementDialogProps = {
   startTransition: (callback: () => void) => void
 }
 
+type PendingChange = {
+  id: number
+  receiptTransactionId?: number
+  isReceipt: boolean
+  originalCategory: string
+  newCategory: string
+}
+
 export function ViewStatementDialog({
   open,
   onOpenChange,
@@ -88,26 +97,52 @@ export function ViewStatementDialog({
   isCreatingReceiptCategory,
   onCreateDialogReceiptCategory,
   formatCurrency,
-  startTransition,
 }: ViewStatementDialogProps) {
+  // Local copy of transactions for editing
+  const [localTransactions, setLocalTransactions] = useState<Transaction[]>([])
+  
+  // Track pending changes
+  const [pendingChanges, setPendingChanges] = useState<Map<number, PendingChange>>(new Map())
+  const [pendingDeletes, setPendingDeletes] = useState<Set<number>>(new Set())
+  
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   
-  // Delete state
+  // Save/Cancel state
+  const [isSaving, setIsSaving] = useState(false)
+  
+  // Delete confirmation state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteMode, setDeleteMode] = useState<"single" | "batch">("single")
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [deletingRowId, setDeletingRowId] = useState<number | null>(null)
+
+  // Initialize local transactions when dialog opens or transactions change
+  useEffect(() => {
+    if (open) {
+      setLocalTransactions(statementTransactions)
+      setPendingChanges(new Map())
+      setPendingDeletes(new Set())
+      setSelectedIds(new Set())
+    }
+  }, [open, statementTransactions])
+
+  // Filter out pending deletes for display
+  const visibleTransactions = useMemo(() => 
+    localTransactions.filter((tx) => !pendingDeletes.has(tx.id)),
+    [localTransactions, pendingDeletes]
+  )
+
+  // Check if there are unsaved changes
+  const hasChanges = pendingChanges.size > 0 || pendingDeletes.size > 0
 
   // Check if all visible transactions are selected
-  const allSelected = statementTransactions.length > 0 && 
-    statementTransactions.every((tx) => selectedIds.has(tx.id))
+  const allSelected = visibleTransactions.length > 0 && 
+    visibleTransactions.every((tx) => selectedIds.has(tx.id))
 
   // Handle select all toggle
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(new Set(statementTransactions.map((tx) => tx.id)))
+      setSelectedIds(new Set(visibleTransactions.map((tx) => tx.id)))
     } else {
       setSelectedIds(new Set())
     }
@@ -126,141 +161,217 @@ export function ViewStatementDialog({
     })
   }
 
-  // Request single delete
-  const handleRequestDelete = (tx: Transaction) => {
+  // Handle category change (local only)
+  const handleCategoryChange = (tx: Transaction, newCategory: string) => {
+    // Update local transactions
+    setLocalTransactions((prev) =>
+      prev.map((item) =>
+        item.id === tx.id ? { ...item, category: newCategory } : item
+      )
+    )
+
+    // Track the change
+    setPendingChanges((prev) => {
+      const next = new Map(prev)
+      const existing = next.get(tx.id)
+      
+      // If changing back to original, remove from pending
+      if (existing && existing.originalCategory === newCategory) {
+        next.delete(tx.id)
+      } else {
+        next.set(tx.id, {
+          id: tx.id,
+          receiptTransactionId: tx.receiptTransactionId,
+          isReceipt: Boolean(tx.isReceipt && tx.receiptTransactionId),
+          originalCategory: existing?.originalCategory ?? tx.category,
+          newCategory,
+        })
+      }
+      return next
+    })
+  }
+
+  // Mark transaction for deletion
+  const handleMarkForDelete = (tx: Transaction) => {
     setTransactionToDelete(tx)
     setDeleteMode("single")
     setDeleteDialogOpen(true)
   }
 
-  // Request batch delete
-  const handleRequestBatchDelete = () => {
+  // Mark selected transactions for deletion
+  const handleMarkSelectedForDelete = () => {
     setDeleteMode("batch")
     setDeleteDialogOpen(true)
   }
 
-  // Perform delete (single or batch)
-  const handleConfirmDelete = async () => {
-    setIsDeleting(true)
+  // Confirm delete (add to pending deletes)
+  const handleConfirmDelete = () => {
+    if (deleteMode === "single" && transactionToDelete) {
+      setPendingDeletes((prev) => new Set(prev).add(transactionToDelete.id))
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        next.delete(transactionToDelete.id)
+        return next
+      })
+    } else if (deleteMode === "batch") {
+      setPendingDeletes((prev) => {
+        const next = new Set(prev)
+        selectedIds.forEach((id) => next.add(id))
+        return next
+      })
+      setSelectedIds(new Set())
+    }
+    setDeleteDialogOpen(false)
+    setTransactionToDelete(null)
+  }
+
+  // Cancel and close dialog
+  const handleCancel = () => {
+    setLocalTransactions(statementTransactions)
+    setPendingChanges(new Map())
+    setPendingDeletes(new Set())
+    setSelectedIds(new Set())
+    onOpenChange(false)
+  }
+
+  // Save all changes
+  const handleSave = async () => {
+    setIsSaving(true)
     
     try {
-      if (deleteMode === "single" && transactionToDelete) {
-        // Single delete
-        setDeletingRowId(transactionToDelete.id)
-        
-        // Determine if it's a receipt transaction or regular transaction
-        if (transactionToDelete.isReceipt && transactionToDelete.receiptTransactionId) {
-          const response = await fetch(`/api/receipt-transactions/${transactionToDelete.receiptTransactionId}`, {
-            method: "DELETE",
-          })
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}))
-            throw new Error(errorData.error || "Failed to delete receipt transaction")
+      const errors: string[] = []
+
+      // Apply category changes
+      for (const change of pendingChanges.values()) {
+        try {
+          if (change.isReceipt && change.receiptTransactionId) {
+            const response = await fetch(
+              `/api/receipt-transactions/${change.receiptTransactionId}/category`,
+              {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ categoryName: change.newCategory }),
+              }
+            )
+            if (!response.ok) {
+              errors.push(`Failed to update category for receipt transaction`)
+            }
+          } else {
+            const response = await fetch(`/api/transactions/${change.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ category: change.newCategory }),
+            })
+            if (!response.ok) {
+              errors.push(`Failed to update category for transaction`)
+            }
           }
-        } else {
-          const response = await fetch(`/api/transactions/${transactionToDelete.id}`, {
-            method: "DELETE",
-          })
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}))
-            throw new Error(errorData.error || "Failed to delete transaction")
-          }
+        } catch (err) {
+          errors.push(`Error updating transaction ${change.id}`)
         }
-        
-        // Remove from local state
-        setStatementTransactions((prev) => 
-          prev.filter((tx) => tx.id !== transactionToDelete.id)
-        )
-        setSelectedIds((prev) => {
-          const next = new Set(prev)
-          next.delete(transactionToDelete.id)
-          return next
-        })
-        
-        // Invalidate cache
-        await fetch("/api/cache/invalidate?all=true")
-        
-        toast.success("Transaction deleted")
-        safeCapture("transaction_deleted", { 
-          transaction_type: transactionToDelete.isReceipt ? "receipt" : "statement" 
-        })
-        
-      } else if (deleteMode === "batch") {
-        // Batch delete
-        const toDelete = statementTransactions.filter((tx) => selectedIds.has(tx.id))
-        
-        // Separate receipt transactions from regular transactions
-        const receiptTxIds = toDelete
-          .filter((tx) => tx.isReceipt && tx.receiptTransactionId)
-          .map((tx) => tx.receiptTransactionId!)
-        const regularTxIds = toDelete
-          .filter((tx) => !tx.isReceipt || !tx.receiptTransactionId)
-          .map((tx) => tx.id)
-        
-        // Delete receipt transactions
-        for (const id of receiptTxIds) {
-          const response = await fetch(`/api/receipt-transactions/${id}`, {
-            method: "DELETE",
-          })
-          if (!response.ok) {
-            console.error(`Failed to delete receipt transaction ${id}`)
-          }
-        }
-        
-        // Delete regular transactions
-        for (const id of regularTxIds) {
-          const response = await fetch(`/api/transactions/${id}`, {
-            method: "DELETE",
-          })
-          if (!response.ok) {
-            console.error(`Failed to delete transaction ${id}`)
-          }
-        }
-        
-        // Remove from local state
-        setStatementTransactions((prev) => 
-          prev.filter((tx) => !selectedIds.has(tx.id))
-        )
-        setSelectedIds(new Set())
-        
-        // Invalidate cache
-        await fetch("/api/cache/invalidate?all=true")
-        
-        toast.success(`${toDelete.length} transaction${toDelete.length > 1 ? "s" : ""} deleted`)
-        safeCapture("transactions_batch_deleted", { count: toDelete.length })
       }
+
+      // Apply deletes
+      for (const id of pendingDeletes) {
+        const tx = localTransactions.find((t) => t.id === id)
+        if (!tx) continue
+
+        try {
+          if (tx.isReceipt && tx.receiptTransactionId) {
+            const response = await fetch(`/api/receipt-transactions/${tx.receiptTransactionId}`, {
+              method: "DELETE",
+            })
+            if (!response.ok) {
+              errors.push(`Failed to delete receipt transaction`)
+            }
+          } else {
+            const response = await fetch(`/api/transactions/${id}`, {
+              method: "DELETE",
+            })
+            if (!response.ok) {
+              errors.push(`Failed to delete transaction`)
+            }
+          }
+        } catch (err) {
+          errors.push(`Error deleting transaction ${id}`)
+        }
+      }
+
+      // Invalidate cache
+      await fetch("/api/cache/invalidate?all=true").catch(() => {})
+
+      // Update parent state
+      setStatementTransactions((prev) => {
+        let updated = prev.filter((tx) => !pendingDeletes.has(tx.id))
+        pendingChanges.forEach((change) => {
+          updated = updated.map((tx) =>
+            tx.id === change.id ? { ...tx, category: change.newCategory } : tx
+          )
+        })
+        return updated
+      })
+
+      if (errors.length > 0) {
+        toast.error(`Some changes failed: ${errors.length} error(s)`)
+      } else {
+        const changeCount = pendingChanges.size
+        const deleteCount = pendingDeletes.size
+        const messages: string[] = []
+        if (changeCount > 0) messages.push(`${changeCount} category update${changeCount > 1 ? "s" : ""}`)
+        if (deleteCount > 0) messages.push(`${deleteCount} deletion${deleteCount > 1 ? "s" : ""}`)
+        toast.success(`Saved: ${messages.join(", ")}`)
+        
+        safeCapture("statement_transactions_saved", {
+          category_updates: changeCount,
+          deletions: deleteCount,
+        })
+      }
+
+      // Reset state and close
+      setPendingChanges(new Map())
+      setPendingDeletes(new Set())
+      setSelectedIds(new Set())
+      onOpenChange(false)
+      
     } catch (error: any) {
-      console.error("Delete error:", error)
-      toast.error(error.message || "Failed to delete transaction(s)")
+      console.error("Save error:", error)
+      toast.error(error.message || "Failed to save changes")
     } finally {
-      setIsDeleting(false)
-      setDeletingRowId(null)
-      setDeleteDialogOpen(false)
-      setTransactionToDelete(null)
+      setIsSaving(false)
     }
   }
 
-  // Reset selection when dialog closes
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
-      setSelectedIds(new Set())
-    }
-    onOpenChange(newOpen)
+  // Sort handler
+  const handleSort = () => {
+    setLocalTransactions((prev) =>
+      [...prev].sort((a, b) =>
+        sortDirection === "asc"
+          ? new Date(a.date).getTime() - new Date(b.date).getTime()
+          : new Date(b.date).getTime() - new Date(a.date).getTime()
+      )
+    )
+    setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))
   }
 
   return (
     <>
-      <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
+      <Dialog open={open} onOpenChange={(newOpen) => {
+        if (!newOpen && hasChanges) {
+          // Could add unsaved changes warning here
+          handleCancel()
+        } else {
+          onOpenChange(newOpen)
+        }
+      }}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center justify-between pr-8">
               <span>Transactions - {selectedStatement?.name ?? "Statement"}</span>
               {selectedIds.size > 0 && (
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={handleRequestBatchDelete}
-                  disabled={isDeleting}
+                  onClick={handleMarkSelectedForDelete}
                 >
                   <IconTrash className="size-4 mr-2" />
                   Delete {selectedIds.size} selected
@@ -269,14 +380,20 @@ export function ViewStatementDialog({
             </DialogTitle>
             <DialogDescription>
               Detailed ledger entries sourced from this statement.
+              {hasChanges && (
+                <span className="ml-2 text-amber-600 dark:text-amber-400">
+                  ({pendingChanges.size} change{pendingChanges.size !== 1 ? "s" : ""}, {pendingDeletes.size} pending deletion{pendingDeletes.size !== 1 ? "s" : ""})
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
+          
           {viewLoading ? (
-            <div className="flex items-center justify-center py-10">
+            <div className="flex items-center justify-center py-10 flex-1">
               <IconLoader2 className="size-6 animate-spin text-muted-foreground" />
             </div>
-          ) : statementTransactions.length ? (
-            <div className="overflow-hidden rounded-lg border">
+          ) : visibleTransactions.length ? (
+            <div className="overflow-auto rounded-lg border flex-1 min-h-0">
               <Table>
                 <TableHeader className="bg-muted sticky top-0 z-10">
                   <TableRow>
@@ -288,18 +405,7 @@ export function ViewStatementDialog({
                       />
                     </TableHead>
                     <TableHead
-                      onClick={() => {
-                        setStatementTransactions((prev) =>
-                          [...prev].sort((a, b) =>
-                            sortDirection === "asc"
-                              ? new Date(a.date).getTime() -
-                                new Date(b.date).getTime()
-                              : new Date(b.date).getTime() -
-                                new Date(a.date).getTime()
-                          )
-                        )
-                        setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))
-                      }}
+                      onClick={handleSort}
                       className="cursor-pointer select-none"
                     >
                       Date
@@ -311,250 +417,128 @@ export function ViewStatementDialog({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {statementTransactions.map((tx) => (
-                    <TableRow key={tx.id}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedIds.has(tx.id)}
-                          onCheckedChange={(checked) => handleSelectRow(tx.id, !!checked)}
-                          aria-label={`Select transaction ${tx.description}`}
-                        />
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDateLabel(tx.date)}
-                      </TableCell>
-                      <TableCell>{tx.description}</TableCell>
-                      <TableCell>
-                        {tx.isReceipt && tx.receiptTransactionId ? (
-                          <Select
-                            value={tx.category || "__uncategorized__"}
-                            onValueChange={(value) => {
-                              if (value === "__create_new__") {
-                                onCreateReceiptCategoryOpenChange(true)
-                                return
-                              }
-
-                              const previousCategory = tx.category
-                              const categoryName =
-                                value === "__uncategorized__" ? null : value
-
-                              startTransition(() => {
-                                setStatementTransactions((prev) =>
-                                  prev.map((item) =>
-                                    item.id === tx.id
-                                      ? {
-                                          ...item,
-                                          category: categoryName || "Uncategorized",
-                                        }
-                                      : item
-                                  )
-                                )
-                              })
-
-                              fetch(
-                                `/api/receipt-transactions/${tx.receiptTransactionId}/category`,
-                                {
-                                  method: "PATCH",
-                                  headers: {
-                                    "Content-Type": "application/json",
-                                  },
-                                  body: JSON.stringify({
-                                    categoryName: categoryName,
-                                  }),
+                  {visibleTransactions.map((tx) => {
+                    const hasChange = pendingChanges.has(tx.id)
+                    return (
+                      <TableRow key={tx.id} className={hasChange ? "bg-amber-50 dark:bg-amber-950/20" : undefined}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIds.has(tx.id)}
+                            onCheckedChange={(checked) => handleSelectRow(tx.id, !!checked)}
+                            aria-label={`Select transaction ${tx.description}`}
+                          />
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDateLabel(tx.date)}
+                        </TableCell>
+                        <TableCell>{tx.description}</TableCell>
+                        <TableCell>
+                          {tx.isReceipt && tx.receiptTransactionId ? (
+                            <Select
+                              value={tx.category || "__uncategorized__"}
+                              onValueChange={(value) => {
+                                if (value === "__create_new__") {
+                                  onCreateReceiptCategoryOpenChange(true)
+                                  return
                                 }
-                              )
-                                .then(async (response) => {
-                                  if (!response.ok) {
-                                    startTransition(() => {
-                                      setStatementTransactions((prev) =>
-                                        prev.map((item) =>
-                                          item.id === tx.id
-                                            ? { ...item, category: previousCategory }
-                                            : item
-                                        )
-                                      )
-                                    })
-                                    const errorData = await response
-                                      .json()
-                                      .catch(() => ({}))
-                                    toast.error(
-                                      errorData.error || "Failed to update category"
-                                    )
-                                  } else {
-                                    const updated = await response.json()
-                                    startTransition(() => {
-                                      setStatementTransactions((prev) =>
-                                        prev.map((item) =>
-                                          item.id === tx.id
-                                            ? {
-                                                ...item,
-                                                category:
-                                                  updated.categoryName ||
-                                                  "Uncategorized",
-                                              }
-                                            : item
-                                        )
-                                      )
-                                    })
-                                    safeCapture("transaction_category_changed", {
-                                      previous_category: previousCategory,
-                                      new_category:
-                                        updated.categoryName || categoryName,
-                                      transaction_type: "receipt",
-                                    })
-                                  }
-                                })
-                                .catch((err) => {
-                                  startTransition(() => {
-                                    setStatementTransactions((prev) =>
-                                      prev.map((item) =>
-                                        item.id === tx.id
-                                          ? { ...item, category: previousCategory }
-                                          : item
-                                      )
-                                    )
-                                  })
-                                  console.error("Error updating category:", err)
-                                  toast.error("Error updating category")
-                                })
-                            }}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select category" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__uncategorized__">
-                                Uncategorized
-                              </SelectItem>
-                              {dialogReceiptCategories.map((category) => (
-                                <SelectItem key={category.name} value={category.name}>
+                                const categoryName = value === "__uncategorized__" ? "Uncategorized" : value
+                                handleCategoryChange(tx, categoryName)
+                              }}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select category" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__uncategorized__">
+                                  Uncategorized
+                                </SelectItem>
+                                {dialogReceiptCategories.map((category) => (
+                                  <SelectItem key={category.name} value={category.name}>
+                                    <span className="flex items-center gap-2">
+                                      <span
+                                        className="h-2 w-2 rounded-full border border-border/50"
+                                        style={{
+                                          backgroundColor: category.color ?? undefined,
+                                          borderColor: category.color ?? undefined,
+                                        }}
+                                      />
+                                      <span className="truncate">{category.name}</span>
+                                      {category.typeName ? (
+                                        <span className="ml-auto text-xs text-muted-foreground truncate">
+                                          {category.typeName}
+                                        </span>
+                                      ) : null}
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                                <Separator className="my-1" />
+                                <SelectItem
+                                  value="__create_new__"
+                                  onSelect={(event) => {
+                                    event.preventDefault()
+                                    onCreateReceiptCategoryOpenChange(true)
+                                  }}
+                                >
                                   <span className="flex items-center gap-2">
-                                    <span
-                                      className="h-2 w-2 rounded-full border border-border/50"
-                                      style={{
-                                        backgroundColor: category.color ?? undefined,
-                                        borderColor: category.color ?? undefined,
-                                      }}
-                                    />
-                                    <span className="truncate">{category.name}</span>
-                                    {category.typeName ? (
-                                      <span className="ml-auto text-xs text-muted-foreground truncate">
-                                        {category.typeName}
-                                      </span>
-                                    ) : null}
+                                    <IconPlus className="h-3 w-3" />
+                                    Create new category
                                   </span>
                                 </SelectItem>
-                              ))}
-                              <Separator className="my-1" />
-                              <SelectItem
-                                value="__create_new__"
-                                onSelect={(event) => {
-                                  event.preventDefault()
-                                  onCreateReceiptCategoryOpenChange(true)
-                                }}
-                              >
-                                <span className="flex items-center gap-2">
-                                  <IconPlus className="h-3 w-3" />
-                                  Create new category
-                                </span>
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <CategorySelect
-                            value={tx.category}
-                            onValueChange={(value) => {
-                              const previousCategory = tx.category
-                              startTransition(() => {
-                                setStatementTransactions((prev) =>
-                                  prev.map((item) =>
-                                    item.id === tx.id
-                                      ? { ...item, category: value }
-                                      : item
-                                  )
-                                )
-                              })
-
-                              fetch(`/api/transactions/${tx.id}`, {
-                                method: "PATCH",
-                                headers: {
-                                  "Content-Type": "application/json",
-                                },
-                                body: JSON.stringify({
-                                  category: value,
-                                }),
-                              })
-                                .then(async (response) => {
-                                  if (!response.ok) {
-                                    startTransition(() => {
-                                      setStatementTransactions((prev) =>
-                                        prev.map((item) =>
-                                          item.id === tx.id
-                                            ? { ...item, category: previousCategory }
-                                            : item
-                                        )
-                                      )
-                                    })
-                                    const errorData = await response
-                                      .json()
-                                      .catch(() => ({}))
-                                    toast.error(
-                                      errorData.error || "Failed to update category"
-                                    )
-                                  } else {
-                                    safeCapture("transaction_category_changed", {
-                                      previous_category: previousCategory,
-                                      new_category: value,
-                                      transaction_type: "statement",
-                                    })
-                                  }
-                                })
-                                .catch((err) => {
-                                  startTransition(() => {
-                                    setStatementTransactions((prev) =>
-                                      prev.map((item) =>
-                                        item.id === tx.id
-                                          ? { ...item, category: previousCategory }
-                                          : item
-                                      )
-                                    )
-                                  })
-                                  console.error("Error updating category:", err)
-                                  toast.error("Error updating category")
-                                })
-                            }}
-                          />
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(tx.amount)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRequestDelete(tx)}
-                          disabled={isDeleting && deletingRowId === tx.id}
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        >
-                          {isDeleting && deletingRowId === tx.id ? (
-                            <IconLoader2 className="size-4 animate-spin" />
+                              </SelectContent>
+                            </Select>
                           ) : (
-                            <IconTrash className="size-4" />
+                            <CategorySelect
+                              value={tx.category}
+                              onValueChange={(value) => handleCategoryChange(tx, value)}
+                            />
                           )}
-                          <span className="sr-only">Delete</span>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(tx.amount)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleMarkForDelete(tx)}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <IconTrash className="size-4" />
+                            <span className="sr-only">Delete</span>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              No transactions found for this statement.
+            <p className="text-sm text-muted-foreground py-10 text-center">
+              {pendingDeletes.size > 0 
+                ? `All transactions marked for deletion. Click Save to confirm.`
+                : "No transactions found for this statement."}
             </p>
           )}
+
+          <DialogFooter className="flex-shrink-0 gap-2 sm:gap-0">
+            <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={isSaving || !hasChanges}>
+              {isSaving ? (
+                <>
+                  <IconLoader2 className="mr-2 size-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <IconDeviceFloppy className="mr-2 size-4" />
+                  Save Changes
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -569,36 +553,25 @@ export function ViewStatementDialog({
             </AlertDialogTitle>
             <AlertDialogDescription>
               {deleteMode === "batch" 
-                ? `This will permanently remove ${selectedIds.size} selected transaction${selectedIds.size > 1 ? "s" : ""} from the database.`
+                ? `${selectedIds.size} transaction${selectedIds.size > 1 ? "s" : ""} will be marked for deletion. Click Save to confirm.`
                 : (
                   <>
-                    This will permanently remove{" "}
                     <span className="font-medium">
-                      {transactionToDelete?.description ?? "this transaction"}
+                      {transactionToDelete?.description ?? "This transaction"}
                     </span>{" "}
-                    from the database.
+                    will be marked for deletion. Click Save to confirm.
                   </>
                 )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={handleConfirmDelete}
-              disabled={isDeleting}
             >
-              {isDeleting ? (
-                <>
-                  <IconLoader2 className="mr-2 size-4 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                <>
-                  <IconTrash className="mr-2 size-4" />
-                  Delete
-                </>
-              )}
+              <IconTrash className="mr-2 size-4" />
+              Mark for Deletion
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -656,7 +629,7 @@ export function ViewStatementDialog({
               </Select>
             </div>
           </div>
-          <AlertDialogFooter>
+          <DialogFooter>
             <Button
               variant="outline"
               onClick={() => onCreateReceiptCategoryOpenChange(false)}
@@ -681,7 +654,7 @@ export function ViewStatementDialog({
                 "Create"
               )}
             </Button>
-          </AlertDialogFooter>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
