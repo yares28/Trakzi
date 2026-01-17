@@ -530,21 +530,41 @@ export const GET = async () => {
         const unhealthyPercent = totalFridgeSpending > 0 ? Math.round((unhealthyTotal / totalFridgeSpending) * 100) : 0;
 
         // Fridge score: Higher healthy %, lower unhealthy % = better
-        // Ideal: 60%+ healthy, <15% unhealthy
+        // Uses smooth interpolation for more granular scores
+        // Ideal: 60%+ healthy, <10% unhealthy
         let fridgeScore = 50; // Base
 
-        // Reward healthy eating
-        if (healthyPercent >= 60) fridgeScore += 30;
-        else if (healthyPercent >= 40) fridgeScore += 20;
-        else if (healthyPercent >= 20) fridgeScore += 10;
+        // Reward healthy eating (smooth interpolation)
+        // 0% = +0, 20% = +10, 40% = +20, 60%+ = +30, max 70%+ = +35
+        if (healthyPercent >= 70) {
+            fridgeScore += 35;
+        } else if (healthyPercent >= 60) {
+            fridgeScore += 30 + ((healthyPercent - 60) * 0.5);
+        } else if (healthyPercent >= 40) {
+            fridgeScore += 20 + ((healthyPercent - 40) * 0.5);
+        } else if (healthyPercent >= 20) {
+            fridgeScore += 10 + ((healthyPercent - 20) * 0.5);
+        } else {
+            fridgeScore += healthyPercent * 0.5;
+        }
 
-        // Penalize unhealthy eating
-        if (unhealthyPercent > 30) fridgeScore -= 30;
-        else if (unhealthyPercent > 20) fridgeScore -= 20;
-        else if (unhealthyPercent > 10) fridgeScore -= 10;
-        else fridgeScore += 20; // Bonus for low unhealthy
+        // Penalize unhealthy eating (smooth interpolation)
+        // 0-10% = +15 bonus, 10-20% = +0 to -10, 20-30% = -10 to -20, 30%+ = -20 to -35
+        if (unhealthyPercent <= 10) {
+            // Bonus for very low unhealthy (10% = +15, 0% = +20)
+            fridgeScore += 20 - (unhealthyPercent * 0.5);
+        } else if (unhealthyPercent <= 20) {
+            // Small penalty (10% = 0, 20% = -10)
+            fridgeScore -= (unhealthyPercent - 10);
+        } else if (unhealthyPercent <= 30) {
+            // Medium penalty (20% = -10, 30% = -20)
+            fridgeScore -= 10 + (unhealthyPercent - 20);
+        } else {
+            // Large penalty (30% = -20, 40%+ capped at -35)
+            fridgeScore -= Math.min(35, 20 + (unhealthyPercent - 30) * 1.5);
+        }
 
-        fridgeScore = Math.max(0, Math.min(100, fridgeScore));
+        fridgeScore = Math.max(0, Math.min(100, Math.round(fridgeScore)));
 
         const receiptTransactionCount = fridgeCategoryResult.reduce((sum, r) => sum + toNumber(r.item_count), 0);
 
