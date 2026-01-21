@@ -11,7 +11,7 @@ type CategoryTier = {
 }
 
 const TIER_LABELS: Record<SpendingTier, string> = {
-  Essentials: "Essentials (needs)",
+  Essentials: "Needs",
   Mandatory: "Mandatory",
   Wants: "Wants",
 }
