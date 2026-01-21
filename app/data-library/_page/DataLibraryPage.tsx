@@ -356,7 +356,7 @@ export default function DataLibraryPage() {
                         cat.id === categoryId
                           ? {
                               ...cat,
-                              broadType: payload.tier ?? tier,
+                              broadType: (payload.tier as any) ?? tier,
                             }
                           : cat,
                       ),

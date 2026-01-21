@@ -6,7 +6,7 @@ import { getCurrentUserId } from "@/lib/auth"
 import { neonQuery } from "@/lib/neonClient"
 import { invalidateUserCachePrefix } from "@/lib/cache/upstash"
 
-type SpendingTier = "Essentials" | "Mandatory" | "Wants"
+type SpendingTier = "Essentials" | "Mandatory" | "Wants" | "Other"
 
 type CategoryTierRow = {
   id: number
@@ -31,15 +31,22 @@ export const GET = async () => {
       [userId],
     )
 
-    const payload = rows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      tier: (row.broad_type === "Essentials" ||
-        row.broad_type === "Mandatory" ||
-        row.broad_type === "Wants"
-        ? row.broad_type
-        : null) as SpendingTier | null,
-    }))
+    const payload = rows.map((row) => {
+      const bt = row.broad_type
+      const tier: SpendingTier | null =
+        bt === "Essentials" ||
+        bt === "Mandatory" ||
+        bt === "Wants" ||
+        bt === "Other"
+          ? bt
+          : null
+
+      return {
+        id: row.id,
+        name: row.name,
+        tier,
+      }
+    })
 
     return NextResponse.json(payload, {
       headers: {
@@ -69,7 +76,12 @@ export const PATCH = async (req: NextRequest) => {
       return NextResponse.json({ error: "Invalid category id" }, { status: 400 })
     }
 
-    if (tier !== "Essentials" && tier !== "Mandatory" && tier !== "Wants") {
+    if (
+      tier !== "Essentials" &&
+      tier !== "Mandatory" &&
+      tier !== "Wants" &&
+      tier !== "Other"
+    ) {
       return NextResponse.json({ error: "Invalid tier value" }, { status: 400 })
     }
 

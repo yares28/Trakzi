@@ -447,7 +447,7 @@ function SpendingActivityRings({ data, config, theme, ringLimits = {}, getDefaul
   )
 }
 
-type SpendingTier = "Essentials" | "Mandatory" | "Wants"
+type SpendingTier = "Essentials" | "Mandatory" | "Wants" | "Other"
 
 const CATEGORY_TIER_STORAGE_KEY = "needsWantsCategoryTier"
 
