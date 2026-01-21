@@ -175,7 +175,6 @@ export function ChartInfoPopover({
               </div>
             </div>
           )}
-          {extraContent}
           {categoryControls && categoryControls.hiddenCategories.length > 0 && (
             <div className="rounded-lg border border-border/60 bg-muted/40 px-2.5 py-2">
               <span className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -267,6 +266,7 @@ export function ChartInfoPopover({
               )}
             </div>
           )}
+          {extraContent}
         </div>
       </PopoverContent>
     </Popover>

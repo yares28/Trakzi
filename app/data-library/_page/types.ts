@@ -50,6 +50,7 @@ export type Category = {
   totalSpend: number
   totalAmount?: number
   createdAt: string
+  broadType?: "Essentials" | "Mandatory" | "Wants" | null
 }
 
 export type ReceiptCategoryType = {
