@@ -1829,6 +1829,7 @@ export default function AnalyticsPage() {
       Essentials: 0,
       Mandatory: 0,
       Wants: 0,
+      Other: 0,
     }
 
     filteredSource

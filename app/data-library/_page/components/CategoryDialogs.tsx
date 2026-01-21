@@ -30,7 +30,7 @@ import {
 
 import type { Category } from "../types"
 
-type CategoryTier = "Essentials" | "Mandatory" | "Wants"
+type CategoryTier = "Essentials" | "Mandatory" | "Wants" | "Other"
 
 type CategoryDialogsProps = {
   addOpen: boolean
