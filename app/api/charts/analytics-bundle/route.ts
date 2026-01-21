@@ -58,7 +58,9 @@ export const GET = async (request: Request) => {
         return NextResponse.json({ ...data, hasDataInOtherPeriods }, {
             headers: {
                 'Content-Type': 'application/json',
-                'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+                // IMPORTANT: Do not let Vercel edge cache this response.
+                // We already cache in Redis (Upstash) and invalidate on mutations.
+                'Cache-Control': 'no-store, no-cache, must-revalidate, private',
                 'X-Cache-Key': cacheKey,
             },
         })
