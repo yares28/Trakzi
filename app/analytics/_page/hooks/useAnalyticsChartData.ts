@@ -338,6 +338,102 @@ export function useAnalyticsChartData({
   )
 
   const categoryFlowChart = useMemo(() => {
+    const monthNameToIndex: Record<string, number> = {
+      jan: 0,
+      january: 0,
+      feb: 1,
+      february: 1,
+      mar: 2,
+      march: 2,
+      apr: 3,
+      april: 3,
+      may: 4,
+      jun: 5,
+      june: 5,
+      jul: 6,
+      july: 6,
+      aug: 7,
+      august: 7,
+      sep: 8,
+      sept: 8,
+      september: 8,
+      oct: 9,
+      october: 9,
+      nov: 10,
+      november: 10,
+      dec: 11,
+      december: 11,
+    }
+
+    const parsePeriodKeyToTime = (key: string): number | null => {
+      const trimmed = (key ?? "").trim()
+      if (!trimmed) return null
+
+      // YYYY-MM (or YYYY-M)
+      const yyyyMm = trimmed.match(/^(\d{4})-(\d{1,2})$/)
+      if (yyyyMm) {
+        const year = Number(yyyyMm[1])
+        const month = Number(yyyyMm[2]) - 1
+        const dt = new Date(year, month, 1)
+        return Number.isNaN(dt.getTime()) ? null : dt.getTime()
+      }
+
+      // YYYY-MM-DD (weekly buckets may use this)
+      const yyyyMmDd = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+      if (yyyyMmDd) {
+        const year = Number(yyyyMmDd[1])
+        const month = Number(yyyyMmDd[2]) - 1
+        const day = Number(yyyyMmDd[3])
+        const dt = new Date(year, month, day)
+        return Number.isNaN(dt.getTime()) ? null : dt.getTime()
+      }
+
+      // Mon'YY (e.g. "Dec'25")
+      const monAposYear = trimmed.match(/^([A-Za-z]{3,9})'(\d{2})$/)
+      if (monAposYear) {
+        const mon = monAposYear[1].toLowerCase()
+        const year = 2000 + Number(monAposYear[2])
+        const monthIndex = monthNameToIndex[mon]
+        if (typeof monthIndex === "number") {
+          const dt = new Date(year, monthIndex, 1)
+          return Number.isNaN(dt.getTime()) ? null : dt.getTime()
+        }
+      }
+
+      // Month name with 4-digit year (e.g. "November 2025", "Nov 2025")
+      const monthYear = trimmed.match(/^([A-Za-z]{3,9})\s+(\d{4})$/)
+      if (monthYear) {
+        const mon = monthYear[1].toLowerCase()
+        const year = Number(monthYear[2])
+        const monthIndex = monthNameToIndex[mon]
+        if (typeof monthIndex === "number") {
+          const dt = new Date(year, monthIndex, 1)
+          return Number.isNaN(dt.getTime()) ? null : dt.getTime()
+        }
+      }
+
+      // Plain month number "01".."12" (no year available)
+      const mmOnly = trimmed.match(/^(\d{1,2})$/)
+      if (mmOnly) {
+        const month = Number(mmOnly[1])
+        if (month >= 1 && month <= 12) {
+          // Use a synthetic year so relative month ordering is stable
+          return new Date(2000, month - 1, 1).getTime()
+        }
+      }
+
+      return null
+    }
+
+    const sortPeriodKeys = (a: string, b: string) => {
+      const ta = parsePeriodKeyToTime(a)
+      const tb = parsePeriodKeyToTime(b)
+      if (ta !== null && tb !== null) return ta - tb
+      if (ta !== null) return -1
+      if (tb !== null) return 1
+      return a.localeCompare(b)
+    }
+
     // Use bundle data if available for monthly data
     if (bundleData?.monthlyCategories && bundleData.monthlyCategories.length > 0) {
       const categorySet = new Set<string>(bundleData.monthlyCategories.map(m => m.category))
@@ -353,7 +449,7 @@ export function useAnalyticsChartData({
         periodTotals.set(monthKey, (periodTotals.get(monthKey) || 0) + m.total)
       })
 
-      const sortedPeriods = Array.from(monthTotals.keys()).sort()
+      const sortedPeriods = Array.from(monthTotals.keys()).sort(sortPeriodKeys)
       const data = Array.from(categorySet)
         .filter(c => !categoryFlowVisibility.hiddenCategorySet.has(c))
         .map(category => ({
@@ -430,7 +526,7 @@ export function useAnalyticsChartData({
       return { data: [], categories: Array.from(categorySet) }
     }
 
-    const sortedTimePeriods = Array.from(allTimePeriods).sort((a, b) => a.localeCompare(b))
+    const sortedTimePeriods = Array.from(allTimePeriods).sort(sortPeriodKeys)
     const periodTotals = new Map<string, number>()
     sortedTimePeriods.forEach((period) => {
       let total = 0
