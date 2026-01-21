@@ -169,7 +169,7 @@ async function getDataLibraryBundle(userId: string): Promise<DataLibraryBundle> 
             ORDER BY r.created_at DESC
         `, [userId]),
 
-        // Categories - replicate logic from /api/categories
+        // Categories - replicate logic from /api/categories, extended with broad_type
         neonQuery<{
             id: number
             name: string
@@ -178,6 +178,7 @@ async function getDataLibraryBundle(userId: string): Promise<DataLibraryBundle> 
             transaction_count: string | number
             total_spend: string | number
             total_amount: string | number
+            broad_type: string | null
         }>(`
             SELECT 
                 c.id,
@@ -186,7 +187,8 @@ async function getDataLibraryBundle(userId: string): Promise<DataLibraryBundle> 
                 c.created_at,
                 COUNT(t.id) AS transaction_count,
                 COALESCE(SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END), 0) AS total_spend,
-                COALESCE(SUM(t.amount), 0) AS total_amount
+                COALESCE(SUM(t.amount), 0) AS total_amount,
+                c.broad_type
             FROM categories c
             LEFT JOIN transactions t ON t.category_id = c.id AND t.user_id = $1
             WHERE c.user_id = $1
@@ -433,6 +435,7 @@ async function getDataLibraryBundle(userId: string): Promise<DataLibraryBundle> 
                     ? parseFloat(category.total_spend)
                     : Number(category.total_spend ?? 0),
                 totalAmount: totalAmount,
+                broadType: category.broad_type ?? null,
             }
         })
         .sort((a, b) => {

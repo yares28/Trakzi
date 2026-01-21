@@ -55,6 +55,10 @@ type CategoriesTableProps = {
   onRequestDeleteCategory: (category: Category) => void
   isDefaultCategory: (name: string) => boolean
   formatCurrency: (value: number) => string
+  onCategoryBroadTypeChange: (
+    categoryId: number,
+    next: "Essentials" | "Mandatory" | "Wants",
+  ) => void
 }
 
 export function CategoriesTable({
@@ -72,6 +76,7 @@ export function CategoriesTable({
   onRequestDeleteCategory,
   isDefaultCategory,
   formatCurrency,
+  onCategoryBroadTypeChange,
 }: CategoriesTableProps) {
   return (
     <Card className="lg:col-span-2">
@@ -157,6 +162,7 @@ export function CategoriesTable({
                   />
                 </TableHead>
                 <TableHead>Category</TableHead>
+                <TableHead className="hidden xl:table-cell">Broad type</TableHead>
                 <TableHead className="hidden md:table-cell">Created</TableHead>
                 <TableHead className="text-right">Transactions</TableHead>
                 <TableHead className="text-right">Spend</TableHead>
@@ -213,6 +219,32 @@ export function CategoriesTable({
                         />
                         <span className="font-medium">{category.name}</span>
                       </div>
+                    </TableCell>
+                    <TableCell className="hidden xl:table-cell align-middle text-xs">
+                      <Select
+                        value={
+                          (category.broadType as
+                            | "Essentials"
+                            | "Mandatory"
+                            | "Wants"
+                            | null) ?? "Wants"
+                        }
+                        onValueChange={(value) =>
+                          onCategoryBroadTypeChange(
+                            category.id,
+                            value as "Essentials" | "Mandatory" | "Wants",
+                          )
+                        }
+                      >
+                        <SelectTrigger className="h-8 w-[140px] text-xs">
+                          <SelectValue placeholder="Wants" />
+                        </SelectTrigger>
+                        <SelectContent side="top">
+                          <SelectItem value="Essentials">Essentials (needs)</SelectItem>
+                          <SelectItem value="Mandatory">Mandatory</SelectItem>
+                          <SelectItem value="Wants">Wants</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
                       {formatDateLabel(category.createdAt)}

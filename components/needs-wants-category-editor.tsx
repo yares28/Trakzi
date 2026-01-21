@@ -2,12 +2,6 @@
 
 import { useEffect, useState } from "react"
 
-import { clearResponseCache } from "@/lib/request-deduplication"
-import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { toast } from "sonner"
-
 type SpendingTier = "Essentials" | "Mandatory" | "Wants"
 
 type CategoryTier = {
@@ -24,7 +18,6 @@ const TIER_LABELS: Record<SpendingTier, string> = {
 
 export function NeedsWantsCategoryEditor() {
   const [categories, setCategories] = useState<CategoryTier[] | null>(null)
-  const [updatingId, setUpdatingId] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
@@ -59,42 +52,6 @@ export function NeedsWantsCategoryEditor() {
     }
   }, [])
 
-  const handleTierChange = async (id: number, tier: SpendingTier) => {
-    setUpdatingId(id)
-    // Optimistic update
-    setCategories((prev) =>
-      prev
-        ? prev.map((cat) => (cat.id === id ? { ...cat, tier } : cat))
-        : prev,
-    )
-
-    try {
-      const res = await fetch("/api/categories/needs-wants", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
-        body: JSON.stringify({ id, tier }),
-      })
-
-      if (!res.ok) {
-        const text = await res.text().catch(() => "")
-        throw new Error(text || "Failed to update category tier")
-      }
-
-      // Clear in-memory fetch cache for analytics so the next load sees fresh data
-      clearResponseCache()
-
-      toast.success("Updated category group for Needs vs Wants")
-    } catch (error) {
-      console.error("[NeedsWantsCategoryEditor] Failed to update tier:", error)
-      toast.error("Could not update category group. Please try again.")
-    } finally {
-      setUpdatingId(null)
-    }
-  }
-
   if (isLoading && !categories) {
     return (
       <div className="rounded-lg border border-border/60 bg-muted/40 px-2.5 py-2 text-[0.7rem] text-muted-foreground">
@@ -123,43 +80,32 @@ export function NeedsWantsCategoryEditor() {
           </p>
         </div>
       </div>
-      <div className="mt-1 space-y-1.5 max-h-[180px] overflow-y-auto pr-1">
-        {categories.map((cat) => (
-          <div
-            key={cat.id}
-            className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-muted/30 px-2 py-1"
-          >
-            <div className="flex items-center gap-1.5 min-w-0">
-              <Badge
-                variant="outline"
-                className="text-[0.65rem] px-1.5 py-0.5 max-w-[130px] truncate"
-              >
-                {cat.name}
-              </Badge>
+      <div className="mt-1 space-y-1.5 max-h-[180px] overflow-y-auto pr-1 text-[0.7rem]">
+        {(["Essentials", "Mandatory", "Wants"] as SpendingTier[]).map((tier) => {
+          const tierCategories = categories.filter((c) => (c.tier ?? "Wants") === tier)
+          if (tierCategories.length === 0) return null
+
+          return (
+            <div key={tier} className="space-y-0.5">
+              <div className="font-semibold text-xs">{TIER_LABELS[tier]}</div>
+              <div className="flex flex-wrap gap-1.5">
+                {tierCategories.map((cat) => (
+                  <span
+                    key={cat.id}
+                    className="inline-flex items-center rounded-md border border-border/60 bg-muted/40 px-1.5 py-0.5 text-[0.65rem]"
+                  >
+                    {cat.name}
+                  </span>
+                ))}
+              </div>
             </div>
-            <Select
-              value={cat.tier ?? "Wants"}
-              onValueChange={(value) => handleTierChange(cat.id, value as SpendingTier)}
-              disabled={updatingId === cat.id}
-            >
-              <SelectTrigger className={cn("h-7 w-[130px] px-2 py-0 text-[0.7rem]", updatingId === cat.id && "opacity-70")}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Essentials" className="text-[0.75rem]">
-                  {TIER_LABELS.Essentials}
-                </SelectItem>
-                <SelectItem value="Mandatory" className="text-[0.75rem]">
-                  {TIER_LABELS.Mandatory}
-                </SelectItem>
-                <SelectItem value="Wants" className="text-[0.75rem]">
-                  {TIER_LABELS.Wants}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        ))}
+          )
+        })}
       </div>
+      <p className="mt-2 text-[0.65rem] text-muted-foreground/80">
+        To change how categories are grouped, go to the Data Library and edit the{" "}
+        <span className="font-semibold">Broad type</span> column in the Categories table.
+      </p>
     </div>
   )
 }
