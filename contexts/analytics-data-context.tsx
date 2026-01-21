@@ -32,7 +32,8 @@ async function fetchAnalyticsBundle(filter: string | null): Promise<AnalyticsSum
         ? `/api/charts/analytics-bundle?filter=${encodeURIComponent(filter)}`
         : `/api/charts/analytics-bundle`
 
-    const response = await fetch(url)
+    // Ensure we bypass any framework fetch caching on the client.
+    const response = await fetch(url, { cache: "no-store" })
     if (!response.ok) {
         throw new Error(`Failed to fetch analytics bundle: ${response.statusText}`)
     }
