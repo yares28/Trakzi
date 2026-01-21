@@ -44,7 +44,7 @@ export interface TransactionHistoryItem {
 }
 
 export interface NeedsWantsItem {
-    classification: 'Essentials' | 'Mandatory' | 'Wants'
+    classification: 'Essentials' | 'Mandatory' | 'Wants' | 'Other'
     total: number
     count: number
 }
@@ -92,7 +92,7 @@ export interface AnalyticsSummary {
 }
 
 // Category classification for needs/wants
-const NEEDS_CATEGORIES: Record<string, 'Essentials' | 'Mandatory' | 'Wants'> = {
+const NEEDS_CATEGORIES: Record<string, 'Essentials' | 'Mandatory' | 'Wants' | 'Other'> = {
     'Groceries': 'Essentials',
     'Housing': 'Essentials',
     'Utilities': 'Essentials',
@@ -419,18 +419,24 @@ export async function getNeedsWantsBreakdown(
         count: number
     }>(query, params)
 
-    // Group by needs/wants classification
-    const classified: Record<'Essentials' | 'Mandatory' | 'Wants', { total: number; count: number }> = {
+    // Group by needs/wants classification (including Other)
+    const classified: Record<'Essentials' | 'Mandatory' | 'Wants' | 'Other', { total: number; count: number }> = {
         Essentials: { total: 0, count: 0 },
         Mandatory: { total: 0, count: 0 },
         Wants: { total: 0, count: 0 },
+        Other: { total: 0, count: 0 },
     }
 
     for (const row of rows) {
-        let classification: 'Essentials' | 'Mandatory' | 'Wants'
+        let classification: 'Essentials' | 'Mandatory' | 'Wants' | 'Other'
 
         const normalizedBroad = row.broad_type?.trim()
-        if (normalizedBroad === 'Essentials' || normalizedBroad === 'Mandatory' || normalizedBroad === 'Wants') {
+        if (
+            normalizedBroad === 'Essentials' ||
+            normalizedBroad === 'Mandatory' ||
+            normalizedBroad === 'Wants' ||
+            normalizedBroad === 'Other'
+        ) {
             classification = normalizedBroad
         } else {
             // Fallback to static mapping by category name, defaulting to Wants
@@ -442,7 +448,7 @@ export async function getNeedsWantsBreakdown(
         classified[classification].count += row.count
     }
 
-    return (Object.entries(classified) as Array<[ 'Essentials' | 'Mandatory' | 'Wants', { total: number; count: number } ]>)
+    return (Object.entries(classified) as Array<[ 'Essentials' | 'Mandatory' | 'Wants' | 'Other', { total: number; count: number } ]>)
         .map(([classification, data]) => ({
             classification,
             total: data.total,
