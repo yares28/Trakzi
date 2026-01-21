@@ -240,7 +240,7 @@ export function CategoriesTable({
                           <SelectValue placeholder="Wants" />
                         </SelectTrigger>
                         <SelectContent side="top">
-                          <SelectItem value="Essentials">Essentials (needs)</SelectItem>
+                          <SelectItem value="Essentials">Needs</SelectItem>
                           <SelectItem value="Mandatory">Mandatory</SelectItem>
                           <SelectItem value="Wants">Wants</SelectItem>
                         </SelectContent>
