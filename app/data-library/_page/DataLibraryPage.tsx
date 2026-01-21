@@ -333,6 +333,38 @@ export default function DataLibraryPage() {
                 }}
                 isDefaultCategory={isDefaultCategory}
                 formatCurrency={formatCurrency}
+                onCategoryBroadTypeChange={async (categoryId, tier) => {
+                  try {
+                    const res = await fetch("/api/categories/needs-wants", {
+                      method: "PATCH",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                      },
+                      body: JSON.stringify({ id: categoryId, tier }),
+                    })
+                    if (!res.ok) {
+                      console.error(
+                        "[DataLibrary] Failed to update broad type:",
+                        await res.text(),
+                      )
+                      return
+                    }
+                    const payload = await res.json()
+                    setCategories((prev) =>
+                      prev.map((cat) =>
+                        cat.id === categoryId
+                          ? {
+                              ...cat,
+                              broadType: payload.tier ?? tier,
+                            }
+                          : cat,
+                      ),
+                    )
+                  } catch (error) {
+                    console.error("[DataLibrary] Error updating broad type:", error)
+                  }
+                }}
               />
               <ReceiptTypesTable
                 receiptCategoryTypes={receiptCategoryTypes}
