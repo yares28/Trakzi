@@ -120,6 +120,12 @@ export function ChartNeedsWantsPie({
           "Wants capture lifestyle and discretionary categories like shopping, entertainment, and travel.",
         ]}
         ignoredFootnote="Only expense (negative) transactions are included, and hidden categories are excluded from the totals."
+        groupingControls={{
+          title: "Group view",
+          description: "Switch between the available groupings.",
+          options: ["Needs", "Wants", "Mandatory"],
+          defaultValue: "Needs",
+        }}
         categoryControls={categoryControls}
       />
       <ChartAiInsightButton

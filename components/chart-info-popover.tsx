@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { IconInfoCircle } from "@tabler/icons-react"
 
 import { cn } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 type Align = "start" | "center" | "end"
 type Side = "top" | "bottom" | "left" | "right"
 
@@ -37,6 +38,13 @@ export interface ChartInfoPopoverProps {
   className?: string
   triggerClassName?: string
   categoryControls?: ChartInfoPopoverCategoryControls
+  groupingControls?: {
+    title?: string
+    description?: string
+    options: string[]
+    defaultValue?: string
+  }
+  extraContent?: ReactNode
 }
 
 export function ChartInfoPopover({
@@ -52,9 +60,14 @@ export function ChartInfoPopover({
   className,
   triggerClassName,
   categoryControls,
+  groupingControls,
+  extraContent,
 }: ChartInfoPopoverProps) {
   const [open, setOpen] = useState(false)
   const [categoryPanelOpen, setCategoryPanelOpen] = useState(false)
+  const [selectedGrouping, setSelectedGrouping] = useState<string | undefined>(
+    groupingControls?.defaultValue ?? groupingControls?.options?.[0]
+  )
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const contentRef = useRef<HTMLDivElement | null>(null)
 
@@ -122,6 +135,47 @@ export function ChartInfoPopover({
             <h4 className="text-sm font-semibold text-foreground">{title}</h4>
             <p className="text-xs text-muted-foreground">{description}</p>
           </div>
+          {groupingControls && groupingControls.options.length > 0 && (
+            <div className="rounded-lg border border-border/60 bg-background/70 px-2.5 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="space-y-0.5">
+                  <span className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {groupingControls.title ?? "Grouping"}
+                  </span>
+                  {groupingControls.description && (
+                    <p className="text-[0.7rem] text-muted-foreground/80">
+                      {groupingControls.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="mt-2">
+                <ToggleGroup
+                  type="single"
+                  size="sm"
+                  variant="outline"
+                  value={selectedGrouping}
+                  onValueChange={(value) => {
+                    if (!value) return
+                    setSelectedGrouping(value)
+                  }}
+                  className="w-full justify-between"
+                >
+                  {groupingControls.options.map((option) => (
+                    <ToggleGroupItem
+                      key={option}
+                      value={option}
+                      aria-label={option}
+                      className="flex-1 text-[0.7rem]"
+                    >
+                      {option}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+            </div>
+          )}
+          {extraContent}
           {categoryControls && categoryControls.hiddenCategories.length > 0 && (
             <div className="rounded-lg border border-border/60 bg-muted/40 px-2.5 py-2">
               <span className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
