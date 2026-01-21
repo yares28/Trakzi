@@ -382,6 +382,7 @@ export async function getTransactionHistory(
 
 /**
  * Get needs vs wants breakdown
+ * Uses per-category broad_type when available, falling back to static mapping.
  */
 export async function getNeedsWantsBreakdown(
     userId: string,
@@ -391,6 +392,7 @@ export async function getNeedsWantsBreakdown(
     let query = `
         SELECT 
             COALESCE(c.name, 'Uncategorized') AS category,
+            c.broad_type,
             ABS(SUM(t.amount)) AS total,
             COUNT(*)::int AS count
         FROM transactions t
@@ -408,32 +410,44 @@ export async function getNeedsWantsBreakdown(
         query += ` AND t.tx_date <= $${params.length}::date`
     }
 
-    query += ` GROUP BY c.name`
+    query += ` GROUP BY c.name, c.broad_type`
 
     const rows = await neonQuery<{
         category: string
+        broad_type: string | null
         total: string
         count: number
     }>(query, params)
 
     // Group by needs/wants classification
-    const classified: Record<string, { total: number; count: number }> = {
-        'Essentials': { total: 0, count: 0 },
-        'Mandatory': { total: 0, count: 0 },
-        'Wants': { total: 0, count: 0 },
+    const classified: Record<'Essentials' | 'Mandatory' | 'Wants', { total: number; count: number }> = {
+        Essentials: { total: 0, count: 0 },
+        Mandatory: { total: 0, count: 0 },
+        Wants: { total: 0, count: 0 },
     }
 
     for (const row of rows) {
-        const classification = NEEDS_CATEGORIES[row.category] || 'Wants'
+        let classification: 'Essentials' | 'Mandatory' | 'Wants'
+
+        const normalizedBroad = row.broad_type?.trim()
+        if (normalizedBroad === 'Essentials' || normalizedBroad === 'Mandatory' || normalizedBroad === 'Wants') {
+            classification = normalizedBroad
+        } else {
+            // Fallback to static mapping by category name, defaulting to Wants
+            const mapped = NEEDS_CATEGORIES[row.category] || 'Wants'
+            classification = mapped
+        }
+
         classified[classification].total += parseFloat(row.total) || 0
         classified[classification].count += row.count
     }
 
-    return Object.entries(classified).map(([classification, data]) => ({
-        classification: classification as 'Essentials' | 'Mandatory' | 'Wants',
-        total: data.total,
-        count: data.count,
-    }))
+    return (Object.entries(classified) as Array<[ 'Essentials' | 'Mandatory' | 'Wants', { total: number; count: number } ]>)
+        .map(([classification, data]) => ({
+            classification,
+            total: data.total,
+            count: data.count,
+        }))
 }
 
 /**
