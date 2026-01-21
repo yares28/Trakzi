@@ -130,7 +130,7 @@ export function ChartInfoPopover({
           className
         )}
       >
-        <div className="space-y-3 text-sm max-h-[300px] overflow-y-auto">
+        <div className="space-y-3 text-sm">
           <div className="space-y-1">
             <h4 className="text-sm font-semibold text-foreground">{title}</h4>
             <p className="text-xs text-muted-foreground">{description}</p>

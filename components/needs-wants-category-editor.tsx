@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 
-type SpendingTier = "Essentials" | "Mandatory" | "Wants"
+type SpendingTier = "Essentials" | "Mandatory" | "Wants" | "Other"
 
 type CategoryTier = {
   id: number
@@ -14,6 +14,7 @@ const TIER_LABELS: Record<SpendingTier, string> = {
   Essentials: "Needs",
   Mandatory: "Mandatory",
   Wants: "Wants",
+  Other: "Other",
 }
 
 export function NeedsWantsCategoryEditor() {
@@ -81,7 +82,7 @@ export function NeedsWantsCategoryEditor() {
         </div>
       </div>
       <div className="mt-1 space-y-1.5 max-h-[180px] overflow-y-auto pr-1 text-[0.7rem]">
-        {(["Essentials", "Mandatory", "Wants"] as SpendingTier[]).map((tier) => {
+        {(["Essentials", "Mandatory", "Wants", "Other"] as SpendingTier[]).map((tier) => {
           const tierCategories = categories.filter((c) => (c.tier ?? "Wants") === tier)
           if (tierCategories.length === 0) return null
 

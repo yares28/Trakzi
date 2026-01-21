@@ -20,7 +20,7 @@ export const useCategoryManagement = ({
   const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState("")
   const [newCategoryTier, setNewCategoryTier] = useState<
-    "Essentials" | "Mandatory" | "Wants"
+    "Essentials" | "Mandatory" | "Wants" | "Other"
   >("Wants")
   const [addCategoryLoading, setAddCategoryLoading] = useState(false)
   const [deleteCategoryDialogOpen, setDeleteCategoryDialogOpen] = useState(false)
@@ -28,12 +28,12 @@ export const useCategoryManagement = ({
   const [deleteCategoryLoading, setDeleteCategoryLoading] = useState(false)
 
   const saveCategoryTier = useCallback(
-    (categoryName: string, tier: "Essentials" | "Mandatory" | "Wants") => {
+    (categoryName: string, tier: "Essentials" | "Mandatory" | "Wants" | "Other") => {
       if (typeof window === "undefined") return
       try {
         const key = categoryName.trim().toLowerCase()
         const raw = window.localStorage.getItem(CATEGORY_TIER_STORAGE_KEY)
-        const map: Record<string, "Essentials" | "Mandatory" | "Wants"> = raw
+        const map: Record<string, "Essentials" | "Mandatory" | "Wants" | "Other"> = raw
           ? JSON.parse(raw)
           : {}
         map[key] = tier

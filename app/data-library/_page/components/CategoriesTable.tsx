@@ -57,7 +57,7 @@ type CategoriesTableProps = {
   formatCurrency: (value: number) => string
   onCategoryBroadTypeChange: (
     categoryId: number,
-    next: "Essentials" | "Mandatory" | "Wants",
+    next: "Essentials" | "Mandatory" | "Wants" | "Other",
   ) => void
 }
 
@@ -227,13 +227,11 @@ export function CategoriesTable({
                             | "Essentials"
                             | "Mandatory"
                             | "Wants"
+                            | "Other"
                             | null) ?? "Wants"
                         }
                         onValueChange={(value) =>
-                          onCategoryBroadTypeChange(
-                            category.id,
-                            value as "Essentials" | "Mandatory" | "Wants",
-                          )
+                          onCategoryBroadTypeChange(category.id, value as any)
                         }
                       >
                         <SelectTrigger className="h-8 w-[140px] text-xs">
@@ -243,6 +241,7 @@ export function CategoriesTable({
                           <SelectItem value="Essentials">Needs</SelectItem>
                           <SelectItem value="Mandatory">Mandatory</SelectItem>
                           <SelectItem value="Wants">Wants</SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
                         </SelectContent>
                       </Select>
                     </TableCell>
