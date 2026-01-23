@@ -113,29 +113,27 @@ export function NavMain({
               <span>Quick Create</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
-          {/* Upload button disabled */}
-          {false && (
-            <SidebarMenuItem className="flex items-center gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,.pdf,.csv,.xlsx,.xls"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              <SidebarMenuButton
-                tooltip="Upload File"
-                className="text-white hover:text-white active:text-white min-w-8 duration-200 ease-linear"
-                style={{ backgroundColor: '#5f8787' }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4a6a6a'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#5f8787'}
-                onClick={handleUploadClick}
-              >
-                <IconUpload />
-                <span>Upload</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
+          {/* Upload button */}
+          {/* <SidebarMenuItem className="flex items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,.pdf,.csv,.xlsx,.xls"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <SidebarMenuButton
+              tooltip="Upload File"
+              className="text-white hover:text-white active:text-white min-w-8 duration-200 ease-linear"
+              style={{ backgroundColor: '#5f8787' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4a6a6a'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#5f8787'}
+              onClick={handleUploadClick}
+            >
+              <IconUpload />
+              <span>Upload</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem> */}
         </SidebarMenu>
         <SidebarMenu>
           {items.map((item) => {
