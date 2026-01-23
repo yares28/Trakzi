@@ -114,7 +114,7 @@ export function NavMain({
             </SidebarMenuButton>
           </SidebarMenuItem>
           {/* Upload button */}
-          {/* <SidebarMenuItem className="flex items-center gap-2">
+          <SidebarMenuItem className="flex items-center gap-2">
             <input
               ref={fileInputRef}
               type="file"
@@ -133,7 +133,7 @@ export function NavMain({
               <IconUpload />
               <span>Upload</span>
             </SidebarMenuButton>
-          </SidebarMenuItem> */}
+          </SidebarMenuItem>
         </SidebarMenu>
         <SidebarMenu>
           {items.map((item) => {
