@@ -126,7 +126,15 @@ export function FridgePageClient() {
     }, 100)
 
     return () => clearTimeout(timeoutId)
-  }, [upload.handleUploadFilesChange, upload.handleUploadDialogOpenChange])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only run on mount to avoid performance issues
+
+  // Reset upload processed ref when dialog closes to allow re-uploading
+  useEffect(() => {
+    if (!upload.isUploadDialogOpen) {
+      uploadProcessedRef.current = false
+    }
+  }, [upload.isUploadDialogOpen])
 
   const projectLead = useMemo<FileUpload01Lead | null>(() => {
     if (!isUserLoaded || !user) return null

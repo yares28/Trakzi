@@ -113,6 +113,13 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
     return () => clearTimeout(timeoutId)
   }, [])
 
+  // Reset upload processed ref when dialog closes to allow re-uploading
+  useEffect(() => {
+    if (!isUploadDialogOpen) {
+      uploadProcessedRef.current = false
+    }
+  }, [isUploadDialogOpen])
+
   const handleCategoryChange = useCallback((rowId: number, newCategory: string) => {
     flushSync(() => {
       setParsedRows((prevRows) => {
@@ -678,6 +685,8 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
       clearTimeout(csvRegenerationTimerRef.current)
       csvRegenerationTimerRef.current = null
     }
+    // Reset the upload processed ref to allow re-uploading
+    uploadProcessedRef.current = false
     setIsUploadDialogOpen(false)
     setDroppedFile(null)
     setParsedCsv(null)
