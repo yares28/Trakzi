@@ -77,21 +77,67 @@ export function NavMain({
       fileName.endsWith(".xlsx") ||
       fileName.endsWith(".xls")
 
+    // For PDFs, use filename heuristics to detect if it's a statement or receipt
+    let isStatementPDF = false
+    let isReceiptPDF = false
+    if (isPDF) {
+      // Common statement keywords in filenames
+      const statementKeywords = [
+        "statement",
+        "account",
+        "transaction",
+        "extract",
+        "movement",
+        "bank",
+        "iban",
+        "balance",
+        "debit",
+        "credit",
+        "santander",
+        "revolut",
+        "bbva",
+        "caixa",
+        "ing",
+        "n26",
+        "wise",
+      ]
+      // Common receipt keywords in filenames
+      const receiptKeywords = [
+        "receipt",
+        "recibo",
+        "factura",
+        "ticket",
+        "invoice",
+        "mercadona",
+        "carrefour",
+        "elcorteingles",
+        "alcampo",
+        "eroski",
+      ]
+      isStatementPDF = statementKeywords.some((keyword) => fileName.includes(keyword))
+      isReceiptPDF = receiptKeywords.some((keyword) => fileName.includes(keyword))
+    }
+
     // Route based on file type:
     // Images -> always receipts -> fridge
     // CSV/Excel -> always spending -> analytics  
-    // PDF -> prefer receipts -> fridge
-    if (isImage || (isPDF && !isCSV && !isExcel)) {
+    // PDF -> detect based on filename, default to analytics (statements more common)
+    if (isImage || (isPDF && isReceiptPDF)) {
       // Receipt files go to fridge
-      // Store the actual File object in window so the target page can access it
-      (window as any).__pendingUploadFile = file;
-      (window as any).__pendingUploadTargetPage = "fridge"
+      (window as any).__pendingUploadFile = file
+      ;(window as any).__pendingUploadTargetPage = "fridge"
       router.push("/fridge")
-    } else if (isCSV || isExcel || isPDF) {
+    } else if (isCSV || isExcel || (isPDF && isStatementPDF)) {
       // Spending files go to analytics
-      // Store the actual File object in window so the target page can access it
-      (window as any).__pendingUploadFile = file;
-      (window as any).__pendingUploadTargetPage = "analytics"
+      (window as any).__pendingUploadFile = file
+      ;(window as any).__pendingUploadTargetPage = "analytics"
+      router.push("/analytics")
+    } else if (isPDF) {
+      // PDF without clear indicators - default to analytics (statements are more common in PDF format)
+      // The analytics page will detect if it's actually a receipt and handle accordingly
+      (window as any).__pendingUploadFile = file
+      ;(window as any).__pendingUploadTargetPage = "analytics"
+      ;(window as any).__pendingUploadNeedsDetection = true // Flag for content detection
       router.push("/analytics")
     }
 
