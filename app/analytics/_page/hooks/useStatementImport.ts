@@ -66,6 +66,53 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
     latestParsedRowsRef.current = parsedRows
   }, [parsedRows])
 
+  // Listen for pending uploads from sidebar Upload button
+  const uploadProcessedRef = useRef(false)
+
+  useEffect(() => {
+    const checkPendingUpload = () => {
+      const pendingFile = (window as any).__pendingUploadFile
+      const targetPage = (window as any).__pendingUploadTargetPage
+
+      console.log('[Analytics Statement Upload] Checking for pending upload:', {
+        hasPendingFile: !!pendingFile,
+        targetPage,
+        alreadyProcessed: uploadProcessedRef.current,
+      })
+
+      if (pendingFile && targetPage === "analytics" && !uploadProcessedRef.current) {
+        console.log('[Analytics Statement Upload] Processing pending upload:', pendingFile.name)
+
+        // Mark as processed to prevent re-running
+        uploadProcessedRef.current = true
+
+        // Clear the pending upload markers
+        delete (window as any).__pendingUploadFile
+        delete (window as any).__pendingUploadTargetPage
+
+        // Open the upload dialog with the pending file
+        setDroppedFile(pendingFile)
+        const fileNameWithoutExt = pendingFile.name.replace(/\.[^/.]+$/, "")
+        setProjectName(fileNameWithoutExt)
+        setIsUploadDialogOpen(true)
+
+        console.log('[Analytics Statement Upload] Dialog state set to open')
+        return true
+      }
+      return false
+    }
+
+    // Check immediately
+    if (checkPendingUpload()) return
+
+    // Also check after a short delay in case of timing issues
+    const timeoutId = setTimeout(() => {
+      checkPendingUpload()
+    }, 100)
+
+    return () => clearTimeout(timeoutId)
+  }, [])
+
   const handleCategoryChange = useCallback((rowId: number, newCategory: string) => {
     flushSync(() => {
       setParsedRows((prevRows) => {
