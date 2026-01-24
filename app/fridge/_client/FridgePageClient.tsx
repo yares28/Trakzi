@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useUser } from "@clerk/nextjs"
 
 import type { CategoryLimitExceededData } from "@/components/limits/category-limit-dialog"
@@ -82,6 +82,51 @@ export function FridgePageClient() {
     },
     onLimitExceeded: handleLimitExceeded,
   })
+
+  // Listen for pending uploads from sidebar Upload button
+  const uploadProcessedRef = useRef(false)
+
+  useEffect(() => {
+    const checkPendingUpload = () => {
+      const pendingFile = (window as any).__pendingUploadFile
+      const targetPage = (window as any).__pendingUploadTargetPage
+
+      console.log('[Fridge Upload] Checking for pending upload:', {
+        hasPendingFile: !!pendingFile,
+        targetPage,
+        alreadyProcessed: uploadProcessedRef.current,
+      })
+
+      if (pendingFile && targetPage === "fridge" && !uploadProcessedRef.current) {
+        console.log('[Fridge Upload] Processing pending upload:', pendingFile.name)
+
+        // Mark as processed to prevent re-running
+        uploadProcessedRef.current = true
+
+        // Clear the pending upload markers
+        delete (window as any).__pendingUploadFile
+        delete (window as any).__pendingUploadTargetPage
+
+        // Open the upload dialog with the pending file
+        upload.handleUploadFilesChange([pendingFile])
+        upload.handleUploadDialogOpenChange(true)
+
+        console.log('[Fridge Upload] Dialog state set to open')
+        return true
+      }
+      return false
+    }
+
+    // Check immediately
+    if (checkPendingUpload()) return
+
+    // Also check after a short delay in case of timing issues
+    const timeoutId = setTimeout(() => {
+      checkPendingUpload()
+    }, 100)
+
+    return () => clearTimeout(timeoutId)
+  }, [upload.handleUploadFilesChange, upload.handleUploadDialogOpenChange])
 
   const projectLead = useMemo<FileUpload01Lead | null>(() => {
     if (!isUserLoaded || !user) return null
