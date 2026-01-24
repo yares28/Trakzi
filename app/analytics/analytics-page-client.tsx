@@ -862,35 +862,49 @@ export default function AnalyticsPage() {
   const uploadProcessedRef = useRef(false)
 
   useEffect(() => {
-    const pendingFile = (window as any).__pendingUploadFile
-    const targetPage = (window as any).__pendingUploadTargetPage
+    const checkPendingUpload = () => {
+      const pendingFile = (window as any).__pendingUploadFile
+      const targetPage = (window as any).__pendingUploadTargetPage
 
-    console.log('[Analytics Upload] Checking for pending upload:', {
-      hasPendingFile: !!pendingFile,
-      targetPage,
-      alreadyProcessed: uploadProcessedRef.current,
-    })
+      console.log('[Analytics Upload] Checking for pending upload:', {
+        hasPendingFile: !!pendingFile,
+        targetPage,
+        alreadyProcessed: uploadProcessedRef.current,
+      })
 
-    if (pendingFile && targetPage === "analytics" && !uploadProcessedRef.current) {
-      console.log('[Analytics Upload] Processing pending upload:', pendingFile.name)
+      if (pendingFile && targetPage === "analytics" && !uploadProcessedRef.current) {
+        console.log('[Analytics Upload] Processing pending upload:', pendingFile.name)
 
-      // Mark as processed to prevent re-running
-      uploadProcessedRef.current = true
+        // Mark as processed to prevent re-running
+        uploadProcessedRef.current = true
 
-      // Clear the pending upload markers
-      delete (window as any).__pendingUploadFile
-      delete (window as any).__pendingUploadTargetPage
+        // Clear the pending upload markers
+        delete (window as any).__pendingUploadFile
+        delete (window as any).__pendingUploadTargetPage
 
-      // Open the upload dialog with the pending file
-      setUploadFiles([pendingFile])
-      setFileProgresses({ [`${pendingFile.name}::${pendingFile.size}::${pendingFile.lastModified}`]: 0 })
-      setProjectName(pendingFile.name.replace(/\.(csv|xlsx|xls)$/i, ''))
-      setProjectNameEdited(false)
-      setIsUploadDialogOpen(true)
+        // Open the upload dialog with the pending file
+        setUploadFiles([pendingFile])
+        setFileProgresses({ [`${pendingFile.name}::${pendingFile.size}::${pendingFile.lastModified}`]: 0 })
+        setProjectName(pendingFile.name.replace(/\.(csv|xlsx|xls)$/i, ''))
+        setProjectNameEdited(false)
+        setIsUploadDialogOpen(true)
 
-      console.log('[Analytics Upload] Dialog state set to open')
+        console.log('[Analytics Upload] Dialog state set to open')
+        return true
+      }
+      return false
     }
-  }) // Run on every render but ref prevents multiple executions
+
+    // Check immediately
+    if (checkPendingUpload()) return
+
+    // Also check after a short delay in case of timing issues
+    const timeoutId = setTimeout(() => {
+      checkPendingUpload()
+    }, 100)
+
+    return () => clearTimeout(timeoutId)
+  }, []) // Run once on mount, ref prevents multiple executions
 
   // Helper function to strip file extension for project name
   const stripFileExtension = useCallback((filename: string) => {
