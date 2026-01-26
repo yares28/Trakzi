@@ -203,30 +203,60 @@ export default function TestChartsPage() {
     const [rawTransactions, setRawTransactions] = useState<TestChartsTransaction[]>([])
     const [receiptTransactions, setReceiptTransactions] = useState<ReceiptTransaction[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'testCharts/page.tsx:204',message:'state initialization',data:{receiptTransactionsInitial:receiptTransactions.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
 
     // Memoized data for specific charts (like Fridge Breakdown)
     const fridgeBreakdownData = useMemo(() => {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'testCharts/page.tsx:208',message:'fridgeBreakdownData useMemo entry',data:{receiptTransactionsLength:receiptTransactions?.length,receiptTransactionsType:typeof receiptTransactions,receiptTransactionsIsArray:Array.isArray(receiptTransactions)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         if (!receiptTransactions || receiptTransactions.length === 0) {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'testCharts/page.tsx:210',message:'fridgeBreakdownData early return',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
             return []
         }
         const totals = new Map<string, number>()
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'testCharts/page.tsx:213',message:'before forEach',data:{firstItem:receiptTransactions[0]?JSON.stringify(receiptTransactions[0]):null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         receiptTransactions.forEach((item) => {
             if (!item) return
             const category = item.category || "Other"
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'testCharts/page.tsx:216',message:'forEach item processing',data:{itemAmount:item.amount,itemAmountType:typeof item.amount,category},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
             const spend = Number(item.amount) || 0
             totals.set(category, (totals.get(category) || 0) + spend)
         })
 
-        return Array.from(totals.entries())
-            .sort((a, b) => b[1] - a[1])
-            .map(([category, value]) => ({
+        const entries = Array.from(totals.entries())
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'testCharts/page.tsx:220',message:'before map',data:{entriesLength:entries.length,firstEntry:entries[0]},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
+        const sorted = entries.sort((a, b) => b[1] - a[1])
+        const result = sorted.map(([category, value]) => {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'testCharts/page.tsx:222',message:'map callback',data:{category,value,valueType:typeof value,hasToFixed:typeof value?.toFixed},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
+            return {
                 id: category,
                 label: category,
                 value: Number(value.toFixed(2)),
-            }))
+            }
+        })
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'testCharts/page.tsx:227',message:'fridgeBreakdownData useMemo exit',data:{resultLength:result.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        return result
     }, [receiptTransactions])
 
     const fridgeSpendTrendData = useMemo(() => {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'testCharts/page.tsx:229',message:'fridgeSpendTrendData useMemo entry',data:{receiptTransactionsLength:receiptTransactions?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         if (!receiptTransactions || receiptTransactions.length === 0) {
             return []
         }
@@ -237,9 +267,14 @@ export default function TestChartsPage() {
             if (!date) return
             dailyTotals.set(date, (dailyTotals.get(date) || 0) + (Number(item.amount) || 0))
         })
-        return Array.from(dailyTotals.entries())
-            .map(([date, spend]) => ({ date, spend: Number(spend.toFixed(2)) }))
-            .sort((a, b) => a.date.localeCompare(b.date))
+        const entries = Array.from(dailyTotals.entries())
+        const mapped = entries.map(([date, spend]) => {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'testCharts/page.tsx:241',message:'fridgeSpendTrendData map callback',data:{date,spend,spendType:typeof spend},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
+            return { date, spend: Number(spend.toFixed(2)) }
+        })
+        return mapped.sort((a, b) => a.date.localeCompare(b.date))
     }, [receiptTransactions])
 
     // Fetch all data from bundle API
@@ -264,14 +299,25 @@ export default function TestChartsPage() {
 
             // Set receipt transactions (map to expected format)
             if (bundleData && Array.isArray(bundleData.receiptTransactions)) {
-                const normalizedRx: ReceiptTransaction[] = bundleData.receiptTransactions.map((tx: TestChartsReceiptTransaction) => ({
-                    id: tx.id || 0,
-                    date: tx.receiptDate || "",
-                    description: tx.description || "",
-                    amount: Number(tx.totalPrice) || 0,
-                    category: tx.categoryName || "Other",
-                    spend: Number(tx.totalPrice) || 0
-                }))
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'testCharts/page.tsx:255',message:'before receiptTransactions map',data:{receiptTransactionsLength:bundleData.receiptTransactions.length,firstTx:bundleData.receiptTransactions[0]?JSON.stringify(bundleData.receiptTransactions[0]):null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+                // #endregion
+                const normalizedRx: ReceiptTransaction[] = bundleData.receiptTransactions.map((tx: TestChartsReceiptTransaction) => {
+                    // #region agent log
+                    fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'testCharts/page.tsx:267',message:'receiptTransactions map callback',data:{txId:tx.id,txTotalPrice:tx.totalPrice,txTotalPriceType:typeof tx.totalPrice},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+                    // #endregion
+                    return {
+                        id: tx.id || 0,
+                        date: tx.receiptDate || "",
+                        description: tx.description || "",
+                        amount: Number(tx.totalPrice) || 0,
+                        category: tx.categoryName || "Other",
+                        spend: Number(tx.totalPrice) || 0
+                    }
+                })
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'testCharts/page.tsx:275',message:'after receiptTransactions map',data:{normalizedRxLength:normalizedRx.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+                // #endregion
                 setReceiptTransactions(normalizedRx)
             } else {
                 setReceiptTransactions([])
