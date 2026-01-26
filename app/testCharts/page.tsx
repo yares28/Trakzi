@@ -7,13 +7,14 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
+import type { TestChartsSummary, TestChartsReceiptTransaction } from "@/lib/charts/aggregations"
 // @dnd-kit has built-in auto-scroll
 import {
     SidebarInset,
     SidebarProvider,
 } from "@/components/ui/sidebar"
 import { toast } from "sonner"
-import { normalizeTransactions, cn } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 import { useDateFilter } from "@/components/date-filter-provider"
 import { Button } from "@/components/ui/button"
 import { Activity, Wallet, Refrigerator, ChevronRight } from "lucide-react"
@@ -205,8 +206,12 @@ export default function TestChartsPage() {
 
     // Memoized data for specific charts (like Fridge Breakdown)
     const fridgeBreakdownData = useMemo(() => {
+        if (!receiptTransactions || receiptTransactions.length === 0) {
+            return []
+        }
         const totals = new Map<string, number>()
         receiptTransactions.forEach((item) => {
+            if (!item) return
             const category = item.category || "Other"
             const spend = Number(item.amount) || 0
             totals.set(category, (totals.get(category) || 0) + spend)
@@ -222,11 +227,15 @@ export default function TestChartsPage() {
     }, [receiptTransactions])
 
     const fridgeSpendTrendData = useMemo(() => {
+        if (!receiptTransactions || receiptTransactions.length === 0) {
+            return []
+        }
         const dailyTotals = new Map<string, number>()
         receiptTransactions.forEach(item => {
+            if (!item) return
             const date = item.date
             if (!date) return
-            dailyTotals.set(date, (dailyTotals.get(date) || 0) + (item.amount || 0))
+            dailyTotals.set(date, (dailyTotals.get(date) || 0) + (Number(item.amount) || 0))
         })
         return Array.from(dailyTotals.entries())
             .map(([date, spend]) => ({ date, spend: Number(spend.toFixed(2)) }))
@@ -241,30 +250,36 @@ export default function TestChartsPage() {
                 ? `/api/charts/test-charts-bundle?filter=${encodeURIComponent(dateFilter)}`
                 : "/api/charts/test-charts-bundle"
             
-            const bundleData = await deduplicatedFetch<{
-                transactions: TestChartsTransaction[]
-                receiptTransactions: ReceiptTransaction[]
-            }>(bundleUrl).catch(() => ({ transactions: [], receiptTransactions: [] }))
+            const bundleData = await deduplicatedFetch<TestChartsSummary>(bundleUrl).catch(() => ({ 
+                transactions: [], 
+                receiptTransactions: [] 
+            }))
 
             // Set transactions (already normalized from bundle)
-            if (Array.isArray(bundleData.transactions)) {
+            if (bundleData && Array.isArray(bundleData.transactions)) {
                 setRawTransactions(bundleData.transactions)
+            } else {
+                setRawTransactions([])
             }
 
             // Set receipt transactions (map to expected format)
-            if (Array.isArray(bundleData.receiptTransactions)) {
-                const normalizedRx = bundleData.receiptTransactions.map((tx: any) => ({
-                    ...tx,
-                    id: tx.id || Math.random(),
-                    date: tx.receiptDate || tx.date || "",
-                    amount: tx.totalPrice || tx.amount || 0,
-                    category: tx.categoryName || tx.category || "Other",
-                    spend: tx.totalPrice || tx.amount || 0
+            if (bundleData && Array.isArray(bundleData.receiptTransactions)) {
+                const normalizedRx: ReceiptTransaction[] = bundleData.receiptTransactions.map((tx: TestChartsReceiptTransaction) => ({
+                    id: tx.id || 0,
+                    date: tx.receiptDate || "",
+                    description: tx.description || "",
+                    amount: Number(tx.totalPrice) || 0,
+                    category: tx.categoryName || "Other",
+                    spend: Number(tx.totalPrice) || 0
                 }))
                 setReceiptTransactions(normalizedRx)
+            } else {
+                setReceiptTransactions([])
             }
         } catch (error) {
             console.error("Error fetching test charts bundle:", error)
+            setRawTransactions([])
+            setReceiptTransactions([])
         } finally {
             setIsLoading(false)
         }
