@@ -96,7 +96,7 @@ const aggregateBundleData = (
 const buildMonthlyCategoryUrl = (params: URLSearchParams) =>
   `/api/analytics/monthly-category-duplicate?${params.toString()}`
 
-export function ChartSingleMonthCategorySpending({
+export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleMonthCategorySpending({
   dateFilter,
   monthlyCategoriesData,
   bundleLoading,
@@ -795,4 +795,6 @@ export function ChartSingleMonthCategorySpending({
       </Card>
     </>
   )
-}
+})
+
+ChartSingleMonthCategorySpending.displayName = "ChartSingleMonthCategorySpending"

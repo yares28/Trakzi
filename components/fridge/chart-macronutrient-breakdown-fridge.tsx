@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, memo } from "react"
 import { useTheme } from "next-themes"
 import { ResponsivePie } from "@nivo/pie"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
@@ -65,7 +65,7 @@ function normalizeMacronutrientType(value: string | null | undefined) {
   return trimmed || "Other"
 }
 
-export function ChartMacronutrientBreakdownFridge({ receiptTransactions = [], macronutrientBreakdown, categoryControls, isLoading = false }: ChartMacronutrientBreakdownFridgeProps) {
+export const ChartMacronutrientBreakdownFridge = memo(function ChartMacronutrientBreakdownFridge({ receiptTransactions = [], macronutrientBreakdown, categoryControls, isLoading = false }: ChartMacronutrientBreakdownFridgeProps) {
   const { resolvedTheme } = useTheme()
   const { colorScheme, getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -291,7 +291,9 @@ export function ChartMacronutrientBreakdownFridge({ receiptTransactions = [], ma
       </CardContent>
     </Card>
   )
-}
+})
+
+ChartMacronutrientBreakdownFridge.displayName = "ChartMacronutrientBreakdownFridge"
 
 
 

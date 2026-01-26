@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, memo } from "react"
 import { useTheme } from "next-themes"
 import { ResponsivePie } from "@nivo/pie"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
@@ -47,7 +47,7 @@ const getTextColor = (sliceColor: string, colorScheme?: string): string => {
   return darkColors.includes(sliceColor) ? "#ffffff" : "#000000"
 }
 
-export function ChartExpensesPie({
+export const ChartExpensesPie = memo(function ChartExpensesPie({
   data: baseData = [],
   categoryControls,
   isLoading = false,
@@ -261,5 +261,6 @@ export function ChartExpensesPie({
       </Card>
     </>
   )
-}
+})
 
+ChartExpensesPie.displayName = "ChartExpensesPie"

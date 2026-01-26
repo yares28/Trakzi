@@ -52,7 +52,7 @@ interface ChartDailyActivityFridgeProps {
     isLoading?: boolean
 }
 
-export function ChartDailyActivityFridge({ receiptTransactions = [], dailySpendingData, isLoading = false }: ChartDailyActivityFridgeProps) {
+export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFridge({ receiptTransactions = [], dailySpendingData, isLoading = false }: ChartDailyActivityFridgeProps) {
     const currentYear = new Date().getFullYear()
     const [selectedYear, setSelectedYear] = useState(currentYear.toString())
     const { resolvedTheme } = useTheme()
@@ -490,4 +490,6 @@ export function ChartDailyActivityFridge({ receiptTransactions = [], dailySpendi
             </CardContent>
         </Card>
     )
-}
+})
+
+ChartDailyActivityFridge.displayName = "ChartDailyActivityFridge"

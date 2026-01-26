@@ -75,7 +75,7 @@ function parseReceiptHour(value?: string | null) {
     return hour
 }
 
-export function ChartTimeOfDayShoppingFridge({ receiptTransactions = [], hourlyActivityData, isLoading = false }: ChartTimeOfDayShoppingFridgeProps) {
+export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDayShoppingFridge({ receiptTransactions = [], hourlyActivityData, isLoading = false }: ChartTimeOfDayShoppingFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { getPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
@@ -517,4 +517,6 @@ export function ChartTimeOfDayShoppingFridge({ receiptTransactions = [], hourlyA
             </CardContent>
         </Card>
     )
-}
+})
+
+ChartTimeOfDayShoppingFridge.displayName = "ChartTimeOfDayShoppingFridge"

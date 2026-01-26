@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, memo } from "react"
 import { Area, AreaChart, CartesianGrid, XAxis, Tooltip, TooltipProps } from "recharts"
 import { useTheme } from "next-themes"
 
@@ -42,7 +42,7 @@ interface ChartAreaInteractiveProps {
   emptyDescription?: string
 }
 
-export function ChartAreaInteractive({
+export const ChartAreaInteractive = memo(function ChartAreaInteractive({
   data = [],
   categoryControls,
   chartId = "incomeExpensesTracking1",
@@ -428,4 +428,6 @@ export function ChartAreaInteractive({
       </Card>
     </>
   )
-}
+})
+
+ChartAreaInteractive.displayName = "ChartAreaInteractive"

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, memo } from "react"
 import { useTheme } from "next-themes"
 import { ResponsivePie } from "@nivo/pie"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
@@ -52,7 +52,7 @@ const getTextColor = (sliceColor: string, colorScheme?: string): string => {
   return darkColors.includes(sliceColor) ? "#ffffff" : "#000000"
 }
 
-export function ChartNeedsWantsPie({
+export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
   data: baseData = [],
   categoryControls,
   isLoading = false,
@@ -269,5 +269,6 @@ export function ChartNeedsWantsPie({
       </Card>
     </>
   )
-}
+})
 
+ChartNeedsWantsPie.displayName = "ChartNeedsWantsPie"

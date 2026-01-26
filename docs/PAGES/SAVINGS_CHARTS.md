@@ -2,25 +2,25 @@
 
 This document lists all chart components used on the Savings page.
 
----
-
-## Charts (1 total - more planned for future)
-
-| # | Chart ID | Component File | Description | Data Fetching & Calculation |
-|---|----------|----------------|-------------|------------------------------|
-| 1 | savingsAccumulation | `chart-savings-accumulation.tsx` | Savings Accumulation Over Time - Tracks cumulative savings over time with daily aggregates and optional moving averages | **Fetched from:** `/api/transactions` filtered by "Savings" category (with optional date filter). **Calculated:** Transactions filtered to "Savings" category only. Grouped by date (`YYYY-MM-DD`). Daily aggregates: `income` = sum of positive amounts, `expenses` = sum of negative amounts (absolute values). Cumulative savings calculated: `savings = previousSavings + income - expenses`. Moving averages (7-day and 30-day) calculated from savings values. Data formatted as `{ date, income, expenses, savings, ma7?, ma30? }[]`, sorted chronologically. Supports time range filtering (7d, 30d, 90d) |
+> **IMPORTANT:** When adding, modifying, or deleting charts on this page, update this document accordingly.
 
 ---
 
-## Planned Future Charts
+## Charts (1 total)
 
-The following charts may be added in future updates:
+| # | Chart ID | Component File | Component Name | Description |
+|---|----------|----------------|----------------|-------------|
+| 1 | `savingsAccumulation` | `chart-savings-accumulation.tsx` | `ChartSavingsAccumulation` | Savings Accumulation Over Time - Cumulative savings with daily aggregates and moving averages |
 
-- **Savings Rate Trend** - `chart-savings-rate-trend.tsx` (exists in test-charts)
-- **Savings Goal Progress** - Track progress toward savings goals
-- **Savings by Category** - Breakdown of savings allocation
-- **Monthly Savings Comparison** - Compare savings across months
-- **Emergency Fund Tracker** - Progress toward emergency fund target
+---
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `app/savings/page.tsx` | Main savings page (contains all logic inline) |
+| `components/chart-savings-accumulation.tsx` | Savings accumulation chart component |
+| `lib/charts/home-trends-savings-aggregations.ts` | Shared aggregation for home/trends/savings |
 
 ---
 
@@ -28,16 +28,17 @@ The following charts may be added in future updates:
 
 All charts include:
 - **Fullscreen mode** - Expand button for mobile viewing
-- **AI Insights** - ChartAiInsightButton for AI-generated analysis
-- **Info Popover** - ChartInfoPopover with chart description
-- **Favorite** - ChartFavoriteButton to mark favorite charts
+- **AI Insights** - `ChartAiInsightButton` for AI-generated analysis
+- **Info Popover** - `ChartInfoPopover` with chart description
+- **Favorite** - `ChartFavoriteButton` to mark favorite charts
 - **Drag Handle** - For layout customization
+- **Memoization** - Wrapped with `React.memo`
+
+---
 
 ## Data Source
 
-> **Performance Optimization:** Bundle API available for server-side aggregation.
-
-### Bundle API (Recommended)
+### Bundle API (Primary)
 
 **Endpoint:** `/api/charts/savings-bundle?filter=...`
 
@@ -45,20 +46,65 @@ Returns pre-aggregated data with Redis caching:
 - Savings KPIs (total saved, savings rate, counts)
 - Cumulative chart data with daily amounts
 
-See [DATA_FETCHING.md](./DATA_FETCHING.md) for response format.
+### Cache Key Pattern
+```
+savings:{userId}:{filter}:bundle
+```
 
-### Legacy Endpoint
+### Legacy Data Flow
 
-**Endpoint:** `/api/transactions?category=Savings&all=true`
+The savings page also supports direct transaction fetching:
 
-**Data Processing:** 
-1. Transactions fetched and filtered to "Savings" category
-2. Grouped by date (YYYY-MM-DD)
-3. Daily calculations: income, expenses
-4. Cumulative savings calculated
-5. Moving averages (7-day, 30-day) computed client-side
+1. Fetch from `/api/transactions?category=Savings&all=true`
+2. Group transactions by date (YYYY-MM-DD)
+3. Calculate daily: income (positive), expenses (negative)
+4. Calculate cumulative savings
+5. Compute moving averages (7-day, 30-day)
+
+---
+
+## Chart Data Format
+
+```typescript
+interface SavingsChartData {
+  date: string      // YYYY-MM-DD
+  income: number    // Positive transactions for the day
+  expenses: number  // Negative transactions (absolute value)
+  savings: number   // Cumulative savings
+  ma7?: number      // 7-day moving average (optional)
+  ma30?: number     // 30-day moving average (optional)
+}
+```
+
+---
 
 ## Chart Libraries Used
 
-- **Recharts** - Area charts for accumulation visualization
+| Library | Charts Using It |
+|---------|-----------------|
+| **Recharts** | Area charts for accumulation visualization |
 
+---
+
+## Planned Future Charts
+
+The following charts may be added in future updates:
+
+| Chart Name | Description |
+|------------|-------------|
+| Savings Rate Trend | Track savings rate percentage over time |
+| Savings Goal Progress | Progress bars toward savings goals |
+| Savings by Category | Breakdown of savings allocation |
+| Monthly Savings Comparison | Compare savings across months |
+| Emergency Fund Tracker | Progress toward emergency fund target |
+
+---
+
+## Adding a New Chart
+
+1. Create component in `components/chart-{name}.tsx`
+2. Wrap with `React.memo` and add `displayName`
+3. Add chart ID to `DEFAULT_SAVINGS_ORDER` in `app/savings/page.tsx`
+4. Add to render logic in `app/savings/page.tsx`
+5. Add data to `lib/charts/home-trends-savings-aggregations.ts` if needed
+6. **Update this document with the new chart**

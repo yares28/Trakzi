@@ -52,7 +52,7 @@ function normalizeCategoryName(value: string | null | undefined) {
     return trimmed || "Other"
 }
 
-export function ChartAllMonthsCategoryFridge({ receiptTransactions = [], monthlyCategoriesData, isLoading = false }: ChartAllMonthsCategoryFridgeProps) {
+export const ChartAllMonthsCategoryFridge = React.memo(function ChartAllMonthsCategoryFridge({ receiptTransactions = [], monthlyCategoriesData, isLoading = false }: ChartAllMonthsCategoryFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { getPalette } = useColorScheme()
     const { formatCurrency, symbol } = useCurrency()
@@ -495,4 +495,6 @@ export function ChartAllMonthsCategoryFridge({ receiptTransactions = [], monthly
             </CardContent>
         </Card>
     )
-}
+})
+
+ChartAllMonthsCategoryFridge.displayName = "ChartAllMonthsCategoryFridge"

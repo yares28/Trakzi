@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useEffect, useRef, useCallback, useState } from "react"
+import { useMemo, useEffect, useRef, useCallback, useState, memo } from "react"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
@@ -40,7 +40,7 @@ interface ChartDayOfWeekSpendingProps {
 const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 const dayNamesShort = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-export function ChartDayOfWeekSpending({
+export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
   data = [],
   dayOfWeekCategoryData,
   categoryControls: propCategoryControls,
@@ -786,4 +786,6 @@ export function ChartDayOfWeekSpending({
       </Card>
     </>
   )
-}
+})
+
+ChartDayOfWeekSpending.displayName = "ChartDayOfWeekSpending"

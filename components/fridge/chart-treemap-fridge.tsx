@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, memo } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveTreeMap } from "@nivo/treemap"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
@@ -65,7 +65,7 @@ function getItemLabel(description?: string) {
   return trimmed.length > 24 ? `${trimmed.slice(0, 21)}…` : (trimmed || "Misc")
 }
 
-export function ChartTreeMapFridge({ receiptTransactions = [], categorySpendingData, categoryControls, isLoading = false }: ChartTreeMapFridgeProps) {
+export const ChartTreeMapFridge = memo(function ChartTreeMapFridge({ receiptTransactions = [], categorySpendingData, categoryControls, isLoading = false }: ChartTreeMapFridgeProps) {
   const { getPalette, colorScheme } = useColorScheme()
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
@@ -322,7 +322,9 @@ export function ChartTreeMapFridge({ receiptTransactions = [], categorySpendingD
       </CardContent>
     </Card>
   )
-}
+})
+
+ChartTreeMapFridge.displayName = "ChartTreeMapFridge"
 
 
 

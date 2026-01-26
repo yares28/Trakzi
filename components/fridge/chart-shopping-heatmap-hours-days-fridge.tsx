@@ -40,7 +40,7 @@ interface ChartShoppingHeatmapHoursDaysFridgeProps {
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 const HOURS = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, "0")}:00`)
 
-export function ChartShoppingHeatmapHoursDaysFridge({
+export const ChartShoppingHeatmapHoursDaysFridge = React.memo(function ChartShoppingHeatmapHoursDaysFridge({
     receiptTransactions = [],
     hourDayHeatmapData,
     isLoading = false,
@@ -431,4 +431,6 @@ export function ChartShoppingHeatmapHoursDaysFridge({
             </CardContent>
         </Card>
     )
-}
+})
+
+ChartShoppingHeatmapHoursDaysFridge.displayName = "ChartShoppingHeatmapHoursDaysFridge"

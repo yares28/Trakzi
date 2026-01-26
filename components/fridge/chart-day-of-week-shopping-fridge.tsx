@@ -33,7 +33,7 @@ interface ChartDayOfWeekShoppingFridgeProps {
   dayOfWeekSpendingData?: Array<{ dayOfWeek: number; total: number; count: number }>
 }
 
-export function ChartDayOfWeekShoppingFridge({ data = [], dayOfWeekSpendingData }: ChartDayOfWeekShoppingFridgeProps) {
+export const ChartDayOfWeekShoppingFridge = React.memo(function ChartDayOfWeekShoppingFridge({ data = [], dayOfWeekSpendingData }: ChartDayOfWeekShoppingFridgeProps) {
   const { getPalette } = useColorScheme()
   const { formatCurrency, symbol } = useCurrency()
   const palette = getPalette().filter((color) => color !== "#c3c3c3")
@@ -115,4 +115,6 @@ export function ChartDayOfWeekShoppingFridge({ data = [], dayOfWeekSpendingData 
       </CardContent>
     </Card>
   )
-}
+})
+
+ChartDayOfWeekShoppingFridge.displayName = "ChartDayOfWeekShoppingFridge"

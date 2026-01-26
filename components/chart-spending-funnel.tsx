@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, memo } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveFunnel } from "@nivo/funnel"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
@@ -48,7 +48,7 @@ const getTextColor = (sliceColor: string, colorScheme?: string): string => {
   return darkColors.includes(sliceColor) ? "#ffffff" : "#000000"
 }
 
-export function ChartSpendingFunnel({
+export const ChartSpendingFunnel = memo(function ChartSpendingFunnel({
   data = [],
   categoryControls,
   maxExpenseCategories = 2,
@@ -248,4 +248,6 @@ export function ChartSpendingFunnel({
       </Card>
     </>
   )
-}
+})
+
+ChartSpendingFunnel.displayName = "ChartSpendingFunnel"

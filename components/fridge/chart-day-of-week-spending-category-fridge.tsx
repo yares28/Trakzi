@@ -52,7 +52,7 @@ function normalizeCategoryName(value: string | null | undefined) {
     return trimmed || "Other"
 }
 
-export function ChartDayOfWeekSpendingCategoryFridge({ receiptTransactions = [], isLoading = false }: ChartDayOfWeekSpendingFridgeProps) {
+export const ChartDayOfWeekSpendingCategoryFridge = React.memo(function ChartDayOfWeekSpendingCategoryFridge({ receiptTransactions = [], isLoading = false }: ChartDayOfWeekSpendingFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { getPalette } = useColorScheme()
     const { formatCurrency, symbol } = useCurrency()
@@ -517,4 +517,6 @@ export function ChartDayOfWeekSpendingCategoryFridge({ receiptTransactions = [],
             </CardContent>
         </Card>
     )
-}
+})
+
+ChartDayOfWeekSpendingCategoryFridge.displayName = "ChartDayOfWeekSpendingCategoryFridge"
