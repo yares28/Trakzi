@@ -2,7 +2,7 @@
 
 // Grocery Category Rankings Chart for Fridge - Shows category spending rankings over time
 import * as React from "react"
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState, useEffect, memo } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveAreaBump } from "@nivo/bump"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
@@ -53,7 +53,7 @@ function normalizeCategoryName(value: string | null | undefined) {
     return trimmed || "Other"
 }
 
-export function ChartCategoryFlowFridge({ receiptTransactions = [], monthlyCategoriesData, isLoading = false, dateFilter }: ChartCategoryFlowFridgeProps) {
+export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ receiptTransactions = [], monthlyCategoriesData, isLoading = false, dateFilter }: ChartCategoryFlowFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { getPalette } = useColorScheme()
     const [mounted, setMounted] = useState(false)
@@ -421,4 +421,6 @@ export function ChartCategoryFlowFridge({ receiptTransactions = [], monthlyCateg
             </CardContent>
         </Card>
     )
-}
+})
+
+ChartCategoryFlowFridge.displayName = "ChartCategoryFlowFridge"

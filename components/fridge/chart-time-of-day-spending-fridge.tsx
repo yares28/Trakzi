@@ -58,7 +58,7 @@ function getTimeOfDay(timeString: string | null): string {
   }
 }
 
-export function ChartTimeOfDaySpendingFridge({ data = [], isLoading = false }: ChartTimeOfDaySpendingFridgeProps) {
+export const ChartTimeOfDaySpendingFridge = React.memo(function ChartTimeOfDaySpendingFridge({ data = [], isLoading = false }: ChartTimeOfDaySpendingFridgeProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const { formatCurrency, symbol } = useCurrency()
@@ -434,7 +434,9 @@ export function ChartTimeOfDaySpendingFridge({ data = [], isLoading = false }: C
       </CardContent>
     </Card>
   )
-}
+})
+
+ChartTimeOfDaySpendingFridge.displayName = "ChartTimeOfDaySpendingFridge"
 
 // Export helper function for use in data processing
 export { getTimeOfDay }

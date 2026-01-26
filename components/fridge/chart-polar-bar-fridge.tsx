@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, memo } from "react"
 import { ResponsivePolarBar } from "@nivo/polar-bar"
 import { useTheme } from "next-themes"
 import { IconGripVertical } from "@tabler/icons-react"
@@ -28,7 +28,7 @@ interface ChartPolarBarFridgeProps {
   isLoading?: boolean
 }
 
-export function ChartPolarBarFridge({
+export const ChartPolarBarFridge = memo(function ChartPolarBarFridge({
   data: dataProp = [],
   storeSpendingData,
   keys: keysProp,
@@ -183,4 +183,6 @@ export function ChartPolarBarFridge({
       </CardContent>
     </Card>
   )
-}
+})
+
+ChartPolarBarFridge.displayName = "ChartPolarBarFridge"

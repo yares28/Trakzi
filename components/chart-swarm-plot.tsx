@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, memo } from "react"
 import { ChevronDownIcon } from "lucide-react"
 import { ResponsiveSwarmPlot } from "@nivo/swarmplot"
 import { useTheme } from "next-themes"
@@ -55,7 +55,7 @@ interface ChartSwarmPlotProps {
 
 // Removed MAX_VISIBLE_GROUPS limit - now shows all categories
 
-export function ChartSwarmPlot({ data, emptyTitle, emptyDescription }: ChartSwarmPlotProps) {
+export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, emptyDescription }: ChartSwarmPlotProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -628,4 +628,6 @@ export function ChartSwarmPlot({ data, emptyTitle, emptyDescription }: ChartSwar
       </Card>
     </>
   )
-}
+})
+
+ChartSwarmPlot.displayName = "ChartSwarmPlot"

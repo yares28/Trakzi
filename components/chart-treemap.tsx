@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, memo } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveTreeMap } from "@nivo/treemap"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
@@ -37,7 +37,7 @@ interface ChartTreeMapProps {
   emptyDescription?: string
 }
 
-export function ChartTreeMap({
+export const ChartTreeMap = memo(function ChartTreeMap({
   data = { name: "", children: [] },
   categoryControls,
   isLoading = false,
@@ -222,4 +222,6 @@ export function ChartTreeMap({
       </Card>
     </>
   )
-}
+})
+
+ChartTreeMap.displayName = "ChartTreeMap"

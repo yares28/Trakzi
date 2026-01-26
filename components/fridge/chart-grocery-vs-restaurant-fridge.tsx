@@ -34,7 +34,7 @@ interface MonthlyData {
     [key: string]: string | number
 }
 
-export function ChartGroceryVsRestaurantFridge({ dateFilter, groceryVsRestaurantData }: ChartGroceryVsRestaurantFridgeProps) {
+export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVsRestaurantFridge({ dateFilter, groceryVsRestaurantData }: ChartGroceryVsRestaurantFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { getPalette } = useColorScheme()
     const { formatCurrency, symbol } = useCurrency()
@@ -298,4 +298,6 @@ export function ChartGroceryVsRestaurantFridge({ dateFilter, groceryVsRestaurant
             </CardContent>
         </Card>
     )
-}
+})
+
+ChartGroceryVsRestaurantFridge.displayName = "ChartGroceryVsRestaurantFridge"

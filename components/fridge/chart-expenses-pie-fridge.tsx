@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, memo } from "react"
 import { useTheme } from "next-themes"
 import { ResponsivePie } from "@nivo/pie"
 import { IconGripVertical } from "@tabler/icons-react"
@@ -36,7 +36,7 @@ interface ChartExpensesPieFridgeProps {
     categorySpendingData?: Array<{ category: string; total: number }>
 }
 
-export function ChartExpensesPieFridge({ data, categorySpendingData }: ChartExpensesPieFridgeProps) {
+export const ChartExpensesPieFridge = memo(function ChartExpensesPieFridge({ data, categorySpendingData }: ChartExpensesPieFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { colorScheme, getPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
@@ -201,4 +201,6 @@ export function ChartExpensesPieFridge({ data, categorySpendingData }: ChartExpe
             </CardContent>
         </Card>
     )
-}
+})
+
+ChartExpensesPieFridge.displayName = "ChartExpensesPieFridge"

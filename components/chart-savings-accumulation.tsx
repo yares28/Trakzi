@@ -72,7 +72,7 @@ function calculateMA(data: { date: string; savings: number }[], period: number):
   })
 }
 
-export function ChartSavingsAccumulation({ data: chartData = [], isLoading = false }: ChartSavingsAccumulationProps) {
+export const ChartSavingsAccumulation = React.memo(function ChartSavingsAccumulation({ data: chartData = [], isLoading = false }: ChartSavingsAccumulationProps) {
   const isMobile = useIsMobile()
   const { getPalette } = useColorScheme()
   const { resolvedTheme } = useTheme()
@@ -335,4 +335,6 @@ export function ChartSavingsAccumulation({ data: chartData = [], isLoading = fal
       </CardContent>
     </Card>
   )
-}
+})
+
+ChartSavingsAccumulation.displayName = "ChartSavingsAccumulation"

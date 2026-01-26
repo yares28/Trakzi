@@ -29,7 +29,7 @@ import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 
 export const description = "An interactive area chart"
 
-export function ChartAreaInteractiveFridge({ data }: { data: { date: string; spend: number }[] }) {
+export const ChartAreaInteractiveFridge = React.memo(function ChartAreaInteractiveFridge({ data }: { data: { date: string; spend: number }[] }) {
     const { getPalette } = useColorScheme()
     const { resolvedTheme } = useTheme()
     const isDark = resolvedTheme === "dark"
@@ -188,4 +188,6 @@ export function ChartAreaInteractiveFridge({ data }: { data: { date: string; spe
             </Card>
         </>
     )
-}
+})
+
+ChartAreaInteractiveFridge.displayName = "ChartAreaInteractiveFridge"

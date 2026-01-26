@@ -45,7 +45,7 @@ interface ChartCategoryBubbleProps {
   emptyDescription?: string
 }
 
-export function ChartCategoryBubble({
+export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
   data = [],
   isLoading = false,
   emptyTitle,
@@ -566,5 +566,7 @@ export function ChartCategoryBubble({
       </Card>
     </>
   )
-}
+})
+
+ChartCategoryBubble.displayName = "ChartCategoryBubble"
 

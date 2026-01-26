@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useRef, useState } from "react"
+import { useMemo, useRef, useState, memo } from "react"
 import type { PointerEvent } from "react"
 import { scaleLinear, scalePoint } from "d3-scale"
 import { stack, stackOffsetWiggle, stackOrderInsideOut, area, curveCatmullRom } from "d3-shape"
@@ -61,7 +61,7 @@ const monthFormatter = (monthKey: string) => {
   return `${parsedYear}-${normalizedMonth}`
 }
 
-export function ChartSpendingStreamgraph({
+export const ChartSpendingStreamgraph = memo(function ChartSpendingStreamgraph({
   data = [],
   keys = [],
   categoryControls,
@@ -445,5 +445,6 @@ export function ChartSpendingStreamgraph({
       </Card>
     </>
   )
-}
+})
 
+ChartSpendingStreamgraph.displayName = "ChartSpendingStreamgraph"

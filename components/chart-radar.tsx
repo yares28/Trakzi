@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, memo } from "react"
 import { ChevronDownIcon } from "lucide-react"
 import { ResponsiveRadar, type RadarSliceTooltipProps } from "@nivo/radar"
 import { useTheme } from "next-themes"
@@ -55,7 +55,7 @@ interface ChartRadarProps {
   emptyDescription?: string
 }
 
-export function ChartRadar({
+export const ChartRadar = memo(function ChartRadar({
   categoryControls,
   dateFilter,
   emptyTitle,
@@ -705,4 +705,6 @@ export function ChartRadar({
       </CardContent>
     </Card>
   )
-}
+})
+
+ChartRadar.displayName = "ChartRadar"
