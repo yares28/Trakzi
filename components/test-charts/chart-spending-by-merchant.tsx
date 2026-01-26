@@ -55,13 +55,14 @@ export function ChartSpendingByMerchant({
             merchantTotals.set(merchant, (merchantTotals.get(merchant) || 0) + Math.abs(tx.amount))
         })
 
+        const paletteLength = palette?.length || 0
         return Array.from(merchantTotals.entries())
             .sort((a, b) => b[1] - a[1])
             .slice(0, 8)
             .map(([merchant, total], i) => ({
                 merchant: merchant.length > 20 ? merchant.substring(0, 20) + '...' : merchant,
                 total,
-                color: palette[i % palette.length] || "#fe8339",
+                color: paletteLength > 0 ? (palette[i % paletteLength] || "#fe8339") : "#fe8339",
             }))
     }, [data, palette])
 

@@ -60,6 +60,7 @@ export function ChartBiggestExpenseCategories({
             categoryTotals.set(category, (categoryTotals.get(category) || 0) + Math.abs(tx.amount))
         })
 
+        const paletteLength = palette?.length || 0
         return Array.from(categoryTotals.entries())
             .sort((a, b) => b[1] - a[1])
             .slice(0, 5)
@@ -67,7 +68,7 @@ export function ChartBiggestExpenseCategories({
                 category: category.length > 15 ? category.substring(0, 15) + '...' : category,
                 fullCategory: category,
                 total,
-                color: palette[i % palette.length] || "#fe8339",
+                color: paletteLength > 0 ? (palette[i % paletteLength] || "#fe8339") : "#fe8339",
             }))
     }, [data, palette])
 

@@ -70,13 +70,14 @@ export function ChartIncomeSources({
             sourceTotals.set(source, (sourceTotals.get(source) || 0) + tx.amount)
         })
 
+        const paletteLength = palette?.length || 0
         return Array.from(sourceTotals.entries())
             .sort((a, b) => b[1] - a[1])
             .slice(0, 6)
             .map(([source, total], i) => ({
                 source,
                 total,
-                color: palette[i % palette.length] || "#10b981",
+                color: paletteLength > 0 ? (palette[i % paletteLength] || "#10b981") : "#10b981",
             }))
     }, [data, palette])
 
