@@ -39,7 +39,7 @@ interface ChartShoppingHeatmapDaysMonthsFridgeProps {
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
-export function ChartShoppingHeatmapDaysMonthsFridge({
+export const ChartShoppingHeatmapDaysMonthsFridge = React.memo(function ChartShoppingHeatmapDaysMonthsFridge({
     receiptTransactions = [],
     dayMonthHeatmapData,
     isLoading = false,
@@ -429,4 +429,6 @@ export function ChartShoppingHeatmapDaysMonthsFridge({
             </CardContent>
         </Card>
     )
-}
+})
+
+ChartShoppingHeatmapDaysMonthsFridge.displayName = "ChartShoppingHeatmapDaysMonthsFridge"

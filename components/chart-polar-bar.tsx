@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, memo } from "react"
 import { PolarBarTooltipProps, ResponsivePolarBar } from "@nivo/polar-bar"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
@@ -31,7 +31,7 @@ interface ChartPolarBarProps {
   emptyDescription?: string
 }
 
-export function ChartPolarBar({
+export const ChartPolarBar = memo(function ChartPolarBar({
   data: dataProp = [],
   keys: keysProp,
   categoryControls,
@@ -228,4 +228,6 @@ export function ChartPolarBar({
       </Card>
     </>
   )
-}
+})
+
+ChartPolarBar.displayName = "ChartPolarBar"

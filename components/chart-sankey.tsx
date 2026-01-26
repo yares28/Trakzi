@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, memo } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveSankey } from "@nivo/sankey"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
@@ -63,7 +63,7 @@ const formatNodeId = (id: string) => {
   return value.replace(/\b\w/g, char => char.toUpperCase())
 }
 
-export function ChartSankey({
+export const ChartSankey = memo(function ChartSankey({
   data = { nodes: [], links: [] },
   categoryControls,
   isLoading = false,
@@ -355,5 +355,7 @@ export function ChartSankey({
       </Card>
     </>
   )
-}
+})
+
+ChartSankey.displayName = "ChartSankey"
 

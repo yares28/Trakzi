@@ -87,7 +87,7 @@ const getRangeForFilter = (filter: string) => {
 }
 
 
-export function ChartTransactionCalendar({
+export const ChartTransactionCalendar = React.memo(function ChartTransactionCalendar({
   data: propData,
   dateFilter: propDateFilter,
   emptyTitle,
@@ -623,4 +623,6 @@ export function ChartTransactionCalendar({
       </Card>
     </>
   )
-}
+})
+
+ChartTransactionCalendar.displayName = "ChartTransactionCalendar"

@@ -1,4 +1,5 @@
 import { SortableGridItem, SortableGridProvider, type GridWidth } from "@/components/sortable-grid"
+import { LazyChart } from "@/components/lazy-chart"
 import { ChartAreaInteractiveFridge } from "@/components/fridge/chart-area-interactive-fridge"
 import { ChartCategoryFlowFridge } from "@/components/fridge/chart-category-flow-fridge"
 import { ChartExpenseBreakdownFridge } from "@/components/fridge/chart-expense-breakdown-fridge"
@@ -50,6 +51,28 @@ export function ChartsGrid({
 
   const handleResize = (id: string, w: GridWidth, h: number) => {
     onResize(id as FridgeChartId, w, h)
+  }
+
+  // Map of chart IDs to their display titles for LazyChart
+  const chartTitles: Record<FridgeChartId, string> = {
+    grocerySpendTrend: "Grocery Spend Trend",
+    groceryCategoryRankings: "Category Rankings",
+    groceryExpenseBreakdown: "Expense Breakdown",
+    groceryMacronutrientBreakdown: "Macronutrient Breakdown",
+    grocerySnackPercentage: "Snack Percentage",
+    groceryEmptyVsNutritious: "Empty vs Nutritious",
+    groceryDailyActivity: "Daily Activity",
+    groceryDayOfWeekCategory: "Day of Week by Category",
+    grocerySingleMonthCategory: "Single Month Category",
+    groceryAllMonthsCategory: "All Months Category",
+    groceryDayOfWeekSpending: "Day of Week Spending",
+    groceryTimeOfDay: "Time of Day",
+    groceryVsRestaurant: "Grocery vs Restaurant",
+    groceryTransactionHistory: "Transaction History",
+    groceryPurchaseSizeComparison: "Purchase Size Comparison",
+    groceryShoppingHeatmapHoursDays: "Shopping Heatmap (Hours/Days)",
+    groceryShoppingHeatmapDaysMonths: "Shopping Heatmap (Days/Months)",
+    groceryNetWorthAllocation: "Net Worth Allocation",
   }
 
   const renderChart = (chartId: FridgeChartId) => {
@@ -213,9 +236,11 @@ export function ChartsGrid({
                 maxH={sizeConfig.maxH}
                 onResize={handleResize}
               >
-              <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                {renderChart(chartId)}
-              </div>
+              <LazyChart title={chartTitles[chartId]} height={250}>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  {renderChart(chartId)}
+                </div>
+              </LazyChart>
             </SortableGridItem>
           )
         })}

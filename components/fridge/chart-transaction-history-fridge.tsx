@@ -1,7 +1,7 @@
 "use client"
 
 // Transaction History (Swarm Plot) for Fridge Page - Shows receipt transactions grouped by food category
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, memo } from "react"
 import { ChevronDownIcon } from "lucide-react"
 import { ResponsiveSwarmPlot } from "@nivo/swarmplot"
 import { useTheme } from "next-themes"
@@ -71,7 +71,7 @@ interface ChartTransactionHistoryFridgeProps {
     isLoading?: boolean
 }
 
-export function ChartTransactionHistoryFridge({
+export const ChartTransactionHistoryFridge = memo(function ChartTransactionHistoryFridge({
     receiptTransactions = [],
     categorySpendingData,
     isLoading = false
@@ -488,4 +488,6 @@ export function ChartTransactionHistoryFridge({
             </CardContent>
         </Card>
     )
-}
+})
+
+ChartTransactionHistoryFridge.displayName = "ChartTransactionHistoryFridge"

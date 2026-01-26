@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, memo } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveAreaBump } from "@nivo/bump"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
@@ -36,7 +36,7 @@ interface ChartCategoryFlowProps {
   emptyDescription?: string
 }
 
-export function ChartCategoryFlow({
+export const ChartCategoryFlow = memo(function ChartCategoryFlow({
   data = [],
   categoryControls,
   isLoading = false,
@@ -358,5 +358,6 @@ export function ChartCategoryFlow({
       </Card>
     </>
   )
-}
+})
 
+ChartCategoryFlow.displayName = "ChartCategoryFlow"

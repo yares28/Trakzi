@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, memo } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveCirclePacking } from "@nivo/circle-packing"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
@@ -41,7 +41,7 @@ interface ChartCirclePackingProps {
   emptyDescription?: string
 }
 
-export function ChartCirclePacking({
+export const ChartCirclePacking = memo(function ChartCirclePacking({
   data = { name: "", children: [] },
   categoryControls,
   isLoading = false,
@@ -121,5 +121,7 @@ export function ChartCirclePacking({
       </CardContent>
     </Card>
   )
-}
+})
+
+ChartCirclePacking.displayName = "ChartCirclePacking"
 

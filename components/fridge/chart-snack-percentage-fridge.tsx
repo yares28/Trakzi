@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, memo } from "react"
 import { useTheme } from "next-themes"
 import { ResponsivePie } from "@nivo/pie"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
@@ -74,7 +74,7 @@ function normalizeStoreName(value: string | null | undefined) {
   return raw
 }
 
-export function ChartSnackPercentageFridge({ receiptTransactions = [], categorySpendingData, isLoading = false }: ChartSnackPercentageFridgeProps) {
+export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFridge({ receiptTransactions = [], categorySpendingData, isLoading = false }: ChartSnackPercentageFridgeProps) {
   const { resolvedTheme } = useTheme()
   const { colorScheme, getPalette } = useColorScheme()
   const [mounted, setMounted] = useState(false)
@@ -493,7 +493,9 @@ export function ChartSnackPercentageFridge({ receiptTransactions = [], categoryS
       </CardContent>
     </Card>
   )
-}
+})
+
+ChartSnackPercentageFridge.displayName = "ChartSnackPercentageFridge"
 
 
 

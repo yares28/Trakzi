@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useEffect, useRef, useCallback, useState } from "react"
+import { useMemo, useEffect, useRef, useCallback, useState, memo } from "react"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
@@ -81,7 +81,7 @@ const buildMonthTotals = (
   return totals
 }
 
-export function ChartAllMonthsCategorySpending({
+export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCategorySpending({
   data = [],
   monthlyCategoriesData,
   categoryControls: propCategoryControls,
@@ -987,4 +987,6 @@ export function ChartAllMonthsCategorySpending({
       </Card >
     </>
   )
-}
+})
+
+ChartAllMonthsCategorySpending.displayName = "ChartAllMonthsCategorySpending"

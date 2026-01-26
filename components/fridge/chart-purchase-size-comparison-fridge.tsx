@@ -54,7 +54,7 @@ const SIZE_RANGES = [
     { label: "$200+", min: 200, max: Infinity },
 ]
 
-export function ChartPurchaseSizeComparisonFridge({
+export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurchaseSizeComparisonFridge({
     receiptTransactions = [],
     storeSpendingData,
     isLoading = false,
@@ -398,4 +398,6 @@ export function ChartPurchaseSizeComparisonFridge({
             </CardContent>
         </Card>
     )
-}
+})
+
+ChartPurchaseSizeComparisonFridge.displayName = "ChartPurchaseSizeComparisonFridge"

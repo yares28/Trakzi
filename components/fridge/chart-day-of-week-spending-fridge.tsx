@@ -33,7 +33,7 @@ interface ChartDayOfWeekSpendingFridgeProps {
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 const DAY_NAMES_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-export function ChartDayOfWeekSpendingFridge({ data = [], dayOfWeekSpendingData, isLoading = false }: ChartDayOfWeekSpendingFridgeProps) {
+export const ChartDayOfWeekSpendingFridge = React.memo(function ChartDayOfWeekSpendingFridge({ data = [], dayOfWeekSpendingData, isLoading = false }: ChartDayOfWeekSpendingFridgeProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const { formatCurrency, symbol } = useCurrency()
@@ -419,7 +419,9 @@ export function ChartDayOfWeekSpendingFridge({ data = [], dayOfWeekSpendingData,
       </CardContent>
     </Card>
   )
-}
+})
+
+ChartDayOfWeekSpendingFridge.displayName = "ChartDayOfWeekSpendingFridge"
 
 
 

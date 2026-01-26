@@ -53,7 +53,7 @@ const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satu
 const buildDayOfWeekUrl = (params: URLSearchParams) =>
   `/api/analytics/day-of-week-category?${params.toString()}`
 
-export function ChartDayOfWeekCategory({
+export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory({
   dateFilter,
   bundleData,
   bundleLoading,
@@ -753,4 +753,6 @@ export function ChartDayOfWeekCategory({
       </Card>
     </>
   )
-}
+})
+
+ChartDayOfWeekCategory.displayName = "ChartDayOfWeekCategory"
