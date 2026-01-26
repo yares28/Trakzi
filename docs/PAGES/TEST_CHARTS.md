@@ -101,6 +101,8 @@ The Test Charts page is a playground for testing and previewing chart components
 | File | Purpose |
 |------|---------|
 | `app/testCharts/page.tsx` | Main test charts page with all sections |
+| `app/api/charts/test-charts-bundle/route.ts` | Bundle API endpoint for test charts data |
+| `lib/charts/aggregations.ts` | Contains `getTestChartsBundle()` aggregation function |
 | `components/test-charts/index.ts` | Barrel export for all test chart components |
 | `components/test-charts/*.tsx` | Individual test chart components |
 | `components/fridge/*.tsx` | Fridge chart components (shared with Fridge page) |
@@ -109,15 +111,44 @@ The Test Charts page is a playground for testing and previewing chart components
 
 ## Data Sources
 
-The Test Charts page fetches data from:
+The Test Charts page fetches data from a **single bundle API**:
 
-1. **Transactions API**: `/api/transactions?filter=...`
-   - Used for all analytics and savings charts
-   - Returns normalized transaction array
+1. **Test Charts Bundle API**: `/api/charts/test-charts-bundle?filter=...`
+   - Aggregates both transactions and receipt transactions
+   - Returns pre-normalized data with Redis caching (5 min TTL)
+   - Used for all analytics, savings, and fridge charts
+   - Replaces the previous approach of fetching from `/api/transactions` and `/api/fridge` separately
 
-2. **Fridge API**: `/api/fridge?filter=...&all=true`
-   - Used for fridge section charts
-   - Returns receipt transactions
+### Bundle Response Format
+
+```json
+{
+  "transactions": [
+    {
+      "id": 1,
+      "date": "2024-01-15",
+      "description": "Transaction description",
+      "amount": 50.00,
+      "balance": 1000.00,
+      "category": "Groceries"
+    }
+  ],
+  "receiptTransactions": [
+    {
+      "id": 1,
+      "receiptId": "uuid",
+      "storeName": "Store Name",
+      "receiptDate": "2024-01-15",
+      "receiptTime": "14:30:00",
+      "description": "Item description",
+      "totalPrice": 25.50,
+      "categoryName": "Food",
+      "categoryColor": "#6366f1"
+    }
+  ],
+  "hasDataInOtherPeriods": true
+}
+```
 
 ---
 

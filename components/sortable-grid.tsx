@@ -205,7 +205,7 @@ export function SortableGridProvider({
                     style={{
                         gridAutoFlow: 'row dense', // Pack items densely row by row
                         gridAutoRows: '70px', // Fixed row height for 2D packing
-                        transition: 'grid-template-columns 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+                        // Removed grid-template-columns transition - layout properties cause expensive reflows
                     }}
                 >
                     {children}
@@ -357,18 +357,13 @@ export function SortableGridItem({
                     // Transform for dragging (no scale during drag to avoid weirdness)
                     transform: adjustedTransform ? CSS.Transform.toString(adjustedTransform) : undefined,
                     // NO transition during drag for immediate feedback
-                    // Smooth transitions only when not dragging
+                    // Only use GPU-composited properties (transform, opacity, box-shadow)
+                    // Removed grid-row/grid-column transitions - they trigger expensive layout recalculations
                     transition: isDragging
                         ? 'none'
                         : isResizing
                             ? 'box-shadow 200ms ease, opacity 200ms ease'
-                            : `
-                                grid-row 300ms cubic-bezier(0.4, 0, 0.2, 1),
-                                grid-column 300ms cubic-bezier(0.4, 0, 0.2, 1),
-                                transform 300ms cubic-bezier(0.4, 0, 0.2, 1),
-                                box-shadow 200ms ease,
-                                opacity 200ms ease
-                            `.replace(/\s+/g, ' ').trim(),
+                            : 'transform 200ms ease-out, box-shadow 200ms ease, opacity 200ms ease',
                     // Visual feedback
                     opacity: isDragging ? 0.9 : 1,
                     zIndex: isDragging ? 1000 : isResizing ? 999 : undefined,

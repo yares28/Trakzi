@@ -233,29 +233,38 @@ export default function TestChartsPage() {
             .sort((a, b) => a.date.localeCompare(b.date))
     }, [receiptTransactions])
 
-    // Fetch all data
+    // Fetch all data from bundle API
     const fetchAllData = useCallback(async () => {
         setIsLoading(true)
         try {
-            const [txData, rxData] = await Promise.all([
-                deduplicatedFetch<any[]>(dateFilter ? `/api/transactions?filter=${encodeURIComponent(dateFilter)}` : "/api/transactions"),
-                deduplicatedFetch<any[]>(dateFilter ? `/api/fridge?filter=${encodeURIComponent(dateFilter)}&all=true` : "/api/fridge?all=true")
-            ]).catch(() => [[], []])
+            const bundleUrl = dateFilter 
+                ? `/api/charts/test-charts-bundle?filter=${encodeURIComponent(dateFilter)}`
+                : "/api/charts/test-charts-bundle"
+            
+            const bundleData = await deduplicatedFetch<{
+                transactions: TestChartsTransaction[]
+                receiptTransactions: ReceiptTransaction[]
+            }>(bundleUrl).catch(() => ({ transactions: [], receiptTransactions: [] }))
 
-            if (Array.isArray(txData)) setRawTransactions(normalizeTransactions(txData) as TestChartsTransaction[])
-            if (Array.isArray(rxData)) {
-                // Map rxData to what charts expect
-                const normalizedRx = rxData.map((tx: any) => ({
+            // Set transactions (already normalized from bundle)
+            if (Array.isArray(bundleData.transactions)) {
+                setRawTransactions(bundleData.transactions)
+            }
+
+            // Set receipt transactions (map to expected format)
+            if (Array.isArray(bundleData.receiptTransactions)) {
+                const normalizedRx = bundleData.receiptTransactions.map((tx: any) => ({
                     ...tx,
                     id: tx.id || Math.random(),
-                    date: tx.date || tx.receiptDate || "",
-                    amount: tx.amount || tx.totalPrice || 0,
-                    category: tx.category || tx.categoryName || "Other"
+                    date: tx.receiptDate || tx.date || "",
+                    amount: tx.totalPrice || tx.amount || 0,
+                    category: tx.categoryName || tx.category || "Other",
+                    spend: tx.totalPrice || tx.amount || 0
                 }))
                 setReceiptTransactions(normalizedRx)
             }
         } catch (error) {
-            console.error("Error fetching data:", error)
+            console.error("Error fetching test charts bundle:", error)
         } finally {
             setIsLoading(false)
         }
