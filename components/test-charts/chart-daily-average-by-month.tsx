@@ -57,6 +57,7 @@ export function ChartDailyAverageByMonth({
             monthlyData.set(month, existing)
         })
 
+        const paletteLength = palette?.length || 0
         return Array.from(monthlyData.entries())
             .sort((a, b) => a[0].localeCompare(b[0]))
             .slice(-12)
@@ -66,7 +67,7 @@ export function ChartDailyAverageByMonth({
                     month,
                     dailyAvg,
                     daysActive: data.days.size,
-                    color: palette[i % palette.length] || "#fe8339",
+                    color: paletteLength > 0 ? (palette[i % paletteLength] || "#fe8339") : "#fe8339",
                 }
             })
     }, [data, palette])
