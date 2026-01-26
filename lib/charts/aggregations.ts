@@ -704,3 +704,195 @@ export async function getAnalyticsBundle(
     }
 }
 
+// Test Charts Bundle Types
+export interface TestChartsTransaction {
+    id: number
+    date: string
+    description: string
+    amount: number
+    balance: number | null
+    category: string
+}
+
+export interface TestChartsReceiptTransaction {
+    id: number
+    receiptId: string
+    storeName: string | null
+    receiptDate: string
+    receiptTime: string | null
+    receiptTotalAmount: number
+    receiptStatus: string
+    description: string
+    quantity: number
+    pricePerUnit: number
+    totalPrice: number
+    categoryId: number | null
+    categoryTypeId: number | null
+    categoryName: string | null
+    categoryColor: string | null
+    categoryTypeName: string | null
+    categoryTypeColor: string | null
+}
+
+export interface TestChartsSummary {
+    transactions: TestChartsTransaction[]
+    receiptTransactions: TestChartsReceiptTransaction[]
+}
+
+/**
+ * Get complete test charts bundle - single endpoint for all test chart data
+ * Returns both transactions and receipt transactions for test charts playground
+ */
+export async function getTestChartsBundle(
+    userId: string,
+    filter: string | null
+): Promise<TestChartsSummary> {
+    const { startDate, endDate } = getDateRange(filter)
+
+    // Fetch transactions
+    let transactionsQuery = `
+        SELECT 
+            t.id, 
+            t.tx_date, 
+            t.description, 
+            t.amount, 
+            t.balance, 
+            t.category_id,
+            c.name as category_name
+        FROM transactions t
+        LEFT JOIN categories c ON t.category_id = c.id
+        WHERE t.user_id = $1
+    `
+    const txParams: any[] = [userId]
+
+    if (startDate && endDate) {
+        transactionsQuery += ` AND t.tx_date >= $${txParams.length + 1} AND t.tx_date <= $${txParams.length + 2}`
+        txParams.push(startDate, endDate)
+    }
+
+    transactionsQuery += ` ORDER BY t.tx_date DESC, t.id DESC LIMIT 10000`
+
+    // Fetch receipt transactions
+    let receiptsQuery = `
+        SELECT 
+            rt.id,
+            rt.description,
+            rt.quantity,
+            rt.price_per_unit,
+            rt.total_price,
+            rt.category_id,
+            rt.category_type_id,
+            rt.receipt_date,
+            rt.receipt_time,
+            r.store_name,
+            r.id as receipt_id,
+            r.total_amount as receipt_total_amount,
+            r.status as receipt_status,
+            rc.name as category_name,
+            rc.color as category_color,
+            rct.name as category_type_name,
+            rct.color as category_type_color
+        FROM receipt_transactions rt
+        INNER JOIN receipts r ON rt.receipt_id = r.id
+        LEFT JOIN receipt_categories rc ON rt.category_id = rc.id
+        LEFT JOIN receipt_category_types rct ON rt.category_type_id = rct.id
+        WHERE rt.user_id = $1
+    `
+    const rxParams: any[] = [userId]
+
+    if (startDate && endDate) {
+        receiptsQuery += ` AND rt.receipt_date >= $${rxParams.length + 1} AND rt.receipt_date <= $${rxParams.length + 2}`
+        rxParams.push(startDate, endDate)
+    }
+
+    receiptsQuery += ` ORDER BY rt.receipt_date DESC, rt.receipt_time DESC, rt.id DESC LIMIT 10000`
+
+    // Run both queries in parallel
+    const [txRows, rxRows] = await Promise.all([
+        neonQuery<{
+            id: number
+            tx_date: Date | string
+            description: string
+            amount: number
+            balance: number | null
+            category_id: number | null
+            category_name: string | null
+        }>(transactionsQuery, txParams),
+        neonQuery<{
+            id: number
+            description: string
+            quantity: string | number
+            price_per_unit: string | number
+            total_price: string | number
+            category_id: number | null
+            category_type_id: number | null
+            receipt_date: string | Date
+            receipt_time: string | null
+            store_name: string | null
+            receipt_id: string
+            receipt_total_amount: string | number
+            receipt_status: string
+            category_name: string | null
+            category_color: string | null
+            category_type_name: string | null
+            category_type_color: string | null
+        }>(receiptsQuery, rxParams)
+    ])
+
+    // Helper to convert date to ISO string
+    const toIsoDate = (value: string | Date): string => {
+        if (typeof value === 'string') return value.split('T')[0]
+        const year = value.getUTCFullYear()
+        const month = String(value.getUTCMonth() + 1).padStart(2, '0')
+        const day = String(value.getUTCDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+    }
+
+    // Helper to convert to number
+    const toNumber = (value: unknown): number => {
+        if (typeof value === 'number') return value
+        if (typeof value === 'string') {
+            const normalized = value.replace(',', '.')
+            const parsed = Number(normalized)
+            return Number.isFinite(parsed) ? parsed : 0
+        }
+        return 0
+    }
+
+    // Format transactions
+    const transactions: TestChartsTransaction[] = txRows.map(tx => ({
+        id: tx.id,
+        date: toIsoDate(tx.tx_date),
+        description: tx.description,
+        amount: toNumber(tx.amount),
+        balance: tx.balance ? toNumber(tx.balance) : null,
+        category: tx.category_name || 'Other'
+    }))
+
+    // Format receipt transactions
+    const receiptTransactions: TestChartsReceiptTransaction[] = rxRows.map(row => ({
+        id: row.id,
+        receiptId: row.receipt_id,
+        storeName: row.store_name,
+        receiptDate: toIsoDate(row.receipt_date),
+        receiptTime: row.receipt_time,
+        receiptTotalAmount: toNumber(row.receipt_total_amount),
+        receiptStatus: row.receipt_status,
+        description: row.description,
+        quantity: toNumber(row.quantity),
+        pricePerUnit: toNumber(row.price_per_unit),
+        totalPrice: toNumber(row.total_price),
+        categoryId: row.category_id,
+        categoryTypeId: row.category_type_id,
+        categoryName: row.category_name,
+        categoryColor: row.category_color,
+        categoryTypeName: row.category_type_name,
+        categoryTypeColor: row.category_type_color
+    }))
+
+    return {
+        transactions,
+        receiptTransactions
+    }
+}
+

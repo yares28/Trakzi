@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(claude mcp add:*)",
+      "Bash(claude mcp list)",
+      "Bash(npm run build:*)",
+      "Bash(git add components/chart-*.tsx components/fridge/chart-*.tsx components/lazy-chart.tsx components/chart-visibility-provider.tsx)",
+      "Bash(git add docs/PAGES/ANALYTICS_CHARTS.md docs/PAGES/FRIDGE_CHARTS.md docs/PAGES/SAVINGS_CHARTS.md docs/PAGES/TEST_CHARTS.md)",
+      "Bash(git add CLAUDE.md)",
+      "Bash(git add app/analytics/_page/components/ChartsGrid.tsx app/fridge/_client/components/ChartsGrid.tsx app/home/_page/components/ChartsGrid.tsx)"
+    ]
+  },
+  "enabledPlugins": {
+    "code-review@claude-plugins-official": true,
+    "commit-commands@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true,
+    "vercel@claude-plugins-official": true,
+    "stripe@claude-plugins-official": true
+  },
+  "outputStyle": "Explanatory",
+  "spinnerTipsEnabled": false
+}
