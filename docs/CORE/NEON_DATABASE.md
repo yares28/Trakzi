@@ -829,11 +829,358 @@ Important context and caveats for the schema and infrastructure.
 
 5. **Neon Auth**: The `neon_auth` schema contains a `users_sync` table, indicating Neon Auth may have been provisioned at some point, though it's not currently active in the main database.
 
+---
+
+## API Routes Reference
+
+Complete listing of all API endpoints organized by feature domain. Total: **68 routes**.
+
+### Chart Bundles (Aggregated Data APIs)
+
+Bundle APIs aggregate multiple chart data sources into a single response with Redis caching for performance.
+
+| Route | Method | Description | Cache TTL |
+|-------|--------|-------------|-----------|
+| `/api/charts/home-bundle` | GET | Home page charts (KPIs, activity rings, daily spending) | 5 min |
+| `/api/charts/analytics-bundle` | GET | Analytics page charts (category breakdown, trends) | 5 min |
+| `/api/charts/fridge-bundle` | GET | Fridge page charts (grocery spending, receipt stats) | 5 min |
+| `/api/charts/trends-bundle` | GET | Trends page charts (category trends over time) | 5 min |
+| `/api/charts/savings-bundle` | GET | Savings page charts (savings rate, cumulative) | 5 min |
+| `/api/charts/data-library-bundle` | GET | Data library overview | 5 min |
+| `/api/charts/test-charts-bundle` | GET | Test charts playground (transactions + receipt transactions) | 5 min |
+
+### Individual Chart APIs
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/charts/transaction-history` | GET | Transaction timeline data |
+| `/api/dashboard-stats` | GET | Dashboard statistics |
+| `/api/stats` | GET | General statistics |
+| `/api/financial-health` | GET | Financial health score |
+
+### Analytics APIs
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/analytics/grocery-vs-restaurant` | GET | Grocery vs. eating out comparison |
+| `/api/analytics/category-bubble` | GET | Category bubble chart data |
+| `/api/analytics/day-of-week-category` | GET | Day-of-week spending by category |
+| `/api/analytics/monthly-category-duplicate` | GET | Monthly category breakdown |
+
+### Transaction APIs
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/transactions` | GET, POST | List/create transactions |
+| `/api/transactions/[id]` | GET, PUT, DELETE | Single transaction operations |
+| `/api/transactions/daily` | GET | Daily transaction aggregates |
+| `/api/transactions/daily-365` | GET | 365-day history |
+| `/api/transactions/years` | GET | Available transaction years |
+| `/api/transactions/total-count` | GET | Total transaction count |
+| `/api/transactions/preferences` | GET, POST | User's categorization preferences |
+
+### Category APIs
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/categories` | GET, POST | List/create spending categories |
+| `/api/categories/[id]` | PUT, DELETE | Update/delete category |
+| `/api/categories/count` | GET | Category count |
+| `/api/categories/needs-wants` | GET | Needs vs. wants analysis |
+| `/api/categories/backfill` | POST | Backfill category for transactions |
+| `/api/categories/reset` | POST | Reset to default categories |
+
+### Statement & Import APIs
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/statements` | GET | List statements |
+| `/api/statements/[id]` | GET, DELETE | Get/delete statement details |
+| `/api/statements/[id]/transactions` | GET | Get transactions from statement |
+| `/api/statements/import` | POST | Import CSV statements |
+| `/api/statements/parse` | POST | Parse uploaded CSV file |
+
+### Receipt & Fridge APIs
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/receipts` | GET | List receipts |
+| `/api/receipts/[id]` | GET, DELETE | Get/delete receipt details |
+| `/api/receipts/upload` | POST | Upload receipt images/PDFs |
+| `/api/receipts/commit` | POST | Finalize receipt processing |
+| `/api/receipts/manual` | POST | Manual receipt entry |
+| `/api/receipt-categories` | GET, POST | Receipt category management |
+| `/api/receipt-categories/types` | GET | Macronutrient types |
+| `/api/receipt-categories/migrate` | POST | Migration utilities |
+| `/api/receipt-transactions/[id]` | GET, PUT | Get/update receipt line item |
+| `/api/receipt-transactions/[id]/category` | PUT | Update item category |
+| `/api/receipt-stores/language` | GET, PUT | Store language settings |
+| `/api/fridge` | GET | Fridge aggregation |
+
+### Billing & Subscription APIs
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/billing/portal` | POST | Stripe customer portal session |
+| `/api/billing/change-plan` | POST | Switch subscription plan |
+| `/api/billing/preview-upgrade` | GET | Preview plan upgrade costs |
+| `/api/billing/cancel` | POST | Cancel subscription at period end |
+| `/api/billing/cancel-now` | POST | Cancel immediately |
+| `/api/billing/cancel-preview` | GET | Preview cancellation |
+| `/api/billing/reactivate` | POST | Reactivate canceled subscription |
+| `/api/billing/apply-retention-coupon` | POST | Apply retention coupon |
+| `/api/checkout` | POST | Stripe checkout session |
+| `/api/subscription/me` | GET | Get current subscription |
+| `/api/subscription/status` | GET | Subscription status |
+| `/api/stripe/sync-subscription` | POST | Sync subscription from Stripe |
+| `/api/budgets` | GET, POST | Category budget management |
+
+### File APIs
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/files` | GET | List uploaded files |
+| `/api/files/upload` | POST | Upload files |
+
+### AI Features APIs
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/ai/chat` | POST | Chat with AI insights |
+| `/api/ai/chart-insight` | POST | AI-generated chart insights |
+
+### Webhook APIs
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/webhook/stripe` | POST | Stripe webhook receiver |
+| `/api/webhook/clerk` | POST | Clerk webhook receiver |
+
+### Admin & Maintenance APIs
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/admin/backfill-all-categories` | POST | Backfill all users' categories |
+| `/api/cache/invalidate` | POST | Manually invalidate cache |
+| `/api/health` | GET | Health check |
+| `/api/limits/status` | GET | User's current usage limits |
+| `/api/debug/sync-user` | POST | Debug user sync |
+| `/api/migrations/fix-default-categories` | POST | Migrate default categories |
+
+---
+
+## Bundle APIs & Caching
+
+Every page loads chart data via a **single bundle API** that aggregates all charts and caches with **Upstash Redis**.
+
+### Bundle Architecture
+
+```
+Page Request
+    ↓
+Bundle API Route (/api/charts/*-bundle)
+    ↓
+getCachedOrCompute(cacheKey, aggregationFn, ttl)
+    ↓
+┌─────────────────────────────────────────┐
+│  Cache HIT?                              │
+│  ├─ YES → Return cached data            │
+│  └─ NO  → Run aggregation function      │
+│           → Cache result                 │
+│           → Return data                  │
+└─────────────────────────────────────────┘
+```
+
+### Bundle Routes by Page
+
+| Page | Bundle API | Aggregation File | Summary Type |
+|------|------------|------------------|--------------|
+| Home | `/api/charts/home-bundle` | `lib/charts/home-trends-savings-aggregations.ts` | `HomeSummary` |
+| Analytics | `/api/charts/analytics-bundle` | `lib/charts/aggregations.ts` | `AnalyticsSummary` |
+| Fridge | `/api/charts/fridge-bundle` | `lib/charts/fridge-aggregations.ts` | `FridgeSummary` |
+| Trends | `/api/charts/trends-bundle` | `lib/charts/home-trends-savings-aggregations.ts` | `TrendsSummary` |
+| Savings | `/api/charts/savings-bundle` | `lib/charts/home-trends-savings-aggregations.ts` | `SavingsSummary` |
+| Data Library | `/api/charts/data-library-bundle` | — | `DataLibrarySummary` |
+| Test Charts | `/api/charts/test-charts-bundle` | `lib/charts/aggregations.ts` | `TestChartsSummary` |
+
+### Cache Configuration (`lib/cache/upstash.ts`)
+
+**Cache Key Prefixes:**
+```typescript
+const CACHE_PREFIX = {
+    analytics: 'analytics',
+    fridge: 'fridge',
+    home: 'home',
+    trends: 'trends',
+    savings: 'savings',
+    categories: 'categories',
+    'data-library': 'data-library',
+    'test-charts': 'test-charts',
+}
+```
+
+**TTL Values:**
+| Type | TTL | Use Case |
+|------|-----|----------|
+| `analytics` | 5 minutes | Chart data (default) |
+| `fridge` | 5 minutes | Receipt/grocery data |
+| `categories` | 30 minutes | Category lookups |
+| `short` | 1 minute | Frequently changing data |
+
+### Cache Key Format
+
+```
+user:{userId}:{prefix}:{filter}:{suffix}
+```
+
+**Examples:**
+- `user:user_2abc123xyz:analytics:12m:bundle`
+- `user:user_2abc123xyz:home:3m:bundle`
+- `user:user_2abc123xyz:categories:list`
+
+### Cache Usage Pattern
+
+```typescript
+import { getCachedOrCompute, buildCacheKey, CACHE_TTL } from '@/lib/cache/upstash'
+
+// In bundle route:
+const cacheKey = buildCacheKey('analytics', userId, filter, 'bundle')
+const data = await getCachedOrCompute<AnalyticsSummary>(
+    cacheKey,
+    () => getAnalyticsBundle(userId, filter),
+    CACHE_TTL.analytics  // 5 minutes
+)
+```
+
+### Cache Invalidation
+
+When data changes (upload, edit, delete), invalidate the relevant cache:
+
+```typescript
+import { invalidateUserCachePrefix } from '@/lib/cache/upstash'
+
+// After mutation:
+await invalidateUserCachePrefix(userId, 'analytics')
+await invalidateUserCachePrefix(userId, 'home')
+```
+
+**Which prefixes to invalidate:**
+
+| After... | Invalidate |
+|----------|------------|
+| Transaction create/update/delete | `analytics`, `home`, `trends`, `savings`, `test-charts` |
+| Category create/update/delete | `categories`, `analytics`, `test-charts` |
+| Receipt create/update/delete | `fridge`, `test-charts` |
+| Statement import | `analytics`, `home`, `trends`, `savings`, `data-library`, `test-charts` |
+
+---
+
+## Data Flow
+
+How data moves through the system from import to display.
+
+### Bank Statement Flow
+
+```
+CSV/PDF Upload
+    ↓
+/api/statements/parse (detect bank format)
+    ↓
+lib/parsing/ (bank-specific parsers)
+    ↓
+/api/statements/import (save to DB)
+    ↓
+lib/ai/ (AI categorization via Anthropic)
+    ↓
+Neon DB (transactions table)
+    ↓
+lib/charts/ (aggregations)
+    ↓
+Bundle API (cached response)
+    ↓
+UI Components
+```
+
+### Receipt Flow
+
+```
+Receipt Image/PDF
+    ↓
+/api/receipts/upload
+    ↓
+lib/receipts/ocr/ (OCR extraction)
+    ↓
+lib/receipts/parsers/ (store-specific parsing)
+    ↓
+lib/ai/ (item categorization)
+    ↓
+/api/receipts/commit (finalize)
+    ↓
+Neon DB (receipts + receipt_transactions)
+    ↓
+lib/charts/fridge-aggregations.ts
+    ↓
+/api/charts/fridge-bundle
+    ↓
+Fridge UI
+```
+
+### Three-System Identity Flow
+
+```
+Clerk Authentication
+    ↓
+Clerk userId (e.g., "user_2abc123xyz")
+    ↓
+┌─────────────────────────────────────────┐
+│  /api/webhook/clerk                      │
+│  Creates user in Neon if not exists     │
+└─────────────────────────────────────────┘
+    ↓
+Neon users.id = Clerk userId (same value)
+    ↓
+┌─────────────────────────────────────────┐
+│  /api/checkout                           │
+│  Creates Stripe customer with metadata  │
+│  { userId: clerkUserId }                │
+└─────────────────────────────────────────┘
+    ↓
+Stripe customer.metadata.userId = Clerk userId
+    ↓
+┌─────────────────────────────────────────┐
+│  /api/webhook/stripe                     │
+│  Updates Neon subscriptions table       │
+│  using customer.metadata.userId         │
+└─────────────────────────────────────────┘
+```
+
+### Authentication Flow (Every API Request)
+
+```typescript
+// lib/auth.ts
+import { getCurrentUserId } from '@/lib/auth'
+
+export async function GET() {
+    // 1. Get Clerk userId (throws 401 if not authenticated)
+    const userId = await getCurrentUserId()
+
+    // 2. User exists in Neon (ensured by Clerk webhook)
+
+    // 3. All queries scoped by userId
+    const data = await neonQuery(
+        'SELECT * FROM table WHERE user_id = $1',
+        [userId]
+    )
+}
+```
+
+---
+
 ## Last Updated
 
 Snapshot timestamp for this document. Refresh using Neon MCP when needed.
 
-This documentation was generated on: **December 30, 2025**
+This documentation was generated on: **January 26, 2026**
 
 Metadata, metrics, and connection details were refreshed using Neon MCP tools and reflect the current state of the database.
 
@@ -841,6 +1188,7 @@ Metadata, metrics, and connection details were refreshed using Neon MCP tools an
 
 Notable schema and data changes since the previous snapshot.
 
+- **January 26, 2026**: Added comprehensive API Routes Reference (68 routes), Bundle APIs & Caching documentation, and Data Flow diagrams
 - **December 30, 2025**: Refreshed organization, project, branch, compute, and size metrics via Neon MCP; added preview branch summary
 - **December 28, 2025**: Expanded category system:
   - Transaction categories: 22 -> 41 (added utilities, transport, health, shopping subcategories)

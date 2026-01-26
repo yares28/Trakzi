@@ -12,6 +12,7 @@ import { FavoritesProvider } from "@/components/favorites-provider";
 import { DateFilterProvider } from "@/components/date-filter-provider";
 import { QueryProvider } from "@/components/query-provider";
 import { ChartResizeProvider } from "@/lib/chart-resize-context";
+import { ChartVisibilityProvider } from "@/components/chart-visibility-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { PostHogUserIdentifier } from "@/components/posthog-user-identifier";
 
@@ -57,6 +58,7 @@ export default function RootLayout({
           >
             <QueryProvider>
               <ChartResizeProvider>
+                <ChartVisibilityProvider storageScope="analytics">
                 <ColorSchemeProvider>
                   <CurrencyProvider>
                     <FavoritesProvider>
@@ -72,6 +74,7 @@ export default function RootLayout({
                     <SpeedInsights />
                   </CurrencyProvider>
                 </ColorSchemeProvider>
+                </ChartVisibilityProvider>
               </ChartResizeProvider>
             </QueryProvider>
           </ThemeProvider>

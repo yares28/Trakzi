@@ -298,6 +298,81 @@ function DraggableRow<TData>({ row }: { row: Row<TData> }) {
   )
 }
 
+// Memoized transaction row to prevent re-renders when other rows' selection changes
+interface TransactionRowProps {
+  tx: {
+    id: number
+    date: string
+    description: string
+    amount: number
+    balance: number | null
+    category: string
+  }
+  isSelected: boolean
+  isDeleting: boolean
+  onToggleSelection: (id: number) => void
+  onDelete: (id: number) => void
+  formatCurrency: (amount: number) => string
+}
+
+const TransactionRow = React.memo(function TransactionRow({
+  tx,
+  isSelected,
+  isDeleting,
+  onToggleSelection,
+  onDelete,
+  formatCurrency,
+}: TransactionRowProps) {
+  return (
+    <TableRow
+      className="group relative"
+      data-state={isSelected ? "selected" : undefined}
+    >
+      <TableCell className="w-12">
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={() => onToggleSelection(tx.id)}
+          aria-label={`Select transaction ${tx.id}`}
+        />
+      </TableCell>
+      <TableCell className="w-28 flex-shrink-0">
+        {formatDateForDisplay(tx.date, "en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        })}
+      </TableCell>
+      <TableCell className="min-w-[150px] md:min-w-[250px] lg:min-w-[350px] max-w-[400px]">
+        <div className="truncate" title={tx.description}>
+          {tx.description}
+        </div>
+      </TableCell>
+      <TableCell className={`text-right font-medium w-20 md:w-24 flex-shrink-0 ${tx.amount < 0 ? "text-red-500" : "text-green-500"}`}>
+        {formatCurrency(tx.amount)}
+      </TableCell>
+      <TableCell className="w-[140px] flex-shrink-0">
+        <Badge variant="outline">{tx.category}</Badge>
+      </TableCell>
+      <TableCell className="w-12 flex-shrink-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+          onClick={() => onDelete(tx.id)}
+          disabled={isDeleting}
+          title="Delete transaction"
+        >
+          {isDeleting ? (
+            <IconLoader className="h-4 w-4 animate-spin" />
+          ) : (
+            <IconTrash className="h-4 w-4" />
+          )}
+        </Button>
+      </TableCell>
+    </TableRow>
+  )
+})
+
 interface DataTableProps<TData, TValue> {
   data: TData[]
   columns?: ColumnDef<TData, TValue>[]
@@ -757,53 +832,15 @@ export function DataTable<TData, TValue>({
                       }
 
                       return pageData.map((tx) => (
-                        <TableRow
+                        <TransactionRow
                           key={tx.id}
-                          className="group relative"
-                          data-state={selectedTransactionIds.has(tx.id) ? "selected" : undefined}
-                        >
-                          <TableCell className="w-12">
-                            <Checkbox
-                              checked={selectedTransactionIds.has(tx.id)}
-                              onCheckedChange={() => toggleTransactionSelection(tx.id)}
-                              aria-label={`Select transaction ${tx.id}`}
-                            />
-                          </TableCell>
-                          <TableCell className="w-28 flex-shrink-0">
-                            {formatDateForDisplay(tx.date, "en-US", {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </TableCell>
-                          <TableCell className="min-w-[150px] md:min-w-[250px] lg:min-w-[350px] max-w-[400px]">
-                            <div className="truncate" title={tx.description}>
-                              {tx.description}
-                            </div>
-                          </TableCell>
-                          <TableCell className={`text-right font-medium w-20 md:w-24 flex-shrink-0 ${tx.amount < 0 ? "text-red-500" : "text-green-500"}`}>
-                            {formatCurrency(tx.amount)}
-                          </TableCell>
-                          <TableCell className="w-[140px] flex-shrink-0">
-                            <Badge variant="outline">{tx.category}</Badge>
-                          </TableCell>
-                          <TableCell className="w-12 flex-shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-                              onClick={() => openDeleteDialog(tx.id)}
-                              disabled={deletingId === tx.id}
-                              title="Delete transaction"
-                            >
-                              {deletingId === tx.id ? (
-                                <IconLoader className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <IconTrash className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </TableCell>
-                        </TableRow>
+                          tx={tx}
+                          isSelected={selectedTransactionIds.has(tx.id)}
+                          isDeleting={deletingId === tx.id}
+                          onToggleSelection={toggleTransactionSelection}
+                          onDelete={openDeleteDialog}
+                          formatCurrency={formatCurrency}
+                        />
                       ))
                     })()}
                   </TableBody>
