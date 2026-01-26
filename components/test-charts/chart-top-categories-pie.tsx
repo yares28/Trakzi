@@ -64,11 +64,12 @@ export function ChartTopCategoriesPie({
         const others = sorted.slice(5)
         const othersTotal = others.reduce((sum, [_, val]) => sum + val, 0)
 
+        const paletteLength = palette?.length || 0
         const result = top5.map(([name, value], i) => ({
             id: name,
             label: name,
             value,
-            color: palette[i % palette.length] || "#6b7280",
+            color: paletteLength > 0 ? (palette[i % paletteLength] || "#6b7280") : "#6b7280",
         }))
 
         if (othersTotal > 0) {

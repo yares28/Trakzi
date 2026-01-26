@@ -73,6 +73,7 @@ export function ChartCategoryProgress({
             categoryTotals.set(category, (categoryTotals.get(category) || 0) + Math.abs(tx.amount))
         })
 
+        const paletteLength = palette?.length || 0
         return Object.entries(activeBudgets).map(([category, budget], i) => {
             const spent = categoryTotals.get(category) || 0
             const progress = (spent / budget) * 100
@@ -81,7 +82,7 @@ export function ChartCategoryProgress({
                 spent,
                 budget,
                 progress: Math.min(progress, 150), // Cap at 150% for display
-                color: progress > 100 ? '#ef4444' : progress > 75 ? '#f59e0b' : palette[i % palette.length] || '#10b981',
+                color: progress > 100 ? '#ef4444' : progress > 75 ? '#f59e0b' : (paletteLength > 0 ? (palette[i % paletteLength] || '#10b981') : '#10b981'),
             }
         }).filter(d => d.budget > 0)
     }, [data, activeBudgets, palette])

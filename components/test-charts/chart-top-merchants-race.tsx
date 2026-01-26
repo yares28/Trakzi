@@ -70,6 +70,7 @@ export function ChartTopMerchantsRace({
         })
 
         // Get top 5 merchants
+        const paletteLength = palette?.length || 0
         return Array.from(merchantTotals.entries())
             .sort((a, b) => b[1] - a[1])
             .slice(0, 5)
@@ -77,7 +78,7 @@ export function ChartTopMerchantsRace({
                 name,
                 total,
                 rank: index + 1,
-                color: palette[index % palette.length] || "#6b7280",
+                color: paletteLength > 0 ? (palette[index % paletteLength] || "#6b7280") : "#6b7280",
             }))
     }, [data, palette])
 

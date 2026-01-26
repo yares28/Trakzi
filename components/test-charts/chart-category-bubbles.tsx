@@ -51,6 +51,7 @@ export function ChartCategoryBubbles({
 
     const chartData = useMemo((): TreeMapNode | null => {
         if (!data || data.length === 0) return null
+        if (!palette || !Array.isArray(palette) || palette.length === 0) return null
 
         const categoryTotals = new Map<string, number>()
 
@@ -60,6 +61,7 @@ export function ChartCategoryBubbles({
             categoryTotals.set(category, (categoryTotals.get(category) || 0) + Math.abs(tx.amount))
         })
 
+        const paletteLength = palette.length
         const children: TreeMapNode[] = Array.from(categoryTotals.entries())
             .filter(([_, value]) => value > 0)
             .sort((a, b) => b[1] - a[1])
@@ -67,7 +69,7 @@ export function ChartCategoryBubbles({
             .map(([name, value], i) => ({
                 id: name,
                 value,
-                color: palette[i % palette.length] || "#6b7280",
+                color: palette[i % paletteLength] || "#6b7280",
             }))
 
         if (children.length === 0) return null

@@ -54,14 +54,17 @@ export function ChartLargestTransactions({
             }))
             .sort((a, b) => b.absAmount - a.absAmount)
             .slice(0, 10)
-            .map((tx, index) => ({
-                description: tx.description.slice(0, 30) + (tx.description.length > 30 ? "..." : ""),
-                fullDescription: tx.description,
-                amount: tx.absAmount,
-                date: new Date(tx.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-                category: tx.category || "Other",
-                color: palette[index % palette.length] || "#6b7280",
-            }))
+            .map((tx, index) => {
+                const paletteLength = palette?.length || 0
+                return {
+                    description: tx.description.slice(0, 30) + (tx.description.length > 30 ? "..." : ""),
+                    fullDescription: tx.description,
+                    amount: tx.absAmount,
+                    date: new Date(tx.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+                    category: tx.category || "Other",
+                    color: paletteLength > 0 ? (palette[index % paletteLength] || "#6b7280") : "#6b7280",
+                }
+            })
     }, [data, palette])
 
     // Animate bars

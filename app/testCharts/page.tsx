@@ -302,7 +302,7 @@ export default function TestChartsPage() {
                 // #region agent log
                 fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'testCharts/page.tsx:255',message:'before receiptTransactions map',data:{receiptTransactionsLength:bundleData.receiptTransactions.length,firstTx:bundleData.receiptTransactions[0]?JSON.stringify(bundleData.receiptTransactions[0]):null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
                 // #endregion
-                const normalizedRx: ReceiptTransaction[] = bundleData.receiptTransactions.map((tx: TestChartsReceiptTransaction) => {
+                const normalizedRx: ReceiptTransaction[] = bundleData.receiptTransactions.map((tx) => {
                     // #region agent log
                     fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'testCharts/page.tsx:267',message:'receiptTransactions map callback',data:{txId:tx.id,txTotalPrice:tx.totalPrice,txTotalPriceType:typeof tx.totalPrice},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
                     // #endregion
@@ -337,6 +337,9 @@ export default function TestChartsPage() {
 
     // Render chart based on chartId
     const renderChart = (chartId: string) => {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'testCharts/page.tsx:340',message:'renderChart called',data:{chartId,rawTransactionsLength:rawTransactions?.length,isLoading},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+        // #endregion
         const chartProps = {
             data: rawTransactions,
             isLoading: isLoading,

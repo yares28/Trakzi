@@ -72,6 +72,7 @@ export function ChartPaymentMethods({
             methodTotals.set(method, (methodTotals.get(method) || 0) + Math.abs(tx.amount))
         })
 
+        const paletteLength = palette?.length || 0
         return Array.from(methodTotals.entries())
             .sort((a, b) => b[1] - a[1])
             .slice(0, 6)
@@ -79,7 +80,7 @@ export function ChartPaymentMethods({
                 id: method,
                 label: method,
                 value: total,
-                color: palette[i % palette.length] || "#6b7280",
+                color: paletteLength > 0 ? (palette[i % paletteLength] || "#6b7280") : "#6b7280",
             }))
     }, [data, palette])
 
