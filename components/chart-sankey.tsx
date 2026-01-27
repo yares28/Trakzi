@@ -17,6 +17,7 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { ChartExpandButton } from "@/components/chart-expand-button"
@@ -198,20 +199,22 @@ export const ChartSankey = memo(function ChartSankey({
           const label = getNodeLabel(node.id)
           const value = typeof node.value === "number" ? node.value : 0
           return (
-            <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-              <div className="font-medium text-foreground">{label}</div>
-              <div className="text-muted-foreground">{formatCurrency(value)}</div>
-            </div>
+            <NivoChartTooltip
+              title={label}
+              hideTitleIndicator
+              value={formatCurrency(value)}
+            />
           )
         }}
         linkTooltip={({ link }) => {
           const sourceLabel = getNodeLabel(link.source.id)
           const targetLabel = getNodeLabel(link.target.id)
           return (
-            <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-              <div className="font-medium text-foreground">{sourceLabel} → {targetLabel}</div>
-              <div className="text-muted-foreground">{formatCurrency(toNumericValue(link.value))}</div>
-            </div>
+            <NivoChartTooltip
+              title={`${sourceLabel} → ${targetLabel}`}
+              hideTitleIndicator
+              value={formatCurrency(toNumericValue(link.value))}
+            />
           )
         }}
         colors={chartColors}
@@ -255,20 +258,22 @@ export const ChartSankey = memo(function ChartSankey({
           const label = getNodeLabel(node.id)
           const value = typeof node.value === "number" ? node.value : 0
           return (
-            <div className="rounded-md border border-border/60 bg-background/95 px-2 py-1.5 text-xs shadow-lg">
-              <div className="font-medium text-foreground">{label}</div>
-              <div className="text-muted-foreground">{formatCurrency(value)}</div>
-            </div>
+            <NivoChartTooltip
+              title={label}
+              hideTitleIndicator
+              value={formatCurrency(value)}
+            />
           )
         }}
         linkTooltip={({ link }) => {
           const sourceLabel = getNodeLabel(link.source.id)
           const targetLabel = getNodeLabel(link.target.id)
           return (
-            <div className="rounded-md border border-border/60 bg-background/95 px-2 py-1.5 text-xs shadow-lg">
-              <div className="font-medium text-foreground">{sourceLabel} → {targetLabel}</div>
-              <div className="text-muted-foreground">{formatCurrency(toNumericValue(link.value))}</div>
-            </div>
+            <NivoChartTooltip
+              title={`${sourceLabel} → ${targetLabel}`}
+              hideTitleIndicator
+              value={formatCurrency(toNumericValue(link.value))}
+            />
           )
         }}
         colors={chartColors}

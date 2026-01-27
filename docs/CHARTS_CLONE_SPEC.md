@@ -1,6 +1,6 @@
 # Complete Chart Card Clone Specification
 
-> **Last Updated**: December 2024  
+> **Last Updated**: January 2025
 > **Purpose**: Step-by-step guide to clone a chart card with ALL required features
 
 This document provides **every detail** needed to create a new chart card that matches the existing Trakzi chart system perfectly.
@@ -279,31 +279,101 @@ arcLabelsTextColor={(d: { color: string }) => getTextColor(d.color, colorScheme)
 
 ### 3. **Custom Tooltips** 💬
 
-**Standard Tooltip Pattern** (works in light/dark mode):
+> **IMPORTANT**: All charts use a unified tooltip system for consistent styling and boundary behavior.
+
+#### Unified Tooltip Components
+
+**For Nivo Charts (Pie, Radar, Sankey, TreeMap, etc.)**:
 ```tsx
+import { NivoChartTooltip } from "@/components/chart-tooltip"
+
+// Simple tooltip with title, color indicator, and value
 tooltip={({ datum }) => (
-  <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-    <div className="flex items-center gap-2">
-      <span 
-        className="h-2.5 w-2.5 rounded-full border border-border/50" 
-        style={{ backgroundColor: datum.color, borderColor: datum.color }} 
-      />
-      <span className="font-medium text-foreground whitespace-nowrap">
-        {datum.label}
-      </span>
-    </div>
-    <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-      {formatCurrency(datum.value)}
-    </div>
-  </div>
+  <NivoChartTooltip
+    title={datum.label}
+    titleColor={datum.color}
+    value={formatCurrency(datum.value)}
+    subValue={`${percentage.toFixed(1)}%`}  // Optional
+  />
+)}
+
+// Multi-row tooltip (e.g., radar chart with multiple series)
+sliceTooltip={({ index, data }) => (
+  <NivoChartTooltip
+    title="Category Name"
+    hideTitleIndicator
+    rows={data.map((item) => ({
+      color: item.color,
+      label: item.id,
+      value: formatCurrency(item.value),
+    }))}
+  />
 )}
 ```
 
-**Classes used**:
-- `bg-background/95` - Semi-transparent background (adapts to theme)
-- `border-border/60` - Border color (adapts to theme)
+**For Recharts Charts**:
+```tsx
+import { ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+
+// ChartTooltip automatically constrains tooltips within chart boundaries
+<ChartTooltip
+  cursor={false}
+  content={
+    <ChartTooltipContent
+      labelFormatter={(value) => formatDate(value)}
+      indicator="dot"
+    />
+  }
+/>
+```
+
+#### Tooltip Boundary Behavior
+
+**Tooltips stay within chart boundaries** - they won't overflow outside the visible chart area:
+- **Recharts**: Uses `allowEscapeViewBox={{ x: false, y: false }}` (built into `ChartTooltip`)
+- **Nivo**: Tooltips use `pointer-events-none` to prevent flickering
+
+#### NivoChartTooltip Props
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `title` | `string` | Main tooltip title/label |
+| `titleColor` | `string` | Color for title indicator dot |
+| `hideTitleIndicator` | `boolean` | Hide the color dot next to title |
+| `value` | `string` | Primary value (formatted) |
+| `subValue` | `string` | Secondary value (percentage, date, etc.) |
+| `rows` | `ChartTooltipRowProps[]` | Multiple rows for multi-series data |
+| `maxWidth` | `number` | Max width before text wraps (default: 300) |
+| `children` | `ReactNode` | Custom content instead of structured data |
+
+#### Legacy Pattern (Deprecated)
+
+The inline tooltip pattern below is **deprecated** - use `NivoChartTooltip` instead:
+```tsx
+// ❌ DEPRECATED - Don't use inline tooltips
+tooltip={({ datum }) => (
+  <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
+    ...
+  </div>
+)}
+
+// ✅ USE THIS INSTEAD
+tooltip={({ datum }) => (
+  <NivoChartTooltip
+    title={datum.label}
+    titleColor={datum.color}
+    value={formatCurrency(datum.value)}
+  />
+)}
+```
+
+**Unified styling classes** (used internally by `NivoChartTooltip`):
+- `bg-background` - Background (adapts to theme)
+- `border-border/50` - Border color (adapts to theme)
 - `text-foreground` - Primary text (adapts to theme)
 - `text-foreground/80` - Secondary text (adapts to theme)
+- `pointer-events-none` - Prevents tooltip flickering
+- `select-none` - Prevents text selection
 
 ---
 
@@ -385,6 +455,7 @@ import { useState, useEffect, useMemo } from "react"
 import { useTheme } from "next-themes"
 import { ResponsivePie } from "@nivo/pie"  // Or your chart library
 import { ChartInfoPopover } from "@/components/chart-info-popover"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
@@ -475,18 +546,11 @@ export function YourChartComponent({
       colors={chartColors}
       theme={{ text: { fill: textColor, fontSize: 12 } }}
       tooltip={({ datum }) => (
-        <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-          <div className="flex items-center gap-2">
-            <span 
-              className="h-2.5 w-2.5 rounded-full" 
-              style={{ backgroundColor: datum.color }} 
-            />
-            <span className="font-medium text-foreground">{datum.label}</span>
-          </div>
-          <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-            {formatCurrency(datum.value)}
-          </div>
-        </div>
+        <NivoChartTooltip
+          title={datum.label}
+          titleColor={datum.color}
+          value={formatCurrency(datum.value)}
+        />
       )}
       // ... other chart-specific props
     />
@@ -639,6 +703,7 @@ const textColor = isDark ? "#9ca3af" : "#4b5563"
 
 ```tsx
 import { ResponsivePie } from "@nivo/pie"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
 
 const theme = {
   text: { fill: textColor, fontSize: 12 },
@@ -660,7 +725,14 @@ const theme = {
   cornerRadius={3}
   activeOuterRadiusOffset={8}
   arcLabelsTextColor={(d) => getTextColor(d.color, colorScheme)}
-  tooltip={CustomTooltip}
+  // Use unified tooltip component for consistency
+  tooltip={({ datum }) => (
+    <NivoChartTooltip
+      title={datum.label}
+      titleColor={datum.color}
+      value={formatCurrency(datum.value)}
+    />
+  )}
   // ... other props
 />
 ```
@@ -757,7 +829,7 @@ const DEFAULT_CHART_SIZES = {
 ### Required Imports
 ```tsx
 // Hooks
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, memo } from "react"
 import { useTheme } from "next-themes"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
@@ -770,6 +842,7 @@ import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { ChartExpandButton } from "@/components/chart-expand-button"
 import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 import { ChartLoadingState } from "@/components/chart-loading-state"
+import { NivoChartTooltip } from "@/components/chart-tooltip"  // Unified tooltip for Nivo charts
 import { Card, CardHeader, CardTitle, CardAction, CardContent } from "@/components/ui/card"
 
 // Utils
@@ -787,5 +860,5 @@ interface ChartProps {
 
 ---
 
-**Last Updated**: December 2024  
+**Last Updated**: January 2025
 **Maintained by**: Trakzi Development Team
