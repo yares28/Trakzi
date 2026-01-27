@@ -31,6 +31,7 @@ import { toNumericValue } from "@/lib/utils"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import { ChartLoadingState } from "@/components/chart-loading-state"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 
@@ -418,10 +419,10 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
         const color = (datum.color || node.color || chartColors[0]) as string
 
         return (
-          <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
+          <NivoChartTooltip maxWidth={220}>
             <div className="flex items-center gap-2">
               <span
-                className="h-2.5 w-2.5 rounded-full border border-border/50"
+                className="h-2.5 w-2.5 shrink-0 rounded-full border border-border/50"
                 style={{ backgroundColor: color, borderColor: color }}
               />
               <span className="font-medium text-foreground whitespace-nowrap">
@@ -437,11 +438,11 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
               </div>
             )}
             {datum.description && (
-              <div className="mt-1 text-[0.7rem] text-foreground/60 max-w-[200px]">
+              <div className="mt-1 text-[0.7rem] text-foreground/60">
                 {datum.description}
               </div>
             )}
-          </div>
+          </NivoChartTooltip>
         )
       }}
     />

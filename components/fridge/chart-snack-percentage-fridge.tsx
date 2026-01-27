@@ -7,6 +7,7 @@ import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
 import {
   Card,
   CardAction,
@@ -457,7 +458,7 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
             tooltip={({ datum }) => {
               const storeData = datum.data as typeof data[0]
               return (
-                <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
+                <NivoChartTooltip>
                   <div className="flex items-center gap-2">
                     <span
                       className="h-2.5 w-2.5 rounded-full border border-border/50"
@@ -479,7 +480,7 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
                   <div className="mt-0.5 text-[0.7rem] text-foreground/80">
                     Snack Spend: {valueFormatter.format(storeData.snackSpend)}
                   </div>
-                </div>
+                </NivoChartTooltip>
               )
             }}
             theme={{

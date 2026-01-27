@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useState, useEffect, useMemo } from "react"
+import { createPortal } from "react-dom"
 import { useTheme } from "next-themes"
 import ReactECharts from "echarts-for-react"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
@@ -212,18 +213,18 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
         let mouseX = 0
         let mouseY = 0
 
-        if (event && event.offsetX !== undefined && event.offsetY !== undefined) {
-            mouseX = event.offsetX
-            mouseY = event.offsetY
-        } else if (event && event.clientX !== undefined && event.clientY !== undefined) {
-            mouseX = event.clientX - rect.left
-            mouseY = event.clientY - rect.top
+        if (event && event.clientX !== undefined && event.clientY !== undefined) {
+            mouseX = event.clientX
+            mouseY = event.clientY
+        } else if (event && event.offsetX !== undefined && event.offsetY !== undefined) {
+            mouseX = rect.left + event.offsetX
+            mouseY = rect.top + event.offsetY
         } else {
             const zr = echartsInstance.getZr()
             const handler = zr.handler
             if (handler && handler.lastOffset) {
-                mouseX = handler.lastOffset[0]
-                mouseY = handler.lastOffset[1]
+                mouseX = rect.left + handler.lastOffset[0]
+                mouseY = rect.top + handler.lastOffset[1]
             }
         }
 
@@ -245,13 +246,11 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
 
     // Global mousemove listener when tooltip is visible
     useEffect(() => {
-        if (tooltip && containerRef.current) {
+        if (tooltip) {
             const handleMouseMove = (e: MouseEvent) => {
-                if (!containerRef.current) return
-                const rect = containerRef.current.getBoundingClientRect()
                 setTooltipPosition({
-                    x: e.clientX - rect.left,
-                    y: e.clientY - rect.top,
+                    x: e.clientX,
+                    y: e.clientY,
                 })
             }
 
@@ -445,12 +444,12 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
                             mouseout: handleChartMouseOut,
                         }}
                     />
-                    {tooltip && tooltipPosition && (
+                    {mounted && tooltip && tooltipPosition && createPortal(
                         <div
-                            className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+                            className="pointer-events-none fixed z-[9999] rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl select-none"
                             style={{
-                                left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
-                                top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
+                                left: tooltipPosition.x + 12 + 200 > window.innerWidth ? tooltipPosition.x - 212 : tooltipPosition.x + 12,
+                                top: tooltipPosition.y - 60 < 0 ? tooltipPosition.y + 12 : tooltipPosition.y - 60,
                             }}
                         >
                             <div className="flex items-center gap-2">
@@ -469,7 +468,8 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
                             <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
                                 {valueFormatter.format(tooltip.value)}
                             </div>
-                        </div>
+                        </div>,
+                        document.body
                     )}
                 </div>
                 {/* Color Legend */}

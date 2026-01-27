@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/card"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
 
 type ReceiptTransactionRow = {
     id: number
@@ -400,20 +401,11 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
                             const rank = lastPoint?.y ?? 0
 
                             return (
-                                <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-                                    <div className="flex items-center gap-2">
-                                        <span
-                                            className="h-2.5 w-2.5 rounded-full border border-border/50"
-                                            style={{ backgroundColor: computed.color, borderColor: computed.color }}
-                                        />
-                                        <span className="font-medium text-foreground whitespace-nowrap">
-                                            {computed.id}
-                                        </span>
-                                    </div>
-                                    <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                                        Rank: {rank}
-                                    </div>
-                                </div>
+                                <NivoChartTooltip
+                                    title={computed.id}
+                                    titleColor={computed.color}
+                                    value={`Rank: ${rank}`}
+                                />
                             )
                         }}
                     />

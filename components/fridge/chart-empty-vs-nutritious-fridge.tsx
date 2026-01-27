@@ -8,6 +8,7 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
 import {
     Card,
     CardAction,
@@ -302,7 +303,7 @@ export const ChartEmptyVsNutritiousFridge = memo(function ChartEmptyVsNutritious
                             const percentage = total > 0 ? (Number(datum.value) / total) * 100 : 0
 
                             return (
-                                <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
+                                <NivoChartTooltip>
                                     <div className="flex items-center gap-2">
                                         <span
                                             className="h-2.5 w-2.5 rounded-full border border-border/50"
@@ -318,7 +319,7 @@ export const ChartEmptyVsNutritiousFridge = memo(function ChartEmptyVsNutritious
                                     <div className="mt-0.5 text-[0.7rem] text-foreground/80">
                                         {percentage.toFixed(1)}%
                                     </div>
-                                </div>
+                                </NivoChartTooltip>
                             )
                         }}
                         theme={{
