@@ -220,7 +220,33 @@ ${colorConfig
   )
 }
 
-const ChartTooltip = RechartsPrimitive.Tooltip
+/**
+ * ChartTooltip - Recharts Tooltip wrapper with boundary constraints
+ *
+ * By default, tooltips are constrained to stay within the chart boundaries
+ * to prevent overflow issues at chart edges.
+ *
+ * @example
+ * ```tsx
+ * <ChartTooltip
+ *   cursor={false}
+ *   content={<ChartTooltipContent indicator="dot" />}
+ * />
+ * ```
+ */
+const ChartTooltip = (
+  props: React.ComponentProps<typeof RechartsPrimitive.Tooltip>
+) => {
+  return (
+    <RechartsPrimitive.Tooltip
+      // Prevent tooltip from escaping the chart boundaries
+      allowEscapeViewBox={{ x: false, y: false }}
+      // Offset from cursor to prevent tooltip overlap with pointer
+      offset={16}
+      {...props}
+    />
+  )
+}
 
 function ChartTooltipContent({
   active,
@@ -291,7 +317,8 @@ function ChartTooltipContent({
   return (
     <div
       className={cn(
-        "border-border/50 bg-background grid min-w-[8rem] items-start gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs shadow-xl",
+        // Unified tooltip styling - matches NivoChartTooltip in chart-tooltip.tsx
+        "pointer-events-none select-none border-border/50 bg-background grid min-w-[8rem] items-start gap-1.5 rounded-lg border px-3 py-2 text-xs shadow-xl",
         className
       )}
     >

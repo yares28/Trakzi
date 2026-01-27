@@ -16,6 +16,7 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { ChartExpandButton } from "@/components/chart-expand-button"
@@ -143,13 +144,13 @@ export const ChartTreeMap = memo(function ChartTreeMap({
       tooltip={({ node }) => {
         const displayName = (node.data as { fullDescription?: string; name?: string }).fullDescription || node.data.name
         return (
-          <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg max-w-[300px] break-words">
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full border border-border/50 shrink-0" style={{ backgroundColor: node.color, borderColor: node.color }} />
-              <span className="font-medium text-foreground">{displayName}</span>
-            </div>
-            <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">{formatCurrency(node.value)}</div>
-          </div>
+          <NivoChartTooltip
+            title={displayName}
+            titleColor={node.color}
+            value={formatCurrency(node.value)}
+            maxWidth={300}
+            className="break-words"
+          />
         )
       }}
     />

@@ -17,6 +17,7 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { ChartExpandButton } from "@/components/chart-expand-button"
@@ -178,13 +179,11 @@ export const ChartPolarBar = memo(function ChartPolarBar({
       circularAxisOuter={{ tickSize: 5, tickPadding: 15, tickRotation: 0 }}
       colors={chartColors}
       tooltip={({ arc }) => (
-        <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full border border-border/50" style={{ backgroundColor: arc.color, borderColor: arc.color }} />
-            <span className="font-medium text-foreground whitespace-nowrap">{arc.key}</span>
-          </div>
-          <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">{formatCurrency(Number(arc.value))}</div>
-        </div>
+        <NivoChartTooltip
+          title={arc.key}
+          titleColor={arc.color}
+          value={formatCurrency(Number(arc.value))}
+        />
       )}
       theme={polarTheme}
       legends={[{ anchor: "bottom", direction: "row", translateY: 50, itemWidth: legendItemWidth, itemHeight: 16, symbolShape: "circle" }]}
