@@ -189,7 +189,7 @@ export function ChartsGrid({
   })
 
   return (
-    <div className="w-full mb-4 px-4 lg:px-6">
+    <div className="w-full mb-4 px-4 lg:px-6 *:data-[slot=card]:bg-muted/10 dark:*:data-[slot=card]:bg-card *:data-[slot=card]:shadow-md dark:*:data-[slot=card]:shadow-sm">
       <SortableGridProvider
         chartOrder={analyticsChartOrder}
         onOrderChange={handleChartOrderChange}
