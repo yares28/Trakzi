@@ -96,7 +96,7 @@ export const ChartCategoryTrend = memo(function ChartCategoryTrend({
           {renderInfoAction()}
         </CardAction>
       </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 min-w-0 overflow-hidden flex-1 min-h-0">
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 min-w-0 flex-1 min-h-0">
         <ChartContainer
           config={chartConfig}
           className="aspect-auto h-full w-full min-w-0"
