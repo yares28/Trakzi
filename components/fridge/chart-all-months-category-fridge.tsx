@@ -3,6 +3,7 @@
 // All Months Category Spending Chart for Fridge - Shows category spending across all months
 import * as React from "react"
 import { useMemo, useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
@@ -342,9 +343,7 @@ export const ChartAllMonthsCategoryFridge = React.memo(function ChartAllMonthsCa
 
             // Tooltip handlers
             const showTooltip = (event: MouseEvent, month: string, category: string, amount: number, isTotal: boolean, breakdown?: Array<{ category: string; amount: number }>, color?: string) => {
-                if (!containerRef.current) return
-                const rect = containerRef.current.getBoundingClientRect()
-                setTooltipPosition({ x: event.clientX - rect.left, y: event.clientY - rect.top })
+                setTooltipPosition({ x: event.clientX, y: event.clientY })
                 setTooltip({ month, category, amount, isTotal, breakdown, color })
             }
             const hideTooltip = () => { setTooltip(null); setTooltipPosition(null) }
@@ -369,9 +368,7 @@ export const ChartAllMonthsCategoryFridge = React.memo(function ChartAllMonthsCa
                 })
                 bar.addEventListener("mouseleave", hideTooltip)
                 bar.addEventListener("mousemove", (e) => {
-                    if (!containerRef.current) return
-                    const rect = containerRef.current.getBoundingClientRect()
-                    setTooltipPosition({ x: (e as MouseEvent).clientX - rect.left, y: (e as MouseEvent).clientY - rect.top })
+                    setTooltipPosition({ x: (e as MouseEvent).clientX, y: (e as MouseEvent).clientY })
                 })
             })
         }
@@ -442,12 +439,12 @@ export const ChartAllMonthsCategoryFridge = React.memo(function ChartAllMonthsCa
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex flex-col">
                 <div ref={containerRef} className="relative w-full flex-1 min-h-0">
                     <svg ref={svgRef} width="100%" height="100%" preserveAspectRatio="none" style={{ display: "block" }} />
-                    {tooltip && tooltipPosition && (
+                    {mounted && tooltip && tooltipPosition && createPortal(
                         <div
-                            className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+                            className="pointer-events-none fixed z-[9999] rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl select-none"
                             style={{
-                                left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
-                                top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
+                                left: tooltipPosition.x + 12 + 220 > window.innerWidth ? tooltipPosition.x - 232 : tooltipPosition.x + 12,
+                                top: tooltipPosition.y - 100 < 0 ? tooltipPosition.y + 12 : tooltipPosition.y - 100,
                             }}
                         >
                             {tooltip.isTotal && tooltip.breakdown ? (
@@ -478,7 +475,8 @@ export const ChartAllMonthsCategoryFridge = React.memo(function ChartAllMonthsCa
                                     <div className="font-mono text-[0.7rem] text-foreground/80">{formatCurrency(tooltip.amount)}</div>
                                 </>
                             )}
-                        </div>
+                        </div>,
+                        document.body
                     )}
                 </div>
                 {categories.length > 0 && (

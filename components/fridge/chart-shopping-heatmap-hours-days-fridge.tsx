@@ -4,6 +4,7 @@
 // Shows when the user typically goes grocery shopping
 import * as React from "react"
 import { useMemo, useState, useEffect, useRef } from "react"
+import { createPortal } from "react-dom"
 import ReactECharts from "echarts-for-react"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
@@ -192,10 +193,9 @@ export const ChartShoppingHeatmapHoursDaysFridge = React.memo(function ChartShop
         if (!container) return
 
         const handleMouseMove = (e: MouseEvent) => {
-            const rect = container.getBoundingClientRect()
             const position = {
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top,
+                x: e.clientX,
+                y: e.clientY,
             }
             if (tooltip) {
                 setTooltipPosition(position)
@@ -400,33 +400,30 @@ export const ChartShoppingHeatmapHoursDaysFridge = React.memo(function ChartShop
                         onEvents={onEvents}
                     />
                     {/* Custom React tooltip */}
-                    <div
-                        className={`pointer-events-none absolute z-10 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl transition-opacity duration-150 ${tooltip && tooltipPosition ? 'opacity-100' : 'opacity-0'
-                            }`}
-                        style={{
-                            left: tooltipPosition ? `${tooltipPosition.x + 16}px` : 0,
-                            top: tooltipPosition ? `${tooltipPosition.y - 16}px` : 0,
-                            transform: 'translate(0, -100%)',
-                        }}
-                    >
-                        {tooltip && (
-                            <>
-                                <div className="font-medium text-foreground mb-1.5">
-                                    {tooltip.day} at {tooltip.hour}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span
-                                        className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
-                                        style={{ backgroundColor: palette }}
-                                    />
-                                    <span className="text-muted-foreground">Spent</span>
-                                    <span className="text-foreground font-mono font-medium tabular-nums">
-                                        {formatCurrency(tooltip.amount)}
-                                    </span>
-                                </div>
-                            </>
-                        )}
-                    </div>
+                    {mounted && tooltip && tooltipPosition && createPortal(
+                        <div
+                            className="pointer-events-none fixed z-[9999] rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl select-none"
+                            style={{
+                                left: tooltipPosition.x + 12 + 180 > window.innerWidth ? tooltipPosition.x - 192 : tooltipPosition.x + 12,
+                                top: tooltipPosition.y - 60 < 0 ? tooltipPosition.y + 12 : tooltipPosition.y - 60,
+                            }}
+                        >
+                            <div className="font-medium text-foreground mb-1.5">
+                                {tooltip.day} at {tooltip.hour}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span
+                                    className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                                    style={{ backgroundColor: palette }}
+                                />
+                                <span className="text-muted-foreground">Spent</span>
+                                <span className="text-foreground font-mono font-medium tabular-nums">
+                                    {formatCurrency(tooltip.amount)}
+                                </span>
+                            </div>
+                        </div>,
+                        document.body
+                    )}
                 </div>
             </CardContent>
         </Card>

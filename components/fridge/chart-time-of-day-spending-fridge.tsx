@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import ReactECharts from "echarts-for-react"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
@@ -98,14 +99,14 @@ export const ChartTimeOfDaySpendingFridge = React.memo(function ChartTimeOfDaySp
           typeof ecEvent.clientX === "number" &&
           typeof ecEvent.clientY === "number"
         ) {
-          mouseX = ecEvent.clientX - rect.left
-          mouseY = ecEvent.clientY - rect.top
+          mouseX = ecEvent.clientX
+          mouseY = ecEvent.clientY
         } else if (
           typeof ecEvent.offsetX === "number" &&
           typeof ecEvent.offsetY === "number"
         ) {
-          mouseX = ecEvent.offsetX
-          mouseY = ecEvent.offsetY
+          mouseX = rect.left + ecEvent.offsetX
+          mouseY = rect.top + ecEvent.offsetY
         }
       }
 
@@ -156,10 +157,9 @@ export const ChartTimeOfDaySpendingFridge = React.memo(function ChartTimeOfDaySp
     if (!container) return
 
     const handleMouseMove = (e: MouseEvent) => {
-      const rect = container.getBoundingClientRect()
       const position = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
+        x: e.clientX,
+        y: e.clientY,
       }
       mousePositionRef.current = position
       if (tooltip) {
@@ -404,12 +404,12 @@ export const ChartTimeOfDaySpendingFridge = React.memo(function ChartTimeOfDaySp
             </div>
             <div ref={containerRef} className="relative flex-1 min-h-0" style={{ minHeight: 0, minWidth: 0 }}>
               {chartElement}
-              {tooltip && tooltipPosition && (
+              {mounted && tooltip && tooltipPosition && createPortal(
                 <div
-                  className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+                  className="pointer-events-none fixed z-[9999] rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl select-none"
                   style={{
-                    left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
-                    top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
+                    left: tooltipPosition.x + 12 + 200 > window.innerWidth ? tooltipPosition.x - 212 : tooltipPosition.x + 12,
+                    top: tooltipPosition.y - 60 < 0 ? tooltipPosition.y + 12 : tooltipPosition.y - 60,
                   }}
                 >
                   <div className="flex items-center gap-2">
@@ -422,7 +422,8 @@ export const ChartTimeOfDaySpendingFridge = React.memo(function ChartTimeOfDaySp
                   <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
                     {valueFormatter.format(tooltip.value)}
                   </div>
-                </div>
+                </div>,
+                document.body
               )}
             </div>
           </div>

@@ -27,6 +27,7 @@ import {
 import { formatDateForDisplay } from "@/lib/date"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 
@@ -452,7 +453,7 @@ export const ChartTransactionHistoryFridge = memo(function ChartTransactionHisto
                             const color = (datum.color || node.color || chartColors[0]) as string
 
                             return (
-                                <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
+                                <NivoChartTooltip>
                                     <div className="flex items-center gap-2">
                                         <span
                                             className="h-2.5 w-2.5 rounded-full border border-border/50"
@@ -480,7 +481,7 @@ export const ChartTransactionHistoryFridge = memo(function ChartTransactionHisto
                                             {formatDateForDisplay(datum.date, undefined, {})}
                                         </div>
                                     )}
-                                </div>
+                                </NivoChartTooltip>
                             )
                         }}
                     />

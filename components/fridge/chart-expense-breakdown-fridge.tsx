@@ -20,6 +20,7 @@ import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { ChartExpandButton } from "@/components/chart-expand-button"
 import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
 
 interface ChartExpenseBreakdownFridgeProps {
   data?: Array<{
@@ -241,23 +242,12 @@ export const ChartExpenseBreakdownFridge = memo(function ChartExpenseBreakdownFr
                 const percentage = total > 0 ? (Number(datum.value) / total) * 100 : 0
 
                 return (
-                  <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="h-2.5 w-2.5 rounded-full border border-border/50"
-                        style={{ backgroundColor: datum.color as string, borderColor: datum.color as string }}
-                      />
-                      <span className="font-medium text-foreground whitespace-nowrap">
-                        {datum.label as string}
-                      </span>
-                    </div>
-                    <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                      {valueFormatter.format(Number(datum.value))}
-                    </div>
-                    <div className="mt-0.5 text-[0.7rem] text-foreground/80">
-                      {percentage.toFixed(1)}%
-                    </div>
-                  </div>
+                  <NivoChartTooltip
+                    title={datum.label as string}
+                    titleColor={datum.color as string}
+                    value={valueFormatter.format(Number(datum.value))}
+                    subValue={`${percentage.toFixed(1)}%`}
+                  />
                 )
               }}
               theme={{

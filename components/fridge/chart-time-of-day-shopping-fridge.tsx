@@ -3,6 +3,7 @@
 // Time of Day Shopping Chart for Fridge - Shows when you tend to go grocery shopping
 import * as React from "react"
 import { useMemo, useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
@@ -82,8 +83,8 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
     const palette = useMemo(() => getPalette().filter((color) => color !== "#c3c3c3"), [getPalette])
     const svgRef = useRef<SVGSVGElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
-    const tooltipElementRef = useRef<HTMLDivElement | null>(null)
     const [tooltip, setTooltip] = useState<{ hour: string; trips: number; spending: number } | null>(null)
+    const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
     const [mounted, setMounted] = useState(false)
     const hasAnimatedRef = useRef(false)
 
@@ -383,13 +384,7 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
 
             // Tooltip handlers
             const updateTooltipPosition = (event: MouseEvent) => {
-                if (!containerRef.current || !tooltipElementRef.current) return
-                const container = containerRef.current
-                const rect = container.getBoundingClientRect()
-                const x = Math.min(Math.max(event.clientX - rect.left + 16, 8), container.clientWidth - 120)
-                const y = Math.min(Math.max(event.clientY - rect.top - 16, 8), container.clientHeight - 60)
-                tooltipElementRef.current.style.left = `${x}px`
-                tooltipElementRef.current.style.top = `${y}px`
+                setTooltipPosition({ x: event.clientX, y: event.clientY })
             }
 
             const showTooltip = (hour: number, trips: number, spending: number) => {
@@ -399,7 +394,7 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
                     spending,
                 })
             }
-            const hideTooltip = () => { setTooltip(null) }
+            const hideTooltip = () => { setTooltip(null); setTooltipPosition(null) }
 
             const bars = svg.querySelectorAll("rect[data-hour]")
             bars.forEach((bar) => {
@@ -495,10 +490,13 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
                 <div ref={containerRef} className="relative w-full h-full min-h-[250px]">
                     <svg ref={svgRef} width="100%" height="100%" preserveAspectRatio="none" style={{ display: "block" }} />
-                    {tooltip && (
+                    {mounted && tooltip && tooltipPosition && createPortal(
                         <div
-                            ref={tooltipElementRef}
-                            className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+                            className="pointer-events-none fixed z-[9999] rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl select-none"
+                            style={{
+                                left: tooltipPosition.x + 12 + 180 > window.innerWidth ? tooltipPosition.x - 192 : tooltipPosition.x + 12,
+                                top: tooltipPosition.y - 80 < 0 ? tooltipPosition.y + 12 : tooltipPosition.y - 80,
+                            }}
                         >
                             <div className="font-medium text-foreground mb-1">{tooltip.hour}</div>
                             <div className="flex flex-col gap-1">
@@ -511,7 +509,8 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
                                     <span className="font-semibold text-foreground">{formatCurrency(tooltip.spending)}</span>
                                 </div>
                             </div>
-                        </div>
+                        </div>,
+                        document.body
                     )}
                 </div>
             </CardContent>

@@ -8,6 +8,7 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
 import {
     Card,
     CardAction,
@@ -162,21 +163,17 @@ export const ChartExpensesPieFridge = memo(function ChartExpensesPieFridge({ dat
                         arcLabelsTextColor={(d: { color: string }) => getTextColor(d.color, colorScheme)}
                         valueFormat={(value) => formatCurrency(value)}
                         colors={colorConfig}
+                        tooltip={({ datum }) => (
+                            <NivoChartTooltip
+                                title={datum.label as string}
+                                titleColor={datum.color as string}
+                                value={formatCurrency(Number(datum.value))}
+                            />
+                        )}
                         theme={{
                             text: {
                                 fill: textColor,
                                 fontSize: 12,
-                            },
-                            tooltip: {
-                                container: {
-                                    background: "#ffffff",
-                                    color: "#000000",
-                                    fontSize: 12,
-                                    borderRadius: "8px",
-                                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                                    padding: "8px 12px",
-                                    border: "1px solid #e2e8f0",
-                                },
                             },
                         }}
                         legends={[

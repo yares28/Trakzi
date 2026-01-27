@@ -6,6 +6,7 @@ import { ResponsiveAreaBump } from "@nivo/bump"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
   Card,
@@ -175,13 +176,11 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
         const lastPoint = originalSerie?.data[originalSerie.data.length - 1]
         const share = lastPoint?.y ?? 0
         return (
-          <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full border border-border/50" style={{ backgroundColor: serie.color, borderColor: serie.color }} />
-              <span className="font-medium text-foreground whitespace-nowrap">{serie.id}</span>
-            </div>
-            <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">{share.toFixed(1)}% of spending</div>
-          </div>
+          <NivoChartTooltip
+            title={serie.id}
+            titleColor={serie.color}
+            value={`${share.toFixed(1)}% of spending`}
+          />
         )
       }}
     />
@@ -283,13 +282,11 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
         const lastPoint = originalSerie?.data[originalSerie.data.length - 1]
         const share = lastPoint?.y ?? 0
         return (
-          <div className="rounded-md border border-border/60 bg-background/95 px-2 py-1.5 text-xs shadow-lg">
-            <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: serie.color }} />
-              <span className="font-medium text-foreground">{serie.id}</span>
-            </div>
-            <div className="mt-0.5 font-mono text-[0.65rem] text-foreground/80">{share.toFixed(1)}%</div>
-          </div>
+          <NivoChartTooltip
+            title={serie.id}
+            titleColor={serie.color}
+            value={`${share.toFixed(1)}%`}
+          />
         )
       }}
     />

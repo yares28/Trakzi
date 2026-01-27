@@ -18,6 +18,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { toNumericValue } from "@/lib/utils"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
 
 interface ChartPolarBarFridgeProps {
   data?:
@@ -155,16 +156,11 @@ export const ChartPolarBarFridge = memo(function ChartPolarBarFridge({
               circularAxisOuter={{ tickSize: 5, tickPadding: 15, tickRotation: 0 }}
               colors={chartColors}
               tooltip={({ arc }) => (
-                <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full border border-border/50"
-                      style={{ backgroundColor: arc.color, borderColor: arc.color }}
-                    />
-                    <span className="font-medium text-foreground whitespace-nowrap">{arc.key}</span>
-                  </div>
-                  <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">{arc.formattedValue}</div>
-                </div>
+                <NivoChartTooltip
+                  title={arc.key}
+                  titleColor={arc.color}
+                  value={arc.formattedValue}
+                />
               )}
               theme={polarTheme}
               legends={[

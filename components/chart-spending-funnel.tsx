@@ -9,6 +9,7 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
 import {
   Card,
   CardAction,
@@ -140,13 +141,11 @@ export const ChartSpendingFunnel = memo(function ChartSpendingFunnel({
       currentBorderWidth={40}
       theme={{ text: { fill: textColor, fontSize: 12 } }}
       tooltip={({ part }) => (
-        <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full border border-border/50" style={{ backgroundColor: part.color, borderColor: part.color }} />
-            <span className="font-medium text-foreground whitespace-nowrap">{(part.data.label || part.data.id) as string}</span>
-          </div>
-          <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">{formatCurrency(Number(part.data.value))}</div>
-        </div>
+        <NivoChartTooltip
+          title={(part.data.label || part.data.id) as string}
+          titleColor={part.color}
+          value={formatCurrency(Number(part.data.value))}
+        />
       )}
     />
   )

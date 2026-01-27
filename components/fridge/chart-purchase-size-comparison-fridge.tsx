@@ -3,6 +3,7 @@
 // Purchase Size Comparison Chart - Shows distribution of receipt totals by size range
 import * as React from "react"
 import { useMemo, useState, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
@@ -155,15 +156,13 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
         range: SizeRange,
         event: React.MouseEvent<SVGRectElement>
     ) => {
-        if (!containerRef.current) return
-        const rect = containerRef.current.getBoundingClientRect()
         setTooltip({
             label: range.label,
             count: range.count,
             totalSpent: range.totalSpent,
             color: range.color,
-            x: event.clientX - rect.left,
-            y: event.clientY - rect.top,
+            x: event.clientX,
+            y: event.clientY,
         })
     }
 
@@ -373,12 +372,12 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
                     </svg>
 
                     {/* Tooltip */}
-                    {tooltip && (
+                    {mounted && tooltip && createPortal(
                         <div
-                            className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+                            className="pointer-events-none fixed z-[9999] rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl select-none"
                             style={{
-                                left: Math.min(tooltip.x + 10, (containerRef.current?.clientWidth || 300) - 120),
-                                top: Math.max(tooltip.y - 60, 10),
+                                left: tooltip.x + 12 + 180 > window.innerWidth ? tooltip.x - 192 : tooltip.x + 12,
+                                top: tooltip.y - 80 < 0 ? tooltip.y + 12 : tooltip.y - 80,
                             }}
                         >
                             <div className="flex items-center gap-2">
@@ -392,7 +391,8 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
                                 <div>{tooltip.count} receipt{tooltip.count !== 1 ? "s" : ""}</div>
                                 <div className="font-mono">{currencyFormatter.format(tooltip.totalSpent)} total</div>
                             </div>
-                        </div>
+                        </div>,
+                        document.body
                     )}
                 </div>
             </CardContent>

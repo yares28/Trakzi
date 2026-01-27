@@ -10,6 +10,7 @@ import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import {
     Card,
@@ -257,7 +258,7 @@ export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVs
                                     },
                                 }}
                                 tooltip={({ id, value, color, indexValue }: BarTooltipProps<BarDatum>) => (
-                                    <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
+                                    <NivoChartTooltip>
                                         <div className="font-medium text-muted-foreground mb-1">{indexValue}</div>
                                         <div className="flex items-center gap-2">
                                             <span
@@ -268,7 +269,7 @@ export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVs
                                                 {id}: {currencyFormatter.format(value as number)}
                                             </span>
                                         </div>
-                                    </div>
+                                    </NivoChartTooltip>
                                 )}
                             />
                         </div>

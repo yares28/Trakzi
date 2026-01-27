@@ -3,6 +3,7 @@
 // Day of Week Spending by Category Chart for Fridge
 import * as React from "react"
 import { useMemo, useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
@@ -59,8 +60,8 @@ export const ChartDayOfWeekSpendingCategoryFridge = React.memo(function ChartDay
     const palette = useMemo(() => getPalette().filter((color) => color !== "#c3c3c3"), [getPalette])
     const svgRef = useRef<SVGSVGElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
-    const tooltipElementRef = useRef<HTMLDivElement | null>(null)
     const [tooltip, setTooltip] = useState<{ day: string; category: string; amount: number; isTotal: boolean; breakdown?: Array<{ category: string; amount: number }>; color?: string } | null>(null)
+    const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
     const [mounted, setMounted] = useState(false)
     const hasAnimatedRef = useRef(false)
 
@@ -374,13 +375,7 @@ export const ChartDayOfWeekSpendingCategoryFridge = React.memo(function ChartDay
 
             // Tooltip handlers
             const updateTooltipPosition = (event: MouseEvent) => {
-                if (!containerRef.current || !tooltipElementRef.current) return
-                const container = containerRef.current
-                const rect = container.getBoundingClientRect()
-                const x = Math.min(Math.max(event.clientX - rect.left + 16, 8), container.clientWidth - 8)
-                const y = Math.min(Math.max(event.clientY - rect.top - 16, 8), container.clientHeight - 8)
-                tooltipElementRef.current.style.left = `${x}px`
-                tooltipElementRef.current.style.top = `${y}px`
+                setTooltipPosition({ x: event.clientX, y: event.clientY })
             }
 
             const showTooltip = (day: string, category: string, amount: number, isTotal: boolean, breakdown?: Array<{ category: string; amount: number }>, color?: string) => {
@@ -389,7 +384,7 @@ export const ChartDayOfWeekSpendingCategoryFridge = React.memo(function ChartDay
                     return { day, category, amount, isTotal, breakdown, color }
                 })
             }
-            const hideTooltip = () => { setTooltip(null) }
+            const hideTooltip = () => { setTooltip(null); setTooltipPosition(null) }
 
             const bars = svg.querySelectorAll("rect[data-day]")
             bars.forEach((bar) => {
@@ -467,10 +462,13 @@ export const ChartDayOfWeekSpendingCategoryFridge = React.memo(function ChartDay
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex flex-col">
                 <div ref={containerRef} className="relative w-full flex-1 min-h-0">
                     <svg ref={svgRef} width="100%" height="100%" preserveAspectRatio="none" style={{ display: "block" }} />
-                    {tooltip && (
+                    {mounted && tooltip && tooltipPosition && createPortal(
                         <div
-                            ref={tooltipElementRef}
-                            className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+                            className="pointer-events-none fixed z-[9999] rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl select-none"
+                            style={{
+                                left: tooltipPosition.x + 12 + 220 > window.innerWidth ? tooltipPosition.x - 232 : tooltipPosition.x + 12,
+                                top: tooltipPosition.y - 100 < 0 ? tooltipPosition.y + 12 : tooltipPosition.y - 100,
+                            }}
                         >
                             {tooltip.isTotal && tooltip.breakdown ? (
                                 <>
@@ -500,7 +498,8 @@ export const ChartDayOfWeekSpendingCategoryFridge = React.memo(function ChartDay
                                     <div className="font-mono text-[0.7rem] text-foreground/80">{formatCurrency(tooltip.amount)}</div>
                                 </>
                             )}
-                        </div>
+                        </div>,
+                        document.body
                     )}
                 </div>
                 {categories.length > 0 && (
