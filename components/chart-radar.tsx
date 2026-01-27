@@ -29,6 +29,7 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { deduplicatedFetch, getCachedResponse } from "@/lib/request-deduplication"
 
 const LIGHT_CATEGORY_TEXT = "oklch(0.556 0 0)"
@@ -655,35 +656,15 @@ export const ChartRadar = memo(function ChartRadar({
                 : 'Category'
 
               return (
-                <div className="pointer-events-none rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
-                  <div className="font-medium text-foreground mb-2">
-                    {categoryName}
-                  </div>
-                  <div className="space-y-1.5">
-                    {data.map((item, i) => {
-                      const label = String(item.id ?? index ?? "")
-                      const value = item.value ?? 0
-                      const color = item.color
-
-                      return (
-                        <div key={i} className="flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="h-2.5 w-2.5 rounded-full border border-border/50 flex-shrink-0"
-                              style={{ backgroundColor: color, borderColor: color }}
-                            />
-                            <span className="font-medium text-foreground whitespace-nowrap">
-                              {label}
-                            </span>
-                          </div>
-                          <div className="font-mono text-[0.7rem] text-foreground/80">
-                            {formatCurrency(value)}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
+                <NivoChartTooltip
+                  title={categoryName}
+                  hideTitleIndicator
+                  rows={data.map((item) => ({
+                    color: item.color,
+                    label: String(item.id ?? index ?? ""),
+                    value: formatCurrency(item.value ?? 0),
+                  }))}
+                />
               )
             }}
             legends={legendEntries.length ? [
