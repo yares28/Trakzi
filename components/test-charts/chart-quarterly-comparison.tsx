@@ -41,6 +41,8 @@ export function ChartQuarterlyComparison({
         setMounted(true)
     }, [])
 
+    const isDark = resolvedTheme === "dark"
+
     const chartData = useMemo(() => {
         if (!data || data.length === 0) return []
 
@@ -70,9 +72,7 @@ export function ChartQuarterlyComparison({
                     color: isLatest ? palette[0] : (isDark ? '#4b5563' : '#9ca3af'),
                 }
             })
-    }, [data, palette])
-
-    const isDark = resolvedTheme === "dark"
+    }, [data, palette, isDark])
     const textColor = isDark ? "#9ca3af" : "#6b7280"
     const gridColor = isDark ? "#374151" : "#e5e7eb"
 
