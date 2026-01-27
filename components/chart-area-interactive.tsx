@@ -274,7 +274,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
             {renderInfoAction()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 min-w-0 overflow-hidden">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 min-w-0">
           <div ref={containerRef} className="relative">
             <div ref={chartContainerRef}>
               <ChartContainer
