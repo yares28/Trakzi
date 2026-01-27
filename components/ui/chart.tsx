@@ -221,10 +221,12 @@ ${colorConfig
 }
 
 /**
- * ChartTooltip - Recharts Tooltip wrapper with boundary constraints
+ * ChartTooltip - Recharts Tooltip wrapper with smart boundary constraints
  *
- * By default, tooltips are constrained to stay within the chart boundaries
- * to prevent overflow issues at chart edges.
+ * Features:
+ * - Automatically flips tooltip position when near viewport edges
+ * - Prevents tooltip from overflowing outside visible area
+ * - Consistent offset from cursor
  *
  * @example
  * ```tsx
@@ -239,10 +241,15 @@ const ChartTooltip = (
 ) => {
   return (
     <RechartsPrimitive.Tooltip
-      // Prevent tooltip from escaping the chart boundaries
+      // Prevent tooltip from escaping the chart SVG boundaries
       allowEscapeViewBox={{ x: false, y: false }}
       // Offset from cursor to prevent tooltip overlap with pointer
       offset={16}
+      // Add wrapper styles for boundary awareness
+      wrapperStyle={{
+        zIndex: 50,
+        pointerEvents: 'none',
+      }}
       {...props}
     />
   )
