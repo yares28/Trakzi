@@ -41,6 +41,8 @@ export function ChartYearOverYear({
         setMounted(true)
     }, [])
 
+    const isDark = resolvedTheme === "dark"
+
     const chartData = useMemo(() => {
         if (!data || data.length === 0) return []
 
@@ -65,9 +67,7 @@ export function ChartYearOverYear({
                     color: i === arr.length - 1 ? palette[0] : (isDark ? '#6b7280' : '#9ca3af'),
                 }
             })
-    }, [data, palette])
-
-    const isDark = resolvedTheme === "dark"
+    }, [data, palette, isDark])
     const textColor = isDark ? "#9ca3af" : "#6b7280"
     const gridColor = isDark ? "#374151" : "#e5e7eb"
 
