@@ -9,13 +9,13 @@ export interface ChartMetadata {
 export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
   incomeExpensesTracking1: {
     id: "incomeExpensesTracking1",
-    title: "Income & Expenses Tracking",
-    description: "Your cash flow for the last 3 months",
+    title: "Income & Expenses Cumulative Tracking",
+    description: "Your cumulative cash flow for the last 3 months",
   },
   incomeExpensesTracking2: {
     id: "incomeExpensesTracking2",
-    title: "Income & Expenses Tracking",
-    description: "Your cash flow for the last 3 months",
+    title: "Income & Expenses Cumulative Tracking",
+    description: "Your cumulative cash flow for the last 3 months",
   },
   spendingCategoryRankings: {
     id: "spendingCategoryRankings",

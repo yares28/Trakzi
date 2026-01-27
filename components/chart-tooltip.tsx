@@ -1,6 +1,7 @@
 "use client"
 
-import { memo, useRef, useEffect, useState, type ReactNode, useCallback } from "react"
+import { memo, useRef, useEffect, useState, type ReactNode } from "react"
+import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 
 /**
@@ -13,8 +14,8 @@ import { cn } from "@/lib/utils"
  * Features:
  * - Consistent styling matching the design system
  * - Color indicator dot support
- * - **Smart boundary detection** - flips position to stay within visible area
- * - Uses fixed positioning relative to viewport for accurate boundary detection
+ * - **Smart boundary detection** - renders in portal and flips position to stay visible
+ * - Uses mouse position tracking for accurate viewport-aware positioning
  * - Prevents pointer events to avoid tooltip flickering
  */
 
@@ -27,7 +28,7 @@ export interface ChartTooltipWrapperProps {
 
 /**
  * Base wrapper for chart tooltips - provides consistent styling
- * with smart viewport boundary detection
+ * Renders in a portal with viewport-aware positioning
  */
 export const ChartTooltipWrapper = memo(function ChartTooltipWrapper({
   children,
@@ -35,86 +36,102 @@ export const ChartTooltipWrapper = memo(function ChartTooltipWrapper({
   maxWidth,
 }: ChartTooltipWrapperProps) {
   const tooltipRef = useRef<HTMLDivElement>(null)
-  const [adjustedStyle, setAdjustedStyle] = useState<React.CSSProperties>({})
-  const frameRef = useRef<number | null>(null)
+  const [position, setPosition] = useState({ x: 0, y: 0 })
+  const [mounted, setMounted] = useState(false)
 
-  // Adjust tooltip position to stay within viewport
-  const adjustPosition = useCallback(() => {
-    if (!tooltipRef.current) return
+  // Track mouse position for tooltip placement
+  useEffect(() => {
+    setMounted(true)
+
+    const handleMouseMove = (e: MouseEvent) => {
+      setPosition({ x: e.clientX, y: e.clientY })
+    }
+
+    // Use capture phase to get position before Nivo processes it
+    document.addEventListener("mousemove", handleMouseMove, { passive: true })
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove)
+    }
+  }, [])
+
+  // Calculate position with viewport boundary awareness
+  const getTooltipStyle = (): React.CSSProperties => {
+    if (!mounted || !tooltipRef.current) {
+      return {
+        position: "fixed",
+        left: position.x + 12,
+        top: position.y + 12,
+        zIndex: 9999,
+        pointerEvents: "none",
+      }
+    }
 
     const tooltip = tooltipRef.current
     const rect = tooltip.getBoundingClientRect()
-    const padding = 12 // Minimum padding from viewport edge
+    const padding = 12
+    const cursorOffset = 12
 
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
 
-    let transform = ''
+    let left = position.x + cursorOffset
+    let top = position.y + cursorOffset
 
-    // Check right edge overflow
-    if (rect.right > viewportWidth - padding) {
-      // Flip to left - move tooltip left by its width plus offset
-      const overflowX = rect.right - (viewportWidth - padding)
-      transform += `translateX(-${overflowX + rect.width + 24}px) `
+    // Check right edge - flip to left of cursor
+    if (left + rect.width > viewportWidth - padding) {
+      left = position.x - rect.width - cursorOffset
     }
 
-    // Check bottom edge overflow
-    if (rect.bottom > viewportHeight - padding) {
-      // Flip to top - move tooltip up by its height plus offset
-      const overflowY = rect.bottom - (viewportHeight - padding)
-      transform += `translateY(-${overflowY + rect.height + 16}px) `
+    // Check bottom edge - flip to above cursor
+    if (top + rect.height > viewportHeight - padding) {
+      top = position.y - rect.height - cursorOffset
     }
 
-    // Check left edge (after potential right-edge flip)
-    if (rect.left < padding) {
-      transform += `translateX(${padding - rect.left}px) `
+    // Ensure doesn't go off left edge
+    if (left < padding) {
+      left = padding
     }
 
-    // Check top edge (after potential bottom-edge flip)
-    if (rect.top < padding) {
-      transform += `translateY(${padding - rect.top}px) `
+    // Ensure doesn't go off top edge
+    if (top < padding) {
+      top = padding
     }
 
-    if (transform) {
-      setAdjustedStyle({ transform: transform.trim() })
-    } else {
-      setAdjustedStyle({})
+    return {
+      position: "fixed",
+      left,
+      top,
+      zIndex: 9999,
+      pointerEvents: "none",
     }
-  }, [])
+  }
 
-  useEffect(() => {
-    // Run adjustment after render
-    frameRef.current = requestAnimationFrame(adjustPosition)
-
-    return () => {
-      if (frameRef.current) {
-        cancelAnimationFrame(frameRef.current)
-      }
-    }
-  }, [adjustPosition, children]) // Re-run when children change (tooltip content updates)
-
-  return (
+  const tooltipContent = (
     <div
       ref={tooltipRef}
       className={cn(
         // Base styling - consistent across all charts
-        "pointer-events-none rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl",
+        "rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl",
         // Prevent text selection
         "select-none",
-        // Ensure tooltip is above other elements
-        "z-[100]",
-        // Position relative for transform to work
-        "relative",
         className
       )}
       style={{
+        ...getTooltipStyle(),
         maxWidth: maxWidth ? `${maxWidth}px` : undefined,
-        ...adjustedStyle,
       }}
     >
       {children}
     </div>
   )
+
+  // Render in portal to escape Nivo's container
+  if (!mounted) {
+    return null
+  }
+
+  return createPortal(tooltipContent, document.body)
 })
 
 ChartTooltipWrapper.displayName = "ChartTooltipWrapper"
@@ -194,6 +211,7 @@ export interface NivoChartTooltipProps {
  * Use this instead of inline tooltip functions for consistency
  *
  * Features:
+ * - **Portal-based rendering** - escapes Nivo's container for proper positioning
  * - Automatic viewport boundary detection - flips position when near edges
  * - Consistent styling across all charts
  * - Supports single values, percentages, and multi-row data
