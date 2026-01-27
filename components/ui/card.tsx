@@ -7,7 +7,9 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card"
       className={cn(
-        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm min-w-0 overflow-hidden",
+        // Note: overflow-visible allows chart tooltips to extend beyond card boundaries
+        // The rounded corners still work as they apply to the card's own border/background
+        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm min-w-0",
         className
       )}
       {...props}

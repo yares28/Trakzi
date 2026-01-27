@@ -329,15 +329,16 @@ import { ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 
 #### Tooltip Boundary Behavior
 
-**Tooltips automatically flip position** to stay within the visible viewport:
+**Tooltips automatically stay visible** within the viewport:
 
-- **Portal-based rendering**: Tooltip escapes Nivo's container div via `createPortal` to `document.body`
-- **Mouse position tracking**: Tracks cursor via `mousemove` listener for accurate positioning
-- **Smart edge detection**: Calculates tooltip position relative to viewport bounds
-- **Automatic flipping**: When approaching right/bottom edges, tooltip flips to left/top of cursor
-- **No clipping**: Tooltip always stays fully visible within the viewport
+##### Root Cause Fix (IMPORTANT)
+The `Card` component **must NOT have `overflow-hidden`** - this clips Nivo's tooltip container and causes tooltips to disappear at chart edges. The Card component has been updated to remove `overflow-hidden`.
 
-**How it works** (for Nivo charts using `NivoChartTooltip`):
+> ⚠️ **Do NOT add `overflow-hidden` to Card, CardContent, or chart containers** - it will clip tooltips!
+
+##### How Tooltip Positioning Works
+
+**For Nivo charts (using `NivoChartTooltip`)**:
 1. `NivoChartTooltip` uses `createPortal` to render directly to `document.body`
 2. Mouse position is tracked via a global `mousemove` event listener
 3. On each render, tooltip calculates its position based on:
@@ -347,9 +348,17 @@ import { ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 4. If tooltip would overflow any edge, position flips to opposite side of cursor
 5. Uses `position: fixed` with calculated `left`/`top` for precise placement
 
-**For Recharts**:
+**For Recharts charts**:
 - Uses `allowEscapeViewBox={{ x: false, y: false }}` (built into `ChartTooltip`)
 - Recharts handles internal positioning within the SVG viewBox
+
+##### Key Files Modified for Tooltip Visibility
+| File | Change |
+|------|--------|
+| `components/ui/card.tsx` | Removed `overflow-hidden` from Card |
+| `components/chart-tooltip.tsx` | Portal-based rendering with viewport awareness |
+| `components/chart-area-interactive.tsx` | Removed `overflow-hidden` from CardContent |
+| `components/chart-category-trend.tsx` | Removed `overflow-hidden` from CardContent |
 
 #### NivoChartTooltip Props
 
