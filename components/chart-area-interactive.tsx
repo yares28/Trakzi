@@ -158,7 +158,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
   const renderInfoAction = (forFullscreen = false) => (
     <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
-        title="Income & Expenses Tracking"
+        title="Income & Expenses Cumulative Tracking"
         description="This chart visualizes your cash flow over time."
         details={[
           "The income line shows daily deposits, while the expense line accumulates your negative transactions.",
@@ -172,8 +172,8 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
       />
       <ChartAiInsightButton
         chartId={chartId}
-        chartTitle="Income & Expenses Tracking"
-        chartDescription="This chart visualizes your cash flow over time, showing income and expenses."
+        chartTitle="Income & Expenses Cumulative Tracking"
+        chartDescription="This chart visualizes your cumulative cash flow over time, showing income and expenses."
         chartData={{
           totalIncome: filteredData.reduce((sum, d) => sum + (d.desktop || 0), 0),
           totalExpenses: filteredData.reduce((sum, d) => sum + (d.mobile || 0), 0),
@@ -198,10 +198,10 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
             <ChartExpandButton onClick={() => setIsFullscreen(true)} />
             <ChartFavoriteButton
               chartId={chartId}
-              chartTitle="Income & Expenses Tracking"
+              chartTitle="Income & Expenses Cumulative Tracking"
               size="md"
             />
-            <CardTitle>Income & Expenses Tracking</CardTitle>
+            <CardTitle>Income & Expenses Cumulative Tracking</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoAction()}
@@ -225,8 +225,8 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
       <ChartFullscreenModal
         isOpen={isFullscreen}
         onClose={() => setIsFullscreen(false)}
-        title="Income & Expenses Tracking"
-        description="Cash flow over time"
+        title="Income & Expenses Cumulative Tracking"
+        description="Cumulative cash flow over time"
         headerActions={renderInfoAction(true)}
       >
         <div className="h-full w-full min-h-[400px]">
@@ -265,10 +265,10 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
             <ChartExpandButton onClick={() => setIsFullscreen(true)} />
             <ChartFavoriteButton
               chartId={chartId}
-              chartTitle="Income & Expenses Tracking"
+              chartTitle="Income & Expenses Cumulative Tracking"
               size="md"
             />
-            <CardTitle>Income & Expenses Tracking</CardTitle>
+            <CardTitle>Income & Expenses Cumulative Tracking</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoAction()}

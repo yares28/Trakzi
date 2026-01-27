@@ -331,20 +331,25 @@ import { ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 
 **Tooltips automatically flip position** to stay within the visible viewport:
 
-- **Smart edge detection**: Measures tooltip position after render and calculates offset
+- **Portal-based rendering**: Tooltip escapes Nivo's container div via `createPortal` to `document.body`
+- **Mouse position tracking**: Tracks cursor via `mousemove` listener for accurate positioning
+- **Smart edge detection**: Calculates tooltip position relative to viewport bounds
 - **Automatic flipping**: When approaching right/bottom edges, tooltip flips to left/top of cursor
-- **Viewport awareness**: Uses `getBoundingClientRect()` to check against actual viewport bounds
-- **No clipping**: Tooltip repositions rather than being cut off
+- **No clipping**: Tooltip always stays fully visible within the viewport
 
 **How it works** (for Nivo charts using `NivoChartTooltip`):
-1. Tooltip renders at Nivo's calculated position (following cursor)
-2. `useEffect` with `requestAnimationFrame` measures the tooltip's bounding rect
-3. If tooltip would overflow viewport edges, a CSS `transform` offset is applied
-4. Tooltip smoothly repositions to stay fully visible
+1. `NivoChartTooltip` uses `createPortal` to render directly to `document.body`
+2. Mouse position is tracked via a global `mousemove` event listener
+3. On each render, tooltip calculates its position based on:
+   - Current mouse coordinates
+   - Tooltip dimensions (via `getBoundingClientRect`)
+   - Viewport bounds (`window.innerWidth`, `window.innerHeight`)
+4. If tooltip would overflow any edge, position flips to opposite side of cursor
+5. Uses `position: fixed` with calculated `left`/`top` for precise placement
 
 **For Recharts**:
 - Uses `allowEscapeViewBox={{ x: false, y: false }}` (built into `ChartTooltip`)
-- Combined with custom offset calculation in tooltip content
+- Recharts handles internal positioning within the SVG viewBox
 
 #### NivoChartTooltip Props
 

@@ -10,8 +10,8 @@ This document lists all chart components used on the Analytics page.
 
 | # | Chart ID | Component File | Component Name | Description |
 |---|----------|----------------|----------------|-------------|
-| 1 | `incomeExpensesTracking1` | `chart-area-interactive.tsx` | `ChartAreaInteractive` | Income & Expenses Tracking (Top Chart) - Visualizes cash flow over time |
-| 2 | `incomeExpensesTracking2` | `chart-area-interactive.tsx` | `ChartAreaInteractive` | Income & Expenses Tracking (Bottom Chart) - Same visualization, different data slice |
+| 1 | `incomeExpensesTracking1` | `chart-area-interactive.tsx` | `ChartAreaInteractive` | Income & Expenses Cumulative Tracking (Top Chart) - Visualizes cumulative cash flow over time |
+| 2 | `incomeExpensesTracking2` | `chart-area-interactive.tsx` | `ChartAreaInteractive` | Income & Expenses Cumulative Tracking (Bottom Chart) - Same visualization, different data slice |
 | 3 | `spendingCategoryRankings` | `chart-category-flow.tsx` | `ChartCategoryFlow` | Spending Category Rankings - Bump chart showing category rank changes over time |
 | 4 | `transactionHistory` | `chart-swarm-plot.tsx` | `ChartSwarmPlot` | Transaction History Swarm Plot - Individual transactions as dots grouped by category |
 | 5 | `moneyFlow` | `chart-spending-funnel.tsx` | `ChartSpendingFunnel` | Money Flow Funnel - Shows money flow through different stages |

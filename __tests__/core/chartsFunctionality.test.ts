@@ -14,14 +14,14 @@ import path from 'path'
 // Chart mapping from CHARTS_DOCUMENTATION.md
 const CHART_DOCUMENTATION = {
   home: [
-    { name: 'ChartAreaInteractive', file: 'components/chart-area-interactive.tsx', cardName: 'Income & Expenses Tracking' },
+    { name: 'ChartAreaInteractive', file: 'components/chart-area-interactive.tsx', cardName: 'Income & Expenses Cumulative Tracking' },
     { name: 'ChartCategoryFlow', file: 'components/chart-category-flow.tsx', cardName: 'Spending Category Rankings' },
     { name: 'ChartSpendingFunnel', file: 'components/chart-spending-funnel.tsx', cardName: 'Money Flow' },
     { name: 'ChartExpensesPie', file: 'components/chart-expenses-pie.tsx', cardName: 'Expense Breakdown' },
     { name: 'ChartTreeMap', file: 'components/chart-treemap.tsx', cardName: 'Net Worth Allocation' },
   ],
   analytics: [
-    { name: 'ChartAreaInteractive', file: 'components/chart-area-interactive.tsx', cardName: 'Income & Expenses Tracking' },
+    { name: 'ChartAreaInteractive', file: 'components/chart-area-interactive.tsx', cardName: 'Income & Expenses Cumulative Tracking' },
     { name: 'ChartCategoryFlow', file: 'components/chart-category-flow.tsx', cardName: 'Spending Category Rankings' },
     { name: 'ChartSpendingFunnel', file: 'components/chart-spending-funnel.tsx', cardName: 'Money Flow' },
     { name: 'ChartExpensesPie', file: 'components/chart-expenses-pie.tsx', cardName: 'Expense Breakdown' },
