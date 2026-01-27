@@ -2,6 +2,7 @@
 
 // Single Month Category Spending Chart for Fridge - Shows category spending for a selected month
 import * as React from "react"
+import { createPortal } from "react-dom"
 import ReactECharts from "echarts-for-react"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
@@ -168,11 +169,11 @@ export const ChartSingleMonthCategoryFridge = React.memo(function ChartSingleMon
 
         if (ecEvent) {
             if (typeof ecEvent.clientX === "number" && typeof ecEvent.clientY === "number") {
-                mouseX = ecEvent.clientX - rect.left
-                mouseY = ecEvent.clientY - rect.top
+                mouseX = ecEvent.clientX
+                mouseY = ecEvent.clientY
             } else if (typeof ecEvent.offsetX === "number" && typeof ecEvent.offsetY === "number") {
-                mouseX = ecEvent.offsetX
-                mouseY = ecEvent.offsetY
+                mouseX = rect.left + ecEvent.offsetX
+                mouseY = rect.top + ecEvent.offsetY
             }
         }
 
@@ -201,11 +202,9 @@ export const ChartSingleMonthCategoryFridge = React.memo(function ChartSingleMon
     }
 
     React.useEffect(() => {
-        if (tooltip && containerRef.current) {
+        if (tooltip) {
             const handleMouseMove = (e: MouseEvent) => {
-                if (!containerRef.current) return
-                const rect = containerRef.current.getBoundingClientRect()
-                setTooltipPosition({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+                setTooltipPosition({ x: e.clientX, y: e.clientY })
             }
 
             window.addEventListener('mousemove', handleMouseMove)
@@ -365,12 +364,12 @@ export const ChartSingleMonthCategoryFridge = React.memo(function ChartSingleMon
                                 notMerge={true}
                                 onEvents={{ mouseover: handleChartMouseOver, mouseout: handleChartMouseOut }}
                             />
-                            {tooltip && tooltipPosition && (
+                            {mounted && tooltip && tooltipPosition && createPortal(
                                 <div
-                                    className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+                                    className="pointer-events-none fixed z-[9999] rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl select-none"
                                     style={{
-                                        left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
-                                        top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
+                                        left: tooltipPosition.x + 12 + 200 > window.innerWidth ? tooltipPosition.x - 212 : tooltipPosition.x + 12,
+                                        top: tooltipPosition.y - 60 < 0 ? tooltipPosition.y + 12 : tooltipPosition.y - 60,
                                     }}
                                 >
                                     <div className="flex items-center gap-2">
@@ -380,7 +379,8 @@ export const ChartSingleMonthCategoryFridge = React.memo(function ChartSingleMon
                                     <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
                                         {valueFormatter.format(tooltip.value)}
                                     </div>
-                                </div>
+                                </div>,
+                                document.body
                             )}
                         </div>
                     </div>

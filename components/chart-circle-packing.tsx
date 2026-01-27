@@ -5,6 +5,8 @@ import { useTheme } from "next-themes"
 import { ResponsiveCirclePacking } from "@nivo/circle-packing"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
+import { useCurrency } from "@/components/currency-provider"
 import {
   Card,
   CardAction,
@@ -50,6 +52,7 @@ export const ChartCirclePacking = memo(function ChartCirclePacking({
 }: ChartCirclePackingProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
+  const { formatCurrency } = useCurrency()
   const sanitizedData = useMemo(() => sanitizeCirclePackingNode(data), [data])
 
   const renderInfoTrigger = () => (
@@ -117,6 +120,13 @@ export const ChartCirclePacking = memo(function ChartCirclePacking({
           labelsFilter={(e) => e.node.depth === 1}
           labelsSkipRadius={10}
           colors={getPalette()}
+          tooltip={({ id, value, color }) => (
+            <NivoChartTooltip
+              title={String(id)}
+              titleColor={color}
+              value={value !== undefined ? formatCurrency(value) : undefined}
+            />
+          )}
         />
       </CardContent>
     </Card>

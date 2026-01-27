@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import ReactECharts from "echarts-for-react"
 import { pack, stratify } from "d3-hierarchy"
 import { useTheme } from "next-themes"
@@ -168,15 +169,14 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
     setTooltipPosition(null)
   }
 
-  // Track mouse movement for tooltip positioning
+  // Track mouse movement for tooltip positioning (viewport coordinates for portal)
   React.useEffect(() => {
-    if (tooltip && containerRef.current) {
+    if (tooltip) {
       const handleMouseMove = (e: MouseEvent) => {
-        if (!containerRef.current) return
-        const rect = containerRef.current.getBoundingClientRect()
+        // Store viewport coordinates directly for portal-based rendering
         setTooltipPosition({
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
+          x: e.clientX,
+          y: e.clientY,
         })
       }
 
@@ -541,17 +541,23 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
                 mouseout: handleChartMouseOut,
               }}
             />
-            {tooltip && tooltipPosition && (
+            {/* Tooltip rendered via portal for proper viewport boundary handling */}
+            {mounted && tooltip && tooltipPosition && createPortal(
               <div
-                className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+                className="pointer-events-none fixed z-[9999] rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl select-none"
                 style={{
-                  left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
-                  top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
+                  // Smart positioning: flip when near viewport edges
+                  left: tooltipPosition.x + 12 + 200 > window.innerWidth
+                    ? tooltipPosition.x - 12 - 200
+                    : tooltipPosition.x + 12,
+                  top: tooltipPosition.y - 60 < 0
+                    ? tooltipPosition.y + 12
+                    : tooltipPosition.y - 60,
                 }}
               >
                 <div className="flex items-center gap-2">
                   <span
-                    className="h-2.5 w-2.5 rounded-full border border-border/50"
+                    className="h-2.5 w-2.5 shrink-0 rounded-full border border-border/50"
                     style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
                   />
                   <span className="font-medium text-foreground whitespace-nowrap">{tooltip.label}</span>
@@ -559,7 +565,8 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
                 <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
                   {formatCurrency(tooltip.value)}
                 </div>
-              </div>
+              </div>,
+              document.body
             )}
           </div>
         </CardContent>

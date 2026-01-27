@@ -1,7 +1,8 @@
 "use client"
 
-import { useMemo, useRef, useState, memo } from "react"
+import { useMemo, useRef, useState, useEffect, memo } from "react"
 import type { PointerEvent } from "react"
+import { createPortal } from "react-dom"
 import { scaleLinear, scalePoint } from "d3-scale"
 import { stack, stackOffsetWiggle, stackOrderInsideOut, area, curveCatmullRom } from "d3-shape"
 import { ticks } from "d3-array"
@@ -73,9 +74,15 @@ export const ChartSpendingStreamgraph = memo(function ChartSpendingStreamgraph({
   const { formatCurrency } = useCurrency()
   const { resolvedTheme } = useTheme()
   const svgRef = useRef<SVGSVGElement | null>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
   const [tooltip, setTooltip] = useState<{ label: string; total: number; color: string } | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const isDark = resolvedTheme === "dark"
 
@@ -207,9 +214,10 @@ export const ChartSpendingStreamgraph = memo(function ChartSpendingStreamgraph({
     const rect = svgRef.current?.getBoundingClientRect()
     if (!rect) return
 
+    // Store viewport coordinates for portal-based tooltip
     setTooltipPosition({
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top,
+      x: event.clientX,
+      y: event.clientY,
     })
     setTooltip({
       label: key.replace(/•/g, "·"),
@@ -405,18 +413,24 @@ export const ChartSpendingStreamgraph = memo(function ChartSpendingStreamgraph({
               </g>
             </svg>
 
-            {tooltip && tooltipPosition && (
+            {/* Tooltip rendered via portal for proper viewport boundary handling */}
+            {mounted && tooltip && tooltipPosition && createPortal(
               <div
-                className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+                ref={tooltipRef}
+                className="pointer-events-none fixed z-[9999] rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl select-none"
                 style={{
-                  left: tooltipPosition.x + 16,
-                  top: tooltipPosition.y - 16,
-                  transform: 'translate(0, -100%)',  // Position above cursor
+                  // Smart positioning: flip when near edges
+                  left: tooltipPosition.x + 12 + 200 > window.innerWidth
+                    ? tooltipPosition.x - 12 - 200
+                    : tooltipPosition.x + 12,
+                  top: tooltipPosition.y - 60 < 0
+                    ? tooltipPosition.y + 12
+                    : tooltipPosition.y - 60,
                 }}
               >
                 <div className="flex items-center gap-2">
                   <span
-                    className="h-2.5 w-2.5 rounded-full border border-border/50"
+                    className="h-2.5 w-2.5 shrink-0 rounded-full border border-border/50"
                     style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
                   />
                   <span className="font-medium text-foreground whitespace-nowrap">{tooltip.label}</span>
@@ -424,7 +438,8 @@ export const ChartSpendingStreamgraph = memo(function ChartSpendingStreamgraph({
                 <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
                   {formatCurrency(tooltip.total)}
                 </div>
-              </div>
+              </div>,
+              document.body
             )}
 
             {activeKeys.length > 0 && (

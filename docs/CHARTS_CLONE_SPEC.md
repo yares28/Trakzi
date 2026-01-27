@@ -352,6 +352,57 @@ The `Card` component **must NOT have `overflow-hidden`** - this clips Nivo's too
 - Uses `allowEscapeViewBox={{ x: false, y: false }}` (built into `ChartTooltip`)
 - Recharts handles internal positioning within the SVG viewBox
 
+##### Charts Updated with Portal-Based Tooltips
+
+**Analytics/Home Page - Nivo charts using `NivoChartTooltip`:**
+| Chart | File | Status |
+|-------|------|--------|
+| Expense Breakdown Pie | `chart-expenses-pie.tsx` | ✅ Updated |
+| Net Worth TreeMap | `chart-treemap.tsx` | ✅ Updated |
+| Financial Health Radar | `chart-radar.tsx` | ✅ Updated |
+| Cash Flow Sankey | `chart-sankey.tsx` | ✅ Updated |
+| Needs vs Wants Pie | `chart-needs-wants-pie.tsx` | ✅ Updated |
+| Household Spend Mix | `chart-polar-bar.tsx` | ✅ Updated |
+| Spending Category Rankings | `chart-category-flow.tsx` | ✅ Updated |
+| Money Flow Funnel | `chart-spending-funnel.tsx` | ✅ Updated |
+| Transaction Swarm Plot | `chart-swarm-plot.tsx` | ✅ Updated |
+| Budget Distribution | `chart-circle-packing.tsx` | ✅ Updated |
+
+**Fridge Page - Nivo charts using `NivoChartTooltip`:**
+| Chart | File | Status |
+|-------|------|--------|
+| Expense Breakdown | `fridge/chart-expense-breakdown-fridge.tsx` | ✅ Updated |
+| Basket Breakdown Pie | `fridge/chart-expenses-pie-fridge.tsx` | ✅ Updated |
+| Category TreeMap | `fridge/chart-treemap-fridge.tsx` | ✅ Updated |
+| Macronutrient Breakdown | `fridge/chart-macronutrient-breakdown-fridge.tsx` | ✅ Updated |
+| Polar Bar Chart | `fridge/chart-polar-bar-fridge.tsx` | ✅ Updated |
+| Category Flow | `fridge/chart-category-flow-fridge.tsx` | ✅ Updated |
+| Snack Percentage | `fridge/chart-snack-percentage-fridge.tsx` | ✅ Updated |
+| Empty vs Nutritious | `fridge/chart-empty-vs-nutritious-fridge.tsx` | ✅ Updated |
+| Grocery vs Restaurant | `fridge/chart-grocery-vs-restaurant-fridge.tsx` | ✅ Updated |
+| Transaction History | `fridge/chart-transaction-history-fridge.tsx` | ✅ Updated |
+
+**Savings Page:**
+| Chart | File | Status |
+|-------|------|--------|
+| Savings Accumulation | `chart-savings-accumulation.tsx` | ✅ Recharts (uses ChartTooltip) |
+
+**Custom charts using `createPortal` directly:**
+| Chart | File | Status |
+|-------|------|--------|
+| Category Streamgraph | `chart-spending-streamgraph.tsx` | ✅ Updated |
+| Category Bubble Map | `chart-category-bubble.tsx` | ✅ Updated |
+| Fridge Heatmaps/Activity | `fridge/chart-*-fridge.tsx` (11 files) | ✅ Updated |
+
+**ECharts-based charts (use built-in canvas tooltips):**
+| Chart | File | Notes |
+|-------|------|-------|
+| Transaction Calendar | `chart-transaction-calendar.tsx` | ECharts internal tooltip |
+| Day of Week Category | `chart-day-of-week-category.tsx` | ECharts internal tooltip |
+| Single Month Category | `chart-single-month-category-spending.tsx` | ECharts internal tooltip |
+| Fridge Heatmaps | `fridge/chart-shopping-heatmap-*.tsx` | ECharts internal tooltip |
+| Fridge Day/Time Charts | `fridge/chart-day-of-week-*.tsx` | ECharts internal tooltip |
+
 ##### Key Files Modified for Tooltip Visibility
 | File | Change |
 |------|--------|
