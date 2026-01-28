@@ -98,6 +98,7 @@
 }
 
 .dark {
+.dark {
   --background: oklch(0.1797 0.0043 308.1928);
   --foreground: oklch(0.8109 0 0);
   --card: oklch(0.1822 0 0);
@@ -130,6 +131,20 @@
   --sidebar-accent-foreground: oklch(0.8109 0 0);
   --sidebar-border: oklch(0.252 0 0);
   --sidebar-ring: oklch(0.7214 0.1337 49.9802);
+}
+
+@layer components {
+  /* Light-mode only subtle 3D shading for cards */
+  html:not(.dark) [data-slot="card"].card-3d-light {
+    border-color: rgb(229 231 235); /* border-gray-200 */
+    background-image: linear-gradient(
+      to bottom,
+      #f9fafb 0%,
+      #f2f2f2 55%,
+      #e0e0e0 100%
+    );
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.14);
+  }
 }
 
 body {
