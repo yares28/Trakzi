@@ -1,20 +1,62 @@
 import * as React from "react"
+import { useEffect, useRef } from "react"
 
 import { cn } from "@/lib/utils"
 
 function Card({ className, ...props }: React.ComponentProps<"div">) {
+  const finalClassName = cn(
+    // Note: overflow-visible allows chart tooltips to extend beyond card boundaries
+    // The rounded corners still work as they apply to the card's own border/background
+    "text-card-foreground flex flex-col gap-6 rounded-xl border py-6 min-w-0",
+    // Add visible shading for light mode to improve visibility
+    "bg-muted/10 dark:bg-card",
+    "shadow-md dark:shadow-sm",
+    className
+  )
+  
+  const cardRef = useRef<HTMLDivElement>(null)
+  
+  // #region agent log
+  useEffect(() => {
+    if (cardRef.current) {
+      const computed = window.getComputedStyle(cardRef.current)
+      const bgColor = computed.backgroundColor
+      const hasBgMuted = finalClassName.includes('bg-muted')
+      const hasBgCard = finalClassName.includes('bg-card')
+      const parent = cardRef.current.parentElement
+      const parentClasses = parent?.className || ''
+      
+      fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          location: 'card.tsx:Card',
+          message: 'Card className and computed styles',
+          data: {
+            finalClassName,
+            passedClassName: className,
+            hasBgMuted,
+            hasBgCard,
+            computedBgColor: bgColor,
+            parentClasses,
+            parentTag: parent?.tagName,
+            hasDataSlot: cardRef.current.hasAttribute('data-slot')
+          },
+          timestamp: Date.now(),
+          sessionId: 'debug-session',
+          runId: 'run1',
+          hypothesisId: 'A,C,D'
+        })
+      }).catch(() => {})
+    }
+  }, [finalClassName, className])
+  // #endregion
+
   return (
     <div
+      ref={cardRef}
       data-slot="card"
-      className={cn(
-        // Note: overflow-visible allows chart tooltips to extend beyond card boundaries
-        // The rounded corners still work as they apply to the card's own border/background
-        "text-card-foreground flex flex-col gap-6 rounded-xl border py-6 min-w-0",
-        // Add visible shading for light mode to improve visibility
-        "bg-muted/10 dark:bg-card",
-        "shadow-md dark:shadow-sm",
-        className
-      )}
+      className={finalClassName}
       {...props}
     />
   )
