@@ -221,7 +221,16 @@ export function ChartsGrid({
   // #endregion
 
   return (
-    <div ref={wrapperRef} className="w-full mb-4 px-4 lg:px-6 *:data-[slot=card]:bg-gray-50 dark:*:data-[slot=card]:bg-card *:data-[slot=card]:shadow-md dark:*:data-[slot=card]:shadow-sm">
+    <div
+      ref={wrapperRef}
+      className="w-full mb-4 px-4 lg:px-6
+      *:data-[slot=card]:bg-gray-50
+      *:data-[slot=card]:border-0
+      dark:*:data-[slot=card]:bg-card
+      dark:*:data-[slot=card]:border
+      *:data-[slot=card]:shadow-md
+      dark:*:data-[slot=card]:shadow-sm"
+    >
       <SortableGridProvider
         chartOrder={analyticsChartOrder}
         onOrderChange={handleChartOrderChange}

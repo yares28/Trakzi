@@ -24,6 +24,7 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
       const computed = window.getComputedStyle(cardRef.current)
       const bgColor = computed.backgroundColor
       const bgImage = computed.backgroundImage
+      const borderColor = computed.borderColor
       const hasBgGray = finalClassName.includes('bg-gray')
       const hasBgMuted = finalClassName.includes('bg-muted')
       const hasBgCard = finalClassName.includes('bg-card')
@@ -31,25 +32,6 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
       const parentClasses = parent?.className || ''
       const parentBg = parent ? window.getComputedStyle(parent).backgroundColor : 'none'
       const bodyBg = window.getComputedStyle(document.body).backgroundColor
-      
-      // Check if any CSS rules are overriding
-      const allStyles = Array.from(document.styleSheets).flatMap(sheet => {
-        try {
-          return Array.from(sheet.cssRules || [])
-        } catch {
-          return []
-        }
-      })
-      const matchingRules = allStyles.filter(rule => {
-        try {
-          return rule.selectorText && cardRef.current?.matches(rule.selectorText)
-        } catch {
-          return false
-        }
-      }).map(rule => ({
-        selector: rule.selectorText,
-        backgroundColor: (rule as CSSStyleRule).style.backgroundColor || 'none'
-      }))
       
       fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8', {
         method: 'POST',
@@ -65,11 +47,11 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
             hasBgCard,
             computedBgColor: bgColor,
             computedBgImage: bgImage,
+            computedBorderColor: borderColor,
             parentClasses,
             parentTag: parent?.tagName,
             parentBg,
             bodyBg,
-            matchingRules: matchingRules.slice(0, 5),
             hasDataSlot: cardRef.current.hasAttribute('data-slot'),
             inlineStyle: cardRef.current.getAttribute('style') || 'none'
           },
