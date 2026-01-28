@@ -1,75 +1,22 @@
-"use client"
-
 import * as React from "react"
-import { useEffect, useRef } from "react"
 
 import { cn } from "@/lib/utils"
 
 function Card({ className, ...props }: React.ComponentProps<"div">) {
-  const finalClassName = cn(
-    // Note: overflow-visible allows chart tooltips to extend beyond card boundaries
-    // The rounded corners still work as they apply to the card's own border/background
-    "text-card-foreground flex flex-col gap-6 rounded-xl border border-black/5 py-6 min-w-0",
-    // Add visible shading for light mode to improve visibility
-    "bg-gradient-to-b from-white to-gray-100 dark:from-card dark:to-card",
-    "shadow-[0_10px_30px_rgba(15,23,42,0.12)] dark:shadow-md",
-    className
-  )
-  
-  const cardRef = useRef<HTMLDivElement>(null)
-  
-  // #region agent log
-  useEffect(() => {
-    if (cardRef.current) {
-      const computed = window.getComputedStyle(cardRef.current)
-      const bgColor = computed.backgroundColor
-      const bgImage = computed.backgroundImage
-      const borderColor = computed.borderColor
-      const hasBgGray = finalClassName.includes('bg-gray')
-      const hasBgMuted = finalClassName.includes('bg-muted')
-      const hasBgCard = finalClassName.includes('bg-card')
-      const parent = cardRef.current.parentElement
-      const parentClasses = parent?.className || ''
-      const parentBg = parent ? window.getComputedStyle(parent).backgroundColor : 'none'
-      const bodyBg = window.getComputedStyle(document.body).backgroundColor
-      
-      fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          location: 'card.tsx:Card',
-          message: 'Card className and computed styles - detailed',
-          data: {
-            finalClassName,
-            passedClassName: className,
-            hasBgGray,
-            hasBgMuted,
-            hasBgCard,
-            computedBgColor: bgColor,
-            computedBgImage: bgImage,
-            computedBorderColor: borderColor,
-            parentClasses,
-            parentTag: parent?.tagName,
-            parentBg,
-            bodyBg,
-            hasDataSlot: cardRef.current.hasAttribute('data-slot'),
-            inlineStyle: cardRef.current.getAttribute('style') || 'none'
-          },
-          timestamp: Date.now(),
-          sessionId: 'debug-session',
-          runId: 'run2',
-          hypothesisId: 'C'
-        })
-      }).catch(() => {})
-    }
-  }, [finalClassName, className])
-  // #endregion
-
   return (
     <div
-      ref={cardRef}
       data-slot="card"
-      className={finalClassName}
+      className={cn(
+        // Core layout & typography
+        "text-card-foreground flex flex-col gap-6 rounded-xl border border-black/5 py-6 min-w-0",
+        // Subtle 3D base effect in light mode, solid in dark mode
+        "bg-gradient-to-b from-white to-gray-100 dark:from-card dark:to-card",
+        // Soft elevation + smooth hover depth
+        "shadow-[0_10px_30px_rgba(15,23,42,0.12)] dark:shadow-md",
+        "transition-shadow transition-transform duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]",
+        "motion-safe:hover:-translate-y-[1px] motion-safe:hover:shadow-[0_18px_45px_rgba(15,23,42,0.18)]",
+        className
+      )}
       {...props}
     />
   )
