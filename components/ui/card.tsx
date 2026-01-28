@@ -9,8 +9,8 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
       className={cn(
         // Core layout & typography
         "text-card-foreground flex flex-col gap-6 rounded-xl border border-gray-200 py-6 min-w-0",
-        // More visible 3D base effect in light mode, solid in dark mode
-        "bg-gradient-to-b from-[#f9fafb] via-[#f3f4f6] to-[#e5e7eb] dark:from-card dark:to-card",
+        // Neutral gray 3D base effect in light mode, solid in dark mode
+        "bg-gradient-to-b from-[#f9fafb] via-[#f0f0f0] to-[#dedede] dark:from-card dark:to-card",
         // Soft elevation + smooth hover depth
         "shadow-lg dark:shadow-md",
         "transition-shadow transition-transform duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]",
