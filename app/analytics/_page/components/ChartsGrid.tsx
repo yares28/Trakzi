@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useState, type Dispatch, type SetStateAction } from "react"
+import { memo, useEffect, useState, type Dispatch, type SetStateAction } from "react"
 
 import { LazyChart } from "@/components/lazy-chart"
 import { SortableGridItem, SortableGridProvider } from "@/components/sortable-grid"
@@ -188,49 +188,8 @@ export function ChartsGrid({
     )
   })
 
-  const wrapperRef = React.useRef<HTMLDivElement>(null)
-  
-  // #region agent log
-  React.useEffect(() => {
-    if (wrapperRef.current) {
-      const cards = wrapperRef.current.querySelectorAll('[data-slot="card"]')
-      const wrapperClasses = wrapperRef.current.className
-      const hasSelector = wrapperClasses.includes('*:data-[slot=card]:bg-muted')
-      
-      fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          location: 'ChartsGrid.tsx:ChartsGrid',
-          message: 'ChartsGrid wrapper and card count',
-          data: {
-            wrapperClasses,
-            hasSelector,
-            cardCount: cards.length,
-            firstCardClasses: cards[0]?.className || 'none',
-            firstCardBg: cards[0] ? window.getComputedStyle(cards[0]).backgroundColor : 'none'
-          },
-          timestamp: Date.now(),
-          sessionId: 'debug-session',
-          runId: 'run1',
-          hypothesisId: 'B'
-        })
-      }).catch(() => {})
-    }
-  }, [])
-  // #endregion
-
   return (
-    <div
-      ref={wrapperRef}
-      className="w-full mb-4 px-4 lg:px-6
-      *:data-[slot=card]:bg-gray-50
-      *:data-[slot=card]:border-0
-      dark:*:data-[slot=card]:bg-card
-      dark:*:data-[slot=card]:border
-      *:data-[slot=card]:shadow-md
-      dark:*:data-[slot=card]:shadow-sm"
-    >
+    <div className="w-full mb-4 px-4 lg:px-6">
       <SortableGridProvider
         chartOrder={analyticsChartOrder}
         onOrderChange={handleChartOrderChange}
