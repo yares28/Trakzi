@@ -9,10 +9,10 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
   const finalClassName = cn(
     // Note: overflow-visible allows chart tooltips to extend beyond card boundaries
     // The rounded corners still work as they apply to the card's own border/background
-        "text-card-foreground flex flex-col gap-6 rounded-xl border py-6 min-w-0",
-        // Add visible shading for light mode to improve visibility
-        "bg-gray-50 dark:bg-card",
-        "shadow-md dark:shadow-sm",
+    "text-card-foreground flex flex-col gap-6 rounded-xl border border-black/5 py-6 min-w-0",
+    // Add visible shading for light mode to improve visibility
+    "bg-gradient-to-b from-white to-gray-100 dark:from-card dark:to-card",
+    "shadow-[0_10px_30px_rgba(15,23,42,0.12)] dark:shadow-md",
     className
   )
   
