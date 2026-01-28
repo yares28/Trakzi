@@ -23,31 +23,60 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
     if (cardRef.current) {
       const computed = window.getComputedStyle(cardRef.current)
       const bgColor = computed.backgroundColor
+      const bgImage = computed.backgroundImage
+      const hasBgGray = finalClassName.includes('bg-gray')
       const hasBgMuted = finalClassName.includes('bg-muted')
       const hasBgCard = finalClassName.includes('bg-card')
       const parent = cardRef.current.parentElement
       const parentClasses = parent?.className || ''
+      const parentBg = parent ? window.getComputedStyle(parent).backgroundColor : 'none'
+      const bodyBg = window.getComputedStyle(document.body).backgroundColor
+      
+      // Check if any CSS rules are overriding
+      const allStyles = Array.from(document.styleSheets).flatMap(sheet => {
+        try {
+          return Array.from(sheet.cssRules || [])
+        } catch {
+          return []
+        }
+      })
+      const matchingRules = allStyles.filter(rule => {
+        try {
+          return rule.selectorText && cardRef.current?.matches(rule.selectorText)
+        } catch {
+          return false
+        }
+      }).map(rule => ({
+        selector: rule.selectorText,
+        backgroundColor: (rule as CSSStyleRule).style.backgroundColor || 'none'
+      }))
       
       fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           location: 'card.tsx:Card',
-          message: 'Card className and computed styles',
+          message: 'Card className and computed styles - detailed',
           data: {
             finalClassName,
             passedClassName: className,
+            hasBgGray,
             hasBgMuted,
             hasBgCard,
             computedBgColor: bgColor,
+            computedBgImage: bgImage,
             parentClasses,
             parentTag: parent?.tagName,
-            hasDataSlot: cardRef.current.hasAttribute('data-slot')
+            parentBg,
+            bodyBg,
+            matchingRules: matchingRules.slice(0, 5),
+            hasDataSlot: cardRef.current.hasAttribute('data-slot'),
+            inlineStyle: cardRef.current.getAttribute('style') || 'none'
           },
           timestamp: Date.now(),
           sessionId: 'debug-session',
-          runId: 'run1',
-          hypothesisId: 'A,C,D'
+          runId: 'run2',
+          hypothesisId: 'C'
         })
       }).catch(() => {})
     }
