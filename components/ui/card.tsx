@@ -9,8 +9,8 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
       className={cn(
         // Original structural styling (used in both themes)
         "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm min-w-0",
-        // Light‑mode only 3D hook: small, subtle gray shading
-        "card-3d-light",
+        // Themed 3D hooks: light and dark
+        "card-3d-light card-3d-dark",
         className
       )}
       {...props}
