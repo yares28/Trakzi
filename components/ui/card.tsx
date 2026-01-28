@@ -7,14 +7,10 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card"
       className={cn(
-        // Core layout & typography
-        "text-card-foreground flex flex-col gap-6 rounded-xl border border-gray-200 py-6 min-w-0",
-        // Neutral gray 3D base effect in light mode, solid in dark mode
-        "bg-gradient-to-b from-[#f9fafb] via-[#f0f0f0] to-[#dedede] dark:from-card dark:to-card",
-        // Soft elevation + smooth hover depth
-        "shadow-lg dark:shadow-md",
-        "transition-shadow transition-transform duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]",
-        "motion-safe:hover:-translate-y-[1px] motion-safe:hover:shadow-[0_20px_45px_rgba(15,23,42,0.22)]",
+        // Original structural styling (used in both themes)
+        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm min-w-0",
+        // Light‑mode only 3D hook: small, subtle gray shading
+        "card-3d-light",
         className
       )}
       {...props}
