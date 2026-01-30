@@ -33,12 +33,19 @@ const Earth: React.FC<EarthProps> = ({
 
   useEffect(() => {
     let width = 0
+    let resizeTimeout: ReturnType<typeof setTimeout> | null = null
+
     const onResize = () => canvasRef.current && (width = canvasRef.current.offsetWidth)
-    window.addEventListener("resize", onResize)
+
+    // Debounced resize handler (250ms) - globe recreation is expensive
+    const handleResize = () => {
+      if (resizeTimeout) clearTimeout(resizeTimeout)
+      resizeTimeout = setTimeout(onResize, 250)
+    }
+
+    window.addEventListener("resize", handleResize, { passive: true })
     onResize()
     let phi = 0
-
-    onResize()
     const globe = createGlobe(canvasRef.current!, {
       devicePixelRatio: 2,
       width: width * 2,
@@ -68,6 +75,8 @@ const Earth: React.FC<EarthProps> = ({
 
     return () => {
       globe.destroy()
+      window.removeEventListener("resize", handleResize)
+      if (resizeTimeout) clearTimeout(resizeTimeout)
     }
   }, [dark])
 

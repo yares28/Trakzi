@@ -30,21 +30,31 @@ export function ChartFullscreenModal({
     const isMobile = useIsMobile()
     const [isPortrait, setIsPortrait] = React.useState(false)
 
-    // Detect portrait orientation
+    // Detect portrait orientation with debounced resize handling
     React.useEffect(() => {
         if (!isOpen) return
+
+        let resizeTimeout: ReturnType<typeof setTimeout> | null = null
 
         const checkOrientation = () => {
             setIsPortrait(window.innerHeight > window.innerWidth)
         }
 
+        // Debounced resize handler (100ms) to prevent excessive re-renders
+        const handleResize = () => {
+            if (resizeTimeout) clearTimeout(resizeTimeout)
+            resizeTimeout = setTimeout(checkOrientation, 100)
+        }
+
         checkOrientation()
-        window.addEventListener("resize", checkOrientation)
+        window.addEventListener("resize", handleResize, { passive: true })
+        // orientationchange is infrequent, no debounce needed
         window.addEventListener("orientationchange", checkOrientation)
 
         return () => {
-            window.removeEventListener("resize", checkOrientation)
+            window.removeEventListener("resize", handleResize)
             window.removeEventListener("orientationchange", checkOrientation)
+            if (resizeTimeout) clearTimeout(resizeTimeout)
         }
     }, [isOpen])
 

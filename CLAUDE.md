@@ -213,6 +213,9 @@ const processedData = useMemo(() =>
 |------|---------|
 | `components/lazy-chart.tsx` | IntersectionObserver wrapper for deferred chart rendering |
 | `components/chart-visibility-provider.tsx` | Centralized context for chart category visibility (replaces per-chart localStorage reads) |
+| `lib/chart-resize-context.tsx` | Debounces chart resize during window resize (100ms pause) |
+| `hooks/use-debounced-resize.ts` | Reusable hook for debounced resize event handling |
+| `components/ui/sidebar.tsx` | GPU-accelerated sidebar animations (uses `transform` instead of `width`/`margin`) |
 
 ### Chart Grids by Page
 | Page | Grid File | Has LazyChart |
@@ -227,9 +230,10 @@ const processedData = useMemo(() =>
 |----------|---------------|
 | Export chart without `memo()` | Always wrap exports with `memo()` |
 | Render heavy charts immediately | Wrap below-fold charts with `LazyChart` |
-| Transition `grid-row`/`grid-column` CSS | Only transition GPU-composited properties (`transform`, `opacity`) |
+| Transition `width`/`margin`/`left`/`right` CSS | Use GPU-composited `transform: translateX()` or `scaleX()` |
 | Multiple `localStorage.getItem()` per chart | Use `ChartVisibilityProvider` context |
 | Inline data transforms in JSX | Use `useMemo` with proper dependencies |
+| Add resize listener without debounce | Use `useDebouncedResize` hook (100-250ms delay) |
 
 ## Security Checklist
 

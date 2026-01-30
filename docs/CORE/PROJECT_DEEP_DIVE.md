@@ -1006,7 +1006,7 @@ Built on Radix UI primitives:
 - `tabs.tsx` - Tab navigation
 - `tooltip.tsx` - Tooltips
 - `card.tsx` - Card containers
-- `sidebar.tsx` - App sidebar (600+ lines)
+- `sidebar.tsx` - App sidebar (700+ lines) - Uses GPU-accelerated transforms for smooth animations
 
 ##### Fridge Components (`components/fridge/`)
 
@@ -1615,6 +1615,27 @@ ORDER BY receipt_date DESC
 3. **File Storage**
    - Receipt images stored in database (BYTEA)
    - **Suggestion**: Consider object storage (S3/R2) for scale
+
+### UI Performance Optimizations
+
+1. **Sidebar Animations (GPU-Accelerated)**
+   - Uses `transform: translateX()` and `scaleX()` instead of `width`/`margin` transitions
+   - Eliminates layout thrashing (no CPU reflows during animation)
+   - File: `components/ui/sidebar.tsx`
+
+2. **Chart Resize Debouncing**
+   - `ChartResizeProvider` pauses chart updates during window resize
+   - 100ms debounce prevents excessive re-renders
+   - File: `lib/chart-resize-context.tsx`
+
+3. **Debounced Event Handlers**
+   - Resize listeners in UI components use debouncing (100-250ms)
+   - Hook: `hooks/use-debounced-resize.ts`
+   - Affected components: `chart-fullscreen-modal.tsx`, `globe.tsx`, `following-pointer.tsx`
+
+4. **Lazy Chart Loading**
+   - Charts below viewport use `IntersectionObserver` for deferred rendering
+   - Component: `components/lazy-chart.tsx`
 
 ### Suggested Improvements
 

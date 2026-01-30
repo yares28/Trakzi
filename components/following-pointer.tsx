@@ -20,6 +20,9 @@ export const FollowerPointerCard = ({
   const [isInside, setIsInside] = useState<boolean>(false)
 
   useEffect(() => {
+    let resizeTimeout: ReturnType<typeof setTimeout> | null = null
+    let scrollRaf: number | null = null
+
     const updateRect = () => {
       if (ref.current) {
         setRect(ref.current.getBoundingClientRect())
@@ -28,15 +31,29 @@ export const FollowerPointerCard = ({
 
     updateRect()
 
-    const handleResize = () => updateRect()
-    const handleScroll = () => updateRect()
+    // Debounced resize handler (100ms)
+    const handleResize = () => {
+      if (resizeTimeout) clearTimeout(resizeTimeout)
+      resizeTimeout = setTimeout(updateRect, 100)
+    }
 
-    window.addEventListener("resize", handleResize)
-    window.addEventListener("scroll", handleScroll)
+    // Scroll uses RAF for smooth updates (only update once per frame)
+    const handleScroll = () => {
+      if (scrollRaf) return // Already scheduled
+      scrollRaf = requestAnimationFrame(() => {
+        updateRect()
+        scrollRaf = null
+      })
+    }
+
+    window.addEventListener("resize", handleResize, { passive: true })
+    window.addEventListener("scroll", handleScroll, { passive: true })
 
     return () => {
       window.removeEventListener("resize", handleResize)
       window.removeEventListener("scroll", handleScroll)
+      if (resizeTimeout) clearTimeout(resizeTimeout)
+      if (scrollRaf) cancelAnimationFrame(scrollRaf)
     }
   }, [])
 
