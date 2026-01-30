@@ -7,7 +7,6 @@ import { PanelLeftIcon } from "lucide-react"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
-import { useChartResize } from "@/lib/chart-resize-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
@@ -70,8 +69,6 @@ function SidebarProvider({
 }) {
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
-  const { pauseResize, resumeResize } = useChartResize()
-  const transitionTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
@@ -100,41 +97,14 @@ function SidebarProvider({
     [setOpenProp, open]
   )
 
-  // Helper to toggle the sidebar with chart resize pausing for smooth animation
+  // Helper to toggle the sidebar - now uses GPU-accelerated transforms, no pause needed
   const toggleSidebar = React.useCallback(() => {
-    // Clear any pending transition timeout
-    if (transitionTimeoutRef.current) {
-      clearTimeout(transitionTimeoutRef.current)
-    }
-
-    // Pause chart resizing before transition starts (desktop only)
-    if (!isMobile) {
-      pauseResize()
-    }
-
-    // Toggle the sidebar
     if (isMobile) {
       setOpenMobile((open) => !open)
     } else {
       setOpen((open) => !open)
     }
-
-    // Resume chart resizing after transition completes (desktop only)
-    if (!isMobile) {
-      transitionTimeoutRef.current = setTimeout(() => {
-        resumeResize()
-      }, SIDEBAR_TRANSITION_DURATION)
-    }
-  }, [isMobile, setOpen, setOpenMobile, pauseResize, resumeResize])
-
-  // Cleanup timeout on unmount
-  React.useEffect(() => {
-    return () => {
-      if (transitionTimeoutRef.current) {
-        clearTimeout(transitionTimeoutRef.current)
-      }
-    }
-  }, [])
+  }, [isMobile, setOpen, setOpenMobile])
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
@@ -211,10 +181,13 @@ function Sidebar({
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
   
-  // Smooth transitions for all collapsible modes including icon
+  // GPU-accelerated transitions using transform instead of layout properties
+  // transform is composited on GPU and doesn't trigger layout recalculations
   const desktopTransition = {
-    gap: "transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[width]",
-    container: "transition-[left,right,width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[left,right,width]",
+    // For icon mode, we still need width transition (layout change is necessary)
+    gap: "transition-[width,transform] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform",
+    // Container uses translateX for offcanvas (GPU), width for icon mode
+    container: "transition-[transform,width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform",
   }
 
   if (collapsible === "none") {
@@ -267,13 +240,16 @@ function Sidebar({
       data-slot="sidebar"
     >
       {/* This is what handles the sidebar gap on desktop */}
+      {/* For offcanvas: uses scaleX(0) transform (GPU) instead of width:0 (layout) */}
       <div
         data-slot="sidebar-gap"
         className={cn(
-          "relative w-(--sidebar-width) bg-transparent",
+          "relative w-(--sidebar-width) bg-transparent origin-left",
           desktopTransition.gap,
-          "group-data-[collapsible=offcanvas]:w-0",
-          "group-data-[side=right]:rotate-180",
+          // Offcanvas: scale to 0 width (GPU-accelerated, no layout recalc)
+          "group-data-[collapsible=offcanvas]:scale-x-0",
+          "group-data-[side=right]:rotate-180 group-data-[side=right]:origin-right",
+          // Icon mode: actual width change (layout needed for content reflow)
           variant === "floating" || variant === "inset"
             ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]"
             : "group-data-[collapsible=icon]:w-(--sidebar-width-icon)"
@@ -284,9 +260,12 @@ function Sidebar({
         className={cn(
           "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) md:flex",
           desktopTransition.container,
+          // Position: always at edge
+          side === "left" ? "left-0" : "right-0",
+          // Offcanvas: use translateX (GPU-accelerated) instead of left/right (layout)
           side === "left"
-            ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
-            : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
+            ? "group-data-[collapsible=offcanvas]:-translate-x-full"
+            : "group-data-[collapsible=offcanvas]:translate-x-full",
           // Adjust the padding for floating and inset variants.
           variant === "floating" || variant === "inset"
             ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"
@@ -298,7 +277,7 @@ function Sidebar({
         <div
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
-          className="bg-sidebar dark:bg-zinc-900/50 group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col rounded-r-2xl group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
+          className="bg-sidebar dark:bg-zinc-900/50 group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col rounded-r-2xl group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm"
         >
           {children}
         </div>
@@ -342,8 +321,10 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
         "bg-background relative flex w-full flex-1 flex-col min-h-screen-mobile mobile-bg-gradient",
         // Desktop: Container scrolls for sticky header behavior
         "md:overflow-y-auto md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 md:peer-data-[variant=inset]:h-[calc(100svh-1rem)]",
-        // Smooth transition for margin changes when sidebar opens/closes
-        "transition-[margin] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+        // GPU-accelerated transform for offcanvas collapse (shifts content into gap space)
+        "transition-[transform,margin] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform",
+        // When offcanvas collapsed: translate left to fill the visual gap
+        "md:peer-data-[collapsible=offcanvas]:-translate-x-[var(--sidebar-width)]",
         className
       )}
       {...props}
@@ -408,7 +389,6 @@ function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
       data-sidebar="content"
       className={cn(
         "flex min-h-0 flex-1 flex-col gap-2 overflow-hidden group-data-[collapsible=icon]:overflow-hidden",
-        "transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
         className
       )}
       {...props}
