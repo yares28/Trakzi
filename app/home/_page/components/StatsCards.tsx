@@ -1,3 +1,5 @@
+import { memo } from "react"
+
 import { SectionCards } from "@/components/section-cards"
 import { useTotalTransactionCount } from "@/hooks/use-dashboard-data"
 
@@ -9,7 +11,12 @@ type StatsCardsProps = {
   transactionSummary: TransactionSummary
 }
 
-export function StatsCards({
+/**
+ * StatsCards - Memoized stats summary cards
+ *
+ * Wrapped in memo to prevent re-renders during sidebar toggle.
+ */
+export const StatsCards = memo(function StatsCards({
   stats,
   trends,
   transactionSummary,
@@ -39,4 +46,6 @@ export function StatsCards({
       totalAllTimeTrend={totalCount?.trend}
     />
   )
-}
+})
+
+StatsCards.displayName = "StatsCards"

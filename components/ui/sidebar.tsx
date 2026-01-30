@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { startTransition } from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 import { PanelLeftIcon } from "lucide-react"
@@ -97,13 +98,17 @@ function SidebarProvider({
     [setOpenProp, open]
   )
 
-  // Helper to toggle the sidebar - now uses GPU-accelerated transforms, no pause needed
+  // Helper to toggle the sidebar - uses startTransition for smooth animations
+  // startTransition marks the state update as non-urgent, allowing the CSS animation
+  // to run smoothly without being blocked by React's reconciliation work
   const toggleSidebar = React.useCallback(() => {
-    if (isMobile) {
-      setOpenMobile((open) => !open)
-    } else {
-      setOpen((open) => !open)
-    }
+    startTransition(() => {
+      if (isMobile) {
+        setOpenMobile((open) => !open)
+      } else {
+        setOpen((open) => !open)
+      }
+    })
   }, [isMobile, setOpen, setOpenMobile])
 
   // Adds a keyboard shortcut to toggle the sidebar.
@@ -327,6 +332,8 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
         "md:peer-data-[collapsible=offcanvas]:-translate-x-[var(--sidebar-width)]",
         className
       )}
+      // CSS containment: isolate layout and paint to prevent child re-layouts during animation
+      style={{ contain: 'layout style' }}
       {...props}
     />
   )

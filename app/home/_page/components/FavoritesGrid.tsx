@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from "react"
+import { memo, useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
 import { IconCircleCheck } from "@tabler/icons-react"
@@ -118,7 +118,14 @@ const RingPopoverContent = memo(function RingPopoverContent({
   )
 })
 
-export function FavoritesGrid({
+/**
+ * FavoritesGrid - Memoized grid of favorite charts
+ *
+ * This component is wrapped in React.memo to prevent re-renders when the sidebar
+ * toggles. Without memoization, React's reconciliation would cause all charts
+ * to re-render during the CSS animation, causing frame drops.
+ */
+export const FavoritesGrid = memo(function FavoritesGrid({
   favorites,
   favoritesOrder,
   savedFavoriteSizes,
@@ -612,4 +619,6 @@ export function FavoritesGrid({
       </SortableGridProvider>
     </div>
   )
-}
+})
+
+FavoritesGrid.displayName = "FavoritesGrid"
