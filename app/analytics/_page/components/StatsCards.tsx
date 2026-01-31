@@ -26,13 +26,17 @@ export function StatsCards({ stats, statsTrends, transactionSummary }: StatsCard
       incomeTrend={statsTrends.incomeTrend}
       expensesTrend={statsTrends.expensesTrend}
       netWorthTrend={statsTrends.netWorthTrend}
+      savingsRateTrend={statsTrends.savingsRateTrend}
       transactionCount={transactionSummary.count}
       transactionTimeSpan={transactionSummary.timeSpan}
       transactionTrend={transactionSummary.trend}
-      // All-time totals (ignores date filter for Total Transactions card)
       totalAllTimeCount={totalCount?.count}
       totalAllTimeTimeSpan={totalCount?.timeSpan}
       totalAllTimeTrend={totalCount?.trend}
+      transactionsAllTimeOnly
+      showSpendingAndSavingsRate
+      spendingRateChange={stats.spendingRateChange}
+      spendingRateTrend={statsTrends.spendingRateTrend}
     />
   )
 }

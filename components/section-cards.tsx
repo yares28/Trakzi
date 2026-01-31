@@ -39,9 +39,17 @@ interface SectionCardsProps {
   totalAllTimeCount?: number
   totalAllTimeTimeSpan?: string
   totalAllTimeTrend?: TrendDataPoint[]
+  // When true, Total Transactions card only uses all-time data (no fallback to filtered)
+  transactionsAllTimeOnly?: boolean
+  // Fourth card: "netWorth" (default) or "savingsRate"
+  fourthCard?: "netWorth" | "savingsRate"
+  savingsRateTrend?: TrendDataPoint[]
+  showSpendingAndSavingsRate?: boolean
+  spendingRateChange?: number
+  spendingRateTrend?: TrendDataPoint[]
 }
 
-type CardId = "income" | "expenses" | "netWorth" | "transactions"
+type CardId = "income" | "expenses" | "netWorth" | "transactions" | "savingsRate" | "spendingRate"
 
 interface CardData {
   id: CardId
@@ -57,6 +65,7 @@ interface CardData {
   trendData: TrendDataPoint[]
   isCurrency?: boolean
   showChange?: boolean
+  valueSuffix?: string
 }
 
 // Blurred trend line background component with real data support
@@ -143,7 +152,7 @@ function CardComponent({ card }: { card: CardData }) {
         <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
           {card.isCurrency !== false
             ? formatCurrency(card.value, card.formatOptions)
-            : card.value.toLocaleString()}
+            : card.value.toLocaleString(undefined, card.formatOptions) + (card.valueSuffix ?? "")}
         </CardTitle>
         {card.showChange !== false && (
           <CardAction>
@@ -189,6 +198,12 @@ export function SectionCards({
   totalAllTimeCount,
   totalAllTimeTimeSpan,
   totalAllTimeTrend,
+  transactionsAllTimeOnly = false,
+  fourthCard = "netWorth",
+  savingsRateTrend = [],
+  showSpendingAndSavingsRate = false,
+  spendingRateChange = 0,
+  spendingRateTrend = [],
 }: SectionCardsProps) {
   // Ensure all values are numbers (handle case where API returns strings)
   const safeTotalIncome = Number(totalIncome) || 0
@@ -201,10 +216,19 @@ export function SectionCards({
   const safeNetWorthChange = Number(netWorthChange) || 0
   const safeTransactionCount = Number(transactionCount) || 0
 
-  // Use all-time data when available, otherwise fall back to filtered data
-  const displayTransactionCount = totalAllTimeCount ?? safeTransactionCount
-  const displayTransactionTimeSpan = totalAllTimeTimeSpan ?? transactionTimeSpan
-  const displayTransactionTrend = totalAllTimeTrend ?? transactionTrend
+  // Total Transactions: when transactionsAllTimeOnly, use only all-time data (no filter fallback)
+  const displayTransactionCount =
+    transactionsAllTimeOnly
+      ? (totalAllTimeCount ?? 0)
+      : (totalAllTimeCount ?? safeTransactionCount)
+  const displayTransactionTimeSpan =
+    transactionsAllTimeOnly
+      ? (totalAllTimeTimeSpan ?? "—")
+      : (totalAllTimeTimeSpan ?? transactionTimeSpan)
+  const displayTransactionTrend =
+    transactionsAllTimeOnly
+      ? (totalAllTimeTrend ?? [])
+      : (totalAllTimeTrend ?? transactionTrend)
 
   const { getPalette } = useColorScheme()
 
@@ -215,10 +239,15 @@ export function SectionCards({
       palette[0] || "#14b8a6", // Income
       palette[1] || "#22c55e", // Expenses
       palette[1] || "#22c55e", // Expenses
-      palette[2] || "#3b82f6", // Net Worth
+      palette[2] || "#3b82f6", // Net Worth / Savings Rate
       palette[3] || "#8b5cf6", // Transactions
+      palette[2] || "#f59e0b", // Spending Rate
     ]
   }, [getPalette])
+
+  const safeSpendingRate =
+    safeTotalIncome > 0 ? (safeTotalExpenses / safeTotalIncome) * 100 : 0
+  const safeSpendingRateChange = Number(spendingRateChange) || 0
 
   const cardData = useMemo<Record<CardId, CardData>>(() => ({
     transactions: {
@@ -283,30 +312,68 @@ export function SectionCards({
       seed: 3,
       trendData: netWorthTrend,
     },
+    savingsRate: {
+      id: "savingsRate",
+      title: "Savings Rate",
+      value: safeSavingsRate,
+      change: safeSavingsRateChange,
+      description: "Savings Rate",
+      footerText: `${safeSavingsRateChange >= 0 ? "Saving more" : "Saving less"
+        } this period`,
+      footerSubtext: "Income saved after expenses",
+      formatOptions: { minimumFractionDigits: 1, maximumFractionDigits: 1 },
+      trendColor: trendColors[2],
+      seed: 4,
+      trendData: savingsRateTrend,
+      isCurrency: false,
+      showChange: true,
+      valueSuffix: "%",
+    },
+    spendingRate: {
+      id: "spendingRate",
+      title: "Spending Rate",
+      value: safeSpendingRate,
+      change: safeSpendingRateChange,
+      description: "Spending Rate",
+      footerText: `${safeSpendingRateChange <= 0 ? "Spending less" : "Spending more"
+        } this period`,
+      footerSubtext: "Share of income spent",
+      formatOptions: { minimumFractionDigits: 1, maximumFractionDigits: 1 },
+      trendColor: trendColors[5],
+      seed: 5,
+      trendData: spendingRateTrend,
+      isCurrency: false,
+      showChange: true,
+      valueSuffix: "%",
+    },
   }), [
     safeTotalIncome,
     safeTotalExpenses,
     safeNetWorth,
+    safeSavingsRate,
+    safeSpendingRate,
+    safeSpendingRateChange,
     safeIncomeChange,
     safeExpensesChange,
     safeNetWorthChange,
+    safeSavingsRateChange,
     trendColors,
     incomeTrend,
     expensesTrend,
     netWorthTrend,
+    savingsRateTrend,
+    spendingRateTrend,
     displayTransactionCount,
     displayTransactionTimeSpan,
     displayTransactionTrend,
   ])
 
-  // Put transactions first as requested ("top card" originally requested, now "with others") -> maybe first is best?
-  // Or logically: Transactions, Income, Expenses, Net Worth ?
-  // Or Income, Expenses, Net Worth, Transactions?
-  // User asked for "top card" previously. I'll put it first to honor "prominence" while grouping.
-  const cardOrder: CardId[] = ["transactions", "income", "expenses", "netWorth"]
+  const cardOrder: CardId[] = showSpendingAndSavingsRate
+    ? ["transactions", "income", "expenses", "spendingRate", "savingsRate"]
+    : ["transactions", "income", "expenses", fourthCard]
 
   return (
-    <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+    <div className={`*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 ${showSpendingAndSavingsRate ? "@5xl/main:grid-cols-5" : "@5xl/main:grid-cols-4"}`}>
       {cardOrder.map((cardId) => (
         <CardComponent key={cardId} card={cardData[cardId]} />
       ))}

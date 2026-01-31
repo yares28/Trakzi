@@ -41,10 +41,12 @@ export type AnalyticsStats = {
   totalIncome: number
   totalExpenses: number
   savingsRate: number
+  spendingRate: number
   netWorth: number
   incomeChange: number
   expensesChange: number
   savingsRateChange: number
+  spendingRateChange: number
   netWorthChange: number
 }
 
@@ -54,6 +56,8 @@ export type AnalyticsStatsTrends = {
   incomeTrend: TrendPoint[]
   expensesTrend: TrendPoint[]
   netWorthTrend: TrendPoint[]
+  savingsRateTrend: TrendPoint[]
+  spendingRateTrend: TrendPoint[]
 }
 
 export type TransactionSummary = {
