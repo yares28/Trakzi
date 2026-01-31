@@ -45,31 +45,41 @@ export function ChartsGrid({ chartData, dateFilter }: ChartsGridProps) {
   return (
     <>
       <div className="px-4 lg:px-6">
-        <ChartAreaInteractive
-          categoryControls={incomeExpenseControls}
-          data={incomeExpensesChartData}
-        />
+        <LazyChart title="Income & Expenses" height={250} rootMargin="0px">
+          <ChartAreaInteractive
+            categoryControls={incomeExpenseControls}
+            data={incomeExpensesChartData}
+          />
+        </LazyChart>
       </div>
       <div className="px-4 lg:px-6">
-        <ChartCategoryFlow
-          categoryControls={categoryFlowControls}
-          data={categoryFlowChartData}
-        />
+        <LazyChart title="Category Flow" height={250} rootMargin="0px">
+          <ChartCategoryFlow
+            categoryControls={categoryFlowControls}
+            data={categoryFlowChartData}
+          />
+        </LazyChart>
       </div>
       <div className="px-4 lg:px-6">
-        <ChartSpendingFunnel
-          categoryControls={spendingFunnelControls}
-          data={spendingFunnelChartData}
-        />
+        <LazyChart title="Spending Funnel" height={250} rootMargin="0px">
+          <ChartSpendingFunnel
+            categoryControls={spendingFunnelControls}
+            data={spendingFunnelChartData}
+          />
+        </LazyChart>
       </div>
       <div className="px-4 lg:px-6">
-        <ChartSankey />
+        <LazyChart title="Cash Flow Sankey" height={250} rootMargin="0px">
+          <ChartSankey />
+        </LazyChart>
       </div>
       <div className="px-4 lg:px-6">
-        <ChartExpensesPie
-          categoryControls={expensesPieControls}
-          data={expensesPieChartData}
-        />
+        <LazyChart title="Expense Breakdown" height={250} rootMargin="0px">
+          <ChartExpensesPie
+            categoryControls={expensesPieControls}
+            data={expensesPieChartData}
+          />
+        </LazyChart>
       </div>
       <div className="px-4 lg:px-6">
         <LazyChart title="Net Worth Allocation" height={250}>
