@@ -4,7 +4,7 @@ import * as React from "react"
 import * as RechartsPrimitive from "recharts"
 
 import { cn } from "@/lib/utils"
-import { useChartResize } from "@/lib/chart-resize-context"
+import { useChartResize, isChartResizePaused } from "@/lib/chart-resize-context"
 
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const
@@ -75,8 +75,10 @@ function DebouncedResponsiveContainer({
 
       lastDimensions.current = newDimensions
 
-      // If paused, store but don't update
-      if (isPaused) {
+      // Use synchronous check for pause state (avoids closure issues)
+      // This is critical for sidebar toggle where pause happens synchronously
+      // but React state updates are asynchronous
+      if (isChartResizePaused()) {
         return
       }
 
@@ -93,11 +95,13 @@ function DebouncedResponsiveContainer({
 
     observer.observe(container)
 
-    // Initial measurement - immediate
-    const rect = container.getBoundingClientRect()
-    const initialDimensions = { width: Math.floor(rect.width), height: Math.floor(rect.height) }
-    lastDimensions.current = initialDimensions
-    setDimensions(initialDimensions)
+    // Initial measurement - immediate (only if not paused)
+    if (!isChartResizePaused()) {
+      const rect = container.getBoundingClientRect()
+      const initialDimensions = { width: Math.floor(rect.width), height: Math.floor(rect.height) }
+      lastDimensions.current = initialDimensions
+      setDimensions(initialDimensions)
+    }
 
     return () => {
       observer.disconnect()
@@ -105,15 +109,16 @@ function DebouncedResponsiveContainer({
         cancelAnimationFrame(rafId.current)
       }
     }
-  }, [isPaused])
+  }, []) // No dependencies - uses synchronous isChartResizePaused()
 
-  // When unpaused, immediately update to current dimensions
+  // When unpaused (isPaused state changes to false), update to stored dimensions
+  // This ensures charts update after sidebar animation completes
   React.useEffect(() => {
     if (!isPaused && lastDimensions.current) {
-      // Immediate update via RAF
+      // Use RAF to batch the update smoothly
       rafId.current = requestAnimationFrame(() => {
-        if (lastDimensions.current) {
-          setDimensions(lastDimensions.current)
+        if (lastDimensions.current && !isChartResizePaused()) {
+          setDimensions({ ...lastDimensions.current })
         }
       })
       return () => {
