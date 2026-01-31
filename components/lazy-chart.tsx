@@ -15,6 +15,8 @@ interface LazyChartProps {
   rootMargin?: string
   /** Whether to keep the chart mounted after first render (default: true) */
   keepMounted?: boolean
+  /** Delay before unmounting when leaving viewport, only when keepMounted=false (default: 2000ms) */
+  unmountDelay?: number
 }
 
 /**
@@ -30,10 +32,13 @@ export const LazyChart = React.memo(function LazyChart({
   height = 250,
   rootMargin = "200px", // Start loading 200px before entering viewport
   keepMounted = true,
+  unmountDelay = 2000, // Delay before unmounting to prevent thrashing during fast scroll
 }: LazyChartProps) {
   const [isVisible, setIsVisible] = React.useState(false)
   const [hasRendered, setHasRendered] = React.useState(false)
+  const [shouldRender, setShouldRender] = React.useState(false)
   const containerRef = React.useRef<HTMLDivElement>(null)
+  const unmountTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   React.useEffect(() => {
     const element = containerRef.current
@@ -46,14 +51,28 @@ export const LazyChart = React.memo(function LazyChart({
       (entries) => {
         const [entry] = entries
         if (entry.isIntersecting) {
+          // Clear any pending unmount timeout
+          if (unmountTimeoutRef.current) {
+            clearTimeout(unmountTimeoutRef.current)
+            unmountTimeoutRef.current = null
+          }
           setIsVisible(true)
           setHasRendered(true)
+          setShouldRender(true)
           // Disconnect after first intersection if keepMounted
           if (keepMounted) {
             observer.disconnect()
           }
         } else if (!keepMounted) {
           setIsVisible(false)
+          // Delay unmount to prevent thrashing during fast scroll
+          if (unmountTimeoutRef.current) {
+            clearTimeout(unmountTimeoutRef.current)
+          }
+          unmountTimeoutRef.current = setTimeout(() => {
+            setShouldRender(false)
+            unmountTimeoutRef.current = null
+          }, unmountDelay)
         }
       },
       {
@@ -66,11 +85,18 @@ export const LazyChart = React.memo(function LazyChart({
 
     return () => {
       observer.disconnect()
+      if (unmountTimeoutRef.current) {
+        clearTimeout(unmountTimeoutRef.current)
+      }
     }
-  }, [rootMargin, keepMounted, hasRendered])
+  }, [rootMargin, keepMounted, hasRendered, unmountDelay])
 
-  // Show skeleton while not visible
-  if (!isVisible && !hasRendered) {
+  // Show skeleton when:
+  // 1. Not visible AND never rendered (initial state)
+  // 2. Not visible AND not keeping mounted AND unmount delay has passed (shouldRender is false)
+  const showSkeleton = !isVisible && (!hasRendered || (!keepMounted && !shouldRender))
+
+  if (showSkeleton) {
     return (
       <div ref={containerRef} className="h-full w-full">
         <Card className="h-full">

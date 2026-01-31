@@ -226,16 +226,18 @@ export function ChartsGrid({
           if (chartId === "dayOfWeekSpending") {
             return (
               <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                  <ChartDayOfWeekSpending
-                    data={rawTransactions}
-                    dayOfWeekCategoryData={bundleData?.dayOfWeekCategory}
-                    categoryControls={dayOfWeekSpendingControls}
-                    isLoading={isLoadingTransactions}
-                    emptyTitle={emptyTitle}
-                    emptyDescription={emptyDescription}
-                  />
-                </div>
+                <LazyChart title="Day of Week Spending" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartDayOfWeekSpending
+                      data={rawTransactions}
+                      dayOfWeekCategoryData={bundleData?.dayOfWeekCategory}
+                      categoryControls={dayOfWeekSpendingControls}
+                      isLoading={isLoadingTransactions}
+                      emptyTitle={emptyTitle}
+                      emptyDescription={emptyDescription}
+                    />
+                  </div>
+                </LazyChart>
               </SortableGridItem>
             )
           }
@@ -243,17 +245,19 @@ export function ChartsGrid({
           if (chartId === "allMonthsCategorySpending") {
             return (
               <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                  <ChartAllMonthsCategorySpending
-                    data={rawTransactions}
-                    monthlyCategoriesData={bundleData?.monthlyCategories}
-                    categoryControls={monthOfYearSpendingControls}
-                    isLoading={isLoadingTransactions}
-                    bundleLoading={bundleLoading}
-                    emptyTitle={emptyTitle}
-                    emptyDescription={emptyDescription}
-                  />
-                </div>
+                <LazyChart title="All Months Category Spending" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartAllMonthsCategorySpending
+                      data={rawTransactions}
+                      monthlyCategoriesData={bundleData?.monthlyCategories}
+                      categoryControls={monthOfYearSpendingControls}
+                      isLoading={isLoadingTransactions}
+                      bundleLoading={bundleLoading}
+                      emptyTitle={emptyTitle}
+                      emptyDescription={emptyDescription}
+                    />
+                  </div>
+                </LazyChart>
               </SortableGridItem>
             )
           }
@@ -261,16 +265,18 @@ export function ChartsGrid({
           if (chartId === "incomeExpensesTracking1") {
             return (
               <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                  <ChartAreaInteractive
-                    chartId="incomeExpensesTracking1"
-                    categoryControls={incomeExpenseTopControls}
-                    isLoading={isLoadingTransactions}
-                    data={incomeExpenseTopChartData}
-                    emptyTitle={emptyTitle}
-                    emptyDescription={emptyDescription}
-                  />
-                </div>
+                <LazyChart title="Income & Expenses Tracking" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartAreaInteractive
+                      chartId="incomeExpensesTracking1"
+                      categoryControls={incomeExpenseTopControls}
+                      isLoading={isLoadingTransactions}
+                      data={incomeExpenseTopChartData}
+                      emptyTitle={emptyTitle}
+                      emptyDescription={emptyDescription}
+                    />
+                  </div>
+                </LazyChart>
               </SortableGridItem>
             )
           }
@@ -278,16 +284,18 @@ export function ChartsGrid({
           if (chartId === "incomeExpensesTracking2") {
             return (
               <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                  <ChartAreaInteractive
-                    chartId="incomeExpensesTracking2"
-                    categoryControls={incomeExpenseControls}
-                    isLoading={isLoadingTransactions}
-                    data={incomeExpenseChart.data}
-                    emptyTitle={emptyTitle}
-                    emptyDescription={emptyDescription}
-                  />
-                </div>
+                <LazyChart title="Income & Expenses Tracking" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartAreaInteractive
+                      chartId="incomeExpensesTracking2"
+                      categoryControls={incomeExpenseControls}
+                      isLoading={isLoadingTransactions}
+                      data={incomeExpenseChart.data}
+                      emptyTitle={emptyTitle}
+                      emptyDescription={emptyDescription}
+                    />
+                  </div>
+                </LazyChart>
               </SortableGridItem>
             )
           }
@@ -295,15 +303,17 @@ export function ChartsGrid({
           if (chartId === "spendingCategoryRankings") {
             return (
               <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                  <ChartCategoryFlow
-                    categoryControls={categoryFlowControls}
-                    data={categoryFlowChart.data}
-                    isLoading={isLoadingTransactions}
-                    emptyTitle={emptyTitle}
-                    emptyDescription={emptyDescription}
-                  />
-                </div>
+                <LazyChart title="Spending Category Rankings" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartCategoryFlow
+                      categoryControls={categoryFlowControls}
+                      data={categoryFlowChart.data}
+                      isLoading={isLoadingTransactions}
+                      emptyTitle={emptyTitle}
+                      emptyDescription={emptyDescription}
+                    />
+                  </div>
+                </LazyChart>
               </SortableGridItem>
             )
           }
@@ -329,16 +339,18 @@ export function ChartsGrid({
           if (chartId === "moneyFlow") {
             return (
               <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                  <ChartSpendingFunnel
-                    categoryControls={spendingFunnelControls}
-                    data={spendingFunnelChart.data}
-                    maxExpenseCategories={moneyFlowMaxExpenseCategories}
-                    isLoading={isLoadingTransactions}
-                    emptyTitle={emptyTitle}
-                    emptyDescription={emptyDescription}
-                  />
-                </div>
+                <LazyChart title="Money Flow" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartSpendingFunnel
+                      categoryControls={spendingFunnelControls}
+                      data={spendingFunnelChart.data}
+                      maxExpenseCategories={moneyFlowMaxExpenseCategories}
+                      isLoading={isLoadingTransactions}
+                      emptyTitle={emptyTitle}
+                      emptyDescription={emptyDescription}
+                    />
+                  </div>
+                </LazyChart>
               </SortableGridItem>
             )
           }
@@ -346,15 +358,17 @@ export function ChartsGrid({
           if (chartId === "expenseBreakdown") {
             return (
               <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                  <ChartExpensesPie
-                    categoryControls={expensesPieControls}
-                    data={expensesPieData.slices}
-                    isLoading={isLoadingTransactions}
-                    emptyTitle={emptyTitle}
-                    emptyDescription={emptyDescription}
-                  />
-                </div>
+                <LazyChart title="Expense Breakdown" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartExpensesPie
+                      categoryControls={expensesPieControls}
+                      data={expensesPieData.slices}
+                      isLoading={isLoadingTransactions}
+                      emptyTitle={emptyTitle}
+                      emptyDescription={emptyDescription}
+                    />
+                  </div>
+                </LazyChart>
               </SortableGridItem>
             )
           }
