@@ -10,20 +10,18 @@ import * as React from "react"
  *
  * How it works:
  * 1. When resize/sidebar animation starts, charts freeze at current dimensions
- * 2. After animation settles, charts update to new dimensions
- * 3. This batches resize events into a single update
+ * 2. After animation settles, a custom event 'chart-resize-resume' is dispatched
+ * 3. Charts listen for this event and update dimensions once via RAF
  *
- * Key insight: Sidebar toggle causes instant margin change → layout recalc →
- * ResizeObserver fires on all charts. Without pausing, charts re-render during
- * the CSS animation causing frame drops.
+ * Key optimization: isPaused is NOT in context value, preventing re-render cascade.
+ * Instead, charts use the synchronous isChartResizePaused() check and listen for
+ * the resume event to know when to re-measure.
  */
 
 interface ChartResizeContextValue {
-  /** Whether chart resizing is currently paused (during resize/sidebar animation) */
-  isPaused: boolean
   /** Pause chart dimension updates (call before sidebar toggle) */
   pauseResize: () => void
-  /** Resume chart dimension updates (call after sidebar animation) */
+  /** Resume chart dimension updates after delay (call after sidebar toggle) */
   resumeResize: (delay?: number) => void
   /** Get debounced dimensions - returns frozen dimensions while resizing */
   getDebouncedDimensions: (
@@ -41,66 +39,89 @@ const frozenDimensions = new Map<string, { width: number; height: number }>()
 // Module-level flag for synchronous pause checking (avoids closure issues in ResizeObserver)
 let globalIsPaused = false
 
+// Track which source initiated the pause to prevent race conditions
+let pauseSource: 'window' | 'sidebar' | null = null
+
 /** Check if chart resizing is paused (synchronous, for use in callbacks) */
 export function isChartResizePaused(): boolean {
   return globalIsPaused
 }
 
+/** Custom event name for chart resume notification */
+const CHART_RESIZE_RESUME_EVENT = 'chart-resize-resume'
+
+/** Dispatch the resume event so charts know to re-measure */
+function dispatchResumeEvent() {
+  window.dispatchEvent(new CustomEvent(CHART_RESIZE_RESUME_EVENT))
+}
+
 export function ChartResizeProvider({ children }: { children: React.ReactNode }) {
-  const [isPaused, setIsPaused] = React.useState(false)
   // Use ref to track paused state synchronously (for ResizeObserver callbacks)
   const isPausedRef = React.useRef(false)
-  const windowResizeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
-  const sidebarResumeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const resumeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const globalIdCounter = React.useRef(0)
 
-  // Pause chart updates (called before sidebar toggle)
-  const pauseResize = React.useCallback(() => {
-    globalIsPaused = true  // Set module-level flag synchronously
+  // Pause chart updates (called before sidebar toggle or window resize)
+  const pauseResize = React.useCallback((source: 'sidebar' | 'window' = 'sidebar') => {
+    // If already paused by same source, don't reset
+    if (globalIsPaused && pauseSource === source) return
+
+    // Clear any pending resume from this source
+    if (resumeTimeoutRef.current) {
+      clearTimeout(resumeTimeoutRef.current)
+      resumeTimeoutRef.current = null
+    }
+
+    globalIsPaused = true
+    pauseSource = source
     isPausedRef.current = true
-    setIsPaused(true)
   }, [])
 
-  // Resume chart updates after a delay (called after sidebar toggle)
-  const resumeResize = React.useCallback((delay: number = 350) => {
+  // Resume chart updates after a delay (called after sidebar toggle or window resize stops)
+  const resumeResize = React.useCallback((delay: number = 300) => {
     // Clear any pending resume
-    if (sidebarResumeTimeoutRef.current) {
-      clearTimeout(sidebarResumeTimeoutRef.current)
+    if (resumeTimeoutRef.current) {
+      clearTimeout(resumeTimeoutRef.current)
     }
 
     // Resume after animation completes
-    sidebarResumeTimeoutRef.current = setTimeout(() => {
-      globalIsPaused = false  // Clear module-level flag
+    resumeTimeoutRef.current = setTimeout(() => {
+      globalIsPaused = false
+      pauseSource = null
       isPausedRef.current = false
-      setIsPaused(false)
       frozenDimensions.clear()
+      // Dispatch event so charts know to re-measure
+      dispatchResumeEvent()
+      resumeTimeoutRef.current = null
     }, delay)
   }, [])
 
-  // Debounce window resize events - short delay for snappy feel
+  // Debounce window resize events
   React.useEffect(() => {
-    let isResizing = false
+    let windowResizeTimeout: ReturnType<typeof setTimeout> | null = null
 
     const handleResizeStart = () => {
-      if (!isResizing) {
-        isResizing = true
-        globalIsPaused = true  // Set module-level flag synchronously
-        isPausedRef.current = true
-        setIsPaused(true)
-      }
+      // Don't interrupt sidebar animation with window resize
+      if (pauseSource === 'sidebar') return
+
+      pauseResize('window')
 
       // Clear any pending resume
-      if (windowResizeTimeoutRef.current) {
-        clearTimeout(windowResizeTimeoutRef.current)
+      if (windowResizeTimeout) {
+        clearTimeout(windowResizeTimeout)
       }
 
       // Resume quickly after resize stops - 100ms is snappy but still batches
-      windowResizeTimeoutRef.current = setTimeout(() => {
-        isResizing = false
-        globalIsPaused = false  // Clear module-level flag
-        isPausedRef.current = false
-        setIsPaused(false)
-        frozenDimensions.clear()
+      windowResizeTimeout = setTimeout(() => {
+        // Only resume if still paused by window (not hijacked by sidebar)
+        if (pauseSource === 'window') {
+          globalIsPaused = false
+          pauseSource = null
+          isPausedRef.current = false
+          frozenDimensions.clear()
+          dispatchResumeEvent()
+        }
+        windowResizeTimeout = null
       }, 100)
     }
 
@@ -108,11 +129,11 @@ export function ChartResizeProvider({ children }: { children: React.ReactNode })
 
     return () => {
       window.removeEventListener('resize', handleResizeStart)
-      if (windowResizeTimeoutRef.current) {
-        clearTimeout(windowResizeTimeoutRef.current)
+      if (windowResizeTimeout) {
+        clearTimeout(windowResizeTimeout)
       }
     }
-  }, [])
+  }, [pauseResize])
 
   const getDebouncedDimensions = React.useCallback(
     (currentWidth: number, currentHeight: number, chartId?: string) => {
@@ -137,26 +158,27 @@ export function ChartResizeProvider({ children }: { children: React.ReactNode })
     [] // No dependencies - uses ref for synchronous access
   )
 
-  // Cleanup on unmount
+  // Cleanup on unmount - CRITICAL: reset global state to prevent permanent freeze
   React.useEffect(() => {
     return () => {
-      if (windowResizeTimeoutRef.current) {
-        clearTimeout(windowResizeTimeoutRef.current)
+      if (resumeTimeoutRef.current) {
+        clearTimeout(resumeTimeoutRef.current)
       }
-      if (sidebarResumeTimeoutRef.current) {
-        clearTimeout(sidebarResumeTimeoutRef.current)
-      }
+      // Reset global state on unmount to prevent charts staying frozen after navigation
+      globalIsPaused = false
+      pauseSource = null
+      frozenDimensions.clear()
     }
   }, [])
 
+  // Memoize context value - NO isPaused here to prevent re-render cascade
   const value = React.useMemo(
     () => ({
-      isPaused,
-      pauseResize,
+      pauseResize: () => pauseResize('sidebar'),
       resumeResize,
       getDebouncedDimensions,
     }),
-    [isPaused, pauseResize, resumeResize, getDebouncedDimensions]
+    [pauseResize, resumeResize, getDebouncedDimensions]
   )
 
   return (
@@ -171,11 +193,18 @@ export function useChartResize() {
   if (!context) {
     // Return a no-op version if not in provider
     return {
-      isPaused: false,
       pauseResize: () => {},
       resumeResize: () => {},
       getDebouncedDimensions: (w: number, h: number) => ({ width: w, height: h }),
     }
   }
   return context
+}
+
+/** Hook for charts to subscribe to resume events */
+export function useChartResizeResume(onResume: () => void) {
+  React.useEffect(() => {
+    window.addEventListener(CHART_RESIZE_RESUME_EVENT, onResume)
+    return () => window.removeEventListener(CHART_RESIZE_RESUME_EVENT, onResume)
+  }, [onResume])
 }

@@ -4,7 +4,7 @@ import * as React from "react"
 import * as RechartsPrimitive from "recharts"
 
 import { cn } from "@/lib/utils"
-import { useChartResize, isChartResizePaused } from "@/lib/chart-resize-context"
+import { isChartResizePaused } from "@/lib/chart-resize-context"
 
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const
@@ -38,6 +38,10 @@ function useChart() {
 /**
  * Optimized ResponsiveContainer that prevents re-renders during layout transitions
  * Uses RAF for smooth, immediate updates when not paused
+ *
+ * Key optimization: Does NOT subscribe to isPaused context value.
+ * Instead, listens for 'chart-resize-resume' event to re-measure once after animation.
+ * This prevents re-render cascade when all charts would update simultaneously.
  */
 function DebouncedResponsiveContainer({
   children,
@@ -46,7 +50,6 @@ function DebouncedResponsiveContainer({
   children: React.ComponentProps<typeof RechartsPrimitive.ResponsiveContainer>["children"]
   chartId: string
 }) {
-  const { isPaused } = useChartResize()
   const containerRef = React.useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = React.useState<{ width: number; height: number } | null>(null)
   const lastDimensions = React.useRef<{ width: number; height: number } | null>(null)
@@ -111,23 +114,37 @@ function DebouncedResponsiveContainer({
     }
   }, []) // No dependencies - uses synchronous isChartResizePaused()
 
-  // When unpaused (isPaused state changes to false), update to stored dimensions
-  // This ensures charts update after sidebar animation completes
+  // Listen for resume event to re-measure after animation completes
+  // This replaces the isPaused dependency which caused re-render cascade
   React.useEffect(() => {
-    if (!isPaused && lastDimensions.current) {
-      // Use RAF to batch the update smoothly
+    const handleResume = () => {
+      const container = containerRef.current
+      if (!container) return
+
+      // Cancel any pending RAF
+      if (rafId.current) {
+        cancelAnimationFrame(rafId.current)
+      }
+
+      // Re-measure on next frame
       rafId.current = requestAnimationFrame(() => {
-        if (lastDimensions.current && !isChartResizePaused()) {
-          setDimensions({ ...lastDimensions.current })
+        if (!isChartResizePaused()) {
+          const rect = container.getBoundingClientRect()
+          const newDimensions = { width: Math.floor(rect.width), height: Math.floor(rect.height) }
+          lastDimensions.current = newDimensions
+          setDimensions(newDimensions)
         }
       })
-      return () => {
-        if (rafId.current) {
-          cancelAnimationFrame(rafId.current)
-        }
+    }
+
+    window.addEventListener('chart-resize-resume', handleResume)
+    return () => {
+      window.removeEventListener('chart-resize-resume', handleResume)
+      if (rafId.current) {
+        cancelAnimationFrame(rafId.current)
       }
     }
-  }, [isPaused])
+  }, [])
 
   return (
     <div 
