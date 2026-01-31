@@ -10,10 +10,12 @@ export function useAnalyticsStats(rawTransactions: AnalyticsTransaction[]) {
         totalIncome: 0,
         totalExpenses: 0,
         savingsRate: 0,
+        spendingRate: 0,
         netWorth: 0,
         incomeChange: 0,
         expensesChange: 0,
         savingsRateChange: 0,
+        spendingRateChange: 0,
         netWorthChange: 0,
       }
     }
@@ -30,6 +32,8 @@ export function useAnalyticsStats(rawTransactions: AnalyticsTransaction[]) {
 
     const currentSavingsRate =
       currentIncome > 0 ? ((currentIncome - currentExpenses) / currentIncome) * 100 : 0
+    const currentSpendingRate =
+      currentIncome > 0 ? (currentExpenses / currentIncome) * 100 : 0
 
     const sortedByDate = [...rawTransactions].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
@@ -65,6 +69,8 @@ export function useAnalyticsStats(rawTransactions: AnalyticsTransaction[]) {
 
     const previousSavingsRate =
       previousIncome > 0 ? ((previousIncome - previousExpenses) / previousIncome) * 100 : 0
+    const previousSpendingRate =
+      previousIncome > 0 ? (previousExpenses / previousIncome) * 100 : 0
 
     const previousSorted = previousTransactions.sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
@@ -95,6 +101,13 @@ export function useAnalyticsStats(rawTransactions: AnalyticsTransaction[]) {
           ? 100
           : 0
 
+    const spendingRateChange =
+      previousSpendingRate !== 0
+        ? currentSpendingRate - previousSpendingRate
+        : currentSpendingRate > 0
+          ? 100
+          : 0
+
     const netWorthChange =
       previousNetWorth > 0
         ? ((netWorth - previousNetWorth) / previousNetWorth) * 100
@@ -106,10 +119,12 @@ export function useAnalyticsStats(rawTransactions: AnalyticsTransaction[]) {
       totalIncome: currentIncome,
       totalExpenses: currentExpenses,
       savingsRate: currentSavingsRate,
+      spendingRate: currentSpendingRate,
       netWorth: netWorth,
       incomeChange,
       expensesChange,
       savingsRateChange,
+      spendingRateChange,
       netWorthChange,
     }
   }, [rawTransactions])
@@ -121,6 +136,8 @@ export function useAnalyticsStats(rawTransactions: AnalyticsTransaction[]) {
         incomeTrend: [],
         expensesTrend: [],
         netWorthTrend: [],
+        savingsRateTrend: [],
+        spendingRateTrend: [],
       }
     }
 
@@ -173,10 +190,34 @@ export function useAnalyticsStats(rawTransactions: AnalyticsTransaction[]) {
       return { date, value: runningBalance }
     })
 
+    // Savings rate trend (daily: (cumulative income - cumulative expenses) / cumulative income * 100)
+    let cumIncome = 0
+    let cumExpenses = 0
+    const savingsRateTrend = sortedDates.map(date => {
+      const dayData = dateData.get(date)!
+      cumIncome += dayData.income
+      cumExpenses += dayData.expenses
+      const rate = cumIncome > 0 ? ((cumIncome - cumExpenses) / cumIncome) * 100 : 0
+      return { date, value: rate }
+    })
+
+    // Spending rate trend (daily: cumulative expenses / cumulative income * 100)
+    cumIncome = 0
+    cumExpenses = 0
+    const spendingRateTrend = sortedDates.map(date => {
+      const dayData = dateData.get(date)!
+      cumIncome += dayData.income
+      cumExpenses += dayData.expenses
+      const rate = cumIncome > 0 ? (cumExpenses / cumIncome) * 100 : 0
+      return { date, value: rate }
+    })
+
     return {
       incomeTrend,
       expensesTrend,
       netWorthTrend,
+      savingsRateTrend,
+      spendingRateTrend,
     }
   }, [rawTransactions])
 
