@@ -32,7 +32,7 @@ const SIDEBAR_WIDTH = "21.875rem"  // 350px - increased to close gap with header
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
-const SIDEBAR_TRANSITION_DURATION = 280 // ms - slightly less than CSS duration for snappier feel
+const SIDEBAR_TRANSITION_DURATION = 300 // ms - match CSS animation duration exactly (no dead zone)
 
 type SidebarContextProps = {
   state: "expanded" | "collapsed"
@@ -72,6 +72,13 @@ function SidebarProvider({
   const [openMobile, setOpenMobile] = React.useState(false)
   const { pauseResize, resumeResize } = useChartResize()
 
+  // Use ref to avoid stale closure in toggleSidebar
+  // This ensures we always use the current isMobile value
+  const isMobileRef = React.useRef(isMobile)
+  React.useEffect(() => {
+    isMobileRef.current = isMobile
+  }, [isMobile])
+
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
   const [_open, _setOpen] = React.useState(() => {
@@ -106,16 +113,17 @@ function SidebarProvider({
     // This prevents charts from re-rendering during the CSS animation
     pauseResize()
 
-    if (isMobile) {
+    // Use ref to get current isMobile value (avoids stale closure)
+    if (isMobileRef.current) {
       setOpenMobile((open) => !open)
     } else {
       setOpen((open) => !open)
     }
 
-    // Resume chart updates AFTER animation completes (350ms > 300ms animation)
-    // Charts will then update once to their final dimensions
-    resumeResize(350)
-  }, [isMobile, setOpen, setOpenMobile, pauseResize, resumeResize])
+    // Resume chart updates AFTER animation completes
+    // 300ms matches CSS transition duration (no dead zone)
+    resumeResize(SIDEBAR_TRANSITION_DURATION)
+  }, [setOpen, setOpenMobile, pauseResize, resumeResize])
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
