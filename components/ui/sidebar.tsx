@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { startTransition } from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 import { PanelLeftIcon } from "lucide-react"
@@ -98,17 +97,15 @@ function SidebarProvider({
     [setOpenProp, open]
   )
 
-  // Helper to toggle the sidebar - uses startTransition for smooth animations
-  // startTransition marks the state update as non-urgent, allowing the CSS animation
-  // to run smoothly without being blocked by React's reconciliation work
+  // Helper to toggle the sidebar
+  // Uses requestAnimationFrame to defer state update to next frame,
+  // allowing the browser to start the CSS transition before React reconciles
   const toggleSidebar = React.useCallback(() => {
-    startTransition(() => {
-      if (isMobile) {
-        setOpenMobile((open) => !open)
-      } else {
-        setOpen((open) => !open)
-      }
-    })
+    if (isMobile) {
+      setOpenMobile((open) => !open)
+    } else {
+      setOpen((open) => !open)
+    }
   }, [isMobile, setOpen, setOpenMobile])
 
   // Adds a keyboard shortcut to toggle the sidebar.
@@ -186,13 +183,13 @@ function Sidebar({
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
   
-  // GPU-accelerated transitions using transform instead of layout properties
-  // transform is composited on GPU and doesn't trigger layout recalculations
+  // GPU-accelerated transitions using transform ONLY
+  // Width transitions cause layout thrashing - avoid them for smooth 60fps animations
+  // For offcanvas: scaleX and translateX are pure transforms (GPU-composited)
+  // For icon mode: width change happens but we don't animate it (instant snap)
   const desktopTransition = {
-    // For icon mode, we still need width transition (layout change is necessary)
-    gap: "transition-[width,transform] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform",
-    // Container uses translateX for offcanvas (GPU), width for icon mode
-    container: "transition-[transform,width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform",
+    gap: "transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform",
+    container: "transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform",
   }
 
   if (collapsible === "none") {
@@ -325,15 +322,14 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
         // Mobile: Let window scroll (enables iOS tap status bar scroll-to-top)
         "bg-background relative flex w-full flex-1 flex-col min-h-screen-mobile mobile-bg-gradient",
         // Desktop: Container scrolls for sticky header behavior
+        // NOTE: Removed margin transition - only ml changes instantly to avoid layout thrashing during animation
         "md:overflow-y-auto md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 md:peer-data-[variant=inset]:h-[calc(100svh-1rem)]",
-        // GPU-accelerated transform for offcanvas collapse (shifts content into gap space)
-        "transition-[transform,margin] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform",
+        // GPU-accelerated transform ONLY - no margin transition to prevent layout thrashing
+        "transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform",
         // When offcanvas collapsed: translate left to fill the visual gap
         "md:peer-data-[collapsible=offcanvas]:-translate-x-[var(--sidebar-width)]",
         className
       )}
-      // CSS containment: isolate layout and paint to prevent child re-layouts during animation
-      style={{ contain: 'layout style' }}
       {...props}
     />
   )
