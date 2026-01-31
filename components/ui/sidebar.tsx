@@ -7,6 +7,7 @@ import { PanelLeftIcon } from "lucide-react"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
+import { useChartResize } from "@/lib/chart-resize-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
@@ -69,6 +70,7 @@ function SidebarProvider({
 }) {
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
+  const { pauseResize, resumeResize } = useChartResize()
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
@@ -98,15 +100,22 @@ function SidebarProvider({
   )
 
   // Helper to toggle the sidebar
-  // Uses requestAnimationFrame to defer state update to next frame,
-  // allowing the browser to start the CSS transition before React reconciles
+  // Pauses chart resizing during animation to prevent expensive re-renders
   const toggleSidebar = React.useCallback(() => {
+    // Pause chart dimension updates BEFORE toggle
+    // This prevents charts from re-rendering during the CSS animation
+    pauseResize()
+
     if (isMobile) {
       setOpenMobile((open) => !open)
     } else {
       setOpen((open) => !open)
     }
-  }, [isMobile, setOpen, setOpenMobile])
+
+    // Resume chart updates AFTER animation completes (350ms > 300ms animation)
+    // Charts will then update once to their final dimensions
+    resumeResize(350)
+  }, [isMobile, setOpen, setOpenMobile, pauseResize, resumeResize])
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
