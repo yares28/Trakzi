@@ -72,15 +72,15 @@ export function TransactionProgressBar({
             try {
                 setIsLoading(true);
 
-                // Fetch subscription status
-                const subResponse = await fetch("/api/subscription/status");
+                // Fetch subscription status (no-store so prod never uses cached counts)
+                const subResponse = await fetch("/api/subscription/status", { cache: "no-store" });
                 if (subResponse.ok) {
                     const subData = await subResponse.json();
                     setSubscriptionData(subData);
                 }
 
-                // Fetch category counts
-                const catResponse = await fetch("/api/categories/count");
+                // Fetch category counts (no-store so prod never uses cached counts)
+                const catResponse = await fetch("/api/categories/count", { cache: "no-store" });
                 if (catResponse.ok) {
                     const catData = await catResponse.json();
                     setCategoryData(catData);
