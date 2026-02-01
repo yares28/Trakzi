@@ -20,8 +20,8 @@ async function getTotalTransactionCount(userId: string): Promise<TotalTransactio
     }>(
         `SELECT 
             COUNT(*)::text as count,
-            MIN(date)::text as first_date,
-            MAX(date)::text as last_date
+            MIN(tx_date)::text as first_date,
+            MAX(tx_date)::text as last_date
         FROM transactions 
         WHERE user_id = $1`,
         [userId]
@@ -64,11 +64,11 @@ async function getTotalTransactionCount(userId: string): Promise<TotalTransactio
     // Get monthly trend (transaction count per month) - all time
     const trendResult = await neonQuery<{ month: string; count: string }>(
         `SELECT 
-            TO_CHAR(date, 'YYYY-MM') as month,
+            TO_CHAR(tx_date, 'YYYY-MM') as month,
             COUNT(*)::text as count
         FROM transactions 
         WHERE user_id = $1
-        GROUP BY TO_CHAR(date, 'YYYY-MM')
+        GROUP BY TO_CHAR(tx_date, 'YYYY-MM')
         ORDER BY month ASC`,
         [userId]
     )

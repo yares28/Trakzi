@@ -1,3 +1,4 @@
+import { useAuth } from "@clerk/nextjs"
 import { useQuery } from "@tanstack/react-query"
 import { useDateFilter } from "@/components/date-filter-provider"
 
@@ -323,10 +324,13 @@ async function fetchTotalTransactionCount(): Promise<TotalTransactionCount> {
  * Used for the "Total Transactions" card in home and analytics pages
  */
 export function useTotalTransactionCount() {
+    const { isLoaded, isSignedIn } = useAuth()
+
     return useQuery({
         queryKey: ["total-transaction-count"],
         queryFn: fetchTotalTransactionCount,
         staleTime: 5 * 60 * 1000, // 5 minutes
+        enabled: isLoaded && !!isSignedIn, // Only fetch when Clerk has loaded and user is signed in
     })
 }
 
