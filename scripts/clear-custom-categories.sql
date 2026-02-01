@@ -15,13 +15,14 @@ WHERE t.category_id = c.id
     'Rent', 'Mortgage', 'Home Maintenance', 'Home Supplies',
     'Electricity', 'Gas', 'Water', 'Internet', 'Mobile', 'Utilities',
     'Fuel', 'Public Transport', 'Taxi/Rideshare', 'Parking/Tolls', 'Car Maintenance',
-    'Pharmacy', 'Medical', 'Healthcare', 'Fitness',
+    'Transport',
+    'Pharmacy', 'Medical/Healthcare', 'Fitness', 'Health & Fitness',
     'Shopping', 'Clothing', 'Electronics', 'Home Goods', 'Gifts',
     'Bank Fees', 'Taxes & Fees', 'Insurance', 'Donation',
-    'Income', 'Salary', 'Bonus', 'Freelance', 'Refunds/Reimbursements', 'Cashback', 'Top-ups',
+    'Income', 'Salary', 'Bonus', 'Freelance', 'Refunds', 'Cashback', 'Top-ups',
     'Savings', 'Investments', 'Transfers', 'Loan', 'Credit', 'Wealth',
     'Entertainment', 'Education', 'Subscriptions', 'Travel', 'Services',
-    'Cash', 'General', 'Other'
+    'Cash', 'Other'
   );
 
 -- 2. Delete budget rows for custom categories
@@ -33,13 +34,14 @@ WHERE category_id IN (
     'Rent', 'Mortgage', 'Home Maintenance', 'Home Supplies',
     'Electricity', 'Gas', 'Water', 'Internet', 'Mobile', 'Utilities',
     'Fuel', 'Public Transport', 'Taxi/Rideshare', 'Parking/Tolls', 'Car Maintenance',
-    'Pharmacy', 'Medical', 'Healthcare', 'Fitness',
+    'Transport',
+    'Pharmacy', 'Medical/Healthcare', 'Fitness', 'Health & Fitness',
     'Shopping', 'Clothing', 'Electronics', 'Home Goods', 'Gifts',
     'Bank Fees', 'Taxes & Fees', 'Insurance', 'Donation',
-    'Income', 'Salary', 'Bonus', 'Freelance', 'Refunds/Reimbursements', 'Cashback', 'Top-ups',
+    'Income', 'Salary', 'Bonus', 'Freelance', 'Refunds', 'Cashback', 'Top-ups',
     'Savings', 'Investments', 'Transfers', 'Loan', 'Credit', 'Wealth',
     'Entertainment', 'Education', 'Subscriptions', 'Travel', 'Services',
-    'Cash', 'General', 'Other'
+    'Cash', 'Other'
   )
 );
 
@@ -52,13 +54,14 @@ WHERE category_id IN (
     'Rent', 'Mortgage', 'Home Maintenance', 'Home Supplies',
     'Electricity', 'Gas', 'Water', 'Internet', 'Mobile', 'Utilities',
     'Fuel', 'Public Transport', 'Taxi/Rideshare', 'Parking/Tolls', 'Car Maintenance',
-    'Pharmacy', 'Medical', 'Healthcare', 'Fitness',
+    'Transport',
+    'Pharmacy', 'Medical/Healthcare', 'Fitness', 'Health & Fitness',
     'Shopping', 'Clothing', 'Electronics', 'Home Goods', 'Gifts',
     'Bank Fees', 'Taxes & Fees', 'Insurance', 'Donation',
-    'Income', 'Salary', 'Bonus', 'Freelance', 'Refunds/Reimbursements', 'Cashback', 'Top-ups',
+    'Income', 'Salary', 'Bonus', 'Freelance', 'Refunds', 'Cashback', 'Top-ups',
     'Savings', 'Investments', 'Transfers', 'Loan', 'Credit', 'Wealth',
     'Entertainment', 'Education', 'Subscriptions', 'Travel', 'Services',
-    'Cash', 'General', 'Other'
+    'Cash', 'Other'
   )
 );
 
@@ -69,13 +72,14 @@ WHERE name NOT IN (
   'Rent', 'Mortgage', 'Home Maintenance', 'Home Supplies',
   'Electricity', 'Gas', 'Water', 'Internet', 'Mobile', 'Utilities',
   'Fuel', 'Public Transport', 'Taxi/Rideshare', 'Parking/Tolls', 'Car Maintenance',
-  'Pharmacy', 'Medical', 'Healthcare', 'Fitness',
+  'Transport',
+  'Pharmacy', 'Medical/Healthcare', 'Fitness', 'Health & Fitness',
   'Shopping', 'Clothing', 'Electronics', 'Home Goods', 'Gifts',
   'Bank Fees', 'Taxes & Fees', 'Insurance', 'Donation',
-  'Income', 'Salary', 'Bonus', 'Freelance', 'Refunds/Reimbursements', 'Cashback', 'Top-ups',
+  'Income', 'Salary', 'Bonus', 'Freelance', 'Refunds', 'Cashback', 'Top-ups',
   'Savings', 'Investments', 'Transfers', 'Loan', 'Credit', 'Wealth',
   'Entertainment', 'Education', 'Subscriptions', 'Travel', 'Services',
-  'Cash', 'General', 'Other'
+  'Cash', 'Other'
 );
 
 COMMIT;

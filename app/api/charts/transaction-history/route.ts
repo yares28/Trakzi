@@ -49,9 +49,7 @@ const CATEGORY_GROUPS: Record<string, string[]> = {
     "Utilities",
     "Insurance",
     "Taxes",
-    "Healthcare",
-    "Health",
-    "Medical",
+    "Medical/Healthcare",
   ],
   Lifestyle: [
     "Shopping",

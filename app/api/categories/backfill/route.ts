@@ -32,10 +32,11 @@ const CATEGORY_COLORS: Record<string, string> = {
     "Taxi/Rideshare": "#22d3d3",
     "Parking/Tolls": "#64748b",
     "Car Maintenance": "#475569",
+    "Transport": "#14b8a6",
     // Health & Fitness
+    "Health & Fitness": "#059669",
     "Pharmacy": "#22c55e",
-    "Medical": "#16a34a",
-    "Healthcare": "#15803d",
+    "Medical/Healthcare": "#16a34a",
     "Fitness": "#059669",
     // Shopping
     "Shopping": "#ec4899",
@@ -50,10 +51,10 @@ const CATEGORY_COLORS: Record<string, string> = {
     "Donation": "#e11d48",
     // Income
     "Income": "#22c55e",
+    "Refunds": "#10b981",
     "Salary": "#22c55e",
     "Bonus": "#16a34a",
     "Freelance": "#15803d",
-    "Refunds/Reimbursements": "#10b981",
     "Cashback": "#059669",
     "Top-ups": "#047857",
     // Savings & Investments
@@ -71,7 +72,6 @@ const CATEGORY_COLORS: Record<string, string> = {
     "Services": "#64748b",
     // Other
     "Cash": "#78716c",
-    "General": "#a8a29e",
     "Other": "#6b7280",
 }
 

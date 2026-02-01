@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/card"
 
 import { formatFreshness, formatNumber } from "../formatters"
+import { isDefaultCategory } from "../utils/defaults"
 import type {
   Category,
   ReceiptCategory,
@@ -59,8 +60,8 @@ export const StatsCards = ({
   }, [statements])
 
   const customCategoriesCount = useMemo(() => {
-    // @ts-ignore - is_default exists in DB but not in type
-    return categories.filter((cat) => !cat.is_default).length
+    // Use default list (lib/categories.ts) so DB and code stay in sync
+    return categories.filter((cat) => !isDefaultCategory(cat.name)).length
   }, [categories])
 
   const customReceiptCategoriesCount = useMemo(() => {

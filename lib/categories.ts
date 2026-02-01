@@ -48,6 +48,7 @@ export const DEFAULT_CATEGORY_GROUPS: CategoryGroup[] = [
   {
     label: "Transportation",
     categories: [
+      { name: "Transport", type: "need" },
       { name: "Fuel", type: "need" },
       { name: "Public Transport", type: "need" },
       { name: "Taxi/Rideshare", type: "want" },
@@ -58,9 +59,9 @@ export const DEFAULT_CATEGORY_GROUPS: CategoryGroup[] = [
   {
     label: "Health & Fitness",
     categories: [
+      { name: "Health & Fitness", type: "need" },
       { name: "Pharmacy", type: "need" },
-      { name: "Medical", type: "need" },
-      { name: "Healthcare", type: "need" },
+      { name: "Medical/Healthcare", type: "need" },
       { name: "Fitness", type: "want" },
     ],
   },
@@ -90,7 +91,7 @@ export const DEFAULT_CATEGORY_GROUPS: CategoryGroup[] = [
       { name: "Salary", type: "need" },
       { name: "Bonus", type: "need" },
       { name: "Freelance", type: "need" },
-      { name: "Refunds/Reimbursements", type: "need" },
+      { name: "Refunds", type: "need" },
       { name: "Cashback", type: "need" },
       { name: "Top-ups", type: "need" },
     ],
@@ -120,7 +121,6 @@ export const DEFAULT_CATEGORY_GROUPS: CategoryGroup[] = [
     label: "Other",
     categories: [
       { name: "Cash", type: "need" },
-      { name: "General", type: "want" },
       { name: "Other", type: "want" },
     ],
   },

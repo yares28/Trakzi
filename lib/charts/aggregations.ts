@@ -97,7 +97,7 @@ const NEEDS_CATEGORIES: Record<string, 'Essentials' | 'Mandatory' | 'Wants' | 'O
     'Housing': 'Essentials',
     'Utilities': 'Essentials',
     'Transport': 'Essentials',
-    'Healthcare': 'Essentials',
+    'Medical/Healthcare': 'Essentials',
     'Insurance': 'Mandatory',
     'Taxes': 'Mandatory',
     'Shopping': 'Wants',

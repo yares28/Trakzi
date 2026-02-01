@@ -51,7 +51,7 @@ const CATEGORY_DEFINITIONS: Record<string, string> = {
     "Parking/Tolls": "Parking fees and road tolls.",
     "Car Maintenance": "Vehicle maintenance, repairs, and inspections.",
     "Pharmacy": "Pharmacies and drugstores.",
-    "Medical": "Clinics, hospitals, doctors, and medical services.",
+    "Medical/Healthcare": "Clinics, hospitals, doctors, medical and healthcare services.",
     "Fitness": "Gyms, fitness, and sports memberships.",
     "Clothing": "Clothing, shoes, and apparel.",
     "Electronics": "Electronics, gadgets, and tech retail.",
@@ -63,7 +63,7 @@ const CATEGORY_DEFINITIONS: Record<string, string> = {
     "Salary": "Salary or payroll income.",
     "Bonus": "Bonus or incentive income.",
     "Freelance": "Freelance, contractor, or invoice income.",
-    "Refunds/Reimbursements": "Refunds, reimbursements, and chargebacks.",
+    "Refunds": "Refunds, reimbursements, and chargebacks.",
     "Savings": "Transfers to savings.",
     "Investments": "Investments, brokerage, or portfolio transfers.",
     "Transfers": "Bank transfers, P2P, Bizum, and PayPal.",
@@ -129,7 +129,8 @@ const CATEGORY_ALIASES: Record<string, string> = {
     "car maintenance": "Car Maintenance",
     "auto repair": "Car Maintenance",
     "pharmacy": "Pharmacy",
-    "medical": "Medical",
+    "medical": "Medical/Healthcare",
+    "healthcare": "Medical/Healthcare",
     "fitness": "Fitness",
     "clothing": "Clothing",
     "apparel": "Clothing",
@@ -141,10 +142,10 @@ const CATEGORY_ALIASES: Record<string, string> = {
     "salary": "Salary",
     "bonus": "Bonus",
     "freelance": "Freelance",
-    "refunds": "Refunds/Reimbursements",
-    "refund": "Refunds/Reimbursements",
-    "reimbursement": "Refunds/Reimbursements",
-    "reimbursements": "Refunds/Reimbursements",
+    "refunds": "Refunds",
+    "refund": "Refunds",
+    "reimbursement": "Refunds",
+    "reimbursements": "Refunds",
     "savings": "Savings",
     "saving": "Savings",
     "investments": "Investments",
@@ -385,8 +386,7 @@ const MERCHANT_PATTERNS: MerchantPattern[] = [
 ];
 
 const CATEGORY_RULES: CategoryRule[] = [
-    { category: "Refunds/Reimbursements", amountSign: "any", patterns: [/refund|reembolso|devolucion|abono|reintegro|chargeback|reimburse/] },
-    { category: "Refunds", amountSign: "any", patterns: [/refund|reembolso|devolucion|abono|reintegro|chargeback/] },
+    { category: "Refunds", amountSign: "any", patterns: [/refund|reembolso|devolucion|abono|reintegro|chargeback|reimburse/] },
     {
         category: "Transfers", amountSign: "any", patterns: [
             /bizum|transferencia|transfer\b|traspaso|sepa|paypal|p2p/,
@@ -431,7 +431,7 @@ const CATEGORY_RULES: CategoryRule[] = [
     { category: "Gifts", amountSign: "negative", patterns: [/gift|regalo|present/] },
     { category: "Shopping", amountSign: "negative", patterns: [/shopping|tienda|store|retail|amazon|amzn|zalando|aliexpress|ebay|shein|asos/] },
     { category: "Pharmacy", amountSign: "negative", patterns: [/farmacia|pharmacy|drugstore|botica/] },
-    { category: "Medical", amountSign: "negative", patterns: [/hospital|clinic|clinica|dentist|dentista|doctor|medic/] },
+    { category: "Medical/Healthcare", amountSign: "negative", patterns: [/hospital|clinic|clinica|dentist|dentista|doctor|medic|healthcare|health\s*care/] },
     { category: "Fitness", amountSign: "negative", patterns: [/gym|gimnasio|fitness|crossfit|pilates/] },
     { category: "Health & Fitness", amountSign: "negative", patterns: [/farmacia|pharmacy|hospital|clinica|clinic|dentist|dentista|gym|fitness|crossfit/] },
     { category: "Entertainment", amountSign: "negative", patterns: [/cine|teatro|concierto|festival|ticketmaster|entradas|museo|eventbrite|ocio/] },
@@ -536,7 +536,7 @@ const CATEGORY_KEYWORDS: Record<string, CategoryKeywordRule> = {
         keywords: ["car maintenance", "taller", "mecanico", "itv", "revision", "oil change", "neumatico"]
     },
     "Pharmacy": { amountSign: "negative", keywords: ["pharmacy", "farmacia", "drugstore", "botica"] },
-    "Medical": { amountSign: "negative", keywords: ["medical", "clinic", "clinica", "hospital", "doctor", "dentist"] },
+    "Medical/Healthcare": { amountSign: "negative", keywords: ["medical", "healthcare", "clinic", "clinica", "hospital", "doctor", "dentist"] },
     "Fitness": { amountSign: "negative", keywords: ["gym", "gimnasio", "fitness", "crossfit", "pilates"] },
     "Clothing": {
         amountSign: "negative",
@@ -563,7 +563,7 @@ const CATEGORY_KEYWORDS: Record<string, CategoryKeywordRule> = {
     "Salary": { amountSign: "positive", keywords: ["salary", "payroll", "nomina", "sueldo"] },
     "Bonus": { amountSign: "positive", keywords: ["bonus", "incentive", "incentivo"] },
     "Freelance": { amountSign: "positive", keywords: ["freelance", "invoice", "factura", "honorarios"] },
-    "Refunds/Reimbursements": {
+    "Refunds": {
         amountSign: "any",
         keywords: ["refund", "reembolso", "devolucion", "chargeback", "reintegro", "reimburse"]
     },
@@ -634,7 +634,7 @@ const LOCALE_CATEGORY_KEYWORDS: Partial<Record<SupportedLocale, Record<string, C
         "Internet": { keywords: ["internet", "fibra", "banda larga"] },
         "Mobile": { keywords: ["movel", "telemovel", "celular"] },
         "Pharmacy": { keywords: ["farmacia"] },
-        "Medical": { keywords: ["clinica", "medico", "hospital"] },
+        "Medical/Healthcare": { keywords: ["clinica", "medico", "hospital"] },
         "Fitness": { keywords: ["ginasio"] },
         "Subscriptions": { keywords: ["assinatura"] },
         "Salary": { keywords: ["salario", "ordenado"] },
@@ -660,7 +660,7 @@ const LOCALE_CATEGORY_KEYWORDS: Partial<Record<SupportedLocale, Record<string, C
         "Internet": { keywords: ["internet", "fibre", "adsl"] },
         "Mobile": { keywords: ["mobile", "telephone"] },
         "Pharmacy": { keywords: ["pharmacie"] },
-        "Medical": { keywords: ["clinique", "medecin", "hopital"] },
+        "Medical/Healthcare": { keywords: ["clinique", "medecin", "hopital"] },
         "Fitness": { keywords: ["fitness"] },
         "Subscriptions": { keywords: ["abonnement"] },
         "Salary": { keywords: ["salaire"] },
@@ -686,7 +686,7 @@ const LOCALE_CATEGORY_KEYWORDS: Partial<Record<SupportedLocale, Record<string, C
         "Internet": { keywords: ["internet", "fibra", "adsl"] },
         "Mobile": { keywords: ["mobile", "telefono"] },
         "Pharmacy": { keywords: ["farmacia"] },
-        "Medical": { keywords: ["clinica", "medico", "ospedale"] },
+        "Medical/Healthcare": { keywords: ["clinica", "medico", "ospedale"] },
         "Fitness": { keywords: ["palestra", "fitness"] },
         "Subscriptions": { keywords: ["abbonamento"] },
         "Salary": { keywords: ["stipendio"] },
@@ -712,7 +712,7 @@ const LOCALE_CATEGORY_KEYWORDS: Partial<Record<SupportedLocale, Record<string, C
         "Internet": { keywords: ["internet", "dsl", "glasfaser"] },
         "Mobile": { keywords: ["handy", "mobil", "telefon"] },
         "Pharmacy": { keywords: ["apotheke"] },
-        "Medical": { keywords: ["klinik", "arzt", "krankenhaus"] },
+        "Medical/Healthcare": { keywords: ["klinik", "arzt", "krankenhaus"] },
         "Fitness": { keywords: ["fitness", "studio", "gym"] },
         "Subscriptions": { keywords: ["abo", "abonnement"] },
         "Salary": { keywords: ["gehalt", "lohn"] },
@@ -738,7 +738,7 @@ const LOCALE_CATEGORY_KEYWORDS: Partial<Record<SupportedLocale, Record<string, C
         "Internet": { keywords: ["internet", "glasvezel"] },
         "Mobile": { keywords: ["mobiel", "telefoon"] },
         "Pharmacy": { keywords: ["apotheek"] },
-        "Medical": { keywords: ["kliniek", "ziekenhuis", "arts"] },
+        "Medical/Healthcare": { keywords: ["kliniek", "ziekenhuis", "arts"] },
         "Fitness": { keywords: ["sportschool", "fitness"] },
         "Subscriptions": { keywords: ["abonnement"] },
         "Salary": { keywords: ["salaris", "loon"] },
@@ -764,7 +764,7 @@ const LOCALE_CATEGORY_KEYWORDS: Partial<Record<SupportedLocale, Record<string, C
         "Internet": { keywords: ["internet", "fibra"] },
         "Mobile": { keywords: ["mobil", "telefon"] },
         "Pharmacy": { keywords: ["farmacia"] },
-        "Medical": { keywords: ["hospital", "clinica", "metge"] },
+        "Medical/Healthcare": { keywords: ["hospital", "clinica", "metge"] },
         "Fitness": { keywords: ["gimnas", "fitness"] },
         "Subscriptions": { keywords: ["subscripcio"] },
         "Salary": { keywords: ["sou", "salari"] },
@@ -1497,7 +1497,7 @@ You MUST include ALL ${batch.length} transactions. Each entry needs:
         const positiveDefault =
             resolveCategoryName("Transfers", resolveCategory) ??
             resolveCategoryName("Income", resolveCategory) ??
-            resolveCategoryName("Refunds/Reimbursements", resolveCategory) ??
+            resolveCategoryName("Refunds", resolveCategory) ??
             null;
         const negativeDefault =
             resolveCategoryName("Shopping", resolveCategory) ??

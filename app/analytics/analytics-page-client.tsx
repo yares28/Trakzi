@@ -2155,9 +2155,7 @@ export default function AnalyticsPage() {
         "Utilities",
         "Insurance",
         "Taxes",
-        "Healthcare",
-        "Health",
-        "Medical",
+        "Medical/Healthcare",
       ],
       Lifestyle: [
         "Shopping",
