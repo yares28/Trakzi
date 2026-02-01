@@ -1173,7 +1173,7 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
                       Entertainment
                     </SelectItem>
                     <SelectItem value="Utilities">Utilities</SelectItem>
-                    <SelectItem value="Healthcare">Healthcare</SelectItem>
+                    <SelectItem value="Medical/Healthcare">Medical/Healthcare</SelectItem>
                     <SelectItem value="Shopping">Shopping</SelectItem>
                     <SelectItem value="Dining">Dining</SelectItem>
                     <SelectItem value="Housing">Housing</SelectItem>
