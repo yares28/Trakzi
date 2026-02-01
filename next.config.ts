@@ -4,6 +4,11 @@ import path from "path";
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@napi-rs/canvas"],
 
+  // Disable Turbopack dev cache to avoid "Persisting failed: write batch or compaction is already active"
+  experimental: {
+    turbopackFileSystemCacheForDev: false,
+  },
+
   // Silence workspace root warning from multiple lockfiles (global pnpm + local npm)
   outputFileTracingRoot: path.join(__dirname),
 
