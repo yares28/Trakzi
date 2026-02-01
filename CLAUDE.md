@@ -219,7 +219,7 @@ const processedData = useMemo(() =>
 
 ### Chart Grids by Page
 | Page | Grid File | Has LazyChart |
-|------|-----------|---------------|
+|------|-----------|----------------|
 | Analytics | `app/analytics/_page/components/ChartsGrid.tsx` | ✅ Yes |
 | Home | `app/home/_page/components/ChartsGrid.tsx` | ❌ Needs adding |
 | Fridge | `app/fridge/_client/components/ChartsGrid.tsx` | ❌ Needs adding |

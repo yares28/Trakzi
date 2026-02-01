@@ -42,8 +42,11 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Build-time fallback so prerender succeeds when .env.local is missing (e.g. CI). Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY in .env.local for real auth.
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "pk_test_placeholder";
+
   return (
-    <ClerkProvider afterSignOutUrl="/" signInFallbackRedirectUrl="/home" signUpFallbackRedirectUrl="/home">
+    <ClerkProvider publishableKey={publishableKey} afterSignOutUrl="/" signInFallbackRedirectUrl="/home" signUpFallbackRedirectUrl="/home">
       <html lang="en" suppressHydrationWarning className="overflow-x-hidden">
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
