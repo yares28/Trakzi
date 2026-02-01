@@ -86,6 +86,7 @@ export const DEFAULT_CATEGORY_GROUPS: CategoryGroup[] = [
   {
     label: "Income",
     categories: [
+      { name: "Income", type: "need" },
       { name: "Salary", type: "need" },
       { name: "Bonus", type: "need" },
       { name: "Freelance", type: "need" },

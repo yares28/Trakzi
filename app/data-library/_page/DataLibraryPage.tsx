@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useCallback, useState, useTransition } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { IconAlertTriangle, IconDatabase } from "@tabler/icons-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -42,6 +43,7 @@ export default function DataLibraryPage() {
   const { formatCurrency } = useCurrency()
   const [, startTransition] = useTransition()
 
+  const queryClient = useQueryClient()
   const {
     transactions,
     statements,
@@ -126,8 +128,13 @@ export default function DataLibraryPage() {
   const { schedulePreferenceUpdate, resetPreferenceUpdates } =
     useCategoryPreferences()
 
+  const refreshAnalyticsData = useCallback(async () => {
+    await fetchLibraryData()
+    await queryClient.invalidateQueries({ queryKey: ["analytics-bundle"] })
+  }, [fetchLibraryData, queryClient])
+
   const statementImport = useStatementImport({
-    refreshAnalyticsData: fetchLibraryData,
+    refreshAnalyticsData,
   })
 
   const {

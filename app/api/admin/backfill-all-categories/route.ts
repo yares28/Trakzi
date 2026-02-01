@@ -50,6 +50,7 @@ const CATEGORY_COLORS: Record<string, string> = {
     "Insurance": "#f43f5e",
     "Donation": "#e11d48",
     // Income
+    "Income": "#22c55e",
     "Salary": "#22c55e",
     "Bonus": "#16a34a",
     "Freelance": "#15803d",

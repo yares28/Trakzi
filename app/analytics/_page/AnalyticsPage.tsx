@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect } from "react"
+import { useCallback, useEffect } from "react"
 import { useTheme } from "next-themes"
+import { useQueryClient } from "@tanstack/react-query"
 
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useDateFilter } from "@/components/date-filter-provider"
@@ -28,6 +29,7 @@ export default function AnalyticsPage() {
   const { data: bundleData, isLoading: bundleLoading } = useAnalyticsBundleData()
   const palette = getPalette()
 
+  const queryClient = useQueryClient()
   const {
     rawTransactions,
     isLoadingTransactions,
@@ -48,7 +50,12 @@ export default function AnalyticsPage() {
     resolvedTheme,
   })
 
-  const statementImport = useStatementImport({ refreshAnalyticsData: fetchAllAnalyticsData })
+  const refreshAnalyticsData = useCallback(async () => {
+    await fetchAllAnalyticsData()
+    await queryClient.invalidateQueries({ queryKey: ["analytics-bundle"] })
+  }, [fetchAllAnalyticsData, queryClient])
+
+  const statementImport = useStatementImport({ refreshAnalyticsData })
 
   return (
     <AnalyticsLayout

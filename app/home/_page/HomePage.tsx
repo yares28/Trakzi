@@ -1,5 +1,7 @@
 "use client"
 
+import { useCallback } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { DataTable } from "@/components/data-table"
 import { useDateFilter } from "@/components/date-filter-provider"
 
@@ -18,6 +20,7 @@ import { useHomeStats } from "./hooks/useHomeStats"
 
 export default function Page() {
   const { filter: dateFilter } = useDateFilter()
+  const queryClient = useQueryClient()
 
   const {
     transactions,
@@ -37,7 +40,12 @@ export default function Page() {
     handleFavoritesResize,
   } = useFavoritesLayout()
 
-  const statementImport = useStatementImport({ refreshAnalyticsData: fetchTransactions })
+  const refreshAnalyticsData = useCallback(async () => {
+    await fetchTransactions()
+    await queryClient.invalidateQueries({ queryKey: ["analytics-bundle"] })
+  }, [fetchTransactions, queryClient])
+
+  const statementImport = useStatementImport({ refreshAnalyticsData })
 
   return (
     <HomeLayout

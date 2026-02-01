@@ -9,16 +9,32 @@ import { NivoChartTooltip } from "@/components/chart-tooltip"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
 
-// World countries GeoJSON features - loaded dynamically
-import worldCountries from "@/lib/data/world-countries.json"
+// World countries GeoJSON features
+import worldCountriesRaw from "@/lib/data/world-countries.json"
+
+// Type for GeoJSON feature
+interface GeoFeature {
+  type: string
+  properties: { name: string }
+  geometry: unknown
+  id?: string
+}
+
+// Add id to each feature based on properties.name for Nivo matching
+const worldCountries = {
+  ...worldCountriesRaw,
+  features: (worldCountriesRaw.features as GeoFeature[]).map((feature) => ({
+    ...feature,
+    id: feature.properties.name, // Nivo matches data.id to feature.id
+  })),
+}
 
 export interface CountryData {
-  id: string // ISO 3166-1 alpha-3 country code
+  id: string // Country name (must match feature.id which is set from properties.name)
   value: number
   label?: string
 }
@@ -27,14 +43,12 @@ interface WorldMapChartProps {
   data?: CountryData[]
   isLoading?: boolean
   title?: string
-  description?: string
 }
 
 export const WorldMapChart = memo(function WorldMapChart({
   data = [],
   isLoading = false,
   title = "Global Spending Distribution",
-  description = "Spending breakdown by country",
 }: WorldMapChartProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
@@ -45,10 +59,15 @@ export const WorldMapChart = memo(function WorldMapChart({
     setMounted(true)
   }, [])
 
-  // Get palette colors for the choropleth scale
+  const isDark = resolvedTheme === "dark"
+
+  // Standard text colors from CHARTS_CLONE_SPEC
+  const textColor = isDark ? "#9ca3af" : "#4b5563"
+
+  // Get palette colors for the choropleth scale (darker = larger values)
   const colorScale = useMemo(() => {
     const palette = getPalette().filter(c => c !== "#c3c3c3")
-    // Return colors from lightest to darkest for choropleth
+    // Reverse palette so darkest colors go to largest values
     return [...palette].reverse().slice(0, 7)
   }, [getPalette])
 
@@ -61,31 +80,20 @@ export const WorldMapChart = memo(function WorldMapChart({
     return [min, max]
   }, [data])
 
-  const isDark = resolvedTheme === "dark"
-
-  // Nivo theme configuration
+  // Nivo theme configuration - following CHARTS_CLONE_SPEC
   const nivoTheme = useMemo(() => ({
     background: "transparent",
     text: {
-      fontSize: 11,
-      fill: isDark ? "#ffffff" : "#000000",
-    },
-    tooltip: {
-      container: {
-        background: isDark ? "#1a1a1a" : "#ffffff",
-        color: isDark ? "#ffffff" : "#000000",
-        fontSize: 12,
-        borderRadius: 8,
-        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-      },
+      fontSize: 12,
+      fill: textColor,
     },
     legends: {
       text: {
         fontSize: 11,
-        fill: isDark ? "#a1a1aa" : "#71717a",
+        fill: textColor,
       },
     },
-  }), [isDark])
+  }), [textColor])
 
   // Loading skeleton
   if (!mounted || isLoading) {
@@ -93,10 +101,9 @@ export const WorldMapChart = memo(function WorldMapChart({
       <Card className="h-full">
         <CardHeader>
           <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
         </CardHeader>
-        <CardContent className="flex-1 min-h-[500px]">
-          <div className="h-full w-full animate-pulse bg-muted/50 rounded-lg" />
+        <CardContent>
+          <div className="h-[500px] w-full animate-pulse bg-muted/50 rounded-lg" />
         </CardContent>
       </Card>
     )
@@ -106,41 +113,39 @@ export const WorldMapChart = memo(function WorldMapChart({
     <Card className="h-full flex flex-col">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 min-h-[500px]">
-        <div className="h-full w-full">
+      <CardContent>
+        {/* Fixed height container - required for Nivo responsive charts */}
+        <div style={{ height: "500px", width: "100%" }}>
           <ResponsiveChoropleth
             data={data}
             features={worldCountries.features}
+            label="properties.name"
             margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
             colors={colorScale.length > 0 ? colorScale : ["#e5e7eb", "#d1d5db", "#9ca3af", "#6b7280", "#4b5563", "#374151", "#1f2937"]}
             domain={domain}
-            unknownColor={isDark ? "#27272a" : "#e5e7eb"}
-            label="properties.name"
+            // Better contrast in both light and dark mode
+            unknownColor={isDark ? "#3f3f46" : "#e5e7eb"}
             valueFormat=".2s"
             projectionType="mercator"
-            projectionScale={120}
+            projectionScale={150}
             projectionTranslation={[0.5, 0.65]}
             projectionRotation={[0, 0, 0]}
-            enableGraticule={true}
-            graticuleLineColor={isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}
+            // No grid/graticule
+            enableGraticule={false}
+            // Border colors for visibility in both modes
             borderWidth={0.5}
-            borderColor={isDark ? "#3f3f46" : "#d4d4d8"}
+            borderColor={isDark ? "#52525b" : "#a1a1aa"}
             theme={nivoTheme}
             tooltip={({ feature }) => {
-              // Feature properties are available at runtime but Nivo's types are incomplete
-              type GeoFeature = { id?: string; properties?: { name?: string } }
-              const geoFeature = feature as GeoFeature
-              const featureId = geoFeature.id ?? ""
-              const countryData = data.find(d => d.id === featureId)
+              const countryName = feature.label || "Unknown"
+              const countryData = data.find(d => d.id === countryName)
               const value = countryData?.value ?? 0
-              const countryName = geoFeature.properties?.name || featureId
 
               return (
                 <NivoChartTooltip
-                  title={String(countryName)}
-                  titleColor={colorScale[Math.floor(colorScale.length / 2)]}
+                  title={countryName}
+                  titleColor={countryData ? colorScale[Math.floor(colorScale.length / 2)] : undefined}
                   value={formatCurrency(value)}
                   subValue={countryData ? "Total spending" : "No data"}
                 />
@@ -157,7 +162,7 @@ export const WorldMapChart = memo(function WorldMapChart({
                 itemWidth: 94,
                 itemHeight: 18,
                 itemDirection: "left-to-right",
-                itemTextColor: isDark ? "#a1a1aa" : "#71717a",
+                itemTextColor: textColor,
                 itemOpacity: 0.85,
                 symbolSize: 18,
                 effects: [
