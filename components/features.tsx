@@ -437,7 +437,7 @@ export default function Features() {
                 <div className="flex grow items-center justify-center select-none relative min-h-[300px] p-4">
                   <div className="relative w-full max-w-sm">
                     <img
-                      src="/images/attachments-gen-images-v0-image.png"
+                      src="/window.svg"
                       alt="Dynamic Layout Example"
                       className="w-full h-auto rounded-lg shadow-lg"
                     />

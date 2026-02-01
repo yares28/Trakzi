@@ -29,13 +29,14 @@ const isProtectedRoute = createRouteMatcher([
   '/savings(.*)',
   '/trends(.*)',
   '/chat(.*)',
+  '/billing(.*)',
 ])
 
 export default clerkMiddleware(async (auth, req) => {
   const path = req.nextUrl.pathname
 
   // FAST PATH: Skip auth() for API routes - they handle auth internally via getCurrentUserId()
-  // Middleware still runs to set up Clerk context, but we avoid the expensive auth() call
+  // Proxy still runs to set up Clerk context, but we avoid the expensive auth() call
   if (path.startsWith('/api/')) {
     return NextResponse.next()
   }
@@ -67,8 +68,8 @@ export default clerkMiddleware(async (auth, req) => {
 })
 
 export const config = {
-  // Middleware must run on routes that need Clerk auth() to work
-  // Clerk's auth() returns null if middleware doesn't run on the route
+  // Proxy must run on routes that need Clerk auth() to work
+  // Clerk's auth() returns null if proxy doesn't run on the route
   matcher: [
     // Protected page routes that need auth redirect logic
     "/home/:path*",
@@ -84,7 +85,7 @@ export const config = {
     // Auth routes for sign-in redirect logic
     "/sign-in/:path*",
     "/sign-up/:path*",
-    // API routes need middleware for auth() to work
+    // API routes need proxy for auth() to work
     "/api/:path*",
   ],
-};
+}

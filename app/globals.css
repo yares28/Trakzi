@@ -329,14 +329,14 @@ button[data-active="true"] .icon-chat,
   button.gridstack-drag-handle,
   [role="button"].gridstack-drag-handle,
   span.gridstack-drag-handle {
-    cursor: url('/cursors/hand.svg') 6 0, grab !important;
+    cursor: url('/cursors/hand-orange.svg') 6 0, grab !important;
   }
 
   .gridstack-drag-handle:active,
   button.gridstack-drag-handle:active,
   [role="button"].gridstack-drag-handle:active,
   span.gridstack-drag-handle:active {
-    cursor: url('/cursors/grab.svg') 6 0, grabbing !important;
+    cursor: url('/cursors/hand-orange.svg') 6 0, grabbing !important;
   }
 
   /* All children of drag handles inherit the grab cursor */
