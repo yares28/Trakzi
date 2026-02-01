@@ -8,10 +8,12 @@
 // - Pro: 20 transaction categories, 20 receipt categories
 // - Max: 100 transaction categories, 100 receipt categories
 //
-// Default/system categories (is_default = true) do NOT count toward limits.
+// Default/system categories (is_default = true or canonical default name) do NOT count toward limits.
 // ============================================================================
 
+import { DEFAULT_CATEGORIES } from '../categories';
 import { neonQuery } from '../neonClient';
+import { DEFAULT_RECEIPT_CATEGORIES } from '../receipt-categories';
 import { getUserPlan, PlanType } from '../subscriptions';
 
 export interface CategoryCounts {
@@ -48,27 +50,32 @@ export function getCategoryCap(plan: PlanType): { transactions: number; receipts
 
 /**
  * Get current category counts for a user
- * Excludes default/system categories (is_default = true)
+ * Excludes default/system categories (is_default = true or canonical default name)
  */
 export async function getCategoryCounts(userId: string): Promise<CategoryCounts> {
-    // Transaction categories (exclude is_default = true)
+    const defaultTransactionNames = DEFAULT_CATEGORIES;
+    const defaultReceiptNames = DEFAULT_RECEIPT_CATEGORIES.map((c) => c.name);
+
+    // Transaction categories (exclude is_default = true and exclude canonical default names)
     const txQuery = `
         SELECT COUNT(DISTINCT id) as count
         FROM categories
-        WHERE user_id = $1 
+        WHERE user_id = $1
           AND (is_default IS NULL OR is_default = false)
+          AND NOT (name = ANY($2::text[]))
     `;
-    const txResult = await neonQuery<{ count: string }>(txQuery, [userId]);
+    const txResult = await neonQuery<{ count: string }>(txQuery, [userId, defaultTransactionNames]);
     const transactionCategories = parseInt(txResult[0]?.count || '0', 10);
 
-    // Receipt categories (exclude defaults marked with is_default = true)
+    // Receipt categories (exclude is_default = true and exclude canonical default names)
     const receiptQuery = `
         SELECT COUNT(DISTINCT id) as count
         FROM receipt_categories
         WHERE user_id = $1
           AND (is_default IS NULL OR is_default = false)
+          AND NOT (name = ANY($2::text[]))
     `;
-    const receiptResult = await neonQuery<{ count: string }>(receiptQuery, [userId]);
+    const receiptResult = await neonQuery<{ count: string }>(receiptQuery, [userId, defaultReceiptNames]);
     const receiptCategories = parseInt(receiptResult[0]?.count || '0', 10);
 
     return {
