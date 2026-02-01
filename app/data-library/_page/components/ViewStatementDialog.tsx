@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, type Dispatch, type SetStateAction } from "react"
 import { IconLoader2, IconPlus, IconTrash, IconDeviceFloppy } from "@tabler/icons-react"
+import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import { CategorySelect } from "@/components/category-select"
@@ -98,6 +99,7 @@ export function ViewStatementDialog({
   onCreateDialogReceiptCategory,
   formatCurrency,
 }: ViewStatementDialogProps) {
+  const queryClient = useQueryClient()
   // Local copy of transactions for editing
   const [localTransactions, setLocalTransactions] = useState<Transaction[]>([])
   
@@ -297,8 +299,9 @@ export function ViewStatementDialog({
         }
       }
 
-      // Invalidate cache
+      // Invalidate server cache and client React Query so analytics charts refetch
       await fetch("/api/cache/invalidate?all=true").catch(() => {})
+      queryClient.invalidateQueries({ queryKey: ["analytics-bundle"] })
 
       // Update parent state
       setStatementTransactions((prev) => {

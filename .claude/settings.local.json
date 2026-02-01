@@ -8,7 +8,9 @@
       "Bash(git add components/chart-*.tsx components/fridge/chart-*.tsx components/lazy-chart.tsx components/chart-visibility-provider.tsx)",
       "Bash(git add docs/PAGES/ANALYTICS_CHARTS.md docs/PAGES/FRIDGE_CHARTS.md docs/PAGES/SAVINGS_CHARTS.md docs/PAGES/TEST_CHARTS.md)",
       "Bash(git add CLAUDE.md)",
-      "Bash(git add app/analytics/_page/components/ChartsGrid.tsx app/fridge/_client/components/ChartsGrid.tsx app/home/_page/components/ChartsGrid.tsx)"
+      "Bash(git add app/analytics/_page/components/ChartsGrid.tsx app/fridge/_client/components/ChartsGrid.tsx app/home/_page/components/ChartsGrid.tsx)",
+      "Bash(pkill:*)",
+      "Bash(taskkill:*)"
     ]
   },
   "enabledPlugins": {
