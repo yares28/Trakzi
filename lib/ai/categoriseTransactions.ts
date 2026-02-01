@@ -77,7 +77,6 @@ const CATEGORY_DEFINITIONS: Record<string, string> = {
     "Shopping": "Retail purchases and household goods.",
     "Health & Fitness": "Pharmacy, clinics, medical, gyms, and fitness.",
     "Income": "Salary, pension, benefits, interest, or dividends.",
-    "Refunds": "Refunds, chargebacks, and reversals.",
     "Other": "Only when ambiguous or unknown."
 };
 
@@ -612,10 +611,6 @@ const CATEGORY_KEYWORDS: Record<string, CategoryKeywordRule> = {
     "Income": {
         amountSign: "positive",
         keywords: ["salary", "payroll", "nomina", "sueldo", "income", "pension", "dividend", "interest"]
-    },
-    "Refunds": {
-        amountSign: "any",
-        keywords: ["refund", "reembolso", "devolucion", "chargeback", "reintegro"]
     },
 };
 
