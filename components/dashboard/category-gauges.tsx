@@ -60,7 +60,7 @@ export function CategoryGauges() {
     useEffect(() => {
         async function fetchCategoryData() {
             try {
-                const response = await fetch("/api/categories/count")
+                const response = await fetch("/api/categories/count", { cache: "no-store" })
                 if (response.ok) {
                     const data = await response.json()
                     setCategoryData(data)
