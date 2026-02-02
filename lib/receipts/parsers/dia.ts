@@ -345,14 +345,19 @@ function extractItemsSpanish(receiptText: string): ExtractedReceipt["items"] {
             continue
         }
 
-        // End of items section
+        // End of items section - only end at VAT breakdown or total lines
+        // Note: "Sociedad inscrita" and "Descuentos aplicados" can appear mid-document
+        // on multi-page receipts, so we don't use them as end markers
         if (inItemsSection && (
             trimmedLine.includes("Desglose de IVA") ||
-            trimmedLine.includes("Total base imponible") ||
-            trimmedLine.includes("Descuentos aplicados") ||
-            trimmedLine.includes("Sociedad inscrita")
+            trimmedLine.includes("Total base imponible")
         )) {
             break
+        }
+
+        // Skip non-item lines that appear in multi-page documents
+        if (inItemsSection && trimmedLine.includes("Sociedad inscrita")) {
+            continue
         }
 
         if (!inItemsSection) continue
@@ -420,27 +425,9 @@ function extractItemsSpanish(receiptText: string): ExtractedReceipt["items"] {
         })
     }
 
-    // Also extract discounts from "Descuentos aplicados a PVP" section
-    const discountSection = receiptText.match(/Descuentos aplicados a PVP[\s\S]*?(?=Sociedad inscrita|$)/i)
-    if (discountSection) {
-        const discountLines = discountSection[0].split(/\r?\n/)
-        for (const line of discountLines) {
-            const discountMatch = line.match(/^([A-Z][A-Z\s/]+?)\s+([0-9]{1,6}[.,][0-9]{2})\s*€/i)
-            if (discountMatch) {
-                const description = trimAndCollapseSpaces(discountMatch[1])
-                const amount = parseEuMoneyToNumber(discountMatch[2])
-                if (description && amount > 0 && !description.includes("Descuentos")) {
-                    items.push({
-                        description: description,
-                        quantity: 1,
-                        price_per_unit: -amount,
-                        total_price: -amount,
-                        category: null,
-                    })
-                }
-            }
-        }
-    }
+    // Note: In Spanish invoice format, discounts are already included in the line item
+    // prices (the "Descuento sin IVA" column). The "Descuentos aplicados a PVP" section
+    // is informational only, so we don't extract it separately.
 
     return items
 }

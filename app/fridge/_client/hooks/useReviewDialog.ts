@@ -192,10 +192,7 @@ export function useReviewDialog({
       setReviewUploadWarnings(warnings)
       setActiveReviewReceiptIndex(0)
       setReviewCommitError(null)
-      const hasReviewItems = receipts.some((receipt) =>
-        receipt.transactions.some((transaction) => Boolean(transaction.needsReview))
-      )
-      setShowReviewOnly(hasReviewItems)
+      setShowReviewOnly(false)
       if (receipts.length === 0) {
         const warningMessage = warnings.length > 0
           ? warnings.map((warning) => `${warning.fileName}: ${warning.reason}`).join(" | ")

@@ -30,16 +30,16 @@ describe('Transaction Cap Logic', () => {
     });
 
     describe('getTransactionCount', () => {
-        it('returns sum of transactions and receipt_transactions', async () => {
+        it('returns sum of transactions and receipts (trips)', async () => {
             mockNeonQuery
                 .mockResolvedValueOnce([{ count: '150' }]) // bank transactions
-                .mockResolvedValueOnce([{ count: '50' }]); // receipt items
+                .mockResolvedValueOnce([{ count: '50' }]); // receipt trips
 
             const result = await getTransactionCount('user-123');
 
             expect(result.total).toBe(200);
             expect(result.bankTransactions).toBe(150);
-            expect(result.receiptItems).toBe(50);
+            expect(result.receiptTrips).toBe(50);
         });
 
         it('handles zero counts', async () => {
@@ -92,7 +92,7 @@ describe('Transaction Cap Logic', () => {
         it('returns oldest transactions from both tables ordered by timestamp', async () => {
             mockNeonQuery.mockResolvedValueOnce([
                 { source_table: 'transactions', id: '1', ts: '2024-01-01T00:00:00' },
-                { source_table: 'receipt_transactions', id: '5', ts: '2024-01-02T00:00:00' },
+                { source_table: 'receipts', id: '5', ts: '2024-01-02T00:00:00' },
                 { source_table: 'transactions', id: '2', ts: '2024-01-03T00:00:00' },
             ]);
 
@@ -101,8 +101,8 @@ describe('Transaction Cap Logic', () => {
             expect(result).toHaveLength(3);
             expect(result[0].source_table).toBe('transactions');
             expect(result[0].id).toBe(1);
-            expect(result[1].source_table).toBe('receipt_transactions');
-            expect(result[1].id).toBe(5);
+            expect(result[1].source_table).toBe('receipts');
+            expect(result[1].id).toBe('5'); // receipts use string IDs
         });
     });
 
@@ -157,7 +157,7 @@ describe('Transaction Cap Logic', () => {
 
             expect(result.deleted).toBe(0);
             expect(result.tables.transactions).toBe(0);
-            expect(result.tables.receipt_transactions).toBe(0);
+            expect(result.tables.receipts).toBe(0);
             expect(result.remaining).toBe(250);
         });
 
@@ -165,23 +165,23 @@ describe('Transaction Cap Logic', () => {
             // Mock getTransactionCount
             mockNeonQuery
                 .mockResolvedValueOnce([{ count: '300' }]) // bank
-                .mockResolvedValueOnce([{ count: '200' }]) // receipt
+                .mockResolvedValueOnce([{ count: '200' }]) // receipt trips
                 // Mock getOldestTransactionsToDelete
                 .mockResolvedValueOnce([
                     { source_table: 'transactions', id: '1', ts: '2024-01-01' },
-                    { source_table: 'receipt_transactions', id: '10', ts: '2024-01-02' },
+                    { source_table: 'receipts', id: '10', ts: '2024-01-02' },
                     { source_table: 'transactions', id: '2', ts: '2024-01-03' },
                 ])
                 // Mock delete from transactions
                 .mockResolvedValueOnce([{ count: '2' }])
-                // Mock delete from receipt_transactions
+                // Mock delete from receipts
                 .mockResolvedValueOnce([{ count: '1' }]);
 
             const result = await enforceTransactionCap('user-123', 497);
 
             expect(result.deleted).toBe(3);
             expect(result.tables.transactions).toBe(2);
-            expect(result.tables.receipt_transactions).toBe(1);
+            expect(result.tables.receipts).toBe(1);
         });
     });
 });
@@ -194,10 +194,10 @@ describe('Auto-Delete Selection Logic', () => {
     it('selects oldest transactions first regardless of table', async () => {
         // This tests that the SQL query uses ORDER BY ts ASC
         mockNeonQuery.mockResolvedValueOnce([
-            { source_table: 'receipt_transactions', id: '100', ts: '2023-06-01T10:00:00' },
+            { source_table: 'receipts', id: '100', ts: '2023-06-01T10:00:00' },
             { source_table: 'transactions', id: '5', ts: '2023-06-15T14:30:00' },
             { source_table: 'transactions', id: '8', ts: '2023-07-01T09:00:00' },
-            { source_table: 'receipt_transactions', id: '105', ts: '2023-07-10T11:00:00' },
+            { source_table: 'receipts', id: '105', ts: '2023-07-10T11:00:00' },
             { source_table: 'transactions', id: '12', ts: '2023-08-01T16:00:00' },
         ]);
 

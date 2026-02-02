@@ -14,7 +14,7 @@ export interface LimitsStatusResponse {
         used: number;
         remaining: number;
         bankTransactions: number;
-        receiptItems: number;
+        receiptTrips: number;
         percentUsed: number;
     };
     upgradePlans: Array<{
@@ -42,7 +42,7 @@ export const GET = async () => {
                 used: capacity.used,
                 remaining: capacity.remaining,
                 bankTransactions: capacity.bankTransactions,
-                receiptItems: capacity.receiptItems,
+                receiptTrips: capacity.receiptTrips,
                 percentUsed,
             },
             upgradePlans: upgradePlansList.map(plan => ({

@@ -89,7 +89,7 @@ export async function getTotalTransactionUsage(userId: string): Promise<{
 
     return {
         bankTransactions: capacity.bankTransactions,
-        fridgeItems: capacity.receiptItems,
+        fridgeItems: capacity.receiptTrips,
         total: capacity.used,
         limit: capacity.cap,
         remaining: capacity.remaining,
