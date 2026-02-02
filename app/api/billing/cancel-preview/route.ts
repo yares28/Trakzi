@@ -19,7 +19,7 @@ export async function GET() {
         // Get current transaction count
         const counts = await getTransactionCount(userId);
         const freePlanCap = getTransactionCap('free');
-        
+
         // Calculate how many would be deleted
         const deletionInfo = await calculateDeletionsForCap(userId, freePlanCap);
 
@@ -29,7 +29,7 @@ export async function GET() {
             transactionsToDelete: deletionInfo.toDelete,
             willExceed: deletionInfo.wouldExceed,
             bankTransactions: counts.bankTransactions,
-            receiptItems: counts.receiptItems,
+            receiptTrips: counts.receiptTrips,
         });
     } catch (error: any) {
         console.error('[Cancel Preview] Error:', error);

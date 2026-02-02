@@ -60,7 +60,7 @@ export async function GET() {
             // Detailed breakdown
             usage: {
                 bank_transactions: usage.bankTransactions,
-                receipt_transactions: usage.receiptItems,
+                receipt_trips: usage.receiptTrips,
                 total: usedTotal,
             },
 

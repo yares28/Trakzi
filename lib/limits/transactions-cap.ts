@@ -8,7 +8,7 @@
 //
 // Key principles:
 // - Cap is TOTAL transactions stored, not per-month
-// - Transactions include: bank transactions + receipt items
+// - Transactions include: bank transactions + receipt trips (not individual items)
 // - Never trust client values - always query from DB
 // - Return structured responses for UI (not generic errors)
 // ============================================================================
@@ -27,7 +27,7 @@ export interface TransactionCapacity {
     used: number;          // Currently stored transactions
     remaining: number;     // How many more can be added (may be Infinity)
     bankTransactions: number;
-    receiptItems: number;
+    receiptTrips: number;  // Count of receipts (trips), not individual items
 }
 
 export interface LimitExceededResponse {
@@ -65,13 +65,14 @@ export interface PartialImportResult {
 // ============================================================================
 
 /**
- * Get total transaction count for a user (bank + receipt items)
+ * Get total transaction count for a user (bank transactions + receipt trips)
  * This counts ALL transactions, not filtered by date.
+ * Receipt trips are counted (not individual items) to be more generous.
  */
 export async function getTransactionCount(userId: string): Promise<{
     total: number;
     bankTransactions: number;
-    receiptItems: number;
+    receiptTrips: number;
 }> {
     // Count bank transactions (total, not filtered by date)
     const bankTxResult = await neonQuery<{ count: string }>(
@@ -79,19 +80,19 @@ export async function getTransactionCount(userId: string): Promise<{
         [userId]
     );
 
-    // Count receipt transactions/fridge items (total, not filtered by date)
+    // Count receipt trips (not individual items) - each receipt = 1 transaction
     const receiptTxResult = await neonQuery<{ count: string }>(
-        `SELECT COUNT(*) as count FROM receipt_transactions WHERE user_id = $1`,
+        `SELECT COUNT(*) as count FROM receipts WHERE user_id = $1`,
         [userId]
     );
 
     const bankTransactions = parseInt(bankTxResult[0]?.count || '0');
-    const receiptItems = parseInt(receiptTxResult[0]?.count || '0');
+    const receiptTrips = parseInt(receiptTxResult[0]?.count || '0');
 
     return {
-        total: bankTransactions + receiptItems,
+        total: bankTransactions + receiptTrips,
         bankTransactions,
-        receiptItems,
+        receiptTrips,
     };
 }
 
@@ -123,7 +124,7 @@ export async function getRemainingCapacity(userId: string): Promise<TransactionC
         used: counts.total,
         remaining,
         bankTransactions: counts.bankTransactions,
-        receiptItems: counts.receiptItems,
+        receiptTrips: counts.receiptTrips,
     };
 }
 
@@ -257,14 +258,15 @@ export function isLimitExceededResponse(response: unknown): response is LimitExc
 // ============================================================================
 
 interface OldestTransaction {
-    source_table: 'transactions' | 'receipt_transactions';
-    id: number;
+    source_table: 'transactions' | 'receipts';
+    id: number | string;
     ts: Date;
 }
 
 /**
  * Get the oldest transactions across both tables that need to be deleted
  * to fit within a target cap. Orders by timestamp ASC (oldest first).
+ * For receipts, deleting a receipt cascades to delete its items.
  */
 export async function getOldestTransactionsToDelete(
     userId: string,
@@ -281,10 +283,10 @@ export async function getOldestTransactionsToDelete(
                    (tx_date + COALESCE(tx_time, '00:00:00'::time))::timestamp AS ts
             FROM transactions WHERE user_id = $1
             UNION ALL
-            SELECT 'receipt_transactions' AS source_table, 
+            SELECT 'receipts' AS source_table, 
                    id::text, 
                    (receipt_date + COALESCE(receipt_time, '00:00:00'::time))::timestamp AS ts
-            FROM receipt_transactions WHERE user_id = $1
+            FROM receipts WHERE user_id = $1
         )
         SELECT source_table, id, ts::text 
         FROM oldest 
@@ -293,26 +295,29 @@ export async function getOldestTransactionsToDelete(
     `, [userId, countToDelete]);
 
     return result.map(row => ({
-        source_table: row.source_table as 'transactions' | 'receipt_transactions',
-        id: parseInt(row.id),
+        source_table: row.source_table as 'transactions' | 'receipts',
+        id: row.source_table === 'receipts' ? row.id : parseInt(row.id),
         ts: new Date(row.ts),
     }));
 }
 
 /**
  * Delete specific transactions by table and ID
+ * For receipts table, uses text ID; for transactions, uses int ID
  */
 async function deleteTransactionsByTableAndIds(
     userId: string,
-    table: 'transactions' | 'receipt_transactions',
-    ids: number[]
+    table: 'transactions' | 'receipts',
+    ids: (number | string)[]
 ): Promise<number> {
     if (ids.length === 0) return 0;
 
+    // Receipts use text IDs, transactions use int IDs
+    const idCast = table === 'receipts' ? '::text[]' : '::int[]';
     const result = await neonQuery<{ count: string }>(`
         WITH deleted AS (
             DELETE FROM ${table}
-            WHERE user_id = $1 AND id = ANY($2::int[])
+            WHERE user_id = $1 AND id = ANY($2${idCast})
             RETURNING id
         )
         SELECT COUNT(*)::text as count FROM deleted
@@ -324,6 +329,7 @@ async function deleteTransactionsByTableAndIds(
 /**
  * Enforce transaction cap by deleting oldest transactions.
  * Called when a user downgrades to a plan with a lower cap.
+ * Deleting a receipt cascades to delete its items.
  * 
  * @returns Object with count of deleted transactions per table
  */
@@ -334,7 +340,7 @@ export async function enforceTransactionCap(
     deleted: number;
     tables: {
         transactions: number;
-        receipt_transactions: number;
+        receipts: number;
     };
     remaining: number;
 }> {
@@ -348,7 +354,7 @@ export async function enforceTransactionCap(
     if (toDelete === 0) {
         return {
             deleted: 0,
-            tables: { transactions: 0, receipt_transactions: 0 },
+            tables: { transactions: 0, receipts: 0 },
             remaining: targetCap - currentTotal,
         };
     }
@@ -359,9 +365,9 @@ export async function enforceTransactionCap(
     const oldest = await getOldestTransactionsToDelete(userId, toDelete);
 
     // Group by table
-    const byTable: Record<string, number[]> = {
+    const byTable: Record<string, (number | string)[]> = {
         transactions: [],
-        receipt_transactions: [],
+        receipts: [],
     };
 
     for (const tx of oldest) {
@@ -372,13 +378,13 @@ export async function enforceTransactionCap(
     const deletedFromTransactions = await deleteTransactionsByTableAndIds(
         userId,
         'transactions',
-        byTable.transactions
+        byTable.transactions as number[]
     );
 
     const deletedFromReceipts = await deleteTransactionsByTableAndIds(
         userId,
-        'receipt_transactions',
-        byTable.receipt_transactions
+        'receipts',
+        byTable.receipts as string[]
     );
 
     const totalDeleted = deletedFromTransactions + deletedFromReceipts;
@@ -389,7 +395,7 @@ export async function enforceTransactionCap(
         deleted: totalDeleted,
         tables: {
             transactions: deletedFromTransactions,
-            receipt_transactions: deletedFromReceipts,
+            receipts: deletedFromReceipts,
         },
         remaining: targetCap - (currentTotal - totalDeleted),
     };

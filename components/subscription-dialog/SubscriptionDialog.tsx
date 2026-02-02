@@ -91,7 +91,7 @@ export function SubscriptionDialog({ children, open: openProp, onOpenChange }: {
                 limits: data.limits || {},
                 usage: {
                     bankTransactions: data.usage?.bank_transactions || 0,
-                    fridgeItems: data.usage?.receipt_transactions || 0,
+                    fridgeItems: data.usage?.receipt_trips || 0,
                     totalTransactions: data.used_total || 0,
                     transactionLimit: data.cap || 400,
                     percentUsed: data.cap > 0 ? Math.round((data.used_total / data.cap) * 100) : 0,
