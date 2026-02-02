@@ -56,6 +56,8 @@ export type PdfTextParser = {
 /** Warning codes for the receipt parse pipeline */
 export type ReceiptParseWarningCode =
     | "MERCADONA_DETERMINISTIC_FAILED"
+    | "CONSUM_DETERMINISTIC_FAILED"
+    | "DIA_DETERMINISTIC_FAILED"
     | "AI_FAILED"
     | "OCR_FAILED"
     | "LOW_TEXT_DENSITY"
@@ -87,8 +89,8 @@ export type ReceiptParseValidation = {
 /** Metadata about how the receipt was parsed */
 export type ReceiptParseMeta = {
     input_kind: "pdf" | "image"
-    merchant_detected: "mercadona" | "unknown"
-    extraction_method: "mercadona_deterministic" | "ai_fallback" | "ai_only"
+    merchant_detected: "mercadona" | "consum" | "dia" | "unknown"
+    extraction_method: "mercadona_deterministic" | "consum_deterministic" | "dia_deterministic" | "ai_fallback" | "ai_only"
     ocr_used?: boolean
     ocr_used_for_pdf?: boolean
     ocr_page_count?: number
