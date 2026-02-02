@@ -27,6 +27,8 @@ import type {
     ReceiptParseValidation
 } from "../parsers/types"
 import { mercadonaParser, tryParseMercadonaFromText } from "../parsers/mercadona"
+import { consumParser, tryParseConsumFromText } from "../parsers/consum"
+import { diaParser, tryParseDiaFromText } from "../parsers/dia"
 import { extractTextFromImage } from "../ocr"
 import { detectDocumentKindFromText } from "../../parsing/detect-document-kind"
 
@@ -496,6 +498,38 @@ async function parsePdfReceipt(params: ParseReceiptFileParams): Promise<ReceiptP
                     message: "Mercadona parser could not extract all required fields. Trying AI extraction...",
                 })
             }
+        } else if (consumParser.canParse(text)) {
+            merchantDetected = "consum"
+            const result = tryParseConsumFromText({
+                text,
+                source: source === "pdf_ocr" ? "ocr" : "pdf",
+            })
+            if (result.ok && result.extracted) {
+                extracted = result.extracted
+                rawText = result.rawText
+                extractionMethod = "consum_deterministic"
+            } else {
+                addWarning(candidateWarnings, {
+                    code: "CONSUM_DETERMINISTIC_FAILED",
+                    message: "Consum parser could not extract all required fields. Trying AI extraction...",
+                })
+            }
+        } else if (diaParser.canParse(text)) {
+            merchantDetected = "dia"
+            const result = tryParseDiaFromText({
+                text,
+                source: source === "pdf_ocr" ? "ocr" : "pdf",
+            })
+            if (result.ok && result.extracted) {
+                extracted = result.extracted
+                rawText = result.rawText
+                extractionMethod = "dia_deterministic"
+            } else {
+                addWarning(candidateWarnings, {
+                    code: "DIA_DETERMINISTIC_FAILED",
+                    message: "Dia parser could not extract all required fields. Trying AI extraction...",
+                })
+            }
         }
 
         if (!extracted && params.aiExtractFromPdfText) {
@@ -504,7 +538,7 @@ async function parsePdfReceipt(params: ParseReceiptFileParams): Promise<ReceiptP
             if (aiResult) {
                 extracted = aiResult.extracted
                 rawText = aiResult.rawText
-                extractionMethod = merchantDetected === "mercadona" ? "ai_fallback" : "ai_only"
+                extractionMethod = merchantDetected !== "unknown" ? "ai_fallback" : "ai_only"
                 candidateWarnings.push(...aiWarnings)
             } else {
                 candidateWarnings.push(...aiWarnings)
@@ -519,7 +553,10 @@ async function parsePdfReceipt(params: ParseReceiptFileParams): Promise<ReceiptP
         validation = buildReceiptValidation(extracted)
         let score = scoreValidation(validation)
 
-        if (extractionMethod === "mercadona_deterministic" && needsRepair(validation) && params.aiExtractFromPdfText) {
+        const isDeterministic = extractionMethod === "mercadona_deterministic" ||
+            extractionMethod === "consum_deterministic" ||
+            extractionMethod === "dia_deterministic"
+        if (isDeterministic && needsRepair(validation) && params.aiExtractFromPdfText) {
             repairAttempted = true
             const aiWarnings: ReceiptParseWarning[] = []
             const aiResult = await tryAiPdfTextFallback(text, params, aiWarnings)
@@ -571,13 +608,20 @@ async function parsePdfReceipt(params: ParseReceiptFileParams): Promise<ReceiptP
         return { extracted: null, rawText: primaryText || pdfText, warnings, meta }
     }
 
+    const isDeterministicMethod = (method: string) =>
+        method === "mercadona_deterministic" ||
+        method === "consum_deterministic" ||
+        method === "dia_deterministic"
+
     const bestCandidate = candidates.slice().sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score
         if (a.is_primary !== b.is_primary) return a.is_primary ? -1 : 1
-        if (a.extraction_method === "mercadona_deterministic" && b.extraction_method !== "mercadona_deterministic") {
+        const aIsDeterministic = isDeterministicMethod(a.extraction_method)
+        const bIsDeterministic = isDeterministicMethod(b.extraction_method)
+        if (aIsDeterministic && !bIsDeterministic) {
             return -1
         }
-        if (b.extraction_method === "mercadona_deterministic" && a.extraction_method !== "mercadona_deterministic") {
+        if (bIsDeterministic && !aIsDeterministic) {
             return 1
         }
         return 0
@@ -742,18 +786,21 @@ async function parseImageReceipt(params: ParseReceiptFileParams): Promise<Receip
         }
     }
 
-    if (ocrText && mercadonaParser.canParse(ocrText)) {
-        meta.merchant_detected = "mercadona"
-
-        const result = tryParseMercadonaFromText({ text: ocrText, source: "ocr" })
+    // Helper to process deterministic parse result for images
+    const processDeterministicImageResult = async (
+        result: { extracted: ExtractedReceipt | null; rawText: string; ok: boolean },
+        merchantName: string,
+        extractionMethodName: ReceiptParseMeta["extraction_method"],
+        failedWarningCode: "MERCADONA_DETERMINISTIC_FAILED" | "CONSUM_DETERMINISTIC_FAILED" | "DIA_DETERMINISTIC_FAILED"
+    ): Promise<ReceiptParseResult | null> => {
         const calculatedTotal = result.extracted?.items?.reduce((sum, item) => {
             const itemTotal = typeof item.total_price === "number" ? item.total_price : 0
             return sum + itemTotal
         }, 0) || 0
 
         const debugInfo = {
-            ocr_text_length: ocrText.length,
-            ocr_text_preview: ocrText.substring(0, 500),
+            ocr_text_length: ocrText!.length,
+            ocr_text_preview: ocrText!.substring(0, 500),
             parse_result: {
                 ok: result.ok,
                 store_name: result.extracted?.store_name,
@@ -764,11 +811,11 @@ async function parseImageReceipt(params: ParseReceiptFileParams): Promise<Receip
             },
         }
         meta.debug = debugInfo
-        console.log("[Receipt Parser] Mercadona OCR parse result:", debugInfo.parse_result)
+        console.log(`[Receipt Parser] ${merchantName} OCR parse result:`, debugInfo.parse_result)
 
         if (result.ok && result.extracted) {
-            meta.extraction_method = "mercadona_deterministic"
-            console.log("[Receipt Parser] Mercadona image parsed deterministically via OCR")
+            meta.extraction_method = extractionMethodName
+            console.log(`[Receipt Parser] ${merchantName} image parsed deterministically via OCR`)
 
             let extracted = result.extracted
             let rawText = result.rawText
@@ -805,10 +852,24 @@ async function parseImageReceipt(params: ParseReceiptFileParams): Promise<Receip
         }
 
         addWarning(warnings, {
-            code: "MERCADONA_DETERMINISTIC_FAILED",
-            message: "Mercadona parser could not extract all required fields from the image. Trying AI vision extraction...",
+            code: failedWarningCode,
+            message: `${merchantName} parser could not extract all required fields from the image. Trying AI vision extraction...`,
         })
-        console.log("[Receipt Parser] Mercadona OCR deterministic failed, trying AI vision fallback")
+        console.log(`[Receipt Parser] ${merchantName} OCR deterministic failed, trying AI vision fallback`)
+        return null
+    }
+
+    // Try Mercadona parser
+    if (ocrText && mercadonaParser.canParse(ocrText)) {
+        meta.merchant_detected = "mercadona"
+        const result = tryParseMercadonaFromText({ text: ocrText, source: "ocr" })
+        const parseResult = await processDeterministicImageResult(
+            result,
+            "Mercadona",
+            "mercadona_deterministic",
+            "MERCADONA_DETERMINISTIC_FAILED"
+        )
+        if (parseResult) return parseResult
 
         const aiWarnings: ReceiptParseWarning[] = []
         const aiResult = await tryAiImageFallback(params, aiWarnings)
@@ -823,6 +884,54 @@ async function parseImageReceipt(params: ParseReceiptFileParams): Promise<Receip
             code: "AI_FAILED",
             message: `Could not extract receipt data. For Mercadona receipts, you can download the PDF receipt from: ${MERCADONA_PORTAL_URL}`,
         })
+        return finalizeResult(null, ocrText)
+    }
+
+    // Try Consum parser
+    if (ocrText && consumParser.canParse(ocrText)) {
+        meta.merchant_detected = "consum"
+        const result = tryParseConsumFromText({ text: ocrText, source: "ocr" })
+        const parseResult = await processDeterministicImageResult(
+            result,
+            "Consum",
+            "consum_deterministic",
+            "CONSUM_DETERMINISTIC_FAILED"
+        )
+        if (parseResult) return parseResult
+
+        const aiWarnings: ReceiptParseWarning[] = []
+        const aiResult = await tryAiImageFallback(params, aiWarnings)
+        if (aiResult) {
+            warnings.push(...aiWarnings)
+            meta.extraction_method = "ai_fallback"
+            return finalizeResult(aiResult.extracted, aiResult.rawText)
+        }
+
+        warnings.push(...aiWarnings)
+        return finalizeResult(null, ocrText)
+    }
+
+    // Try Dia parser
+    if (ocrText && diaParser.canParse(ocrText)) {
+        meta.merchant_detected = "dia"
+        const result = tryParseDiaFromText({ text: ocrText, source: "ocr" })
+        const parseResult = await processDeterministicImageResult(
+            result,
+            "Dia",
+            "dia_deterministic",
+            "DIA_DETERMINISTIC_FAILED"
+        )
+        if (parseResult) return parseResult
+
+        const aiWarnings: ReceiptParseWarning[] = []
+        const aiResult = await tryAiImageFallback(params, aiWarnings)
+        if (aiResult) {
+            warnings.push(...aiWarnings)
+            meta.extraction_method = "ai_fallback"
+            return finalizeResult(aiResult.extracted, aiResult.rawText)
+        }
+
+        warnings.push(...aiWarnings)
         return finalizeResult(null, ocrText)
     }
 

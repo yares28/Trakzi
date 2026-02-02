@@ -153,10 +153,10 @@ export async function getFridgeCategorySpending(
     endDate?: string
 ): Promise<FridgeCategorySpending[]> {
     let query = `
-        SELECT 
+        SELECT
             COALESCE(rc.name, 'Other') AS category,
             SUM(rt.total_price) AS total,
-            COUNT(*)::int AS count,
+            COUNT(DISTINCT rt.receipt_id)::int AS count,
             rc.color,
             rc.broad_type
         FROM receipt_transactions rt
@@ -327,10 +327,10 @@ export async function getFridgeDayOfWeekSpending(
     endDate?: string
 ): Promise<FridgeDayOfWeekSpending[]> {
     let query = `
-        SELECT 
+        SELECT
             EXTRACT(DOW FROM receipt_date)::int AS day_of_week,
             SUM(total_price) AS total,
-            COUNT(*)::int AS count
+            COUNT(DISTINCT receipt_id)::int AS count
         FROM receipt_transactions
         WHERE user_id = $1
     `
@@ -412,10 +412,10 @@ export async function getFridgeHourlyActivity(
     endDate?: string
 ): Promise<FridgeHourlyActivity[]> {
     let query = `
-        SELECT 
+        SELECT
             EXTRACT(HOUR FROM receipt_time::time)::int AS hour,
             SUM(total_price) AS total,
-            COUNT(*)::int AS count
+            COUNT(DISTINCT receipt_id)::int AS count
         FROM receipt_transactions
         WHERE user_id = $1
     `
@@ -497,11 +497,11 @@ export async function getFridgeHourDayHeatmap(
     endDate?: string
 ): Promise<FridgeHourDayHeatmap[]> {
     let query = `
-        SELECT 
+        SELECT
             EXTRACT(HOUR FROM receipt_time::time)::int AS hour,
             EXTRACT(DOW FROM receipt_date)::int AS day_of_week,
             SUM(total_price) AS total,
-            COUNT(*)::int AS count
+            COUNT(DISTINCT receipt_id)::int AS count
         FROM receipt_transactions
         WHERE user_id = $1
     `
@@ -542,11 +542,11 @@ export async function getFridgeDayMonthHeatmap(
     endDate?: string
 ): Promise<FridgeDayMonthHeatmap[]> {
     let query = `
-        SELECT 
+        SELECT
             EXTRACT(DOW FROM receipt_date)::int AS day_of_week,
             EXTRACT(MONTH FROM receipt_date)::int AS month,
             SUM(total_price) AS total,
-            COUNT(*)::int AS count
+            COUNT(DISTINCT receipt_id)::int AS count
         FROM receipt_transactions
         WHERE user_id = $1
     `

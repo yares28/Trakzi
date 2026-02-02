@@ -91,7 +91,7 @@
     "next": "^16.0.8",
     "next-themes": "^0.4.6",
     "papaparse": "^5.5.3",
-    "pdfjs-dist": "^5.4.530",
+    "pdfjs-dist": "5.4.296",
     "posthog-js": "^1.309.1",
     "posthog-node": "^5.17.4",
     "react": "19.2.0",

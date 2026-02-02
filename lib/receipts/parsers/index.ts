@@ -6,9 +6,12 @@
 
 import type { ExtractedReceipt } from "./types"
 import { mercadonaParser } from "./mercadona"
+import { consumParser } from "./consum"
+import { diaParser } from "./dia"
 
 // Registry of all available parsers
-const parsers = [mercadonaParser]
+// Order matters: more specific parsers should come first
+const parsers = [mercadonaParser, consumParser, diaParser]
 
 export type ExtractReceiptParams = {
     pdfText: string
