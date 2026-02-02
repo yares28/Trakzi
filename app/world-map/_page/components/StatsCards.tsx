@@ -81,6 +81,7 @@ export function WorldMapStatsCards({
   domesticSpend = 0,
 }: WorldMapStatsCardsProps) {
   const { getPalette } = useColorScheme()
+  const { formatCurrency } = useCurrency()
 
   const trendColors = useMemo(() => {
     const palette = getPalette().filter(c => c !== "#c3c3c3")
@@ -108,7 +109,9 @@ export function WorldMapStatsCards({
       id: "topCountry",
       title: "Top Country",
       value: topCountryName,
-      footerText: `${topCountrySpend > 0 ? `$${topCountrySpend.toLocaleString()} spent` : "No data yet"}`,
+      footerText: topCountrySpend > 0
+        ? `${formatCurrency(topCountrySpend, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} spent`
+        : "No data yet",
       footerSubtext: "Highest spending location",
       trendColor: trendColors[1],
       seed: 2,
@@ -137,7 +140,7 @@ export function WorldMapStatsCards({
       isCurrency: true,
       showChange: false,
     },
-  }), [countriesCount, topCountrySpend, topCountryName, totalSpendAbroad, domesticSpend, trendColors])
+  }), [countriesCount, topCountrySpend, topCountryName, totalSpendAbroad, domesticSpend, trendColors, formatCurrency])
 
   const cardOrder: CardId[] = ["countries", "topCountry", "abroad", "domestic"]
 

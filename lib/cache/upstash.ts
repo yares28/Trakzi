@@ -22,12 +22,14 @@ const CACHE_PREFIX = {
     categories: 'categories',
     'data-library': 'data-library',
     'test-charts': 'test-charts',
+    'world-map': 'world-map',
 } as const
 
 // TTL in seconds
 const CACHE_TTL = {
     analytics: 5 * 60, // 5 minutes
-    fridge: 5 * 60, // 5 minutes  
+    fridge: 5 * 60, // 5 minutes
+    'world-map': 5 * 60, // 5 minutes
     categories: 30 * 60, // 30 minutes
     short: 60, // 1 minute
 } as const

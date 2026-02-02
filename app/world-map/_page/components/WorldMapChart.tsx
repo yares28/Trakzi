@@ -138,7 +138,10 @@ export const WorldMapChart = memo(function WorldMapChart({
             borderColor={isDark ? "#52525b" : "#a1a1aa"}
             theme={nivoTheme}
             tooltip={({ feature }) => {
-              const countryName = feature.label || "Unknown"
+              // Get country name from feature - cast to access properties which exists at runtime
+              // but isn't included in Nivo's ChoroplethBoundFeature type definition
+              const featureWithProps = feature as unknown as { properties?: { name?: string }; id?: string; label?: string }
+              const countryName = featureWithProps.properties?.name || featureWithProps.id || featureWithProps.label || "Unknown"
               const countryData = data.find(d => d.id === countryName)
               const value = countryData?.value ?? 0
 
@@ -146,8 +149,8 @@ export const WorldMapChart = memo(function WorldMapChart({
                 <NivoChartTooltip
                   title={countryName}
                   titleColor={countryData ? colorScale[Math.floor(colorScale.length / 2)] : undefined}
-                  value={formatCurrency(value)}
-                  subValue={countryData ? "Total spending" : "No data"}
+                  value={countryData ? formatCurrency(value) : "—"}
+                  subValue={countryData ? "Total spending" : "No spending recorded"}
                 />
               )
             }}

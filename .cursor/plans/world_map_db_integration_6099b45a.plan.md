@@ -1,212 +1,776 @@
 ---
 name: World Map DB Integration
-overview: Plan to persist per-country spend on the world map using a single new column on transactions (no new tables). User-visited countries are derived from distinct country_name; linking is done by updating transactions.country_name.
+overview: Complete implementation plan for the World Map page with database integration, API routes, caching, and UI components including country cards with Add/Link functionality.
 todos: []
-isProject: false
+isProject: true
 ---
 
-# World Map Database Integration Plan (No New Tables)
+# World Map Complete Implementation Plan
 
-## Current state
+## Overview
 
-- **Database (Neon, project Trakzi)**: [transactions] has `id`, `user_id`, `tx_date`, `description`, `amount`, `category_id`, etc. No country/location column. All app APIs scope by `user_id` via `getCurrentUserId()` from [lib/auth.ts](lib/auth.ts).
-- **World map page**: [WorldMapPage.tsx](app/world-map/_page/WorldMapPage.tsx) uses hardcoded `SAMPLE_COUNTRY_DATA` (`CountryData[]`: `id` = country name, `value` = spend). [WorldMapChart.tsx](app/world-map/_page/components/WorldMapChart.tsx) expects `data` with `id` matching GeoJSON `properties.name` (e.g. `"USA"`, `"France"`, `"UK"` from [world-countries.json](lib/data/world-countries.json)).
-- **No new components or buttons** — this plan is data/API only; UI for "add country" and "link transactions" is out of scope.
-
----
-
-## 1. Schema change: one column on `transactions`
-
-**Add to existing `transactions` table:**
-
-
-| Column         | Type | Notes                                                                              |
-| -------------- | ---- | ---------------------------------------------------------------------------------- |
-| `country_name` | text | NULLable. Must match GeoJSON `properties.name` (e.g. `"USA"`, `"France"`, `"UK"`). |
-
-
-- **Migration**: `ALTER TABLE transactions ADD COLUMN country_name text NULL;`
-- **Optional index** (for fast aggregation by country): `CREATE INDEX idx_transactions_user_country ON transactions (user_id, country_name) WHERE country_name IS NOT NULL;` (partial index keeps it small).
-
-No new tables. All "visited countries" and "links" are represented by this column.
+This plan covers the complete World Map feature:
+1. **Database** — Add `country_name` column to `transactions`
+2. **API Routes** — Bundle API, link/unlink endpoints
+3. **Caching** — Redis caching with invalidation
+4. **UI Components** — Country cards, Add button, search popup, transaction linking
 
 ---
 
-## 2. Saving countries the user visits
+## Current State
 
-**No separate storage.** The list of countries the user has "visited" (or added) is derived from transactions that have a country set:
+- **Database (Neon)**: `transactions` table has `id`, `user_id`, `tx_date`, `description`, `amount`, `category_id`, etc. **No country column yet.**
+- **World map page**: [`WorldMapPage.tsx`](app/world-map/_page/WorldMapPage.tsx) uses hardcoded `SAMPLE_COUNTRY_DATA`
+- **GeoJSON**: [`world-countries.json`](lib/data/world-countries.json) has country names in `properties.name` (e.g., "France", "United States of America")
+
+---
+
+## 1. Database Schema Changes
+
+### Migration SQL (Run Manually in Neon Console)
 
 ```sql
-SELECT DISTINCT country_name
-FROM transactions
-WHERE user_id = $1 AND country_name IS NOT NULL
-ORDER BY country_name;
+-- 1. Add country_name column to transactions table
+ALTER TABLE transactions
+ADD COLUMN country_name text NULL;
+
+-- 2. Add partial index for fast country aggregation queries
+CREATE INDEX idx_transactions_user_country
+ON transactions (user_id, country_name)
+WHERE country_name IS NOT NULL;
 ```
 
-A country appears in the list as soon as at least one transaction is linked to it. Countries = distinct `country_name` from transactions.
+### Column Details
 
----
+| Column | Type | Notes |
+|--------|------|-------|
+| `country_name` | text NULL | Must match GeoJSON `properties.name` exactly |
 
-## 3. Linking transactions to a country and total spent per country
-
-**Linking (future UI):** Set `country_name` on the chosen transactions. Only allow updates for the current user's transactions:
-
-```sql
-UPDATE transactions
-SET country_name = $1, updated_at = now()
-WHERE id = ANY($2) AND user_id = $3;
-```
-
-- **Payload**: `{ country_name: string, transaction_ids: number[] }`. Validate that each `transaction_id` belongs to the current user (e.g. by checking row count or doing a prior SELECT).
-
-**Unlinking:** Set `country_name` back to NULL for the given transaction(s) and user.
-
-**Total spent per country (for map and stats):**
-
-- **Definition of "spent"**: Same as analytics — expenses are negative `amount`. Total spent in a country = sum of **absolute values** of `amount` where `amount < 0` and `country_name` is set.
-- **Query** (single aggregation, no N+1):
+### Key Queries
 
 ```sql
+-- Get countries with spending totals (for map + cards)
 SELECT country_name AS id, COALESCE(SUM(ABS(amount)), 0) AS value
 FROM transactions
 WHERE user_id = $1 AND country_name IS NOT NULL AND amount < 0
 GROUP BY country_name;
+
+-- Link transactions to a country
+UPDATE transactions
+SET country_name = $1, updated_at = now()
+WHERE id = ANY($2) AND user_id = $3;
+
+-- Unlink transactions
+UPDATE transactions
+SET country_name = NULL, updated_at = now()
+WHERE id = ANY($1) AND user_id = $2;
+
+-- Get transactions for a specific country
+SELECT id, tx_date, description, amount, category_id
+FROM transactions
+WHERE user_id = $1 AND country_name = $2
+ORDER BY tx_date DESC;
 ```
 
-Result shape maps directly to `CountryData[]`: `id` = country name, `value` = total spent. Stats (countries count, top country, total abroad, domestic) are derived from this list plus a configured "domestic" country name (e.g. `"USA"`).
+---
+
+## 2. API Routes
+
+### 2.1 World Map Bundle API
+
+**Route:** `GET /api/charts/world-map-bundle`
+
+**File:** `app/api/charts/world-map-bundle/route.ts`
+
+**Response:**
+```typescript
+interface WorldMapBundleResponse {
+  countries: CountryData[]  // { id: country_name, value: total_spent }
+  stats: {
+    totalCountries: number
+    totalSpentAbroad: number
+    topCountry: { name: string; value: number } | null
+  }
+}
+```
+
+**Implementation:**
+- Use `getCachedOrCompute()` with `buildCacheKey('world-map', userId, null, 'bundle')`
+- TTL: 5 minutes (same as analytics)
+- Run aggregation query, compute stats
 
 ---
 
-## 4. Safe, lightweight, and scalable
+### 2.2 Link Transactions API
 
-**Safety**
+**Route:** `POST /api/world-map/links`
 
-- Every API uses `getCurrentUserId()` and filters by `user_id`. No cross-user access.
-- Link/update API only updates rows where `user_id` = current user; validate `transaction_ids` ownership (e.g. ensure updated row count matches request length or run a pre-check SELECT).
+**File:** `app/api/world-map/links/route.ts`
 
-**Lightweight**
+**Request Body:**
+```typescript
+{
+  country_name: string       // Must match GeoJSON name exactly
+  transaction_ids: number[]  // IDs of transactions to link
+}
+```
 
-- **No new tables** — one nullable column on `transactions`. Optional partial index keeps aggregation cheap without indexing every row.
-- **Single read query** for the map: one GROUP BY over `transactions` returns all countries and totals for the current user.
-
-**Scalable (hundreds to thousands of users)**
-
-- The aggregation query is a simple GROUP BY on an indexed column; Postgres handles this at the described scale. The world-map data response is cached per user in Redis (Upstash) with 5-minute TTL and invalidated on link/unlink (section 6).
-
----
-
-## 5. Implementation outline (no new UI)
-
-**Schema (Neon migration)**
-
-1. Add `country_name text NULL` to `transactions`.
-2. Optionally add partial index: `CREATE INDEX idx_transactions_user_country ON transactions (user_id, country_name) WHERE country_name IS NOT NULL;`
-
-**API routes (all scoped by current user)**
-
-1. **Countries list** (for future "add country" or dropdowns)
-  - `GET /api/world-map/countries` — `SELECT DISTINCT country_name FROM transactions WHERE user_id = $1 AND country_name IS NOT NULL ORDER BY country_name`.
-2. **Link / unlink transactions**
-  - `POST /api/world-map/links` — body `{ country_name: string, transaction_ids: number[] }`. Validate ownership; run `UPDATE transactions SET country_name = $1, updated_at = now() WHERE id = ANY($2) AND user_id = $3`. After success, call `invalidateUserCachePrefix(userId, 'world-map')` (see section 6).
-  - `DELETE /api/world-map/links` or PATCH — body e.g. `{ transaction_ids: number[] }` to set `country_name = NULL, updated_at = now()` for those transactions (and user_id = current user). After success, call `invalidateUserCachePrefix(userId, 'world-map')`.
-3. **World map data (replace SAMPLE_COUNTRY_DATA)**
-  - `GET /api/world-map/data` (or `GET /api/charts/world-map-bundle`) — run the aggregation SQL above; return JSON array `{ id: country_name, value: total_spent }` plus optional stats (countries count, top country, total abroad, domestic). Same shape as current `CountryData[]`. **Cache:** use Redis (Upstash) via `getCachedOrCompute` with key `buildCacheKey('world-map', userId, null, 'bundle')` and TTL 5 min; see section 6.
-
-**App wiring (no new components/buttons)**
-
-- In [WorldMapPage.tsx](app/world-map/_page/WorldMapPage.tsx) (or a small data hook): replace `SAMPLE_COUNTRY_DATA` with a fetch to the world-map data API; derive stats from that response. Map and stats components stay unchanged.
-- Future "add country" and "link transactions" UI call the POST/DELETE endpoints above; no further schema changes.
+**Implementation:**
+1. Validate `country_name` exists in GeoJSON
+2. Validate `transaction_ids` is non-empty
+3. Run UPDATE with ownership check
+4. Invalidate cache: `invalidateUserCachePrefix(userId, 'world-map')`
+5. Return success with affected count
 
 ---
 
-## 6. Caching (Redis / Upstash)
+### 2.3 Unlink Transactions API
 
-Bundle the world-map API response and cache it in Redis (Upstash) using the same pattern as the analytics bundle ([lib/cache/upstash.ts](lib/cache/upstash.ts), [app/api/charts/analytics-bundle/route.ts](app/api/charts/analytics-bundle/route.ts)).
+**Route:** `DELETE /api/world-map/links`
 
-**Cache config**
+**File:** `app/api/world-map/links/route.ts`
 
-- **Prefix:** Add `world-map` to `CACHE_PREFIX` in [lib/cache/upstash.ts](lib/cache/upstash.ts) (e.g. `'world-map': 'world-map'`).
-- **TTL:** Use the same TTL as analytics (5 minutes), e.g. `CACHE_TTL.analytics`, or add `world-map: 5 * 60` to `CACHE_TTL` if you want a dedicated value.
-- **Key:** User-scoped, no filter (world-map data is all-time per user). Build with `buildCacheKey('world-map', userId, null, 'bundle')` → e.g. `user:{userId}:world-map:bundle`.
+**Request Body:**
+```typescript
+{
+  transaction_ids: number[]
+}
+```
 
-**GET /api/world-map/data (or world-map-bundle)**
-
-- Use `getCachedOrCompute<T>(cacheKey, computeFn, ttlSeconds)`:
-  - `cacheKey = buildCacheKey('world-map', userId, null, 'bundle')`.
-  - `computeFn` = run the aggregation SQL and build the response (country data array + optional stats).
-  - `ttlSeconds = CACHE_TTL.analytics` (5 minutes).
-- Return the same JSON as today; add response headers for consistency and debugging:
-  - `Cache-Control: no-store, no-cache, must-revalidate, private` (do not let edge/CDN cache; Redis is the cache).
-  - `X-Cache-Key: <cacheKey>` (optional, for debugging).
-
-**Invalidation**
-
-- **POST /api/world-map/links** (link transactions to a country): after a successful `UPDATE transactions SET country_name = ...`, call `invalidateUserCachePrefix(userId, 'world-map')` so the next GET returns fresh data.
-- **DELETE /api/world-map/links** (or PATCH unlink): after a successful `UPDATE transactions SET country_name = NULL ...`, call `invalidateUserCachePrefix(userId, 'world-map')`.
-- **Optional:** When transactions are deleted elsewhere (e.g. statement delete), invalidate world-map for that user if the app already has a hook there (e.g. `invalidateUserCachePrefix(userId, 'world-map')` alongside analytics invalidation). Otherwise rely on TTL (5 minutes).
-
-**Behavior**
-
-- If Redis is not configured (`UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` missing), `getCachedOrCompute` skips cache and runs `computeFn` only (same as analytics bundle).
-- Cached value = full API response (e.g. `{ data: CountryData[], stats?: { ... } }` or whatever shape the route returns), so one cache entry per user, no per-country keys.
+**Implementation:**
+1. Run UPDATE setting `country_name = NULL, updated_at = now()`
+2. Invalidate cache
+3. Return success
 
 ---
 
-## Data flow summary
+### 2.4 Get Country Transactions API
+
+**Route:** `GET /api/world-map/transactions?country=France`
+
+**File:** `app/api/world-map/transactions/route.ts`
+
+**Response:**
+```typescript
+{
+  transactions: {
+    id: number
+    tx_date: string
+    description: string
+    amount: number
+    category_id: number | null
+  }[]
+}
+```
+
+---
+
+### 2.5 Get Unlinked Transactions API (for linking popup)
+
+**Route:** `GET /api/world-map/unlinked-transactions`
+
+**File:** `app/api/world-map/unlinked-transactions/route.ts`
+
+**Query Params:** `?search=coffee&limit=50`
+
+**Response:** List of transactions where `country_name IS NULL`
+
+---
+
+## 3. Caching Configuration
+
+### Update `lib/cache/upstash.ts`
+
+Add to `CACHE_PREFIX`:
+```typescript
+'world-map': 'world-map',
+```
+
+Add to `CACHE_TTL`:
+```typescript
+'world-map': 5 * 60,  // 5 minutes
+```
+
+### Cache Key Format
+```
+user:{userId}:world-map:bundle
+```
+
+### Invalidation Points
+
+| After... | Call |
+|----------|------|
+| `POST /api/world-map/links` | `invalidateUserCachePrefix(userId, 'world-map')` |
+| `DELETE /api/world-map/links` | `invalidateUserCachePrefix(userId, 'world-map')` |
+| Transaction delete (existing) | Add `world-map` to existing invalidation |
+| Statement delete (existing) | Add `world-map` to existing invalidation |
+
+---
+
+## 4. UI Components
+
+### 4.1 Country Cards Grid
+
+**File:** `app/world-map/_page/components/CountryCardsGrid.tsx`
+
+**Layout:** Grid of country cards below the world map
+
+**Each Card Shows:**
+```
+┌─────────────────────────────────┐
+│ 🇫🇷  (flag, top-left)           │
+│                                 │
+│      France (top-center)        │
+│                                 │
+│   ┌─────────────────────┐      │
+│   │                     │      │
+│   │  [Country Outline]  │      │
+│   │                     │      │
+│   └─────────────────────┘      │
+│                                 │
+│      €1,234.56 (bottom)        │
+│                           👁️   │
+└─────────────────────────────────┘
+```
+
+**Card Elements:**
+- **Flag** (top-left): Small country flag using emoji or flag icon library
+- **Country Name** (top-center): Bold text
+- **Country Outline** (center): SVG silhouette of the country shape
+- **Total Spent** (bottom-center): Formatted currency amount
+- **Eye Button** (bottom-right): Opens transaction list dialog
+
+---
+
+### 4.2 Add Country Button
+
+**File:** `app/world-map/_page/components/AddCountryButton.tsx`
+
+**Location:** Below the world map, before the cards grid
+
+**Appearance:**
+- "Add +" button with plus icon
+- Matches existing button styles (shadcn Button)
+
+**Behavior:** Opens AddCountryDialog on click
+
+---
+
+### 4.3 Add Country Dialog
+
+**File:** `app/world-map/_page/components/AddCountryDialog.tsx`
+
+**UI:**
+```
+┌──────────────────────────────────────┐
+│  Add Country                    ✕    │
+├──────────────────────────────────────┤
+│                                      │
+│  🔍 [Search for country...]          │
+│                                      │
+│  ┌────────────────────────────────┐ │
+│  │ ○ France                       │ │
+│  │ ○ French Polynesia             │ │
+│  │ ○ French Southern Territories  │ │
+│  └────────────────────────────────┘ │
+│                                      │
+│  Selected: France                    │
+│                                      │
+│  Select Transactions:               │
+│  ┌────────────────────────────────┐ │
+│  │ 🔍 [Filter transactions...]    │ │
+│  │ ☑ 2024-01-15 Cafe Paris  -€12  │ │
+│  │ ☐ 2024-01-14 Train      -€45   │ │
+│  │ ☑ 2024-01-14 Hotel      -€120  │ │
+│  └────────────────────────────────┘ │
+│                                      │
+│       [Cancel]        [Add]          │
+└──────────────────────────────────────┘
+```
+
+**Behavior:**
+1. User searches for country in dropdown
+2. Country list filters based on search (from GeoJSON)
+3. User selects a country
+4. Transactions list shows unlinked transactions
+5. User checks transactions to link
+6. **Cancel** closes dialog
+7. **Add** calls `POST /api/world-map/links` with selected country + transaction IDs
+
+---
+
+### 4.4 Country Transactions Dialog
+
+**File:** `app/world-map/_page/components/CountryTransactionsDialog.tsx`
+
+**Trigger:** Eye button on country card
+
+**UI:**
+```
+┌──────────────────────────────────────┐
+│  🇫🇷 France Transactions        ✕    │
+├──────────────────────────────────────┤
+│  Total: €1,234.56                    │
+│                                      │
+│  ┌────────────────────────────────┐ │
+│  │ 2024-01-15  Cafe Paris   -€12  │ │
+│  │ 2024-01-14  Hotel Nice  -€120  │ │
+│  │ 2024-01-13  Train SNCF   -€45  │ │
+│  │ ...                            │ │
+│  └────────────────────────────────┘ │
+│                                      │
+│                          [Close]     │
+└──────────────────────────────────────┘
+```
+
+**Data:** Fetches from `GET /api/world-map/transactions?country=France`
+
+---
+
+### 4.5 Country Card Component
+
+**File:** `app/world-map/_page/components/CountryCard.tsx`
+
+**Props:**
+```typescript
+interface CountryCardProps {
+  countryName: string
+  countryCode: string  // ISO code for flag
+  totalSpent: number
+  currency: string
+  onViewTransactions: () => void
+}
+```
+
+**Features:**
+- Uses `React.memo` for performance
+- Displays country outline SVG (can use simplified country shapes or skip initially)
+- Flag from emoji or library (e.g., `flag-icons` CSS library)
+
+---
+
+### 4.6 Country Search/Select Component
+
+**File:** `app/world-map/_page/components/CountrySelect.tsx`
+
+**Features:**
+- Searchable dropdown using shadcn Combobox or Command
+- Lists all countries from GeoJSON
+- Fuzzy search on country names
+
+---
+
+## 5. Types
+
+### File: `lib/types/world-map.ts`
+
+```typescript
+export interface CountryData {
+  id: string    // country_name (matches GeoJSON)
+  value: number // total spent
+}
+
+export interface WorldMapStats {
+  totalCountries: number
+  totalSpentAbroad: number
+  topCountry: { name: string; value: number } | null
+}
+
+export interface WorldMapBundleResponse {
+  countries: CountryData[]
+  stats: WorldMapStats
+}
+
+export interface CountryCardData extends CountryData {
+  countryCode: string  // ISO 2-letter code for flag
+}
+
+export interface LinkTransactionsRequest {
+  country_name: string
+  transaction_ids: number[]
+}
+
+export interface UnlinkTransactionsRequest {
+  transaction_ids: number[]
+}
+```
+
+---
+
+## 6. Styling & Theme Consistency
+
+### CRITICAL: Match existing app styling
+
+All World Map components MUST use the same patterns as other pages.
+
+### Currency Formatting
+
+**Use the `useCurrency` hook from `CurrencyProvider`:**
+
+```typescript
+import { useCurrency } from "@/components/currency-provider"
+
+function CountryCard({ totalSpent }: Props) {
+  const { formatCurrency } = useCurrency()
+
+  return (
+    <span>{formatCurrency(totalSpent)}</span>  // "€1,234.56" or "$1,234.56"
+  )
+}
+```
+
+**Options:**
+```typescript
+formatCurrency(amount, {
+  minimumFractionDigits: 2,  // Default: 2
+  maximumFractionDigits: 2,  // Default: 2
+  showSign: false,           // Default: false (use for +/- display)
+})
+```
+
+### Card Components
+
+**Use existing shadcn Card from `components/ui/card.tsx`:**
+
+```typescript
+import { Card, CardHeader, CardTitle, CardContent, CardAction } from "@/components/ui/card"
+
+// Country Card structure:
+<Card className="relative">
+  <CardHeader>
+    <CardAction>
+      <Badge variant="outline">{flag}</Badge>
+    </CardAction>
+    <CardTitle className="text-center">{countryName}</CardTitle>
+  </CardHeader>
+  <CardContent className="flex flex-col items-center gap-4">
+    {/* Country outline SVG */}
+    <div className="text-2xl font-semibold">
+      {formatCurrency(totalSpent)}
+    </div>
+  </CardContent>
+</Card>
+```
+
+**Card styling (automatic):**
+- Light mode: 3D effect with subtle shadow (`card-3d-light` class)
+- Dark mode: Clean flat appearance
+- Border radius: `rounded-xl` (12px base)
+- Padding: `py-6 px-6`
+
+### Grid Layout
+
+**Use container query responsive grid (like `section-cards.tsx`):**
+
+```typescript
+// CountryCardsGrid.tsx
+<div className="grid grid-cols-1 gap-4 px-4 lg:px-6
+  @xl/main:grid-cols-2
+  @5xl/main:grid-cols-4">
+  {countries.map(country => (
+    <CountryCard key={country.id} {...country} />
+  ))}
+</div>
+```
+
+### Page Layout
+
+**Match existing layout patterns (like HomeLayout):**
+
+```typescript
+// WorldMapPage structure:
+<div className="flex-1 space-y-4 p-4 pt-0 lg:p-6 lg:pt-2">
+  {/* World Map Chart */}
+  <div className="px-4 lg:px-6">
+    <WorldMapChart data={countries} />
+  </div>
+
+  {/* Add Country Button */}
+  <div className="px-4 lg:px-6">
+    <AddCountryButton onClick={() => setDialogOpen(true)} />
+  </div>
+
+  {/* Country Cards Grid */}
+  <CountryCardsGrid countries={countries} />
+</div>
+```
+
+### Button Styling
+
+**Use existing shadcn Button variants:**
+
+```typescript
+import { Button } from "@/components/ui/button"
+import { Plus } from "lucide-react"
+
+// Add Country Button:
+<Button variant="outline" size="sm">
+  <Plus className="mr-2 h-4 w-4" />
+  Add Country
+</Button>
+```
+
+### Dialog Styling
+
+**Use existing shadcn Dialog components:**
+
+```typescript
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+  DialogFooter, DialogClose
+} from "@/components/ui/dialog"
+
+<Dialog open={open} onOpenChange={setOpen}>
+  <DialogContent className="max-w-lg">
+    <DialogHeader>
+      <DialogTitle>Add Country</DialogTitle>
+    </DialogHeader>
+    {/* Content */}
+    <DialogFooter>
+      <DialogClose asChild>
+        <Button variant="outline">Cancel</Button>
+      </DialogClose>
+      <Button onClick={handleAdd}>Add</Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+```
+
+### Color Palette
+
+**Chart colors (from `globals.css` sunset palette):**
+
+```typescript
+// Use for country card accents or map highlights
+const CHART_COLORS = {
+  sunset: ["#331300", "#5e2401", "#8c3500", "#bb4903", "#e96113",
+           "#fc833a", "#ffa66b", "#ffc49c", "#ffdcca", "#ffefe6"]
+}
+
+// Access via CSS variable:
+// var(--chart-1) through var(--chart-10)
+```
+
+**Theme-aware colors:**
+```typescript
+// Primary: warm orange (light) / brighter orange (dark)
+className="text-primary"  // or bg-primary
+
+// Muted text:
+className="text-muted-foreground"
+
+// Card backgrounds:
+className="bg-card text-card-foreground"
+```
+
+### Badge for Stats
+
+```typescript
+import { Badge } from "@/components/ui/badge"
+
+// Country count badge:
+<Badge variant="secondary">
+  {totalCountries} countries
+</Badge>
+
+// Trend badge:
+<Badge variant={isPositive ? "default" : "destructive"}>
+  {formatCurrency(change, { showSign: true })}
+</Badge>
+```
+
+### Loading States
+
+**Use existing skeleton patterns:**
+
+```typescript
+import { Skeleton } from "@/components/ui/skeleton"
+
+// Card skeleton:
+<Card>
+  <CardHeader>
+    <Skeleton className="h-4 w-20" />
+  </CardHeader>
+  <CardContent>
+    <Skeleton className="h-24 w-24 rounded-full mx-auto" />
+    <Skeleton className="h-6 w-32 mx-auto mt-4" />
+  </CardContent>
+</Card>
+```
+
+### Empty State
+
+**Match existing empty states:**
+
+```typescript
+<Card className="flex flex-col items-center justify-center py-12">
+  <Globe className="h-12 w-12 text-muted-foreground mb-4" />
+  <p className="text-muted-foreground text-center">
+    No countries added yet
+  </p>
+  <Button variant="outline" className="mt-4" onClick={onAdd}>
+    <Plus className="mr-2 h-4 w-4" />
+    Add your first country
+  </Button>
+</Card>
+```
+
+### Icons
+
+**Use Lucide icons (already installed):**
+
+```typescript
+import { Eye, Plus, Globe, MapPin, X } from "lucide-react"
+
+// Consistent sizing:
+<Eye className="h-4 w-4" />      // Small (buttons, badges)
+<Globe className="h-6 w-6" />    // Medium (card icons)
+<MapPin className="h-12 w-12" /> // Large (empty states)
+```
+
+---
+
+## 7. Country Code Mapping
+
+### File: `lib/data/country-codes.ts`
+
+Map GeoJSON country names to ISO codes for flags:
+
+```typescript
+export const COUNTRY_CODES: Record<string, string> = {
+  "France": "FR",
+  "United States of America": "US",
+  "United Kingdom": "GB",
+  "Germany": "DE",
+  // ... all countries from GeoJSON
+}
+
+export function getCountryCode(countryName: string): string | undefined {
+  return COUNTRY_CODES[countryName]
+}
+```
+
+---
+
+## 8. Data Flow
 
 ```mermaid
-flowchart LR
-  subgraph client [World Map Page]
-    Page[WorldMapPage]
-    Page --> Fetch[GET world-map data]
-  end
+flowchart TD
+    subgraph UI [World Map Page]
+        Map[WorldMapChart]
+        Cards[CountryCardsGrid]
+        AddBtn[Add Country Button]
+        Dialog[AddCountryDialog]
+    end
 
-  subgraph api [API layer]
-    Fetch --> DataAPI[GET /api/world-map/data]
-    DataAPI --> Cache[getCachedOrCompute]
-    Cache -->|"miss"| Query[GROUP BY country_name]
-    Cache -->|"hit"| Redis[Upstash Redis]
-    Query --> T[transactions]
-    Query --> SetCache[setCache]
-    SetCache --> Redis
-  end
+    subgraph API [API Layer]
+        Bundle[GET /api/charts/world-map-bundle]
+        Link[POST /api/world-map/links]
+        Unlink[DELETE /api/world-map/links]
+        TxList[GET /api/world-map/transactions]
+    end
 
-  subgraph db [Neon]
-    T
-  end
+    subgraph Cache [Redis]
+        Redis[(Upstash)]
+    end
 
-  subgraph future [Future UI]
-    LinkTx[Link transactions] --> PostL[POST /links]
-    PostL --> T
-    PostL --> Invalidate[invalidateUserCachePrefix]
-    Invalidate --> Redis
-  end
+    subgraph DB [Neon]
+        Tx[(transactions)]
+    end
+
+    Map --> Bundle
+    Cards --> Bundle
+    Bundle --> Redis
+    Redis -->|miss| Tx
+
+    AddBtn --> Dialog
+    Dialog --> Link
+    Link --> Tx
+    Link -->|invalidate| Redis
+
+    Cards -->|eye click| TxList
+    TxList --> Tx
 ```
-
-
-
-- **Today**: Page calls `GET /api/world-map/data` → one query on `transactions` (GROUP BY country_name) → returns `CountryData[]`; page uses it for map and stats. With no `country_name` set yet, result is empty (or return a default domestic-only row from config if desired).
-- **Later**: "Link transactions to country" calls POST `/api/world-map/links` (UPDATE transactions SET country_name); next load gets updated data from the same GET. Countries list is derived from distinct `country_name` (no separate "add country" table).
 
 ---
 
-## Final review
+## 9. Implementation Order
 
-**Verdict:** The implementation is sound and appropriate for the goals (no new tables, minimal schema change, safe and scalable). One fix and a few optional refinements are worth applying.
+### Phase 1: Database (Manual)
+1. Run migration SQL in Neon Console
 
-**Fix (apply when implementing)**
+### Phase 2: Backend
+1. Add cache config to `lib/cache/upstash.ts`
+2. Create types in `lib/types/world-map.ts`
+3. Create `GET /api/charts/world-map-bundle`
+4. Create `POST /api/world-map/links`
+5. Create `DELETE /api/world-map/links`
+6. Create `GET /api/world-map/transactions`
+7. Create `GET /api/world-map/unlinked-transactions`
 
-- **Unlink:** When setting `country_name = NULL`, also set `updated_at = now()` so the row stays consistent with the schema (`updated_at` is NOT NULL). Use: `UPDATE transactions SET country_name = NULL, updated_at = now() WHERE id = ANY($1) AND user_id = $2`.
+### Phase 3: Frontend
+1. Create country code mapping `lib/data/country-codes.ts`
+2. Create `CountryCard` component
+3. Create `CountryCardsGrid` component
+4. Create `AddCountryButton` component
+5. Create `CountrySelect` component
+6. Create `AddCountryDialog` component
+7. Create `CountryTransactionsDialog` component
+8. Update `WorldMapPage` to use bundle API + new components
 
-**Optional refinements**
+### Phase 4: Polish
+1. Add loading states
+2. Add error handling
+3. Add empty states
+4. Update documentation
 
-1. **Country name validation:** Validate or normalize `country_name` against the GeoJSON list (e.g. from [world-countries.json](lib/data/world-countries.json)) so stored names match map keys exactly (e.g. `"USA"` not `"usa"`). Reject or normalize before UPDATE.
-2. **Countries with zero spend:** The current aggregation only returns countries that have at least one expense (`amount < 0`). Countries where the user linked only income will appear in `GET /api/world-map/countries` but not in map data. If you want every "visited" country to appear on the map (with value 0 when no expenses), use a query that left-joins distinct countries to the sum (e.g. `FROM (SELECT DISTINCT country_name FROM transactions WHERE user_id = $1 AND country_name IS NOT NULL) c LEFT JOIN (SELECT country_name, SUM(ABS(amount)) AS value FROM transactions WHERE user_id = $1 AND country_name IS NOT NULL AND amount < 0 GROUP BY country_name) s ON c.country_name = s.country_name`). Otherwise keep current behavior: map shows only countries with at least one expense.
-3. **Empty or invalid payloads:** Reject `POST /api/world-map/links` when `transaction_ids` is empty or when the UPDATE affects fewer rows than the length of `transaction_ids` (ownership check).
+---
 
-**Consistency with codebase**
+## 10. Validation & Security
 
-- Auth: Use `getCurrentUserId()` and scope all queries by `user_id` (same as [app/api/transactions/route.ts](app/api/transactions/route.ts) and other APIs).
-- Cache: World-map data is bundled and cached in Redis (Upstash) per section 6; invalidate on link/unlink via `invalidateUserCachePrefix(userId, 'world-map')`.
-- `transactions.updated_at` is NOT NULL in the schema; the plan already sets it on link; ensure unlink sets it as in the fix above.
+- **Country name validation:** Validate against GeoJSON list before saving
+- **Transaction ownership:** All queries filter by `user_id`
+- **Empty payloads:** Reject if `transaction_ids` is empty
+- **SQL injection:** All queries use parameterized placeholders (`$1`, `$2`)
+- **Auth:** All routes use `getCurrentUserId()`
 
+---
+
+## 11. Files to Create/Modify
+
+### New Files
+| File | Purpose |
+|------|---------|
+| `app/api/charts/world-map-bundle/route.ts` | Bundle API |
+| `app/api/world-map/links/route.ts` | Link/unlink API |
+| `app/api/world-map/transactions/route.ts` | Country transactions |
+| `app/api/world-map/unlinked-transactions/route.ts` | Unlinked transactions |
+| `lib/types/world-map.ts` | TypeScript types |
+| `lib/data/country-codes.ts` | Country name → ISO code mapping |
+| `lib/charts/world-map-aggregations.ts` | Bundle aggregation logic |
+| `app/world-map/_page/components/CountryCard.tsx` | Single country card |
+| `app/world-map/_page/components/CountryCardsGrid.tsx` | Cards grid container |
+| `app/world-map/_page/components/AddCountryButton.tsx` | Add button |
+| `app/world-map/_page/components/AddCountryDialog.tsx` | Add dialog with search |
+| `app/world-map/_page/components/CountrySelect.tsx` | Country search/select |
+| `app/world-map/_page/components/CountryTransactionsDialog.tsx` | View transactions |
+
+### Modified Files
+| File | Changes |
+|------|---------|
+| `lib/cache/upstash.ts` | Add `world-map` prefix + TTL |
+| `app/world-map/_page/WorldMapPage.tsx` | Use bundle API, add components |
+| `docs/CORE/NEON_DATABASE.md` | Document new column + APIs |
+
+---
+
+## 12. Rollback
+
+If needed, rollback with:
+
+```sql
+DROP INDEX IF EXISTS idx_transactions_user_country;
+ALTER TABLE transactions DROP COLUMN country_name;
+```
+
+Then delete the new API routes and UI components.
