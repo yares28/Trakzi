@@ -14,8 +14,11 @@ const isPublicRoute = createRouteMatcher([
   '/sign-up(.*)',
   '/sso-callback(.*)',
   '/', // Landing page is public
+  '/privacy(.*)',
+  '/cookies(.*)',
+  '/legal(.*)',
+  '/terms(.*)',
   '/api/webhooks(.*)',
-  '/testCharts(.*)',
 ])
 
 // Protected routes that require authentication
@@ -30,6 +33,8 @@ const isProtectedRoute = createRouteMatcher([
   '/trends(.*)',
   '/chat(.*)',
   '/billing(.*)',
+  '/world-map(.*)',
+  '/testCharts(.*)',
 ])
 
 export default clerkMiddleware(async (auth, req) => {
@@ -82,6 +87,8 @@ export const config = {
     "/trends/:path*",
     "/chat/:path*",
     "/billing/:path*",
+    "/world-map/:path*",
+    "/testCharts/:path*",
     // Auth routes for sign-in redirect logic
     "/sign-in/:path*",
     "/sign-up/:path*",

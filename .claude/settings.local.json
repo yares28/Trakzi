@@ -10,7 +10,15 @@
       "Bash(git add CLAUDE.md)",
       "Bash(git add app/analytics/_page/components/ChartsGrid.tsx app/fridge/_client/components/ChartsGrid.tsx app/home/_page/components/ChartsGrid.tsx)",
       "Bash(pkill:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(npx playwright screenshot:*)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_evaluate",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_close",
+      "Bash(node -e:*)",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_snapshot"
     ]
   },
   "enabledPlugins": {

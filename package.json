@@ -95,6 +95,7 @@
     "posthog-js": "^1.309.1",
     "posthog-node": "^5.17.4",
     "react": "19.2.0",
+    "react-country-flag": "^3.1.0",
     "react-day-picker": "9.8.0",
     "react-dom": "19.2.0",
     "react-hook-form": "^7.60.0",
@@ -115,7 +116,6 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
-    "baseline-browser-mapping": "latest",
     "@playwright/test": "^1.57.0",
     "@tailwindcss/postcss": "^4.1.9",
     "@testing-library/jest-dom": "^6.9.1",
@@ -125,6 +125,7 @@
     "@types/papaparse": "^5.5.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "baseline-browser-mapping": "latest",
     "eslint": "^9.16.0",
     "eslint-config-next": "^15.5.7",
     "jest-environment-jsdom": "^30.2.0",

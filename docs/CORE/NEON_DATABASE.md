@@ -291,6 +291,7 @@ Per-table columns, indexes, constraints, and sizes.
 - `balance` (numeric, NULLABLE) - Account balance after transaction
 - `category_id` (integer, NULLABLE) - References `categories(id)`
 - `currency` (text, NOT NULL, DEFAULT 'EUR')
+- `country_name` (text, NULLABLE) - Country for world map tracking (must match GeoJSON properties.name)
 - `raw_csv_row` (jsonb, NULLABLE) - Original CSV row data
 - `created_at` (timestamp without time zone, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
 - `updated_at` (timestamp without time zone, NOT NULL)
@@ -300,6 +301,7 @@ Per-table columns, indexes, constraints, and sizes.
 - `idx_transactions_user` (16 kB) - Index on `user_id`
 - `idx_transactions_user_date` (32 kB) - Composite index on `user_id, tx_date DESC`
 - `idx_transactions_user_date_desc_covering` (56 kB) - Covering index on `user_id, tx_date DESC` INCLUDE (`amount`, `balance`, `category_id`, `description`, `tx_time`)
+- `idx_transactions_user_country` - Partial index on `user_id, country_name` WHERE `country_name IS NOT NULL` (for world map aggregation)
 
 **Constraints**:
 - PRIMARY KEY: `id`
@@ -833,7 +835,7 @@ Important context and caveats for the schema and infrastructure.
 
 ## API Routes Reference
 
-Complete listing of all API endpoints organized by feature domain. Total: **68 routes**.
+Complete listing of all API endpoints organized by feature domain. Total: **72 routes**.
 
 ### Chart Bundles (Aggregated Data APIs)
 
@@ -848,6 +850,7 @@ Bundle APIs aggregate multiple chart data sources into a single response with Re
 | `/api/charts/savings-bundle` | GET | Savings page charts (savings rate, cumulative) | 5 min |
 | `/api/charts/data-library-bundle` | GET | Data library overview | 5 min |
 | `/api/charts/test-charts-bundle` | GET | Test charts playground (transactions + receipt transactions) | 5 min |
+| `/api/charts/world-map-bundle` | GET | World map page (country spending, stats) | 5 min |
 
 ### Individual Chart APIs
 
@@ -866,6 +869,15 @@ Bundle APIs aggregate multiple chart data sources into a single response with Re
 | `/api/analytics/category-bubble` | GET | Category bubble chart data |
 | `/api/analytics/day-of-week-category` | GET | Day-of-week spending by category |
 | `/api/analytics/monthly-category-duplicate` | GET | Monthly category breakdown |
+
+### World Map APIs
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/world-map/links` | POST | Link transactions to a country |
+| `/api/world-map/links` | DELETE | Unlink transactions from a country |
+| `/api/world-map/transactions` | GET | Get transactions for a specific country |
+| `/api/world-map/unlinked-transactions` | GET | Get transactions not linked to any country |
 
 ### Transaction APIs
 
@@ -1002,6 +1014,7 @@ getCachedOrCompute(cacheKey, aggregationFn, ttl)
 | Savings | `/api/charts/savings-bundle` | `lib/charts/home-trends-savings-aggregations.ts` | `SavingsSummary` |
 | Data Library | `/api/charts/data-library-bundle` | — | `DataLibrarySummary` |
 | Test Charts | `/api/charts/test-charts-bundle` | `lib/charts/aggregations.ts` | `TestChartsSummary` |
+| World Map | `/api/charts/world-map-bundle` | `lib/charts/world-map-aggregations.ts` | `WorldMapBundleResponse` |
 
 ### Cache Configuration (`lib/cache/upstash.ts`)
 
@@ -1016,6 +1029,7 @@ const CACHE_PREFIX = {
     categories: 'categories',
     'data-library': 'data-library',
     'test-charts': 'test-charts',
+    'world-map': 'world-map',
 }
 ```
 
@@ -1024,6 +1038,7 @@ const CACHE_PREFIX = {
 |------|-----|----------|
 | `analytics` | 5 minutes | Chart data (default) |
 | `fridge` | 5 minutes | Receipt/grocery data |
+| `world-map` | 5 minutes | World map country spending data |
 | `categories` | 30 minutes | Category lookups |
 | `short` | 1 minute | Frequently changing data |
 
@@ -1068,10 +1083,11 @@ await invalidateUserCachePrefix(userId, 'home')
 
 | After... | Invalidate |
 |----------|------------|
-| Transaction create/update/delete | `analytics`, `home`, `trends`, `savings`, `test-charts` |
+| Transaction create/update/delete | `analytics`, `home`, `trends`, `savings`, `world-map`, `test-charts` |
 | Category create/update/delete | `categories`, `analytics`, `test-charts` |
 | Receipt create/update/delete | `fridge`, `test-charts` |
-| Statement import | `analytics`, `home`, `trends`, `savings`, `data-library`, `test-charts` |
+| Statement import | `analytics`, `home`, `trends`, `savings`, `world-map`, `data-library`, `test-charts` |
+| World map link/unlink transactions | `world-map` |
 
 ---
 
@@ -1188,6 +1204,11 @@ Metadata, metrics, and connection details were refreshed using Neon MCP tools an
 
 Notable schema and data changes since the previous snapshot.
 
+- **February 1, 2026**: World Map feature database integration:
+  - Added `country_name` (text NULL) column to `transactions` table
+  - Added `idx_transactions_user_country` partial index for country aggregation
+  - Added World Map APIs: `/api/charts/world-map-bundle`, `/api/world-map/links`, `/api/world-map/transactions`, `/api/world-map/unlinked-transactions`
+  - Added `world-map` cache prefix with 5-minute TTL
 - **January 26, 2026**: Added comprehensive API Routes Reference (68 routes), Bundle APIs & Caching documentation, and Data Flow diagrams
 - **December 30, 2025**: Refreshed organization, project, branch, compute, and size metrics via Neon MCP; added preview branch summary
 - **December 28, 2025**: Expanded category system:
