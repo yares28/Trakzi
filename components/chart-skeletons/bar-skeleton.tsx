@@ -46,7 +46,8 @@ export const BarSkeleton = memo(function BarSkeleton({ className }: BarSkeletonP
           width={barWidth}
           height={bar.height}
           rx={2}
-          className="fill-muted animate-pulse"
+          fill="currentColor"
+          className="text-muted animate-pulse"
           style={{ animationDelay: bar.delay }}
         />
       ))}
@@ -56,7 +57,8 @@ export const BarSkeleton = memo(function BarSkeleton({ className }: BarSkeletonP
         y1="96"
         x2="190"
         y2="96"
-        className="stroke-muted/60"
+        stroke="currentColor"
+        className="text-muted/60"
         strokeWidth="1"
       />
     </svg>

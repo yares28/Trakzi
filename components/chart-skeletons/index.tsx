@@ -23,7 +23,7 @@ export const ChartSkeleton = memo(function ChartSkeleton({
   type,
   className
 }: ChartSkeletonProps) {
-  const skeletonClass = cn("w-full h-full max-h-[200px]", className)
+  const skeletonClass = cn("w-full h-full", className)
 
   switch (type) {
     case "area":

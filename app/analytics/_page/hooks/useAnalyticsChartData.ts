@@ -450,10 +450,14 @@ export function useAnalyticsChartData({
       })
 
       let sortedPeriods = Array.from(monthTotals.keys()).sort(sortPeriodKeys)
-      // Area Bump needs at least 2 x-points to render; duplicate single period so the band is visible
+      // Area Bump needs 2 distinct x-points to draw the band; use a continuation key so layout renders correctly
       if (sortedPeriods.length === 1) {
         const sole = sortedPeriods[0]
-        sortedPeriods = [sole, sole]
+        const soleContinuation = sole + "\u200B" // zero-width space = distinct key, same display
+        const soleData = monthTotals.get(sole)!
+        monthTotals.set(soleContinuation, new Map(soleData))
+        periodTotals.set(soleContinuation, periodTotals.get(sole) ?? 0)
+        sortedPeriods = [sole, soleContinuation]
       }
       const data = Array.from(categorySet)
         .filter(c => !categoryFlowVisibility.hiddenCategorySet.has(c))
@@ -532,9 +536,14 @@ export function useAnalyticsChartData({
     }
 
     let sortedTimePeriods = Array.from(allTimePeriods).sort(sortPeriodKeys)
-    // Area Bump needs at least 2 x-points to render; duplicate single period so the band is visible
+    // Area Bump needs 2 distinct x-points to draw the band; use a continuation key so layout renders correctly
     if (sortedTimePeriods.length === 1) {
-      sortedTimePeriods = [sortedTimePeriods[0], sortedTimePeriods[0]]
+      const sole = sortedTimePeriods[0]
+      const soleContinuation = sole + "\u200B"
+      sortedTimePeriods = [sole, soleContinuation]
+      categoryMap.forEach((periods) => {
+        periods.set(soleContinuation, periods.get(sole) ?? 0)
+      })
     }
     const periodTotals = new Map<string, number>()
     sortedTimePeriods.forEach((period) => {

@@ -71,12 +71,14 @@ export function ChartLoadingState({
   // Loading state with appropriate skeleton
   if (isLoading) {
     return (
-      <div className={cn("flex flex-col items-center justify-center w-full", height, className)}>
-        <div className="w-full h-full flex flex-col justify-center items-center gap-2 p-4">
-          <ChartSkeleton type={skeletonType} />
+      <div className={cn("flex flex-col w-full", height, className)}>
+        <div className="w-full flex-1 flex flex-col px-6 pt-2 pb-4">
+          <div className="w-full flex-1 min-h-[180px]">
+            <ChartSkeleton type={skeletonType} />
+          </div>
           <ShimmeringText
             text="Loading .."
-            className="text-muted-foreground font-medium text-sm mt-2"
+            className="text-muted-foreground font-medium text-sm text-center mt-2"
             duration={1.8}
             repeatDelay={0.3}
             spread={2.5}
