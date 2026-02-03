@@ -491,6 +491,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
           <div className="h-[250px] w-full">
             <ChartLoadingState
               isLoading
+              skeletonType="grid"
               emptyTitle={emptyTitle}
               emptyDescription={emptyDescription}
             />
@@ -521,6 +522,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
           <div className="h-[250px] w-full">
             <ChartLoadingState
+              skeletonType="grid"
               emptyTitle={emptyTitle || "No daily activity yet"}
               emptyDescription={emptyDescription || "Import your bank statements to see a calendar heatmap of your spending"}
             />

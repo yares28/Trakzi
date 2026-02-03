@@ -660,6 +660,7 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
           <ChartLoadingState
             isLoading
+            skeletonType="bar"
             emptyTitle={emptyTitle}
             emptyDescription={emptyDescription}
           />
@@ -688,6 +689,7 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
           <ChartLoadingState
             isLoading
+            skeletonType="bar"
             emptyTitle={emptyTitle}
             emptyDescription={emptyDescription}
           />
@@ -715,6 +717,7 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
           <ChartLoadingState
+            skeletonType="bar"
             emptyTitle={emptyTitle || "No monthly data yet"}
             emptyDescription={emptyDescription || "Import your bank statements to see monthly category spending"}
           />
@@ -805,6 +808,7 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
             </div>
           ) : (
             <ChartLoadingState
+              skeletonType="bar"
               emptyTitle={emptyTitle || "No spending data"}
               emptyDescription={emptyDescription || "No transactions recorded for this month yet"}
             />

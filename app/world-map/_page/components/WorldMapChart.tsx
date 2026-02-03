@@ -86,11 +86,9 @@ const worldCountries: FeatureCollection = {
   ),
 }
 
-export interface CountryData {
-  id: string // Country name (must match feature.properties.name)
-  value: number
-  label?: string
-}
+import type { CountryData } from "@/lib/types/world-map"
+
+export type { CountryData } from "@/lib/types/world-map"
 
 interface WorldMapChartProps {
   data?: CountryData[]

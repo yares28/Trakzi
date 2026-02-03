@@ -213,6 +213,7 @@ export const ChartExpensesPie = memo(function ChartExpensesPie({
           <div className="h-full w-full min-h-[250px]">
             <ChartLoadingState
               isLoading={isLoading}
+              skeletonType="pie"
               emptyTitle={emptyTitle}
               emptyDescription={emptyDescription}
             />

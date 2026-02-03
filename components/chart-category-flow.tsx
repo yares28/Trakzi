@@ -124,6 +124,7 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
           <div className="h-full w-full min-h-[250px]">
             <ChartLoadingState
               isLoading={isLoading}
+              skeletonType="flow"
               emptyTitle={emptyTitle || "No spending data yet"}
               emptyDescription={emptyDescription || "Import your bank statements to see category rankings"}
             />

@@ -750,6 +750,33 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
   }
 }
 
+/* ============================================
+   CHART LOADING TRANSITIONS
+   ============================================ */
+
+/* Smooth fade+scale animation when chart content enters after loading */
+.chart-content-enter {
+  animation: chart-fade-in 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes chart-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .chart-content-enter {
+    animation: none;
+  }
+}
+
 /* Clerk UserButton popover z-index fix for mobile sidebar */
 .cl-userButtonPopoverCard,
 .cl-userButtonPopoverActions,

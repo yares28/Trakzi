@@ -211,6 +211,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
           <div className="h-[250px] w-full">
             <ChartLoadingState
               isLoading={isLoading}
+              skeletonType="area"
               emptyTitle={emptyTitle || "No financial data yet"}
               emptyDescription={emptyDescription || "Import your bank statements to see your cash flow"}
             />
