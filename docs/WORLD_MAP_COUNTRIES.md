@@ -18,7 +18,7 @@ Afghanistan, Albania, Algeria, Angola, Antarctica, Argentina, Armenia, Australia
 
 ---
 
-## Missing from GeoJSONN
+## Missing from GeoJSON
 
 ### UN Member States Missing (30)
 
