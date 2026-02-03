@@ -324,13 +324,13 @@ async function fetchTotalTransactionCount(): Promise<TotalTransactionCount> {
  * Used for the "Total Transactions" card in home and analytics pages
  */
 export function useTotalTransactionCount() {
-    const { isLoaded, isSignedIn } = useAuth()
+    const { isLoaded, isSignedIn, userId } = useAuth()
 
     return useQuery({
-        queryKey: ["total-transaction-count"],
+        queryKey: ["total-transaction-count", userId ?? ""],
         queryFn: fetchTotalTransactionCount,
         staleTime: 5 * 60 * 1000, // 5 minutes
-        enabled: isLoaded && !!isSignedIn, // Only fetch when Clerk has loaded and user is signed in
+        enabled: isLoaded && !!isSignedIn && !!userId,
     })
 }
 
@@ -342,12 +342,13 @@ export function useTotalTransactionCount() {
  * Analytics page bundle - pre-aggregated data with Redis caching
  */
 export function useAnalyticsBundleData() {
+    const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
 
     return useQuery({
-        queryKey: ["analytics-bundle", filter],
+        queryKey: ["analytics-bundle", userId ?? "", filter],
         queryFn: () => fetchAnalyticsBundle(filter),
-        enabled: isReady, // Only fetch when filter is resolved from localStorage
+        enabled: !!userId && isReady,
     })
 }
 
@@ -355,12 +356,13 @@ export function useAnalyticsBundleData() {
  * Home page bundle - pre-aggregated data with Redis caching
  */
 export function useHomeBundleData() {
+    const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
 
     return useQuery({
-        queryKey: ["home-bundle", filter],
+        queryKey: ["home-bundle", userId ?? "", filter],
         queryFn: () => fetchHomeBundle(filter),
-        enabled: isReady,
+        enabled: !!userId && isReady,
     })
 }
 
@@ -368,12 +370,13 @@ export function useHomeBundleData() {
  * Trends page bundle - category trends with Redis caching
  */
 export function useTrendsBundleData() {
+    const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
 
     return useQuery({
-        queryKey: ["trends-bundle", filter],
+        queryKey: ["trends-bundle", userId ?? "", filter],
         queryFn: () => fetchTrendsBundle(filter),
-        enabled: isReady,
+        enabled: !!userId && isReady,
     })
 }
 
@@ -381,12 +384,13 @@ export function useTrendsBundleData() {
  * Savings page bundle - savings data with Redis caching
  */
 export function useSavingsBundleData() {
+    const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
 
     return useQuery({
-        queryKey: ["savings-bundle", filter],
+        queryKey: ["savings-bundle", userId ?? "", filter],
         queryFn: () => fetchSavingsBundle(filter),
-        enabled: isReady,
+        enabled: !!userId && isReady,
     })
 }
 
@@ -394,12 +398,13 @@ export function useSavingsBundleData() {
  * Fridge page bundle - fridge data with Redis caching
  */
 export function useFridgeBundleData() {
+    const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
 
     return useQuery({
-        queryKey: ["fridge-bundle", filter],
+        queryKey: ["fridge-bundle", userId ?? "", filter],
         queryFn: () => fetchFridgeBundle(filter),
-        enabled: isReady,
+        enabled: !!userId && isReady,
     })
 }
 
@@ -411,13 +416,14 @@ export function useFridgeBundleData() {
  * Raw transactions - use for DataTable or when raw data is needed
  */
 export function useTransactions(filter?: string | null) {
+    const { userId } = useAuth()
     const { filter: contextFilter, isReady } = useDateFilter()
     const effectiveFilter = filter !== undefined ? filter : contextFilter
 
     return useQuery({
-        queryKey: ["transactions", effectiveFilter],
+        queryKey: ["transactions", userId ?? "", effectiveFilter],
         queryFn: () => fetchTransactions(effectiveFilter),
-        enabled: isReady,
+        enabled: !!userId && isReady,
     })
 }
 
@@ -425,10 +431,13 @@ export function useTransactions(filter?: string | null) {
  * Categories - rarely changes
  */
 export function useCategories() {
+    const { userId } = useAuth()
+
     return useQuery({
-        queryKey: ["categories"],
+        queryKey: ["categories", userId ?? ""],
         queryFn: fetchCategories,
         staleTime: 5 * 60 * 1000,
+        enabled: !!userId,
     })
 }
 
