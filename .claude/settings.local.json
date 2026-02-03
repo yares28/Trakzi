@@ -21,7 +21,8 @@
       "mcp__playwright__browser_snapshot",
       "Bash(npm ls:*)",
       "Bash(npm view:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(del \"C:\\\\Users\\\\Yaya\\\\Desktop\\\\PROJECTS\\\\trakzi\\\\test-dia-parser.ts\")"
     ]
   },
   "enabledPlugins": {
