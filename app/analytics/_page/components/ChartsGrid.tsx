@@ -649,6 +649,7 @@ export function ChartsGrid({
                       <div className="absolute inset-0 flex flex-col items-center justify-between pt-20 pb-4">
                         {activityData.length === 0 ? (
                           <ChartLoadingState
+                            skeletonType="pie"
                             emptyTitle={emptyTitle || "No spending categories yet"}
                             emptyDescription={emptyDescription || "Import your bank statements to see activity rings"}
                           />

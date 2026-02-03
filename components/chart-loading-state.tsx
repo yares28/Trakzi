@@ -1,8 +1,10 @@
 "use client"
 
+import { useState, useEffect, useRef } from "react"
 import { FileUp, ChartLine, Receipt, Info } from "lucide-react"
 import { ShimmeringText } from "@/components/ui/shimmering-text"
 import { cn } from "@/lib/utils"
+import { ChartSkeleton, type ChartSkeletonType } from "@/components/chart-skeletons"
 
 interface ChartLoadingStateProps {
   isLoading?: boolean
@@ -12,6 +14,10 @@ interface ChartLoadingStateProps {
   emptyIcon?: "chart" | "upload" | "receipt" | "info"
   /** Height of the loading shimmer area */
   height?: string
+  /** Type of skeleton to display (matches chart type) */
+  skeletonType?: ChartSkeletonType
+  /** Maximum loading time in ms before transitioning to empty state (default: 15000) */
+  maxLoadingTime?: number
 }
 
 export function ChartLoadingState({
@@ -20,43 +26,94 @@ export function ChartLoadingState({
   emptyTitle = "No data yet ..",
   emptyDescription = "Import your bank statements or receipts to see insights here",
   emptyIcon = "chart",
-  height = "h-full"
+  height = "h-full",
+  skeletonType = "bar",
+  maxLoadingTime = 15000
 }: ChartLoadingStateProps) {
+  const [timedOut, setTimedOut] = useState(false)
+  const [showContent, setShowContent] = useState(!isLoading)
+  const prevLoadingRef = useRef(isLoading)
 
-  // Loading state with shimmer box that fills the chart area
+  // Timeout protection - transition to empty state if loading takes too long
+  useEffect(() => {
+    if (!isLoading) {
+      setTimedOut(false)
+      return
+    }
+
+    const timer = setTimeout(() => {
+      setTimedOut(true)
+    }, maxLoadingTime)
+
+    return () => clearTimeout(timer)
+  }, [isLoading, maxLoadingTime])
+
+  // Handle transition from loading to content
+  useEffect(() => {
+    if (prevLoadingRef.current && !isLoading) {
+      // Was loading, now stopped - trigger content enter animation
+      setShowContent(true)
+    }
+    prevLoadingRef.current = isLoading
+  }, [isLoading])
+
+  // If timed out, silently transition to empty state
+  if (timedOut) {
+    return <EmptyState
+      emptyTitle={emptyTitle}
+      emptyDescription={emptyDescription}
+      emptyIcon={emptyIcon}
+      height={height}
+      className={className}
+    />
+  }
+
+  // Loading state with appropriate skeleton
   if (isLoading) {
     return (
       <div className={cn("flex flex-col items-center justify-center w-full", height, className)}>
-        {/* Box shimmer skeleton to fill chart area */}
-        <div className="w-full h-full max-h-[200px] flex flex-col justify-end items-center gap-0.5 p-4">
-          {/* Simulated bar chart skeleton */}
-          <div className="w-full flex items-end justify-center gap-1.5">
-            {[40, 65, 50, 80, 35, 70, 55, 75, 45, 60].map((h, i) => (
-              <div
-                key={i}
-                className="flex-1 max-w-8 rounded-t bg-muted animate-pulse"
-                style={{
-                  height: `${h}%`,
-                  animationDelay: `${i * 0.08}s`
-                }}
-              />
-            ))}
-          </div>
-          {/* X-axis line */}
-          <div className="w-full h-0.5 bg-muted/60 rounded" />
+        <div className="w-full h-full flex flex-col justify-center items-center gap-2 p-4">
+          <ChartSkeleton type={skeletonType} />
+          <ShimmeringText
+            text="Loading .."
+            className="text-muted-foreground font-medium text-sm mt-2"
+            duration={1.8}
+            repeatDelay={0.3}
+            spread={2.5}
+          />
         </div>
-        <ShimmeringText
-          text="Loading .."
-          className="text-muted-foreground font-medium text-sm mt-2"
-          duration={1.8}
-          repeatDelay={0.3}
-          spread={2.5}
-        />
       </div>
     )
   }
 
-  // Empty state with helpful message
+  // Empty state with optional fade-in animation
+  return (
+    <EmptyState
+      emptyTitle={emptyTitle}
+      emptyDescription={emptyDescription}
+      emptyIcon={emptyIcon}
+      height={height}
+      className={cn(showContent && "chart-content-enter", className)}
+    />
+  )
+}
+
+/**
+ * Empty state component (extracted for reuse)
+ */
+function EmptyState({
+  emptyTitle,
+  emptyDescription,
+  emptyIcon,
+  height,
+  className
+}: {
+  emptyTitle: string
+  emptyDescription: string
+  emptyIcon: "chart" | "upload" | "receipt" | "info"
+  height: string
+  className?: string
+}) {
   const IconComponent = {
     chart: ChartLine,
     upload: FileUp,
@@ -83,7 +140,15 @@ export function ChartLoadingState({
  * Shimmer skeleton for chart cards while data is loading
  * Can be used as a full card replacement during initial load
  */
-export function ChartCardSkeleton({ className, height = "h-[300px]" }: { className?: string; height?: string }) {
+export function ChartCardSkeleton({
+  className,
+  height = "h-[300px]",
+  skeletonType = "bar"
+}: {
+  className?: string
+  height?: string
+  skeletonType?: ChartSkeletonType
+}) {
   return (
     <div className={cn("rounded-xl border bg-card p-6 flex flex-col", height, className)}>
       {/* Header skeleton */}
@@ -95,18 +160,9 @@ export function ChartCardSkeleton({ className, height = "h-[300px]" }: { classNa
         <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
       </div>
 
-      {/* Chart area skeleton - simulated bar chart */}
-      <div className="flex-1 flex items-end justify-center gap-1.5 pt-4">
-        {[50, 70, 45, 85, 40, 75, 60, 80, 55, 65, 50, 70].map((h, i) => (
-          <div
-            key={i}
-            className="flex-1 max-w-6 rounded-t bg-muted animate-pulse"
-            style={{
-              height: `${h}%`,
-              animationDelay: `${i * 0.05}s`
-            }}
-          />
-        ))}
+      {/* Chart area skeleton - use appropriate type */}
+      <div className="flex-1 flex items-center justify-center pt-4">
+        <ChartSkeleton type={skeletonType} />
       </div>
     </div>
   )

@@ -618,6 +618,7 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
           <ChartLoadingState
             isLoading
+            skeletonType="bar"
             emptyTitle={emptyTitle}
             emptyDescription={emptyDescription}
           />
@@ -646,6 +647,7 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
           <ChartLoadingState
             isLoading
+            skeletonType="bar"
             emptyTitle={emptyTitle}
             emptyDescription={emptyDescription}
           />
@@ -673,6 +675,7 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
           <ChartLoadingState
+            skeletonType="bar"
             emptyTitle={emptyTitle || "No spending data"}
             emptyDescription={emptyDescription || "Import your bank statements to see spending by day of week"}
           />
@@ -763,6 +766,7 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
             </div>
           ) : (
             <ChartLoadingState
+              skeletonType="bar"
               emptyTitle={emptyTitle || "No spending data"}
               emptyDescription={emptyDescription || "No transactions recorded for this day yet"}
             />

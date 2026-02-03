@@ -469,6 +469,7 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
           <ChartLoadingState
             isLoading={true}
+            skeletonType="grid"
             emptyTitle={emptyTitle}
             emptyDescription={emptyDescription}
           />
@@ -523,6 +524,7 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
           <ChartLoadingState
             isLoading={false}
+            skeletonType="grid"
             emptyTitle={emptyTitle}
             emptyDescription={emptyDescription}
           />

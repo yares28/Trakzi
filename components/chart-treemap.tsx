@@ -177,6 +177,7 @@ export const ChartTreeMap = memo(function ChartTreeMap({
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
           <ChartLoadingState
             isLoading={isLoading}
+            skeletonType="grid"
             emptyTitle={emptyTitle}
             emptyDescription={emptyDescription}
           />

@@ -165,6 +165,7 @@ export const ChartSankey = memo(function ChartSankey({
           <div className="h-full w-full min-h-[250px]">
             <ChartLoadingState
               isLoading={isLoading}
+              skeletonType="flow"
               emptyTitle={emptyTitle}
               emptyDescription={emptyDescription}
             />

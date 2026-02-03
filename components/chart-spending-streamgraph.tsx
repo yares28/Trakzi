@@ -273,6 +273,7 @@ export const ChartSpendingStreamgraph = memo(function ChartSpendingStreamgraph({
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
           <ChartLoadingState
             isLoading={isLoading}
+            skeletonType="area"
             emptyTitle={emptyTitle}
             emptyDescription={emptyDescription}
           />
