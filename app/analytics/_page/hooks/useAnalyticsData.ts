@@ -10,7 +10,9 @@ import { getAnalyticsCacheEntry, getAnalyticsCacheKey, isAnalyticsCacheFresh, se
 
 export function useAnalyticsData(dateFilter: string | null) {
   const { userId } = useAuth()
-  const analyticsCacheEntry = getAnalyticsCacheEntry(userId, dateFilter)
+  const userIdArg = userId ?? undefined
+  const filterArg = dateFilter ?? undefined
+  const analyticsCacheEntry = getAnalyticsCacheEntry(userIdArg, filterArg)
 
   // Transactions state (keyed by user: when userId changes we reset so we don't show previous user's data)
   const [rawTransactions, setRawTransactions] = useState<AnalyticsTransaction[]>(
@@ -25,17 +27,17 @@ export function useAnalyticsData(dateFilter: string | null) {
 
   // When user or filter changes, sync state from cache (or empty for new user) so we don't show previous user's data
   useEffect(() => {
-    if (!userId) return
-    const entry = getAnalyticsCacheEntry(userId, dateFilter)
+    if (!userIdArg) return
+    const entry = getAnalyticsCacheEntry(userIdArg, filterArg)
     setRawTransactions(entry?.transactions ?? [])
     setRingLimits(entry?.ringLimits ?? {})
     setIsLoadingTransactions(!entry)
-  }, [userId, dateFilter])
+  }, [userIdArg, filterArg])
 
   // Fetch ALL analytics data in parallel for maximum performance
   const fetchAllAnalyticsData = useCallback(async () => {
-    const cacheKey = getAnalyticsCacheKey(userId, dateFilter)
-    const cachedEntry = getAnalyticsCacheEntry(userId, dateFilter)
+    const cacheKey = getAnalyticsCacheKey(userIdArg, filterArg)
+    const cachedEntry = getAnalyticsCacheEntry(userIdArg, filterArg)
     const hasFreshCache = cachedEntry ? isAnalyticsCacheFresh(cachedEntry) : false
 
     if (cachedEntry) {
@@ -125,7 +127,7 @@ export function useAnalyticsData(dateFilter: string | null) {
       setRingLimits(nextRingLimits)
 
       // Update cache even if empty, so we don't hit the API again for empty filters (keyed by userId)
-      setAnalyticsCacheEntry(userId, dateFilter, {
+      setAnalyticsCacheEntry(userIdArg, filterArg, {
         transactions: nextTransactions,
         ringLimits: nextRingLimits,
         fetchedAt: Date.now(),
@@ -139,7 +141,7 @@ export function useAnalyticsData(dateFilter: string | null) {
     } finally {
       setIsLoadingTransactions(false)
     }
-  }, [userId, dateFilter])
+  }, [userIdArg, filterArg])
 
   // Fetch all data when user and filter are set (don't fetch with stale or missing user)
   useEffect(() => {

@@ -127,7 +127,7 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
                 catMap.set(d.category, (catMap.get(d.category) || 0) + d.total)
             })
 
-            const sortedMonths = Array.from(periodTotals.keys()).sort((a, b) => a - b)
+            let sortedMonths = Array.from(periodTotals.keys()).sort((a, b) => a - b)
             const allCategories = new Set<string>()
             periodTotals.forEach(catMap => catMap.forEach((_, cat) => allCategories.add(cat)))
 
@@ -144,6 +144,20 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
                     categoryRankings.get(item.category)!.push({ x: monthNames[month - 1], y: index + 1 })
                 })
             })
+
+            // Area Bump needs 2 distinct x-points to draw the band
+            if (sortedMonths.length === 1) {
+                const soleMonth = sortedMonths[0]
+                const soleLabel = monthNames[soleMonth - 1]
+                const continuationLabel = soleLabel + "\u200B" // zero-width space = distinct key, same display
+                // Duplicate rankings for continuation
+                allCategories.forEach(cat => {
+                    const rankings = categoryRankings.get(cat)!
+                    if (rankings.length > 0) {
+                        rankings.push({ x: continuationLabel, y: rankings[0].y })
+                    }
+                })
+            }
 
             // Get top 7 categories by total
             const categoryTotals: { category: string; total: number }[] = []
@@ -181,7 +195,7 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
         })
 
         // Get sorted time periods
-        const sortedPeriods = Array.from(periodCategoryTotals.keys()).sort()
+        let sortedPeriods = Array.from(periodCategoryTotals.keys()).sort()
         if (sortedPeriods.length === 0) return []
 
         // Get all unique categories across all periods
@@ -215,6 +229,20 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
                 rankings.push({ x: displayLabel, y: index + 1 })
             })
         })
+
+        // Area Bump needs 2 distinct x-points to draw the band
+        if (sortedPeriods.length === 1) {
+            const sole = sortedPeriods[0]
+            const soleLabel = formatTimeLabel(sole)
+            const continuationLabel = soleLabel + "\u200B" // zero-width space = distinct key, same display
+            // Duplicate rankings for continuation
+            allCategories.forEach(category => {
+                const rankings = categoryRankings.get(category)!
+                if (rankings.length > 0) {
+                    rankings.push({ x: continuationLabel, y: rankings[0].y })
+                }
+            })
+        }
 
         // Convert to Nivo format and filter to top categories
         const result: { id: string; data: { x: string; y: number }[] }[] = []

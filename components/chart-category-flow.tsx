@@ -79,10 +79,10 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
     <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
         title="Spending Category Rankings"
-        description="This chart tracks how your spending categories rank relative to each other over time."
+        description="Ranks your spending categories by amount over time (1 = highest spending)."
         details={[
-          "Each colored area represents a spending category; the higher it sits, the larger its share that month.",
-          "How it works: we calculate each category's percentage of total spend per month so you can see priorities rise or fall.",
+          "Each colored area represents a spending category; the higher it sits, the more you spent in that category.",
+          "How it works: categories are ranked by total spending each period, so you can see which categories dominate over time.",
           forFullscreen ? "Use the checkboxes below to show/hide specific categories." : "",
         ].filter(Boolean)}
         categoryControls={categoryControls}
@@ -90,7 +90,7 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
       <ChartAiInsightButton
         chartId="spendingCategoryRankings"
         chartTitle="Spending Category Rankings"
-        chartDescription="This chart tracks how your spending categories rank relative to each other over time."
+        chartDescription="Ranks spending categories by amount over time (1 = highest spending)."
         chartData={{
           categories: data.map(d => d.id),
           categoryCount: data.length,
@@ -175,12 +175,12 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
       tooltip={({ serie }) => {
         const originalSerie = data.find((d) => d.id === serie.id)
         const lastPoint = originalSerie?.data[originalSerie.data.length - 1]
-        const share = lastPoint?.y ?? 0
+        const rank = lastPoint?.y ?? 0
         return (
           <NivoChartTooltip
             title={serie.id}
             titleColor={serie.color}
-            value={`${share.toFixed(1)}% of spending`}
+            value={`Rank: ${rank}`}
           />
         )
       }}
@@ -283,12 +283,12 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
       tooltip={({ serie }) => {
         const originalSerie = data.find((d) => d.id === serie.id)
         const lastPoint = originalSerie?.data[originalSerie.data.length - 1]
-        const share = lastPoint?.y ?? 0
+        const rank = lastPoint?.y ?? 0
         return (
           <NivoChartTooltip
             title={serie.id}
             titleColor={serie.color}
-            value={`${share.toFixed(1)}%`}
+            value={`Rank: ${rank}`}
           />
         )
       }}
