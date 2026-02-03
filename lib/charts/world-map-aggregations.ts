@@ -4,24 +4,35 @@ import type { CountryData, WorldMapStats, WorldMapBundleResponse } from '@/lib/t
 
 /**
  * Get aggregated country spending data for the world map
- * Returns countries with total spending (expenses only)
+ * Returns country instances with total spending (expenses only)
  */
 export async function getCountrySpending(userId: string): Promise<CountryData[]> {
-    const rows = await neonQuery<{ id: string; value: string }>(
+    const rows = await neonQuery<{
+        instance_id: number
+        country_name: string
+        label: string
+        value: string
+    }>(
         `SELECT
-            country_name AS id,
-            COALESCE(SUM(ABS(amount)), 0)::text AS value
-        FROM transactions
-        WHERE user_id = $1
-            AND country_name IS NOT NULL
-            AND amount < 0
-        GROUP BY country_name
-        ORDER BY SUM(ABS(amount)) DESC`,
+            ci.id AS instance_id,
+            ci.country_name,
+            ci.label,
+            COALESCE(SUM(ABS(t.amount)), 0)::text AS value
+        FROM country_instances ci
+        LEFT JOIN transactions t ON t.country_instance_id = ci.id
+            AND t.user_id = $1
+            AND t.amount < 0
+        WHERE ci.user_id = $1
+        GROUP BY ci.id, ci.country_name, ci.label
+        HAVING COALESCE(SUM(ABS(t.amount)), 0) > 0
+        ORDER BY SUM(ABS(t.amount)) DESC`,
         [userId]
     )
 
     return rows.map(row => ({
-        id: row.id,
+        id: row.country_name,      // For map matching (GeoJSON)
+        instance_id: row.instance_id,
+        label: row.label,           // Custom label for display
         value: parseFloat(row.value) || 0
     }))
 }
@@ -60,13 +71,15 @@ export async function getWorldMapBundle(userId: string): Promise<WorldMapBundleR
 
 /**
  * Get distinct countries the user has linked transactions to
+ * Returns country names (not instance labels) for compatibility
  */
 export async function getUserCountries(userId: string): Promise<string[]> {
     const rows = await neonQuery<{ country_name: string }>(
-        `SELECT DISTINCT country_name
-        FROM transactions
-        WHERE user_id = $1 AND country_name IS NOT NULL
-        ORDER BY country_name`,
+        `SELECT DISTINCT ci.country_name
+        FROM country_instances ci
+        INNER JOIN transactions t ON t.country_instance_id = ci.id
+        WHERE ci.user_id = $1
+        ORDER BY ci.country_name`,
         [userId]
     )
 

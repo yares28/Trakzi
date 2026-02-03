@@ -14,9 +14,9 @@ import { AddCountryDialog } from "./components/AddCountryDialog"
 
 // Mock countries for testing (3 cards)
 const MOCK_COUNTRIES: CountryData[] = [
-    { id: "Brazil", value: 2500 },
-    { id: "China", value: 4200 },
-    { id: "Indonesia", value: 8900 },
+    { id: "Brazil", instance_id: 1, label: "Brazil", value: 2500 },
+    { id: "China", instance_id: 2, label: "China", value: 4200 },
+    { id: "Indonesia", instance_id: 3, label: "Indonesia", value: 8900 },
 ]
 
 const fetcher = (url: string) => fetch(url).then(res => {
@@ -65,12 +65,8 @@ export default function WorldMapPage() {
         }
     }, [data])
 
-    // Get list of existing country names for the add dialog
-    const existingCountries = useMemo(() => {
-        const realCountries = data?.countries.map(c => c.id) ?? []
-        // Include mock countries in exclusion list if using mock data
-        return realCountries.length > 0 ? realCountries : MOCK_COUNTRIES.map(c => c.id)
-    }, [data])
+    // No longer need to exclude countries - users can add same country multiple times
+    const existingCountries: string[] = []
 
     // Handle successful country addition
     const handleAddSuccess = useCallback(() => {
@@ -112,7 +108,6 @@ export default function WorldMapPage() {
                         <WorldMapChart
                             data={chartData}
                             isLoading={isLoading}
-                            title="Global Spending Distribution"
                         />
                     </div>
 

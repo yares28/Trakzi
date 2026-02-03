@@ -140,6 +140,8 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
   const containerRef = React.useRef<HTMLDivElement>(null)
   const [tooltip, setTooltip] = useState<{ date: string; value: number; color: string } | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
+  // Track if we've received a real mouse position to prevent flash at top-left
+  const [hasValidPosition, setHasValidPosition] = useState(false)
   const [refreshNonce, setRefreshNonce] = useState(0)
 
   const isGlobalFilterActive = Boolean(dateFilter)
@@ -341,39 +343,30 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
 
 
   // ECharts event handlers for custom tooltip
-  const handleChartMouseOver = (params: any, event?: any) => {
+  const handleChartMouseOver = (params: any) => {
     if (!containerRef.current) return
-
-    const echartsInstance = chartRef.current?.getEchartsInstance()
-    if (!echartsInstance) return
 
     // Get mouse position relative to container
     const rect = containerRef.current.getBoundingClientRect()
     let mouseX = 0
     let mouseY = 0
 
-    if (event && event.offsetX !== undefined && event.offsetY !== undefined) {
-      // Use offsetX/offsetY if available (relative to container)
-      mouseX = event.offsetX
-      mouseY = event.offsetY
-    } else if (event && event.clientX !== undefined && event.clientY !== undefined) {
-      // Fallback to clientX/clientY and convert to container coordinates
-      mouseX = event.clientX - rect.left
-      mouseY = event.clientY - rect.top
-    } else {
-      // Try to get from ECharts zrender handler
-      const zr = echartsInstance.getZr()
-      const handler = zr.handler
-      if (handler && handler.lastOffset) {
-        mouseX = handler.lastOffset[0]
-        mouseY = handler.lastOffset[1]
+    // ECharts stores the native DOM event at params.event (or params.event.event in some versions)
+    const ecEvent = (params?.event?.event || params?.event) as MouseEvent | undefined
+
+    if (ecEvent) {
+      if (typeof ecEvent.clientX === "number" && typeof ecEvent.clientY === "number") {
+        mouseX = ecEvent.clientX - rect.left
+        mouseY = ecEvent.clientY - rect.top
+      } else if (typeof (ecEvent as any).offsetX === "number" && typeof (ecEvent as any).offsetY === "number") {
+        mouseX = (ecEvent as any).offsetX
+        mouseY = (ecEvent as any).offsetY
       }
     }
 
-    setTooltipPosition({
-      x: mouseX,
-      y: mouseY,
-    })
+    // Set position immediately - no flash because we have real coordinates from the DOM event
+    setTooltipPosition({ x: mouseX, y: mouseY })
+    setHasValidPosition(true)
 
     // Extract data from params
     if (!params.data) return
@@ -403,6 +396,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
   const handleChartMouseOut = () => {
     setTooltip(null)
     setTooltipPosition(null)
+    setHasValidPosition(false)
   }
 
   // Add global mousemove listener when tooltip is visible
@@ -415,6 +409,8 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
           x: e.clientX - rect.left,
           y: e.clientY - rect.top,
         })
+        // Only mark position as valid once we have real mouse coordinates
+        if (!hasValidPosition) setHasValidPosition(true)
       }
 
       window.addEventListener('mousemove', handleMouseMove)
@@ -422,7 +418,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
         window.removeEventListener('mousemove', handleMouseMove)
       }
     }
-  }, [tooltip])
+  }, [tooltip, hasValidPosition])
 
   // ECharts option configuration
   const option = useMemo(() => ({
@@ -577,7 +573,8 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
                 mouseout: handleChartMouseOut,
               }}
             />
-            {tooltip && tooltipPosition && (
+            {/* Only render tooltip after we have valid mouse coordinates to prevent flash */}
+            {tooltip && tooltipPosition && hasValidPosition && (
               <div
                 className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
                 style={{

@@ -12,6 +12,7 @@ import {
     CardAction,
 } from "@/components/ui/card"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
@@ -175,12 +176,12 @@ export function ChartNetWorthTrend({
                         }}
                         useMesh={true}
                         tooltip={({ point }) => (
-                            <div className="rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg">
+                            <NivoChartTooltip>
                                 <div className="text-[0.7rem] text-foreground/60">{point.data.xFormatted}</div>
                                 <div className="mt-1 font-mono font-semibold text-foreground">
                                     {formatCurrency(point.data.y as number)}
                                 </div>
-                            </div>
+                            </NivoChartTooltip>
                         )}
                         animate={true}
                         motionConfig="gentle"

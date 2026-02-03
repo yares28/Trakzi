@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react"
 
 type ColorScheme = "sunset" | "dark" | "colored" | "gold" | "aqua" | "dull" | "dry" | "greens" | "chrome" | "beach" | "jolly" | "gothic"
 
@@ -51,9 +51,11 @@ export function ColorSchemeProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const getPalette = () => {
+  // Memoize getPalette to prevent unnecessary re-renders of all charts
+  // when parent components re-render (e.g., when bundle data loads)
+  const getPalette = useCallback(() => {
     return colorPalettes[colorScheme] || colorPalettes.sunset
-  }
+  }, [colorScheme])
 
   // Avoid hydration mismatch
   if (!mounted) {

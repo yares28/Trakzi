@@ -91,6 +91,8 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
     }>(buildDayOfWeekUrl(buildDayParams(initialSelectedDay)))
     : undefined
   const [mounted, setMounted] = React.useState(false)
+  // Track if initial animation has completed to prevent replay on theme hydration
+  const hasAnimatedRef = React.useRef(false)
   const [data, setData] = React.useState<DayOfWeekData[]>(
     () => cachedSelected?.data ?? [],
   )
@@ -477,8 +479,13 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
     // Use muted-foreground color for axis labels
     const textColor = resolvedTheme === "dark" ? "#9ca3af" : "#6b7280"
 
+    // Disable animation after first render to prevent replay on theme hydration
+    const shouldAnimate = !hasAnimatedRef.current
+
     return {
       backgroundColor,
+      animation: shouldAnimate,
+      animationDuration: shouldAnimate ? 1000 : 0,
       textStyle: {
         color: textColor,
       },
@@ -563,6 +570,17 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
       zr.off("globalout", handleGlobalOut)
     }
   }, [])
+
+  // Mark animation as complete after first render to prevent replay on theme hydration
+  React.useEffect(() => {
+    if (option && !hasAnimatedRef.current) {
+      // Wait for animation to complete before marking as done
+      const timer = setTimeout(() => {
+        hasAnimatedRef.current = true
+      }, 1100) // Slightly longer than animationDuration (1000ms)
+      return () => clearTimeout(timer)
+    }
+  }, [option])
 
   // Memoize the heavy chart element so tooltip state changes
   // do not cause the ECharts instance to be recreated.

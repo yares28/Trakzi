@@ -1,35 +1,51 @@
 import { NextResponse } from 'next/server'
 import { getCurrentUserId } from '@/lib/auth'
 import { neonQuery } from '@/lib/neonClient'
-import { isValidCountryName } from '@/lib/data/country-codes'
 import type { CountryTransaction, CountryTransactionsResponse } from '@/lib/types/world-map'
 
 /**
- * GET /api/world-map/transactions?country=France
- * Get all transactions linked to a specific country
+ * GET /api/world-map/transactions?instance_id=123
+ * Get all transactions linked to a specific country instance
  */
 export async function GET(request: Request) {
     try {
         const userId = await getCurrentUserId()
         const { searchParams } = new URL(request.url)
-        const country = searchParams.get('country')
+        const instanceIdParam = searchParams.get('instance_id')
 
-        // Validate country parameter
-        if (!country) {
+        // Validate instance_id parameter
+        if (!instanceIdParam) {
             return NextResponse.json(
-                { error: 'country query parameter is required' },
+                { error: 'instance_id query parameter is required' },
                 { status: 400 }
             )
         }
 
-        if (!isValidCountryName(country)) {
+        const instanceId = parseInt(instanceIdParam, 10)
+        if (isNaN(instanceId)) {
             return NextResponse.json(
-                { error: `Invalid country name: "${country}"` },
+                { error: 'instance_id must be a valid integer' },
                 { status: 400 }
             )
         }
 
-        // Fetch transactions for this country
+        // Verify the instance belongs to the user and get its details
+        const instanceCheck = await neonQuery<{ id: number; country_name: string; label: string }>(
+            `SELECT id, country_name, label FROM country_instances
+            WHERE id = $1 AND user_id = $2`,
+            [instanceId, userId]
+        )
+
+        if (instanceCheck.length === 0) {
+            return NextResponse.json(
+                { error: 'Country instance not found or access denied' },
+                { status: 404 }
+            )
+        }
+
+        const instance = instanceCheck[0]
+
+        // Fetch transactions for this instance
         const rows = await neonQuery<{
             id: number
             tx_date: string
@@ -47,10 +63,10 @@ export async function GET(request: Request) {
                 c.name as category_name
             FROM transactions t
             LEFT JOIN categories c ON c.id = t.category_id
-            WHERE t.user_id = $1 AND t.country_name = $2
+            WHERE t.user_id = $1 AND t.country_instance_id = $2
             ORDER BY t.tx_date DESC, t.id DESC
             LIMIT 500`,
-            [userId, country]
+            [userId, instanceId]
         )
 
         const transactions: CountryTransaction[] = rows.map(row => ({
@@ -68,7 +84,9 @@ export async function GET(request: Request) {
             .reduce((sum, t) => sum + Math.abs(t.amount), 0)
 
         const response: CountryTransactionsResponse = {
-            country,
+            country: instance.country_name,
+            label: instance.label,
+            instance_id: instance.id,
             transactions,
             total
         }

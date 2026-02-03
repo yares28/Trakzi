@@ -60,6 +60,8 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
   const containerRef = React.useRef<HTMLDivElement>(null)
   const [tooltip, setTooltip] = React.useState<{ label: string; value: number; color: string } | null>(null)
   const [tooltipPosition, setTooltipPosition] = React.useState<{ x: number; y: number } | null>(null)
+  // Track if we've received a real mouse position to prevent flash at (0,0)
+  const [hasValidPosition, setHasValidPosition] = React.useState(false)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
 
   const renderInfoTrigger = (forFullscreen = false) => (
@@ -104,35 +106,31 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
 
 
   // ECharts event handlers for custom tooltip
-  const handleChartMouseOver = (params: any, event?: any) => {
+  const handleChartMouseOver = (params: any) => {
     if (!containerRef.current) return
-
-    const echartsInstance = chartRef.current?.getEchartsInstance()
-    if (!echartsInstance) return
 
     const rect = containerRef.current.getBoundingClientRect()
     let mouseX = 0
     let mouseY = 0
 
-    if (event && event.offsetX !== undefined && event.offsetY !== undefined) {
-      mouseX = event.offsetX
-      mouseY = event.offsetY
-    } else if (event && event.clientX !== undefined && event.clientY !== undefined) {
-      mouseX = event.clientX - rect.left
-      mouseY = event.clientY - rect.top
-    } else {
-      const zr = echartsInstance.getZr()
-      const handler = zr.handler
-      if (handler && handler.lastOffset) {
-        mouseX = handler.lastOffset[0]
-        mouseY = handler.lastOffset[1]
+    // ECharts stores the native DOM event at params.event (or params.event.event in some versions)
+    const ecEvent = (params?.event?.event || params?.event) as MouseEvent | undefined
+
+    if (ecEvent) {
+      // Use viewport coordinates (clientX/clientY) since tooltip uses fixed positioning in portal
+      if (typeof ecEvent.clientX === "number" && typeof ecEvent.clientY === "number") {
+        mouseX = ecEvent.clientX
+        mouseY = ecEvent.clientY
+      } else if (typeof (ecEvent as any).offsetX === "number" && typeof (ecEvent as any).offsetY === "number") {
+        // Convert offset to viewport coordinates
+        mouseX = rect.left + (ecEvent as any).offsetX
+        mouseY = rect.top + (ecEvent as any).offsetY
       }
     }
 
-    setTooltipPosition({
-      x: mouseX,
-      y: mouseY,
-    })
+    // Set position immediately - no flash because we have real coordinates from the DOM event
+    setTooltipPosition({ x: mouseX, y: mouseY })
+    setHasValidPosition(true)
 
     if (params && params.data) {
       const id: string = params.data?.id || ""
@@ -167,6 +165,7 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
   const handleChartMouseOut = () => {
     setTooltip(null)
     setTooltipPosition(null)
+    setHasValidPosition(false)
   }
 
   // Track mouse movement for tooltip positioning (viewport coordinates for portal)
@@ -178,6 +177,8 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
           x: e.clientX,
           y: e.clientY,
         })
+        // Only mark position as valid once we have real mouse coordinates
+        if (!hasValidPosition) setHasValidPosition(true)
       }
 
       window.addEventListener('mousemove', handleMouseMove)
@@ -185,7 +186,7 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
         window.removeEventListener('mousemove', handleMouseMove)
       }
     }
-  }, [tooltip])
+  }, [tooltip, hasValidPosition])
 
   const { seriesData, maxDepth, labelMap } = React.useMemo(() => {
     if (!data || data.length === 0) {
@@ -541,8 +542,8 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
                 mouseout: handleChartMouseOut,
               }}
             />
-            {/* Tooltip rendered via portal for proper viewport boundary handling */}
-            {mounted && tooltip && tooltipPosition && createPortal(
+            {/* Tooltip rendered via portal - only after valid mouse coordinates to prevent flash */}
+            {mounted && tooltip && tooltipPosition && hasValidPosition && createPortal(
               <div
                 className="pointer-events-none fixed z-[9999] rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl select-none"
                 style={{

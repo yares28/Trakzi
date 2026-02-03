@@ -7,7 +7,7 @@ import { format } from "date-fns"
 
 import { useCurrency } from "@/components/currency-provider"
 import { formatDateForDisplay } from "@/lib/date"
-import type { UnlinkedTransactionsResponse, CountryTransaction } from "@/lib/types/world-map"
+import type { UnlinkedTransactionsResponse, CountryTransaction, CountryInstancesResponse } from "@/lib/types/world-map"
 
 import {
     Dialog,
@@ -65,6 +65,7 @@ export const AddCountryDialog = memo(function AddCountryDialog({
     const { formatCurrency } = useCurrency()
 
     const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
+    const [countryLabel, setCountryLabel] = useState<string>("")
     const [selectedTransactions, setSelectedTransactions] = useState<Set<number>>(new Set())
     const [searchFilter, setSearchFilter] = useState("")
     const [categoryFilter, setCategoryFilter] = useState<string>("all")
@@ -72,12 +73,36 @@ export const AddCountryDialog = memo(function AddCountryDialog({
     const [endDate, setEndDate] = useState<Date | undefined>(undefined)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [labelError, setLabelError] = useState<string | null>(null)
 
     // Fetch ALL unlinked transactions (no limit)
     const { data, isLoading } = useSWR<UnlinkedTransactionsResponse>(
         open ? `/api/world-map/unlinked-transactions` : null,
         fetcher
     )
+
+    // Fetch existing instances for selected country to show existing labels
+    const { data: existingInstances } = useSWR<CountryInstancesResponse>(
+        open && selectedCountry ? `/api/world-map/instances` : null,
+        fetcher
+    )
+
+    // Filter instances for selected country
+    const countryInstances = useMemo(() => {
+        if (!existingInstances || !selectedCountry) return []
+        return existingInstances.instances.filter(inst => inst.country_name === selectedCountry)
+    }, [existingInstances, selectedCountry])
+
+    // Update label when country changes (default to country name)
+    const handleCountrySelect = useCallback((country: string | null) => {
+        setSelectedCountry(country)
+        if (country) {
+            // Default label to country name, but user can change it
+            setCountryLabel(country)
+        } else {
+            setCountryLabel("")
+        }
+    }, [])
 
     // Get unique categories from transactions
     const uniqueCategories = useMemo(() => {
@@ -177,28 +202,57 @@ export const AddCountryDialog = memo(function AddCountryDialog({
 
     // Handle submit
     const handleSubmit = async () => {
-        if (!selectedCountry || selectedTransactions.size === 0) return
+        if (!selectedCountry || selectedTransactions.size === 0 || !countryLabel.trim()) return
 
         setIsSubmitting(true)
         setError(null)
+        setLabelError(null)
 
         try {
-            const response = await fetch('/api/world-map/links', {
+            // Step 1: Create country instance
+            const createResponse = await fetch('/api/world-map/instances', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     country_name: selectedCountry,
+                    label: countryLabel.trim()
+                })
+            })
+
+            if (!createResponse.ok) {
+                const errorData = await createResponse.json()
+                const errorMessage = errorData.error || 'Failed to create country instance'
+                
+                // Check if it's a duplicate label error (409 conflict)
+                if (createResponse.status === 409) {
+                    setLabelError(errorMessage)
+                    return
+                }
+                
+                throw new Error(errorMessage)
+            }
+
+            const { instance } = await createResponse.json()
+
+            // Step 2: Link transactions to the instance
+            const linkResponse = await fetch('/api/world-map/links', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    country_instance_id: instance.id,
                     transaction_ids: Array.from(selectedTransactions)
                 })
             })
 
-            if (!response.ok) {
-                const errorData = await response.json()
+            if (!linkResponse.ok) {
+                const errorData = await linkResponse.json()
+                // If linking fails, try to clean up the instance (optional)
                 throw new Error(errorData.error || 'Failed to link transactions')
             }
 
             // Reset state and close
             setSelectedCountry(null)
+            setCountryLabel("")
             setSelectedTransactions(new Set())
             clearFilters()
             onOpenChange(false)
@@ -211,13 +265,23 @@ export const AddCountryDialog = memo(function AddCountryDialog({
         }
     }
 
+    // Clear label error when label changes
+    const handleLabelChange = useCallback((value: string) => {
+        setCountryLabel(value)
+        if (labelError) {
+            setLabelError(null)
+        }
+    }, [labelError])
+
     // Reset state when dialog closes
     const handleOpenChange = (newOpen: boolean) => {
         if (!newOpen) {
             setSelectedCountry(null)
+            setCountryLabel("")
             setSelectedTransactions(new Set())
             clearFilters()
             setError(null)
+            setLabelError(null)
         }
         onOpenChange(newOpen)
     }
@@ -237,11 +301,38 @@ export const AddCountryDialog = memo(function AddCountryDialog({
                         <Label htmlFor="country-select">Country</Label>
                         <CountrySelect
                             value={selectedCountry}
-                            onSelect={setSelectedCountry}
-                            excludeCountries={existingCountries}
+                            onSelect={handleCountrySelect}
+                            excludeCountries={[]}  // Allow same country multiple times now
                             placeholder="Search for a country..."
                         />
                     </div>
+
+                    {/* Label Input */}
+                    {selectedCountry && (
+                        <div className="space-y-2">
+                            <Label htmlFor="country-label">Label (e.g., "Japan Trip 1")</Label>
+                            <Input
+                                id="country-label"
+                                value={countryLabel}
+                                onChange={(e) => handleLabelChange(e.target.value)}
+                                placeholder={`e.g., "${selectedCountry} Trip 1"`}
+                                maxLength={100}
+                                className={labelError ? "border-destructive focus-visible:ring-destructive" : ""}
+                                aria-invalid={!!labelError}
+                                aria-describedby={labelError ? "label-error" : undefined}
+                            />
+                            {labelError ? (
+                                <div id="label-error" className="flex items-start gap-2 text-sm text-destructive">
+                                    <span className="mt-0.5">⚠</span>
+                                    <span>{labelError}</span>
+                                </div>
+                            ) : countryInstances.length > 0 ? (
+                                <div className="text-xs text-muted-foreground">
+                                    Existing labels: {countryInstances.map(inst => inst.label).join(", ")}
+                                </div>
+                            ) : null}
+                        </div>
+                    )}
 
                     {/* Transaction Selection */}
                     {selectedCountry && (
@@ -427,10 +518,11 @@ export const AddCountryDialog = memo(function AddCountryDialog({
                         </>
                     )}
 
-                    {/* Error message */}
+                    {/* General error message (for non-label errors) */}
                     {error && (
-                        <div className="text-sm text-red-600 dark:text-red-400">
-                            {error}
+                        <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 dark:bg-destructive/20 p-3 rounded-md border border-destructive/20">
+                            <span className="mt-0.5">⚠</span>
+                            <span>{error}</span>
                         </div>
                     )}
                 </div>
@@ -443,7 +535,7 @@ export const AddCountryDialog = memo(function AddCountryDialog({
                     </DialogClose>
                     <Button
                         onClick={handleSubmit}
-                        disabled={!selectedCountry || selectedTransactions.size === 0 || isSubmitting}
+                        disabled={!selectedCountry || !countryLabel.trim() || selectedTransactions.size === 0 || isSubmitting}
                     >
                         {isSubmitting ? (
                             <>
