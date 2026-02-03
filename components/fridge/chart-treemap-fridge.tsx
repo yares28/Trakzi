@@ -245,7 +245,7 @@ export const ChartTreeMapFridge = memo(function ChartTreeMapFridge({ receiptTran
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-          <ChartLoadingState isLoading={isLoading} />
+          <ChartLoadingState isLoading={isLoading} skeletonType="grid" />
         </CardContent>
       </Card>
     )

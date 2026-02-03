@@ -1616,7 +1616,12 @@ export default function AnalyticsPage() {
     let sortedTimePeriods = Array.from(allTimePeriods).sort((a, b) => a.localeCompare(b))
     // Area Bump needs at least 2 x-points to render; duplicate single period so the band is visible
     if (sortedTimePeriods.length === 1) {
-      sortedTimePeriods = [sortedTimePeriods[0], sortedTimePeriods[0]]
+      const sole = sortedTimePeriods[0]
+      const soleContinuation = sole + "\u200B"
+      sortedTimePeriods = [sole, soleContinuation]
+      categoryMap.forEach((periods) => {
+        periods.set(soleContinuation, periods.get(sole) ?? 0)
+      })
     }
 
     const periodTotals = new Map<string, number>()

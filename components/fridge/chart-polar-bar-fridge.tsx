@@ -137,7 +137,7 @@ export const ChartPolarBarFridge = memo(function ChartPolarBarFridge({
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
         {!hasData ? (
-          <ChartLoadingState isLoading={isLoading} />
+          <ChartLoadingState isLoading={isLoading} skeletonType="pie" />
         ) : (
           <div className="h-full w-full">
             <ResponsivePolarBar

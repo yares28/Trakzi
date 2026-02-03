@@ -14,11 +14,11 @@ interface PieSkeletonProps {
 export const PieSkeleton = memo(function PieSkeleton({ className }: PieSkeletonProps) {
   // Create donut segments at different angles
   const segments = [
-    { start: 0, end: 90, delay: "0ms", opacity: "1" },
-    { start: 90, end: 160, delay: "80ms", opacity: "0.8" },
-    { start: 160, end: 220, delay: "160ms", opacity: "0.6" },
-    { start: 220, end: 280, delay: "240ms", opacity: "0.7" },
-    { start: 280, end: 360, delay: "320ms", opacity: "0.5" },
+    { start: 0, end: 90, delay: "0ms", opacity: 1 },
+    { start: 90, end: 160, delay: "80ms", opacity: 0.8 },
+    { start: 160, end: 220, delay: "160ms", opacity: 0.6 },
+    { start: 220, end: 280, delay: "240ms", opacity: 0.7 },
+    { start: 280, end: 360, delay: "320ms", opacity: 0.5 },
   ]
 
   // Helper to convert angle to SVG arc path
@@ -53,7 +53,8 @@ export const PieSkeleton = memo(function PieSkeleton({ className }: PieSkeletonP
         <path
           key={i}
           d={describeArc(segment.start + 2, segment.end - 2, 20, 38)}
-          className="fill-muted animate-pulse"
+          fill="currentColor"
+          className="text-muted animate-pulse"
           style={{
             animationDelay: segment.delay,
             opacity: segment.opacity

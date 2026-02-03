@@ -1,6 +1,7 @@
 // app/api/cache/invalidate/route.ts
-// Endpoint to invalidate user cache (useful after code changes that affect cached data)
+// Endpoint to invalidate user cache (e.g. on logout or after code changes)
 
+import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth";
 import { invalidateUserCache, invalidateUserCachePrefix } from "@/lib/cache/upstash";
@@ -39,9 +40,18 @@ export async function POST(request: NextRequest) {
                 userId: userId.substring(0, 8) + "...",
             });
         } else {
-            // Invalidate all user cache
+            // Invalidate all user cache (Redis)
             await invalidateUserCache(userId);
-            
+
+            // Revalidate Next/Vercel server cache for main routes so no stale data is served
+            const paths = [
+                "/", "/analytics", "/home", "/fridge", "/savings", "/trends",
+                "/data-library", "/world-map", "/billing", "/testCharts",
+            ];
+            for (const path of paths) {
+                revalidatePath(path);
+            }
+
             return NextResponse.json({
                 success: true,
                 message: "All user cache invalidated",
@@ -74,6 +84,8 @@ export async function GET(request: NextRequest) {
 
         if (all === "true") {
             await invalidateUserCache(userId);
+            const paths = ["/", "/analytics", "/home", "/fridge", "/savings", "/trends", "/data-library", "/world-map", "/billing", "/testCharts"];
+            for (const path of paths) revalidatePath(path);
             return NextResponse.json({
                 success: true,
                 message: "All user cache invalidated",

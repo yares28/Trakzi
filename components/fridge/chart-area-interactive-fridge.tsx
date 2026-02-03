@@ -121,6 +121,7 @@ export const ChartAreaInteractiveFridge = React.memo(function ChartAreaInteracti
                         <div className="h-[250px] w-full flex items-center justify-center">
                             <ChartLoadingState
                                 isLoading={false}
+                                skeletonType="area"
                                 emptyTitle="No data yet"
                                 emptyDescription="Import your bank statements or receipts to see insights here"
                                 emptyIcon="receipt"

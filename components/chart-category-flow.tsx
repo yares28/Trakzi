@@ -189,6 +189,8 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
 
   // Month abbreviation helper - converts various formats to "Jan'25" style
   const getMonthAbbreviation = (monthStr: string): string => {
+    // Single-period continuation tick (distinct x for layout, hide label)
+    if (monthStr.endsWith("\u200B")) return ""
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     
     // Handle YYYY-MM format (e.g., "2025-02")
