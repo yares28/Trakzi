@@ -19,7 +19,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 
 interface CountryTransactionsDialogProps {
-    country: string | null
+    instanceId: number | null
     open: boolean
     onOpenChange: (open: boolean) => void
 }
@@ -27,7 +27,7 @@ interface CountryTransactionsDialogProps {
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
 export const CountryTransactionsDialog = memo(function CountryTransactionsDialog({
-    country,
+    instanceId,
     open,
     onOpenChange,
 }: CountryTransactionsDialogProps) {
@@ -35,11 +35,11 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
 
     // Fetch transactions when dialog opens
     const { data, isLoading, error } = useSWR<CountryTransactionsResponse>(
-        open && country ? `/api/world-map/transactions?country=${encodeURIComponent(country)}` : null,
+        open && instanceId ? `/api/world-map/transactions?instance_id=${instanceId}` : null,
         fetcher
     )
 
-    const countryCode = country ? getCountryCode(country) : null
+    const countryCode = data?.country ? getCountryCode(data.country) : null
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -54,13 +54,13 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
                                     width: "1.5em",
                                     height: "1.5em",
                                 }}
-                                title={country || undefined}
-                                aria-label={country ? `Flag of ${country}` : undefined}
+                                title={data?.country || undefined}
+                                aria-label={data?.country ? `Flag of ${data.country}` : undefined}
                             />
                         ) : (
                             <span className="text-2xl">🌍</span>
                         )}
-                        <span>{country} Transactions</span>
+                        <span>{data?.label || data?.country || 'Transactions'}</span>
                     </DialogTitle>
                 </DialogHeader>
 

@@ -1,12 +1,26 @@
 // lib/types/world-map.ts
 
 /**
+ * Country instance - represents a user's custom labeled country tracking
+ */
+export interface CountryInstance {
+    id: number
+    user_id: string
+    country_name: string  // GeoJSON country name (e.g., "Japan")
+    label: string         // Custom display label (e.g., "Japan Trip 1")
+    created_at: string
+    updated_at: string
+}
+
+/**
  * Country data for world map visualization
  * id must match GeoJSON properties.name exactly
  */
 export interface CountryData {
-    id: string    // country_name (matches GeoJSON properties.name)
-    value: number // total spent (absolute value of expenses)
+    id: string         // country_name (matches GeoJSON properties.name) - for map matching
+    instance_id: number // country_instances.id - unique identifier for this instance
+    label: string      // Custom label for display (e.g., "Japan Trip 1")
+    value: number      // total spent (absolute value of expenses)
 }
 
 /**
@@ -34,11 +48,19 @@ export interface CountryCardData extends CountryData {
 }
 
 /**
- * Request body for linking transactions to a country
+ * Request body for linking transactions to a country instance
  */
 export interface LinkTransactionsRequest {
-    country_name: string
+    country_instance_id: number  // ID of the country instance to link to
     transaction_ids: number[]
+}
+
+/**
+ * Request body for creating a new country instance
+ */
+export interface CreateCountryInstanceRequest {
+    country_name: string  // GeoJSON country name
+    label: string         // Custom label (e.g., "Japan Trip 1")
 }
 
 /**
@@ -64,9 +86,25 @@ export interface CountryTransaction {
  * Response from GET /api/world-map/transactions
  */
 export interface CountryTransactionsResponse {
-    country: string
+    country: string      // country_name (GeoJSON name)
+    label: string       // Custom label for display
+    instance_id: number // country_instances.id
     transactions: CountryTransaction[]
     total: number
+}
+
+/**
+ * Response from GET /api/world-map/instances
+ */
+export interface CountryInstancesResponse {
+    instances: CountryInstance[]
+}
+
+/**
+ * Response from POST /api/world-map/instances
+ */
+export interface CreateCountryInstanceResponse {
+    instance: CountryInstance
 }
 
 /**

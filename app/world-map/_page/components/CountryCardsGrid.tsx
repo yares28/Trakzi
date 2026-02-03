@@ -28,7 +28,7 @@ export const CountryCardsGrid = memo(function CountryCardsGrid({
     onCountryDeleted,
     isMockData = false,
 }: CountryCardsGridProps) {
-    const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
+    const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null)
     const [deletedMockCountries, setDeletedMockCountries] = useState<Set<string>>(new Set())
 
     // Filter out deleted mock countries
@@ -36,42 +36,29 @@ export const CountryCardsGrid = memo(function CountryCardsGrid({
         ? countries.filter(c => !deletedMockCountries.has(c.id))
         : countries
 
-    const handleDeleteCountry = useCallback(async (countryName: string) => {
+    const handleDeleteCountry = useCallback(async (instanceId: number, countryName: string) => {
         // For mock data, just hide the card locally
         if (isMockData) {
             setDeletedMockCountries(prev => new Set([...prev, countryName]))
             return
         }
 
-        // For real data, unlink transactions from the country
+        // For real data, delete the instance (transactions are automatically unlinked via ON DELETE SET NULL)
         try {
-            // 1) Fetch all transactions linked to this country
-            const txRes = await fetch(`/api/world-map/transactions?country=${encodeURIComponent(countryName)}`)
-            if (!txRes.ok) {
-                console.error("Failed to load country transactions for unlink", await txRes.text())
+            const deleteRes = await fetch(`/api/world-map/instances?id=${instanceId}`, {
+                method: 'DELETE',
+            })
+
+            if (!deleteRes.ok) {
+                const errorData = await deleteRes.json()
+                console.error("Failed to delete country instance", instanceId, errorData.error)
                 return
             }
-            const data: CountryTransactionsResponse = await txRes.json()
-            const ids = data.transactions.map(tx => tx.id)
 
-            // 2) If there are transactions, unlink them
-            if (ids.length > 0) {
-                const unlinkRes = await fetch('/api/world-map/links', {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ transaction_ids: ids }),
-                })
-
-                if (!unlinkRes.ok) {
-                    console.error("Failed to unlink transactions for country", countryName, await unlinkRes.text())
-                    return
-                }
-            }
-
-            // 3) Notify parent to refresh data
+            // Notify parent to refresh data
             onCountryDeleted?.()
         } catch (err) {
-            console.error("Error unlinking country transactions", err)
+            console.error("Error deleting country instance", err)
         }
     }, [isMockData, onCountryDeleted])
 
@@ -123,21 +110,24 @@ export const CountryCardsGrid = memo(function CountryCardsGrid({
             <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @md/main:grid-cols-2 @3xl/main:grid-cols-3">
                 {visibleCountries.map((country) => (
                     <CountryCard
-                        key={country.id}
+                        key={`${country.instance_id}-${country.id}`}
+                        instanceId={country.instance_id}
                         countryName={country.id}
+                        label={country.label}
                         totalSpent={country.value}
-                        onViewTransactions={() => setSelectedCountry(country.id)}
-                        onDeleteCountry={() => handleDeleteCountry(country.id)}
+                        onViewTransactions={() => setSelectedInstanceId(country.instance_id)}
+                        onDeleteCountry={() => handleDeleteCountry(country.instance_id, country.id)}
+                        onLabelUpdated={onCountryDeleted}
                     />
                 ))}
             </div>
 
             {/* Transactions Dialog */}
             <CountryTransactionsDialog
-                country={selectedCountry}
-                open={selectedCountry !== null}
+                instanceId={selectedInstanceId}
+                open={selectedInstanceId !== null}
                 onOpenChange={(open) => {
-                    if (!open) setSelectedCountry(null)
+                    if (!open) setSelectedInstanceId(null)
                 }}
             />
         </>

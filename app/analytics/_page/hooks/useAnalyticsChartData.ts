@@ -449,7 +449,12 @@ export function useAnalyticsChartData({
         periodTotals.set(monthKey, (periodTotals.get(monthKey) || 0) + m.total)
       })
 
-      const sortedPeriods = Array.from(monthTotals.keys()).sort(sortPeriodKeys)
+      let sortedPeriods = Array.from(monthTotals.keys()).sort(sortPeriodKeys)
+      // Area Bump needs at least 2 x-points to render; duplicate single period so the band is visible
+      if (sortedPeriods.length === 1) {
+        const sole = sortedPeriods[0]
+        sortedPeriods = [sole, sole]
+      }
       const data = Array.from(categorySet)
         .filter(c => !categoryFlowVisibility.hiddenCategorySet.has(c))
         .map(category => ({
@@ -526,7 +531,11 @@ export function useAnalyticsChartData({
       return { data: [], categories: Array.from(categorySet) }
     }
 
-    const sortedTimePeriods = Array.from(allTimePeriods).sort(sortPeriodKeys)
+    let sortedTimePeriods = Array.from(allTimePeriods).sort(sortPeriodKeys)
+    // Area Bump needs at least 2 x-points to render; duplicate single period so the band is visible
+    if (sortedTimePeriods.length === 1) {
+      sortedTimePeriods = [sortedTimePeriods[0], sortedTimePeriods[0]]
+    }
     const periodTotals = new Map<string, number>()
     sortedTimePeriods.forEach((period) => {
       let total = 0

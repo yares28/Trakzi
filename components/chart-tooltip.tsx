@@ -38,6 +38,8 @@ export const ChartTooltipWrapper = memo(function ChartTooltipWrapper({
   const tooltipRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [mounted, setMounted] = useState(false)
+  // Track if we've received a real mouse position to prevent flash at (0,0)
+  const [hasPosition, setHasPosition] = useState(false)
 
   // Track mouse position for tooltip placement
   useEffect(() => {
@@ -45,6 +47,8 @@ export const ChartTooltipWrapper = memo(function ChartTooltipWrapper({
 
     const handleMouseMove = (e: MouseEvent) => {
       setPosition({ x: e.clientX, y: e.clientY })
+      // Mark that we now have a valid position
+      if (!hasPosition) setHasPosition(true)
     }
 
     // Use capture phase to get position before Nivo processes it
@@ -53,17 +57,21 @@ export const ChartTooltipWrapper = memo(function ChartTooltipWrapper({
     return () => {
       document.removeEventListener("mousemove", handleMouseMove)
     }
-  }, [])
+  }, [hasPosition])
 
   // Calculate position with viewport boundary awareness
   const getTooltipStyle = (): React.CSSProperties => {
+    const baseStyles: React.CSSProperties = {
+      position: "fixed",
+      zIndex: 9999,
+      pointerEvents: "none",
+    }
+
     if (!mounted || !tooltipRef.current) {
       return {
-        position: "fixed",
+        ...baseStyles,
         left: position.x + 12,
         top: position.y + 12,
-        zIndex: 9999,
-        pointerEvents: "none",
       }
     }
 
@@ -99,11 +107,9 @@ export const ChartTooltipWrapper = memo(function ChartTooltipWrapper({
     }
 
     return {
-      position: "fixed",
+      ...baseStyles,
       left,
       top,
-      zIndex: 9999,
-      pointerEvents: "none",
     }
   }
 
@@ -126,8 +132,8 @@ export const ChartTooltipWrapper = memo(function ChartTooltipWrapper({
     </div>
   )
 
-  // Render in portal to escape Nivo's container
-  if (!mounted) {
+  // Don't render until we have valid mouse coordinates to prevent flash at top-left
+  if (!mounted || !hasPosition) {
     return null
   }
 
