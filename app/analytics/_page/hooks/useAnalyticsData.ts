@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
+import { useAuth } from "@clerk/nextjs"
 
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import { normalizeTransactions } from "@/lib/utils"
@@ -8,24 +9,33 @@ import type { AnalyticsTransaction } from "../types"
 import { getAnalyticsCacheEntry, getAnalyticsCacheKey, isAnalyticsCacheFresh, setAnalyticsCacheEntry } from "../cache"
 
 export function useAnalyticsData(dateFilter: string | null) {
-  const analyticsCacheEntry = getAnalyticsCacheEntry(dateFilter)
+  const { userId } = useAuth()
+  const analyticsCacheEntry = getAnalyticsCacheEntry(userId, dateFilter)
 
-  // Transactions state
+  // Transactions state (keyed by user: when userId changes we reset so we don't show previous user's data)
   const [rawTransactions, setRawTransactions] = useState<AnalyticsTransaction[]>(
     () => analyticsCacheEntry?.transactions ?? [],
   )
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(
     () => !analyticsCacheEntry,
   )
-  // Independent limits used ONLY for Spending Activity Rings card
   const [ringLimits, setRingLimits] = useState<Record<string, number>>(
     () => analyticsCacheEntry?.ringLimits ?? {},
   )
 
+  // When user or filter changes, sync state from cache (or empty for new user) so we don't show previous user's data
+  useEffect(() => {
+    if (!userId) return
+    const entry = getAnalyticsCacheEntry(userId, dateFilter)
+    setRawTransactions(entry?.transactions ?? [])
+    setRingLimits(entry?.ringLimits ?? {})
+    setIsLoadingTransactions(!entry)
+  }, [userId, dateFilter])
+
   // Fetch ALL analytics data in parallel for maximum performance
   const fetchAllAnalyticsData = useCallback(async () => {
-    const cacheKey = getAnalyticsCacheKey(dateFilter)
-    const cachedEntry = getAnalyticsCacheEntry(dateFilter)
+    const cacheKey = getAnalyticsCacheKey(userId, dateFilter)
+    const cachedEntry = getAnalyticsCacheEntry(userId, dateFilter)
     const hasFreshCache = cachedEntry ? isAnalyticsCacheFresh(cachedEntry) : false
 
     if (cachedEntry) {
@@ -114,8 +124,8 @@ export function useAnalyticsData(dateFilter: string | null) {
 
       setRingLimits(nextRingLimits)
 
-      // Update cache even if empty, so we don't hit the API again for empty filters
-      setAnalyticsCacheEntry(dateFilter, {
+      // Update cache even if empty, so we don't hit the API again for empty filters (keyed by userId)
+      setAnalyticsCacheEntry(userId, dateFilter, {
         transactions: nextTransactions,
         ringLimits: nextRingLimits,
         fetchedAt: Date.now(),
@@ -129,12 +139,13 @@ export function useAnalyticsData(dateFilter: string | null) {
     } finally {
       setIsLoadingTransactions(false)
     }
-  }, [dateFilter])
+  }, [userId, dateFilter])
 
-  // Fetch all data on mount and when filter changes
+  // Fetch all data when user and filter are set (don't fetch with stale or missing user)
   useEffect(() => {
+    if (!userId) return
     fetchAllAnalyticsData()
-  }, [fetchAllAnalyticsData])
+  }, [userId, fetchAllAnalyticsData])
 
   return {
     rawTransactions,

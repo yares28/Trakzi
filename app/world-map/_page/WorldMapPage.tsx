@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState, useCallback } from "react"
+import { useAuth } from "@clerk/nextjs"
 import useSWR from "swr"
 
 import type { WorldMapBundleResponse } from "@/lib/types/world-map"
@@ -25,12 +26,13 @@ const fetcher = (url: string) => fetch(url).then(res => {
 })
 
 export default function WorldMapPage() {
+    const { userId } = useAuth()
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
 
-    // Fetch world map data from bundle API
+    // Fetch world map data from bundle API (key includes userId so cache is per-user)
     const { data, isLoading, error, mutate } = useSWR<WorldMapBundleResponse>(
-        '/api/charts/world-map-bundle',
-        fetcher,
+        userId ? ['/api/charts/world-map-bundle', userId] : null,
+        ([url]) => fetcher(url),
         {
             revalidateOnFocus: false,
             dedupingInterval: 30000, // 30 seconds
