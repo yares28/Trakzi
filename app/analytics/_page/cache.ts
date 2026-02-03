@@ -3,10 +3,10 @@ import type { AnalyticsCacheEntry } from "./types"
 
 const analyticsDataCache = new Map<string, AnalyticsCacheEntry>()
 
-export const getAnalyticsCacheKey = (userId: string | undefined, filter?: string | null) =>
+export const getAnalyticsCacheKey = (userId: string | undefined, filter?: string | null | undefined) =>
   [userId ?? "", filter ?? "all"].join(":")
 
-export const getAnalyticsCacheEntry = (userId: string | undefined, filter?: string | null) => {
+export const getAnalyticsCacheEntry = (userId: string | undefined, filter?: string | null | undefined) => {
   const cacheKey = getAnalyticsCacheKey(userId, filter)
   return analyticsDataCache.get(cacheKey) || null
 }

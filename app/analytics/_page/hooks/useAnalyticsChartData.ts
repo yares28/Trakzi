@@ -438,39 +438,66 @@ export function useAnalyticsChartData({
     if (bundleData?.monthlyCategories && bundleData.monthlyCategories.length > 0) {
       const categorySet = new Set<string>(bundleData.monthlyCategories.map(m => m.category))
 
-      // Group by month
+      // Group by month - collect totals per category per month
       const monthTotals = new Map<string, Map<string, number>>()
-      const periodTotals = new Map<string, number>()
 
       bundleData.monthlyCategories.forEach(m => {
         const monthKey = String(m.month).padStart(2, '0')
         if (!monthTotals.has(monthKey)) monthTotals.set(monthKey, new Map())
         monthTotals.get(monthKey)!.set(m.category, m.total)
-        periodTotals.set(monthKey, (periodTotals.get(monthKey) || 0) + m.total)
       })
 
       let sortedPeriods = Array.from(monthTotals.keys()).sort(sortPeriodKeys)
-      // Area Bump needs 2 distinct x-points to draw the band; use a continuation key so layout renders correctly
+
+      // Get all unique categories (filtered by visibility)
+      const visibleCategories = Array.from(categorySet).filter(c => !categoryFlowVisibility.hiddenCategorySet.has(c))
+
+      // Calculate rankings per period (rank 1 = highest spending)
+      const categoryRankings = new Map<string, { x: string; y: number }[]>()
+      visibleCategories.forEach(cat => categoryRankings.set(cat, []))
+
+      sortedPeriods.forEach(period => {
+        const catMap = monthTotals.get(period)!
+        // Get totals for all visible categories
+        const totals: { category: string; total: number }[] = []
+        visibleCategories.forEach(cat => {
+          totals.push({ category: cat, total: catMap.get(cat) || 0 })
+        })
+        // Sort by total descending to assign ranks
+        totals.sort((a, b) => b.total - a.total)
+        // Assign ranks (1 = highest spending)
+        totals.forEach((item, index) => {
+          categoryRankings.get(item.category)!.push({ x: period, y: index + 1 })
+        })
+      })
+
+      // Area Bump needs 2 distinct x-points to draw the band
       if (sortedPeriods.length === 1) {
         const sole = sortedPeriods[0]
         const soleContinuation = sole + "\u200B" // zero-width space = distinct key, same display
-        const soleData = monthTotals.get(sole)!
-        monthTotals.set(soleContinuation, new Map(soleData))
-        periodTotals.set(soleContinuation, periodTotals.get(sole) ?? 0)
         sortedPeriods = [sole, soleContinuation]
+        // Duplicate rankings for continuation
+        visibleCategories.forEach(cat => {
+          const rankings = categoryRankings.get(cat)!
+          if (rankings.length > 0) {
+            rankings.push({ x: soleContinuation, y: rankings[0].y })
+          }
+        })
       }
-      const data = Array.from(categorySet)
-        .filter(c => !categoryFlowVisibility.hiddenCategorySet.has(c))
-        .map(category => ({
-          id: category,
-          data: sortedPeriods.map(period => {
-            const value = monthTotals.get(period)?.get(category) || 0
-            const total = periodTotals.get(period) || 1
-            const percentage = total > 0 ? (value / total) * 100 : 0
-            return { x: period, y: Math.max(percentage, 0.1) }
-          })
-        }))
-        .filter(series => series.data.some(p => p.y > 0.1))
+
+      // Get top 5 categories by total spending
+      const categoryTotals: { category: string; total: number }[] = []
+      visibleCategories.forEach(cat => {
+        let total = 0
+        monthTotals.forEach(catMap => total += catMap.get(cat) || 0)
+        categoryTotals.push({ category: cat, total })
+      })
+      categoryTotals.sort((a, b) => b.total - a.total)
+
+      const data = categoryTotals.slice(0, 5).map(item => ({
+        id: item.category,
+        data: categoryRankings.get(item.category) || []
+      })).filter(series => series.data.length > 0)
 
       return { data, categories: Array.from(categorySet) }
     }
@@ -493,8 +520,10 @@ export function useAnalyticsChartData({
 
       switch (dateFilter) {
         case "last7days":
+          // Daily grouping for 7 days
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
         case "last30days":
-          // For short periods, use weeks
+          // Weekly grouping for 30 days
           const weekStart = new Date(date)
           weekStart.setDate(date.getDate() - date.getDay()) // Start of week (Sunday)
           return `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, "0")}-${String(weekStart.getDate()).padStart(2, "0")}`
@@ -536,37 +565,56 @@ export function useAnalyticsChartData({
     }
 
     let sortedTimePeriods = Array.from(allTimePeriods).sort(sortPeriodKeys)
-    // Area Bump needs 2 distinct x-points to draw the band; use a continuation key so layout renders correctly
+
+    // Get all visible categories
+    const visibleCategories = Array.from(categoryMap.keys())
+
+    // Calculate rankings per period (rank 1 = highest spending)
+    const categoryRankings = new Map<string, { x: string; y: number }[]>()
+    visibleCategories.forEach(cat => categoryRankings.set(cat, []))
+
+    sortedTimePeriods.forEach(period => {
+      // Get totals for all visible categories for this period
+      const totals: { category: string; total: number }[] = []
+      visibleCategories.forEach(category => {
+        const periodMap = categoryMap.get(category)
+        totals.push({ category, total: periodMap?.get(period) || 0 })
+      })
+      // Sort by total descending to assign ranks
+      totals.sort((a, b) => b.total - a.total)
+      // Assign ranks (1 = highest spending)
+      totals.forEach((item, index) => {
+        categoryRankings.get(item.category)!.push({ x: period, y: index + 1 })
+      })
+    })
+
+    // Area Bump needs 2 distinct x-points to draw the band
     if (sortedTimePeriods.length === 1) {
       const sole = sortedTimePeriods[0]
       const soleContinuation = sole + "\u200B"
       sortedTimePeriods = [sole, soleContinuation]
-      categoryMap.forEach((periods) => {
-        periods.set(soleContinuation, periods.get(sole) ?? 0)
+      // Duplicate rankings for continuation
+      visibleCategories.forEach(cat => {
+        const rankings = categoryRankings.get(cat)!
+        if (rankings.length > 0) {
+          rankings.push({ x: soleContinuation, y: rankings[0].y })
+        }
       })
     }
-    const periodTotals = new Map<string, number>()
-    sortedTimePeriods.forEach((period) => {
-      let total = 0
-      categoryMap.forEach((periods) => {
-        total += periods.get(period) || 0
-      })
-      periodTotals.set(period, total)
-    })
 
-    const data = Array.from(categoryMap.entries())
-      .map(([category, periods]) => ({
-        id: category,
-        data: sortedTimePeriods.map((period) => {
-          const value = periods.get(period) || 0
-          const total = periodTotals.get(period) || 1
-          const percentage = total > 0 ? (value / total) * 100 : 0
-          return { x: period, y: Math.max(percentage, 0.1) }
-        }),
-      }))
-      .filter((series) => {
-        return series.data.some((point) => point.y > 0.1)
-      })
+    // Get top 5 categories by total spending
+    const categoryTotals: { category: string; total: number }[] = []
+    visibleCategories.forEach(category => {
+      let total = 0
+      categoryMap.get(category)?.forEach(amount => total += amount)
+      categoryTotals.push({ category, total })
+    })
+    categoryTotals.sort((a, b) => b.total - a.total)
+
+    const data = categoryTotals.slice(0, 5).map(item => ({
+      id: item.category,
+      data: categoryRankings.get(item.category) || []
+    })).filter(series => series.data.length > 0)
 
     return {
       data,
