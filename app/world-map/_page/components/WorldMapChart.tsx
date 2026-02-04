@@ -237,13 +237,41 @@ export const WorldMapChart = memo(function WorldMapChart({
     setActiveCountry(feature)
   }
 
-  // Initialize D3 map
+  // Track container dimensions for resize handling
+  const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null)
+
+  // Observe container size changes and set initial dimensions
   useEffect(() => {
-    if (!mounted || !svgRef.current || !containerRef.current) return
+    if (!containerRef.current) return
+
+    // Set initial dimensions immediately (use fallback if container not yet sized)
+    const initialWidth = containerRef.current.clientWidth || 800
+    const initialHeight = containerRef.current.clientHeight || 450
+    if (initialWidth > 0 && initialHeight > 0) {
+      setDimensions({ width: initialWidth, height: initialHeight })
+    }
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (entry) {
+        const { width, height } = entry.contentRect
+        // Update dimensions if we have valid sizes (allow smaller for responsiveness)
+        if (width > 0 && height > 0) {
+          setDimensions({ width, height })
+        }
+      }
+    })
+
+    resizeObserver.observe(containerRef.current)
+    return () => resizeObserver.disconnect()
+  }, [mounted]) // Re-run when mounted changes to ensure container is ready
+
+  // Initialize D3 map - only when mounted and we have valid dimensions
+  useEffect(() => {
+    if (!mounted || !svgRef.current || !containerRef.current || !dimensions) return
 
     const svg = select(svgRef.current)
-    const width = containerRef.current.clientWidth
-    const height = containerRef.current.clientHeight || 500
+    const { width, height } = dimensions
 
     // Clear previous content
     svg.selectAll("*").remove()
@@ -277,16 +305,13 @@ export const WorldMapChart = memo(function WorldMapChart({
     // Apply zoom behavior to SVG
     svg.call(zoomBehavior)
 
-    // Draw countries
+    // Draw countries with initial unknown color (actual colors applied by color update useEffect)
     g.selectAll<SVGPathElement, GeoFeature>("path")
       .data(worldCountries.features)
       .enter()
       .append("path")
       .attr("d", d => path(d) || "")
-      .attr("fill", d => {
-        const value = dataMap.get(d.properties.name)
-        return value !== undefined ? getColor(value) : unknownColor
-      })
+      .attr("fill", unknownColor) // Initial fill, updated by color useEffect
       .attr("stroke", borderColor)
       .attr("stroke-width", 0.5)
       .attr("cursor", "pointer")
@@ -350,12 +375,14 @@ export const WorldMapChart = memo(function WorldMapChart({
     return () => {
       svg.on(".zoom", null)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted, isDark, borderColor, unknownColor, dataMap, getColor])
+  // Only reinitialize when dimensions change or theme changes
+  // Data/color updates are handled by the separate useEffect below
+  }, [mounted, dimensions, isDark, borderColor, unknownColor])
 
   // Update colors when theme/data changes (without reinitializing zoom)
   useEffect(() => {
-    if (!mounted || !svgRef.current) return
+    // Wait for both mount and initialization (dimensions means SVG has paths)
+    if (!mounted || !svgRef.current || !dimensions) return
 
     const svg = select(svgRef.current)
 
@@ -365,7 +392,7 @@ export const WorldMapChart = memo(function WorldMapChart({
         return value !== undefined ? getColor(value) : unknownColor
       })
       .attr("stroke", borderColor)
-  }, [mounted, dataMap, getColor, unknownColor, borderColor])
+  }, [mounted, dimensions, dataMap, getColor, unknownColor, borderColor])
 
   // Loading skeleton
   if (!mounted || isLoading) {

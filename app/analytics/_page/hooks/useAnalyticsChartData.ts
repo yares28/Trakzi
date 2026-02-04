@@ -452,22 +452,29 @@ export function useAnalyticsChartData({
       // Get all unique categories (filtered by visibility)
       const visibleCategories = Array.from(categorySet).filter(c => !categoryFlowVisibility.hiddenCategorySet.has(c))
 
-      // Calculate rankings per period (rank 1 = highest spending)
-      const categoryRankings = new Map<string, { x: string; y: number }[]>()
+      // Calculate rankings and percentages per period (higher y = higher spending = appears at top)
+      const categoryRankings = new Map<string, { x: string; y: number; percentage: number }[]>()
       visibleCategories.forEach(cat => categoryRankings.set(cat, []))
 
       sortedPeriods.forEach(period => {
         const catMap = monthTotals.get(period)!
         // Get totals for all visible categories
         const totals: { category: string; total: number }[] = []
+        let periodTotal = 0
         visibleCategories.forEach(cat => {
-          totals.push({ category: cat, total: catMap.get(cat) || 0 })
+          const catTotal = catMap.get(cat) || 0
+          totals.push({ category: cat, total: catTotal })
+          periodTotal += catTotal
         })
         // Sort by total descending to assign ranks
         totals.sort((a, b) => b.total - a.total)
-        // Assign ranks (1 = highest spending)
+        const numCategories = totals.length
+        // Assign inverted ranks and percentages (higher y = higher spending = top of chart)
         totals.forEach((item, index) => {
-          categoryRankings.get(item.category)!.push({ x: period, y: index + 1 })
+          const percentage = periodTotal > 0 ? (item.total / periodTotal) * 100 : 0
+          // Invert rank so highest spending has highest y value (appears at top)
+          const invertedRank = numCategories - index
+          categoryRankings.get(item.category)!.push({ x: period, y: invertedRank, percentage })
         })
       })
 
@@ -476,11 +483,11 @@ export function useAnalyticsChartData({
         const sole = sortedPeriods[0]
         const soleContinuation = sole + "\u200B" // zero-width space = distinct key, same display
         sortedPeriods = [sole, soleContinuation]
-        // Duplicate rankings for continuation
+        // Duplicate rankings for continuation (including percentage)
         visibleCategories.forEach(cat => {
           const rankings = categoryRankings.get(cat)!
           if (rankings.length > 0) {
-            rankings.push({ x: soleContinuation, y: rankings[0].y })
+            rankings.push({ x: soleContinuation, y: rankings[0].y, percentage: rankings[0].percentage })
           }
         })
       }
@@ -569,22 +576,29 @@ export function useAnalyticsChartData({
     // Get all visible categories
     const visibleCategories = Array.from(categoryMap.keys())
 
-    // Calculate rankings per period (rank 1 = highest spending)
-    const categoryRankings = new Map<string, { x: string; y: number }[]>()
+    // Calculate rankings and percentages per period (higher y = higher spending = appears at top)
+    const categoryRankings = new Map<string, { x: string; y: number; percentage: number }[]>()
     visibleCategories.forEach(cat => categoryRankings.set(cat, []))
 
     sortedTimePeriods.forEach(period => {
       // Get totals for all visible categories for this period
       const totals: { category: string; total: number }[] = []
+      let periodTotal = 0
       visibleCategories.forEach(category => {
         const periodMap = categoryMap.get(category)
-        totals.push({ category, total: periodMap?.get(period) || 0 })
+        const catTotal = periodMap?.get(period) || 0
+        totals.push({ category, total: catTotal })
+        periodTotal += catTotal
       })
       // Sort by total descending to assign ranks
       totals.sort((a, b) => b.total - a.total)
-      // Assign ranks (1 = highest spending)
+      const numCategories = totals.length
+      // Assign inverted ranks and percentages (higher y = higher spending = top of chart)
       totals.forEach((item, index) => {
-        categoryRankings.get(item.category)!.push({ x: period, y: index + 1 })
+        const percentage = periodTotal > 0 ? (item.total / periodTotal) * 100 : 0
+        // Invert rank so highest spending has highest y value (appears at top)
+        const invertedRank = numCategories - index
+        categoryRankings.get(item.category)!.push({ x: period, y: invertedRank, percentage })
       })
     })
 
@@ -593,11 +607,11 @@ export function useAnalyticsChartData({
       const sole = sortedTimePeriods[0]
       const soleContinuation = sole + "\u200B"
       sortedTimePeriods = [sole, soleContinuation]
-      // Duplicate rankings for continuation
+      // Duplicate rankings for continuation (including percentage)
       visibleCategories.forEach(cat => {
         const rankings = categoryRankings.get(cat)!
         if (rankings.length > 0) {
-          rankings.push({ x: soleContinuation, y: rankings[0].y })
+          rankings.push({ x: soleContinuation, y: rankings[0].y, percentage: rankings[0].percentage })
         }
       })
     }

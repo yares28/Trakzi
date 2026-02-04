@@ -29,6 +29,7 @@ interface ChartCategoryFlowProps {
     data: Array<{
       x: string
       y: number
+      percentage?: number
     }>
   }>
   categoryControls?: ChartInfoPopoverCategoryControls
@@ -175,12 +176,12 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
       tooltip={({ serie }) => {
         const originalSerie = data.find((d) => d.id === serie.id)
         const lastPoint = originalSerie?.data[originalSerie.data.length - 1]
-        const rank = lastPoint?.y ?? 0
+        const percentage = lastPoint?.percentage ?? 0
         return (
           <NivoChartTooltip
             title={serie.id}
             titleColor={serie.color}
-            value={`Rank: ${rank}`}
+            value={`${percentage.toFixed(1)}%`}
           />
         )
       }}
@@ -283,12 +284,12 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
       tooltip={({ serie }) => {
         const originalSerie = data.find((d) => d.id === serie.id)
         const lastPoint = originalSerie?.data[originalSerie.data.length - 1]
-        const rank = lastPoint?.y ?? 0
+        const percentage = lastPoint?.percentage ?? 0
         return (
           <NivoChartTooltip
             title={serie.id}
             titleColor={serie.color}
-            value={`Rank: ${rank}`}
+            value={`${percentage.toFixed(1)}%`}
           />
         )
       }}
