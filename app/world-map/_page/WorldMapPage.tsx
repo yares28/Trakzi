@@ -106,7 +106,7 @@ export default function WorldMapPage() {
                     />
 
                     {/* World Map Chart - big card */}
-                    <div className="px-4 lg:px-6">
+                    <div className="px-4 lg:px-6 min-h-[500px]">
                         <WorldMapChart
                             data={chartData}
                             isLoading={isLoading}

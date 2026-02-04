@@ -41,8 +41,17 @@ export default function Page() {
   } = useFavoritesLayout()
 
   const refreshAnalyticsData = useCallback(async () => {
+    // Force refetch transactions data
     await fetchTransactions()
-    await queryClient.invalidateQueries({ queryKey: ["analytics-bundle"] })
+
+    // Invalidate AND refetch all related React Query caches
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: ["home-bundle"] }),
+      queryClient.invalidateQueries({ queryKey: ["analytics-bundle"] }),
+      queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+      queryClient.invalidateQueries({ queryKey: ["trends-bundle"] }),
+      queryClient.invalidateQueries({ queryKey: ["savings-bundle"] }),
+    ])
   }, [fetchTransactions, queryClient])
 
   const statementImport = useStatementImport({ refreshAnalyticsData })
