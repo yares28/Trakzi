@@ -370,30 +370,30 @@ export const WorldMapChart = memo(function WorldMapChart({
   // Loading skeleton
   if (!mounted || isLoading) {
     return (
-      <Card className="h-full p-0 overflow-hidden">
+      <Card className="h-full min-h-[500px] p-0 overflow-hidden">
         {title && (
           <CardHeader>
             <CardTitle>{title}</CardTitle>
           </CardHeader>
         )}
-        <CardContent className="p-0 flex-1 min-h-0">
-          <div className="h-full w-full animate-pulse bg-muted/50" />
+        <CardContent className="p-0 flex-1 min-h-[450px]">
+          <div className="h-full w-full min-h-[450px] animate-pulse bg-muted/50" />
         </CardContent>
       </Card>
     )
   }
 
   return (
-    <Card className="h-full flex flex-col p-0 overflow-hidden">
+    <Card className="h-full min-h-[500px] flex flex-col p-0 overflow-hidden">
       {title && (
         <CardHeader>
           <CardTitle>{title}</CardTitle>
         </CardHeader>
       )}
-      <CardContent className="p-0 flex-1 min-h-0">
+      <CardContent className="p-0 flex-1 min-h-[450px]">
         <div
           ref={containerRef}
-          className="relative w-full h-full"
+          className="relative w-full h-full min-h-[450px]"
         >
           <svg
             ref={svgRef}

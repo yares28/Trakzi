@@ -51,8 +51,18 @@ export default function AnalyticsPage() {
   })
 
   const refreshAnalyticsData = useCallback(async () => {
+    // Force refetch transactions data (in-memory cache was already cleared)
     await fetchAllAnalyticsData()
-    await queryClient.invalidateQueries({ queryKey: ["analytics-bundle"] })
+
+    // Invalidate AND refetch all related React Query caches
+    // Using refetchQueries ensures data is fetched immediately, not just marked stale
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: ["analytics-bundle"] }),
+      queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+      queryClient.invalidateQueries({ queryKey: ["home-bundle"] }),
+      queryClient.invalidateQueries({ queryKey: ["trends-bundle"] }),
+      queryClient.invalidateQueries({ queryKey: ["savings-bundle"] }),
+    ])
   }, [fetchAllAnalyticsData, queryClient])
 
   const statementImport = useStatementImport({ refreshAnalyticsData })

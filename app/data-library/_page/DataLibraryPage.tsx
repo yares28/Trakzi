@@ -129,8 +129,18 @@ export default function DataLibraryPage() {
     useCategoryPreferences()
 
   const refreshAnalyticsData = useCallback(async () => {
+    // Force refetch library data
     await fetchLibraryData()
-    await queryClient.invalidateQueries({ queryKey: ["analytics-bundle"] })
+
+    // Invalidate AND refetch all related React Query caches
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: ["data-library-bundle"] }),
+      queryClient.invalidateQueries({ queryKey: ["analytics-bundle"] }),
+      queryClient.invalidateQueries({ queryKey: ["home-bundle"] }),
+      queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+      queryClient.invalidateQueries({ queryKey: ["trends-bundle"] }),
+      queryClient.invalidateQueries({ queryKey: ["savings-bundle"] }),
+    ])
   }, [fetchLibraryData, queryClient])
 
   const statementImport = useStatementImport({
