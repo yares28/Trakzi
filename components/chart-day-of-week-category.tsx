@@ -61,7 +61,7 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
   emptyDescription
 }: ChartDayOfWeekCategoryProps) {
   const { resolvedTheme } = useTheme()
-  const { getPalette, colorScheme } = useColorScheme()
+  const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const buildDayParams = React.useCallback(
     (day?: number | null) => {
@@ -307,26 +307,19 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
     }
   }, [selectedDay, dateFilter, mounted, availableDays, buildDayParams, bundleData, bundleLoading])
 
+  // Palette is ordered dark → light. For better contrast:
+  // - Dark mode: skip first color (darkest) so bars are visible against dark background
+  // - Light mode: skip last color (lightest) so bars are visible against light background
   const palette = React.useMemo(() => {
-    let base = getPalette().filter((color) => color !== "#c3c3c3")
-
-    // For colored palette only, filter colors based on theme
-    if (colorScheme === "colored") {
-      const isDark = resolvedTheme === "dark"
-      if (isDark) {
-        // Dark mode: exclude "#2F1B15"
-        base = base.filter((color) => color !== "#2F1B15")
-      } else {
-        // Light mode: exclude "#E8DCCA"
-        base = base.filter((color) => color !== "#E8DCCA")
-      }
-    }
-
+    const base = getPalette().filter((color) => color !== "#c3c3c3")
     if (!base.length) {
       return ["#0f766e", "#14b8a6", "#22c55e", "#84cc16", "#eab308"]
     }
-    return base
-  }, [getPalette, colorScheme, resolvedTheme])
+    if (resolvedTheme === "dark") {
+      return base.slice(1)
+    }
+    return base.slice(0, -1)
+  }, [getPalette, resolvedTheme])
 
 
 
@@ -480,7 +473,11 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
     const textColor = resolvedTheme === "dark" ? "#9ca3af" : "#6b7280"
 
     // Disable animation after first render to prevent replay on theme hydration
+    // Set ref synchronously to prevent race condition with theme changes
     const shouldAnimate = !hasAnimatedRef.current
+    if (shouldAnimate) {
+      hasAnimatedRef.current = true
+    }
 
     return {
       backgroundColor,
@@ -571,16 +568,6 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
     }
   }, [])
 
-  // Mark animation as complete after first render to prevent replay on theme hydration
-  React.useEffect(() => {
-    if (option && !hasAnimatedRef.current) {
-      // Wait for animation to complete before marking as done
-      const timer = setTimeout(() => {
-        hasAnimatedRef.current = true
-      }, 1100) // Slightly longer than animationDuration (1000ms)
-      return () => clearTimeout(timer)
-    }
-  }, [option])
 
   // Memoize the heavy chart element so tooltip state changes
   // do not cause the ECharts instance to be recreated.

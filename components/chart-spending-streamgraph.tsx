@@ -117,13 +117,22 @@ export const ChartSpendingStreamgraph = memo(function ChartSpendingStreamgraph({
     return seriesKeys.filter((key) => rows.some((row) => Number(row[key]) > 0))
   }, [rows, seriesKeys])
 
+  // Palette is ordered dark → light. For better contrast:
+  // - Dark mode: skip first color (darkest) so streams are visible against dark background
+  // - Light mode: skip last color (lightest) so streams are visible against light background
   const colorAssignments = useMemo(() => {
     const palette = getPalette()
-    const colors = palette.length ? palette : FALLBACK_COLORS
-    // Filter out the empty color (#c3c3c3) and adjust for dark mode
-    const filteredColors = colors.filter(color => color !== "#c3c3c3")
-    // In dark mode, reverse the palette for better contrast
-    const adjustedColors = isDark ? [...filteredColors].reverse() : filteredColors
+    const base = (palette.length ? palette : FALLBACK_COLORS).filter(color => color !== "#c3c3c3")
+    let adjustedColors: string[]
+    if (isDark) {
+      adjustedColors = base.slice(1)
+    } else {
+      adjustedColors = base.slice(0, -1)
+    }
+    // Ensure we have at least some colors
+    if (!adjustedColors.length) {
+      adjustedColors = FALLBACK_COLORS
+    }
     return activeKeys.reduce<Record<string, string>>((acc, key, index) => {
       acc[key] = adjustedColors[index % adjustedColors.length] || FALLBACK_COLORS[index % FALLBACK_COLORS.length]
       return acc

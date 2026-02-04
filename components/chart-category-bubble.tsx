@@ -89,20 +89,24 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
     setMounted(true)
   }, [])
 
+  // Palette is ordered dark → light. For better contrast:
+  // - Dark mode: skip first color (darkest) so bubbles are visible against dark background
+  // - Light mode: skip last color (lightest) so bubbles are visible against light background
+  // Also reverse so darker colors are used for larger bubbles (higher depth)
   const palette = React.useMemo(() => {
     const base = getPalette().filter((color) => color !== "#c3c3c3")
     if (!base.length) {
       return ["#0f766e", "#14b8a6", "#22c55e", "#84cc16", "#eab308"]
     }
-    // Replace "#fe680e" with "#fe9e64" and "#331300" with "#893401" in the palette
-    const modifiedBase = base.map(color => {
-      if (color === "#fe680e") return "#fe9e64"
-      if (color === "#331300") return "#893401"
-      return color
-    })
+    let filtered: string[]
+    if (resolvedTheme === "dark") {
+      filtered = base.slice(1)
+    } else {
+      filtered = base.slice(0, -1)
+    }
     // Reverse so darker colors are used for larger bubbles
-    return [...modifiedBase].reverse()
-  }, [getPalette])
+    return [...filtered].reverse()
+  }, [getPalette, resolvedTheme])
 
 
   // ECharts event handlers for custom tooltip

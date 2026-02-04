@@ -367,13 +367,19 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
     }
   }, [selectedMonth, dateFilter, mounted, availableMonths, buildMonthParams, refreshNonce, monthlyCategoriesData, bundleLoading])
 
+  // Palette is ordered dark → light. For better contrast:
+  // - Dark mode: skip first color (darkest) so bars are visible against dark background
+  // - Light mode: skip last color (lightest) so bars are visible against light background
   const palette = React.useMemo(() => {
     const base = getPalette().filter((color) => color !== "#c3c3c3")
     if (!base.length) {
       return ["#0f766e", "#14b8a6", "#22c55e", "#84cc16", "#eab308"]
     }
-    return base
-  }, [getPalette])
+    if (resolvedTheme === "dark") {
+      return base.slice(1)
+    }
+    return base.slice(0, -1)
+  }, [getPalette, resolvedTheme])
 
 
   // ECharts event handlers for custom tooltip
@@ -522,7 +528,11 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
     const textColor = resolvedTheme === "dark" ? "#9ca3af" : "#6b7280"
 
     // Disable animation after first render to prevent replay on theme hydration
+    // Set ref synchronously to prevent race condition with theme changes
     const shouldAnimate = !hasAnimatedRef.current
+    if (shouldAnimate) {
+      hasAnimatedRef.current = true
+    }
 
     return {
       backgroundColor,
@@ -613,16 +623,6 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
     }
   }, [])
 
-  // Mark animation as complete after first render to prevent replay on theme hydration
-  React.useEffect(() => {
-    if (option && !hasAnimatedRef.current) {
-      // Wait for animation to complete before marking as done
-      const timer = setTimeout(() => {
-        hasAnimatedRef.current = true
-      }, 1100) // Slightly longer than animationDuration (1000ms)
-      return () => clearTimeout(timer)
-    }
-  }, [option])
 
   // Memoize the heavy chart element so tooltip state changes
   // do not cause the ECharts instance to be recreated.
