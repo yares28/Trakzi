@@ -282,6 +282,11 @@ export function ChartsGrid({
           }
 
           if (chartId === "incomeExpensesTracking2") {
+            // This chart uses bundleData.dailySpending as primary source (fast, Redis-cached)
+            // Only fall back to raw transactions if bundle has no dailySpending
+            const chartIsLoading = bundleData?.dailySpending && bundleData.dailySpending.length > 0
+              ? bundleLoading
+              : isLoadingTransactions
             return (
               <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                 <LazyChart title="Income & Expenses Tracking" height={250}>
@@ -289,7 +294,7 @@ export function ChartsGrid({
                     <ChartAreaInteractive
                       chartId="incomeExpensesTracking2"
                       categoryControls={incomeExpenseControls}
-                      isLoading={isLoadingTransactions}
+                      isLoading={chartIsLoading}
                       data={incomeExpenseChart.data}
                       emptyTitle={emptyTitle}
                       emptyDescription={emptyDescription}

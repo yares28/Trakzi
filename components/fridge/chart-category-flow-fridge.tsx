@@ -131,17 +131,26 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
             const allCategories = new Set<string>()
             periodTotals.forEach(catMap => catMap.forEach((_, cat) => allCategories.add(cat)))
 
-            // Calculate rankings per month
-            const categoryRankings = new Map<string, { x: string; y: number }[]>()
+            // Calculate rankings and percentages per month (higher y = higher spending = top)
+            const categoryRankings = new Map<string, { x: string; y: number; percentage: number }[]>()
             allCategories.forEach(cat => categoryRankings.set(cat, []))
 
             sortedMonths.forEach(month => {
                 const catMap = periodTotals.get(month)!
                 const totals: { category: string; total: number }[] = []
-                allCategories.forEach(cat => totals.push({ category: cat, total: catMap.get(cat) || 0 }))
+                let periodTotal = 0
+                allCategories.forEach(cat => {
+                    const catTotal = catMap.get(cat) || 0
+                    totals.push({ category: cat, total: catTotal })
+                    periodTotal += catTotal
+                })
                 totals.sort((a, b) => b.total - a.total)
+                const numCategories = totals.length
                 totals.forEach((item, index) => {
-                    categoryRankings.get(item.category)!.push({ x: monthNames[month - 1], y: index + 1 })
+                    const percentage = periodTotal > 0 ? (item.total / periodTotal) * 100 : 0
+                    // Invert rank so highest spending has highest y value (appears at top)
+                    const invertedRank = numCategories - index
+                    categoryRankings.get(item.category)!.push({ x: monthNames[month - 1], y: invertedRank, percentage })
                 })
             })
 
@@ -150,11 +159,11 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
                 const soleMonth = sortedMonths[0]
                 const soleLabel = monthNames[soleMonth - 1]
                 const continuationLabel = soleLabel + "\u200B" // zero-width space = distinct key, same display
-                // Duplicate rankings for continuation
+                // Duplicate rankings for continuation (including percentage)
                 allCategories.forEach(cat => {
                     const rankings = categoryRankings.get(cat)!
                     if (rankings.length > 0) {
-                        rankings.push({ x: continuationLabel, y: rankings[0].y })
+                        rankings.push({ x: continuationLabel, y: rankings[0].y, percentage: rankings[0].percentage })
                     }
                 })
             }
@@ -204,8 +213,8 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
             categoryMap.forEach((_, category) => allCategories.add(category))
         })
 
-        // Calculate rank for each category in each period (rank 1 = highest spending)
-        const categoryRankings = new Map<string, { x: string; y: number }[]>()
+        // Calculate rank and percentage for each category in each period (higher y = higher spending = top)
+        const categoryRankings = new Map<string, { x: string; y: number; percentage: number }[]>()
         allCategories.forEach((category) => {
             categoryRankings.set(category, [])
         })
@@ -215,18 +224,25 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
 
             // Get all categories with their totals for this period
             const totals: { category: string; total: number }[] = []
+            let periodTotal = 0
             allCategories.forEach((category) => {
-                totals.push({ category, total: categoryMap.get(category) || 0 })
+                const catTotal = categoryMap.get(category) || 0
+                totals.push({ category, total: catTotal })
+                periodTotal += catTotal
             })
 
             // Sort by total descending to assign ranks
             totals.sort((a, b) => b.total - a.total)
+            const numCategories = totals.length
 
-            // Assign ranks (1 = highest spending)
+            // Assign inverted ranks and percentages (higher y = higher spending = top of chart)
             totals.forEach((item, index) => {
                 const rankings = categoryRankings.get(item.category)!
                 const displayLabel = formatTimeLabel(periodKey)
-                rankings.push({ x: displayLabel, y: index + 1 })
+                const percentage = periodTotal > 0 ? (item.total / periodTotal) * 100 : 0
+                // Invert rank so highest spending has highest y value (appears at top)
+                const invertedRank = numCategories - index
+                rankings.push({ x: displayLabel, y: invertedRank, percentage })
             })
         })
 
@@ -235,17 +251,17 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
             const sole = sortedPeriods[0]
             const soleLabel = formatTimeLabel(sole)
             const continuationLabel = soleLabel + "\u200B" // zero-width space = distinct key, same display
-            // Duplicate rankings for continuation
+            // Duplicate rankings for continuation (including percentage)
             allCategories.forEach(category => {
                 const rankings = categoryRankings.get(category)!
                 if (rankings.length > 0) {
-                    rankings.push({ x: continuationLabel, y: rankings[0].y })
+                    rankings.push({ x: continuationLabel, y: rankings[0].y, percentage: rankings[0].percentage })
                 }
             })
         }
 
         // Convert to Nivo format and filter to top categories
-        const result: { id: string; data: { x: string; y: number }[] }[] = []
+        const result: { id: string; data: { x: string; y: number; percentage: number }[] }[] = []
 
         // Calculate total spending per category to get top N
         const categoryTotals: { category: string; total: number }[] = []
@@ -419,20 +435,15 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
                             },
                         }}
                         tooltip={({ serie }) => {
-                            const computed = serie as unknown as {
-                                id: string
-                                color: string
-                                data?: Array<{ x: string; y: number }>
-                            }
-                            const points = Array.isArray(computed.data) ? computed.data : []
-                            const lastPoint = points.length ? points[points.length - 1] : undefined
-                            const rank = lastPoint?.y ?? 0
+                            const originalSerie = data.find((d) => d.id === serie.id)
+                            const lastPoint = originalSerie?.data[originalSerie.data.length - 1]
+                            const percentage = lastPoint?.percentage ?? 0
 
                             return (
                                 <NivoChartTooltip
-                                    title={computed.id}
-                                    titleColor={computed.color}
-                                    value={`Rank: ${rank}`}
+                                    title={serie.id}
+                                    titleColor={serie.color}
+                                    value={`${percentage.toFixed(1)}%`}
                                 />
                             )
                         }}
