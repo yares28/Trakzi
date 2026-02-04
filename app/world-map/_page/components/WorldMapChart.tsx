@@ -1,15 +1,9 @@
-"use client"
+ "use client"
 
 import { memo, useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { useTheme } from "next-themes"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { geoMercator, geoPath, GeoGeometryObjects } from "d3-geo"
 import { select, pointer } from "d3-selection"
 import { zoom, zoomIdentity, zoomTransform, ZoomBehavior, D3ZoomEvent } from "d3-zoom"
@@ -394,86 +388,87 @@ export const WorldMapChart = memo(function WorldMapChart({
       .attr("stroke", borderColor)
   }, [mounted, dimensions, dataMap, getColor, unknownColor, borderColor])
 
-  // Loading skeleton
+  // Loading skeleton - single full-bleed card div
   if (!mounted || isLoading) {
     return (
-      <Card className="h-full min-h-[500px] p-0 overflow-hidden">
+      <div
+        ref={containerRef}
+        className="bg-card text-card-foreground gap-6 rounded-xl border shadow-sm min-w-0 card-3d-light h-full min-h-[500px] flex flex-col p-0 overflow-hidden"
+      >
         {title && (
-          <CardHeader>
-            <CardTitle>{title}</CardTitle>
-          </CardHeader>
+          <div className="@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6">
+            <div className="leading-none font-semibold">{title}</div>
+          </div>
         )}
-        <CardContent className="p-0 flex-1 min-h-[450px]">
+        <div className="flex-1 min-h-[450px]">
           <div className="h-full w-full min-h-[450px] animate-pulse bg-muted/50" />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     )
   }
 
+  // Main map card - single div holding the map, SVG fills entire card
   return (
-    <Card className="h-full min-h-[500px] flex flex-col p-0 overflow-hidden">
+    <div
+      ref={containerRef}
+      className="relative bg-card text-card-foreground gap-6 rounded-xl border shadow-sm min-w-0 card-3d-light h-full min-h-[500px] flex flex-col p-0 overflow-hidden"
+    >
       {title && (
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-        </CardHeader>
+        <div className="@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6">
+          <div className="leading-none font-semibold">{title}</div>
+        </div>
       )}
-      <CardContent className="p-0 flex-1 min-h-[450px]">
-        <div
-          ref={containerRef}
-          className="relative w-full h-full min-h-[450px]"
-        >
-          <svg
-            ref={svgRef}
-            className="w-full h-full"
-            style={{ cursor: activeCountry ? "pointer" : "grab" }}
-          />
 
-          {/* Tooltip */}
-          {tooltip.visible && (
-            <div
-              className="absolute pointer-events-none z-50 px-3 py-2 rounded-md shadow-lg border text-sm"
-              style={{
-                left: tooltip.x + 10,
-                top: tooltip.y - 10,
-                backgroundColor: isDark ? "#27272a" : "#ffffff",
-                borderColor: isDark ? "#3f3f46" : "#e4e4e7",
-                transform: "translateY(-100%)",
-              }}
-            >
-              <div className="font-medium" style={{ color: isDark ? "#fafafa" : "#18181b" }}>
-                {tooltip.countryName}
-              </div>
-              <div style={{ color: isDark ? "#a1a1aa" : "#71717a" }}>
-                {tooltip.value !== null
-                  ? formatCurrency(tooltip.value)
-                  : "No spending recorded"
-                }
-              </div>
-              {tooltip.value !== null && (
-                <div className="text-xs" style={{ color: isDark ? "#71717a" : "#a1a1aa" }}>
-                  Total spending
-                </div>
-              )}
+      <svg
+        ref={svgRef}
+        className="w-full flex-1 min-h-[450px]"
+        style={{ cursor: activeCountry ? "pointer" : "grab" }}
+      />
+
+      {/* Tooltip */}
+      {tooltip.visible && (
+        <div
+          className="absolute pointer-events-none z-50 px-3 py-2 rounded-md shadow-lg border text-sm"
+          style={{
+            left: tooltip.x + 10,
+            top: tooltip.y - 10,
+            backgroundColor: isDark ? "#27272a" : "#ffffff",
+            borderColor: isDark ? "#3f3f46" : "#e4e4e7",
+            transform: "translateY(-100%)",
+          }}
+        >
+          <div className="font-medium" style={{ color: isDark ? "#fafafa" : "#18181b" }}>
+            {tooltip.countryName}
+          </div>
+          <div style={{ color: isDark ? "#a1a1aa" : "#71717a" }}>
+            {tooltip.value !== null
+              ? formatCurrency(tooltip.value)
+              : "No spending recorded"
+            }
+          </div>
+          {tooltip.value !== null && (
+            <div className="text-xs" style={{ color: isDark ? "#71717a" : "#a1a1aa" }}>
+              Total spending
             </div>
           )}
-
-          {/* Reset button when zoomed */}
-          {activeCountry && (
-            <button
-              onClick={reset}
-              className="absolute top-2 right-2 px-3 py-1.5 text-sm rounded-md border transition-colors"
-              style={{
-                backgroundColor: isDark ? "#27272a" : "#ffffff",
-                borderColor: isDark ? "#3f3f46" : "#e4e4e7",
-                color: isDark ? "#fafafa" : "#18181b",
-              }}
-            >
-              Reset view
-            </button>
-          )}
         </div>
-      </CardContent>
-    </Card>
+      )}
+
+      {/* Reset button when zoomed */}
+      {activeCountry && (
+        <button
+          onClick={reset}
+          className="absolute top-2 right-2 px-3 py-1.5 text-sm rounded-md border transition-colors"
+          style={{
+            backgroundColor: isDark ? "#27272a" : "#ffffff",
+            borderColor: isDark ? "#3f3f46" : "#e4e4e7",
+            color: isDark ? "#fafafa" : "#18181b",
+          }}
+        >
+          Reset view
+        </button>
+      )}
+    </div>
   )
 })
 
