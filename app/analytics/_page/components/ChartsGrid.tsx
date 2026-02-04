@@ -269,6 +269,7 @@ export function ChartsGrid({
                   <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                     <ChartAreaInteractive
                       chartId="incomeExpensesTracking1"
+                      title="Income & Expenses Cumulative"
                       categoryControls={incomeExpenseTopControls}
                       isLoading={isLoadingTransactions}
                       data={incomeExpenseTopChartData}
@@ -293,6 +294,7 @@ export function ChartsGrid({
                   <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                     <ChartAreaInteractive
                       chartId="incomeExpensesTracking2"
+                      title="Income & Expenses"
                       categoryControls={incomeExpenseControls}
                       isLoading={chartIsLoading}
                       data={incomeExpenseChart.data}

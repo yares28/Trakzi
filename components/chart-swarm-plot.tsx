@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, memo } from "react"
+import { useEffect, useMemo, useState, useRef, memo } from "react"
 import { ChevronDownIcon } from "lucide-react"
 import { ResponsiveSwarmPlot } from "@nivo/swarmplot"
 import { useTheme } from "next-themes"
@@ -56,6 +56,17 @@ interface ChartSwarmPlotProps {
 
 // Removed MAX_VISIBLE_GROUPS limit - now shows all categories
 
+// Calculate max categories based on container width for responsive display
+const getMaxCategoriesForWidth = (width: number): number => {
+  if (width < 400) return 1   // Mobile: single category only
+  if (width < 500) return 2   // Small mobile landscape
+  if (width < 600) return 3   // Large mobile / small tablet
+  if (width < 750) return 4   // Tablet portrait
+  if (width < 900) return 5   // Tablet landscape
+  if (width < 1100) return 7  // Small desktop
+  return Infinity             // Large desktop: show all
+}
+
 export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, emptyDescription }: ChartSwarmPlotProps) {
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
@@ -69,15 +80,45 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
   const [visibleGroups, setVisibleGroups] = useState<string[]>([])
   const [isGroupSelectorOpen, setIsGroupSelectorOpen] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [containerWidth, setContainerWidth] = useState(1200) // Default to large screen
+  const containerRef = useRef<HTMLDivElement>(null)
   const chartVisibility = useChartCategoryVisibility({
     chartId: "analytics:transaction-history",
     storageScope: "analytics",
   })
 
-  // In dark mode, use lighter colors (reverse the palette so lightest colors come first)
+  // Track container width for responsive category limiting
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width)
+      }
+    })
+
+    observer.observe(container)
+    // Set initial width
+    setContainerWidth(container.offsetWidth)
+
+    return () => observer.disconnect()
+  }, [])
+
+  // Calculate max categories based on current container width
+  const maxCategories = useMemo(() => getMaxCategoriesForWidth(containerWidth), [containerWidth])
+
+  // Palette is ordered dark → light. For better contrast:
+  // - Dark mode: skip first color (darkest) so dots are visible against dark background
+  // - Light mode: skip last color (lightest) so dots are visible against light background
   const chartColors = useMemo(() => {
     const palette = getPalette()
-    return resolvedTheme === "dark" ? [...palette].reverse() : palette
+    if (resolvedTheme === "dark") {
+      // Skip darkest color (index 0), use lighter colors
+      return palette.slice(1)
+    }
+    // Skip lightest color (last index), use darker colors
+    return palette.slice(0, -1)
   }, [getPalette, resolvedTheme])
 
   // Theme for axis labels and text - match muted-foreground color from globals.css
@@ -269,14 +310,17 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
     }
     setVisibleGroups(prev => {
       const filtered = prev.filter(group => chartGroups.includes(group))
-      // If no previous groups are valid, initialize with all categories
+      // If no previous groups are valid, initialize with top categories (limited by screen size)
       if (filtered.length === 0) {
-        return [...chartGroups]
+        return chartGroups.slice(0, maxCategories)
       }
-      // Otherwise, keep the filtered groups (all of them)
+      // If screen got smaller, trim to fit maxCategories
+      if (filtered.length > maxCategories) {
+        return filtered.slice(0, maxCategories)
+      }
       return filtered
     })
-  }, [chartGroups])
+  }, [chartGroups, maxCategories])
 
   const swarmControls = useMemo(() => {
     if (!combinedCategoryOptions.length && !fallbackCategoryOptions.length) {
@@ -547,7 +591,7 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
         </div>
       </ChartFullscreenModal>
 
-      <Card className="col-span-full">
+      <Card ref={containerRef} className="col-span-full">
         <CardHeader className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />

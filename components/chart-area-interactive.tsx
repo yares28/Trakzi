@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect, memo } from "react"
+import { useState, useRef, useEffect, memo, useMemo } from "react"
 import { Area, AreaChart, CartesianGrid, XAxis, Tooltip, TooltipProps } from "recharts"
 import { useTheme } from "next-themes"
 
@@ -37,59 +37,63 @@ interface ChartAreaInteractiveProps {
   }>
   categoryControls?: ChartInfoPopoverCategoryControls
   chartId?: ChartId
+  /** Custom title for the chart card. Defaults to "Income & Expenses Cumulative Tracking" */
+  title?: string
   isLoading?: boolean
   emptyTitle?: string
   emptyDescription?: string
 }
 
+const DEFAULT_CHART_TITLE = "Income & Expenses Cumulative Tracking"
+
 export const ChartAreaInteractive = memo(function ChartAreaInteractive({
   data = [],
   categoryControls,
   chartId = "incomeExpensesTracking1",
+  title = DEFAULT_CHART_TITLE,
   isLoading = false,
   emptyTitle,
   emptyDescription
 }: ChartAreaInteractiveProps) {
-  const { colorScheme, getPalette } = useColorScheme()
+  const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const { resolvedTheme } = useTheme()
   const [tooltip, setTooltip] = useState<{ date: string; income: number; expenses: number } | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number | undefined; y: number | undefined } | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  // Track if we should use real data - starts false to force animation by showing empty data first
+  const [useRealData, setUseRealData] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const mousePositionRef = useRef<{ x: number; y: number } | null>(null)
   const isDark = resolvedTheme === "dark"
   const gridStrokeColor = isDark ? "#e5e7eb" : "#e5e7eb"
 
-  // Color scheme: colored uses custom palette, dark uses custom palette
-  // Darker = more expensive (bigger peso)
-  // For all palettes: darker colors = larger amounts, lighter colors = smaller amounts
-  const palette = getPalette().filter(color => color !== "#c3c3c3")
-  // Expenses (darker) = more spending, Income (lighter) = less spending relative to expenses
-  // Use lighter colors from palette for income, darker colors for expenses
-  // Reversed palette: darkest at end, lightest at beginning
-  const reversedPalette = [...palette].reverse()
+  // Force animation by delaying when we switch from empty data to real data
+  // Recharts animates when data changes, so we start with [] then switch to real data
+  useEffect(() => {
+    // Use requestAnimationFrame to ensure the empty-data render happens first
+    const rafId = requestAnimationFrame(() => {
+      setUseRealData(true)
+    })
+    return () => cancelAnimationFrame(rafId)
+  }, [])
 
-  // Apply custom colors only for dark color palette
-  const incomeColor = "#fe8339" // Income color set to "#fe8339"
-  let expensesColorLight = reversedPalette[reversedPalette.length - 1] // Darkest for expenses (light mode)
+  // Palette is ordered dark → light. For better contrast:
+  // - Dark mode: skip first color (darkest) so areas are visible against dark background
+  // - Light mode: skip last color (lightest) so areas are visible against light background
+  const palette = useMemo(() => {
+    const base = getPalette().filter(color => color !== "#c3c3c3")
+    if (isDark) {
+      return base.slice(1)
+    }
+    return base.slice(0, -1)
+  }, [getPalette, isDark])
 
-  // Determine income and expense colors for light and dark modes
-  let incomeColorLight = incomeColor
-  let incomeColorDark = incomeColor
-  let expensesColorDark = "#D88C6C" // Dark mode: expenses color to "#D88C6C"
-
-  if (colorScheme === "dark") {
-    // For dark color scheme
-    incomeColorLight = "#fe8339"
-    incomeColorDark = "#fe8339"
-    expensesColorLight = "#151515"
-    expensesColorDark = "#D88C6C"
-  } else {
-    // For other color schemes, use palette colors for light mode
-    expensesColorLight = reversedPalette[reversedPalette.length - 1]
-  }
+  // Income uses a fixed brand color, expenses uses the darkest available palette color
+  const incomeColor = "#fe8339"
+  // For expenses: use darkest color from the theme-adjusted palette
+  const expensesColor = palette[palette.length - 1] || "#D88C6C"
 
   // Use theme-based colors for proper CSS variable generation
   const chartConfig = {
@@ -99,22 +103,22 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
     desktop: {
       label: "Income",
       theme: {
-        light: incomeColorLight,
-        dark: incomeColorDark,
+        light: incomeColor,
+        dark: incomeColor,
       },
     },
     mobile: {
       label: "Expenses",
       theme: {
-        light: expensesColorLight,
-        dark: expensesColorDark,
+        light: expensesColor,
+        dark: expensesColor,
       },
     },
   } satisfies ChartConfig
 
-  // For stroke colors, use current theme colors
-  const incomeBorderColor = isDark ? incomeColorDark : incomeColorLight
-  const expensesBorderColor = isDark ? expensesColorDark : expensesColorLight
+  // For stroke colors, use the theme-aware colors
+  const incomeBorderColor = incomeColor
+  const expensesBorderColor = expensesColor
 
   const filteredData = data
 
@@ -158,7 +162,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
   const renderInfoAction = (forFullscreen = false) => (
     <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
-        title="Income & Expenses Cumulative Tracking"
+        title={title}
         description="This chart visualizes your cash flow over time."
         details={[
           "The income line shows daily deposits, while the expense line accumulates your negative transactions.",
@@ -172,7 +176,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
       />
       <ChartAiInsightButton
         chartId={chartId}
-        chartTitle="Income & Expenses Cumulative Tracking"
+        chartTitle={title}
         chartDescription="This chart visualizes your cumulative cash flow over time, showing income and expenses."
         chartData={{
           totalIncome: filteredData.reduce((sum, d) => sum + (d.desktop || 0), 0),
@@ -188,8 +192,12 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
     </div>
   )
 
-  // Show loading state if loading, or empty state if no data
-  if (!data || data.length === 0 || filteredData.length === 0) {
+  // The data to pass to the chart - empty initially, then real data after mount
+  // This forces Recharts to see a data change and trigger animation
+  const chartData = useRealData ? filteredData : []
+
+  // Show loading/empty state only when loading or no data available
+  if (isLoading || !data || data.length === 0 || filteredData.length === 0) {
     return (
       <Card className="@container/card">
         <CardHeader>
@@ -198,10 +206,10 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
             <ChartExpandButton onClick={() => setIsFullscreen(true)} />
             <ChartFavoriteButton
               chartId={chartId}
-              chartTitle="Income & Expenses Cumulative Tracking"
+              chartTitle={title}
               size="md"
             />
-            <CardTitle>Income & Expenses Cumulative Tracking</CardTitle>
+            <CardTitle>{title}</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoAction()}
@@ -226,7 +234,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
       <ChartFullscreenModal
         isOpen={isFullscreen}
         onClose={() => setIsFullscreen(false)}
-        title="Income & Expenses Cumulative Tracking"
+        title={title}
         description="Cumulative cash flow over time"
         headerActions={renderInfoAction(true)}
       >
@@ -252,8 +260,8 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                 minTickGap={32}
                 tickFormatter={(value) => formatDateForDisplay(String(value), "en-US", { month: "short", day: "numeric" })}
               />
-              <Area dataKey="desktop" type="natural" fill="url(#fillDesktopFS)" stroke={incomeBorderColor} strokeWidth={1} />
-              <Area dataKey="mobile" type="natural" fill="url(#fillMobileFS)" stroke={expensesBorderColor} strokeWidth={1} />
+              <Area dataKey="desktop" type="natural" fill="url(#fillDesktopFS)" stroke={incomeBorderColor} strokeWidth={1} isAnimationActive={true} animationDuration={1000} animationEasing="ease-out" />
+              <Area dataKey="mobile" type="natural" fill="url(#fillMobileFS)" stroke={expensesBorderColor} strokeWidth={1} isAnimationActive={true} animationDuration={1000} animationEasing="ease-out" />
             </AreaChart>
           </ChartContainer>
         </div>
@@ -266,10 +274,10 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
             <ChartExpandButton onClick={() => setIsFullscreen(true)} />
             <ChartFavoriteButton
               chartId={chartId}
-              chartTitle="Income & Expenses Cumulative Tracking"
+              chartTitle={title}
               size="md"
             />
-            <CardTitle>Income & Expenses Cumulative Tracking</CardTitle>
+            <CardTitle>{title}</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoAction()}
@@ -283,7 +291,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                 className="aspect-auto h-[250px] w-full min-w-0"
               >
                 <AreaChart
-                  data={filteredData}
+                  data={chartData}
                 >
                   <defs>
                     <linearGradient id="fillDesktop" x1="0" y1="0" x2="0" y2="1">
@@ -375,6 +383,10 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                     fill="url(#fillDesktop)"
                     stroke={incomeBorderColor}
                     strokeWidth={1}
+                    isAnimationActive={true}
+                    animationBegin={0}
+                    animationDuration={1000}
+                    animationEasing="ease-out"
                   />
                   <Area
                     dataKey="mobile"
@@ -382,6 +394,10 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                     fill="url(#fillMobile)"
                     stroke={expensesBorderColor}
                     strokeWidth={1}
+                    isAnimationActive={true}
+                    animationBegin={0}
+                    animationDuration={1000}
+                    animationEasing="ease-out"
                   />
                 </AreaChart>
               </ChartContainer>

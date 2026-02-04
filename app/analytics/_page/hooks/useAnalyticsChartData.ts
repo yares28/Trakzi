@@ -1100,8 +1100,43 @@ export function useAnalyticsChartData({
   })
 
   const spendingStreamData = useMemo(() => {
+    // Determine time granularity based on date filter
+    const getTimeKey = (date: Date): string => {
+      if (!dateFilter) {
+        // All time: use months
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+      }
+
+      switch (dateFilter) {
+        case "last7days":
+          // Daily grouping for 7 days
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+        case "last30days": {
+          // Weekly grouping for 30 days
+          const weekStart = new Date(date)
+          weekStart.setDate(date.getDate() - date.getDay()) // Start of week (Sunday)
+          return `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, "0")}-${String(weekStart.getDate()).padStart(2, "0")}`
+        }
+        case "last3months":
+        case "last6months":
+        case "lastyear":
+          // Monthly grouping for medium periods
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+        default:
+          // For specific years or other filters, use months
+          if (/^\d{4}$/.test(dateFilter)) {
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+          }
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+      }
+    }
+
+    // Check if we need finer granularity (bypass bundle for short timeframes)
+    const needsFinerGranularity = dateFilter === "last7days" || dateFilter === "last30days"
+
     // Use bundle data if available for monthly category data (pre-aggregated by SQL)
-    if (bundleData?.monthlyByCategory && bundleData.monthlyByCategory.length > 0) {
+    // Skip bundle for short timeframes that need daily/weekly granularity
+    if (!needsFinerGranularity && bundleData?.monthlyByCategory && bundleData.monthlyByCategory.length > 0) {
       const categoryTotals = new Map<string, number>()
       const categorySet = new Set<string>()
       const monthMap = new Map<string, Map<string, number>>()
@@ -1119,18 +1154,27 @@ export function useAnalyticsChartData({
         .slice(0, 7)
         .map(([cat]) => cat)
 
-      const data = Array.from(monthMap.entries())
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([month, cats]) => {
-          const row: Record<string, string | number> = { month }
-          topCategories.forEach(cat => { row[cat] = cats.get(cat) || 0 })
-          return row
-        })
+      let sortedMonths = Array.from(monthMap.keys()).sort((a, b) => a.localeCompare(b))
+
+      // Streamgraph needs at least 2 time points to render - duplicate single point
+      if (sortedMonths.length === 1) {
+        const sole = sortedMonths[0]
+        const soleContinuation = sole + "\u200B" // zero-width space = distinct key, same display
+        sortedMonths = [sole, soleContinuation]
+        monthMap.set(soleContinuation, monthMap.get(sole)!)
+      }
+
+      const data = sortedMonths.map((month) => {
+        const cats = monthMap.get(month)!
+        const row: Record<string, string | number> = { month }
+        topCategories.forEach(cat => { row[cat] = cats.get(cat) || 0 })
+        return row
+      })
 
       return { data, keys: topCategories, categories: Array.from(categorySet) }
     }
 
-    // Fallback to rawTransactions
+    // Use rawTransactions for finer granularity or as fallback
     if (!rawTransactions || rawTransactions.length === 0) {
       return { data: [] as Array<Record<string, string | number>>, keys: [] as string[], categories: [] as string[] }
     }
@@ -1146,7 +1190,7 @@ export function useAnalyticsChartData({
         .join(" ")
     }
 
-    const monthMap = new Map<string, Map<string, number>>()
+    const periodMap = new Map<string, Map<string, number>>()
     const categoryTotals = new Map<string, number>()
     const categorySet = new Set<string>()
 
@@ -1156,22 +1200,22 @@ export function useAnalyticsChartData({
         const date = new Date(tx.date)
         if (isNaN(date.getTime())) return
 
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+        const periodKey = getTimeKey(date)
         const rawCategory = normalizeCategory(tx.category)
         categorySet.add(rawCategory)
         if (streamgraphVisibility.hiddenCategorySet.has(rawCategory)) return
         const amount = Math.abs(Number(tx.amount)) || 0
 
-        if (!monthMap.has(monthKey)) {
-          monthMap.set(monthKey, new Map())
+        if (!periodMap.has(periodKey)) {
+          periodMap.set(periodKey, new Map())
         }
-        const monthData = monthMap.get(monthKey)!
-        monthData.set(rawCategory, (monthData.get(rawCategory) || 0) + amount)
+        const periodData = periodMap.get(periodKey)!
+        periodData.set(rawCategory, (periodData.get(rawCategory) || 0) + amount)
 
         categoryTotals.set(rawCategory, (categoryTotals.get(rawCategory) || 0) + amount)
       })
 
-    if (!monthMap.size || !categoryTotals.size) {
+    if (!periodMap.size || !categoryTotals.size) {
       return { data: [], keys: [], categories: Array.from(categorySet) }
     }
 
@@ -1180,13 +1224,23 @@ export function useAnalyticsChartData({
     const includeOther = sortedCategories.length > topCategories.length
     const keys = includeOther ? [...topCategories, "Other"] : topCategories
 
-    const months = Array.from(monthMap.keys()).sort((a, b) => a.localeCompare(b))
-    const data = months.map((month) => {
-      const entry: Record<string, string | number> = { month }
-      const monthData = monthMap.get(month)!
+    let periods = Array.from(periodMap.keys()).sort((a, b) => a.localeCompare(b))
+
+    // Streamgraph needs at least 2 time points to render - duplicate single point
+    if (periods.length === 1) {
+      const sole = periods[0]
+      const soleContinuation = sole + "\u200B" // zero-width space = distinct key, same display
+      periods = [sole, soleContinuation]
+      periodMap.set(soleContinuation, periodMap.get(sole)!)
+    }
+
+    const data = periods.map((period) => {
+      // Use 'month' key for compatibility with chart component
+      const entry: Record<string, string | number> = { month: period }
+      const periodData = periodMap.get(period)!
       let otherTotal = 0
 
-      monthData.forEach((value, category) => {
+      periodData.forEach((value, category) => {
         if (topCategories.includes(category)) {
           entry[category] = Number(value.toFixed(2))
         } else {
