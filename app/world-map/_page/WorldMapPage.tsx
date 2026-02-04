@@ -35,6 +35,7 @@ export default function WorldMapPage() {
         ([url]) => fetcher(url),
         {
             revalidateOnFocus: false,
+            revalidateOnReconnect: false,
             dedupingInterval: 30000, // 30 seconds
         }
     )

@@ -26,11 +26,11 @@ Afghanistan, Albania, Algeria, Angola, Antarctica, Argentina, Armenia, Australia
 |----------|-----------|
 | **East Asia** | North Korea, Singapore |
 | **Middle East** | Bahrain |
-| **Europe (Microstates)** | Monaco, Andorra, Liechtenstein, San Marino, Vatican City, Malta |
-| **Caribbean** | Barbados, Grenada, Saint Lucia, Saint Vincent & the Grenadines, Antigua & Barbuda, Saint Kitts & Nevis, Dominica |
+| **Europe (Microstates)** | Monaco*, Andorra, Liechtenstein, San Marino, Vatican City, Malta |
+| **Caribbean** | Barbados, Grenada*, Saint Lucia, Saint Vincent & the Grenadines, Antigua & Barbuda, Saint Kitts & Nevis, Dominica |
 | **Indian Ocean** | Maldives, Mauritius, Seychelles, Comoros |
 | **Africa** | Cape Verde, Sao Tome & Principe |
-| **Pacific** | Palau, Micronesia, Marshall Islands, Nauru, Tuvalu, Kiribati, Samoa, Tonga |
+| **Pacific** | Palau, Micronesia*, Marshall Islands, Nauru, Tuvalu, Kiribati, Samoa, Tonga |
 
 ### Disputed/Partially Recognized States (5)
 

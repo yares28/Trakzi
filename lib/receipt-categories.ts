@@ -104,6 +104,26 @@ export const DEFAULT_RECEIPT_CATEGORIES: ReceiptCategory[] = [
   { name: "Other", type: "Other", color: "#64748b", broadType: "Other" },
 ]
 
+/**
+ * Category names that count as "snacks" for snack percentage and similar metrics.
+ * Aligns with SNACKS & SWEETS + Pastries from DEFAULT_RECEIPT_CATEGORIES.
+ */
+export const SNACK_CATEGORY_NAMES = [
+  "Pastries",
+  "Salty Snacks",
+  "Cookies & Biscuits",
+  "Chocolate & Candy",
+  "Nuts & Seeds",
+  "Ice Cream & Desserts",
+] as const
+
+/** Returns true if the given category name is considered a snack (pastries, chocolate, candy, etc.). */
+export function isSnackCategory(categoryName: string | null | undefined): boolean {
+  if (!categoryName) return false
+  const normalized = categoryName.trim().toLowerCase()
+  return SNACK_CATEGORY_NAMES.some((name) => name.toLowerCase() === normalized)
+}
+
 // Helper function to get categories grouped by type
 export function getReceiptCategoriesByType(): Record<string, ReceiptCategory[]> {
   const grouped: Record<string, ReceiptCategory[]> = {}
