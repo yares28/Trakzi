@@ -233,32 +233,40 @@ export const WorldMapChart = memo(function WorldMapChart({
 
   // Track container dimensions for resize handling
   const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null)
+  const lastDimensionsRef = useRef<{ width: number; height: number } | null>(null)
 
-  // Observe container size changes and set initial dimensions
+  // Observe container size changes and set initial dimensions.
+  // Only update state when width/height actually change to avoid ResizeObserver
+  // firing (e.g. layout recalc, scrollbar) from clearing and redrawing the map.
+  // Re-run when isLoading changes so we attach to the real map container (not the skeleton).
   useEffect(() => {
     if (!containerRef.current) return
+
+    // Reset so we always set dimensions for this container (e.g. after switching from skeleton)
+    lastDimensionsRef.current = null
 
     // Set initial dimensions immediately (use fallback if container not yet sized)
     const initialWidth = containerRef.current.clientWidth || 800
     const initialHeight = containerRef.current.clientHeight || 450
     if (initialWidth > 0 && initialHeight > 0) {
-      setDimensions({ width: initialWidth, height: initialHeight })
+      lastDimensionsRef.current = { width: initialWidth, height: initialHeight }
+      setDimensions(lastDimensionsRef.current)
     }
 
     const resizeObserver = new ResizeObserver((entries) => {
       const entry = entries[0]
-      if (entry) {
-        const { width, height } = entry.contentRect
-        // Update dimensions if we have valid sizes (allow smaller for responsiveness)
-        if (width > 0 && height > 0) {
-          setDimensions({ width, height })
-        }
-      }
+      if (!entry) return
+      const { width, height } = entry.contentRect
+      if (width <= 0 || height <= 0) return
+      const prev = lastDimensionsRef.current
+      if (prev && prev.width === width && prev.height === height) return
+      lastDimensionsRef.current = { width, height }
+      setDimensions(lastDimensionsRef.current)
     })
 
     resizeObserver.observe(containerRef.current)
     return () => resizeObserver.disconnect()
-  }, [mounted]) // Re-run when mounted changes to ensure container is ready
+  }, [mounted, isLoading])
 
   // Initialize D3 map - only when mounted and we have valid dimensions
   useEffect(() => {

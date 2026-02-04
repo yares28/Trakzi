@@ -47,21 +47,30 @@ interface ChartEmptyVsNutritiousFridgeProps {
     isLoading?: boolean
 }
 
-// Categories considered "empty calories" - snacks and sugary drinks without nutritional value
-const EMPTY_CALORIE_CATEGORIES = new Set([
-    "snacks",
-    "soda & cola",
-    "energy drinks",
-    "alcohol",
-    "beverages",
-    "drinks",
+// Categories considered "nutritious" - whole foods with good nutritional value
+const NUTRITIOUS_CATEGORIES = new Set([
+    "fruits",
+    "vegetables",
+    "herbs & fresh aromatics",
+    "meat & poultry",
+    "fish & seafood",
+    "eggs",
+    "dairy (milk/yogurt)",
+    "cheese",
+    "deli / cold cuts",
+    "legumes",
+    "pasta, rice & grains",
+    "bread",
+    "frozen vegetables & fruit",
+    "nuts & seeds",
+    "water",
 ])
 
-// Helper function to determine if a category is "empty calories"
-function isEmptyCalorieCategory(categoryName: string | null | undefined): boolean {
+// Helper function to determine if a category is "nutritious"
+function isNutritiousCategory(categoryName: string | null | undefined): boolean {
     if (!categoryName) return false
     const normalized = categoryName.trim().toLowerCase()
-    return EMPTY_CALORIE_CATEGORIES.has(normalized)
+    return NUTRITIOUS_CATEGORIES.has(normalized)
 }
 
 // Dark colors that require white text
@@ -88,63 +97,74 @@ export const ChartEmptyVsNutritiousFridge = memo(function ChartEmptyVsNutritious
         setMounted(true)
     }, [])
 
-    // Group transactions by calorie type (Empty vs Nutritious)
+    // Calculate aggregated nutritious vs total spending
     const calorieData = useMemo(() => {
         // Use bundle data if available
         if (categorySpendingData && categorySpendingData.length > 0) {
             let nutritiousTotal = 0
-            let emptyTotal = 0
+            let totalSpend = 0
 
             categorySpendingData.forEach((item) => {
-                if (isEmptyCalorieCategory(item.category)) {
-                    emptyTotal += item.total
-                } else {
+                totalSpend += item.total
+                if (isNutritiousCategory(item.category)) {
                     nutritiousTotal += item.total
                 }
             })
 
-            const result: Array<{ id: string; label: string; value: number }> = []
-            if (nutritiousTotal > 0) {
-                result.push({ id: "Nutritious", label: "Nutritious", value: Number(nutritiousTotal.toFixed(2)) })
-            }
-            if (emptyTotal > 0) {
-                result.push({ id: "Empty Calories", label: "Empty Calories", value: Number(emptyTotal.toFixed(2)) })
-            }
-            return result
+            const otherSpend = totalSpend - nutritiousTotal
+            const nutritiousPercentage = totalSpend > 0 ? (nutritiousTotal / totalSpend) * 100 : 0
+            const otherPercentage = totalSpend > 0 ? (otherSpend / totalSpend) * 100 : 0
+
+            return [
+                {
+                    id: "Nutritious",
+                    label: "Nutritious",
+                    value: Number(nutritiousPercentage.toFixed(2)),
+                    spend: nutritiousTotal,
+                    totalSpend: totalSpend,
+                },
+                {
+                    id: "Total",
+                    label: "Total",
+                    value: Number(otherPercentage.toFixed(2)),
+                    spend: otherSpend,
+                    totalSpend: totalSpend,
+                },
+            ].filter(item => item.value > 0)
         }
 
         // Fallback to raw transactions
         let nutritiousTotal = 0
-        let emptyTotal = 0
+        let totalSpend = 0
 
         receiptTransactions.forEach((item) => {
             const spend = Number(item.totalPrice) || 0
-            if (isEmptyCalorieCategory(item.categoryName)) {
-                emptyTotal += spend
-            } else {
+            totalSpend += spend
+            if (isNutritiousCategory(item.categoryName)) {
                 nutritiousTotal += spend
             }
         })
 
-        const result: Array<{ id: string; label: string; value: number }> = []
+        const otherSpend = totalSpend - nutritiousTotal
+        const nutritiousPercentage = totalSpend > 0 ? (nutritiousTotal / totalSpend) * 100 : 0
+        const otherPercentage = totalSpend > 0 ? (otherSpend / totalSpend) * 100 : 0
 
-        if (nutritiousTotal > 0) {
-            result.push({
+        return [
+            {
                 id: "Nutritious",
                 label: "Nutritious",
-                value: Number(nutritiousTotal.toFixed(2)),
-            })
-        }
-
-        if (emptyTotal > 0) {
-            result.push({
-                id: "Empty Calories",
-                label: "Empty Calories",
-                value: Number(emptyTotal.toFixed(2)),
-            })
-        }
-
-        return result
+                value: Number(nutritiousPercentage.toFixed(2)),
+                spend: nutritiousTotal,
+                totalSpend: totalSpend,
+            },
+            {
+                id: "Total",
+                label: "Total",
+                value: Number(otherPercentage.toFixed(2)),
+                spend: otherSpend,
+                totalSpend: totalSpend,
+            },
+        ].filter(item => item.value > 0)
     }, [receiptTransactions, categorySpendingData])
 
     const sanitizedBaseData = useMemo(() => calorieData.map(item => ({
@@ -297,11 +317,10 @@ export const ChartEmptyVsNutritiousFridge = memo(function ChartEmptyVsNutritious
                         arcLinkLabelsColor={{ from: "color" }}
                         arcLabelsSkipAngle={20}
                         arcLabelsTextColor={(d: { color: string }) => getTextColor(d.color, colorScheme)}
-                        valueFormat={(value) => formatCurrency(value)}
+                        valueFormat={(value) => `${value.toFixed(1)}%`}
                         colors={colorConfig}
                         tooltip={({ datum }) => {
-                            const percentage = total > 0 ? (Number(datum.value) / total) * 100 : 0
-
+                            const sliceData = datum.data as typeof data[0]
                             return (
                                 <NivoChartTooltip>
                                     <div className="flex items-center gap-2">
@@ -313,11 +332,11 @@ export const ChartEmptyVsNutritiousFridge = memo(function ChartEmptyVsNutritious
                                             {datum.label as string}
                                         </span>
                                     </div>
-                                    <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                                        {valueFormatter.format(Number(datum.value))}
+                                    <div className="mt-1 text-[0.7rem] text-foreground/80">
+                                        <span className="font-mono">{Number(datum.value).toFixed(1)}%</span>
                                     </div>
                                     <div className="mt-0.5 text-[0.7rem] text-foreground/80">
-                                        {percentage.toFixed(1)}%
+                                        {valueFormatter.format(sliceData.spend)}
                                     </div>
                                 </NivoChartTooltip>
                             )

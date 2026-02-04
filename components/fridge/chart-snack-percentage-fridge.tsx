@@ -28,6 +28,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Store } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { isSnackCategory } from "@/lib/receipt-categories"
 
 type ReceiptTransactionRow = {
   id: number
@@ -98,7 +99,7 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
     return Array.from(stores).sort()
   }, [receiptTransactions])
 
-  // Calculate snack percentage per trip
+  // Calculate aggregated snack vs non-snack spending
   const snackPercentageData = useMemo(() => {
     // Filter by selected stores if any are selected
     const filteredTransactions = selectedStores.size > 0
@@ -108,84 +109,47 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
       })
       : receiptTransactions
 
-    // Group by receipt (trip)
-    const trips = new Map<string, {
-      receiptId: string
-      storeName: string
-      date: string
-      totalAmount: number
-      snackAmount: number
-    }>()
+    // Aggregate totals across all filtered transactions
+    let totalSpend = 0
+    let snackSpend = 0
+    const tripIds = new Set<string>()
 
     filteredTransactions.forEach((item) => {
-      const receiptId = item.receiptId
-      const storeName = normalizeStoreName(item.storeName)
       const totalPrice = Number(item.totalPrice) || 0
-      const isSnack = (item.categoryName?.toLowerCase().trim() === "snacks")
+      const isSnack = isSnackCategory(item.categoryName)
 
-      const trip = trips.get(receiptId) || {
-        receiptId,
-        storeName,
-        date: item.receiptDate,
-        totalAmount: 0,
-        snackAmount: 0,
-      }
-
-      trip.totalAmount += totalPrice
+      totalSpend += totalPrice
       if (isSnack) {
-        trip.snackAmount += totalPrice
+        snackSpend += totalPrice
       }
-
-      trips.set(receiptId, trip)
+      tripIds.add(item.receiptId)
     })
 
-    // Calculate percentages and aggregate by store
-    const storeStats = new Map<string, {
-      storeName: string
-      totalTrips: number
-      totalSpend: number
-      totalSnackSpend: number
-      averageSnackPercentage: number
-    }>()
+    const otherSpend = totalSpend - snackSpend
+    const snackPercentage = totalSpend > 0 ? (snackSpend / totalSpend) * 100 : 0
+    const otherPercentage = totalSpend > 0 ? (otherSpend / totalSpend) * 100 : 0
 
-    trips.forEach((trip) => {
-      const snackPercentage = trip.totalAmount > 0
-        ? (trip.snackAmount / trip.totalAmount) * 100
-        : 0
-
-      const store = trip.storeName
-      const stats = storeStats.get(store) || {
-        storeName: store,
-        totalTrips: 0,
-        totalSpend: 0,
-        totalSnackSpend: 0,
-        averageSnackPercentage: 0,
-      }
-
-      stats.totalTrips += 1
-      stats.totalSpend += trip.totalAmount
-      stats.totalSnackSpend += trip.snackAmount
-      storeStats.set(store, stats)
-    })
-
-    // Calculate average snack percentage per store
-    storeStats.forEach((stats) => {
-      stats.averageSnackPercentage = stats.totalSpend > 0
-        ? (stats.totalSnackSpend / stats.totalSpend) * 100
-        : 0
-    })
-
-    // Convert to chart data format
-    const chartData = Array.from(storeStats.values())
-      .map((stats) => ({
-        id: stats.storeName,
-        label: stats.storeName,
-        value: Number(stats.averageSnackPercentage.toFixed(2)),
-        trips: stats.totalTrips,
-        totalSpend: stats.totalSpend,
-        snackSpend: stats.totalSnackSpend,
-      }))
-      .sort((a, b) => b.value - a.value)
+    // Return 2-slice pie data: Snacks and Other
+    const chartData = [
+      {
+        id: "Snacks",
+        label: "Snacks",
+        value: Number(snackPercentage.toFixed(2)),
+        trips: tripIds.size,
+        totalSpend: totalSpend,
+        snackSpend: snackSpend,
+        spend: snackSpend,
+      },
+      {
+        id: "Total",
+        label: "Total",
+        value: Number(otherPercentage.toFixed(2)),
+        trips: tripIds.size,
+        totalSpend: totalSpend,
+        snackSpend: snackSpend,
+        spend: otherSpend,
+      },
+    ].filter(item => item.value > 0) // Only show slices with value
 
     return chartData
   }, [receiptTransactions, selectedStores])
@@ -206,10 +170,12 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
 
   const data = dataWithColors
 
-  // Calculate total for percentage calculations
+  // Calculate total for percentage calculations; Nivo pie does not render when total is 0
   const total = useMemo(() => {
     return snackPercentageData.reduce((sum, item) => sum + item.value, 0)
   }, [snackPercentageData])
+
+  const hasChartData = snackPercentageData.length > 0 && total > 0
 
   const colorConfig = colorScheme === "colored"
     ? { datum: "data.color" as const }
@@ -257,7 +223,7 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
           "Use the store filter to view specific stores or compare selected stores.",
           "Percentage is calculated as: (Snack spending / Total trip spending) × 100",
         ]}
-        ignoredFootnote="Only trips with assigned categories are included. Snacks are identified by the 'Snacks' category."
+        ignoredFootnote="Snacks include: Pastries, Salty Snacks, Cookies & Biscuits, Chocolate & Candy, Nuts & Seeds, Ice Cream & Desserts."
       />
       <ChartAiInsightButton
         chartId="fridge:snackPercentage"
@@ -302,8 +268,8 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
     )
   }
 
-  // Don't render chart if data is empty
-  if (!snackPercentageData || snackPercentageData.length === 0) {
+  // Don't render chart if data is empty or all values are zero (Nivo pie won't render)
+  if (!hasChartData) {
     return (
       <Card className="@container/card">
         <CardHeader>
@@ -368,7 +334,19 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
           <div className="h-full w-full min-h-[250px]">
-            <ChartLoadingState isLoading={isLoading} skeletonType="pie" />
+            {isLoading ? (
+              <ChartLoadingState isLoading skeletonType="pie" />
+            ) : (
+              <ChartLoadingState
+                isLoading={false}
+                emptyIcon="receipt"
+                emptyDescription={
+                  snackPercentageData.length === 0
+                    ? "Scan receipts to see snack percentage by store."
+                    : "No snack spending detected across stores."
+                }
+              />
+            )}
           </div>
         </CardContent>
       </Card>
@@ -456,7 +434,7 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
             valueFormat={(value) => `${value.toFixed(1)}%`}
             colors={colorConfig}
             tooltip={({ datum }) => {
-              const storeData = datum.data as typeof data[0]
+              const sliceData = datum.data as typeof data[0]
               return (
                 <NivoChartTooltip>
                   <div className="flex items-center gap-2">
@@ -469,16 +447,10 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
                     </span>
                   </div>
                   <div className="mt-1 text-[0.7rem] text-foreground/80">
-                    Snack Percentage: <span className="font-mono">{Number(datum.value).toFixed(1)}%</span>
+                    <span className="font-mono">{Number(datum.value).toFixed(1)}%</span>
                   </div>
                   <div className="mt-0.5 text-[0.7rem] text-foreground/80">
-                    Trips: {storeData.trips}
-                  </div>
-                  <div className="mt-0.5 text-[0.7rem] text-foreground/80">
-                    Total Spend: {valueFormatter.format(storeData.totalSpend)}
-                  </div>
-                  <div className="mt-0.5 text-[0.7rem] text-foreground/80">
-                    Snack Spend: {valueFormatter.format(storeData.snackSpend)}
+                    {valueFormatter.format(sliceData.spend)}
                   </div>
                 </NivoChartTooltip>
               )
