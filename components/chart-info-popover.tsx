@@ -27,7 +27,7 @@ export interface ChartInfoPopoverCategoryControls {
 
 export interface ChartInfoPopoverProps {
   title: string
-  description: string
+  description?: string
   details?: string[]
   ignoredLabel?: string
   ignoredItems?: string[]
