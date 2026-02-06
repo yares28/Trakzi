@@ -704,7 +704,6 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
             />
             <CardTitle>Day of Week Spending by Category</CardTitle>
           </div>
-          <CardDescription>See which categories you spend the most on each day</CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
           </CardAction>

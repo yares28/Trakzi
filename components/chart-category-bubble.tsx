@@ -68,7 +68,6 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
     <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
         title="Category Bubble Map"
-        description="Bubble pack of your expense categories, sized by total spending."
         details={[
           "Each bubble represents an expense category; larger bubbles mean higher total spending.",
           "Inner bubbles represent common merchant or description groups within each category.",
@@ -78,7 +77,7 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
       <ChartAiInsightButton
         chartId="categoryBubbleMap"
         chartTitle="Category Bubble Map"
-        chartDescription="Bubble pack of your expense categories, sized by total spending."
+
         size="sm"
       />
     </div>
@@ -467,7 +466,7 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[180px] md:h-[250px]">
           <ChartLoadingState isLoading skeletonType="grid" />
         </CardContent>
       </Card>
@@ -491,7 +490,7 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[180px] md:h-[250px]">
           <ChartLoadingState
             isLoading={isLoading}
             skeletonType="grid"
@@ -509,7 +508,6 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
         isOpen={isFullscreen}
         onClose={() => setIsFullscreen(false)}
         title="Category Bubble Map"
-        description="Bubble pack of your expense categories"
         headerActions={renderInfoTrigger(true)}
       >
         <div className="h-full w-full min-h-[400px] text-center flex items-center justify-center text-muted-foreground">
@@ -529,12 +527,12 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
             />
             <CardTitle>Category Bubble Map</CardTitle>
           </div>
-          <CardDescription>Bubble pack of your expense categories</CardDescription>
+
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[180px] md:h-[250px]">
           <div ref={containerRef} className="relative h-full w-full" style={{ minHeight: 0, minWidth: 0 }}>
             <ReactECharts
               ref={chartRef}

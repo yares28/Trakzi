@@ -31,6 +31,7 @@ import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { deduplicatedFetch, getCachedResponse } from "@/lib/request-deduplication"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 const LIGHT_CATEGORY_TEXT = "oklch(0.556 0 0)"
 const DARK_CATEGORY_TEXT = "oklch(0.708 0 0)"
@@ -78,6 +79,7 @@ export const ChartRadar = memo(function ChartRadar({
   const [isLoading, setIsLoading] = useState(() => !cachedFinancialHealth)
   const [error, setError] = useState<string | null>(null)
   const [visibleCapabilities, setVisibleCapabilities] = useState<string[]>([])
+  const isMobile = useIsMobile()
   const [isCategorySelectorOpen, setIsCategorySelectorOpen] = useState(false)
   const [hasUserInteracted, setHasUserInteracted] = useState(false)
 
@@ -403,11 +405,45 @@ export const ChartRadar = memo(function ChartRadar({
         : `${effective.length} categories`
   }, [effectiveVisibleCapabilities, filterableCapabilities.length])
 
+  // Get initials from a category name for mobile labels
+  const getInitials = (name: string): string => {
+    // Keep Income and Expenses as full text
+    if (name.toLowerCase() === 'income') return 'Income'
+    if (name.toLowerCase() === 'expenses') return 'Expenses'
+    // Split by spaces and special characters, get first letter of each word
+    return name
+      .split(/[\s&/-]+/)
+      .map(word => word.charAt(0).toUpperCase())
+      .join('')
+  }
+
+  // Transform data for mobile to use initials as labels, with Income/Expenses first
+  const mobileFilteredData = useMemo(() => {
+    if (!isMobile) return filteredData
+
+    // Sort so Income and Expenses come first
+    const sorted = [...filteredData].sort((a, b) => {
+      const aName = String(a.capability || '').toLowerCase()
+      const bName = String(b.capability || '').toLowerCase()
+      if (aName === 'income') return -1
+      if (bName === 'income') return 1
+      if (aName === 'expenses') return -1
+      if (bName === 'expenses') return 1
+      return 0
+    })
+
+    return sorted.map(item => ({
+      ...item,
+      _originalCapability: String(item.capability || ''), // Store original for tooltip
+      capability: getInitials(String(item.capability || ''))
+    }))
+  }, [filteredData, isMobile])
+
   const triggerClassName =
     "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 w-40"
 
-  const renderInfoTrigger = () => (
-    <div className="flex flex-col items-center gap-2">
+  const renderInfoTrigger = (forFullscreen = false) => (
+    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
         title="Financial Health Score"
         description="Assessment of your financial wellness"
@@ -433,9 +469,24 @@ export const ChartRadar = memo(function ChartRadar({
     </div>
   )
 
+  // Mobile legend (year indicators)
+  const renderMobileLegend = () => (
+    <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground mt-1">
+      {legendEntries.map((entry) => (
+        <div key={entry.id} className="flex items-center gap-1.5">
+          <span
+            className="h-2.5 w-2.5 rounded-full shrink-0"
+            style={{ backgroundColor: entry.color }}
+          />
+          <span className="font-medium text-foreground">{entry.label}</span>
+        </div>
+      ))}
+    </div>
+  )
+
   const renderStatusCard = (message: string, isLoading?: boolean) => (
-    <Card className="@container/card h-full" data-slot="card">
-      <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+    <Card className="@container/card h-full relative" data-slot="card">
+      <CardHeader className="flex flex-row items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           <GridStackCardDragHandle />
           <ChartFavoriteButton
@@ -445,11 +496,11 @@ export const ChartRadar = memo(function ChartRadar({
           />
           <CardTitle>Financial Health Score</CardTitle>
         </div>
-        <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+        <CardAction className="flex flex-row items-center gap-2">
           {renderInfoTrigger()}
         </CardAction>
       </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[180px] md:h-[250px]">
         <ChartLoadingState
           isLoading={isLoading}
           skeletonType="grid"
@@ -556,8 +607,8 @@ export const ChartRadar = memo(function ChartRadar({
   }
 
   return (
-    <Card className="@container/card h-full" data-slot="card">
-      <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+    <Card className="@container/card h-full relative" data-slot="card">
+      <CardHeader className="flex flex-row items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           <GridStackCardDragHandle />
           <ChartFavoriteButton
@@ -567,7 +618,7 @@ export const ChartRadar = memo(function ChartRadar({
           />
           <CardTitle>Financial Health Score</CardTitle>
         </div>
-        <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+        <CardAction className="flex flex-row items-center gap-2">
           {filterableCapabilities.length > 0 && (
             <DropdownMenu open={isCategorySelectorOpen} onOpenChange={setIsCategorySelectorOpen}>
               <DropdownMenuTrigger asChild>
@@ -630,31 +681,38 @@ export const ChartRadar = memo(function ChartRadar({
           {renderInfoTrigger()}
         </CardAction>
       </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-        <div className="h-full w-full [&_svg]:bg-transparent">
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col">
+        <div className="flex-1 min-h-[160px] md:min-h-[220px] [&_svg]:bg-transparent">
           <ResponsiveRadar
-            key={`radar-${filteredData.map(d => String(d.capability)).sort().join('-')}`}
-            data={filteredData}
+            key={`radar-${(isMobile ? mobileFilteredData : filteredData).map(d => String(d.capability)).sort().join('-')}`}
+            data={isMobile ? mobileFilteredData : filteredData}
             keys={keys}
             indexBy="capability"
-            margin={{ top: 70, right: 80, bottom: 40, left: 80 }}
-            gridLabelOffset={36}
-            dotSize={10}
+            margin={isMobile
+              ? { top: 30, right: 35, bottom: 15, left: 35 }
+              : { top: 70, right: 80, bottom: 40, left: 80 }
+            }
+            gridLabelOffset={isMobile ? 12 : 36}
+            dotSize={isMobile ? 6 : 10}
             dotColor={{ theme: "background" }}
             dotBorderWidth={2}
             blendMode={resolvedTheme === "dark" ? "normal" : "multiply"}
             colors={palette}
             theme={radarTheme}
             fillOpacity={0.6}
-            gridLevels={5}
+            gridLevels={isMobile ? 4 : 5}
             gridShape="linear"
             sliceTooltip={({ index, data }: RadarSliceTooltipProps) => {
               if (!data || data.length === 0) return null
 
               // Show all data points at this position (all overlapping years)
-              const categoryName = typeof index === 'number' && filteredData[index]
-                ? String(filteredData[index].capability || '')
-                : 'Category'
+              // index is the capability string (e.g., "G" on mobile, "Groceries" on desktop)
+              const chartData = isMobile ? mobileFilteredData : filteredData
+              // Find the data item by matching the capability (index is the label)
+              const dataItem = chartData.find(item => String(item.capability) === String(index))
+              const categoryName = dataItem
+                ? String((dataItem as any)._originalCapability || dataItem.capability || 'Category')
+                : String(index) || 'Category'
 
               return (
                 <NivoChartTooltip
@@ -668,7 +726,7 @@ export const ChartRadar = memo(function ChartRadar({
                 />
               )
             }}
-            legends={legendEntries.length ? [
+            legends={!isMobile && legendEntries.length ? [
               {
                 anchor: "top-left",
                 direction: "column",
@@ -684,6 +742,7 @@ export const ChartRadar = memo(function ChartRadar({
             ] : []}
           />
         </div>
+        {isMobile && renderMobileLegend()}
       </CardContent>
     </Card>
   )

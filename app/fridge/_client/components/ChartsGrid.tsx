@@ -5,7 +5,6 @@ import { ChartCategoryFlowFridge } from "@/components/fridge/chart-category-flow
 import { ChartExpenseBreakdownFridge } from "@/components/fridge/chart-expense-breakdown-fridge"
 import { ChartMacronutrientBreakdownFridge } from "@/components/fridge/chart-macronutrient-breakdown-fridge"
 import { ChartSnackPercentageFridge } from "@/components/fridge/chart-snack-percentage-fridge"
-import { ChartEmptyVsNutritiousFridge } from "@/components/fridge/chart-empty-vs-nutritious-fridge"
 import { ChartDailyActivityFridge } from "@/components/fridge/chart-daily-activity-fridge"
 import { ChartDayOfWeekCategoryFridge } from "@/components/fridge/chart-day-of-week-category-fridge"
 import { ChartSingleMonthCategoryFridge } from "@/components/fridge/chart-single-month-category-fridge"
@@ -59,8 +58,7 @@ export function ChartsGrid({
     groceryCategoryRankings: "Category Rankings",
     groceryExpenseBreakdown: "Expense Breakdown",
     groceryMacronutrientBreakdown: "Macronutrient Breakdown",
-    grocerySnackPercentage: "Snack Percentage",
-    groceryEmptyVsNutritious: "Empty vs Nutritious",
+    grocerySnackPercentage: "Spending Breakdown",
     groceryDailyActivity: "Daily Activity",
     groceryDayOfWeekCategory: "Day of Week by Category",
     grocerySingleMonthCategory: "Single Month Category",
@@ -107,14 +105,6 @@ export function ChartsGrid({
       case "grocerySnackPercentage":
         return (
           <ChartSnackPercentageFridge
-            receiptTransactions={receiptTransactions}
-            categorySpendingData={chartData.categorySpendingData}
-            isLoading={isLoading}
-          />
-        )
-      case "groceryEmptyVsNutritious":
-        return (
-          <ChartEmptyVsNutritiousFridge
             receiptTransactions={receiptTransactions}
             categorySpendingData={chartData.categorySpendingData}
             isLoading={isLoading}
@@ -224,18 +214,19 @@ export function ChartsGrid({
           const sizeConfig = getChartCardSize(FRIDGE_CHART_TO_ANALYTICS_CHART[chartId] as ChartId)
 
           return (
-              <SortableGridItem
-                key={chartId}
-                id={chartId}
-                w={(savedChartSizes[chartId]?.w ?? defaultSize.w) as GridWidth}
-                h={savedChartSizes[chartId]?.h ?? defaultSize.h}
-                resizable
-                minW={sizeConfig.minW}
-                maxW={sizeConfig.maxW}
-                minH={sizeConfig.minH}
-                maxH={sizeConfig.maxH}
-                onResize={handleResize}
-              >
+            <SortableGridItem
+              key={chartId}
+              id={chartId}
+              w={(savedChartSizes[chartId]?.w ?? defaultSize.w) as GridWidth}
+              h={savedChartSizes[chartId]?.h ?? defaultSize.h}
+              mobileH={sizeConfig.mobileH}
+              resizable
+              minW={sizeConfig.minW}
+              maxW={sizeConfig.maxW}
+              minH={sizeConfig.minH}
+              maxH={sizeConfig.maxH}
+              onResize={handleResize}
+            >
               <LazyChart title={chartTitles[chartId]} height={250}>
                 <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                   {renderChart(chartId)}

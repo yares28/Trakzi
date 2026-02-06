@@ -104,7 +104,6 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
   const isDark = resolvedTheme === "dark"
 
   const textColor = isDark ? "#9ca3af" : "#4b5563"
-  const arcLinkLabelColor = isDark ? "#d1d5db" : "#374151"
 
   // Format currency value using user's preferred currency
   const valueFormatter = useMemo(() => ({
@@ -141,20 +140,16 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
   )
 
   // Render chart function for reuse
-  const renderChart = () => (
+  const renderChart = (isCompact = false) => (
     <ResponsivePie
       data={data}
-      margin={{ top: 40, right: 80, bottom: 80, left: 80 }}
+      margin={isCompact ? { top: 20, right: 20, bottom: 20, left: 20 } : { top: 40, right: 40, bottom: 40, left: 40 }}
       innerRadius={0.5}
       padAngle={0.6}
       cornerRadius={2}
       activeOuterRadiusOffset={8}
-      enableArcLinkLabels={true}
-      arcLinkLabelsSkipAngle={10}
-      arcLinkLabelsTextColor={arcLinkLabelColor}
-      arcLinkLabelsThickness={2}
-      arcLinkLabelsColor={{ from: "color" }}
-      arcLabelsSkipAngle={10}
+      enableArcLinkLabels={false}
+      arcLabelsSkipAngle={15}
       arcLabelsTextColor={(d: { color: string }) => getTextColor(d.color, colorScheme)}
       valueFormat={(value) => formatCurrency(toNumericValue(value))}
       colors={colorConfig}
@@ -170,8 +165,25 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
         )
       }}
       theme={{ text: { fill: textColor, fontSize: 12 } }}
-      legends={[{ anchor: "bottom", direction: "row", translateY: 56, itemWidth: 100, itemHeight: 18, symbolShape: "circle" }]}
     />
+  )
+
+  // Custom legend component
+  const renderLegend = () => (
+    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground mt-2">
+      {data.map((item) => (
+        <div key={item.id} className="flex items-center gap-1.5">
+          <span
+            className="h-2.5 w-2.5 rounded-full shrink-0"
+            style={{ backgroundColor: item.color }}
+          />
+          <span className="font-medium text-foreground">{item.label}</span>
+          <span className="text-[0.7rem]">
+            {total > 0 ? `${((item.value / total) * 100).toFixed(0)}%` : '0%'}
+          </span>
+        </div>
+      ))}
+    </div>
   )
 
   if (!mounted) {
@@ -193,7 +205,7 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
           </CardAction>
         </CardHeader>
         <CardContent className="flex-1 min-h-0">
-          <div className="h-full w-full min-h-[250px]" />
+          <div className="h-full w-full min-h-[180px] md:min-h-[250px]" />
         </CardContent>
       </Card>
     )
@@ -218,7 +230,7 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
-          <div className="h-full w-full min-h-[250px]">
+          <div className="h-full w-full min-h-[180px] md:min-h-[250px]">
             <ChartLoadingState
               isLoading={isLoading}
               skeletonType="pie"
@@ -261,10 +273,11 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
-          <div className="h-full w-full min-h-[250px]" key={colorScheme}>
-            {renderChart()}
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0 flex flex-col">
+          <div className="flex-1 min-h-[140px] md:min-h-[200px]" key={colorScheme}>
+            {renderChart(true)}
           </div>
+          {renderLegend()}
         </CardContent>
       </Card>
     </>

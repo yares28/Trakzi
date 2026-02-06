@@ -162,7 +162,7 @@ export const ChartSankey = memo(function ChartSankey({
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
-          <div className="h-full w-full min-h-[250px]">
+          <div className="h-full w-full min-h-[180px] md:min-h-[250px]">
             <ChartLoadingState
               isLoading={isLoading}
               skeletonType="flow"
@@ -345,14 +345,14 @@ export const ChartSankey = memo(function ChartSankey({
           </div>
           <CardDescription>
             <span className="hidden @[540px]/card:block">Follow how your income flows through expenses to savings</span>
-            <span className="@[540px]/card:hidden">Income flow visualization</span>
+
           </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
-          <div className="h-full w-full min-h-[250px]">
+          <div className="h-full w-full min-h-[280px] md:min-h-[250px]">
             {isMobile ? renderMobileChart() : renderFullChart()}
           </div>
           {/* Mobile legend below chart */}

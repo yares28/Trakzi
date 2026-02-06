@@ -40,7 +40,7 @@ export const DEFAULT_CHART_SIZES: Record<string, { w: number; h: number; x?: num
   "financialHealthScore": { w: 6, h: 10, x: 6, y: 30 },
   "spendingActivityRings": { w: 6, h: 10, x: 0, y: 50 },
   "spendingStreamgraph": { w: 12, h: 9, x: 0, y: 60 },
-  "transactionHistory": { w: 12, h: 9, x: 0, y: 69 },
+  "transactionHistory": { w: 12, h: 7, x: 0, y: 69 },
   "dailyTransactionActivity": { w: 12, h: 7, x: 0, y: 78 },
   "dayOfWeekSpending": { w: 6, h: 8, x: 6, y: 86 },
   "allMonthsCategorySpending": { w: 6, h: 8, x: 0, y: 94 },

@@ -390,8 +390,15 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
     }
   }, [filteredData])
 
+  // On mobile (maxCategories === 1), selecting a category replaces the current selection (single-select)
+  // On larger screens, it toggles (multi-select)
   const toggleGroup = (group: string) => {
     setVisibleGroups(prev => {
+      // Mobile: single-select mode - replace current selection with new one
+      if (maxCategories === 1) {
+        return [group]
+      }
+      // Desktop: multi-select toggle
       if (prev.includes(group)) {
         return prev.filter(item => item !== group)
       }
@@ -425,7 +432,6 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
     <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
         title="Transaction History"
-        description="Recent transactions by category"
         details={[
           "Each dot represents an expense; its vertical position is the amount and the group shows which category it belongs to.",
           "We only pull the most recent 250 expense transactions and ignore any income entries so this view focuses on spending."
@@ -436,61 +442,68 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
       <ChartAiInsightButton
         chartId="transactionHistory"
         chartTitle="Transaction History"
-        chartDescription="Recent transactions by category"
         size="sm"
       />
     </div>
   )
 
   // Render chart content - reused in card and fullscreen modal
-  const renderChartContent = () => (
-    <ResponsiveSwarmPlot
-      data={filteredData}
-      colors={chartColors}
-      groups={visibleGroups.length ? visibleGroups : chartGroups}
-      value="price"
-      valueScale={dynamicValueScale}
-      size={{ key: "volume", values: [4, 20], sizes: [6, 20] }}
-      forceStrength={4}
-      simulationIterations={100}
-      margin={{ top: 80, right: 100, bottom: 80, left: 100 }}
-      axisBottom={{ legend: "category vs. amount", legendOffset: 40 }}
-      axisLeft={{ legend: "amount ($)", legendOffset: -60 }}
-      theme={swarmTheme}
-      tooltip={(node) => {
-        const datum = node.data as EnhancedChartDatum
-        const category = datum.categoryLabel || datum.group || "Other"
-        const color = (datum.color || node.color || chartColors[0]) as string
+  const renderChartContent = () => {
+    // Use smaller margins on mobile for more chart space
+    const isMobileSize = containerWidth < 500
+    const chartMargin = isMobileSize
+      ? { top: 40, right: 40, bottom: 50, left: 50 }
+      : { top: 80, right: 100, bottom: 80, left: 100 }
 
-        return (
-          <NivoChartTooltip maxWidth={220}>
-            <div className="flex items-center gap-2">
-              <span
-                className="h-2.5 w-2.5 shrink-0 rounded-full border border-border/50"
-                style={{ backgroundColor: color, borderColor: color }}
-              />
-              <span className="font-medium text-foreground whitespace-nowrap">
-                {category}
-              </span>
-            </div>
-            <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-              {formatCurrency(datum.price || 0)}
-            </div>
-            {datum.date && (
-              <div className="mt-0.5 text-[0.7rem] text-foreground/60">
-                {formatDateForDisplay(datum.date, undefined, {})}
+    return (
+      <ResponsiveSwarmPlot
+        data={filteredData}
+        colors={chartColors}
+        groups={visibleGroups.length ? visibleGroups : chartGroups}
+        value="price"
+        valueScale={dynamicValueScale}
+        size={{ key: "volume", values: [4, 20], sizes: [6, 20] }}
+        forceStrength={4}
+        simulationIterations={100}
+        margin={chartMargin}
+        axisBottom={isMobileSize ? { tickRotation: -45 } : { legend: "category vs. amount", legendOffset: 40 }}
+        axisLeft={isMobileSize ? {} : { legend: "amount ($)", legendOffset: -60 }}
+        theme={swarmTheme}
+        tooltip={(node) => {
+          const datum = node.data as EnhancedChartDatum
+          const category = datum.categoryLabel || datum.group || "Other"
+          const color = (datum.color || node.color || chartColors[0]) as string
+
+          return (
+            <NivoChartTooltip maxWidth={220}>
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full border border-border/50"
+                  style={{ backgroundColor: color, borderColor: color }}
+                />
+                <span className="font-medium text-foreground whitespace-nowrap">
+                  {category}
+                </span>
               </div>
-            )}
-            {datum.description && (
-              <div className="mt-1 text-[0.7rem] text-foreground/60">
-                {datum.description}
+              <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
+                {formatCurrency(datum.price || 0)}
               </div>
-            )}
-          </NivoChartTooltip>
-        )
-      }}
-    />
-  )
+              {datum.date && (
+                <div className="mt-0.5 text-[0.7rem] text-foreground/60">
+                  {formatDateForDisplay(datum.date, undefined, {})}
+                </div>
+              )}
+              {datum.description && (
+                <div className="mt-1 text-[0.7rem] text-foreground/60">
+                  {datum.description}
+                </div>
+              )}
+            </NivoChartTooltip>
+          )
+        }}
+      />
+    )
+  }
 
   if (isLoading && (!filteredData || filteredData.length === 0)) {
     return (
@@ -510,7 +523,7 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 min-h-[450px] md:min-h-[350px]">
           <ChartLoadingState
             isLoading={true}
             skeletonType="grid"
@@ -540,7 +553,7 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex items-center justify-center text-muted-foreground">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 min-h-[450px] md:min-h-[350px] flex items-center justify-center text-muted-foreground">
           {error}
         </CardContent>
       </Card>
@@ -565,7 +578,7 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 min-h-[450px] md:min-h-[350px]">
           <ChartLoadingState
             isLoading={false}
             skeletonType="grid"
@@ -603,7 +616,6 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
             />
             <CardTitle>Transaction History</CardTitle>
           </div>
-          <CardDescription>Recent transactions by category</CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
             {chartGroups.length > 0 && (
@@ -625,19 +637,24 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
                   <p className="px-2 pb-1 pt-1.5 text-xs font-medium text-muted-foreground">
                     Select categories to display
                   </p>
-                  <DropdownMenuItem
-                    onSelect={(e) => {
-                      e.preventDefault()
-                      selectAllGroups()
-                    }}
-                    className="cursor-pointer font-medium"
-                  >
-                    {visibleGroups.length === chartGroups.length &&
-                      chartGroups.every(group => visibleGroups.includes(group))
-                      ? "Deselect all"
-                      : "Select all"}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  {/* Hide Select All on mobile (single-select mode) */}
+                  {maxCategories > 1 && (
+                    <>
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault()
+                          selectAllGroups()
+                        }}
+                        className="cursor-pointer font-medium"
+                      >
+                        {visibleGroups.length === chartGroups.length &&
+                          chartGroups.every(group => visibleGroups.includes(group))
+                          ? "Deselect all"
+                          : "Select all"}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
                   <div className="max-h-64 overflow-y-auto">
                     {chartGroups.map(group => {
                       const checked = visibleGroups.includes(group)
@@ -667,7 +684,7 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
             )}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 min-h-[450px] md:min-h-[350px]">
           <div className="h-full w-full">
             {renderChartContent()}
           </div>
@@ -678,3 +695,4 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
 })
 
 ChartSwarmPlot.displayName = "ChartSwarmPlot"
+

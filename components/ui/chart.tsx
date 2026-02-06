@@ -147,12 +147,11 @@ function DebouncedResponsiveContainer({
   }, [])
 
   return (
-    <div 
-      ref={containerRef} 
-      style={{ 
-        width: '100%', 
+    <div
+      ref={containerRef}
+      style={{
+        width: '100%',
         height: '100%',
-        contain: 'layout style',
       }}
     >
       {dimensions && dimensions.width > 0 && dimensions.height > 0 ? (
@@ -194,10 +193,6 @@ function ChartContainer({
           "[&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/50 dark:[&_.recharts-cartesian-grid_line]:stroke-[#e5e7eb] [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border dark:[&_.recharts-polar-grid_line]:stroke-[#e5e7eb] [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-muted [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border dark:[&_.recharts-reference-line]:stroke-[#e5e7eb] flex aspect-video justify-center text-xs [&_.recharts-dot[stroke='#fff']]:stroke-transparent [&_.recharts-layer]:outline-hidden [&_.recharts-sector]:outline-hidden [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-surface]:outline-hidden",
           className
         )}
-        style={{
-          // CSS containment to prevent layout thrashing
-          contain: 'layout style',
-        }}
         {...props}
       >
         <ChartStyle id={chartId} config={config} />
@@ -226,13 +221,13 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
             ([theme, prefix]) => `
 ${prefix} [data-chart=${id}] {
 ${colorConfig
-  .map(([key, itemConfig]) => {
-    const color =
-      itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
-      itemConfig.color
-    return color ? `  --color-${key}: ${color};` : null
-  })
-  .join("\n")}
+                .map(([key, itemConfig]) => {
+                  const color =
+                    itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
+                    itemConfig.color
+                  return color ? `  --color-${key}: ${color};` : null
+                })
+                .join("\n")}
 }
 `
           )
@@ -263,11 +258,11 @@ const ChartTooltip = (
 ) => {
   return (
     <RechartsPrimitive.Tooltip
-      // Prevent tooltip from escaping the chart SVG boundaries
-      allowEscapeViewBox={{ x: false, y: false }}
+      // Allow tooltip to escape chart SVG boundaries (fixes clipping issues)
+      allowEscapeViewBox={{ x: true, y: true }}
       // Offset from cursor to prevent tooltip overlap with pointer
       offset={16}
-      // Add wrapper styles for boundary awareness
+      // Add wrapper styles for visibility and correct stacking
       wrapperStyle={{
         zIndex: 50,
         pointerEvents: 'none',
@@ -494,8 +489,8 @@ function getPayloadConfigFromPayload(
 
   const payloadPayload =
     "payload" in payload &&
-    typeof payload.payload === "object" &&
-    payload.payload !== null
+      typeof payload.payload === "object" &&
+      payload.payload !== null
       ? payload.payload
       : undefined
 

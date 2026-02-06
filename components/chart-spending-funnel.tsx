@@ -234,7 +234,7 @@ export const ChartSpendingFunnel = memo(function ChartSpendingFunnel({
           </div>
           <CardDescription>
             <span className="hidden @[540px]/card:block">Visualize how your income flows through expenses to savings</span>
-            <span className="@[540px]/card:hidden">Income to savings flow</span>
+
           </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
