@@ -408,6 +408,38 @@ export function useFridgeBundleData() {
     })
 }
 
+// Groceries Trends Bundle Types
+export interface GroceriesTrendsBundleData {
+    categoryTrends: Record<string, Array<{ date: string; value: number }>>
+    categories: string[]
+}
+
+async function fetchGroceriesTrendsBundle(filter: string | null): Promise<GroceriesTrendsBundleData> {
+    const url = filter
+        ? `/api/charts/groceries-trends-bundle?filter=${encodeURIComponent(filter)}`
+        : `/api/charts/groceries-trends-bundle`
+
+    const response = await fetch(url)
+    if (!response.ok) {
+        throw new Error(`Failed to fetch groceries trends bundle: ${response.statusText}`)
+    }
+    return response.json()
+}
+
+/**
+ * Groceries trends bundle - groceries category trends with Redis caching
+ */
+export function useGroceriesTrendsBundleData() {
+    const { userId } = useAuth()
+    const { filter, isReady } = useDateFilter()
+
+    return useQuery({
+        queryKey: ["groceries-trends-bundle", userId ?? "", filter],
+        queryFn: () => fetchGroceriesTrendsBundle(filter),
+        enabled: !!userId && isReady,
+    })
+}
+
 // ============================================
 // LEGACY HOOKS (for backward compatibility)
 // ============================================

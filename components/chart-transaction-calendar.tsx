@@ -33,6 +33,7 @@ import {
   FALLBACK_DATE_FILTER,
   normalizeDateFilterValue,
 } from "@/lib/date-filter"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 interface ChartTransactionCalendarProps {
   data?: Array<{
@@ -95,22 +96,24 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
 }: ChartTransactionCalendarProps) {
   const { resolvedTheme } = useTheme()
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const isMobile = useIsMobile()
 
   const renderInfoTrigger = (forFullscreen = false) => (
     <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
         title="Daily Transaction Activity"
-        description="Your spending patterns throughout the year - darker means more transactions"
+        description="6 months of spending patterns split into two quarterly views - darker cells mean higher spending"
         details={[
           "Each cell represents a day, colored by the total amount you spent.",
-          "We pull expense-only data from /api/transactions/daily so income, transfers, and savings moves are excluded."
+          "The chart shows two 3-month periods for easier comparison between quarters.",
+          "Expense-only data is shown - income, transfers, and savings moves are excluded."
         ]}
         ignoredFootnote="The API filters to negative transactions only and trims out internal transfers and savings deposits."
       />
       <ChartAiInsightButton
         chartId="dailyTransactionActivity"
         chartTitle="Daily Transaction Activity"
-        chartDescription="Your spending patterns throughout the year - darker means more transactions"
+        chartDescription="6 months of spending patterns split into two quarterly views"
         size="sm"
       />
     </div>
@@ -230,25 +233,69 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
     setMounted(true)
   }, [])
 
-  // Calculate date range based on global filter.
-  const { fromDate, toDate, enforcedByFilter } = useMemo(() => {
-    if (dateFilter) {
+  // Calculate date ranges for two 3-month periods (6 months YTD total)
+  // Period 1: 6 months ago to 3 months ago (older quarter)
+  // Period 2: 3 months ago to today (recent quarter)
+  const { period1, period2, singlePeriod, enforcedByFilter } = useMemo(() => {
+    const today = new Date()
+    const formatDate = (date: Date) => date.toISOString().split('T')[0]
+
+    // Check if user has a short-range date filter that should use single calendar
+    // Only last7days, last30days, and last3months use single calendar mode
+    // Everything else (lastyear, last6months, ytd, specific years) uses dual calendar
+    const shortRangeFilters = ["last7days", "last30days", "last3months"]
+    if (dateFilter && shortRangeFilters.includes(dateFilter)) {
       const range = getRangeForFilter(dateFilter)
       if (range) {
-        return { ...range, enforcedByFilter: true }
+        return {
+          period1: null,
+          period2: null,
+          singlePeriod: range,
+          enforcedByFilter: true,
+        }
       }
     }
 
-    // Default to last year if no filter
-    const today = new Date()
-    const oneYearAgo = new Date(today)
-    oneYearAgo.setDate(oneYearAgo.getDate() - 365)
+    // Default: 6 months YTD split into two 3-month periods
+    const sixMonthsAgo = new Date(today)
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+
+    const threeMonthsAgo = new Date(today)
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
+    // Subtract one day from period 1 end to avoid overlap
+    const period1End = new Date(threeMonthsAgo)
+    period1End.setDate(period1End.getDate() - 1)
+
     return {
-      fromDate: oneYearAgo.toISOString().split("T")[0],
-      toDate: today.toISOString().split("T")[0],
+      period1: {
+        fromDate: formatDate(sixMonthsAgo),
+        toDate: formatDate(period1End),
+        label: getMonthRangeLabel(sixMonthsAgo, period1End),
+      },
+      period2: {
+        fromDate: formatDate(threeMonthsAgo),
+        toDate: formatDate(today),
+        label: getMonthRangeLabel(threeMonthsAgo, today),
+      },
+      singlePeriod: null,
       enforcedByFilter: false,
     }
-  }, [dateFilter])
+  }, [dateFilter, isMobile])
+
+  // Helper to get month range label (e.g., "Aug - Oct 2025")
+  function getMonthRangeLabel(start: Date, end: Date): string {
+    const startMonth = start.toLocaleDateString("en-US", { month: "short" })
+    const endMonth = end.toLocaleDateString("en-US", { month: "short" })
+    const endYear = end.getFullYear()
+    return `${startMonth} - ${endMonth} ${endYear}`
+  }
+
+  // Determine if we're showing dual calendars
+  const isDualCalendar = period1 !== null && period2 !== null
+
+  // For backwards compatibility, compute fromDate/toDate for data filtering
+  const fromDate = isDualCalendar ? period1!.fromDate : singlePeriod?.fromDate || ""
+  const toDate = isDualCalendar ? period2!.toDate : singlePeriod?.toDate || ""
 
   // Filter data based on selection, excluding days with value 0 and future dates
   const filteredData = useMemo(() => {
@@ -420,55 +467,159 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
     }
   }, [tooltip, hasValidPosition])
 
-  // ECharts option configuration
-  const option = useMemo(() => ({
-    tooltip: {
-      show: false, // Disable default ECharts tooltip
-    },
-    title: {
-      show: false
-    },
-    visualMap: {
-      min: 0,
-      max: colorScaleMax,
-      show: false, // Hide the default legend
-      inRange: {
-        color: palette
-      }
-    },
-    calendar: {
-      top: 30,
-      left: 30,
-      right: 30,
-      bottom: 30,
-      cellSize: ['auto', 13],
-      range: [fromDate, toDate],
-      itemStyle: {
-        borderWidth: 0.5,
-        borderColor: isDark ? '#e5e7eb' : '#e5e7eb'
-      },
-      yearLabel: { show: false },
-      dayLabel: {
-        color: isDark ? '#9ca3af' : '#6b7280',
-        fontSize: 11
-      },
-      monthLabel: {
-        color: isDark ? '#9ca3af' : '#6b7280',
-        fontSize: 11
-      }
-    },
-    series: {
-      type: 'heatmap',
-      coordinateSystem: 'calendar',
-      data: chartData.map(([day, value]) => {
-        const raw = Number(value) || 0
-        return {
-          value: [day, Math.min(raw, colorScaleMax)],
-          raw
-        }
-      })
+  // Filter data for each period in dual calendar mode
+  const { period1Data, period2Data } = useMemo(() => {
+    if (!isDualCalendar) {
+      return { period1Data: [], period2Data: [] }
     }
-  }), [chartData, colorScaleMax, fromDate, toDate, isDark, palette])
+
+    const p1Data = chartData.filter(([day]) => {
+      const d = day as string
+      return d >= period1!.fromDate && d <= period1!.toDate
+    })
+
+    const p2Data = chartData.filter(([day]) => {
+      const d = day as string
+      return d >= period2!.fromDate && d <= period2!.toDate
+    })
+
+    return { period1Data: p1Data, period2Data: p2Data }
+  }, [chartData, isDualCalendar, period1, period2])
+
+  // ECharts option configuration
+  const option = useMemo(() => {
+    const baseConfig = {
+      tooltip: {
+        show: false, // Disable default ECharts tooltip
+      },
+      visualMap: {
+        min: 0,
+        max: colorScaleMax,
+        show: false, // Hide the default legend
+        inRange: {
+          color: palette
+        }
+      },
+    }
+
+    // Dual calendar mode: two 3-month calendars stacked vertically
+    if (isDualCalendar) {
+      return {
+        ...baseConfig,
+        title: [],
+        calendar: [
+          {
+            top: isMobile ? 16 : 22,
+            left: isMobile ? 20 : 30,
+            right: isMobile ? 10 : 30,
+            height: '38%',
+            cellSize: ['auto', isMobile ? 10 : 13],
+            range: [period1!.fromDate, period1!.toDate],
+            itemStyle: {
+              borderWidth: 0.5,
+              borderColor: isDark ? '#e5e7eb' : '#e5e7eb'
+            },
+            yearLabel: { show: false },
+            dayLabel: {
+              color: isDark ? '#9ca3af' : '#6b7280',
+              fontSize: isMobile ? 8 : 11
+            },
+            monthLabel: {
+              color: isDark ? '#9ca3af' : '#6b7280',
+              fontSize: isMobile ? 8 : 11
+            }
+          },
+          {
+            top: '57%',
+            left: isMobile ? 20 : 30,
+            right: isMobile ? 10 : 30,
+            height: '38%',
+            cellSize: ['auto', isMobile ? 10 : 13],
+            range: [period2!.fromDate, period2!.toDate],
+            itemStyle: {
+              borderWidth: 0.5,
+              borderColor: isDark ? '#e5e7eb' : '#e5e7eb'
+            },
+            yearLabel: { show: false },
+            dayLabel: {
+              color: isDark ? '#9ca3af' : '#6b7280',
+              fontSize: isMobile ? 8 : 11
+            },
+            monthLabel: {
+              color: isDark ? '#9ca3af' : '#6b7280',
+              fontSize: isMobile ? 8 : 11
+            }
+          }
+        ],
+        series: [
+          {
+            type: 'heatmap',
+            coordinateSystem: 'calendar',
+            calendarIndex: 0,
+            data: period1Data.map(([day, value]) => {
+              const raw = Number(value) || 0
+              return {
+                value: [day, Math.min(raw, colorScaleMax)],
+                raw
+              }
+            })
+          },
+          {
+            type: 'heatmap',
+            coordinateSystem: 'calendar',
+            calendarIndex: 1,
+            data: period2Data.map(([day, value]) => {
+              const raw = Number(value) || 0
+              return {
+                value: [day, Math.min(raw, colorScaleMax)],
+                raw
+              }
+            })
+          }
+        ]
+      }
+    }
+
+    // Single calendar mode (mobile or custom date filter)
+    return {
+      ...baseConfig,
+      title: {
+        show: false
+      },
+      calendar: {
+        top: isMobile ? 15 : 30,
+        left: isMobile ? 15 : 30,
+        right: isMobile ? 15 : 30,
+        bottom: isMobile ? 10 : 30,
+        cellSize: ['auto', isMobile ? 11 : 13],
+        range: [fromDate, toDate],
+        itemStyle: {
+          borderWidth: 0.5,
+          borderColor: isDark ? '#e5e7eb' : '#e5e7eb'
+        },
+        yearLabel: { show: false },
+        dayLabel: {
+          color: isDark ? '#9ca3af' : '#6b7280',
+          fontSize: isMobile ? 9 : 11
+        },
+        monthLabel: {
+          color: isDark ? '#9ca3af' : '#6b7280',
+          fontSize: isMobile ? 9 : 11
+        }
+      },
+      series: {
+        type: 'heatmap',
+        coordinateSystem: 'calendar',
+        data: chartData.map(([day, value]) => {
+          const raw = Number(value) || 0
+          return {
+            value: [day, Math.min(raw, colorScaleMax)],
+            raw
+          }
+        })
+      }
+    }
+  }, [chartData, colorScaleMax, fromDate, toDate, isDark, palette, isMobile, isDualCalendar, period1, period2, period1Data, period2Data])
 
   if (!mounted || isLoading) {
     return (
@@ -488,7 +639,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-          <div className="h-[250px] w-full">
+          <div className="h-[180px] md:h-[360px] w-full">
             <ChartLoadingState
               isLoading
               skeletonType="grid"
@@ -520,7 +671,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-          <div className="h-[250px] w-full">
+          <div className="h-[180px] md:h-[360px] w-full">
             <ChartLoadingState
               skeletonType="grid"
               emptyTitle={emptyTitle || "No daily activity yet"}
@@ -562,8 +713,8 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-          <div ref={containerRef} className="relative h-[250px] w-full" style={{ minHeight: 0, minWidth: 0 }}>
+        <CardContent className="px-2 pt-4 pb-2 sm:px-6 sm:pt-6 md:pb-6">
+          <div ref={containerRef} className={`relative w-full ${isDualCalendar ? 'h-[300px] md:h-[360px]' : 'h-[140px] md:h-[250px]'}`} style={{ minHeight: 0, minWidth: 0 }}>
             <ReactECharts
               ref={chartRef}
               option={option}
@@ -604,7 +755,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
             )}
           </div>
           {/* Color Legend - Only 3 colors */}
-          <div className="mt-4 flex items-center justify-center gap-3 px-2 sm:px-6">
+          <div className="mt-2 md:mt-4 flex items-center justify-center gap-3 px-2 sm:px-6">
             <span className="text-xs text-muted-foreground">Less</span>
             <div className="flex h-4 items-center gap-0.5">
               {palette.slice(0, 3).map((color, index) => (

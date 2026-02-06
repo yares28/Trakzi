@@ -20,6 +20,7 @@ export interface ChartCardSizeConfig {
   maxW: number  // Maximum width in grid units (1-12)
   minH: number  // Minimum height in grid units (minimum 4)
   maxH: number  // Maximum height in grid units
+  mobileH?: number  // Height in grid units for mobile (optional, defaults to minH)
 }
 
 export type ChartId =
@@ -120,323 +121,364 @@ export type ChartId =
  * Edit these values to customize min/max sizes for each chart
  */
 export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
-  // Income & Expenses Tracking (1)
+  // Income & Expenses Tracking (1) - Area chart, compact on mobile
   incomeExpensesTracking1: {
     minW: 6,
     maxW: 12,
     minH: 6,
     maxH: 6,
+    mobileH: 5,
   },
 
-  // Income & Expenses Tracking (2)
+  // Income & Expenses Tracking (2) - Area chart, compact on mobile
   incomeExpensesTracking2: {
     minW: 6,
     maxW: 12,
     minH: 6,
     maxH: 6,
+    mobileH: 5,
   },
 
-  // Spending Category Rankings
+  // Spending Category Rankings - Bar chart with multiple bars
   spendingCategoryRankings: {
     minW: 6,
     maxW: 12,
     minH: 6,
     maxH: 12,
+    mobileH: 7,
   },
 
-  // Net Worth Allocation
+  // Net Worth Allocation - TreeMap, can be compact
   netWorthAllocation: {
     minW: 6,
     maxW: 12,
     minH: 4,
     maxH: 12,
+    mobileH: 5,
   },
-  // Needs vs Wants Breakdown (same sizing as Expense Breakdown)
+
+  // Needs vs Wants Breakdown - Pie with legend
   needsWantsBreakdown: {
     minW: 6,
     maxW: 12,
     minH: 7,
     maxH: 20,
+    mobileH: 6,
   },
 
-  // Money Flow
+  // Money Flow - Funnel chart, needs vertical space
   moneyFlow: {
     minW: 6,
     maxW: 12,
     minH: 7,
     maxH: 15,
+    mobileH: 7,
   },
 
-  // Expense Breakdown
+  // Expense Breakdown - Pie with legend
   expenseBreakdown: {
     minW: 6,
     maxW: 12,
     minH: 7,
     maxH: 20,
+    mobileH: 6,
   },
 
-  // Category Bubble Map
+  // Category Bubble Map - Circle packing, needs height
   categoryBubbleMap: {
     minW: 6,
     maxW: 12,
     minH: 8,
     maxH: 20,
+    mobileH: 6,
   },
 
-  // Household Spend Mix
+  // Household Spend Mix - Polar bar, needs height
   householdSpendMix: {
     minW: 6,
     maxW: 12,
     minH: 8,
     maxH: 20,
+    mobileH: 6,
   },
 
-  // Financial Health Score
+  // Financial Health Score - Radar chart
   financialHealthScore: {
     minW: 6,
     maxW: 12,
     minH: 8,
     maxH: 20,
+    mobileH: 6,
   },
 
-  // Spending Activity Rings
+  // Spending Activity Rings - Multiple rings + legend
   spendingActivityRings: {
     minW: 6,
     maxW: 12,
     minH: 8,
     maxH: 20,
+    mobileH: 8,
   },
 
-  // Spending Streamgraph
+  // Spending Streamgraph - Wide chart, compresses well
   spendingStreamgraph: {
     minW: 6,
     maxW: 12,
     minH: 8,
     maxH: 16,
+    mobileH: 5,
   },
 
-  // Transaction History
+  // Transaction History - Swarm plot (taller on mobile for better visibility)
   transactionHistory: {
     minW: 6,
     maxW: 12,
     minH: 8,
     maxH: 20,
+    mobileH: 7,
   },
 
-  // Daily Transaction Activity
+  // Daily Transaction Activity - Dual calendar heatmap (6 months YTD, two 3-month periods)
   dailyTransactionActivity: {
     minW: 6,
     maxW: 12,
-    minH: 6,
+    minH: 8,
     maxH: 20,
+    mobileH: 6,
   },
 
-  // Day of Week Spending
+  // Day of Week Spending - Bar chart
   dayOfWeekSpending: {
     minW: 6,
     maxW: 12,
     minH: 7,
     maxH: 10,
+    mobileH: 6,
   },
 
-  // All Months Category Spending
+  // All Months Category Spending - Stacked bar
   allMonthsCategorySpending: {
     minW: 6,
     maxW: 12,
     minH: 7,
     maxH: 16,
+    mobileH: 6,
   },
 
-  // Single Month Category Spending
+  // Single Month Category Spending - Bar chart
   singleMonthCategorySpending: {
     minW: 6,
     maxW: 12,
     minH: 7,
     maxH: 16,
+    mobileH: 6,
   },
 
-  // Day of Week Category
+  // Day of Week Category - Heatmap
   dayOfWeekCategory: {
     minW: 6,
     maxW: 12,
     minH: 7,
     maxH: 16,
+    mobileH: 6,
   },
 
-  // Budget Distribution
+  // Budget Distribution - Simple bars
   budgetDistribution: {
     minW: 6,
     maxW: 12,
     minH: 5,
     maxH: 16,
+    mobileH: 5,
   },
 
-  // Category Trend (for trends page)
+  // Category Trend (for trends page) - Line chart
   categoryTrend: {
     minW: 6,
     maxW: 12,
     minH: 6,
     maxH: 6,
+    mobileH: 5,
   },
 
-  // Cash Flow Sankey
+  // Cash Flow Sankey - Flow diagram, needs vertical space
   cashFlowSankey: {
     minW: 6,
     maxW: 12,
     minH: 8,
     maxH: 16,
+    mobileH: 7,
   },
 
-  // Savings Accumulation
+  // Savings Accumulation - Line chart
   savingsAccumulation: {
     minW: 6,
     maxW: 12,
     minH: 6,
     maxH: 10,
+    mobileH: 5,
   },
 
-  // Fridge: Day of Week Spending
+  // Fridge: Day of Week Spending - Bar chart
   "fridge:day-of-week-spending": {
     minW: 6,
     maxW: 12,
     minH: 7,
     maxH: 16,
+    mobileH: 5,
   },
 
-  // Fridge: Time of Day Spending
+  // Fridge: Time of Day Spending - Bar chart
   "fridge:time-of-day-spending": {
     minW: 6,
     maxW: 12,
     minH: 7,
     maxH: 16,
+    mobileH: 5,
   },
 
-  // Fridge: Empty vs Nutritious Calories
+  // Fridge: Empty vs Nutritious Calories - Pie chart
   "fridge:emptyVsNutritious": {
     minW: 6,
     maxW: 12,
     minH: 7,
     maxH: 20,
+    mobileH: 6,
   },
 
-  // Fridge: Daily Activity Calendar
+  // Fridge: Daily Activity Calendar - Calendar heatmap
   "fridge:dailyActivity": {
     minW: 6,
     maxW: 12,
     minH: 6,
     maxH: 20,
+    mobileH: 5,
   },
 
-  // Fridge: Day of Week Category Spending
+  // Fridge: Day of Week Category Spending - Heatmap
   "fridge:dayOfWeekCategory": {
     minW: 6,
     maxW: 12,
     minH: 7,
     maxH: 16,
+    mobileH: 5,
   },
 
-  // Fridge: Single Month Category Spending
+  // Fridge: Single Month Category Spending - Bar chart
   "fridge:singleMonthCategory": {
     minW: 6,
     maxW: 12,
     minH: 7,
     maxH: 16,
+    mobileH: 6,
   },
 
-  // Fridge: All Months Category Spending
+  // Fridge: All Months Category Spending - Stacked bar
   "fridge:allMonthsCategory": {
     minW: 6,
     maxW: 12,
     minH: 7,
     maxH: 16,
+    mobileH: 6,
   },
 
-  // Fridge: Day of Week Spending by Category
+  // Fridge: Day of Week Spending by Category - Bar chart
   "fridge:dayOfWeekSpending": {
     minW: 6,
     maxW: 12,
     minH: 7,
     maxH: 16,
+    mobileH: 5,
   },
 
-  // Fridge: Category Rankings
+  // Fridge: Category Rankings - Horizontal bar chart
   "fridge:categoryRankings": {
     minW: 6,
     maxW: 12,
     minH: 6,
     maxH: 12,
+    mobileH: 6,
   },
 
-  // Fridge: Grocery vs Restaurant
+  // Fridge: Grocery vs Restaurant - Comparison bar
   "fridge:groceryVsRestaurant": {
     minW: 6,
     maxW: 12,
     minH: 6,
     maxH: 10,
+    mobileH: 5,
   },
 
-  // Fridge: Transaction History
+  // Fridge: Transaction History - Swarm plot
   "fridge:transactionHistory": {
     minW: 6,
     maxW: 12,
     minH: 6,
     maxH: 12,
+    mobileH: 5,
   },
 
-  // Fridge: Purchase Size Comparison
+  // Fridge: Purchase Size Comparison - Grouped bars
   "fridge:purchaseSizeComparison": {
     minW: 6,
     maxW: 12,
     minH: 6,
     maxH: 10,
+    mobileH: 5,
   },
 
-  // Fridge: Shopping Heatmap (Hours x Days)
+  // Fridge: Shopping Heatmap (Hours x Days) - Tall heatmap
   "fridge:shoppingHeatmapHoursDays": {
     minW: 6,
     maxW: 12,
     minH: 8,
     maxH: 14,
+    mobileH: 6,
   },
 
-  // Fridge: Shopping Heatmap (Days x Months)
+  // Fridge: Shopping Heatmap (Days x Months) - Wide heatmap
   "fridge:shoppingHeatmapDaysMonths": {
     minW: 6,
     maxW: 12,
     minH: 6,
     maxH: 10,
+    mobileH: 5,
   },
 
-  // Fridge: Expense Breakdown
+  // Fridge: Expense Breakdown - Pie with legend
   "fridge:expenseBreakdown": {
     minW: 6,
     maxW: 12,
     minH: 7,
     maxH: 20,
+    mobileH: 6,
   },
 
-  // Fridge: Macronutrient Breakdown
+  // Fridge: Macronutrient Breakdown - Pie chart
   "fridge:macronutrientBreakdown": {
     minW: 6,
     maxW: 12,
     minH: 7,
     maxH: 20,
+    mobileH: 6,
   },
 
-  // Fridge: Snack Percentage
+  // Fridge: Snack Percentage - Radial/arc chart
   "fridge:snackPercentage": {
     minW: 6,
     maxW: 12,
     minH: 7,
     maxH: 20,
+    mobileH: 6,
   },
 
-  // Fridge: Net Worth Allocation (TreeMap)
+  // Fridge: Net Worth Allocation (TreeMap) - TreeMap
   "fridge:netWorthAllocation": {
     minW: 6,
     maxW: 12,
     minH: 8,
     maxH: 25,
+    mobileH: 5,
   },
 
   // Test Charts: Weekend vs Weekday
@@ -445,6 +487,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Average Transaction Trend
@@ -453,6 +496,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 6,
     maxH: 10,
+    mobileH: 5,
   },
 
   // Test Charts: Spending Velocity
@@ -461,6 +505,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 8,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Category Diversity
@@ -469,6 +514,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 8,
     maxH: 14,
+    mobileH: 6,
   },
 
   // Test Charts: Month-over-Month Growth
@@ -477,6 +523,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 6,
     maxH: 10,
+    mobileH: 5,
   },
 
   // Test Charts: Transaction Heatmap
@@ -485,6 +532,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Spending Distribution
@@ -493,6 +541,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Income Expense Ratio
@@ -501,6 +550,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 8,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Rolling 7-Day Average
@@ -509,6 +559,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 6,
     maxH: 10,
+    mobileH: 5,
   },
 
   // Test Charts: Top Merchants Race
@@ -517,6 +568,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 8,
     maxH: 14,
+    mobileH: 6,
   },
 
   // Test Charts: Largest Transactions
@@ -525,6 +577,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 8,
     maxH: 16,
+    mobileH: 6,
   },
 
   // Test Charts: Recurring vs One-Time
@@ -533,6 +586,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 8,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Hourly Spending
@@ -541,6 +595,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Cumulative Spending
@@ -549,6 +604,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 6,
     maxH: 10,
+    mobileH: 5,
   },
 
   // Test Charts: Category Growth
@@ -557,6 +613,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 8,
     maxH: 14,
+    mobileH: 6,
   },
 
   // Test Charts: Spending Streak
@@ -565,6 +622,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Payday Impact
@@ -573,6 +631,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Savings Rate Trend
@@ -581,6 +640,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 6,
     maxH: 10,
+    mobileH: 5,
   },
 
   // Test Charts: Spending Score
@@ -589,6 +649,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 8,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Small vs Large Purchases
@@ -597,6 +658,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Category Bubbles
@@ -605,6 +667,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 8,
     maxH: 14,
+    mobileH: 6,
   },
 
   // Test Charts: Weekly Comparison
@@ -613,6 +676,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 6,
     maxH: 10,
+    mobileH: 5,
   },
 
   // Test Charts: Monthly Budget Pace
@@ -621,6 +685,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 10,
+    mobileH: 5,
   },
 
   // Test Charts: Transaction Count Trend
@@ -629,6 +694,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 6,
     maxH: 10,
+    mobileH: 5,
   },
 
   // Test Charts: Quick Stats
@@ -637,6 +703,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 6,
     maxH: 10,
+    mobileH: 4,
   },
 
   // Test Charts: Top Categories Pie
@@ -645,6 +712,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 8,
     maxH: 12,
+    mobileH: 6,
   },
 
   // Test Charts: Seasonal Spending
@@ -653,6 +721,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Budget Burndown
@@ -661,6 +730,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Cash Flow Indicator
@@ -669,6 +739,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Category Ranking
@@ -677,6 +748,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 8,
     maxH: 14,
+    mobileH: 6,
   },
 
   // Test Charts: Income Sources
@@ -685,6 +757,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Expense Velocity Gauge
@@ -693,6 +766,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 6,
     maxH: 10,
+    mobileH: 5,
   },
 
   // Test Charts: Spending By Merchant
@@ -701,6 +775,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Daily High Low
@@ -709,6 +784,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 6,
     maxH: 10,
+    mobileH: 5,
   },
 
   // Test Charts: Monthly Trend
@@ -717,6 +793,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Weekday Radar
@@ -725,6 +802,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 6,
   },
 
   // Test Charts: Month Compare
@@ -733,6 +811,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 6,
     maxH: 10,
+    mobileH: 5,
   },
 
   // Test Charts: Needs Vs Wants Donut
@@ -741,6 +820,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 6,
   },
 
   // Test Charts: Budget Milestone
@@ -749,6 +829,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 6,
     maxH: 10,
+    mobileH: 4,
   },
 
   // Test Charts: Year Over Year
@@ -757,6 +838,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Spending By Hour Heatmap
@@ -765,6 +847,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Category Progress
@@ -773,6 +856,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Net Worth Trend
@@ -781,6 +865,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Financial Summary
@@ -789,6 +874,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 6,
     maxH: 10,
+    mobileH: 4,
   },
 
   // Test Charts: Daily Average By Month
@@ -797,6 +883,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Payment Methods
@@ -805,6 +892,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Biggest Expense Categories
@@ -813,6 +901,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 6,
   },
 
   // Test Charts: Spending Alerts
@@ -821,6 +910,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 6,
     maxH: 10,
+    mobileH: 4,
   },
 
   // Test Charts: Quarterly Comparison
@@ -829,6 +919,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Balance History
@@ -837,6 +928,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
+    mobileH: 5,
   },
 
   // Test Charts: Monthly Insights
@@ -845,6 +937,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 6,
     maxH: 10,
+    mobileH: 4,
   },
 }
 
@@ -857,6 +950,7 @@ export function getChartCardSize(chartId: ChartId): ChartCardSizeConfig {
     maxW: 12,
     minH: 4,
     maxH: 20,
+    mobileH: 5,
   }
 }
 

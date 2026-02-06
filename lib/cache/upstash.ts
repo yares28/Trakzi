@@ -23,6 +23,7 @@ const CACHE_PREFIX = {
     'data-library': 'data-library',
     'test-charts': 'test-charts',
     'world-map': 'world-map',
+    'groceries-trends': 'groceries-trends',
 } as const
 
 // TTL in seconds

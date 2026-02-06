@@ -697,7 +697,6 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
             />
             <CardTitle>Day of Week Category Spending</CardTitle>
           </div>
-          <CardDescription>Compare spending across categories by day</CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             <Select
               value={selectedDay !== null ? selectedDay.toString() : ""}

@@ -752,7 +752,6 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
             />
             <CardTitle>Single Month Category Spending</CardTitle>
           </div>
-          <CardDescription>Compare spending across categories by month</CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             <Select
               value={selectedMonth !== null ? selectedMonth.toString() : ""}

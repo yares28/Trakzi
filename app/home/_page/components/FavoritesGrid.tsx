@@ -226,6 +226,7 @@ export const FavoritesGrid = memo(function FavoritesGrid({
                 id={chartId}
                 w={(savedFavoriteSizes[chartId]?.w ?? initialW) as any}
                 h={savedFavoriteSizes[chartId]?.h ?? initialH}
+                mobileH={sizeConfig.mobileH}
                 resizable
                 minW={sizeConfig.minW}
                 maxW={sizeConfig.maxW}
@@ -249,7 +250,7 @@ export const FavoritesGrid = memo(function FavoritesGrid({
                         ]}
                         className="absolute top-3 right-3 z-30"
                       />
-                      <CardHeader className="flex flex-row items-start justify-between gap-2 flex-1 min-h-[420px] pb-6">
+                      <CardHeader className="flex flex-row items-start justify-between gap-2 flex-1 min-h-[280px] md:min-h-[420px] pb-6">
                         <div className="space-y-1 z-10">
                           <div className="flex items-center gap-2">
                             <ChartFavoriteButton
@@ -276,13 +277,13 @@ export const FavoritesGrid = memo(function FavoritesGrid({
                                   const storedLimit = ringLimits[category]
                                   const limit =
                                     typeof storedLimit === "number" &&
-                                    storedLimit > 0
+                                      storedLimit > 0
                                       ? storedLimit
                                       : getDefaultRingLimit(dateFilter)
                                   const percent = (item.value * 100).toFixed(1)
                                   const spent =
                                     typeof (item as { spent?: number }).spent ===
-                                    "number"
+                                      "number"
                                       ? (item as { spent?: number }).spent!
                                       : null
                                   return (
@@ -305,7 +306,7 @@ export const FavoritesGrid = memo(function FavoritesGrid({
                                             ringLimits[currentCategory]
                                           const currentLimit =
                                             typeof currentLimitRaw === "number" &&
-                                            currentLimitRaw > 0
+                                              currentLimitRaw > 0
                                               ? currentLimitRaw
                                               : getDefaultRingLimit(dateFilter)
                                           setRingLimitPopoverValue(
@@ -348,7 +349,7 @@ export const FavoritesGrid = memo(function FavoritesGrid({
                                           initialLimit={
                                             ringLimitPopoverValue
                                               ? parseFloat(ringLimitPopoverValue) ||
-                                                limit
+                                              limit
                                               : limit
                                           }
                                           allCategories={allExpenseCategories}
@@ -364,13 +365,13 @@ export const FavoritesGrid = memo(function FavoritesGrid({
                                                 prev && prev.length
                                                   ? [...prev]
                                                   : activityData.map((ringItem) => {
-                                                      const ringCategory =
-                                                        (ringItem as {
-                                                          category?: string
-                                                        }).category ??
-                                                        ringItem.label
-                                                      return ringCategory as string
-                                                    })
+                                                    const ringCategory =
+                                                      (ringItem as {
+                                                        category?: string
+                                                      }).category ??
+                                                      ringItem.label
+                                                    return ringCategory as string
+                                                  })
                                               base[
                                                 ringCategoryPopoverIndex ?? idx
                                               ] = savedCategory

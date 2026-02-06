@@ -664,3 +664,86 @@ export async function getFridgeBundle(
 }
 
 
+// ============================================
+// GROCERIES TRENDS (for Trends page toggle)
+// ============================================
+
+export interface GroceriesTrendPoint {
+    date: string
+    value: number
+}
+
+export interface GroceriesTrendsSummary {
+    categoryTrends: Record<string, GroceriesTrendPoint[]>
+    categories: string[]
+}
+
+/**
+ * Get groceries category trends for Trends page (grouped by receipt category name)
+ */
+export async function getGroceriesCategoryTrends(
+    userId: string,
+    startDate?: string,
+    endDate?: string
+): Promise<GroceriesTrendsSummary> {
+    let query = `
+        SELECT 
+            COALESCE(rc.name, 'Other') AS category,
+            to_char(rt.receipt_date, 'YYYY-MM-DD') AS date,
+            SUM(rt.total_price) AS total
+        FROM receipt_transactions rt
+        LEFT JOIN receipt_categories rc ON rt.category_id = rc.id
+        WHERE rt.user_id = $1
+    `
+    const params: (string | number)[] = [userId]
+
+    if (startDate) {
+        params.push(startDate)
+        query += ` AND rt.receipt_date >= $${params.length}::date`
+    }
+    if (endDate) {
+        params.push(endDate)
+        query += ` AND rt.receipt_date <= $${params.length}::date`
+    }
+
+    query += ` GROUP BY rc.name, rt.receipt_date ORDER BY rc.name, rt.receipt_date`
+
+    const rows = await neonQuery<{
+        category: string
+        date: string
+        total: string
+    }>(query, params)
+
+    // Group by category (receipt category name)
+    const categoryTrends: Record<string, GroceriesTrendPoint[]> = {}
+    const categoriesSet = new Set<string>()
+
+    for (const row of rows) {
+        const category = row.category
+        categoriesSet.add(category)
+
+        if (!categoryTrends[category]) {
+            categoryTrends[category] = []
+        }
+        categoryTrends[category].push({
+            date: row.date,
+            value: parseFloat(row.total) || 0,
+        })
+    }
+
+    return {
+        categoryTrends,
+        categories: Array.from(categoriesSet).sort(),
+    }
+}
+
+/**
+ * Get Groceries Trends bundle
+ */
+export async function getGroceriesTrendsBundle(
+    userId: string,
+    filter: string | null
+): Promise<GroceriesTrendsSummary> {
+    const { startDate, endDate } = getDateRange(filter)
+    return getGroceriesCategoryTrends(userId, startDate ?? undefined, endDate ?? undefined)
+}

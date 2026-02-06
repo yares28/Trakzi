@@ -70,7 +70,6 @@ export type FridgeChartId =
   | "groceryExpenseBreakdown"
   | "groceryMacronutrientBreakdown"
   | "grocerySnackPercentage"
-  | "groceryEmptyVsNutritious"
   | "groceryDailyActivity"
   | "groceryDayOfWeekCategory"
   | "grocerySingleMonthCategory"

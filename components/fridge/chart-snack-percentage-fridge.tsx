@@ -5,6 +5,7 @@ import { useTheme } from "next-themes"
 import { ResponsivePie } from "@nivo/pie"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { NivoChartTooltip } from "@/components/chart-tooltip"
@@ -50,7 +51,7 @@ type ReceiptTransactionRow = {
   categoryTypeColor?: string | null
 }
 
-interface ChartSnackPercentageFridgeProps {
+interface ChartSpendingBreakdownFridgeProps {
   receiptTransactions?: ReceiptTransactionRow[]
   categorySpendingData?: Array<{ category: string; total: number }>
   isLoading?: boolean
@@ -76,9 +77,35 @@ function normalizeStoreName(value: string | null | undefined) {
   return raw
 }
 
-export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFridge({ receiptTransactions = [], categorySpendingData, isLoading = false }: ChartSnackPercentageFridgeProps) {
+// Categories considered "nutritious" - whole foods with good nutritional value
+const NUTRITIOUS_CATEGORIES = new Set([
+  "fruits",
+  "vegetables",
+  "herbs & fresh aromatics",
+  "meat & poultry",
+  "fish & seafood",
+  "eggs",
+  "dairy (milk/yogurt)",
+  "cheese",
+  "deli / cold cuts",
+  "legumes",
+  "pasta, rice & grains",
+  "bread",
+  "frozen vegetables & fruit",
+  "water",
+])
+
+// Helper function to determine if a category is "nutritious"
+function isNutritiousCategory(categoryName: string | null | undefined): boolean {
+  if (!categoryName) return false
+  const normalized = categoryName.trim().toLowerCase()
+  return NUTRITIOUS_CATEGORIES.has(normalized)
+}
+
+export const ChartSpendingBreakdownFridge = memo(function ChartSpendingBreakdownFridge({ receiptTransactions = [], categorySpendingData, isLoading = false }: ChartSpendingBreakdownFridgeProps) {
   const { resolvedTheme } = useTheme()
   const { colorScheme, getPalette } = useColorScheme()
+  const { formatCurrency } = useCurrency()
   const [mounted, setMounted] = useState(false)
   const [selectedStores, setSelectedStores] = useState<Set<string>>(new Set())
   const [isStorePopoverOpen, setIsStorePopoverOpen] = useState(false)
@@ -99,8 +126,8 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
     return Array.from(stores).sort()
   }, [receiptTransactions])
 
-  // Calculate aggregated snack vs non-snack spending
-  const snackPercentageData = useMemo(() => {
+  // Calculate aggregated spending breakdown: Snacks vs Nutritious vs Other
+  const spendingBreakdownData = useMemo(() => {
     // Filter by selected stores if any are selected
     const filteredTransactions = selectedStores.size > 0
       ? receiptTransactions.filter((item) => {
@@ -112,24 +139,29 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
     // Aggregate totals across all filtered transactions
     let totalSpend = 0
     let snackSpend = 0
+    let nutritiousSpend = 0
     const tripIds = new Set<string>()
 
     filteredTransactions.forEach((item) => {
       const totalPrice = Number(item.totalPrice) || 0
       const isSnack = isSnackCategory(item.categoryName)
+      const isNutritious = isNutritiousCategory(item.categoryName)
 
       totalSpend += totalPrice
       if (isSnack) {
         snackSpend += totalPrice
+      } else if (isNutritious) {
+        nutritiousSpend += totalPrice
       }
       tripIds.add(item.receiptId)
     })
 
-    const otherSpend = totalSpend - snackSpend
+    const otherSpend = totalSpend - snackSpend - nutritiousSpend
     const snackPercentage = totalSpend > 0 ? (snackSpend / totalSpend) * 100 : 0
+    const nutritiousPercentage = totalSpend > 0 ? (nutritiousSpend / totalSpend) * 100 : 0
     const otherPercentage = totalSpend > 0 ? (otherSpend / totalSpend) * 100 : 0
 
-    // Return 2-slice pie data: Snacks and Other
+    // Return 3-slice pie data: Snacks, Nutritious, and Other
     const chartData = [
       {
         id: "Snacks",
@@ -137,16 +169,22 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
         value: Number(snackPercentage.toFixed(2)),
         trips: tripIds.size,
         totalSpend: totalSpend,
-        snackSpend: snackSpend,
         spend: snackSpend,
       },
       {
-        id: "Total",
-        label: "Total",
+        id: "Nutritious",
+        label: "Nutritious",
+        value: Number(nutritiousPercentage.toFixed(2)),
+        trips: tripIds.size,
+        totalSpend: totalSpend,
+        spend: nutritiousSpend,
+      },
+      {
+        id: "Other",
+        label: "Other",
         value: Number(otherPercentage.toFixed(2)),
         trips: tripIds.size,
         totalSpend: totalSpend,
-        snackSpend: snackSpend,
         spend: otherSpend,
       },
     ].filter(item => item.value > 0) // Only show slices with value
@@ -156,26 +194,26 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
 
   // Dynamically assign colors based on number of parts (max 7)
   const dataWithColors = useMemo(() => {
-    const numParts = Math.min(snackPercentageData.length, 7)
+    const numParts = Math.min(spendingBreakdownData.length, 7)
     const palette = getPalette().filter(color => color !== "#c3c3c3")
 
     // Sort by value descending (highest first) and assign colors
-    const sorted = [...snackPercentageData].sort((a, b) => b.value - a.value)
+    const sorted = [...spendingBreakdownData].sort((a, b) => b.value - a.value)
     const reversedPalette = [...palette].reverse().slice(0, numParts)
     return sorted.map((item, index) => ({
       ...item,
       color: reversedPalette[index % reversedPalette.length]
     }))
-  }, [snackPercentageData, colorScheme, getPalette])
+  }, [spendingBreakdownData, colorScheme, getPalette])
 
   const data = dataWithColors
 
   // Calculate total for percentage calculations; Nivo pie does not render when total is 0
   const total = useMemo(() => {
-    return snackPercentageData.reduce((sum, item) => sum + item.value, 0)
-  }, [snackPercentageData])
+    return spendingBreakdownData.reduce((sum, item) => sum + item.value, 0)
+  }, [spendingBreakdownData])
 
-  const hasChartData = snackPercentageData.length > 0 && total > 0
+  const hasChartData = spendingBreakdownData.length > 0 && total > 0
 
   const colorConfig = colorScheme === "colored"
     ? { datum: "data.color" as const }
@@ -186,12 +224,10 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
   const textColor = isDark ? "#9ca3af" : "#4b5563"
   const arcLinkLabelColor = isDark ? "#d1d5db" : "#374151"
 
-  // Format currency value
-  const valueFormatter = new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2,
-  })
+  // Format currency value using user's preferred currency
+  const valueFormatter = useMemo(() => ({
+    format: (value: number) => formatCurrency(value)
+  }), [formatCurrency])
 
   const handleStoreToggle = (store: string) => {
     setSelectedStores((prev) => {
@@ -216,26 +252,24 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
   const renderInfoTrigger = () => (
     <div className="flex flex-col items-center gap-2">
       <ChartInfoPopover
-        title="Snack Percentage per Store"
-        description="This chart shows the average percentage of snack spending per grocery trip, broken down by store."
+        title="Spending Breakdown"
+        description="This chart shows how your grocery spending is split between snacks, nutritious foods, and other items."
         details={[
-          "Each slice represents a store's average snack percentage across all trips.",
+          "Snacks: Pastries, Salty Snacks, Cookies, Chocolate & Candy, Nuts & Seeds, Ice Cream.",
+          "Nutritious: Fruits, Vegetables, Meat, Fish, Dairy, Eggs, Grains, Legumes.",
+          "Other: Everything else including drinks, prepared foods, and non-food items.",
           "Use the store filter to view specific stores or compare selected stores.",
-          "Percentage is calculated as: (Snack spending / Total trip spending) × 100",
         ]}
-        ignoredFootnote="Snacks include: Pastries, Salty Snacks, Cookies & Biscuits, Chocolate & Candy, Nuts & Seeds, Ice Cream & Desserts."
       />
       <ChartAiInsightButton
         chartId="fridge:snackPercentage"
-        chartTitle="Snack Percentage per Store"
-        chartDescription="Average percentage of snack spending per grocery trip by store."
+        chartTitle="Spending Breakdown"
+        chartDescription="Breakdown of grocery spending between snacks, nutritious foods, and other items."
         chartData={{
-          stores: data.map(d => ({
-            name: d.label,
-            snackPercentage: d.value,
-            trips: d.trips,
-            totalSpend: d.totalSpend,
-            snackSpend: d.snackSpend,
+          breakdown: data.map(d => ({
+            category: d.label,
+            percentage: d.value,
+            spend: d.spend,
           })),
           selectedStores: Array.from(selectedStores),
         }}
@@ -252,10 +286,10 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
             <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="fridge:snackPercentage"
-              chartTitle="Snack Percentage per Store"
+              chartTitle="Spending Breakdown"
               size="md"
             />
-            <CardTitle>Snack Percentage per Store</CardTitle>
+            <CardTitle>Spending Breakdown</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
@@ -277,10 +311,10 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
             <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="fridge:snackPercentage"
-              chartTitle="Snack Percentage per Store"
+              chartTitle="Spending Breakdown"
               size="md"
             />
-            <CardTitle>Snack Percentage per Store</CardTitle>
+            <CardTitle>Spending Breakdown</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             <div className="flex flex-col items-center gap-2">
@@ -341,9 +375,9 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
                 isLoading={false}
                 emptyIcon="receipt"
                 emptyDescription={
-                  snackPercentageData.length === 0
-                    ? "Scan receipts to see snack percentage by store."
-                    : "No snack spending detected across stores."
+                  spendingBreakdownData.length === 0
+                    ? "Scan receipts to see your spending breakdown."
+                    : "No spending data detected."
                 }
               />
             )}
@@ -360,10 +394,10 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
           <GridStackCardDragHandle />
           <ChartFavoriteButton
             chartId="fridge:snackPercentage"
-            chartTitle="Snack Percentage per Store"
+            chartTitle="Spending Breakdown"
             size="md"
           />
-          <CardTitle>Snack Percentage per Store</CardTitle>
+          <CardTitle>Spending Breakdown</CardTitle>
         </div>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           <div className="flex flex-col items-center gap-2">
@@ -468,12 +502,10 @@ export const ChartSnackPercentageFridge = memo(function ChartSnackPercentageFrid
   )
 })
 
-ChartSnackPercentageFridge.displayName = "ChartSnackPercentageFridge"
+ChartSpendingBreakdownFridge.displayName = "ChartSpendingBreakdownFridge"
 
-
-
-
-
+// Backwards-compatible alias for existing imports
+export const ChartSnackPercentageFridge = ChartSpendingBreakdownFridge
 
 
 

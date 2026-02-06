@@ -10,22 +10,59 @@ import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar"
-import { useTrendsData } from "@/hooks/use-dashboard-data"
+import { useTrendsData, useGroceriesTrendsBundleData } from "@/hooks/use-dashboard-data"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { ChartCategoryTrend } from "@/components/chart-category-trend"
 import { ChartCardSkeleton } from "@/components/chart-loading-state"
 import { ShimmeringText } from "@/components/ui/shimmering-text"
 import { TrendingUp, Upload, ArrowRight } from "lucide-react"
-import { IconChartLine } from "@tabler/icons-react"
+import { IconChartLine, IconChartBar, IconFridge } from "@tabler/icons-react"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
+import { cn } from "@/lib/utils"
 
 // localStorage keys
-const CATEGORY_ORDER_STORAGE_KEY = 'trends-category-order'
+const SPENDING_CATEGORY_ORDER_STORAGE_KEY = 'trends-category-order'
+const GROCERIES_CATEGORY_ORDER_STORAGE_KEY = 'trends-groceries-category-order'
+const VIEW_MODE_STORAGE_KEY = 'trends-view-mode'
+
+type ViewMode = 'spending' | 'groceries'
 
 export default function TrendsPage() {
-  // Use TanStack Query hook - single fetch, cached across navigation
-  const { categoryTrends, isLoading, error } = useTrendsData()
+  // View mode state
+  const [viewMode, setViewMode] = useState<ViewMode>('spending')
+
+  // Load view mode from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(VIEW_MODE_STORAGE_KEY)
+      if (saved === 'spending' || saved === 'groceries') {
+        setViewMode(saved)
+      }
+    } catch (e) {
+      console.error("Failed to load view mode:", e)
+    }
+  }, [])
+
+  // Use TanStack Query hooks - only fetch when needed
+  const spendingData = useTrendsData()
+  const groceriesData = useGroceriesTrendsBundleData()
+
+  // Select data based on view mode
+  const { categoryTrends, isLoading, error } = useMemo(() => {
+    if (viewMode === 'groceries') {
+      return {
+        categoryTrends: groceriesData.data?.categoryTrends ?? {},
+        isLoading: groceriesData.isLoading,
+        error: groceriesData.error
+      }
+    }
+    return {
+      categoryTrends: spendingData.categoryTrends,
+      isLoading: spendingData.isLoading,
+      error: spendingData.error
+    }
+  }, [viewMode, spendingData, groceriesData])
 
   // Derive categories from categoryTrends (bundled from server)
   const { categories, categoryTransactionCounts } = useMemo(() => {
@@ -51,17 +88,30 @@ export default function TrendsPage() {
     }
   }, [categoryTrends])
 
-  // @dnd-kit: Category order state
-  const [categoryOrder, setCategoryOrder] = useState<string[]>([])
+  // @dnd-kit: Category order state (separate for each view)
+  const [spendingCategoryOrder, setSpendingCategoryOrder] = useState<string[]>([])
+  const [groceriesCategoryOrder, setGroceriesCategoryOrder] = useState<string[]>([])
 
-  // Load category order from localStorage on mount
+  // Get current order based on view mode
+  const categoryOrder = viewMode === 'groceries' ? groceriesCategoryOrder : spendingCategoryOrder
+  const setCategoryOrder = viewMode === 'groceries' ? setGroceriesCategoryOrder : setSpendingCategoryOrder
+  const storageKey = viewMode === 'groceries' ? GROCERIES_CATEGORY_ORDER_STORAGE_KEY : SPENDING_CATEGORY_ORDER_STORAGE_KEY
+
+  // Load category orders from localStorage on mount
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(CATEGORY_ORDER_STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
+      const savedSpending = localStorage.getItem(SPENDING_CATEGORY_ORDER_STORAGE_KEY)
+      if (savedSpending) {
+        const parsed = JSON.parse(savedSpending)
         if (Array.isArray(parsed)) {
-          setCategoryOrder(parsed)
+          setSpendingCategoryOrder(parsed)
+        }
+      }
+      const savedGroceries = localStorage.getItem(GROCERIES_CATEGORY_ORDER_STORAGE_KEY)
+      if (savedGroceries) {
+        const parsed = JSON.parse(savedGroceries)
+        if (Array.isArray(parsed)) {
+          setGroceriesCategoryOrder(parsed)
         }
       }
     } catch (e) {
@@ -81,15 +131,25 @@ export default function TrendsPage() {
         setCategoryOrder([...existingInOrder, ...newCategories])
       }
     }
-  }, [categories, categoryOrder.length])
+  }, [categories, categoryOrder.length, setCategoryOrder])
 
   // Handle category order change from drag-and-drop
   const handleCategoryOrderChange = useCallback((newOrder: string[]) => {
     setCategoryOrder(newOrder)
     try {
-      localStorage.setItem(CATEGORY_ORDER_STORAGE_KEY, JSON.stringify(newOrder))
+      localStorage.setItem(storageKey, JSON.stringify(newOrder))
     } catch (e) {
       console.error("Failed to save category order:", e)
+    }
+  }, [setCategoryOrder, storageKey])
+
+  // Handle view mode change
+  const handleViewModeChange = useCallback((mode: ViewMode) => {
+    setViewMode(mode)
+    try {
+      localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode)
+    } catch (e) {
+      console.error("Failed to save view mode:", e)
     }
   }, [])
 
@@ -120,10 +180,42 @@ export default function TrendsPage() {
                   Trends
                 </h1>
                 <p className="text-muted-foreground max-w-2xl">
-                  Visualize spending patterns across all your categories over time.
-                  Each card represents a category from your data, showing trends and insights
-                  to help you understand where your money goes.
+                  {viewMode === 'spending'
+                    ? 'Visualize spending patterns across all your bank transaction categories over time.'
+                    : 'Visualize spending patterns across your grocery broad categories over time.'}
                 </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Toggle Switch */}
+          <section className="px-4 lg:px-6">
+            <div className="flex justify-center">
+              <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border">
+                <button
+                  onClick={() => handleViewModeChange('spending')}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                    viewMode === 'spending'
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <IconChartBar className="h-4 w-4" />
+                  Spending
+                </button>
+                <button
+                  onClick={() => handleViewModeChange('groceries')}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                    viewMode === 'groceries'
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <IconFridge className="h-4 w-4" />
+                  Groceries
+                </button>
               </div>
             </div>
           </section>
@@ -155,14 +247,16 @@ export default function TrendsPage() {
                 </div>
                 <h2 className="text-xl font-semibold mb-2">Unable to Load Trends</h2>
                 <p className="text-sm text-muted-foreground max-w-md mb-4">
-                  We couldn't load your spending categories. This usually happens when there's no transaction data yet.
+                  {viewMode === 'spending'
+                    ? "We couldn't load your spending categories. This usually happens when there's no transaction data yet."
+                    : "We couldn't load your grocery categories. This usually happens when there's no receipt data yet."}
                 </p>
                 <Link
                   href="/data-library"
                   className="group flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
                 >
                   <Upload className="h-4 w-4" />
-                  Add Transactions
+                  {viewMode === 'spending' ? 'Add Transactions' : 'Add Receipts'}
                   <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                 </Link>
               </div>
@@ -184,12 +278,14 @@ export default function TrendsPage() {
                   <div className="space-y-1">
                     <h2 className="text-lg font-semibold">No Trend Data Yet</h2>
                     <p className="text-sm text-muted-foreground max-w-md">
-                      Your spending trends will appear here once you have transaction data.
-                      Each category in your transactions will get its own trend chart showing
-                      how your spending changes over time.
+                      {viewMode === 'spending'
+                        ? 'Your spending trends will appear here once you have transaction data. Each category in your transactions will get its own trend chart.'
+                        : 'Your grocery trends will appear here once you have receipt data. Each broad category will get its own trend chart.'}
                     </p>
                     <p className="text-xs text-muted-foreground/70 mt-2">
-                      Upload your bank statements or add transactions to start seeing patterns.
+                      {viewMode === 'spending'
+                        ? 'Upload your bank statements or add transactions to start seeing patterns.'
+                        : 'Upload your grocery receipts to start seeing patterns.'}
                     </p>
                   </div>
                 </div>
@@ -198,7 +294,7 @@ export default function TrendsPage() {
                   className="group flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors shrink-0"
                 >
                   <Upload className="h-4 w-4" />
-                  Upload Transactions
+                  {viewMode === 'spending' ? 'Upload Transactions' : 'Upload Receipts'}
                   <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                 </Link>
               </div>
@@ -213,7 +309,7 @@ export default function TrendsPage() {
               >
                 {categoryOrder.map((category) => (
                   <SortableGridItem
-                    key={category}
+                    key={`${viewMode}-${category}`}
                     id={category}
                     w={6}
                     h={sizeConfig.minH || 6}
@@ -233,3 +329,4 @@ export default function TrendsPage() {
     </SidebarProvider>
   )
 }
+

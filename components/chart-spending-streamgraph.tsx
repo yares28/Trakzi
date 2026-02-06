@@ -279,7 +279,7 @@ export const ChartSpendingStreamgraph = memo(function ChartSpendingStreamgraph({
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[180px] md:h-[250px]">
           <ChartLoadingState
             isLoading={isLoading}
             skeletonType="area"
@@ -323,7 +323,7 @@ export const ChartSpendingStreamgraph = memo(function ChartSpendingStreamgraph({
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[180px] md:h-[250px]">
           <div className="relative flex h-full flex-col gap-4">
             <svg
               ref={svgRef}

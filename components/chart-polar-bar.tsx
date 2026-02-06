@@ -22,6 +22,7 @@ import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { ChartExpandButton } from "@/components/chart-expand-button"
 import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 interface ChartPolarBarProps {
   data?: Array<Record<string, string | number>> | { data: Array<Record<string, string | number>>; keys: string[] }
@@ -44,6 +45,7 @@ export const ChartPolarBar = memo(function ChartPolarBar({
   const { formatCurrency } = useCurrency()
   const { resolvedTheme } = useTheme()
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const isMobile = useIsMobile()
 
   // In dark mode, use lighter colors (reverse the palette so lightest colors come first)
   const chartColors = useMemo(() => {
@@ -150,7 +152,7 @@ export const ChartPolarBar = memo(function ChartPolarBar({
             <CardTitle>Household Spend Mix</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[180px] md:h-[250px]">
           <ChartLoadingState
             isLoading={isLoading}
             skeletonType="pie"
@@ -163,14 +165,14 @@ export const ChartPolarBar = memo(function ChartPolarBar({
   }
 
   // Render chart function for reuse
-  const renderChart = () => (
+  const renderChart = (showLegend = true) => (
     <ResponsivePolarBar
       data={sanitizedChartData}
       keys={finalKeys}
       indexBy="month"
       valueSteps={5}
       valueFormat=">-$.0f"
-      margin={{ top: 30, right: 20, bottom: 70, left: 20 }}
+      margin={{ top: 30, right: 20, bottom: showLegend ? 70 : 30, left: 20 }}
       innerRadius={0.25}
       cornerRadius={4}
       borderWidth={1}
@@ -187,8 +189,26 @@ export const ChartPolarBar = memo(function ChartPolarBar({
         />
       )}
       theme={polarTheme}
-      legends={[{ anchor: "bottom", direction: "row", translateY: 50, itemWidth: legendItemWidth, itemHeight: 16, symbolShape: "circle" }]}
+      legends={showLegend ? [{ anchor: "bottom", direction: "row", translateY: 50, itemWidth: legendItemWidth, itemHeight: 16, symbolShape: "circle" }] : []}
     />
+  )
+
+  // Custom mobile legend
+  const renderMobileLegend = () => (
+    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2">
+      {finalKeys.slice(0, 5).map((key, index) => (
+        <div key={key} className="flex items-center gap-1.5">
+          <span
+            className="h-2.5 w-2.5 rounded-full shrink-0"
+            style={{ backgroundColor: chartColors[index % chartColors.length] }}
+          />
+          <span className="font-medium text-foreground truncate max-w-[80px]" title={key}>{key}</span>
+        </div>
+      ))}
+      {finalKeys.length > 5 && (
+        <span className="text-[0.65rem] text-muted-foreground">+{finalKeys.length - 5}</span>
+      )}
+    </div>
   )
 
   return (
@@ -197,7 +217,6 @@ export const ChartPolarBar = memo(function ChartPolarBar({
         isOpen={isFullscreen}
         onClose={() => setIsFullscreen(false)}
         title="Household Spend Mix"
-        description="Track monthly expenses across key categories"
         headerActions={renderInfoTrigger(true)}
       >
         <div className="h-full w-full min-h-[400px]">
@@ -218,12 +237,12 @@ export const ChartPolarBar = memo(function ChartPolarBar({
             />
             <CardTitle>Household Spend Mix</CardTitle>
           </div>
-          <CardDescription>Track monthly expenses across key categories</CardDescription>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 chart-polar-bar h-[250px]">
-          <div className="h-full w-full">
-            {renderChart()}
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 chart-polar-bar flex flex-col">
+          <div className="flex-1 min-h-[140px] md:min-h-[200px]">
+            {renderChart(!isMobile)}
           </div>
+          {isMobile && renderMobileLegend()}
         </CardContent>
       </Card>
     </>

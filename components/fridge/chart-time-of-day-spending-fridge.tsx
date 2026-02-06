@@ -391,7 +391,6 @@ export const ChartTimeOfDaySpendingFridge = React.memo(function ChartTimeOfDaySp
           />
           <CardTitle>Time of Day Spending</CardTitle>
         </div>
-        <CardDescription>Compare spending across times of day</CardDescription>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoTrigger()}
         </CardAction>

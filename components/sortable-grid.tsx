@@ -43,6 +43,7 @@ import {
     rectSortingStrategy,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 // ============================================================================
 // Types
@@ -72,6 +73,8 @@ export interface SortableGridItemProps {
     w?: GridWidth
     /** Height in grid units (each unit = ~70px) */
     h?: number
+    /** Mobile height in grid units (used on mobile devices instead of h) */
+    mobileH?: number
     className?: string
     /** Enable resize handle (default: false) */
     resizable?: boolean
@@ -114,12 +117,18 @@ export function useDragHandle() {
 // SortableGridProvider - wraps the entire chart grid
 // ============================================================================
 
+// Cell height constants - smaller on mobile for better fit
+const CELL_HEIGHT_MOBILE = 65 // px per grid unit on mobile (increased for taller charts)
+const CELL_HEIGHT_DESKTOP = 70 // px per grid unit on desktop
+
 export function SortableGridProvider({
     children,
     chartOrder,
     onOrderChange,
     className = "",
 }: SortableGridProviderProps) {
+    const isMobile = useIsMobile()
+    const cellHeight = isMobile ? CELL_HEIGHT_MOBILE : CELL_HEIGHT_DESKTOP
     const [activeId, setActiveId] = React.useState<UniqueIdentifier | null>(null)
 
     // Sensors for mouse and touch with small activation threshold
@@ -204,7 +213,7 @@ export function SortableGridProvider({
                     className={`grid gap-4 grid-cols-1 md:grid-cols-12 ${className}`}
                     style={{
                         gridAutoFlow: 'row dense', // Pack items densely row by row
-                        gridAutoRows: '70px', // Fixed row height for 2D packing
+                        gridAutoRows: `${cellHeight}px`, // Responsive row height for better mobile fit
                         // Removed grid-template-columns transition - layout properties cause expensive reflows
                     }}
                 >
@@ -220,13 +229,15 @@ export function SortableGridProvider({
 // SortableGridItem - wraps each chart card with optional resize
 // ============================================================================
 
-const CELL_HEIGHT = 70 // px per grid unit
+// Note: Resize is desktop-only (hidden on mobile), so use desktop cell height
+const CELL_HEIGHT = CELL_HEIGHT_DESKTOP // px per grid unit for resize calculations
 
 export function SortableGridItem({
     id,
     children,
     w = 12,
     h = 6,
+    mobileH,
     className = "",
     resizable = false,
     minW = 6,
@@ -235,6 +246,11 @@ export function SortableGridItem({
     maxH = 12,
     onResize,
 }: SortableGridItemProps) {
+    const isMobile = useIsMobile()
+
+    // Use mobileH on mobile devices if provided, otherwise fall back to h
+    const effectiveH = isMobile && mobileH !== undefined ? mobileH : h
+
     const {
         attributes,
         listeners,
@@ -253,7 +269,8 @@ export function SortableGridItem({
     const startPosRef = React.useRef<{ x: number; y: number; w: number; h: number } | null>(null)
 
     // Current dimensions (resize state or props)
-    const currentH = resizeHeight ?? h
+    // Use effectiveH for display, but resize operations work with original h
+    const currentH = resizeHeight ?? effectiveH
     const currentW = resizeWidth ?? w
 
     // Handle resize start

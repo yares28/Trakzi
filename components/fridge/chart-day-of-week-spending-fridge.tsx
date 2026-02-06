@@ -376,7 +376,6 @@ export const ChartDayOfWeekSpendingFridge = React.memo(function ChartDayOfWeekSp
           />
           <CardTitle>Day of Week Spending</CardTitle>
         </div>
-        <CardDescription>Compare spending across days of the week</CardDescription>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoTrigger()}
         </CardAction>

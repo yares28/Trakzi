@@ -193,7 +193,7 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
     // Single-period continuation tick (distinct x for layout, hide label)
     if (monthStr.endsWith("\u200B")) return ""
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    
+
     // Handle YYYY-MM format (e.g., "2025-02")
     const yyyyMmMatch = monthStr.match(/^(\d{4})-(\d{1,2})$/)
     if (yyyyMmMatch) {
@@ -203,7 +203,7 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
         return `${monthNames[monthIndex]}'${year}`
       }
     }
-    
+
     // Handle MM format (e.g., "01", "02")
     const mmMatch = monthStr.match(/^(\d{1,2})$/)
     if (mmMatch) {
@@ -212,7 +212,7 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
         return monthNames[monthIndex]
       }
     }
-    
+
     // Handle month name formats (e.g., "Jan 2025", "January", "jan")
     const monthNameMap: Record<string, number> = {
       'jan': 0, 'january': 0,
@@ -228,9 +228,9 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
       'nov': 10, 'november': 10,
       'dec': 11, 'december': 11,
     }
-    
+
     const lowerMonth = monthStr.toLowerCase().trim()
-    
+
     // Try to match month name and extract year if present (e.g., "Jan 2025")
     for (const [key, monthIndex] of Object.entries(monthNameMap)) {
       if (lowerMonth.startsWith(key)) {
@@ -243,7 +243,7 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
         return monthNames[monthIndex]
       }
     }
-    
+
     // Fallback: return original string
     return monthStr
   }
@@ -343,7 +343,7 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
             <span className="hidden @[540px]/card:block">
               Track how your spending priorities shift over time
             </span>
-            <span className="@[540px]/card:hidden">Category flow over 6 months</span>
+
           </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}

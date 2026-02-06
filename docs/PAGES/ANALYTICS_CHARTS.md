@@ -21,7 +21,7 @@ This document lists all chart components used on the Analytics page.
 | 9 | `netWorthAllocation` | `chart-treemap.tsx` | `ChartTreeMap` | Net Worth Allocation TreeMap - Hierarchical breakdown of spending |
 | 10 | `cashFlowSankey` | `chart-sankey.tsx` | `ChartSankey` | Cash Flow Sankey Diagram - Income flow through expenses to savings |
 | 11 | `spendingStreamgraph` | `chart-spending-streamgraph.tsx` | `ChartSpendingStreamgraph` | Category Streamgraph - Spending trends by category as flowing areas |
-| 12 | `dailyTransactionActivity` | `chart-transaction-calendar.tsx` | `ChartTransactionCalendar` | Daily Transaction Calendar - Heatmap showing activity intensity per day |
+| 12 | `dailyTransactionActivity` | `chart-transaction-calendar.tsx` | `ChartTransactionCalendar` | Daily Transaction Calendar - Dual 3-month heatmaps showing 6 months YTD activity |
 | 13 | `categoryBubbleMap` | `chart-category-bubble.tsx` | `ChartCategoryBubble` | Category Bubble Map - Bubble chart with size/position encoding |
 | 14 | `dayOfWeekSpending` | `chart-day-of-week-spending.tsx` | `ChartDayOfWeekSpending` | Day of Week Spending - Grouped bar chart by day and category |
 | 15 | `allMonthsCategorySpending` | `chart-all-months-category-spending.tsx` | `ChartAllMonthsCategorySpending` | All Months Category Spending - Spending by category across all months |
@@ -29,6 +29,64 @@ This document lists all chart components used on the Analytics page.
 | 17 | `dayOfWeekCategory` | `chart-day-of-week-category.tsx` | `ChartDayOfWeekCategory` | Day of Week Category - Spending breakdown by day and category |
 | 18 | `financialHealthScore` | `chart-radar.tsx` | `ChartRadar` | Financial Health Score - Radar chart of financial health metrics |
 | 19 | `spendingActivityRings` | `SpendingActivityRings.tsx` | `SpendingActivityRings` | Spending Activity Rings - Concentric rings showing category progress vs limits |
+
+---
+
+## Mobile Sizing Configuration
+
+Each chart has a `mobileH` property that controls its height on mobile devices (< 768px). Edit these values in `lib/chart-card-sizes.config.ts`.
+
+| Chart ID | Desktop Height (`h`) | Mobile Height (`mobileH`) | Notes |
+|----------|---------------------|---------------------------|-------|
+| `incomeExpensesTracking1` | 6 | 5 | Area chart, compact on mobile |
+| `incomeExpensesTracking2` | 6 | 5 | Area chart, compact on mobile |
+| `spendingCategoryRankings` | 8 | 7 | Bar chart with multiple bars |
+| `netWorthAllocation` | 10 | 5 | TreeMap, can be compact |
+| `needsWantsBreakdown` | 10 | 6 | Pie with legend |
+| `moneyFlow` | 10 | 7 | Funnel chart, needs vertical space |
+| `expenseBreakdown` | 10 | 6 | Pie with legend |
+| `categoryBubbleMap` | 10 | 6 | Circle packing |
+| `householdSpendMix` | 10 | 6 | Polar bar chart |
+| `financialHealthScore` | 10 | 6 | Radar chart |
+| `spendingActivityRings` | 10 | 8 | Multiple rings + legend |
+| `spendingStreamgraph` | 9 | 5 | Wide chart, compresses well |
+| `transactionHistory` | 7 | 7 | Swarm plot, taller for visibility |
+| `dailyTransactionActivity` | 8 | 5 | Dual 3-month calendar heatmaps (6 months YTD) |
+| `dayOfWeekSpending` | 8 | 6 | Bar chart |
+| `allMonthsCategorySpending` | 8 | 6 | Stacked bar |
+| `singleMonthCategorySpending` | 8 | 6 | Bar chart |
+| `dayOfWeekCategory` | 8 | 6 | Heatmap |
+| `cashFlowSankey` | 10 | 7 | Flow diagram, needs vertical space |
+
+### Height Unit Reference
+
+Each grid unit = ~65px on mobile. Common configurations:
+
+| `mobileH` | Approx. Height | Best For |
+|-----------|----------------|----------|
+| 4 | ~260px | Quick stats, simple indicators |
+| 5 | ~325px | Area charts, line charts, heatmaps |
+| 6 | ~390px | Pie charts with legend, bar charts |
+| 7 | ~455px | Sankey, funnel, swarm plots |
+| 8 | ~520px | Activity rings, complex visualizations |
+
+### How to Modify
+
+1. Open `lib/chart-card-sizes.config.ts`
+2. Find the chart by ID (e.g., `transactionHistory`)
+3. Change the `mobileH` value
+4. Build to verify: `npm run build`
+
+```typescript
+// Example: Make transaction history taller on mobile
+transactionHistory: {
+  minW: 6,
+  maxW: 12,
+  minH: 8,
+  maxH: 20,
+  mobileH: 7,  // ← Adjust this value
+},
+```
 
 ---
 

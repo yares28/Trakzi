@@ -25,9 +25,22 @@ export function useChartLayout() {
     try {
       const saved = localStorage.getItem(CHART_ORDER_STORAGE_KEY)
       if (saved) {
-        const parsed = JSON.parse(saved) as FridgeChartId[]
-        if (Array.isArray(parsed) && parsed.length === DEFAULT_CHART_ORDER.length) {
-          setChartOrder(parsed)
+        const parsed = JSON.parse(saved) as string[]
+        if (Array.isArray(parsed)) {
+          // Filter out obsolete chart IDs that no longer exist in the default order
+          const validCharts = parsed.filter((id): id is FridgeChartId =>
+            DEFAULT_CHART_ORDER.includes(id as FridgeChartId)
+          )
+          // Add any new charts that aren't in the saved order
+          const missingCharts = DEFAULT_CHART_ORDER.filter(
+            (id) => !validCharts.includes(id)
+          )
+          const mergedOrder = [...validCharts, ...missingCharts]
+          setChartOrder(mergedOrder)
+          // Save the cleaned-up order back to localStorage
+          if (mergedOrder.length !== parsed.length) {
+            localStorage.setItem(CHART_ORDER_STORAGE_KEY, JSON.stringify(mergedOrder))
+          }
         }
       }
     } catch (error) {
@@ -63,17 +76,17 @@ export function useChartLayout() {
 
         const finalSize = needsUpdate || !savedSize
           ? {
-              w: defaultSize.w,
-              h: defaultSize.h,
-              x: savedSize?.x ?? defaultSize.x,
-              y: savedSize?.y ?? defaultSize.y,
-            }
+            w: defaultSize.w,
+            h: defaultSize.h,
+            x: savedSize?.x ?? defaultSize.x,
+            y: savedSize?.y ?? defaultSize.y,
+          }
           : {
-              w: savedSize.w,
-              h: savedSize.h,
-              x: savedSize.x ?? defaultSize.x,
-              y: savedSize.y ?? defaultSize.y,
-            }
+            w: savedSize.w,
+            h: savedSize.h,
+            x: savedSize.x ?? defaultSize.x,
+            y: savedSize.y ?? defaultSize.y,
+          }
 
         result[id] = finalSize
 
