@@ -53,7 +53,7 @@ export const ChartCategoryTrend = memo(function ChartCategoryTrend({
 
   // Memoize palette computation
   const { categoryColor, categoryBorderColor } = useMemo(() => {
-    const palette = getPalette().filter((color) => color !== "#c3c3c3")
+    const palette = getPalette()
     const reversedPalette = [...palette].reverse()
     const categoryColorIndex =
       categoryName.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) %

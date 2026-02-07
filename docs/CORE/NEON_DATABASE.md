@@ -136,11 +136,11 @@ The Neon project container for branches, databases, and roles.
 - **Postgres Version**: 17
 - **Proxy Host**: eu-west-2.aws.neon.tech
 - **Default Autoscaling**: 0.25-2 CU (min 0.25, max 2)
-- **Project Active Time**: 396,364 seconds (~110.1 hours)
-- **Project CPU Used**: 101,520 seconds (~28.2 hours)
-- **Synthetic Storage Size**: 50,533,248 bytes (~48.2 MB)
-- **Project Updated**: December 30, 2025 at 00:16:14 UTC
-- **Compute Last Active**: December 30, 2025 at 00:16:06 UTC
+- **Project Active Time**: 206,584 seconds (~57.4 hours)
+- **Project CPU Used**: 52,855 seconds (~14.7 hours)
+- **Synthetic Storage Size**: 102,112,472 bytes (~97.4 MB)
+- **Project Updated**: February 7, 2026 at 16:10:01 UTC
+- **Compute Last Active**: February 7, 2026 at 16:09:53 UTC
 
 ## Branch Information
 
@@ -245,6 +245,9 @@ Quick list of tables by schema; details follow.
 12. **transaction_category_preferences** - Transaction categorization preferences
 13. **subscriptions** - Stripe subscription management
 14. **webhook_events** - Stripe webhook event tracking (idempotency)
+15. **ai_chat_usage** - AI chat usage tracking (rate limiting)
+16. **receipt_store_language_preferences** - Per-store receipt language preferences
+17. **user_preferences** - User UI preferences (chart favourites, layout, sizes)
 
 ### Neon Auth Schema Tables
 
@@ -676,6 +679,84 @@ Per-table columns, indexes, constraints, and sizes.
 
 ---
 
+### 15. ai_chat_usage
+
+**Purpose**: Tracks AI chat usage per user for rate limiting
+
+**Columns**:
+- `id` (integer, PRIMARY KEY, AUTO_INCREMENT)
+- `user_id` (text, NOT NULL) - References `users(id)`
+- `created_at` (timestamp with time zone, NULLABLE, DEFAULT now())
+
+**Indexes**:
+- `ai_chat_usage_pkey` (16 kB) - PRIMARY KEY on `id`
+- `idx_ai_chat_usage_user_created` (16 kB) - Composite index on `user_id, created_at`
+
+**Constraints**:
+- PRIMARY KEY: `id`
+
+**Size**: Table: 8 kB, Indexes: 40 kB, Total: 48 kB
+
+---
+
+### 16. receipt_store_language_preferences
+
+**Purpose**: Stores per-store receipt language preferences for OCR parsing
+
+**Columns**:
+- `id` (integer, PRIMARY KEY, AUTO_INCREMENT)
+- `user_id` (text, NOT NULL) - References `users(id)`
+- `store_key` (text, NOT NULL) - Normalized store identifier
+- `store_name` (text, NULLABLE) - Display store name
+- `language` (text, NOT NULL) - Language code (e.g., 'en', 'fr')
+- `use_count` (integer, NOT NULL, DEFAULT 0) - Usage count
+- `created_at` (timestamp with time zone, NOT NULL, DEFAULT now())
+- `updated_at` (timestamp with time zone, NOT NULL, DEFAULT now())
+
+**Indexes**:
+- `receipt_store_language_preferences_pkey` (8 kB) - PRIMARY KEY on `id`
+- `receipt_store_language_preferences_unique` (8 kB) - UNIQUE index on `user_id, store_key`
+
+**Constraints**:
+- PRIMARY KEY: `id`
+- UNIQUE: `user_id, store_key`
+
+**Size**: Table: 0 bytes, Indexes: 24 kB, Total: 24 kB
+
+---
+
+### 17. user_preferences
+
+**Purpose**: Stores user UI preferences as JSONB (chart favourites, layout order, grid sizes across all pages)
+
+**Columns**:
+- `user_id` (text, PRIMARY KEY) - References `users(id)`
+- `preferences` (jsonb, NOT NULL, DEFAULT '{}') - All user preferences namespaced by page
+- `updated_at` (timestamp with time zone, NOT NULL, DEFAULT now())
+
+**JSONB Structure**:
+```json
+{
+  "home": { "favorites": [...], "order": [...], "sizes": {...} },
+  "analytics": { "order": [...], "sizes": {...}, "sizes_version": "9" },
+  "fridge": { "order": [...], "sizes": {...}, "sizes_version": "1" }
+}
+```
+
+**Indexes**:
+- `user_preferences_pkey` - PRIMARY KEY on `user_id`
+
+**Constraints**:
+- PRIMARY KEY: `user_id`
+- FOREIGN KEY: `user_id` -> `users(id)` ON DELETE CASCADE
+
+**Triggers**:
+- `update_user_preferences_updated_at` - Auto-updates `updated_at` on row update
+
+**Size**: Table: 0 bytes, Indexes: 8 kB, Total: 8 kB (new table)
+
+---
+
 ## Database Functions
 
 Server-side functions available in the database.
@@ -714,6 +795,7 @@ The following tables have triggers that automatically update the `updated_at` co
 - `receipt_transactions`
 - `subscriptions`
 - `category_budgets`
+- `user_preferences`
 
 All triggers use the `update_updated_at_column()` function.
 
@@ -757,22 +839,25 @@ Size and usage metrics for the project.
 
 | Table | Table Size | Index Size | Total Size |
 |-------|------------|------------|------------|
+| user_files | 32 kB | 17 MB | 17 MB |
+| transactions | 232 kB | 448 kB | 680 kB |
+| categories | 56 kB | 168 kB | 224 kB |
+| receipt_categories | 56 kB | 160 kB | 216 kB |
+| receipt_transactions | 32 kB | 112 kB | 144 kB |
+| subscriptions | 8 kB | 120 kB | 128 kB |
 | users | 8 kB | 72 kB | 80 kB |
-| transactions | 112 kB | 152 kB | 264 kB |
-| categories | 16 kB | 96 kB | 112 kB |
+| webhook_events | 8 kB | 72 kB | 80 kB |
+| category_budgets | 8 kB | 56 kB | 64 kB |
 | statements | 8 kB | 56 kB | 64 kB |
-| category_budgets | 0 bytes | 32 kB | 32 kB |
-| user_files | 16 kB | 5,816 kB | 5,832 kB |
 | receipts | 8 kB | 56 kB | 64 kB |
 | receipt_category_types | 8 kB | 56 kB | 64 kB |
-| receipt_categories | 16 kB | 96 kB | 112 kB |
-| receipt_transactions | 8 kB | 88 kB | 96 kB |
+| ai_chat_usage | 8 kB | 40 kB | 48 kB |
 | receipt_item_category_preferences | 0 bytes | 48 kB | 48 kB |
 | transaction_category_preferences | 8 kB | 40 kB | 48 kB |
-| subscriptions | 8 kB | 120 kB | 128 kB |
-| webhook_events | 0 bytes | 40 kB | 40 kB |
+| receipt_store_language_preferences | 0 bytes | 24 kB | 24 kB |
+| user_preferences | 0 bytes | 8 kB | 8 kB |
 
-**Note**: The `user_files` table has a large index size (5.8 MB) due to indexing binary data, which is expected for file storage.
+**Note**: The `user_files` table has a large index size (17 MB) due to indexing binary data, which is expected for file storage. Sizes sorted by total descending.
 
 ## Connection Information
 
@@ -835,7 +920,7 @@ Important context and caveats for the schema and infrastructure.
 
 ## API Routes Reference
 
-Complete listing of all API endpoints organized by feature domain. Total: **72 routes**.
+Complete listing of all API endpoints organized by feature domain. Total: **74 routes**.
 
 ### Chart Bundles (Aggregated Data APIs)
 
@@ -967,6 +1052,13 @@ Bundle APIs aggregate multiple chart data sources into a single response with Re
 |-------|--------|-------------|
 | `/api/webhook/stripe` | POST | Stripe webhook receiver |
 | `/api/webhook/clerk` | POST | Clerk webhook receiver |
+
+### User Preferences APIs
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/user-preferences` | GET | Get current user's UI preferences (chart favourites, layout, sizes) |
+| `/api/user-preferences` | PUT | Upsert user's UI preferences (full replace) |
 
 ### Admin & Maintenance APIs
 
@@ -1196,7 +1288,7 @@ export async function GET() {
 
 Snapshot timestamp for this document. Refresh using Neon MCP when needed.
 
-This documentation was generated on: **January 26, 2026**
+This documentation was generated on: **February 7, 2026**
 
 Metadata, metrics, and connection details were refreshed using Neon MCP tools and reflect the current state of the database.
 
@@ -1204,6 +1296,13 @@ Metadata, metrics, and connection details were refreshed using Neon MCP tools an
 
 Notable schema and data changes since the previous snapshot.
 
+- **February 7, 2026**: User preferences migration to database:
+  - Added `user_preferences` table (JSONB) for chart favourites, layout order, and grid sizes across Home, Analytics, and Fridge pages
+  - Added `ai_chat_usage` table to docs (already existed in DB, missing from docs)
+  - Added `receipt_store_language_preferences` table to docs (already existed in DB, missing from docs)
+  - Added API route `/api/user-preferences` (GET + PUT)
+  - Updated table sizes and project metrics
+  - Total public schema tables: 14 → 17
 - **February 1, 2026**: World Map feature database integration:
   - Added `country_name` (text NULL) column to `transactions` table
   - Added `idx_transactions_user_country` partial index for country aggregation

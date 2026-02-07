@@ -10,6 +10,7 @@ import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
+import { DEFAULT_FALLBACK_PALETTE, getEChartsBackground } from "@/lib/chart-colors"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
   Card,
@@ -88,24 +89,13 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
     setMounted(true)
   }, [])
 
-  // Palette is ordered dark → light. For better contrast:
-  // - Dark mode: skip first color (darkest) so bubbles are visible against dark background
-  // - Light mode: skip last color (lightest) so bubbles are visible against light background
-  // Also reverse so darker colors are used for larger bubbles (higher depth)
+  // getPalette() already filters neutral #c3c3c3 and trims by theme
+  // Reverse so darker colors are used for larger bubbles (higher depth)
   const palette = React.useMemo(() => {
-    const base = getPalette().filter((color) => color !== "#c3c3c3")
-    if (!base.length) {
-      return ["#0f766e", "#14b8a6", "#22c55e", "#84cc16", "#eab308"]
-    }
-    let filtered: string[]
-    if (resolvedTheme === "dark") {
-      filtered = base.slice(1)
-    } else {
-      filtered = base.slice(0, -1)
-    }
-    // Reverse so darker colors are used for larger bubbles
-    return [...filtered].reverse()
-  }, [getPalette, resolvedTheme])
+    const p = getPalette()
+    if (!p.length) return DEFAULT_FALLBACK_PALETTE
+    return [...p].reverse()
+  }, [getPalette])
 
 
   // ECharts event handlers for custom tooltip
@@ -413,8 +403,7 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
       }
     }
 
-    const backgroundColor =
-      resolvedTheme === "dark" ? "rgba(15,23,42,0)" : "rgba(248,250,252,0)"
+    const backgroundColor = getEChartsBackground(resolvedTheme === "dark")
 
     return {
       backgroundColor,

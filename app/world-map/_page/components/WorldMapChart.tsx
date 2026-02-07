@@ -129,7 +129,7 @@ export const WorldMapChart = memo(function WorldMapChart({
 
   // Get palette colors for the choropleth scale
   const colorScale = useMemo(() => {
-    const palette = getPalette().filter(c => c !== "#c3c3c3")
+    const palette = getPalette()
     return [...palette].reverse().slice(0, 7)
   }, [getPalette])
 

@@ -127,6 +127,11 @@ export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
     title: "Fridge: Time of Day Spending",
     description: "Grocery spending by time of day",
   },
+  "fridge:grocerySpendTrend": {
+    id: "fridge:grocerySpendTrend",
+    title: "Grocery Spend Trend",
+    description: "Daily grocery totals across the selected time filter",
+  },
   "fridge:emptyVsNutritious": {
     id: "fridge:emptyVsNutritious",
     title: "Empty vs Nutritious Calories",

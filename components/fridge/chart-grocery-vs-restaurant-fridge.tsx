@@ -8,6 +8,7 @@ import { ResponsiveBar, BarDatum, BarTooltipProps } from "@nivo/bar"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { getChartTextColor, getContrastTextColor, DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { NivoChartTooltip } from "@/components/chart-tooltip"
@@ -37,7 +38,7 @@ interface MonthlyData {
 
 export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVsRestaurantFridge({ dateFilter, groceryVsRestaurantData }: ChartGroceryVsRestaurantFridgeProps) {
     const { resolvedTheme } = useTheme()
-    const { getPalette } = useColorScheme()
+    const { getShuffledPalette } = useColorScheme()
     const { formatCurrency, symbol } = useCurrency()
     const [mounted, setMounted] = useState(false)
     const [data, setData] = useState<MonthlyData[]>([])
@@ -83,16 +84,15 @@ export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVs
 
     // Use specific colors for the two categories
     const palette = useMemo(() => {
-        const base = getPalette().filter((color) => color !== "#c3c3c3")
+        const base = getShuffledPalette()
         if (!base.length || base.length < 2) {
-            return ["#22c55e", "#f97316"] // Green for groceries, orange for restaurants
+            return [DEFAULT_FALLBACK_PALETTE[0], DEFAULT_FALLBACK_PALETTE[1]]
         }
-        // Use first two colors from palette
         return [base[0], base[2] || base[1]]
-    }, [getPalette])
+    }, [getShuffledPalette])
 
     const isDark = resolvedTheme === "dark"
-    const textColor = isDark ? "#9ca3af" : "#6b7280"
+    const textColor = getChartTextColor(isDark)
     const gridColor = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"
 
     // Format currency using user's preferred currency
@@ -222,7 +222,7 @@ export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVs
                                 }}
                                 labelSkipWidth={30}
                                 labelSkipHeight={16}
-                                labelTextColor="#ffffff"
+                                labelTextColor={(d: any) => getContrastTextColor(d.color || "#000000")}
                                 label={(d) => d.value && d.value > 50 ? currencyFormatter.format(d.value as number) : ""}
                                 enableGridX={false}
                                 enableGridY={true}

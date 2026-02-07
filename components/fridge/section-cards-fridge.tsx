@@ -134,7 +134,7 @@ export function SectionCardsFridge({
 
     // Get distinct colors from palette for each card
     const trendColors = useMemo(() => {
-        const palette = getPalette().filter(c => c !== "#c3c3c3")
+        const palette = getPalette()
         return [
             palette[0] || "#14b8a6", // Total Spent
             palette[1] || "#22c55e", // Shopping Trips

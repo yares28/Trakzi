@@ -8,6 +8,7 @@ import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { getChartTextColor, DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
@@ -71,7 +72,7 @@ function normalizeCategoryName(value: string | null | undefined) {
 
 export const ChartSingleMonthCategoryFridge = React.memo(function ChartSingleMonthCategoryFridge({ receiptTransactions = [], monthlyCategoriesData, isLoading = false }: ChartSingleMonthCategoryFridgeProps) {
     const { resolvedTheme } = useTheme()
-    const { getPalette } = useColorScheme()
+    const { getShuffledPalette } = useColorScheme()
     const { formatCurrency, symbol } = useCurrency()
     const [mounted, setMounted] = React.useState(false)
     const [selectedMonth, setSelectedMonth] = React.useState<number | null>(null)
@@ -146,12 +147,12 @@ export const ChartSingleMonthCategoryFridge = React.memo(function ChartSingleMon
     }, [allData, selectedMonth])
 
     const palette = React.useMemo(() => {
-        const base = getPalette().filter((color) => color !== "#c3c3c3")
+        const base = getShuffledPalette()
         if (!base.length) {
-            return ["#0f766e", "#14b8a6", "#22c55e", "#84cc16", "#eab308"]
+            return DEFAULT_FALLBACK_PALETTE
         }
         return base
-    }, [getPalette])
+    }, [getShuffledPalette])
 
     const valueFormatter = {
         format: (value: number) => formatCurrency(value, { maximumFractionDigits: 0 })
@@ -250,7 +251,7 @@ export const ChartSingleMonthCategoryFridge = React.memo(function ChartSingleMon
         })
 
         const backgroundColor = resolvedTheme === "dark" ? "rgba(15,23,42,0)" : "rgba(248,250,252,0)"
-        const textColor = resolvedTheme === "dark" ? "#9ca3af" : "#6b7280"
+        const textColor = getChartTextColor(resolvedTheme === "dark")
 
         return {
             backgroundColor,

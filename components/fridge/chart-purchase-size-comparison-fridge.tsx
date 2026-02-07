@@ -8,6 +8,7 @@ import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { getChartTextColor, DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
     Card,
@@ -61,7 +62,7 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
     isLoading = false,
 }: ChartPurchaseSizeComparisonFridgeProps) {
     const { resolvedTheme } = useTheme()
-    const { getPalette } = useColorScheme()
+    const { getShuffledPalette } = useColorScheme()
     const [mounted, setMounted] = useState(false)
     const containerRef = React.useRef<HTMLDivElement>(null)
     const [tooltip, setTooltip] = useState<{
@@ -78,12 +79,12 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
     }, [])
 
     const palette = useMemo(() => {
-        const base = getPalette().filter((color) => color !== "#c3c3c3")
+        const base = getShuffledPalette()
         if (!base.length) {
-            return ["#22c55e", "#16a34a", "#15803d", "#166534", "#14532d", "#052e16", "#022c22"]
+            return DEFAULT_FALLBACK_PALETTE
         }
         return base
-    }, [getPalette])
+    }, [getShuffledPalette])
 
     // Format currency
     const currencyFormatter = useMemo(
@@ -196,7 +197,7 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
     )
 
     const isDark = resolvedTheme === "dark"
-    const textColor = isDark ? "#9ca3af" : "#6b7280"
+    const textColor = getChartTextColor(isDark)
     const gridColor = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"
 
     if (!mounted || isLoading) {

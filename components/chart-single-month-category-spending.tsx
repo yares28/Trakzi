@@ -8,6 +8,7 @@ import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
+import { DEFAULT_FALLBACK_PALETTE, getChartTextColor, getEChartsBackground, getEChartsSplitLineColor } from "@/lib/chart-colors"
 import { deduplicatedFetch, getCachedResponse } from "@/lib/request-deduplication"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
@@ -104,7 +105,7 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
   emptyDescription
 }: ChartSingleMonthCategorySpendingProps) {
   const { resolvedTheme } = useTheme()
-  const { getPalette } = useColorScheme()
+  const { getShuffledPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const buildMonthParams = React.useCallback(
     (month?: number | null) => {
@@ -367,19 +368,11 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
     }
   }, [selectedMonth, dateFilter, mounted, availableMonths, buildMonthParams, refreshNonce, monthlyCategoriesData, bundleLoading])
 
-  // Palette is ordered dark → light. For better contrast:
-  // - Dark mode: skip first color (darkest) so bars are visible against dark background
-  // - Light mode: skip last color (lightest) so bars are visible against light background
+  // getShuffledPalette() filters, trims by theme, and shuffles for visual variety
   const palette = React.useMemo(() => {
-    const base = getPalette().filter((color) => color !== "#c3c3c3")
-    if (!base.length) {
-      return ["#0f766e", "#14b8a6", "#22c55e", "#84cc16", "#eab308"]
-    }
-    if (resolvedTheme === "dark") {
-      return base.slice(1)
-    }
-    return base.slice(0, -1)
-  }, [getPalette, resolvedTheme])
+    const p = getShuffledPalette()
+    return p.length ? p : DEFAULT_FALLBACK_PALETTE
+  }, [getShuffledPalette])
 
 
   // ECharts event handlers for custom tooltip
@@ -521,11 +514,11 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
       datasetSource.push([item.category, item.total])
     })
 
-    const backgroundColor =
-      resolvedTheme === "dark" ? "rgba(15,23,42,0)" : "rgba(248,250,252,0)"
+    const isDark = resolvedTheme === "dark"
+    const backgroundColor = getEChartsBackground(isDark)
 
     // Use muted-foreground color for axis labels
-    const textColor = resolvedTheme === "dark" ? "#9ca3af" : "#6b7280"
+    const textColor = getChartTextColor(isDark)
 
     // Disable animation after first render to prevent replay on theme hydration
     // Set ref synchronously to prevent race condition with theme changes
@@ -586,7 +579,7 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
         },
         splitLine: {
           lineStyle: {
-            color: resolvedTheme === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+            color: getEChartsSplitLineColor(isDark),
           },
         },
       },

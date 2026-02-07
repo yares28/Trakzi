@@ -11,6 +11,7 @@ import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { ChartExpandButton } from "@/components/chart-expand-button"
 import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { CHART_GRID_COLOR } from "@/lib/chart-colors"
 import { useCurrency } from "@/components/currency-provider"
 import { type ChartId } from "@/lib/chart-card-sizes.config"
 import { formatDateForDisplay } from "@/lib/date"
@@ -67,7 +68,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const mousePositionRef = useRef<{ x: number; y: number } | null>(null)
   const isDark = resolvedTheme === "dark"
-  const gridStrokeColor = isDark ? "#e5e7eb" : "#e5e7eb"
+  const gridStrokeColor = CHART_GRID_COLOR
 
   // Force animation by delaying when we switch from empty data to real data
   // Recharts animates when data changes, so we start with [] then switch to real data
@@ -79,21 +80,13 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
     return () => cancelAnimationFrame(rafId)
   }, [])
 
-  // Palette is ordered dark → light. For better contrast:
-  // - Dark mode: skip first color (darkest) so areas are visible against dark background
-  // - Light mode: skip last color (lightest) so areas are visible against light background
-  const palette = useMemo(() => {
-    const base = getPalette().filter(color => color !== "#c3c3c3")
-    if (isDark) {
-      return base.slice(1)
-    }
-    return base.slice(0, -1)
-  }, [getPalette, isDark])
+  // Use the ordered palette so we can pick from the dark/light ends for max contrast
+  const palette = useMemo(() => getPalette(), [getPalette])
 
-  // Income uses a fixed brand color, expenses uses the darkest available palette color
-  const incomeColor = "#fe8339"
-  // For expenses: use darkest color from the theme-adjusted palette
-  const expensesColor = palette[palette.length - 1] || "#D88C6C"
+  // Palette is ordered dark → light.
+  // Expenses = near-darkest (index 1), Income = near-lightest (index n-2)
+  const expensesColor = palette[1] || palette[0]
+  const incomeColor = palette[palette.length - 2] || palette[palette.length - 1] || palette[0]
 
   // Use theme-based colors for proper CSS variable generation
   const chartConfig = {

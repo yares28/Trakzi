@@ -1,21 +1,21 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { useFavorites } from "@/components/favorites-provider"
+import { useUserPreferences } from "@/components/user-preferences-provider"
 import type { ChartId } from "@/lib/chart-card-sizes.config"
 
-import {
-  FAVORITES_ORDER_STORAGE_KEY,
-  FAVORITE_SIZES_STORAGE_KEY,
-} from "../constants"
 import type { FavoriteChartSize } from "../types"
 
 type SavedFavoriteSizes = Record<string, FavoriteChartSize>
 
 export function useFavoritesLayout() {
   const { favorites } = useFavorites()
+  const { preferences, updatePagePreferences } = useUserPreferences()
+
+  const homePrefs = preferences.home
+
+  // ---- Order ----
   const [favoritesOrder, setFavoritesOrder] = useState<string[]>([])
-  const [savedFavoriteSizes, setSavedFavoriteSizes] =
-    useState<SavedFavoriteSizes>({})
 
   useEffect(() => {
     const favoritesArray = Array.from(favorites)
@@ -23,62 +23,46 @@ export function useFavoritesLayout() {
       setFavoritesOrder([])
       return
     }
-    try {
-      const saved = localStorage.getItem(FAVORITES_ORDER_STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved) as ChartId[]
-        const existingInOrder = parsed.filter((id) =>
-          favoritesArray.includes(id)
-        )
-        const newFavorites = favoritesArray.filter(
-          (id) => !parsed.includes(id)
-        )
-        setFavoritesOrder([...existingInOrder, ...newFavorites])
-      } else {
-        setFavoritesOrder(favoritesArray)
-      }
-    } catch {
-      setFavoritesOrder(favoritesArray)
-    }
-  }, [favorites])
 
+    const savedOrder = homePrefs?.order ?? []
+    const existingInOrder = savedOrder.filter((id) =>
+      favoritesArray.includes(id as ChartId)
+    )
+    const newFavorites = favoritesArray.filter(
+      (id) => !savedOrder.includes(id)
+    )
+    setFavoritesOrder([...existingInOrder, ...newFavorites])
+  }, [favorites, homePrefs?.order])
+
+  // ---- Sizes ----
+  const savedFavoriteSizes: SavedFavoriteSizes = useMemo(
+    () => homePrefs?.sizes ?? {},
+    [homePrefs?.sizes]
+  )
+
+  // Keep a ref so rapid resize events always build on the latest sizes.
+  const sizesRef = useRef<SavedFavoriteSizes>(savedFavoriteSizes)
   useEffect(() => {
-    if (typeof window === "undefined") return
-    try {
-      const saved = localStorage.getItem(FAVORITE_SIZES_STORAGE_KEY)
-      setSavedFavoriteSizes(saved ? JSON.parse(saved) : {})
-    } catch (error) {
-      console.error("Failed to load favorite chart sizes:", error)
-      setSavedFavoriteSizes({})
-    }
-  }, [])
+    sizesRef.current = savedFavoriteSizes
+  }, [savedFavoriteSizes])
 
-  const handleFavoritesOrderChange = useCallback((newOrder: string[]) => {
-    setFavoritesOrder(newOrder)
-    try {
-      localStorage.setItem(
-        FAVORITES_ORDER_STORAGE_KEY,
-        JSON.stringify(newOrder)
-      )
-    } catch (error) {
-      console.error("Failed to save favorites order:", error)
-    }
-  }, [])
+  // ---- Handlers ----
+  const handleFavoritesOrderChange = useCallback(
+    (newOrder: string[]) => {
+      setFavoritesOrder(newOrder)
+      updatePagePreferences("home", { order: newOrder })
+    },
+    [updatePagePreferences]
+  )
 
-  const handleFavoritesResize = useCallback((chartId: string, w: number, h: number) => {
-    setSavedFavoriteSizes((prev) => {
-      const next = { ...prev, [chartId]: { w, h } }
-      try {
-        localStorage.setItem(
-          FAVORITE_SIZES_STORAGE_KEY,
-          JSON.stringify(next)
-        )
-      } catch (error) {
-        console.error("Failed to save favorites size:", error)
-      }
-      return next
-    })
-  }, [])
+  const handleFavoritesResize = useCallback(
+    (chartId: string, w: number, h: number) => {
+      const next = { ...sizesRef.current, [chartId]: { w, h } }
+      sizesRef.current = next
+      updatePagePreferences("home", { sizes: next })
+    },
+    [updatePagePreferences]
+  )
 
   return {
     favorites,

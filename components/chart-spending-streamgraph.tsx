@@ -19,6 +19,7 @@ import {
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
+import { DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
@@ -39,7 +40,7 @@ interface ChartSpendingStreamgraphProps {
   emptyDescription?: string
 }
 
-const FALLBACK_COLORS = ["#7dd3fc", "#c084fc", "#f472b6", "#f97316", "#34d399", "#f87171", "#fb7185"]
+const FALLBACK_COLORS = DEFAULT_FALLBACK_PALETTE
 const DIMENSIONS = { width: 928, height: 420, margin: { top: 32, right: 24, bottom: 64, left: 72 } }
 
 const axisFormatter = new Intl.NumberFormat(undefined, {
@@ -70,7 +71,7 @@ export const ChartSpendingStreamgraph = memo(function ChartSpendingStreamgraph({
   emptyTitle,
   emptyDescription
 }: ChartSpendingStreamgraphProps) {
-  const { getPalette } = useColorScheme()
+  const { getShuffledPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const { resolvedTheme } = useTheme()
   const svgRef = useRef<SVGSVGElement | null>(null)
@@ -117,27 +118,15 @@ export const ChartSpendingStreamgraph = memo(function ChartSpendingStreamgraph({
     return seriesKeys.filter((key) => rows.some((row) => Number(row[key]) > 0))
   }, [rows, seriesKeys])
 
-  // Palette is ordered dark → light. For better contrast:
-  // - Dark mode: skip first color (darkest) so streams are visible against dark background
-  // - Light mode: skip last color (lightest) so streams are visible against light background
+  // getShuffledPalette() filters, trims by theme, and shuffles for visual variety
   const colorAssignments = useMemo(() => {
-    const palette = getPalette()
-    const base = (palette.length ? palette : FALLBACK_COLORS).filter(color => color !== "#c3c3c3")
-    let adjustedColors: string[]
-    if (isDark) {
-      adjustedColors = base.slice(1)
-    } else {
-      adjustedColors = base.slice(0, -1)
-    }
-    // Ensure we have at least some colors
-    if (!adjustedColors.length) {
-      adjustedColors = FALLBACK_COLORS
-    }
+    const palette = getShuffledPalette()
+    const colors = palette.length ? palette : FALLBACK_COLORS
     return activeKeys.reduce<Record<string, string>>((acc, key, index) => {
-      acc[key] = adjustedColors[index % adjustedColors.length] || FALLBACK_COLORS[index % FALLBACK_COLORS.length]
+      acc[key] = colors[index % colors.length] || FALLBACK_COLORS[index % FALLBACK_COLORS.length]
       return acc
     }, {})
-  }, [activeKeys, getPalette, isDark])
+  }, [activeKeys, getShuffledPalette])
 
   const numericRows = useMemo(() => {
     return rows.map((row) => {

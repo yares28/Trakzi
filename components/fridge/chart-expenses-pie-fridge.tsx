@@ -5,6 +5,7 @@ import { useTheme } from "next-themes"
 import { ResponsivePie } from "@nivo/pie"
 import { IconGripVertical } from "@tabler/icons-react"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { getContrastTextColor, getChartTextColor } from "@/lib/chart-colors"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
@@ -18,20 +19,6 @@ import {
     CardTitle,
 } from "@/components/ui/card"
 
-// Dark colors that require white text
-const darkColors = ["#696969", "#464646", "#2F2F2F", "#252525"]
-
-// Gold palette colors that require white text (black and brown)
-const goldDarkColors = ["#000000", "#361c1b", "#754232", "#cd894a"]
-
-// Helper function to determine text color based on slice color
-const getTextColor = (sliceColor: string, colorScheme?: string): string => {
-    if (colorScheme === "gold") {
-        return goldDarkColors.includes(sliceColor) ? "#ffffff" : "#000000"
-    }
-    return darkColors.includes(sliceColor) ? "#ffffff" : "#000000"
-}
-
 interface ChartExpensesPieFridgeProps {
     data: { id: string; label: string; value: number }[]
     categorySpendingData?: Array<{ category: string; total: number }>
@@ -39,7 +26,7 @@ interface ChartExpensesPieFridgeProps {
 
 export const ChartExpensesPieFridge = memo(function ChartExpensesPieFridge({ data, categorySpendingData }: ChartExpensesPieFridgeProps) {
     const { resolvedTheme } = useTheme()
-    const { colorScheme, getPalette } = useColorScheme()
+    const { colorScheme, getShuffledPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
     const [mounted, setMounted] = useState(false)
 
@@ -63,7 +50,7 @@ export const ChartExpensesPieFridge = memo(function ChartExpensesPieFridge({ dat
     // For all palettes: darker colors = larger amounts, lighter colors = smaller amounts
     const dataWithColors = useMemo(() => {
         const numParts = Math.min(pieData.length, 7)
-        const palette = getPalette().filter(color => color !== "#c3c3c3")
+        const palette = getShuffledPalette()
 
         // Sort by value descending (highest first) and assign colors
         // Darker colors go to higher values, lighter colors to lower values
@@ -74,7 +61,7 @@ export const ChartExpensesPieFridge = memo(function ChartExpensesPieFridge({ dat
             ...item,
             color: reversedPalette[index % reversedPalette.length]
         }))
-    }, [colorScheme, getPalette, pieData])
+    }, [colorScheme, getShuffledPalette, pieData])
 
     const chartData = dataWithColors
 
@@ -84,8 +71,8 @@ export const ChartExpensesPieFridge = memo(function ChartExpensesPieFridge({ dat
 
     const isDark = resolvedTheme === "dark"
 
-    const textColor = isDark ? "#9ca3af" : "#4b5563"
-    const arcLinkLabelColor = isDark ? "#d1d5db" : "#374151"
+    const textColor = getChartTextColor(isDark)
+    const arcLinkLabelColor = getChartTextColor(isDark)
 
     if (!mounted) {
         return (
@@ -160,7 +147,7 @@ export const ChartExpensesPieFridge = memo(function ChartExpensesPieFridge({ dat
                         arcLinkLabelsThickness={2}
                         arcLinkLabelsColor={{ from: "color" }}
                         arcLabelsSkipAngle={20}
-                        arcLabelsTextColor={(d: { color: string }) => getTextColor(d.color, colorScheme)}
+                        arcLabelsTextColor={(d: { color: string }) => getContrastTextColor(d.color)}
                         valueFormat={(value) => formatCurrency(value)}
                         colors={colorConfig}
                         tooltip={({ datum }) => (

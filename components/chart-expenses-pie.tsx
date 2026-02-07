@@ -9,6 +9,7 @@ import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { NivoChartTooltip } from "@/components/chart-tooltip"
+import { getContrastTextColor, getChartTextColor } from "@/lib/chart-colors"
 import {
   Card,
   CardAction,
@@ -34,20 +35,6 @@ interface ChartExpensesPieProps {
   emptyDescription?: string
 }
 
-// Dark colors that require white text
-const darkColors = ["#696969", "#464646", "#2F2F2F", "#252525"]
-
-// Gold palette colors that require white text (black and brown)
-const goldDarkColors = ["#000000", "#361c1b", "#754232", "#cd894a"]
-
-// Helper function to determine text color based on slice color
-const getTextColor = (sliceColor: string, colorScheme?: string): string => {
-  if (colorScheme === "gold") {
-    return goldDarkColors.includes(sliceColor) ? "#ffffff" : "#000000"
-  }
-  return darkColors.includes(sliceColor) ? "#ffffff" : "#000000"
-}
-
 export const ChartExpensesPie = memo(function ChartExpensesPie({
   data: baseData = [],
   categoryControls,
@@ -56,7 +43,7 @@ export const ChartExpensesPie = memo(function ChartExpensesPie({
   emptyDescription
 }: ChartExpensesPieProps) {
   const { resolvedTheme } = useTheme()
-  const { colorScheme, getPalette } = useColorScheme()
+  const { colorScheme, getShuffledPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const [mounted, setMounted] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -69,22 +56,18 @@ export const ChartExpensesPie = memo(function ChartExpensesPie({
     setMounted(true)
   }, [])
 
-  // Dynamically assign colors based on number of parts (max 7)
-  // For all palettes: darker colors = larger amounts, lighter colors = smaller amounts
+  // Dynamically assign shuffled colors to expense categories (max 7)
   const dataWithColors = useMemo(() => {
     const numParts = Math.min(sanitizedBaseData.length, 7)
-    const palette = getPalette().filter(color => color !== "#c3c3c3")
+    const palette = getShuffledPalette()
 
-    // Sort by value descending (highest first) and assign colors
-    // Darker colors go to higher values, lighter colors to lower values
     const sorted = [...sanitizedBaseData].sort((a, b) => b.value - a.value)
-    // Reverse palette so darkest colors are first (for highest values)
-    const reversedPalette = [...palette].reverse().slice(0, numParts)
+    const colors = palette.slice(0, numParts)
     return sorted.map((item, index) => ({
       ...item,
-      color: reversedPalette[index % reversedPalette.length]
+      color: colors[index % colors.length]
     }))
-  }, [baseData, colorScheme, getPalette])
+  }, [baseData, colorScheme, getShuffledPalette])
 
   const data = dataWithColors
 
@@ -99,7 +82,7 @@ export const ChartExpensesPie = memo(function ChartExpensesPie({
 
   const isDark = resolvedTheme === "dark"
 
-  const textColor = isDark ? "#9ca3af" : "#4b5563"
+  const textColor = getChartTextColor(isDark)
 
   // Format currency value using user's preferred currency
   const valueFormatter = useMemo(() => ({
@@ -145,7 +128,7 @@ export const ChartExpensesPie = memo(function ChartExpensesPie({
       borderWidth={0}
       enableArcLinkLabels={false}
       arcLabelsSkipAngle={15}
-      arcLabelsTextColor={(d: { color: string }) => getTextColor(d.color, colorScheme)}
+      arcLabelsTextColor={(d: { color: string }) => getContrastTextColor(d.color)}
       valueFormat={(value) => formatCurrency(value)}
       colors={colorConfig}
       tooltip={({ datum }) => {

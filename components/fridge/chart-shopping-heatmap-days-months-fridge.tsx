@@ -10,6 +10,7 @@ import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { getChartTextColor, DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
@@ -46,7 +47,7 @@ export const ChartShoppingHeatmapDaysMonthsFridge = React.memo(function ChartSho
     isLoading = false,
 }: ChartShoppingHeatmapDaysMonthsFridgeProps) {
     const { resolvedTheme } = useTheme()
-    const { getPalette } = useColorScheme()
+    const { getShuffledPalette } = useColorScheme()
     const { formatCurrency, symbol } = useCurrency()
     const [mounted, setMounted] = useState(false)
     const chartRef = useRef<any>(null)
@@ -61,10 +62,9 @@ export const ChartShoppingHeatmapDaysMonthsFridge = React.memo(function ChartSho
     }, [])
 
     const palette = useMemo(() => {
-        const base = getPalette().filter((color) => color !== "#c3c3c3")
-        // Use a different color than the hours heatmap for visual distinction
-        return base.length > 1 ? base[1] : base.length > 0 ? base[0] : "#3b82f6"
-    }, [getPalette])
+        const base = getShuffledPalette()
+        return base.length > 1 ? base[1] : base.length > 0 ? base[0] : DEFAULT_FALLBACK_PALETTE[0]
+    }, [getShuffledPalette])
 
     // Process data into heatmap format
     const { heatmapData, maxValue, totalSpent, activeMonths } = useMemo(() => {
@@ -158,7 +158,7 @@ export const ChartShoppingHeatmapDaysMonthsFridge = React.memo(function ChartSho
     }, [receiptTransactions, dayMonthHeatmapData])
 
     const isDark = resolvedTheme === "dark"
-    const textColor = isDark ? "#9ca3af" : "#6b7280"
+    const textColor = getChartTextColor(isDark)
     const bgColor = isDark ? "rgba(15,23,42,0)" : "rgba(248,250,252,0)"
 
     const currencyFormatter = useMemo(() => ({

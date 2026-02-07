@@ -3,6 +3,7 @@
 import { useMemo, useState, memo } from "react"
 import { PolarBarTooltipProps, ResponsivePolarBar } from "@nivo/polar-bar"
 import { useTheme } from "next-themes"
+import { getChartTextColor } from "@/lib/chart-colors"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import {
@@ -41,17 +42,14 @@ export const ChartPolarBar = memo(function ChartPolarBar({
   emptyTitle,
   emptyDescription
 }: ChartPolarBarProps) {
-  const { getPalette } = useColorScheme()
+  const { getShuffledPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const { resolvedTheme } = useTheme()
   const [isFullscreen, setIsFullscreen] = useState(false)
   const isMobile = useIsMobile()
 
-  // In dark mode, use lighter colors (reverse the palette so lightest colors come first)
-  const chartColors = useMemo(() => {
-    const palette = getPalette()
-    return resolvedTheme === "dark" ? [...palette].reverse() : palette
-  }, [getPalette, resolvedTheme])
+  // Shuffled palette for visual variety
+  const chartColors = useMemo(() => getShuffledPalette(), [getShuffledPalette])
 
   // Handle both old format (array) and new format (object with data and keys)
   const chartData = Array.isArray(dataProp) ? dataProp : dataProp.data || []
@@ -115,9 +113,7 @@ export const ChartPolarBar = memo(function ChartPolarBar({
     return Math.max(baseWidth - 20, 70)
   }, [finalKeys])
   // Use muted-foreground colors for consistency with other charts
-  const monthLabelColor = resolvedTheme === "dark"
-    ? "oklch(0.6268 0 0)"  // --muted-foreground in dark mode
-    : "oklch(0.551 0.0234 264.3637)"  // --muted-foreground in light mode
+  const monthLabelColor = getChartTextColor(resolvedTheme === "dark")
   const polarTheme = useMemo(
     () => ({
       axis: {

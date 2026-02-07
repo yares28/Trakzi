@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ColorSchemeProvider } from "@/components/color-scheme-provider";
 import { CurrencyProvider } from "@/components/currency-provider";
 import { TransactionDialogProvider } from "@/components/transaction-dialog-provider";
+import { UserPreferencesProvider } from "@/components/user-preferences-provider";
 import { FavoritesProvider } from "@/components/favorites-provider";
 import { DateFilterProvider } from "@/components/date-filter-provider";
 import { QueryProvider } from "@/components/query-provider";
@@ -60,6 +61,7 @@ export default function RootLayout({
             storageKey="trakzi-theme"
           >
             <QueryProvider>
+              <UserPreferencesProvider>
               <ChartResizeProvider>
                 <ChartVisibilityProvider storageScope="analytics">
                 <ColorSchemeProvider>
@@ -79,6 +81,7 @@ export default function RootLayout({
                 </ColorSchemeProvider>
                 </ChartVisibilityProvider>
               </ChartResizeProvider>
+              </UserPreferencesProvider>
             </QueryProvider>
           </ThemeProvider>
         </body>

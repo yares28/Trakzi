@@ -11,6 +11,7 @@ import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
+import { getChartTextColor, DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
     Card,
@@ -47,7 +48,7 @@ export const ChartShoppingHeatmapHoursDaysFridge = React.memo(function ChartShop
     isLoading = false,
 }: ChartShoppingHeatmapHoursDaysFridgeProps) {
     const { resolvedTheme } = useTheme()
-    const { getPalette } = useColorScheme()
+    const { getShuffledPalette } = useColorScheme()
     const { formatCurrency, symbol } = useCurrency()
     const [mounted, setMounted] = useState(false)
     const chartRef = useRef<any>(null)
@@ -62,9 +63,9 @@ export const ChartShoppingHeatmapHoursDaysFridge = React.memo(function ChartShop
     }, [])
 
     const palette = useMemo(() => {
-        const base = getPalette().filter((color) => color !== "#c3c3c3")
-        return base.length > 0 ? base[0] : "#22c55e"
-    }, [getPalette])
+        const base = getShuffledPalette()
+        return base.length > 0 ? base[0] : DEFAULT_FALLBACK_PALETTE[0]
+    }, [getShuffledPalette])
 
     // Process data into heatmap format
     const { heatmapData, maxValue, totalSpent } = useMemo(() => {
@@ -160,7 +161,7 @@ export const ChartShoppingHeatmapHoursDaysFridge = React.memo(function ChartShop
     }, [receiptTransactions, hourDayHeatmapData])
 
     const isDark = resolvedTheme === "dark"
-    const textColor = isDark ? "#9ca3af" : "#6b7280"
+    const textColor = getChartTextColor(isDark)
     const bgColor = isDark ? "rgba(15,23,42,0)" : "rgba(248,250,252,0)"
 
     const currencyFormatter = useMemo(() => ({

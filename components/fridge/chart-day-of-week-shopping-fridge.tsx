@@ -7,6 +7,7 @@ import { IconGripVertical } from "@tabler/icons-react"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
 import { useCurrency } from "@/components/currency-provider"
 import {
   Card,
@@ -34,10 +35,10 @@ interface ChartDayOfWeekShoppingFridgeProps {
 }
 
 export const ChartDayOfWeekShoppingFridge = React.memo(function ChartDayOfWeekShoppingFridge({ data = [], dayOfWeekSpendingData }: ChartDayOfWeekShoppingFridgeProps) {
-  const { getPalette } = useColorScheme()
+  const { getShuffledPalette } = useColorScheme()
   const { formatCurrency, symbol } = useCurrency()
-  const palette = getPalette().filter((color) => color !== "#c3c3c3")
-  const barColor = palette[palette.length - 1] || "#8884d8"
+  const palette = getShuffledPalette()
+  const barColor = palette[palette.length - 1] || DEFAULT_FALLBACK_PALETTE[0]
 
   const chartConfig = {
     spend: {

@@ -8,6 +8,7 @@ import { ResponsiveAreaBump } from "@nivo/bump"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { getChartTextColor, CHART_GRID_COLOR } from "@/lib/chart-colors"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { type DateFilterType } from "@/components/date-filter"
 import {
@@ -56,7 +57,7 @@ function normalizeCategoryName(value: string | null | undefined) {
 
 export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ receiptTransactions = [], monthlyCategoriesData, isLoading = false, dateFilter }: ChartCategoryFlowFridgeProps) {
     const { resolvedTheme } = useTheme()
-    const { getPalette } = useColorScheme()
+    const { getShuffledPalette } = useColorScheme()
     const [mounted, setMounted] = useState(false)
 
     useEffect(() => {
@@ -289,10 +290,10 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
 
 
     const isDark = resolvedTheme === "dark"
-    const textColor = isDark ? "#9ca3af" : "#6b7280"
-    const borderColor = isDark ? "#e5e7eb" : "#e5e7eb"
+    const textColor = getChartTextColor(isDark)
+    const borderColor = CHART_GRID_COLOR
 
-    const palette = getPalette().filter((color) => color !== "#c3c3c3")
+    const palette = getShuffledPalette()
     const numCategories = data.length
 
     const orderedPalette = isDark ? [...palette].reverse() : palette
@@ -367,9 +368,6 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
                     <CardTitle>Grocery Category Rankings</CardTitle>
                 </div>
                 <CardDescription>
-                    <span className="hidden @[540px]/card:block">
-                        Track how your grocery categories shift over time
-                    </span>
                     <span className="@[540px]/card:hidden">Category flow over months</span>
                 </CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">

@@ -1,7 +1,8 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react"
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react"
 import { type ChartId } from "@/lib/chart-card-sizes.config"
+import { useUserPreferences } from "@/components/user-preferences-provider"
 
 interface FavoritesContextType {
   favorites: Set<ChartId>
@@ -10,8 +11,6 @@ interface FavoritesContextType {
 }
 
 const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined)
-
-const FAVORITES_STORAGE_KEY = "home-favorite-charts"
 
 export function useFavorites() {
   const context = useContext(FavoritesContext)
@@ -22,51 +21,30 @@ export function useFavorites() {
 }
 
 export function FavoritesProvider({ children }: { children: ReactNode }) {
-  const [favorites, setFavorites] = useState<Set<ChartId>>(new Set())
+  const { preferences, updatePagePreferences } = useUserPreferences()
 
-  // Load favorites from localStorage on mount
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    
-    try {
-      const stored = localStorage.getItem(FAVORITES_STORAGE_KEY)
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        if (Array.isArray(parsed)) {
-          setFavorites(new Set(parsed))
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load favorites from localStorage:", error)
-    }
-  }, [])
+  // Derive the Set from the preferences object (memoised).
+  const favorites = useMemo<Set<ChartId>>(() => {
+    const arr = preferences.home?.favorites ?? []
+    return new Set(arr as ChartId[])
+  }, [preferences.home?.favorites])
 
-  // Save favorites to localStorage whenever they change
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    
-    try {
-      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(Array.from(favorites)))
-    } catch (error) {
-      console.error("Failed to save favorites to localStorage:", error)
-    }
-  }, [favorites])
+  const toggleFavorite = useCallback(
+    (chartId: ChartId) => {
+      const current = preferences.home?.favorites ?? []
+      const next = current.includes(chartId)
+        ? current.filter((id) => id !== chartId)
+        : [...current, chartId]
 
-  const toggleFavorite = (chartId: ChartId) => {
-    setFavorites((prev) => {
-      const next = new Set(prev)
-      if (next.has(chartId)) {
-        next.delete(chartId)
-      } else {
-        next.add(chartId)
-      }
-      return next
-    })
-  }
+      updatePagePreferences("home", { favorites: next })
+    },
+    [preferences.home?.favorites, updatePagePreferences]
+  )
 
-  const isFavorite = (chartId: ChartId) => {
-    return favorites.has(chartId)
-  }
+  const isFavorite = useCallback(
+    (chartId: ChartId) => favorites.has(chartId),
+    [favorites]
+  )
 
   return (
     <FavoritesContext.Provider value={{ favorites, toggleFavorite, isFavorite }}>
@@ -74,41 +52,3 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     </FavoritesContext.Provider>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

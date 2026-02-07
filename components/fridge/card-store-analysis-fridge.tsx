@@ -53,7 +53,7 @@ export function CardStoreAnalysisFridge({ data, isLoading = false }: StoreAnalys
     const { getPalette } = useColorScheme()
 
     const palette = React.useMemo(() => {
-        return getPalette().filter(c => c !== "#c3c3c3")
+        return getPalette()
     }, [getPalette])
 
     const { storeStats, recommendations, hasData, storeCount } = React.useMemo(() => {

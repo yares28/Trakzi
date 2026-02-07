@@ -2,14 +2,15 @@
 
 import * as React from "react"
 import { Area, AreaChart, CartesianGrid, XAxis, Tooltip, TooltipProps } from "recharts"
-import { IconGripVertical } from "@tabler/icons-react"
-
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
+import { CHART_GRID_COLOR, DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
+import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { ChartLoadingState } from "@/components/chart-loading-state"
+import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import {
     Card,
     CardAction,
@@ -29,20 +30,20 @@ import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 export const description = "An interactive area chart"
 
 export const ChartAreaInteractiveFridge = React.memo(function ChartAreaInteractiveFridge({ data }: { data: { date: string; spend: number }[] }) {
-    const { getPalette } = useColorScheme()
+    const { getMiddleShuffledPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
     const { resolvedTheme } = useTheme()
     const isDark = resolvedTheme === "dark"
-    const gridStrokeColor = isDark ? "#e5e7eb" : "#e5e7eb"
+    const gridStrokeColor = CHART_GRID_COLOR
     const [isFullscreen, setIsFullscreen] = React.useState(false)
     const [tooltip, setTooltip] = React.useState<{ date: string; spend: number } | null>(null)
     const [tooltipPosition, setTooltipPosition] = React.useState<{ x: number; y: number } | null>(null)
     const containerRef = React.useRef<HTMLDivElement>(null)
     const mousePositionRef = React.useRef<{ x: number; y: number } | null>(null)
 
-    const palette = getPalette().filter((color) => color !== "#c3c3c3")
-    const reversedPalette = [...palette].reverse()
-    const spendColor = reversedPalette[reversedPalette.length - 1] || "#8884d8"
+    // Palette indices i=1 to i=n-2, shuffled; pick one color for the area
+    const middlePalette = getMiddleShuffledPalette()
+    const spendColor = middlePalette[0] || DEFAULT_FALLBACK_PALETTE[0]
 
     const chartConfig = {
         spend: {
@@ -97,6 +98,13 @@ export const ChartAreaInteractiveFridge = React.memo(function ChartAreaInteracti
 
     const infoAction = (forFullscreen = false) => (
         <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
+            {forFullscreen && (
+                <ChartFavoriteButton
+                    chartId="fridge:grocerySpendTrend"
+                    chartTitle="Grocery Spend Trend"
+                    size="sm"
+                />
+            )}
             <ChartInfoPopover
                 title="Grocery Spend Trend"
                 description="Daily grocery totals across the selected time filter."
@@ -137,16 +145,16 @@ export const ChartAreaInteractiveFridge = React.memo(function ChartAreaInteracti
             <Card className="@container/card">
                 <CardHeader>
                     <div className="flex items-center gap-2">
-                        <span className="gridstack-drag-handle -m-1 inline-flex cursor-grab touch-none select-none items-center justify-center rounded p-1 active:cursor-grabbing">
-                            <IconGripVertical className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                        </span>
+                        <GridStackCardDragHandle />
                         <ChartExpandButton onClick={() => setIsFullscreen(true)} />
+                        <ChartFavoriteButton
+                            chartId="fridge:grocerySpendTrend"
+                            chartTitle="Grocery Spend Trend"
+                            size="md"
+                        />
                         <CardTitle>Grocery Spend Trend</CardTitle>
                     </div>
                     <CardDescription>
-                        <span className="hidden @[540px]/card:block">
-                            Daily grocery totals across the selected time filter
-                        </span>
                         <span className="@[540px]/card:hidden">Daily totals</span>
                     </CardDescription>
                     <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">

@@ -1,6 +1,8 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react"
+import { useTheme } from "next-themes"
+import { useUserPreferences } from "@/components/user-preferences-provider"
 
 type ColorScheme = "sunset" | "dark" | "colored" | "gold" | "aqua" | "dull" | "dry" | "greens" | "chrome" | "beach" | "jolly" | "gothic"
 
@@ -8,6 +10,12 @@ interface ColorSchemeContextType {
   colorScheme: ColorScheme
   setColorScheme: (scheme: ColorScheme) => void
   getPalette: () => string[]
+  /** Returns the theme-aware palette with colors in a shuffled (non-sequential) order */
+  getShuffledPalette: () => string[]
+  /** Returns palette indices 1 to n-2 (middle only), shuffled. Re-randomizes on hard reload. */
+  getMiddleShuffledPalette: () => string[]
+  /** Returns the raw palette without any theme-based trimming or neutral filtering */
+  getRawPalette: () => string[]
 }
 
 const COLOR_SCHEME_STORAGE_KEY = "trakzi-color-scheme"
@@ -28,13 +36,50 @@ export const colorPalettes: Record<ColorScheme, string[]> = {
   gothic: ["#0e0e12", "#1a1a24", "#333346", "#535373", "#6a6a8c", "#8080a4", "#9393b2", "#a6a6bf", "#c1c1d2", "#c3c3c3", "#e6e6ec"],
 }
 
+const PALETTE_SESSION_SEED_KEY = "trakzi-chart-palette-seed"
+
+/**
+ * Shuffle a palette so adjacent colors are visually distinct.
+ * If sessionSeed is provided, uses that for the PRNG so the order is stable for the session
+ * but re-randomizes on hard reload (new session, new seed). If omitted (e.g. SSR), seed is
+ * derived from palette content for deterministic output.
+ */
+function shufflePaletteColors(palette: string[], sessionSeed?: number): string[] {
+  if (palette.length <= 2) return palette
+  let seed: number
+  if (sessionSeed !== undefined) {
+    seed = (sessionSeed >>> 0) || 1
+  } else {
+    seed = 0
+    for (const color of palette) {
+      for (let i = 0; i < color.length; i++) {
+        seed = ((seed << 5) - seed + color.charCodeAt(i)) | 0
+      }
+    }
+  }
+  const seededRandom = () => {
+    seed = (seed * 1664525 + 1013904223) | 0
+    return (seed >>> 0) / 4294967296
+  }
+  const shuffled = [...palette]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(seededRandom() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
 const ColorSchemeContext = createContext<ColorSchemeContextType | undefined>(undefined)
 
 export function ColorSchemeProvider({ children }: { children: ReactNode }) {
   const [colorScheme, setColorSchemeState] = useState<ColorScheme>("sunset")
   const [mounted, setMounted] = useState(false)
+  const { resolvedTheme } = useTheme()
+  const { preferences, isServerSynced, updatePagePreferences } = useUserPreferences()
+  const hasSyncedFromDb = useRef(false)
+  const sessionSeedRef = useRef<number | null>(null)
 
-  // Load from localStorage on mount
+  // Load from localStorage on mount (instant display)
   useEffect(() => {
     setMounted(true)
     const saved = localStorage.getItem(COLOR_SCHEME_STORAGE_KEY)
@@ -43,31 +88,101 @@ export function ColorSchemeProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Save to localStorage when changed
-  const setColorScheme = (scheme: ColorScheme) => {
+  // Sync from DB when available (DB is source of truth)
+  useEffect(() => {
+    if (!isServerSynced || hasSyncedFromDb.current) return
+    hasSyncedFromDb.current = true
+    const dbScheme = preferences.settings?.color_scheme
+    if (dbScheme && colorPalettes[dbScheme as ColorScheme]) {
+      setColorSchemeState(dbScheme as ColorScheme)
+    }
+  }, [isServerSynced, preferences.settings?.color_scheme])
+
+  // Save to localStorage + DB when changed
+  const setColorScheme = useCallback((scheme: ColorScheme) => {
     setColorSchemeState(scheme)
     if (typeof window !== 'undefined') {
       localStorage.setItem(COLOR_SCHEME_STORAGE_KEY, scheme)
     }
-  }
+    updatePagePreferences("settings", { color_scheme: scheme })
+  }, [updatePagePreferences])
 
-  // Memoize getPalette to prevent unnecessary re-renders of all charts
-  // when parent components re-render (e.g., when bundle data loads)
-  const getPalette = useCallback(() => {
+  // Returns the raw palette without any theme-based trimming or neutral filtering
+  const getRawPalette = useCallback(() => {
     return colorPalettes[colorScheme] || colorPalettes.sunset
   }, [colorScheme])
 
+  // Returns a theme-aware palette:
+  // - Filters out the neutral #c3c3c3
+  // - Dark mode: skips the first (darkest) color so charts remain visible
+  // - Light mode: skips the last (lightest) color so charts remain visible
+  const getPalette = useCallback(() => {
+    const raw = colorPalettes[colorScheme] || colorPalettes.sunset
+    const filtered = raw.filter(c => c !== "#c3c3c3")
+    const isDark = resolvedTheme === "dark"
+    if (isDark) {
+      return filtered.slice(1)     // skip darkest
+    }
+    return filtered.slice(0, -1)   // skip lightest
+  }, [colorScheme, resolvedTheme])
+
+  // Returns the theme-aware palette shuffled so adjacent colors are visually distinct.
+  // Uses a session-stored seed: same order for the tab session; new order on hard reload (new session).
+  const getShuffledPalette = useCallback(() => {
+    const palette = getPalette()
+    if (typeof window === "undefined") {
+      return shufflePaletteColors(palette)
+    }
+    if (sessionSeedRef.current === null) {
+      const stored = sessionStorage.getItem(PALETTE_SESSION_SEED_KEY)
+      if (stored) {
+        const parsed = parseInt(stored, 10)
+        sessionSeedRef.current = Number.isNaN(parsed) ? null : parsed
+      }
+      if (sessionSeedRef.current === null) {
+        const newSeed = Math.floor(Math.random() * 0xffffffff)
+        sessionStorage.setItem(PALETTE_SESSION_SEED_KEY, String(newSeed))
+        sessionSeedRef.current = newSeed
+      }
+    }
+    return shufflePaletteColors(palette, sessionSeedRef.current ?? undefined)
+  }, [getPalette])
+
+  // Returns palette indices 1 to n-2 (middle only), shuffled. Same session seed as getShuffledPalette.
+  const getMiddleShuffledPalette = useCallback(() => {
+    const palette = getPalette()
+    const middle = palette.length > 2 ? palette.slice(1, -1) : palette
+    if (typeof window === "undefined") {
+      return shufflePaletteColors(middle)
+    }
+    if (sessionSeedRef.current === null) {
+      const stored = sessionStorage.getItem(PALETTE_SESSION_SEED_KEY)
+      if (stored) {
+        const parsed = parseInt(stored, 10)
+        sessionSeedRef.current = Number.isNaN(parsed) ? null : parsed
+      }
+      if (sessionSeedRef.current === null) {
+        const newSeed = Math.floor(Math.random() * 0xffffffff)
+        sessionStorage.setItem(PALETTE_SESSION_SEED_KEY, String(newSeed))
+        sessionSeedRef.current = newSeed
+      }
+    }
+    return shufflePaletteColors(middle, sessionSeedRef.current ?? undefined)
+  }, [getPalette])
+
   // Avoid hydration mismatch
   if (!mounted) {
+    const fallback = colorPalettes.sunset.slice(0, -1)
+    const middleFallback = fallback.length > 2 ? fallback.slice(1, -1) : fallback
     return (
-      <ColorSchemeContext.Provider value={{ colorScheme: "sunset", setColorScheme, getPalette: () => colorPalettes.sunset }}>
+      <ColorSchemeContext.Provider value={{ colorScheme: "sunset", setColorScheme, getPalette: () => fallback, getShuffledPalette: () => shufflePaletteColors(fallback), getMiddleShuffledPalette: () => shufflePaletteColors(middleFallback), getRawPalette: () => colorPalettes.sunset }}>
         {children}
       </ColorSchemeContext.Provider>
     )
   }
 
   return (
-    <ColorSchemeContext.Provider value={{ colorScheme, setColorScheme, getPalette }}>
+    <ColorSchemeContext.Provider value={{ colorScheme, setColorScheme, getPalette, getShuffledPalette, getMiddleShuffledPalette, getRawPalette }}>
       {children}
     </ColorSchemeContext.Provider>
   )

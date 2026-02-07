@@ -7,6 +7,7 @@ import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { getChartTextColor, DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
@@ -68,7 +69,7 @@ function normalizeCategoryName(value: string | null | undefined) {
 
 export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCategoryFridge({ receiptTransactions = [], dayOfWeekCategoryData, isLoading = false }: ChartDayOfWeekCategoryFridgeProps) {
     const { resolvedTheme } = useTheme()
-    const { getPalette, colorScheme } = useColorScheme()
+    const { getShuffledPalette, colorScheme } = useColorScheme()
     const { formatCurrency, symbol } = useCurrency()
     const [mounted, setMounted] = React.useState(false)
     const [selectedDay, setSelectedDay] = React.useState<number | null>(null)
@@ -153,22 +154,12 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
     }, [allData, selectedDay])
 
     const palette = React.useMemo(() => {
-        let base = getPalette().filter((color) => color !== "#c3c3c3")
-
-        if (colorScheme === "colored") {
-            const isDark = resolvedTheme === "dark"
-            if (isDark) {
-                base = base.filter((color) => color !== "#2F1B15")
-            } else {
-                base = base.filter((color) => color !== "#E8DCCA")
-            }
-        }
-
+        const base = getShuffledPalette()
         if (!base.length) {
-            return ["#0f766e", "#14b8a6", "#22c55e", "#84cc16", "#eab308"]
+            return DEFAULT_FALLBACK_PALETTE
         }
         return base
-    }, [getPalette, colorScheme, resolvedTheme])
+    }, [getShuffledPalette])
 
     const valueFormatter = new Intl.NumberFormat(undefined, {
         style: "currency",
@@ -302,7 +293,7 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
         })
 
         const backgroundColor = resolvedTheme === "dark" ? "rgba(15,23,42,0)" : "rgba(248,250,252,0)"
-        const textColor = resolvedTheme === "dark" ? "#9ca3af" : "#6b7280"
+        const textColor = getChartTextColor(resolvedTheme === "dark")
 
         return {
             backgroundColor,

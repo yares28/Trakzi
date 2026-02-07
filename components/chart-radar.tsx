@@ -28,13 +28,11 @@ import {
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
+import { getChartTextColor, getEChartsSplitLineColor, DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { deduplicatedFetch, getCachedResponse } from "@/lib/request-deduplication"
 import { useIsMobile } from "@/hooks/use-mobile"
-
-const LIGHT_CATEGORY_TEXT = "oklch(0.556 0 0)"
-const DARK_CATEGORY_TEXT = "oklch(0.708 0 0)"
 
 type RadarDatum = Record<string, string | number>
 
@@ -64,11 +62,13 @@ export const ChartRadar = memo(function ChartRadar({
   emptyDescription
 }: ChartRadarProps) {
   const { resolvedTheme } = useTheme()
-  const { getPalette } = useColorScheme()
+  const { getShuffledPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
+  const financialHealthUrl = dateFilter
+    ? `/api/financial-health?filter=${encodeURIComponent(dateFilter)}`
+    : "/api/financial-health"
   const cachedFinancialHealth = getCachedResponse<FinancialHealthResponse>(
-    "/api/financial-health",
-    { cache: "no-store" },
+    financialHealthUrl,
   )
   const [chartData, setChartData] = useState<RadarDatum[]>(
     () => cachedFinancialHealth?.data ?? [],
@@ -83,20 +83,17 @@ export const ChartRadar = memo(function ChartRadar({
   const [isCategorySelectorOpen, setIsCategorySelectorOpen] = useState(false)
   const [hasUserInteracted, setHasUserInteracted] = useState(false)
 
-  // In dark mode, use lighter colors (reverse the palette so lightest colors come first)
-  const palette = useMemo(() => {
-    const basePalette = getPalette()
-    return resolvedTheme === "dark" ? [...basePalette].reverse() : basePalette
-  }, [getPalette, resolvedTheme])
+  // Shuffled palette for visual variety
+  const palette = useMemo(() => getShuffledPalette(), [getShuffledPalette])
 
   useEffect(() => {
     let isMounted = true
 
     async function loadNeonData() {
-      const cached = getCachedResponse<FinancialHealthResponse>(
-        "/api/financial-health",
-        { cache: "no-store" },
-      )
+      const url = dateFilter
+        ? `/api/financial-health?filter=${encodeURIComponent(dateFilter)}`
+        : "/api/financial-health"
+      const cached = getCachedResponse<FinancialHealthResponse>(url)
       if (cached) {
         if (isMounted) {
           setChartData(cached.data as RadarDatum[])
@@ -107,13 +104,12 @@ export const ChartRadar = memo(function ChartRadar({
         return
       }
 
-      console.log("[ChartRadar] Starting data fetch...")
+      console.log("[ChartRadar] Starting data fetch...", url)
       setIsLoading(true)
       setError(null)
       try {
         const payload: FinancialHealthResponse = await deduplicatedFetch<FinancialHealthResponse>(
-          "/api/financial-health",
-          { cache: "no-store" }
+          url,
         )
         if (!payload) {
           throw new Error("Unexpected response shape: payload is null or undefined")
@@ -326,7 +322,7 @@ export const ChartRadar = memo(function ChartRadar({
   )
 
   const themeMode = resolvedTheme === "dark" ? "dark" : "light"
-  const categoryTextColor = themeMode === "dark" ? DARK_CATEGORY_TEXT : LIGHT_CATEGORY_TEXT
+  const categoryTextColor = getChartTextColor(themeMode === "dark")
 
   const radarTheme = useMemo(
     () => ({
@@ -356,7 +352,7 @@ export const ChartRadar = memo(function ChartRadar({
       },
       grid: {
         line: {
-          stroke: themeMode === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)",
+          stroke: getEChartsSplitLineColor(themeMode === "dark"),
           strokeWidth: 1,
         },
       },
@@ -367,7 +363,7 @@ export const ChartRadar = memo(function ChartRadar({
 
 
   const legendEntries = yearSummaries.map((summary, index) => {
-    const color = palette[index % palette.length] || palette[0] || "#94a3b8"
+    const color = palette[index % palette.length] || palette[0] || DEFAULT_FALLBACK_PALETTE[0]
     return {
       id: summary.year.toString(),
       label: summary.year.toString(),

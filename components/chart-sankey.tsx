@@ -71,18 +71,14 @@ export const ChartSankey = memo(function ChartSankey({
   emptyTitle,
   emptyDescription
 }: ChartSankeyProps) {
-  const { getPalette } = useColorScheme()
+  const { getShuffledPalette } = useColorScheme()
   const { resolvedTheme } = useTheme()
   const { formatCurrency } = useCurrency()
   const [isFullscreen, setIsFullscreen] = useState(false)
   const isMobile = useIsMobile()
 
-  // Use full palette colors, filtering out the neutral gray for more distinct flows
-  const chartColors = useMemo(() => {
-    const palette = getPalette()
-    // Remove the neutral gray (#c3c3c3) for more color variety
-    return palette.filter(color => color !== "#c3c3c3")
-  }, [getPalette])
+  // getShuffledPalette() filters, trims by theme, and shuffles for visual variety
+  const chartColors = useMemo(() => getShuffledPalette(), [getShuffledPalette])
 
   // ACTUAL ROOT CAUSE FIX: Nivo theme controls link colors
   const chartTheme = useMemo(() => ({

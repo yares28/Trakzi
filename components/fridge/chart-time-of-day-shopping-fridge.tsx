@@ -8,6 +8,7 @@ import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { getChartTextColor, CHART_GRID_COLOR, DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
@@ -78,9 +79,9 @@ function parseReceiptHour(value?: string | null) {
 
 export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDayShoppingFridge({ receiptTransactions = [], hourlyActivityData, isLoading = false }: ChartTimeOfDayShoppingFridgeProps) {
     const { resolvedTheme } = useTheme()
-    const { getPalette } = useColorScheme()
+    const { getShuffledPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
-    const palette = useMemo(() => getPalette().filter((color) => color !== "#c3c3c3"), [getPalette])
+    const palette = useMemo(() => getShuffledPalette(), [getShuffledPalette])
     const svgRef = useRef<SVGSVGElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
     const [tooltip, setTooltip] = useState<{ hour: string; trips: number; spending: number } | null>(null)
@@ -184,11 +185,11 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
     )
 
     const isDark = resolvedTheme === "dark"
-    const textColor = isDark ? "#9ca3af" : "#6b7280"
-    const gridColor = isDark ? "#e5e7eb" : "#e5e7eb"
+    const textColor = getChartTextColor(isDark)
+    const gridColor = CHART_GRID_COLOR
     const axisColor = gridColor
-    const barColor = palette[0] || "#0f766e"
-    const barHoverColor = palette[1] || "#14b8a6"
+    const barColor = palette[0] || DEFAULT_FALLBACK_PALETTE[0]
+    const barHoverColor = palette[1] || DEFAULT_FALLBACK_PALETTE[1]
 
     // Render D3-style bar chart
     useEffect(() => {
