@@ -8,6 +8,7 @@ import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
+import { getChartTextColor, CHART_GRID_COLOR, DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
 import { formatDateForDisplay } from "@/lib/date"
 import { deduplicatedFetch, getCachedResponse } from "@/lib/request-deduplication"
 import {
@@ -118,7 +119,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
       />
     </div>
   )
-  const { colorScheme, getPalette } = useColorScheme()
+  const { colorScheme, getRawPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const [mounted, setMounted] = useState(false)
   // Determine the date filter to use: prop > local state
@@ -354,23 +355,21 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
 
   const isDark = resolvedTheme === "dark"
 
-  // Get colors from color scheme provider
-  // Filter out #c3c3c3 (empty color) and reverse so darker colors are at the end (for high spending)
-  // Limit to 3 colors for the legend
+  // Daily Transaction Activity uses the FULL palette in both themes (no first/last trimming)
+  // Only filters out the neutral #c3c3c3, then picks 3 representative colors
   const palette = useMemo(() => {
-    const colors = getPalette().filter(color => color !== "#c3c3c3")
-    const reversed = [...colors].reverse() // Reverse so darkest colors are at the end for high spending
-    // Take only 3 colors: first (lightest), middle, and last (darkest)
+    const colors = getRawPalette().filter(c => c !== "#c3c3c3")
+    const reversed = [...colors].reverse()
     if (reversed.length >= 3) {
       return [reversed[0], reversed[Math.floor(reversed.length / 2)], reversed[reversed.length - 1]]
     }
-    return reversed.slice(0, 3) // If less than 3 colors available, take what we have
-  }, [getPalette])
+    return reversed.slice(0, 3)
+  }, [getRawPalette])
 
 
   // Get color for a value based on the palette
   const getColorForValue = (value: number): string => {
-    if (palette.length === 0) return "#c3c3c3"
+    if (palette.length === 0) return DEFAULT_FALLBACK_PALETTE[0]
     if (colorScaleMax === 0) return palette[0]
 
     const normalizedValue = Math.min(value / colorScaleMax, 1)
@@ -517,15 +516,15 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
             range: [period1!.fromDate, period1!.toDate],
             itemStyle: {
               borderWidth: 0.5,
-              borderColor: isDark ? '#e5e7eb' : '#e5e7eb'
+              borderColor: CHART_GRID_COLOR
             },
             yearLabel: { show: false },
             dayLabel: {
-              color: isDark ? '#9ca3af' : '#6b7280',
+              color: getChartTextColor(isDark),
               fontSize: isMobile ? 8 : 11
             },
             monthLabel: {
-              color: isDark ? '#9ca3af' : '#6b7280',
+              color: getChartTextColor(isDark),
               fontSize: isMobile ? 8 : 11
             }
           },
@@ -538,15 +537,15 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
             range: [period2!.fromDate, period2!.toDate],
             itemStyle: {
               borderWidth: 0.5,
-              borderColor: isDark ? '#e5e7eb' : '#e5e7eb'
+              borderColor: CHART_GRID_COLOR
             },
             yearLabel: { show: false },
             dayLabel: {
-              color: isDark ? '#9ca3af' : '#6b7280',
+              color: getChartTextColor(isDark),
               fontSize: isMobile ? 8 : 11
             },
             monthLabel: {
-              color: isDark ? '#9ca3af' : '#6b7280',
+              color: getChartTextColor(isDark),
               fontSize: isMobile ? 8 : 11
             }
           }
@@ -595,15 +594,15 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
         range: [fromDate, toDate],
         itemStyle: {
           borderWidth: 0.5,
-          borderColor: isDark ? '#e5e7eb' : '#e5e7eb'
+          borderColor: CHART_GRID_COLOR
         },
         yearLabel: { show: false },
         dayLabel: {
-          color: isDark ? '#9ca3af' : '#6b7280',
+          color: getChartTextColor(isDark),
           fontSize: isMobile ? 9 : 11
         },
         monthLabel: {
-          color: isDark ? '#9ca3af' : '#6b7280',
+          color: getChartTextColor(isDark),
           fontSize: isMobile ? 9 : 11
         }
       },

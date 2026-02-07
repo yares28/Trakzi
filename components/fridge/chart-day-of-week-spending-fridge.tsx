@@ -7,6 +7,7 @@ import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { getChartTextColor, DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
@@ -36,7 +37,7 @@ const DAY_NAMES_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 export const ChartDayOfWeekSpendingFridge = React.memo(function ChartDayOfWeekSpendingFridge({ data = [], dayOfWeekSpendingData, isLoading = false }: ChartDayOfWeekSpendingFridgeProps) {
   const { resolvedTheme } = useTheme()
-  const { getPalette } = useColorScheme()
+  const { getShuffledPalette } = useColorScheme()
   const { formatCurrency, symbol } = useCurrency()
   const [mounted, setMounted] = React.useState(false)
   const chartRef = React.useRef<any>(null)
@@ -50,9 +51,9 @@ export const ChartDayOfWeekSpendingFridge = React.memo(function ChartDayOfWeekSp
   }, [])
 
   const palette = React.useMemo(() => {
-    const base = getPalette().filter((color) => color !== "#c3c3c3")
-    return base.length > 0 ? base : ["#0f766e", "#14b8a6", "#22c55e", "#84cc16", "#eab308"]
-  }, [getPalette])
+    const base = getShuffledPalette()
+    return base.length > 0 ? base : DEFAULT_FALLBACK_PALETTE
+  }, [getShuffledPalette])
 
   const valueFormatter = {
     format: (value: number) => formatCurrency(value, { maximumFractionDigits: 0 })
@@ -209,7 +210,7 @@ export const ChartDayOfWeekSpendingFridge = React.memo(function ChartDayOfWeekSp
 
     if (!sortedData.length) return null
 
-    const barColor = palette[palette.length - 1] || "#8884d8"
+    const barColor = palette[palette.length - 1] || DEFAULT_FALLBACK_PALETTE[0]
 
     const datasetSource: any[] = [["day", "Spend"]]
     sortedData.forEach((item) => {
@@ -219,7 +220,7 @@ export const ChartDayOfWeekSpendingFridge = React.memo(function ChartDayOfWeekSp
     const backgroundColor =
       resolvedTheme === "dark" ? "rgba(15,23,42,0)" : "rgba(248,250,252,0)"
 
-    const textColor = resolvedTheme === "dark" ? "#9ca3af" : "#6b7280"
+    const textColor = getChartTextColor(resolvedTheme === "dark")
 
     return {
       backgroundColor,

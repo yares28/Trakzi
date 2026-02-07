@@ -87,7 +87,7 @@ export const ChartSavingsAccumulation = React.memo(function ChartSavingsAccumula
   const gridStrokeColor = isDark ? "#e5e7eb" : "#e5e7eb"
 
   // Color scheme for savings
-  const palette = getPalette().filter(color => color !== "#c3c3c3")
+  const palette = getPalette()
   const reversedPalette = [...palette].reverse()
   const savingsColor = reversedPalette[Math.min(2, reversedPalette.length - 1)]
   const savingsBorderColor = reversedPalette[Math.min(1, reversedPalette.length - 1)]

@@ -9,6 +9,7 @@ import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { getChartTextColor } from "@/lib/chart-colors"
 import {
   Card,
   CardAction,
@@ -36,12 +37,12 @@ export const ChartPolarBarFridge = memo(function ChartPolarBarFridge({
   isLoading = false,
 }: ChartPolarBarFridgeProps) {
   const { resolvedTheme } = useTheme()
-  const { getPalette } = useColorScheme()
+  const { getShuffledPalette } = useColorScheme()
 
   const chartColors = useMemo(() => {
-    const palette = getPalette().filter((color) => color !== "#c3c3c3")
+    const palette = getShuffledPalette()
     return resolvedTheme === "dark" ? [...palette].reverse() : palette
-  }, [getPalette, resolvedTheme])
+  }, [getShuffledPalette, resolvedTheme])
 
   const chartData = Array.isArray(dataProp) ? dataProp : dataProp.data || []
   const chartKeys = keysProp || (Array.isArray(dataProp) ? [] : dataProp.keys) || []
@@ -99,7 +100,7 @@ export const ChartPolarBarFridge = memo(function ChartPolarBarFridge({
     return Math.max(baseWidth - 20, 70)
   }, [finalKeys])
 
-  const axisText = resolvedTheme === "dark" ? "oklch(0.6268 0 0)" : "oklch(0.551 0.0234 264.3637)"
+  const axisText = getChartTextColor(resolvedTheme === "dark")
 
   const polarTheme = useMemo(
     () => ({

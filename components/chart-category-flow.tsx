@@ -5,6 +5,7 @@ import { useTheme } from "next-themes"
 import { ResponsiveAreaBump } from "@nivo/bump"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { getChartTextColor, CHART_GRID_COLOR } from "@/lib/chart-colors"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -51,17 +52,15 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
   const isMobile = useIsMobile()
 
   const isDark = resolvedTheme === "dark"
-  // Use muted-foreground color to match ChartAreaInteractive
-  // Light mode: oklch(0.556 0 0) ≈ #6b7280 (gray-500)
-  // Dark mode: oklch(0.708 0 0) ≈ #9ca3af (gray-400)
-  const textColor = isDark ? "#9ca3af" : "#6b7280"
-  const borderColor = isDark ? "#e5e7eb" : "#e5e7eb"
+  // Use shared chart color utilities for consistency across all charts
+  const textColor = getChartTextColor(isDark)
+  const borderColor = CHART_GRID_COLOR
 
   // Use custom palette for colored, custom dark palette for dark styling
   // Palettes are ordered from darkest to lightest
   // For light mode: use palette in order (darker colors for higher spending categories)
   // For dark mode: reverse palette for better contrast
-  const palette = getPalette().filter(color => color !== "#c3c3c3")
+  const palette = getPalette()
   const numCategories = data.length
 
   // For light mode: use palette in order (darker = higher spending)

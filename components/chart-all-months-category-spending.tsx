@@ -15,6 +15,7 @@ import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
+import { getChartTextColor, CHART_GRID_COLOR, DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
 import { deduplicatedFetch, getCachedResponse } from "@/lib/request-deduplication"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { ChartExpandButton } from "@/components/chart-expand-button"
@@ -93,10 +94,7 @@ export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCatego
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
-  const palette = useMemo(
-    () => getPalette().filter((color) => color !== "#c3c3c3"),
-    [getPalette, resolvedTheme],
-  )
+  const palette = useMemo(() => getPalette(), [getPalette])
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const cachedTotals = getCachedResponse<{
@@ -393,8 +391,9 @@ export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCatego
 
   const categoryColors = useMemo(() => {
     const colorMap = new Map<string, string>()
+    const fallback = DEFAULT_FALLBACK_PALETTE
     categories.forEach((category, index) => {
-      colorMap.set(category, palette[index % palette.length] || "#8884d8")
+      colorMap.set(category, palette[index % palette.length] || fallback[index % fallback.length])
     })
     return colorMap
   }, [categories, palette])
@@ -423,10 +422,9 @@ export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCatego
   )
 
   const isDark = resolvedTheme === "dark"
-  const textColor = isDark ? "#9ca3af" : "#6b7280"
-  const borderColor = isDark ? "#e5e7eb" : "#e5e7eb"
-  const gridColor = isDark ? "#e5e7eb" : "#e5e7eb"
-  const axisColor = borderColor
+  const textColor = getChartTextColor(isDark)
+  const gridColor = CHART_GRID_COLOR
+  const axisColor = CHART_GRID_COLOR
 
   // Render D3-style grouped bar chart
   useEffect(() => {
@@ -566,7 +564,7 @@ export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCatego
           rect.setAttribute("y", chartHeight.toString())
           rect.setAttribute("width", xBandwidth.toString())
           rect.setAttribute("height", "0")
-          rect.setAttribute("fill", categoryColors.get(d.category) || "#8884d8")
+          rect.setAttribute("fill", categoryColors.get(d.category) || DEFAULT_FALLBACK_PALETTE[0])
           rect.setAttribute("rx", "2")
           rect.setAttribute("ry", "2")
           rect.style.cursor = "pointer"
@@ -972,7 +970,7 @@ export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCatego
                     <span
                       className="h-2 w-2 rounded-full"
                       style={{
-                        backgroundColor: categoryColors.get(category) || "#8884d8",
+                        backgroundColor: categoryColors.get(category) || DEFAULT_FALLBACK_PALETTE[0],
                       }}
                     />
                     <span className="text-muted-foreground">{category}</span>

@@ -17,6 +17,7 @@ import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
+import { getChartTextColor, CHART_GRID_COLOR, DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
 import { ChartExpandButton } from "@/components/chart-expand-button"
 import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
@@ -49,9 +50,9 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
   emptyDescription
 }: ChartDayOfWeekSpendingProps) {
   const { resolvedTheme } = useTheme()
-  const { getPalette } = useColorScheme()
+  const { getShuffledPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
-  const palette = getPalette().filter(color => color !== "#c3c3c3")
+  const palette = getShuffledPalette()
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [tooltip, setTooltip] = useState<{ day: string; category: string; amount: number; isTotal: boolean; breakdown?: Array<{ category: string; amount: number }>; color?: string } | null>(null)
@@ -205,18 +206,18 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
   // Create color scale for categories
   const categoryColors = useMemo(() => {
     const colorMap = new Map<string, string>()
+    const fallback = DEFAULT_FALLBACK_PALETTE
     categories.forEach((category, index) => {
-      colorMap.set(category, palette[index % palette.length] || "#8884d8")
+      colorMap.set(category, palette[index % palette.length] || fallback[index % fallback.length])
     })
     return colorMap
   }, [categories, palette])
 
   const isDark = resolvedTheme === "dark"
-  // Match Nivo chart axis styling
-  const textColor = isDark ? "#9ca3af" : "#6b7280" // muted-foreground
-  const borderColor = isDark ? "#e5e7eb" : "#e5e7eb" // border color for axis lines
-  const gridColor = isDark ? "#e5e7eb" : "#e5e7eb"
-  const axisColor = borderColor // Use borderColor for axis lines to match Nivo
+  // Match Nivo chart axis styling — using shared chart color utilities
+  const textColor = getChartTextColor(isDark)
+  const gridColor = CHART_GRID_COLOR
+  const axisColor = CHART_GRID_COLOR
 
   // Render D3-style grouped bar chart
   useEffect(() => {
@@ -369,7 +370,7 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
             rect.setAttribute("y", finalYPos.toString())
             rect.setAttribute("height", barHeight.toString())
           }
-          rect.setAttribute("fill", categoryColors.get(d.category) || "#8884d8")
+          rect.setAttribute("fill", categoryColors.get(d.category) || DEFAULT_FALLBACK_PALETTE[0])
           rect.setAttribute("rx", "2")
           rect.setAttribute("ry", "2")
           rect.style.cursor = "pointer"
@@ -771,7 +772,7 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
                   <span
                     className="h-2 w-2 rounded-full"
                     style={{
-                      backgroundColor: categoryColors.get(category) || "#8884d8",
+                      backgroundColor: categoryColors.get(category) || DEFAULT_FALLBACK_PALETTE[0],
                     }}
                   />
                   <span className="text-muted-foreground">{category}</span>

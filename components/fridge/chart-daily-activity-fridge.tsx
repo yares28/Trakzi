@@ -8,6 +8,7 @@ import ReactECharts from "echarts-for-react"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
+import { getChartTextColor, CHART_GRID_COLOR, DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
 import { formatDateForDisplay } from "@/lib/date"
 import {
     Card,
@@ -57,7 +58,7 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
     const currentYear = new Date().getFullYear()
     const [selectedYear, setSelectedYear] = useState(currentYear.toString())
     const { resolvedTheme } = useTheme()
-    const { colorScheme, getPalette } = useColorScheme()
+    const { colorScheme, getRawPalette } = useColorScheme()
     const [mounted, setMounted] = useState(false)
     const chartRef = React.useRef<any>(null)
     const containerRef = React.useRef<HTMLDivElement>(null)
@@ -169,18 +170,19 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
     const isDark = resolvedTheme === "dark"
 
     // Get colors from color scheme provider (3 colors for legend)
+    // Daily Grocery Activity uses the FULL palette in both themes (no first/last trimming)
     const palette = useMemo(() => {
-        const colors = getPalette().filter(color => color !== "#c3c3c3")
+        const colors = getRawPalette().filter(c => c !== "#c3c3c3")
         const reversed = [...colors].reverse()
         if (reversed.length >= 3) {
             return [reversed[0], reversed[Math.floor(reversed.length / 2)], reversed[reversed.length - 1]]
         }
         return reversed.slice(0, 3)
-    }, [getPalette])
+    }, [getRawPalette])
 
     // Get color for a value based on the palette
     const getColorForValue = (value: number): string => {
-        if (palette.length === 0) return "#c3c3c3"
+        if (palette.length === 0) return DEFAULT_FALLBACK_PALETTE[0]
         if (maxValue === 0) return palette[0]
 
         const normalizedValue = Math.min(value / maxValue, 1)
@@ -280,15 +282,15 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
             range: [fromDate, toDate],
             itemStyle: {
                 borderWidth: 0.5,
-                borderColor: isDark ? '#e5e7eb' : '#e5e7eb'
+                borderColor: CHART_GRID_COLOR
             },
             yearLabel: { show: false },
             dayLabel: {
-                color: isDark ? '#9ca3af' : '#6b7280',
+                color: getChartTextColor(isDark),
                 fontSize: 11
             },
             monthLabel: {
-                color: isDark ? '#9ca3af' : '#6b7280',
+                color: getChartTextColor(isDark),
                 fontSize: 11
             }
         },

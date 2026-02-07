@@ -6,6 +6,7 @@ import { ResponsivePie } from "@nivo/pie"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
+import { getContrastTextColor, getChartTextColor } from "@/lib/chart-colors"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
@@ -47,19 +48,6 @@ interface ChartMacronutrientBreakdownFridgeProps {
   isLoading?: boolean
 }
 
-// Dark colors that require white text
-const darkColors = ["#696969", "#464646", "#2F2F2F", "#252525"]
-
-// Gold palette colors that require white text (black and brown)
-const goldDarkColors = ["#000000", "#361c1b", "#754232", "#cd894a"]
-
-// Helper function to determine text color based on slice color
-const getTextColor = (sliceColor: string, colorScheme?: string): string => {
-  if (colorScheme === "gold") {
-    return goldDarkColors.includes(sliceColor) ? "#ffffff" : "#000000"
-  }
-  return darkColors.includes(sliceColor) ? "#ffffff" : "#000000"
-}
 
 function normalizeMacronutrientType(value: string | null | undefined) {
   const trimmed = (value ?? "").trim()
@@ -68,7 +56,7 @@ function normalizeMacronutrientType(value: string | null | undefined) {
 
 export const ChartMacronutrientBreakdownFridge = memo(function ChartMacronutrientBreakdownFridge({ receiptTransactions = [], macronutrientBreakdown, categoryControls, isLoading = false }: ChartMacronutrientBreakdownFridgeProps) {
   const { resolvedTheme } = useTheme()
-  const { colorScheme, getPalette } = useColorScheme()
+  const { colorScheme, getShuffledPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const [mounted, setMounted] = useState(false)
 
@@ -111,18 +99,14 @@ export const ChartMacronutrientBreakdownFridge = memo(function ChartMacronutrien
   // For all palettes: darker colors = larger amounts, lighter colors = smaller amounts
   const dataWithColors = useMemo(() => {
     const numParts = Math.min(sanitizedBaseData.length, 7)
-    const palette = getPalette().filter(color => color !== "#c3c3c3")
-
-    // Sort by value descending (highest first) and assign colors
-    // Darker colors go to higher values, lighter colors to lower values
+    const palette = getShuffledPalette()
     const sorted = [...sanitizedBaseData].sort((a, b) => b.value - a.value)
-    // Reverse palette so darkest colors are first (for highest values)
-    const reversedPalette = [...palette].reverse().slice(0, numParts)
+    const colors = palette.slice(0, numParts)
     return sorted.map((item, index) => ({
       ...item,
-      color: reversedPalette[index % reversedPalette.length]
+      color: colors[index % colors.length]
     }))
-  }, [sanitizedBaseData, colorScheme, getPalette])
+  }, [sanitizedBaseData, colorScheme, getShuffledPalette])
 
   const data = dataWithColors
 
@@ -137,8 +121,8 @@ export const ChartMacronutrientBreakdownFridge = memo(function ChartMacronutrien
 
   const isDark = resolvedTheme === "dark"
 
-  const textColor = isDark ? "#9ca3af" : "#4b5563"
-  const arcLinkLabelColor = isDark ? "#d1d5db" : "#374151"
+  const textColor = getChartTextColor(isDark)
+  const arcLinkLabelColor = getChartTextColor(isDark)
 
   // Format currency value using user's preferred currency
   const valueFormatter = useMemo(() => ({
@@ -255,7 +239,7 @@ export const ChartMacronutrientBreakdownFridge = memo(function ChartMacronutrien
             arcLinkLabelsThickness={2}
             arcLinkLabelsColor={{ from: "color" }}
             arcLabelsSkipAngle={20}
-            arcLabelsTextColor={(d: { color: string }) => getTextColor(d.color, colorScheme)}
+            arcLabelsTextColor={(d: { color: string }) => getContrastTextColor(d.color)}
             valueFormat={(value) => formatCurrency(value)}
             colors={colorConfig}
             tooltip={({ datum }) => {

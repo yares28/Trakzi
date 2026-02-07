@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
+import { getContrastTextColor } from "@/lib/chart-colors"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { NivoChartTooltip } from "@/components/chart-tooltip"
@@ -63,8 +64,8 @@ export const ChartTreeMap = memo(function ChartTreeMap({
     return colorScheme === "dark" ? palette.slice(4) : palette
   }, [getPalette, isDark, colorScheme])
 
-  // Text color based on theme - white in dark mode, black in light mode
-  const labelColor = isDark ? "#ffffff" : "#000000"
+  // Per-node contrast: compute white/black based on each cell's actual background
+  const labelColorFn = (node: { color: string }) => getContrastTextColor(node.color)
 
   const sanitizedData = useMemo<TreeMapNode>(() => {
     const empty: TreeMapNode = { name: "", children: [] }
@@ -124,7 +125,7 @@ export const ChartTreeMap = memo(function ChartTreeMap({
       valueFormat=".02s"
       margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
       labelSkipSize={12}
-      labelTextColor={labelColor}
+      labelTextColor={labelColorFn}
       orientLabel={false}
       label={(node) => {
         if (node.width <= 28 || node.height <= 49) return ""
@@ -133,7 +134,7 @@ export const ChartTreeMap = memo(function ChartTreeMap({
         return words.length > 1 ? words[0] : name
       }}
       parentLabelPosition="left"
-      parentLabelTextColor={labelColor}
+      parentLabelTextColor={labelColorFn}
       parentLabel={(node) => {
         if (node.width <= 28 || node.height <= 49) return ""
         const name = node.data.name || ""

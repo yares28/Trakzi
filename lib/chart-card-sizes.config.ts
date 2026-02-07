@@ -48,6 +48,7 @@ export type ChartId =
   | "savingsAccumulation"
   | "fridge:day-of-week-spending"
   | "fridge:time-of-day-spending"
+  | "fridge:grocerySpendTrend"
   | "fridge:emptyVsNutritious"
   | "fridge:dailyActivity"
   | "fridge:dayOfWeekCategory"
@@ -334,6 +335,15 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 16,
+    mobileH: 5,
+  },
+
+  // Fridge: Grocery Spend Trend - Area chart
+  "fridge:grocerySpendTrend": {
+    minW: 6,
+    maxW: 12,
+    minH: 6,
+    maxH: 6,
     mobileH: 5,
   },
 

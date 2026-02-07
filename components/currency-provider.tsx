@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useUserPreferences } from "@/components/user-preferences-provider"
 
 const CURRENCY_STORAGE_KEY = "selected-currency"
 
@@ -49,7 +50,10 @@ const CurrencyContext = React.createContext<CurrencyContextType | undefined>(und
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     const [currency, setCurrencyState] = React.useState<string>("USD")
     const [mounted, setMounted] = React.useState(false)
+    const { preferences, isServerSynced, updatePagePreferences } = useUserPreferences()
+    const hasSyncedFromDb = React.useRef(false)
 
+    // Load from localStorage on mount (instant display)
     React.useEffect(() => {
         setMounted(true)
         const savedCurrency = localStorage.getItem(CURRENCY_STORAGE_KEY)
@@ -61,6 +65,16 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
             setCurrencyState(detected)
         }
     }, [])
+
+    // Sync from DB when available (DB is source of truth)
+    React.useEffect(() => {
+        if (!isServerSynced || hasSyncedFromDb.current) return
+        hasSyncedFromDb.current = true
+        const dbCurrency = preferences.settings?.currency
+        if (dbCurrency && currencies[dbCurrency]) {
+            setCurrencyState(dbCurrency)
+        }
+    }, [isServerSynced, preferences.settings?.currency])
 
     React.useEffect(() => {
         if (mounted) {
@@ -87,8 +101,9 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
             setCurrencyState(newCurrency)
             localStorage.setItem(CURRENCY_STORAGE_KEY, newCurrency)
             window.dispatchEvent(new CustomEvent("currencyChanged", { detail: newCurrency }))
+            updatePagePreferences("settings", { currency: newCurrency })
         }
-    }, [])
+    }, [updatePagePreferences])
 
     const currencyConfig = currencies[currency] || currencies.USD
 

@@ -78,7 +78,7 @@ export const ChartTransactionHistoryFridge = memo(function ChartTransactionHisto
     isLoading = false
 }: ChartTransactionHistoryFridgeProps) {
     const { resolvedTheme } = useTheme()
-    const { getPalette } = useColorScheme()
+    const { getShuffledPalette } = useColorScheme()
     const [visibleGroups, setVisibleGroups] = useState<string[]>([])
     const [isGroupSelectorOpen, setIsGroupSelectorOpen] = useState(false)
     const [mounted, setMounted] = useState(false)
@@ -89,9 +89,9 @@ export const ChartTransactionHistoryFridge = memo(function ChartTransactionHisto
 
     // In dark mode, use lighter colors (reverse the palette so lightest colors come first)
     const chartColors = useMemo(() => {
-        const palette = getPalette()
+        const palette = getShuffledPalette()
         return resolvedTheme === "dark" ? [...palette].reverse() : palette
-    }, [getPalette, resolvedTheme])
+    }, [getShuffledPalette, resolvedTheme])
 
     // Theme for axis labels and text
     const swarmTheme = useMemo(() => {

@@ -1,12 +1,13 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react"
 import {
     type DateFilterType,
     FALLBACK_DATE_FILTER,
     isValidDateFilterValue,
     normalizeDateFilterValue,
 } from "@/lib/date-filter"
+import { useUserPreferences } from "@/components/user-preferences-provider"
 
 interface DateFilterContextType {
     filter: DateFilterType | null
@@ -57,7 +58,10 @@ export function useDateFilter() {
 export function DateFilterProvider({ children }: { children: ReactNode }) {
     const [filter, setFilterState] = useState<DateFilterType | null>(FALLBACK_DATE_FILTER)
     const [isReady, setIsReady] = useState(false)
+    const { preferences, isServerSynced, updatePagePreferences } = useUserPreferences()
+    const hasSyncedFromDb = useRef(false)
 
+    // Load from localStorage on mount (instant display)
     useEffect(() => {
         if (typeof window === "undefined") return
         const stored = resolveStoredFilter()
@@ -70,6 +74,16 @@ export function DateFilterProvider({ children }: { children: ReactNode }) {
             console.error("Failed to sync date filter to localStorage:", error)
         }
     }, [])
+
+    // Sync from DB when available (DB is source of truth)
+    useEffect(() => {
+        if (!isServerSynced || hasSyncedFromDb.current) return
+        hasSyncedFromDb.current = true
+        const dbFilter = preferences.settings?.date_filter
+        if (dbFilter && isValidDateFilterValue(dbFilter)) {
+            setFilterState((prev) => (prev === dbFilter ? prev : dbFilter))
+        }
+    }, [isServerSynced, preferences.settings?.date_filter])
 
     useEffect(() => {
         if (typeof window === "undefined") return
@@ -99,6 +113,7 @@ export function DateFilterProvider({ children }: { children: ReactNode }) {
         } catch (error) {
             console.error("Failed to save date filter to localStorage:", error)
         }
+        updatePagePreferences("settings", { date_filter: nextFilter })
     }
 
     return (

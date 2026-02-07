@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
+import { useUserPreferences } from "@/components/user-preferences-provider"
+
 import {
-  CHART_ORDER_STORAGE_KEY,
-  CHART_SIZES_STORAGE_KEY,
-  CHART_SIZES_VERSION_KEY,
   DEFAULT_CHART_ORDER,
   DEFAULT_CHART_SIZES,
   DEFAULT_SIZES_VERSION,
@@ -19,118 +18,120 @@ function snapToAllowedSize(w: number, h: number) {
 }
 
 export function useChartLayout() {
-  const [chartOrder, setChartOrder] = useState<FridgeChartId[]>(DEFAULT_CHART_ORDER)
+  const { preferences, updatePagePreferences, isLoaded } = useUserPreferences()
+  const fridgePrefs = preferences.fridge
+
+  // -----------------------------------------------------------------
+  // Chart order
+  // -----------------------------------------------------------------
+  const [chartOrder, setChartOrder] =
+    useState<FridgeChartId[]>(DEFAULT_CHART_ORDER)
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(CHART_ORDER_STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved) as string[]
-        if (Array.isArray(parsed)) {
-          // Filter out obsolete chart IDs that no longer exist in the default order
-          const validCharts = parsed.filter((id): id is FridgeChartId =>
-            DEFAULT_CHART_ORDER.includes(id as FridgeChartId)
-          )
-          // Add any new charts that aren't in the saved order
-          const missingCharts = DEFAULT_CHART_ORDER.filter(
-            (id) => !validCharts.includes(id)
-          )
-          const mergedOrder = [...validCharts, ...missingCharts]
-          setChartOrder(mergedOrder)
-          // Save the cleaned-up order back to localStorage
-          if (mergedOrder.length !== parsed.length) {
-            localStorage.setItem(CHART_ORDER_STORAGE_KEY, JSON.stringify(mergedOrder))
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load chart order:", error)
+    const saved = fridgePrefs?.order
+    if (!saved || !Array.isArray(saved)) return
+
+    // Filter out obsolete chart IDs that no longer exist in the default order
+    const validCharts = saved.filter((id): id is FridgeChartId =>
+      DEFAULT_CHART_ORDER.includes(id as FridgeChartId)
+    )
+    // Add any new charts that aren't in the saved order
+    const missingCharts = DEFAULT_CHART_ORDER.filter(
+      (id) => !validCharts.includes(id)
+    )
+    const mergedOrder = [...validCharts, ...missingCharts]
+    setChartOrder(mergedOrder)
+
+    // Save the cleaned-up order if it changed
+    if (mergedOrder.length !== saved.length) {
+      updatePagePreferences("fridge", { order: mergedOrder })
     }
-  }, [])
+  }, [fridgePrefs?.order, updatePagePreferences])
 
-  const handleChartOrderChange = useCallback((newOrder: FridgeChartId[]) => {
-    setChartOrder(newOrder)
-    try {
-      localStorage.setItem(CHART_ORDER_STORAGE_KEY, JSON.stringify(newOrder))
-    } catch (error) {
-      console.error("Failed to save chart order:", error)
-    }
-  }, [])
+  const handleChartOrderChange = useCallback(
+    (newOrder: FridgeChartId[]) => {
+      setChartOrder(newOrder)
+      updatePagePreferences("fridge", { order: newOrder })
+    },
+    [updatePagePreferences]
+  )
 
-  const loadChartSizes = useCallback((): Record<FridgeChartId, ChartSize> => {
-    if (typeof window === "undefined") return {} as Record<FridgeChartId, ChartSize>
-
-    try {
-      const saved = localStorage.getItem(CHART_SIZES_STORAGE_KEY)
-      const savedSizes = saved ? (JSON.parse(saved) as Record<string, ChartSize>) : {}
-      const savedVersion = localStorage.getItem(CHART_SIZES_VERSION_KEY)
-      const needsUpdate = savedVersion !== DEFAULT_SIZES_VERSION
-
-      const result = {} as Record<FridgeChartId, ChartSize>
-      let hasChanges = false
-
-      Object.keys(DEFAULT_CHART_SIZES).forEach((chartId) => {
-        const id = chartId as FridgeChartId
-        const defaultSize = DEFAULT_CHART_SIZES[id]
-        const savedSize = savedSizes[id]
-
-        const finalSize = needsUpdate || !savedSize
-          ? {
-            w: defaultSize.w,
-            h: defaultSize.h,
-            x: savedSize?.x ?? defaultSize.x,
-            y: savedSize?.y ?? defaultSize.y,
-          }
-          : {
-            w: savedSize.w,
-            h: savedSize.h,
-            x: savedSize.x ?? defaultSize.x,
-            y: savedSize.y ?? defaultSize.y,
-          }
-
-        result[id] = finalSize
-
-        if (needsUpdate && (!savedSize || savedSize.w !== defaultSize.w || savedSize.h !== defaultSize.h)) {
-          hasChanges = true
-        }
-      })
-
-      if (needsUpdate || hasChanges) {
-        localStorage.setItem(CHART_SIZES_STORAGE_KEY, JSON.stringify(result))
-        localStorage.setItem(CHART_SIZES_VERSION_KEY, DEFAULT_SIZES_VERSION)
-      }
-
-      return result
-    } catch (error) {
-      console.error("Failed to load chart sizes from localStorage:", error)
-    }
-
-    return {} as Record<FridgeChartId, ChartSize>
-  }, [])
-
-  const [savedChartSizes, setSavedChartSizes] = useState<Record<FridgeChartId, ChartSize>>(DEFAULT_CHART_SIZES)
-  const savedChartSizesRef = useRef<Record<FridgeChartId, ChartSize>>(DEFAULT_CHART_SIZES)
+  // -----------------------------------------------------------------
+  // Layout chart sizes with version tracking
+  // -----------------------------------------------------------------
+  const [savedChartSizes, setSavedChartSizes] =
+    useState<Record<FridgeChartId, ChartSize>>(DEFAULT_CHART_SIZES)
+  const savedChartSizesRef = useRef<Record<FridgeChartId, ChartSize>>(
+    DEFAULT_CHART_SIZES
+  )
   const [hasLoadedChartSizes, setHasLoadedChartSizes] = useState(false)
 
-  const saveChartSizes = useCallback((sizes: Record<FridgeChartId, ChartSize>) => {
-    savedChartSizesRef.current = sizes
-    setSavedChartSizes(sizes)
-
-    if (typeof window === "undefined") return
-    try {
-      localStorage.setItem(CHART_SIZES_STORAGE_KEY, JSON.stringify(sizes))
-      localStorage.setItem(CHART_SIZES_VERSION_KEY, DEFAULT_SIZES_VERSION)
-    } catch (error) {
-      console.error("Failed to save chart sizes to localStorage:", error)
-    }
-  }, [])
-
   useEffect(() => {
-    const loaded = loadChartSizes()
-    savedChartSizesRef.current = loaded
-    setSavedChartSizes(loaded)
+    if (!isLoaded) return
+
+    const storedSizes = (fridgePrefs?.sizes ?? {}) as Record<string, ChartSize>
+    const storedVersion = fridgePrefs?.sizes_version
+
+    const needsUpdate = storedVersion !== DEFAULT_SIZES_VERSION
+
+    const result = {} as Record<FridgeChartId, ChartSize>
+    let hasChanges = false
+
+    Object.keys(DEFAULT_CHART_SIZES).forEach((chartId) => {
+      const id = chartId as FridgeChartId
+      const defaultSize = DEFAULT_CHART_SIZES[id]
+      const savedSize = storedSizes[id]
+
+      const finalSize =
+        needsUpdate || !savedSize
+          ? {
+              w: defaultSize.w,
+              h: defaultSize.h,
+              x: savedSize?.x ?? defaultSize.x,
+              y: savedSize?.y ?? defaultSize.y,
+            }
+          : {
+              w: savedSize.w,
+              h: savedSize.h,
+              x: savedSize.x ?? defaultSize.x,
+              y: savedSize.y ?? defaultSize.y,
+            }
+
+      result[id] = finalSize
+
+      if (
+        needsUpdate &&
+        (!savedSize ||
+          savedSize.w !== defaultSize.w ||
+          savedSize.h !== defaultSize.h)
+      ) {
+        hasChanges = true
+      }
+    })
+
+    if (needsUpdate || hasChanges) {
+      updatePagePreferences("fridge", {
+        sizes: result,
+        sizes_version: DEFAULT_SIZES_VERSION,
+      })
+    }
+
+    savedChartSizesRef.current = result
+    setSavedChartSizes(result)
     setHasLoadedChartSizes(true)
-  }, [loadChartSizes])
+  }, [isLoaded, fridgePrefs?.sizes, fridgePrefs?.sizes_version, updatePagePreferences])
+
+  const saveChartSizes = useCallback(
+    (sizes: Record<FridgeChartId, ChartSize>) => {
+      savedChartSizesRef.current = sizes
+      setSavedChartSizes(sizes)
+      updatePagePreferences("fridge", {
+        sizes,
+        sizes_version: DEFAULT_SIZES_VERSION,
+      })
+    },
+    [updatePagePreferences]
+  )
 
   const handleChartResize = useCallback(
     (chartId: FridgeChartId, w: number, h: number) => {

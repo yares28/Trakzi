@@ -10,6 +10,7 @@ import { useCurrency } from "@/components/currency-provider"
 import { toNumericValue } from "@/lib/utils"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { NivoChartTooltip } from "@/components/chart-tooltip"
+import { getContrastTextColor, getChartTextColor } from "@/lib/chart-colors"
 import {
   Card,
   CardAction,
@@ -35,20 +36,6 @@ interface ChartSpendingFunnelProps {
   emptyDescription?: string
 }
 
-// Dark colors that require white text
-const darkColors = ["#696969", "#464646", "#2F2F2F", "#252525"]
-
-// Gold palette colors that require white text (black and brown)
-const goldDarkColors = ["#000000", "#361c1b", "#754232", "#cd894a"]
-
-// Helper function to determine text color based on slice color
-const getTextColor = (sliceColor: string, colorScheme?: string): string => {
-  if (colorScheme === "gold") {
-    return goldDarkColors.includes(sliceColor) ? "#ffffff" : "#000000"
-  }
-  return darkColors.includes(sliceColor) ? "#ffffff" : "#000000"
-}
-
 export const ChartSpendingFunnel = memo(function ChartSpendingFunnel({
   data = [],
   categoryControls,
@@ -58,7 +45,7 @@ export const ChartSpendingFunnel = memo(function ChartSpendingFunnel({
   emptyDescription
 }: ChartSpendingFunnelProps) {
   const { resolvedTheme } = useTheme()
-  const { colorScheme, getPalette } = useColorScheme()
+  const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const [mounted, setMounted] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -72,7 +59,7 @@ export const ChartSpendingFunnel = memo(function ChartSpendingFunnel({
   }, [])
 
   const isDark = resolvedTheme === "dark"
-  const textColor = isDark ? "#9ca3af" : "#6b7280"
+  const textColor = getChartTextColor(isDark)
 
   // Use nivo scheme for colored, custom dark palette for dark styling
   // More money = darker color (bigger peso = darker)
@@ -80,7 +67,7 @@ export const ChartSpendingFunnel = memo(function ChartSpendingFunnel({
   // Income ($5,430) = darkest, Savings ($800) = lightest
   // Max 7 layers
   // For all palettes: darker colors = larger amounts, lighter colors = smaller amounts
-  const palette = getPalette().filter(color => color !== "#c3c3c3")
+  const palette = getPalette()
   const numLayers = Math.min(data.length, 7)
 
   // Reverse palette so darkest colors are first (for highest income)
@@ -132,7 +119,7 @@ export const ChartSpendingFunnel = memo(function ChartSpendingFunnel({
       valueFormat=">-$,.0f"
       colors={colorConfig}
       borderWidth={20}
-      labelColor={(d: { color: string }) => getTextColor(d.color, colorScheme)}
+      labelColor={(d: { color: string }) => getContrastTextColor(d.color)}
       beforeSeparatorLength={100}
       beforeSeparatorOffset={20}
       afterSeparatorLength={100}

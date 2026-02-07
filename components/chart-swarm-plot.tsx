@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useRef, memo } from "react"
 import { ChevronDownIcon } from "lucide-react"
 import { ResponsiveSwarmPlot } from "@nivo/swarmplot"
 import { useTheme } from "next-themes"
+import { getChartTextColor } from "@/lib/chart-colors"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { ChartExpandButton } from "@/components/chart-expand-button"
@@ -69,7 +70,7 @@ const getMaxCategoriesForWidth = (width: number): number => {
 
 export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, emptyDescription }: ChartSwarmPlotProps) {
   const { resolvedTheme } = useTheme()
-  const { getPalette } = useColorScheme()
+  const { getShuffledPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const [remoteData, setRemoteData] = useState<ChartSwarmPlotDatum[]>([])
   // Initialize loading to true only if data prop is not provided (undefined) - means we need to fetch
@@ -108,25 +109,13 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
   // Calculate max categories based on current container width
   const maxCategories = useMemo(() => getMaxCategoriesForWidth(containerWidth), [containerWidth])
 
-  // Palette is ordered dark → light. For better contrast:
-  // - Dark mode: skip first color (darkest) so dots are visible against dark background
-  // - Light mode: skip last color (lightest) so dots are visible against light background
-  const chartColors = useMemo(() => {
-    const palette = getPalette()
-    if (resolvedTheme === "dark") {
-      // Skip darkest color (index 0), use lighter colors
-      return palette.slice(1)
-    }
-    // Skip lightest color (last index), use darker colors
-    return palette.slice(0, -1)
-  }, [getPalette, resolvedTheme])
+  // getShuffledPalette() filters, trims by theme, and shuffles for visual variety
+  const chartColors = useMemo(() => getShuffledPalette(), [getShuffledPalette])
 
   // Theme for axis labels and text - match muted-foreground color from globals.css
   const swarmTheme = useMemo(() => {
     // Use same muted-foreground colors as Recharts charts for consistency
-    const textColor = resolvedTheme === "dark"
-      ? "oklch(0.6268 0 0)"  // --muted-foreground in dark mode
-      : "oklch(0.551 0.0234 264.3637)"  // --muted-foreground in light mode
+    const textColor = getChartTextColor(resolvedTheme === "dark")
     return {
       axis: {
         ticks: {

@@ -9,6 +9,7 @@ import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
+import { getChartTextColor, CHART_GRID_COLOR, DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
     Card,
@@ -57,7 +58,7 @@ export const ChartAllMonthsCategoryFridge = React.memo(function ChartAllMonthsCa
     const { resolvedTheme } = useTheme()
     const { getPalette } = useColorScheme()
     const { formatCurrency, symbol } = useCurrency()
-    const palette = useMemo(() => getPalette().filter((color) => color !== "#c3c3c3"), [getPalette])
+    const palette = useMemo(() => getPalette(), [getPalette])
     const svgRef = useRef<SVGSVGElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
     const [tooltip, setTooltip] = useState<{ month: string; category: string; amount: number; isTotal: boolean; breakdown?: Array<{ category: string; amount: number }>; color?: string } | null>(null)
@@ -128,7 +129,7 @@ export const ChartAllMonthsCategoryFridge = React.memo(function ChartAllMonthsCa
     const categoryColors = useMemo(() => {
         const colorMap = new Map<string, string>()
         categories.forEach((category, index) => {
-            colorMap.set(category, palette[index % palette.length] || "#8884d8")
+            colorMap.set(category, palette[index % palette.length] || DEFAULT_FALLBACK_PALETTE[0])
         })
         return colorMap
     }, [categories, palette])
@@ -160,8 +161,8 @@ export const ChartAllMonthsCategoryFridge = React.memo(function ChartAllMonthsCa
     )
 
     const isDark = resolvedTheme === "dark"
-    const textColor = isDark ? "#9ca3af" : "#6b7280"
-    const gridColor = isDark ? "#e5e7eb" : "#e5e7eb"
+    const textColor = getChartTextColor(isDark)
+    const gridColor = CHART_GRID_COLOR
     const axisColor = gridColor
 
     // Render D3-style grouped bar chart
@@ -276,7 +277,7 @@ export const ChartAllMonthsCategoryFridge = React.memo(function ChartAllMonthsCa
                     rect.setAttribute("y", barY.toString())
                     rect.setAttribute("width", xBandwidth.toString())
                     rect.setAttribute("height", barHeight.toString())
-                    rect.setAttribute("fill", categoryColors.get(d.category) || "#8884d8")
+                    rect.setAttribute("fill", categoryColors.get(d.category) || DEFAULT_FALLBACK_PALETTE[0])
                     rect.setAttribute("rx", "2")
                     rect.style.cursor = "pointer"
                     rect.setAttribute("data-month", monthNamesShort[monthIndex])
@@ -483,7 +484,7 @@ export const ChartAllMonthsCategoryFridge = React.memo(function ChartAllMonthsCa
                     <div className="px-4 pb-2 pt-2 flex flex-wrap items-center justify-center gap-3 text-xs">
                         {categories.slice(0, 8).map((category) => (
                             <div key={category} className="flex items-center gap-1.5">
-                                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: categoryColors.get(category) || "#8884d8" }} />
+                                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: categoryColors.get(category) || DEFAULT_FALLBACK_PALETTE[0] }} />
                                 <span className="text-muted-foreground">{category}</span>
                             </div>
                         ))}
