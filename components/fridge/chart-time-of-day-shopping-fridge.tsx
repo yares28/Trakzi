@@ -2,7 +2,7 @@
 
 // Time of Day Shopping Chart for Fridge - Shows when you tend to go grocery shopping
 import * as React from "react"
-import { useMemo, useEffect, useRef, useState } from "react"
+import { useMemo, useEffect, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/card"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
+import { isChartResizePaused, useChartResizeResume } from "@/lib/chart-resize-context"
 
 type ReceiptTransactionRow = {
     id: number
@@ -88,10 +89,16 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
     const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
     const [mounted, setMounted] = useState(false)
     const hasAnimatedRef = useRef(false)
+    const renderChartRef = useRef<(animate: boolean) => void>(() => {})
 
     useEffect(() => {
         setMounted(true)
     }, [])
+
+    const handleResizeResume = useCallback(() => {
+        if (!isChartResizePaused()) renderChartRef.current(false)
+    }, [])
+    useChartResizeResume(handleResizeResume)
 
     const processedData = useMemo(() => {
         const fullDayData: { hour: number; trips: number; spending: number }[] = Array.from(
@@ -412,6 +419,7 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
             })
         }
 
+        renderChartRef.current = renderChart
         const shouldAnimate = !hasAnimatedRef.current
         renderChart(shouldAnimate)
         hasAnimatedRef.current = true
@@ -419,7 +427,10 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
         const container = svg.parentElement
         let resizeObserver: ResizeObserver | null = null
         if (container && typeof ResizeObserver !== "undefined") {
-            resizeObserver = new ResizeObserver(() => { renderChart(false) })
+            resizeObserver = new ResizeObserver(() => {
+                if (isChartResizePaused()) return
+                renderChart(false)
+            })
             resizeObserver.observe(container)
         }
 
@@ -461,7 +472,6 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
                         <ChartFavoriteButton chartId="fridge:time-of-day-spending" chartTitle="Time of Day Shopping" size="md" />
                         <CardTitle>Time of Day Shopping</CardTitle>
                     </div>
-                    <CardDescription>See when you typically go grocery shopping</CardDescription>
                     <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                         {renderInfoTrigger()}
                     </CardAction>
@@ -483,7 +493,6 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
                     <ChartFavoriteButton chartId="fridge:time-of-day-spending" chartTitle="Time of Day Shopping" size="md" />
                     <CardTitle>Time of Day Shopping</CardTitle>
                 </div>
-                <CardDescription>See when you typically go grocery shopping</CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                     {renderInfoTrigger()}
                 </CardAction>

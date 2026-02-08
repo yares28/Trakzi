@@ -257,7 +257,7 @@ const data = {
       icon: IconSavings,
     },
     {
-      title: "Map",
+      title: "Pokets",
       url: "/world-map",
       icon: IconMap,
     },

@@ -100,7 +100,7 @@ export const WorldMapChart = memo(function WorldMapChart({
   const { formatCurrency } = useCurrency()
   const [mounted, setMounted] = useState(false)
 
-  // Refs for D3
+  // Refs for D3 — containerRef is the map area we observe for resize (not the whole card)
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null)
@@ -200,9 +200,9 @@ export const WorldMapChart = memo(function WorldMapChart({
       return
     }
 
-    // Calculate bounds of the clicked country
+    // Calculate bounds of the clicked country (same scale as initial map)
     const projection = geoMercator()
-      .scale(150)
+      .scale(120)
       .translate([width / 2, height / 2 + 50])
 
     const path = geoPath().projection(projection)
@@ -286,13 +286,13 @@ export const WorldMapChart = memo(function WorldMapChart({
 
     // Create projection
     const projection = geoMercator()
-      .scale(150)
+      .scale(120)
       .translate([width / 2, height / 2 + 50])
 
     // Create path generator
     const path = geoPath().projection(projection)
 
-    // Create zoom behavior
+    // Create zoom behavior — only programmatic zoom on country click (no wheel, no pan/drag)
     const zoomBehavior = zoom<SVGSVGElement, unknown>()
       .scaleExtent([1, 8])
       .on("zoom", (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
@@ -304,8 +304,14 @@ export const WorldMapChart = memo(function WorldMapChart({
     // Store zoom reference
     zoomRef.current = zoomBehavior
 
-    // Apply zoom behavior to SVG
+    // Apply zoom behavior to SVG, then remove user-input listeners so only programmatic zoom works
     svg.call(zoomBehavior)
+    svg.on("wheel.zoom", null)
+    svg.on("mousedown.zoom", null)
+    svg.on("dblclick.zoom", null)
+    svg.on("touchstart.zoom", null)
+    svg.on("touchmove.zoom", null)
+    svg.on("touchend.zoom touchcancel.zoom", null)
 
     // Draw countries with initial unknown color (actual colors applied by color update useEffect)
     g.selectAll<SVGPathElement, GeoFeature>("path")
@@ -396,42 +402,45 @@ export const WorldMapChart = memo(function WorldMapChart({
       .attr("stroke", borderColor)
   }, [mounted, dimensions, dataMap, getColor, unknownColor, borderColor])
 
+  // Bounded height so card cannot grow indefinitely on resize (avoids feedback: SVG size → card size → ResizeObserver → larger dimensions)
+  const cardClassName =
+    "relative bg-card text-card-foreground gap-6 rounded-xl border shadow-sm min-w-0 card-3d-light min-h-[500px] max-h-[min(80vh,900px)] flex flex-col p-0 overflow-hidden"
+
   // Loading skeleton - single full-bleed card div
   if (!mounted || isLoading) {
     return (
-      <div
-        ref={containerRef}
-        className="bg-card text-card-foreground gap-6 rounded-xl border shadow-sm min-w-0 card-3d-light h-full min-h-[500px] flex flex-col p-0 overflow-hidden"
-      >
+      <div className={cardClassName}>
         {title && (
           <div className="@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6">
             <div className="leading-none font-semibold">{title}</div>
           </div>
         )}
-        <div className="flex-1 min-h-[450px]">
+        <div ref={containerRef} className="flex-1 min-h-[450px] min-w-0">
           <div className="h-full w-full min-h-[450px] animate-pulse bg-muted/50" />
         </div>
       </div>
     )
   }
 
-  // Main map card - single div holding the map, SVG fills entire card
+  // Main map card - map area is observed for resize so SVG dimensions stay in sync
   return (
-    <div
-      ref={containerRef}
-      className="relative bg-card text-card-foreground gap-6 rounded-xl border shadow-sm min-w-0 card-3d-light h-full min-h-[500px] flex flex-col p-0 overflow-hidden"
-    >
+    <div className={cardClassName}>
       {title && (
         <div className="@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6">
           <div className="leading-none font-semibold">{title}</div>
         </div>
       )}
 
-      <svg
-        ref={svgRef}
-        className="w-full flex-1 min-h-[450px]"
-        style={{ cursor: activeCountry ? "pointer" : "grab" }}
-      />
+      <div
+        ref={containerRef}
+        className="flex-1 min-h-[450px] min-w-0 flex flex-col overflow-hidden"
+      >
+        <svg
+          ref={svgRef}
+          className="w-full h-full min-h-[450px]"
+          style={{ cursor: "pointer" }}
+        />
+      </div>
 
       {/* Tooltip */}
       {tooltip.visible && (

@@ -209,9 +209,11 @@ export function ChartsGrid({
         onOrderChange={handleOrderChange}
         className="px-4 lg:px-6"
       >
-        {chartOrder.map((chartId) => {
+        {chartOrder.map((chartId, index) => {
           const defaultSize = DEFAULT_CHART_SIZES[chartId]
           const sizeConfig = getChartCardSize(FRIDGE_CHART_TO_ANALYTICS_CHART[chartId] as ChartId)
+          // Above-fold: first 5 charts load immediately (rootMargin="0px") for snappier LCP
+          const rootMargin = index < 5 ? "0px" : "200px"
 
           return (
             <SortableGridItem
@@ -227,7 +229,7 @@ export function ChartsGrid({
               maxH={sizeConfig.maxH}
               onResize={handleResize}
             >
-              <LazyChart title={chartTitles[chartId]} height={250}>
+              <LazyChart title={chartTitles[chartId]} height={250} rootMargin={rootMargin}>
                 <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                   {renderChart(chartId)}
                 </div>

@@ -181,7 +181,6 @@ export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVs
                     <span className="hidden @[540px]/card:block">
                         Monthly comparison of home cooking vs eating out
                     </span>
-                    <span className="@[540px]/card:hidden">Home vs Outside</span>
                 </CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                     {renderInfoTrigger()}

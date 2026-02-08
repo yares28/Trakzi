@@ -378,16 +378,15 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
                 <div className="relative h-full w-full min-h-[250px]">
                     <ResponsiveAreaBump
                         data={data}
-                        margin={{ top: 40, right: 120, bottom: 40, left: 140 }}
+                        margin={{ top: 40, right: 40, bottom: 24, left: 140 }}
                         spacing={12}
                         colors={colorConfig}
                         blendMode="normal"
                         startLabel={(serie) => serie.id}
-                        endLabel={(serie) => serie.id}
+                        endLabel={false}
                         startLabelTextColor={textColor}
-                        endLabelTextColor={textColor}
                         startLabelPadding={12}
-                        endLabelPadding={12}
+                        endLabelPadding={0}
                         interpolation="smooth"
                         axisTop={{
                             tickSize: 5,
@@ -398,12 +397,13 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
                             legendOffset: -36,
                         }}
                         axisBottom={{
-                            tickSize: 5,
-                            tickPadding: 5,
+                            tickSize: 0,
+                            tickPadding: 0,
                             tickRotation: 0,
                             legend: "",
                             legendPosition: "middle",
                             legendOffset: 32,
+                            format: () => "",
                         }}
                         theme={{
                             text: {

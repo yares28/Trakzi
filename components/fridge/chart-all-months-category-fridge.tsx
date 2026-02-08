@@ -2,7 +2,7 @@
 
 // All Months Category Spending Chart for Fridge - Shows category spending across all months
 import * as React from "react"
-import { useMemo, useEffect, useRef, useState } from "react"
+import { useMemo, useEffect, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/card"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
+import { isChartResizePaused, useChartResizeResume } from "@/lib/chart-resize-context"
 
 type ReceiptTransactionRow = {
     id: number
@@ -64,10 +65,20 @@ export const ChartAllMonthsCategoryFridge = React.memo(function ChartAllMonthsCa
     const [tooltip, setTooltip] = useState<{ month: string; category: string; amount: number; isTotal: boolean; breakdown?: Array<{ category: string; amount: number }>; color?: string } | null>(null)
     const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
     const [mounted, setMounted] = useState(false)
+    const renderChartRef = useRef<(width?: number, height?: number) => void>(() => {})
 
     useEffect(() => {
         setMounted(true)
     }, [])
+
+    const handleResizeResume = useCallback(() => {
+        const container = containerRef.current
+        if (container && !isChartResizePaused()) {
+            const rect = container.getBoundingClientRect()
+            renderChartRef.current(rect.width, rect.height)
+        }
+    }, [])
+    useChartResizeResume(handleResizeResume)
 
     // Process receipt transactions to group by month and category
     const processedData = useMemo(() => {
@@ -384,10 +395,12 @@ export const ChartAllMonthsCategoryFridge = React.memo(function ChartAllMonthsCa
             renderChart()
         }
 
+        renderChartRef.current = renderChart
         const container = svg.parentElement
         let resizeObserver: ResizeObserver | null = null
         if (container && typeof ResizeObserver !== "undefined") {
             resizeObserver = new ResizeObserver((entries) => {
+                if (isChartResizePaused()) return
                 const entry = entries[0]
                 if (!entry) return
                 const { width, height } = entry.contentRect

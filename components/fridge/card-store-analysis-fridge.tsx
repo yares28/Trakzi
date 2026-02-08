@@ -189,7 +189,6 @@ export function CardStoreAnalysisFridge({ data, isLoading = false }: StoreAnalys
                         <IconBuildingStore className="h-5 w-5" />
                         Store Analysis
                     </CardTitle>
-                    <CardDescription>Compare prices across stores</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="flex flex-col items-center justify-center py-10 text-center">
@@ -215,7 +214,6 @@ export function CardStoreAnalysisFridge({ data, isLoading = false }: StoreAnalys
                         <IconBuildingStore className="h-5 w-5" />
                         Store Analysis
                     </CardTitle>
-                    <CardDescription>Compare prices across stores</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="flex flex-col items-center justify-center py-10 text-center">

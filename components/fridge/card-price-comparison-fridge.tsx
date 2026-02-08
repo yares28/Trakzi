@@ -131,7 +131,6 @@ export function CardPriceComparisonFridge({ data, isLoading = false }: PriceComp
                         <IconTrendingUp className="h-5 w-5" />
                         Price Changes
                     </CardTitle>
-                    <CardDescription>Track how prices change over time</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="flex flex-col items-center justify-center py-10 text-center">
@@ -157,7 +156,6 @@ export function CardPriceComparisonFridge({ data, isLoading = false }: PriceComp
                         <IconTrendingUp className="h-5 w-5" />
                         Price Changes
                     </CardTitle>
-                    <CardDescription>Track how prices change over time</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 flex items-center justify-center">
                     <div className="flex flex-col items-center justify-center text-center">
@@ -183,7 +181,6 @@ export function CardPriceComparisonFridge({ data, isLoading = false }: PriceComp
                         <IconTrendingUp className="h-5 w-5" />
                         Price Changes
                     </CardTitle>
-                    <CardDescription>Track how prices change over time</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="flex flex-col items-center justify-center py-10 text-center">

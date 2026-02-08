@@ -2,7 +2,7 @@
 
 // Day of Week Spending by Category Chart for Fridge
 import * as React from "react"
-import { useMemo, useEffect, useRef, useState } from "react"
+import { useMemo, useEffect, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/card"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
+import { isChartResizePaused, useChartResizeResume } from "@/lib/chart-resize-context"
 
 type ReceiptTransactionRow = {
     id: number
@@ -65,10 +66,16 @@ export const ChartDayOfWeekSpendingCategoryFridge = React.memo(function ChartDay
     const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
     const [mounted, setMounted] = useState(false)
     const hasAnimatedRef = useRef(false)
+    const renderChartRef = useRef<(animate: boolean) => void>(() => {})
 
     useEffect(() => {
         setMounted(true)
     }, [])
+
+    const handleResizeResume = useCallback(() => {
+        if (!isChartResizePaused()) renderChartRef.current(false)
+    }, [])
+    useChartResizeResume(handleResizeResume)
 
     // Process receipt transactions to group by day of week and category
     const processedData = useMemo(() => {
@@ -411,6 +418,7 @@ export const ChartDayOfWeekSpendingCategoryFridge = React.memo(function ChartDay
             })
         }
 
+        renderChartRef.current = renderChart
         const shouldAnimate = !hasAnimatedRef.current
         renderChart(shouldAnimate)
         hasAnimatedRef.current = true
@@ -418,7 +426,10 @@ export const ChartDayOfWeekSpendingCategoryFridge = React.memo(function ChartDay
         const container = svg.parentElement
         let resizeObserver: ResizeObserver | null = null
         if (container && typeof ResizeObserver !== "undefined") {
-            resizeObserver = new ResizeObserver(() => { renderChart(false) })
+            resizeObserver = new ResizeObserver(() => {
+                if (isChartResizePaused()) return
+                renderChart(false)
+            })
             resizeObserver.observe(container)
         }
 

@@ -257,7 +257,7 @@ function MyChart() {
 |------|--------|-------------------|-------|
 | Analytics | 19 | 19 (100%) | All charts wrapped |
 | Home | 16 | 16 (100%) | Top 5 use `rootMargin="0px"` |
-| Fridge | 18 | 18 (100%) | Reference implementation |
+| Fridge | 18 | 18 (100%) | First 5 use `rootMargin="0px"`; Transaction History + SVG bar charts use resize coordination |
 | Trends | 4 | 4 (100%) | — |
 | Savings | 3 | 3 (100%) | — |
 
