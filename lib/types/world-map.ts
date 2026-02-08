@@ -114,3 +114,55 @@ export interface UnlinkedTransactionsResponse {
     transactions: CountryTransaction[]
     total: number
 }
+
+// --- Vehicle types (world-map Vehicles section) ---
+
+export type VehicleTypeOption =
+    | "Car"
+    | "SUV"
+    | "Truck"
+    | "Van"
+    | "Motorcycle"
+    | "Other"
+
+export interface VehicleFuelInfo {
+    tankSizeL?: number
+    fuelType?: string
+    linkedTransactionIds: number[]
+}
+
+export interface VehicleFinancing {
+    upfrontPaid: number
+    annualInterestRate?: number
+    loanRemaining: number
+}
+
+export interface VehicleData {
+    id: string
+    name: string
+    brand: string
+    vehicleType: VehicleTypeOption
+    year: number
+    priceBought: number
+    licensePlate: string
+    svgPath: string
+    fuel: VehicleFuelInfo
+    maintenanceTransactionIds: number[]
+    insuranceTransactionIds: number[]
+    certificateTransactionIds: number[]
+    /** Cached totals from linked transactions (updated when linking in detail sheets) */
+    fuelTotal?: number
+    maintenanceTotal?: number
+    insuranceTotal?: number
+    certificateTotal?: number
+    financing?: VehicleFinancing
+}
+
+/** Transaction row for vehicle detail sheets (matches GET /api/transactions response) */
+export interface VehicleLinkedTransaction {
+    id: number
+    date: string
+    description: string
+    amount: number
+    category: string
+}

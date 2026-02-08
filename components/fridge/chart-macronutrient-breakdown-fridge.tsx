@@ -122,7 +122,6 @@ export const ChartMacronutrientBreakdownFridge = memo(function ChartMacronutrien
   const isDark = resolvedTheme === "dark"
 
   const textColor = getChartTextColor(isDark)
-  const arcLinkLabelColor = getChartTextColor(isDark)
 
   // Format currency value using user's preferred currency
   const valueFormatter = useMemo(() => ({
@@ -224,21 +223,17 @@ export const ChartMacronutrientBreakdownFridge = memo(function ChartMacronutrien
           {renderInfoTrigger()}
         </CardAction>
       </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
-        <div className="h-full w-full min-h-[250px]" key={colorScheme}>
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0 flex flex-col">
+        <div className="flex-1 min-h-[140px] md:min-h-[200px]" key={colorScheme}>
           <ResponsivePie
             data={data}
-            margin={{ top: 40, right: 80, bottom: 40, left: 80 }}
+            margin={{ top: 40, right: 40, bottom: 40, left: 40 }}
             innerRadius={0.5}
-            padAngle={0.7}
-            cornerRadius={3}
+            padAngle={0.6}
+            cornerRadius={2}
             activeOuterRadiusOffset={8}
-            borderWidth={0}
-            arcLinkLabelsSkipAngle={10}
-            arcLinkLabelsTextColor={arcLinkLabelColor}
-            arcLinkLabelsThickness={2}
-            arcLinkLabelsColor={{ from: "color" }}
-            arcLabelsSkipAngle={20}
+            enableArcLinkLabels={false}
+            arcLabelsSkipAngle={15}
             arcLabelsTextColor={(d: { color: string }) => getContrastTextColor(d.color)}
             valueFormat={(value) => formatCurrency(value)}
             colors={colorConfig}
@@ -261,6 +256,23 @@ export const ChartMacronutrientBreakdownFridge = memo(function ChartMacronutrien
               },
             }}
           />
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2">
+          {data.slice(0, 6).map((item) => (
+            <div key={item.id} className="flex items-center gap-1.5">
+              <span
+                className="h-2.5 w-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: item.color }}
+              />
+              <span className="font-medium text-foreground truncate max-w-[80px]" title={item.label}>{item.label}</span>
+              <span className="text-[0.7rem]">
+                {total > 0 ? `${((item.value / total) * 100).toFixed(0)}%` : "0%"}
+              </span>
+            </div>
+          ))}
+          {data.length > 6 && (
+            <span className="text-[0.65rem] text-muted-foreground">+{data.length - 6} more</span>
+          )}
         </div>
       </CardContent>
     </Card>

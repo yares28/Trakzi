@@ -5,23 +5,22 @@ import { useCurrency } from "@/components/currency-provider"
 
 import { Card, CardContent } from "@/components/ui/card"
 
-interface WorldMapStatsCardsProps {
-  countriesCount?: number
-  topCountrySpend?: number
-  topCountryName?: string
-  totalSpendAbroad?: number
-  domesticSpend?: number
+interface OtherStatsCardsProps {
+  itemsCount?: number
+  topItemName?: string
+  topItemValue?: number
+  totalValue?: number
+  avgValue?: number
   isLoading?: boolean
 }
 
-type CardId = "countries" | "topCountry" | "abroad" | "domestic"
+type CardId = "count" | "top" | "value" | "avg"
 
 interface CardData {
   id: CardId
   title: string
   value: number | string
   isCurrency?: boolean
-  /** Total spent/value for "top" card (shown below name) */
   totalSpent?: number
 }
 
@@ -50,45 +49,30 @@ function StatCard({ card }: { card: CardData }) {
   )
 }
 
-export function WorldMapStatsCards({
-  countriesCount = 0,
-  topCountrySpend = 0,
-  topCountryName = "—",
-  totalSpendAbroad = 0,
-  domesticSpend = 0,
-}: WorldMapStatsCardsProps) {
+export function OtherStatsCards({
+  itemsCount = 0,
+  topItemName = "—",
+  topItemValue = 0,
+  totalValue = 0,
+  avgValue = 0,
+}: OtherStatsCardsProps) {
   const cardData = useMemo<Record<CardId, CardData>>(
     () => ({
-      countries: {
-        id: "countries",
-        title: "Countries",
-        value: countriesCount,
+      count: { id: "count", title: "Items", value: itemsCount, isCurrency: false },
+      top: {
+        id: "top",
+        title: "Top item",
+        value: topItemName,
         isCurrency: false,
+        totalSpent: topItemValue,
       },
-      topCountry: {
-        id: "topCountry",
-        title: "Top country",
-        value: topCountryName,
-        isCurrency: false,
-        totalSpent: topCountrySpend,
-      },
-      abroad: {
-        id: "abroad",
-        title: "Spend abroad",
-        value: totalSpendAbroad,
-        isCurrency: true,
-      },
-      domestic: {
-        id: "domestic",
-        title: "Domestic",
-        value: domesticSpend,
-        isCurrency: true,
-      },
+      value: { id: "value", title: "Total value", value: totalValue, isCurrency: true },
+      avg: { id: "avg", title: "Avg value", value: avgValue, isCurrency: true },
     }),
-    [countriesCount, topCountryName, topCountrySpend, totalSpendAbroad, domesticSpend]
+    [itemsCount, topItemName, topItemValue, totalValue, avgValue]
   )
 
-  const cardOrder: CardId[] = ["countries", "topCountry", "abroad", "domestic"]
+  const cardOrder: CardId[] = ["count", "top", "value", "avg"]
 
   return (
     <div className="grid grid-cols-1 gap-3 px-4 sm:grid-cols-2 lg:px-6 @xl/main:grid-cols-4">

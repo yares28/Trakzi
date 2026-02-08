@@ -381,7 +381,6 @@ export const ChartShoppingHeatmapDaysMonthsFridge = React.memo(function ChartSho
                     <span className="hidden @[540px]/card:block">
                         Shopping spending by day across {activeMonths.length} month{activeMonths.length !== 1 ? "s" : ""}
                     </span>
-                    <span className="@[540px]/card:hidden">Days × Months</span>
                 </CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                     {renderInfoTrigger()}

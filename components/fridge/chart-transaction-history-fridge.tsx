@@ -1,7 +1,7 @@
 "use client"
 
 // Transaction History (Swarm Plot) for Fridge Page - Shows receipt transactions grouped by food category
-import { useEffect, useMemo, useState, memo } from "react"
+import { useCallback, useEffect, useMemo, useState, useRef, memo } from "react"
 import { ChevronDownIcon } from "lucide-react"
 import { ResponsiveSwarmPlot } from "@nivo/swarmplot"
 import { useTheme } from "next-themes"
@@ -30,6 +30,7 @@ import { ChartLoadingState } from "@/components/chart-loading-state"
 import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
+import { isChartResizePaused, useChartResizeResume } from "@/lib/chart-resize-context"
 
 // Receipt transaction type from fridge page
 interface ReceiptTransaction {
@@ -66,6 +67,17 @@ type ChartSwarmPlotDatum = {
 
 type EnhancedChartDatum = ChartSwarmPlotDatum & { categoryLabel: string }
 
+// Same resize-based max categories as Transaction History (chart-swarm-plot)
+const getMaxCategoriesForWidth = (width: number): number => {
+    if (width < 400) return 1
+    if (width < 500) return 2
+    if (width < 600) return 3
+    if (width < 750) return 4
+    if (width < 900) return 5
+    if (width < 1100) return 7
+    return Infinity
+}
+
 interface ChartTransactionHistoryFridgeProps {
     receiptTransactions?: ReceiptTransaction[]
     categorySpendingData?: Array<{ category: string; total: number }>
@@ -82,10 +94,39 @@ export const ChartTransactionHistoryFridge = memo(function ChartTransactionHisto
     const [visibleGroups, setVisibleGroups] = useState<string[]>([])
     const [isGroupSelectorOpen, setIsGroupSelectorOpen] = useState(false)
     const [mounted, setMounted] = useState(false)
+    const [containerWidth, setContainerWidth] = useState(1200)
+    const containerRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
         setMounted(true)
     }, [])
+
+    // Track container width for responsive category limiting (same as Transaction History chart)
+    // Respect chart-resize pause during sidebar animation (CHART_PERFORMANCE.md)
+    useEffect(() => {
+        const container = containerRef.current
+        if (!container) return
+
+        const observer = new ResizeObserver((entries) => {
+            if (isChartResizePaused()) return
+            for (const entry of entries) {
+                setContainerWidth(entry.contentRect.width)
+            }
+        })
+
+        observer.observe(container)
+        if (!isChartResizePaused()) setContainerWidth(container.offsetWidth)
+
+        return () => observer.disconnect()
+    }, [])
+
+    const handleResizeResume = useCallback(() => {
+        const container = containerRef.current
+        if (container && !isChartResizePaused()) setContainerWidth(container.offsetWidth)
+    }, [])
+    useChartResizeResume(handleResizeResume)
+
+    const maxCategories = useMemo(() => getMaxCategoriesForWidth(containerWidth), [containerWidth])
 
     // In dark mode, use lighter colors (reverse the palette so lightest colors come first)
     const chartColors = useMemo(() => {
@@ -167,17 +208,20 @@ export const ChartTransactionHistoryFridge = memo(function ChartTransactionHisto
             .map(([name]) => name)
     }, [sanitizedData])
 
-    // Initialize visible groups when chart groups change
+    // Initialize visible groups when chart groups or maxCategories change (same as Transaction History)
     useEffect(() => {
         if (chartGroups.length === 0) return
         setVisibleGroups(prev => {
             const filtered = prev.filter(group => chartGroups.includes(group))
             if (filtered.length === 0) {
-                return [...chartGroups]
+                return chartGroups.slice(0, maxCategories)
+            }
+            if (filtered.length > maxCategories) {
+                return filtered.slice(0, maxCategories)
             }
             return filtered
         })
-    }, [chartGroups])
+    }, [chartGroups, maxCategories])
 
     const filteredData = useMemo(() => {
         if (!sanitizedData.length) return []
@@ -236,8 +280,12 @@ export const ChartTransactionHistoryFridge = memo(function ChartTransactionHisto
         }
     }, [filteredData])
 
+    // On mobile (maxCategories === 1), single-select; on larger screens, multi-select (same as Transaction History)
     const toggleGroup = (group: string) => {
         setVisibleGroups(prev => {
+            if (maxCategories === 1) {
+                return [group]
+            }
             if (prev.includes(group)) {
                 return prev.filter(item => item !== group)
             }
@@ -304,7 +352,7 @@ export const ChartTransactionHistoryFridge = memo(function ChartTransactionHisto
 
     if (!mounted || (isLoading && filteredData.length === 0)) {
         return (
-            <Card className="@container/card">
+            <Card ref={containerRef} className="@container/card">
                 <CardHeader>
                     <div className="flex items-center gap-2">
                         <GridStackCardDragHandle />
@@ -330,7 +378,7 @@ export const ChartTransactionHistoryFridge = memo(function ChartTransactionHisto
 
     if (!filteredData || filteredData.length === 0) {
         return (
-            <Card className="@container/card">
+            <Card ref={containerRef} className="@container/card">
                 <CardHeader>
                     <div className="flex items-center gap-2">
                         <GridStackCardDragHandle />
@@ -355,7 +403,7 @@ export const ChartTransactionHistoryFridge = memo(function ChartTransactionHisto
     }
 
     return (
-        <Card className="@container/card">
+        <Card ref={containerRef} className="@container/card">
             <CardHeader>
                 <div className="flex items-center gap-2">
                     <GridStackCardDragHandle />
@@ -367,9 +415,6 @@ export const ChartTransactionHistoryFridge = memo(function ChartTransactionHisto
                     <CardTitle>Grocery Transaction History</CardTitle>
                 </div>
                 <CardDescription>
-                    <span className="hidden @[540px]/card:block">
-                        Recent grocery purchases by food category
-                    </span>
                     <span className="@[540px]/card:hidden">Items by category</span>
                 </CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">

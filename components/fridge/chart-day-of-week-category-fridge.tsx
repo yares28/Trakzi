@@ -417,7 +417,6 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
                     />
                     <CardTitle>Day of Week Category Spending</CardTitle>
                 </div>
-                <CardDescription>Compare grocery spending across categories by day</CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                     {renderInfoTrigger()}
                     <Select
