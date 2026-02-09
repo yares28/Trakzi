@@ -381,9 +381,6 @@ export const ChartShoppingHeatmapHoursDaysFridge = React.memo(function ChartShop
                     <CardTitle>Shopping Hours Heatmap</CardTitle>
                 </div>
                 <CardDescription>
-                    <span className="hidden @[540px]/card:block">
-                        When you spend the most on groceries ({spendingFormatter.format(totalSpent)} total)
-                    </span>
                 </CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                     {renderInfoTrigger()}

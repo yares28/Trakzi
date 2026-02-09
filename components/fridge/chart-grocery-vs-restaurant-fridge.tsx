@@ -114,7 +114,6 @@ export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVs
         <div className="flex flex-col items-center gap-2">
             <ChartInfoPopover
                 title="Home Food vs Outside Food"
-                description="Monthly comparison of home cooking vs eating out spending."
                 details={[
                     "This chart shows spending from your transaction categories, not receipt items.",
                     "Home Food: Grocery/Groceries/Supermarket categories.",
@@ -126,7 +125,6 @@ export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVs
             <ChartAiInsightButton
                 chartId="fridge:groceryVsRestaurant"
                 chartTitle="Home Food vs Outside Food"
-                chartDescription="Monthly comparison of home cooking vs eating out spending from transaction categories."
                 chartData={{
                     totalHomeFood: totals.homeFood,
                     totalOutsideFood: totals.outsideFood,
@@ -178,9 +176,6 @@ export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVs
                     <CardTitle>Home Food vs Outside Food</CardTitle>
                 </div>
                 <CardDescription>
-                    <span className="hidden @[540px]/card:block">
-                        Monthly comparison of home cooking vs eating out
-                    </span>
                 </CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                     {renderInfoTrigger()}
