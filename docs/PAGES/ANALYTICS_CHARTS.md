@@ -90,11 +90,29 @@ transactionHistory: {
 
 ---
 
+## Trends Tab
+
+The Analytics page includes a **Trends** tab (toggled via Analytics / Advanced / Trends pills). When active, a secondary **Spending / Groceries** toggle appears on the right side of the toggle bar.
+
+| Component | File | Description |
+|-----------|------|-------------|
+| `AnalyticsTrendsTab` | `app/analytics/_page/components/AnalyticsTrendsTab.tsx` | Trends tab content — category trend charts in a sortable grid |
+| `ChartCategoryTrend` | `components/chart-category-trend.tsx` | Individual category area chart (memoized, Recharts) |
+
+**Data sources:**
+- Spending trends: `/api/charts/trends-bundle` via `useTrendsData()`
+- Grocery trends: `/api/charts/groceries-trends-bundle` via `useGroceriesTrendsBundleData()`
+
+> **Note:** The standalone `/trends` page was removed. All trends functionality now lives in the Analytics page Trends tab.
+
+---
+
 ## Key Files
 
 | File | Purpose |
 |------|---------|
 | `app/analytics/_page/components/ChartsGrid.tsx` | Renders all analytics charts |
+| `app/analytics/_page/components/AnalyticsTrendsTab.tsx` | Trends tab with category trend charts |
 | `app/analytics/_page/hooks/useAnalyticsChartData.ts` | Processes bundle data for charts |
 | `app/analytics/_page/constants.ts` | Chart IDs and default sizes |
 | `lib/charts/aggregations.ts` | Server-side data aggregation |

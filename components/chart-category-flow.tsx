@@ -339,10 +339,6 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
             <CardTitle>Spending Category Rankings</CardTitle>
           </div>
           <CardDescription>
-            <span className="hidden @[540px]/card:block">
-              Track how your spending priorities shift over time
-            </span>
-
           </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}

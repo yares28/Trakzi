@@ -84,7 +84,7 @@ export const ChartExpensesPieFridge = memo(function ChartExpensesPieFridge({ dat
                         </span>
                         <CardTitle>Basket Breakdown</CardTitle>
                     </div>
-                    <CardDescription>Your grocery spend by category</CardDescription>
+                    <CardDescription></CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="h-[250px] w-full" />
@@ -103,10 +103,6 @@ export const ChartExpensesPieFridge = memo(function ChartExpensesPieFridge({ dat
                     <CardTitle>Basket Breakdown</CardTitle>
                 </div>
                 <CardDescription>
-                    <span className="hidden @[540px]/card:block">
-                        Distribution of your grocery spending across categories
-                    </span>
-                    <span className="@[540px]/card:hidden">Category distribution</span>
                 </CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                     <div className="flex flex-col items-center gap-2">

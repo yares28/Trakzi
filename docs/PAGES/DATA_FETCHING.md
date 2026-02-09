@@ -17,7 +17,7 @@ Dashboard pages use **bundle API endpoints** that return pre-aggregated data wit
 | `/api/charts/analytics-bundle` | Analytics | KPIs, category/daily/monthly spending | 5 min |
 | `/api/charts/fridge-bundle` | Fridge | KPIs, category/store spending, macros | 5 min |
 | `/api/charts/home-bundle` | Home | KPIs, top categories, activity rings | 5 min |
-| `/api/charts/trends-bundle` | Trends | Category → daily spending trends | 5 min |
+| `/api/charts/trends-bundle` | Analytics (Trends tab) | Category → daily spending trends | 5 min |
 | `/api/charts/savings-bundle` | Savings | Savings KPIs, cumulative chart data | 5 min |
 
 All endpoints accept `?filter=` parameter (e.g., `last30days`, `lastyear`, `2024`).

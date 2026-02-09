@@ -11,8 +11,10 @@ import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
 import { normalizeTransactions } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import {
   FALLBACK_DATE_FILTER,
@@ -20,12 +22,16 @@ import {
   normalizeDateFilterValue,
 } from "@/lib/date-filter"
 
+type SavingsViewMode = "savings" | "debt" | "calculator"
+
 // Persistence keys
 const SAVINGS_ORDER_STORAGE_KEY = "savings-chart-order"
 const SAVINGS_SIZES_STORAGE_KEY = "savings-chart-sizes"
+const SAVINGS_VIEW_MODE_STORAGE_KEY = "savings-view-mode"
 const DEFAULT_SAVINGS_ORDER = ["savingsAccumulation"]
 
 export default function Page() {
+  const [viewMode, setViewMode] = useState<SavingsViewMode>("savings")
   // Transactions state
   const [transactions, setTransactions] = useState<Array<{
     id: number
@@ -42,6 +48,18 @@ export default function Page() {
   // @dnd-kit: Chart order and sizes state
   const [chartOrder, setChartOrder] = useState<string[]>(DEFAULT_SAVINGS_ORDER)
   const [savedChartSizes, setSavedChartSizes] = useState<Record<string, { w: number; h: number }>>({})
+
+  // Load saved view mode from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(SAVINGS_VIEW_MODE_STORAGE_KEY)
+      if (saved === "savings" || saved === "debt" || saved === "calculator") {
+        setViewMode(saved)
+      }
+    } catch (e) {
+      console.error("[Savings] Failed to load view mode from localStorage:", e)
+    }
+  }, [])
 
   // Load saved order and sizes on mount
   useEffect(() => {
@@ -80,6 +98,15 @@ export default function Page() {
       }
       return next
     })
+  }, [])
+
+  const handleViewModeChange = useCallback((mode: SavingsViewMode) => {
+    setViewMode(mode)
+    try {
+      localStorage.setItem(SAVINGS_VIEW_MODE_STORAGE_KEY, mode)
+    } catch (e) {
+      console.error("[Savings] Failed to save view mode:", e)
+    }
   }, [])
 
   // Fetch transactions for charts - filter for savings category only
@@ -381,6 +408,7 @@ export default function Page() {
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
             <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+              {/* Top summary cards – shared layout for all modes */}
               <SectionCards
                 totalIncome={stats.totalIncome}
                 totalExpenses={stats.totalExpenses}
@@ -394,36 +422,127 @@ export default function Page() {
                 expensesTrend={statsTrends.expensesTrend}
                 netWorthTrend={statsTrends.netWorthTrend}
               />
-              {/* @dnd-kit chart grid */}
-              <div className="px-4 lg:px-6">
-                <SortableGridProvider
-                  chartOrder={chartOrder}
-                  onOrderChange={handleOrderChange}
-                >
-                  {chartOrder.map((chartId) => {
-                    const sizeConfig = getChartCardSize(chartId as ChartId)
-                    const savedSize = savedChartSizes[chartId]
-                    return (
-                      <SortableGridItem
-                        key={chartId}
-                        id={chartId}
-                        w={(savedSize?.w ?? 12) as any}
-                        h={savedSize?.h ?? sizeConfig.minH}
-                        resizable
-                        minW={sizeConfig.minW}
-                        maxW={sizeConfig.maxW}
-                        minH={sizeConfig.minH}
-                        maxH={sizeConfig.maxH}
-                        onResize={handleResize}
-                      >
-                        {chartId === 'savingsAccumulation' && (
-                          <ChartSavingsAccumulation data={chartData} />
-                        )}
-                      </SortableGridItem>
-                    )
-                  })}
-                </SortableGridProvider>
-              </div>
+
+              {/* Savings / Debt / Calculator switch (under top cards) */}
+              <section className="px-4 lg:px-6">
+                <div className="flex justify-center">
+                  <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border">
+                    <button
+                      type="button"
+                      onClick={() => handleViewModeChange("savings")}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                        viewMode === "savings"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Savings
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleViewModeChange("debt")}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                        viewMode === "debt"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Debt
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleViewModeChange("calculator")}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                        viewMode === "calculator"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Calculator
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              {viewMode === "savings" && (
+                <>
+                  {/* @dnd-kit chart grid */}
+                  <div className="px-4 lg:px-6">
+                    <SortableGridProvider
+                      chartOrder={chartOrder}
+                      onOrderChange={handleOrderChange}
+                    >
+                      {chartOrder.map((chartId) => {
+                        const sizeConfig = getChartCardSize(chartId as ChartId)
+                        const savedSize = savedChartSizes[chartId]
+                        return (
+                          <SortableGridItem
+                            key={chartId}
+                            id={chartId}
+                            w={(savedSize?.w ?? 12) as any}
+                            h={savedSize?.h ?? sizeConfig.minH}
+                            resizable
+                            minW={sizeConfig.minW}
+                            maxW={sizeConfig.maxW}
+                            minH={sizeConfig.minH}
+                            maxH={sizeConfig.maxH}
+                            onResize={handleResize}
+                          >
+                            {chartId === "savingsAccumulation" && (
+                              <ChartSavingsAccumulation data={chartData} />
+                            )}
+                          </SortableGridItem>
+                        )
+                      })}
+                    </SortableGridProvider>
+                  </div>
+                </>
+              )}
+
+              {viewMode === "debt" && (
+                <section className="px-4 lg:px-6">
+                  <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-1">
+                    <Card className="@container/card h-full flex flex-col">
+                      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-base font-medium">
+                            Debt Overview
+                          </CardTitle>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1">
+                        <div className="h-[250px] w-full flex items-center justify-center text-sm text-muted-foreground">
+                          Debt charts will appear here once configured.
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </section>
+              )}
+
+              {viewMode === "calculator" && (
+                <section className="px-4 lg:px-6">
+                  <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-1">
+                    <Card className="@container/card h-full flex flex-col">
+                      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-base font-medium">
+                            Savings & Payoff Calculator
+                          </CardTitle>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1">
+                        <div className="h-[250px] w-full flex items-center justify-center text-sm text-muted-foreground">
+                          Your interactive calculator will live here.
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </section>
+              )}
             </div>
           </div>
         </div>

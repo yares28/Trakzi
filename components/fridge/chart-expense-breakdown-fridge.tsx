@@ -178,7 +178,7 @@ export const ChartExpenseBreakdownFridge = memo(function ChartExpenseBreakdownFr
         isOpen={isFullscreen}
         onClose={() => setIsFullscreen(false)}
         title="Expense Breakdown"
-        description="Grocery expenses by receipt category"
+        description=""
         headerActions={renderInfoTrigger(true)}
       >
         <div className="h-full w-full min-h-[400px] text-center flex items-center justify-center text-muted-foreground">

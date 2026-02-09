@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
         if (prefix) {
             // Validate prefix
-            const validPrefixes = ["analytics", "fridge", "home", "trends", "savings", "categories", "data-library"] as const;
+            const validPrefixes = ["analytics", "fridge", "home", "trends", "savings", "categories", "data-library", "pockets"] as const;
             if (!validPrefixes.includes(prefix as any)) {
                 return NextResponse.json(
                     { error: `Invalid prefix. Valid options: ${validPrefixes.join(", ")}` },
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
             // Revalidate Next/Vercel server cache for main routes so no stale data is served
             const paths = [
                 "/", "/analytics", "/home", "/fridge", "/savings", "/trends",
-                "/data-library", "/world-map", "/billing", "/testCharts",
+                "/data-library", "/pockets", "/billing", "/testCharts",
             ];
             for (const path of paths) {
                 revalidatePath(path);
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
 
         if (all === "true") {
             await invalidateUserCache(userId);
-            const paths = ["/", "/analytics", "/home", "/fridge", "/savings", "/trends", "/data-library", "/world-map", "/billing", "/testCharts"];
+            const paths = ["/", "/analytics", "/home", "/fridge", "/savings", "/trends", "/data-library", "/pockets", "/billing", "/testCharts"];
             for (const path of paths) revalidatePath(path);
             return NextResponse.json({
                 success: true,
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
         }
 
         if (prefix) {
-            const validPrefixes = ["analytics", "fridge", "home", "trends", "savings", "categories", "data-library"] as const;
+            const validPrefixes = ["analytics", "fridge", "home", "trends", "savings", "categories", "data-library", "pockets"] as const;
             if (!validPrefixes.includes(prefix as any)) {
                 return NextResponse.json(
                     { error: `Invalid prefix. Valid options: ${validPrefixes.join(", ")}` },
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
                 "GET /api/cache/invalidate?prefix=analytics": "Invalidate analytics cache",
                 "POST /api/cache/invalidate": "Invalidate all (or specify prefix in body)",
             },
-            validPrefixes: ["analytics", "fridge", "home", "trends", "savings", "categories", "data-library"],
+            validPrefixes: ["analytics", "fridge", "home", "trends", "savings", "categories", "data-library", "pockets"],
         });
     } catch (error: any) {
         if (error.message?.includes("sign in") || error.message?.includes("auth")) {

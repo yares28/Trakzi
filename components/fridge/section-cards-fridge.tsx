@@ -9,9 +9,7 @@ import { useCurrency } from "@/components/currency-provider"
 import { Badge } from "@/components/ui/badge"
 import {
     Card,
-    CardAction,
     CardDescription,
-    CardFooter,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
@@ -148,122 +146,83 @@ export function SectionCardsFridge({
         <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @3xl/main:grid-cols-3 @5xl/main:grid-cols-5 min-w-0">
             <Card className="@container/card relative overflow-hidden">
                 <TrendLineBackground color={trendColors[0]} seed={1} dataPoints={totalSpentTrend} />
-                <CardHeader>
-                    <CardDescription>Total Spent</CardDescription>
-                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                        {formatCurrency(totalSpent)}
-                    </CardTitle>
-                    <CardAction>
-                        <Badge variant="outline">
-                            {totalSpentChange >= 0 ? <IconTrendingUp /> : <IconTrendingDown />}
+                <CardHeader className="pb-3">
+                    <CardDescription className="text-xs mb-1">Total Spent</CardDescription>
+                    <div className="flex items-baseline justify-between gap-2">
+                        <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                            {formatCurrency(totalSpent)}
+                        </CardTitle>
+                        <Badge variant="outline" className="text-xs h-6">
+                            {totalSpentChange >= 0 ? <IconTrendingUp className="size-3" /> : <IconTrendingDown className="size-3" />}
                             {totalSpentChange >= 0 ? "+" : ""}
                             {totalSpentChange.toFixed(1)}%
                         </Badge>
-                    </CardAction>
+                    </div>
                 </CardHeader>
-                <CardFooter className="flex-col items-start gap-1.5 text-sm">
-                    <div className="line-clamp-1 flex gap-2 font-medium">
-                        {totalSpentChange >= 0 ? "Spending up" : "Spending down"}{" "}
-                        {totalSpentChange >= 0 ? <IconTrendingUp className="size-4" /> : <IconTrendingDown className="size-4" />}
-                    </div>
-                    <div className="text-muted-foreground">
-                        Compared to previous period
-                    </div>
-                </CardFooter>
             </Card>
             <Card className="@container/card relative overflow-hidden">
                 <TrendLineBackground color={trendColors[1]} seed={2} dataPoints={shoppingTripsTrend} />
-                <CardHeader>
-                    <CardDescription>Shopping Trips</CardDescription>
-                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                        {shoppingTrips}
-                    </CardTitle>
-                    <CardAction>
-                        <Badge variant="outline">
-                            {shoppingTripsChange >= 0 ? <IconTrendingUp /> : <IconTrendingDown />}
+                <CardHeader className="pb-3">
+                    <CardDescription className="text-xs mb-1">Shopping Trips</CardDescription>
+                    <div className="flex items-baseline justify-between gap-2">
+                        <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                            {shoppingTrips}
+                        </CardTitle>
+                        <Badge variant="outline" className="text-xs h-6">
+                            {shoppingTripsChange >= 0 ? <IconTrendingUp className="size-3" /> : <IconTrendingDown className="size-3" />}
                             {shoppingTripsChange >= 0 ? "+" : ""}
                             {shoppingTripsChange.toFixed(1)}%
                         </Badge>
-                    </CardAction>
+                    </div>
                 </CardHeader>
-                <CardFooter className="flex-col items-start gap-1.5 text-sm">
-                    <div className="line-clamp-1 flex gap-2 font-medium">
-                        {shoppingTripsChange >= 0 ? "More trips" : "Fewer trips"}{" "}
-                        {shoppingTripsChange >= 0 ? <IconTrendingUp className="size-4" /> : <IconTrendingDown className="size-4" />}
-                    </div>
-                    <div className="text-muted-foreground">
-                        Compared to previous period
-                    </div>
-                </CardFooter>
             </Card>
             <Card className="@container/card relative overflow-hidden">
                 <TrendLineBackground color={trendColors[2]} seed={3} dataPoints={storesVisitedTrend} />
-                <CardHeader>
-                    <CardDescription>Stores Visited</CardDescription>
-                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                        {storesVisited}
-                    </CardTitle>
-                    <CardAction>
-                        <Badge variant="outline">
-                            {storesVisitedChange >= 0 ? <IconTrendingUp /> : <IconTrendingDown />}
+                <CardHeader className="pb-3">
+                    <CardDescription className="text-xs mb-1">Stores Visited</CardDescription>
+                    <div className="flex items-baseline justify-between gap-2">
+                        <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                            {storesVisited}
+                        </CardTitle>
+                        <Badge variant="outline" className="text-xs h-6">
+                            {storesVisitedChange >= 0 ? <IconTrendingUp className="size-3" /> : <IconTrendingDown className="size-3" />}
                             {storesVisitedChange >= 0 ? "+" : ""}
                             {storesVisitedChange.toFixed(1)}%
                         </Badge>
-                    </CardAction>
-                </CardHeader>
-                <CardFooter className="flex-col items-start gap-1.5 text-sm">
-                    <div className="line-clamp-1 flex gap-2 font-medium">
-                        {storesVisitedChange >= 0 ? "Shopping across more stores" : "Shopping across fewer stores"}{" "}
-                        {storesVisitedChange >= 0 ? <IconTrendingUp className="size-4" /> : <IconTrendingDown className="size-4" />}
                     </div>
-                    <div className="text-muted-foreground">Compared to previous period</div>
-                </CardFooter>
+                </CardHeader>
             </Card>
             <Card className="@container/card relative overflow-hidden">
                 <TrendLineBackground color={trendColors[3]} seed={4} dataPoints={averageReceiptTrend} />
-                <CardHeader>
-                    <CardDescription>Average Receipt</CardDescription>
-                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                        {formatCurrency(averageReceipt)}
-                    </CardTitle>
-                    <CardAction>
-                        <Badge variant="outline">
-                            {averageReceiptChange >= 0 ? <IconTrendingUp /> : <IconTrendingDown />}
+                <CardHeader className="pb-3">
+                    <CardDescription className="text-xs mb-1">Average Receipt</CardDescription>
+                    <div className="flex items-baseline justify-between gap-2">
+                        <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                            {formatCurrency(averageReceipt)}
+                        </CardTitle>
+                        <Badge variant="outline" className="text-xs h-6">
+                            {averageReceiptChange >= 0 ? <IconTrendingUp className="size-3" /> : <IconTrendingDown className="size-3" />}
                             {averageReceiptChange >= 0 ? "+" : ""}
                             {averageReceiptChange.toFixed(1)}%
                         </Badge>
-                    </CardAction>
-                </CardHeader>
-                <CardFooter className="flex-col items-start gap-1.5 text-sm">
-                    <div className="line-clamp-1 flex gap-2 font-medium">
-                        {averageReceiptChange >= 0 ? "Cost per trip rising" : "Cost per trip falling"}{" "}
-                        {averageReceiptChange >= 0 ? <IconTrendingUp className="size-4" /> : <IconTrendingDown className="size-4" />}
                     </div>
-                    <div className="text-muted-foreground">Compared to previous period</div>
-                </CardFooter>
+                </CardHeader>
             </Card>
             <Card className="@container/card relative overflow-hidden">
                 <TrendLineBackground color={trendColors[4]} seed={5} dataPoints={tripsFrequencyTrend} />
-                <CardHeader>
-                    <CardDescription>Trips Frequency</CardDescription>
-                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                        {tripsFrequency.toFixed(1)} days
-                    </CardTitle>
-                    <CardAction>
-                        <Badge variant="outline">
-                            {tripsFrequencyChange >= 0 ? <IconTrendingUp /> : <IconTrendingDown />}
+                <CardHeader className="pb-3">
+                    <CardDescription className="text-xs mb-1">Trips Frequency</CardDescription>
+                    <div className="flex items-baseline justify-between gap-2">
+                        <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                            {tripsFrequency.toFixed(1)} days
+                        </CardTitle>
+                        <Badge variant="outline" className="text-xs h-6">
+                            {tripsFrequencyChange >= 0 ? <IconTrendingUp className="size-3" /> : <IconTrendingDown className="size-3" />}
                             {tripsFrequencyChange >= 0 ? "+" : ""}
                             {tripsFrequencyChange.toFixed(1)}%
                         </Badge>
-                    </CardAction>
-                </CardHeader>
-                <CardFooter className="flex-col items-start gap-1.5 text-sm">
-                    <div className="line-clamp-1 flex gap-2 font-medium">
-                        {tripsFrequencyChange >= 0 ? "Shopping less often" : "Shopping more often"}{" "}
-                        {tripsFrequencyChange >= 0 ? <IconTrendingDown className="size-4" /> : <IconTrendingUp className="size-4" />}
                     </div>
-                    <div className="text-muted-foreground">Average days between trips</div>
-                </CardFooter>
+                </CardHeader>
             </Card>
         </div>
     )

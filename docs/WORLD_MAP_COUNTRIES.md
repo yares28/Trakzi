@@ -1,12 +1,28 @@
 # World Map - Countries Reference
 
-This file documents all countries available in the GeoJSON data, multi-part country rendering, and known limitations.
+This file documents all countries available in the GeoJSON data, extra SVG outlines for missing countries, multi-part country rendering, and known limitations.
 
 ## GeoJSON Source
 
 - **File:** `lib/data/world-countries.json`
 - **Total Countries:** 176
 - **Format:** GeoJSON FeatureCollection
+
+---
+
+## Extra Outlines (SVG)
+
+Countries that are **not** in the GeoJSON file are rendered using SVG outlines from `public/extraoutlines/`. The mapping from country name to filename is in `app/pockets/_page/components/CountryOutline.tsx` (`EXTRA_OUTLINE_FILES`).
+
+- **Folder:** `public/extraoutlines/`
+- **Total with extra outline:** 30
+- **Format:** SVG (one file per country)
+
+### Available Extra Outlines (30)
+
+Andorra, Antigua and Barbuda, Bahrain, Barbados, Cape Verde, Comoros, Dominica, Grenada, Kiribati, Liechtenstein, Maldives, Malta, Marshall Islands, Mauritius, Micronesia, Monaco, Nauru, North Korea, Palau, Saint Kitts and Nevis, Saint Lucia, Saint Vincent and the Grenadines, Samoa, San Marino, Sao Tome and Principe, Seychelles, Singapore, Tonga, Tuvalu, Vatican City
+
+All 30 UN member states that were missing from GeoJSON now have extra outline SVGs.
 
 ---
 
@@ -22,15 +38,17 @@ Afghanistan, Albania, Algeria, Angola, Antarctica, Argentina, Armenia, Australia
 
 ### UN Member States Missing (30)
 
-| Category | Countries |
-|----------|-----------|
-| **East Asia** | North Korea, Singapore |
-| **Middle East** | Bahrain |
-| **Europe (Microstates)** | Monaco*, Andorra, Liechtenstein, San Marino, Vatican City, Malta |
-| **Caribbean** | Barbados, Grenada*, Saint Lucia, Saint Vincent & the Grenadines, Antigua & Barbuda, Saint Kitts & Nevis, Dominica |
-| **Indian Ocean** | Maldives, Mauritius, Seychelles, Comoros |
-| **Africa** | Cape Verde, Sao Tome & Principe |
-| **Pacific** | Palau, Micronesia*, Marshall Islands, Nauru, Tuvalu, Kiribati, Samoa, Tonga |
+All 30 are now covered by **extra outlines** (see [Extra Outlines (SVG)](#extra-outlines-svg)).
+
+| Category | Countries | Extra outline |
+|----------|-----------|----------------|
+| **East Asia** | North Korea, Singapore | ✅ Both |
+| **Middle East** | Bahrain | ✅ |
+| **Europe (Microstates)** | Monaco, Andorra, Liechtenstein, San Marino, Vatican City, Malta | ✅ All |
+| **Caribbean** | Barbados, Grenada, Saint Lucia, Saint Vincent & the Grenadines, Antigua & Barbuda, Saint Kitts & Nevis, Dominica | ✅ All |
+| **Indian Ocean** | Maldives, Mauritius, Seychelles, Comoros | ✅ All |
+| **Africa** | Cape Verde, Sao Tome & Principe | ✅ Both |
+| **Pacific** | Palau, Micronesia, Marshall Islands, Nauru, Tuvalu, Kiribati, Samoa, Tonga | ✅ All |
 
 ### Disputed/Partially Recognized States (5)
 
@@ -178,8 +196,10 @@ All outlines use `cos(latitude)` correction to prevent horizontal distortion at 
 
 ### Large Country Sizing
 
-Countries with extreme aspect ratios render at 280px instead of 200px:
-- Russia, USA, Canada, Antarctica, Indonesia, China
+- **200px** (default): most countries
+- **280px**: Russia, USA, Canada, Antarctica, Indonesia, China (extreme aspect ratio)
+- **320px**: Micronesia (extra outline)
+- **420px**: Monaco (extra outline — smallest, largest render)
 
 ### GeoJSON Name Mapping
 

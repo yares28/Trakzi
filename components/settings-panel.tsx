@@ -18,6 +18,7 @@ import {
     IconCreditCard,
     IconExternalLink,
     IconX,
+    IconCheck,
 } from "@tabler/icons-react"
 import {
     Dialog,
@@ -33,22 +34,21 @@ import { cn } from "@/lib/utils"
 import { useColorScheme, colorPalettes } from "@/components/color-scheme-provider"
 import { useCurrency, currencies } from "@/components/currency-provider"
 import { useDateFilter } from "@/components/date-filter-provider"
+import { useUserPreferences } from "@/components/user-preferences-provider"
 import { PlanCard } from "@/components/subscription-dialog/PlanCard"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import type { PlanType, SubscriptionStatus } from "@/components/subscription-dialog/types"
 import { AnimatedThemeSwitcher } from "@/components/animated-theme-switcher"
 import { useIsMobile } from "@/hooks/use-mobile"
 
-type SettingsSection = "appearance" | "currency" | "time-period" | "subscription" | "bug-report"
+type SettingsSection = "preferences" | "subscription" | "bug-report"
 
 interface SettingsPanelProps {
     children: React.ReactNode
 }
 
 const sidebarItems: { id: SettingsSection; label: string; icon: React.ReactNode }[] = [
-    { id: "appearance", label: "Appearance", icon: <IconPalette className="size-4" /> },
-    { id: "currency", label: "Currency", icon: <IconCoin className="size-4" /> },
-    { id: "time-period", label: "Time Period", icon: <IconCalendar className="size-4" /> },
+    { id: "preferences", label: "Preferences", icon: <IconPalette className="size-4" /> },
     { id: "subscription", label: "Subscription", icon: <IconCrown className="size-4" /> },
     { id: "bug-report", label: "Bug Report", icon: <IconBug className="size-4" /> },
 ]
@@ -71,17 +71,17 @@ const paletteInfo: { id: string; label: string; enabled: boolean }[] = [
 
 // Date filter options
 const timeFilterOptions = [
-    { value: "last-7-days", label: "Last 7 Days", mobileVisible: true },
-    { value: "last-30-days", label: "Last 30 Days", mobileVisible: true },
-    { value: "last-3-months", label: "Last 3 Months", mobileVisible: true },
-    { value: "last-6-months", label: "Last 6 Months", mobileVisible: true },
-    { value: "last-year", label: "Last Year", mobileVisible: false },
+    { value: "last7days", label: "Last 7 Days", mobileVisible: true },
+    { value: "last30days", label: "Last 30 Days", mobileVisible: true },
+    { value: "last3months", label: "Last 3 Months", mobileVisible: true },
+    { value: "last6months", label: "Last 6 Months", mobileVisible: true },
+    { value: "lastyear", label: "Last Year", mobileVisible: false },
     { value: "ytd", label: "Year to Date", mobileVisible: false },
 ]
 
 export function SettingsPanel({ children }: SettingsPanelProps) {
     const [open, setOpen] = React.useState(false)
-    const [activeSection, setActiveSection] = React.useState<SettingsSection>("appearance")
+    const [activeSection, setActiveSection] = React.useState<SettingsSection>("preferences")
     const isMobile = useIsMobile()
 
     return (
@@ -99,12 +99,12 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                     "flex w-full overflow-hidden",
                     isMobile ? "flex-col h-full min-h-0" : "flex-row h-[500px]"
                 )}>
-                    {/* Mobile: ChatGPT-style layout */}
+                    {/* Mobile: minimal layout */}
                     {isMobile ? (
                         <>
                             {/* Header with section title and close button */}
                             <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
-                                <span className="text-base font-semibold">
+                                <span className="text-base font-semibold tracking-tight">
                                     {sidebarItems.find(item => item.id === activeSection)?.label || "Settings"}
                                 </span>
                                 <button
@@ -142,9 +142,7 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                                     scrollbarColor: 'hsl(var(--muted-foreground) / 0.3) transparent'
                                 }}
                             >
-                                {activeSection === "appearance" && <AppearanceSection />}
-                                {activeSection === "currency" && <CurrencySection />}
-                                {activeSection === "time-period" && <TimePeriodSection />}
+                                {activeSection === "preferences" && <PreferencesContent />}
                                 {activeSection === "subscription" && <SubscriptionSection />}
                                 {activeSection === "bug-report" && <BugReportSection />}
                             </main>
@@ -154,7 +152,7 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                         <>
                             <nav className="w-[200px] border-r bg-muted/30 flex flex-col">
                                 <DialogHeader className="p-4 pb-2">
-                                    <DialogTitle className="text-lg font-semibold">Settings</DialogTitle>
+                                    <DialogTitle className="text-lg font-semibold tracking-tight">Settings</DialogTitle>
                                 </DialogHeader>
                                 <div className="flex-1 p-2 space-y-1">
                                     {sidebarItems.map((item) => (
@@ -184,9 +182,7 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                                     scrollbarColor: 'hsl(var(--muted-foreground) / 0.3) transparent'
                                 }}
                             >
-                                {activeSection === "appearance" && <AppearanceSection />}
-                                {activeSection === "currency" && <CurrencySection />}
-                                {activeSection === "time-period" && <TimePeriodSection />}
+                                {activeSection === "preferences" && <PreferencesContent />}
                                 {activeSection === "subscription" && <SubscriptionSection />}
                                 {activeSection === "bug-report" && <BugReportSection />}
                             </main>
@@ -199,22 +195,35 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
 }
 
 
+// ============ PREFERENCES CONTENT WRAPPER ============
+function PreferencesContent() {
+    return (
+        <div className="space-y-10">
+            <AppearanceSection />
+            <FontsSection />
+            <CurrencySection />
+            <TimePeriodSection />
+            <LayoutSection />
+        </div>
+    )
+}
+
 // ============ APPEARANCE SECTION ============
 function AppearanceSection() {
     const { colorScheme, setColorScheme } = useColorScheme()
 
     return (
-        <div className="space-y-6">
-            {/* Theme - Animated switcher with Light/Dark/System */}
-            <div>
-                <h3 className="text-sm font-medium mb-3">Theme</h3>
+        <div className="space-y-8">
+            {/* Theme */}
+            <div className="space-y-3">
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">Theme</span>
                 <AnimatedThemeSwitcher />
             </div>
 
             {/* Color Palette */}
-            <div>
-                <h3 className="text-sm font-medium mb-3">Color Palette</h3>
-                <div className="grid grid-cols-4 gap-3">
+            <div className="space-y-3">
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">Color Palette</span>
+                <div className="grid grid-cols-3 gap-2.5">
                     {paletteInfo.map((palette) => {
                         const colors = colorPalettes[palette.id as keyof typeof colorPalettes]
                         const isSelected = colorScheme === palette.id
@@ -226,27 +235,28 @@ function AppearanceSection() {
                                 disabled={isDisabled}
                                 onClick={() => !isDisabled && setColorScheme(palette.id as any)}
                                 className={cn(
-                                    "relative flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all",
-                                    isSelected && "ring-2 ring-primary ring-offset-2",
-                                    isDisabled
-                                        ? "opacity-50 cursor-not-allowed"
-                                        : "hover:border-primary/50 cursor-pointer"
+                                    "group relative flex flex-col items-center gap-2 p-2.5 rounded-xl border transition-all duration-200",
+                                    isSelected && "ring-2 ring-primary/80 border-primary/30 bg-primary/[0.03] shadow-sm",
+                                    !isSelected && !isDisabled && "border-border/40 hover:border-border hover:shadow-sm",
+                                    isDisabled && "opacity-35 cursor-not-allowed"
                                 )}
                             >
-                                {/* Gradient swatch */}
                                 <div
-                                    className="w-full h-8 rounded-md"
+                                    className="w-full h-10 rounded-lg"
                                     style={{
-                                        background: `linear-gradient(to right, ${colors.slice(0, 5).join(", ")})`,
+                                        background: `linear-gradient(135deg, ${colors.slice(0, 6).join(", ")})`,
                                     }}
                                 />
-                                <span className="text-xs font-medium">
+                                <span className={cn(
+                                    "text-[11px] font-medium transition-colors",
+                                    isSelected ? "text-primary" : "text-muted-foreground"
+                                )}>
                                     {palette.label}
                                 </span>
-                                {isDisabled && (
-                                    <span className="absolute -top-1 -right-1 text-[10px] bg-muted px-1.5 py-0.5 rounded-full">
-                                        Soon
-                                    </span>
+                                {isSelected && (
+                                    <div className="absolute -top-1.5 -right-1.5 size-[18px] rounded-full bg-primary flex items-center justify-center shadow-sm">
+                                        <IconCheck className="size-2.5 text-primary-foreground" strokeWidth={3} />
+                                    </div>
                                 )}
                             </button>
                         )
@@ -254,32 +264,34 @@ function AppearanceSection() {
                 </div>
             </div>
 
-            {/* Layout Randomize */}
-            <div>
-                <h3 className="text-sm font-medium mb-3">Shuffle Layout</h3>
-                <p className="text-xs text-muted-foreground mb-3">
-                    Randomize the position of dashboard cards
-                </p>
-                <div className="grid grid-cols-2 gap-2">
+            {/* Layout Shuffle */}
+            <div className="space-y-3">
+                <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">Shuffle Layout</span>
+                    <p className="text-[11px] text-muted-foreground/60 mt-1">
+                        Randomize the position of dashboard cards
+                    </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2.5">
                     <button
                         onClick={() => {
                             window.dispatchEvent(new CustomEvent("gridstack:randomize"))
-                            toast.success("Analytics cards shuffled!")
+                            toast.success("Analytics layout updated")
                         }}
-                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-muted/40 hover:bg-muted/60 border border-muted-foreground/20 hover:border-primary/50 transition-all"
+                        className="group flex items-center justify-center gap-2 rounded-xl border border-border/40 bg-muted/20 px-3 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 hover:border-border transition-all duration-200"
                     >
-                        <span className="text-lg">📊</span>
-                        <span className="text-sm font-medium">Analytics</span>
+                        <IconLayoutGrid className="size-3.5 opacity-50 group-hover:opacity-80 transition-opacity" />
+                        Analytics
                     </button>
                     <button
                         onClick={() => {
                             window.dispatchEvent(new CustomEvent("gridstack:randomize:fridge"))
-                            toast.success("Fridge cards shuffled!")
+                            toast.success("Fridge layout updated")
                         }}
-                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-muted/40 hover:bg-muted/60 border border-muted-foreground/20 hover:border-primary/50 transition-all"
+                        className="group flex items-center justify-center gap-2 rounded-xl border border-border/40 bg-muted/20 px-3 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 hover:border-border transition-all duration-200"
                     >
-                        <span className="text-lg">🧊</span>
-                        <span className="text-sm font-medium">Fridge</span>
+                        <IconLayoutGrid className="size-3.5 opacity-50 group-hover:opacity-80 transition-opacity" />
+                        Fridge
                     </button>
                 </div>
             </div>
@@ -291,23 +303,16 @@ function AppearanceSection() {
 function CurrencySection() {
     const { currency, setCurrency } = useCurrency()
 
-    const currencyFlags: Record<string, string> = {
-        EUR: "🇪🇺",
-        USD: "🇺🇸",
-        GBP: "🇬🇧",
-    }
-
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
             <div>
-                <h3 className="text-sm font-medium mb-1">Currency</h3>
-                <p className="text-xs text-muted-foreground mb-4">
-                    Choose how monetary values are displayed throughout the app
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">Currency</span>
+                <p className="text-[11px] text-muted-foreground/60 mt-1">
+                    How monetary values are displayed
                 </p>
             </div>
 
-            {/* Currency Cards - Compact Grid */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="flex flex-wrap gap-1.5">
                 {Object.entries(currencies).map(([code, config]) => {
                     const isSelected = currency === code
                     return (
@@ -315,39 +320,26 @@ function CurrencySection() {
                             key={code}
                             onClick={() => setCurrency(code)}
                             className={cn(
-                                "relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200",
+                                "relative inline-flex items-center justify-center rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-all duration-150",
                                 isSelected
-                                    ? "border-primary bg-gradient-to-br from-primary/10 to-primary/5 shadow-md"
-                                    : "border-transparent bg-muted/40 hover:bg-muted/60 hover:border-muted-foreground/20"
+                                    ? "border-primary bg-primary/[0.06] text-primary"
+                                    : "border-border/40 bg-muted/15 text-muted-foreground hover:border-border hover:bg-muted/30"
                             )}
                         >
-                            <span className="text-2xl">{currencyFlags[code]}</span>
-                            <div className="text-center">
-                                <div className={cn(
-                                    "text-xl font-bold transition-colors",
-                                    isSelected ? "text-primary" : "text-foreground"
-                                )}>
-                                    {config.symbol}
-                                </div>
-                                <div className="text-xs text-muted-foreground font-medium">{code}</div>
-                            </div>
-                            {isSelected && (
-                                <div className="absolute -top-1 -right-1 size-5 bg-primary rounded-full flex items-center justify-center">
-                                    <span className="text-[10px] text-primary-foreground">✓</span>
-                                </div>
-                            )}
+                            <span className="font-semibold mr-1.5">{config.symbol}</span>
+                            <span>{code}</span>
                         </button>
                     )
                 })}
             </div>
 
-            {/* Preview */}
-            <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-dashed">
-                <p className="text-xs text-muted-foreground text-center">
-                    Preview: <span className="font-semibold text-foreground">
-                        {currency === "EUR" ? "1,234.56€" : currency === "GBP" ? "£1,234.56" : "$1,234.56"}
+            <div className="rounded-xl bg-muted/15 border border-border/30 px-4 py-2.5 text-center">
+                <span className="text-[11px] text-muted-foreground/70">
+                    Preview:{" "}
+                    <span className="font-semibold text-foreground">
+                        {currency === "EUR" ? "1,234.56 €" : currency === "GBP" ? "£1,234.56" : "$1,234.56"}
                     </span>
-                </p>
+                </span>
             </div>
         </div>
     )
@@ -358,7 +350,6 @@ function TimePeriodSection() {
     const { filter, setFilter } = useDateFilter()
     const isMobile = useIsMobile()
 
-    // Filter options based on mobile visibility
     const visibleOptions = isMobile
         ? timeFilterOptions.filter(o => o.mobileVisible)
         : timeFilterOptions
@@ -371,27 +362,16 @@ function TimePeriodSection() {
         toast.success("Default time period updated", { description: `Set to ${timeFilterOptions.find(o => o.value === value)?.label}` })
     }
 
-    const periodIcons: Record<string, string> = {
-        "last-7-days": "📆",
-        "last-30-days": "📅",
-        "last-3-months": "🗓️",
-        "last-6-months": "📊",
-        "last-year": "📈",
-        "ytd": "🎯",
-        "all-time": "♾️",
-    }
-
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
             <div>
-                <h3 className="text-sm font-medium mb-1">Default Time Period</h3>
-                <p className="text-xs text-muted-foreground mb-4">
-                    Set the default date range for all charts and analytics
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">Default Time Period</span>
+                <p className="text-[11px] text-muted-foreground/60 mt-1">
+                    Date range for charts and analytics
                 </p>
             </div>
 
-            {/* Time Period Grid */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2.5">
                 {visibleOptions.map((option) => {
                     const isSelected = filter === option.value
                     return (
@@ -399,29 +379,78 @@ function TimePeriodSection() {
                             key={option.value}
                             onClick={() => handleSetDefault(option.value)}
                             className={cn(
-                                "relative flex items-center gap-3 p-3 rounded-xl border-2 transition-all duration-200 text-left",
+                                "relative flex items-center justify-center rounded-lg border-2 px-3 py-2 text-sm font-medium transition-all duration-200",
                                 isSelected
-                                    ? "border-primary bg-gradient-to-br from-primary/10 to-primary/5 shadow-md"
-                                    : "border-transparent bg-muted/40 hover:bg-muted/60 hover:border-muted-foreground/20"
+                                    ? "border-primary bg-primary/10 text-primary font-semibold"
+                                    : "border-border/40 bg-muted/15 text-muted-foreground hover:text-foreground hover:border-border/60"
                             )}
                         >
-                            <span className="text-xl">{periodIcons[option.value]}</span>
-                            <div className="flex-1 min-w-0">
-                                <div className={cn(
-                                    "text-sm font-medium truncate transition-colors",
-                                    isSelected ? "text-primary" : "text-foreground"
-                                )}>
-                                    {option.label}
-                                </div>
-                            </div>
+                            {option.label}
+                        </button>
+                    )
+                })}
+            </div>
+        </div>
+    )
+}
+
+
+// ============ FONTS SECTION ============
+const fontOptions = [
+    { id: "geist-sans", label: "Geist Sans", description: "Clean, modern sans-serif", fontClass: "font-sans" },
+    { id: "geist-mono", label: "Geist Mono", description: "Monospaced, technical feel", fontClass: "font-mono" },
+] as const
+
+function FontsSection() {
+    const { preferences, updatePagePreferences } = useUserPreferences()
+    const currentFont = preferences.settings?.font || "geist-sans"
+
+    return (
+        <div className="space-y-3">
+            <div>
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">Font</span>
+                <p className="text-[11px] text-muted-foreground/60 mt-1">
+                    Applied across all pages
+                </p>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5">
+                {fontOptions.map((option) => {
+                    const isSelected = currentFont === option.id
+                    return (
+                        <button
+                            key={option.id}
+                            onClick={() => updatePagePreferences("settings", { font: option.id })}
+                            className={cn(
+                                "relative flex flex-col items-start rounded-xl border px-4 py-3 transition-all duration-150 text-left flex-1 min-w-[140px]",
+                                isSelected
+                                    ? "border-primary bg-primary/[0.06]"
+                                    : "border-border/40 bg-muted/15 hover:border-border hover:bg-muted/30"
+                            )}
+                        >
+                            <span className={cn("text-sm font-medium", option.fontClass, isSelected && "text-primary")}>
+                                {option.label}
+                            </span>
+                            <span className={cn("text-[11px] text-muted-foreground/70 mt-0.5", option.fontClass)}>
+                                {option.description}
+                            </span>
                             {isSelected && (
-                                <div className="size-5 bg-primary rounded-full flex items-center justify-center shrink-0">
-                                    <span className="text-[10px] text-primary-foreground">✓</span>
+                                <div className="absolute -top-1.5 -right-1.5 size-[18px] rounded-full bg-primary flex items-center justify-center shadow-sm">
+                                    <IconCheck className="size-2.5 text-primary-foreground" strokeWidth={3} />
                                 </div>
                             )}
                         </button>
                     )
                 })}
+            </div>
+
+            <div className="rounded-xl bg-muted/15 border border-border/30 px-4 py-2.5">
+                <p className={cn(
+                    "text-[11px] text-muted-foreground/70 text-center",
+                    currentFont === "geist-mono" ? "font-mono" : "font-sans"
+                )}>
+                    Preview: <span className="font-semibold text-foreground">The quick brown fox jumps over $1,234.56</span>
+                </p>
             </div>
         </div>
     )
@@ -462,21 +491,6 @@ function LayoutSection() {
             active: false,
             soon: true,
         },
-        {
-            id: "save",
-            title: "Save Layout",
-            description: "Save current arrangement",
-            icon: "💾",
-            action: () => toast.info("Coming soon!", { description: "Save layout will be available soon." }),
-            active: false,
-            soon: true,
-        },
-    ]
-
-    const displayOptions = [
-        { id: "animations", label: "Smooth Animations", enabled: true },
-        { id: "shadows", label: "Card Shadows", enabled: true },
-        { id: "borders", label: "Card Borders", enabled: false },
     ]
 
     return (
@@ -519,32 +533,6 @@ function LayoutSection() {
                 </div>
             </div>
 
-            {/* Display Preferences */}
-            <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Display Preferences</p>
-                <div className="space-y-2">
-                    {displayOptions.map((option) => (
-                        <div
-                            key={option.id}
-                            className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-transparent"
-                        >
-                            <span className="text-sm font-medium">{option.label}</span>
-                            <div className={cn(
-                                "w-10 h-6 rounded-full relative transition-colors cursor-pointer",
-                                option.enabled ? "bg-primary" : "bg-muted-foreground/30"
-                            )}>
-                                <div className={cn(
-                                    "absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all",
-                                    option.enabled ? "left-5" : "left-1"
-                                )} />
-                            </div>
-                        </div>
-                    ))}
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-2 text-center">
-                    These settings will be functional in a future update
-                </p>
-            </div>
         </div>
     )
 }

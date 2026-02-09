@@ -8,7 +8,6 @@ import { useCurrency } from "@/components/currency-provider"
 import { Badge } from "@/components/ui/badge"
 import {
   Card,
-  CardAction,
   CardDescription,
   CardFooter,
   CardHeader,
@@ -147,34 +146,28 @@ function CardComponent({ card }: { card: CardData }) {
   return (
     <Card className="@container/card relative group overflow-hidden">
       <TrendLineBackground color={card.trendColor} seed={card.seed} dataPoints={card.trendData} />
-      <CardHeader>
-        <CardDescription>{card.title}</CardDescription>
-        <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-          {card.isCurrency !== false
-            ? formatCurrency(card.value, card.formatOptions)
-            : card.value.toLocaleString(undefined, card.formatOptions) + (card.valueSuffix ?? "")}
-        </CardTitle>
-        {card.showChange !== false && (
-          <CardAction>
-            <Badge variant="outline">
-              {card.change >= 0 ? <IconTrendingUp /> : <IconTrendingDown />}
+      <CardHeader className="pb-3">
+        <CardDescription className="text-xs mb-1">{card.title}</CardDescription>
+        <div className="flex items-baseline justify-between gap-2">
+          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+            {card.isCurrency !== false
+              ? formatCurrency(card.value, card.formatOptions)
+              : card.value.toLocaleString(undefined, card.formatOptions) + (card.valueSuffix ?? "")}
+          </CardTitle>
+          {card.showChange !== false && (
+            <Badge variant="outline" className="text-xs h-6">
+              {card.change >= 0 ? <IconTrendingUp className="size-3" /> : <IconTrendingDown className="size-3" />}
               {card.change >= 0 ? "+" : ""}
               {card.change.toFixed(1)}%
             </Badge>
-          </CardAction>
-        )}
-      </CardHeader>
-      <CardFooter className="flex-col items-start gap-1.5 text-sm">
-        <div className="line-clamp-1 flex gap-2 font-medium">
-          {card.footerText}
-          {card.change >= 0 ? (
-            <IconTrendingUp className="size-4" />
-          ) : (
-            <IconTrendingDown className="size-4" />
           )}
         </div>
-        <div className="text-muted-foreground">{card.footerSubtext}</div>
-      </CardFooter>
+      </CardHeader>
+      {card.footerText && card.footerText.includes("Spanning") && (
+        <CardFooter className="pt-0 pb-3 text-xs text-muted-foreground">
+          {card.footerText}
+        </CardFooter>
+      )}
     </Card>
   )
 }

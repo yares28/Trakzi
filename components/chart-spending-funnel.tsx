@@ -199,7 +199,7 @@ export const ChartSpendingFunnel = memo(function ChartSpendingFunnel({
         isOpen={isFullscreen}
         onClose={() => setIsFullscreen(false)}
         title="Money Flow"
-        description="Visualize how your income flows through expenses to savings"
+        description=""
         headerActions={renderInfoTrigger(true)}
       >
         <div className="h-full w-full min-h-[400px]">
@@ -220,8 +220,6 @@ export const ChartSpendingFunnel = memo(function ChartSpendingFunnel({
             <CardTitle>Money Flow</CardTitle>
           </div>
           <CardDescription>
-            <span className="hidden @[540px]/card:block">Visualize how your income flows through expenses to savings</span>
-
           </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}

@@ -20,7 +20,7 @@ export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
   spendingCategoryRankings: {
     id: "spendingCategoryRankings",
     title: "Spending Category Rankings",
-    description: "Track how your spending priorities shift over time",
+    description: "",
   },
   netWorthAllocation: {
     id: "netWorthAllocation",
@@ -35,12 +35,12 @@ export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
   moneyFlow: {
     id: "moneyFlow",
     title: "Money Flow",
-    description: "Visualize how your income flows through expenses to savings",
+    description: "",
   },
   cashFlowSankey: {
     id: "cashFlowSankey",
     title: "Cash Flow Sankey",
-    description: "Follow how revenue moves from income through expenses to savings",
+    description: "",
   },
   expenseBreakdown: {
     id: "expenseBreakdown",
@@ -120,92 +120,92 @@ export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
   "fridge:day-of-week-spending": {
     id: "fridge:day-of-week-spending",
     title: "Fridge: Day of Week Spending",
-    description: "Grocery spending by day of week",
+    description: "",
   },
   "fridge:time-of-day-spending": {
     id: "fridge:time-of-day-spending",
     title: "Fridge: Time of Day Spending",
-    description: "Grocery spending by time of day",
+    description: "",
   },
   "fridge:grocerySpendTrend": {
     id: "fridge:grocerySpendTrend",
     title: "Grocery Spend Trend",
-    description: "Daily grocery totals across the selected time filter",
+    description: "",
   },
   "fridge:emptyVsNutritious": {
     id: "fridge:emptyVsNutritious",
     title: "Empty vs Nutritious Calories",
-    description: "Breakdown of spending on nutritious vs empty calorie foods",
+    description: "",
   },
   "fridge:dailyActivity": {
     id: "fridge:dailyActivity",
     title: "Daily Grocery Activity",
-    description: "Grocery spending patterns throughout the year",
+    description: "",
   },
   "fridge:dayOfWeekCategory": {
     id: "fridge:dayOfWeekCategory",
     title: "Day of Week Category Spending",
-    description: "Compare grocery spending across categories by day of week",
+    description: "",
   },
   "fridge:singleMonthCategory": {
     id: "fridge:singleMonthCategory",
     title: "Single Month Category Spending",
-    description: "Compare grocery spending across categories for a selected month",
+    description: "",
   },
   "fridge:allMonthsCategory": {
     id: "fridge:allMonthsCategory",
     title: "All Months Category Spending",
-    description: "Grocery spending by category across all months of the year",
+    description: "",
   },
   "fridge:dayOfWeekSpending": {
     id: "fridge:dayOfWeekSpending",
     title: "Day of Week Spending by Category",
-    description: "See which categories you spend the most on each day of the week",
+    description: "",
   },
   "fridge:categoryRankings": {
     id: "fridge:categoryRankings",
     title: "Grocery Category Rankings",
-    description: "Ranks your grocery categories by spend over time",
+    description: "",
   },
   "fridge:groceryVsRestaurant": {
     id: "fridge:groceryVsRestaurant",
     title: "Grocery vs Restaurant",
-    description: "Compare spending on groceries vs eating out from transaction categories",
+    description: "",
   },
   "fridge:transactionHistory": {
     id: "fridge:transactionHistory",
     title: "Grocery Transaction History",
-    description: "Recent grocery purchases by food category as a swarm plot",
+    description: "",
   },
   "fridge:purchaseSizeComparison": {
     id: "fridge:purchaseSizeComparison",
     title: "Purchase Size Comparison",
-    description: "Distribution of grocery trips by receipt total ranges",
+    description: "",
   },
   "fridge:shoppingHeatmapHoursDays": {
     id: "fridge:shoppingHeatmapHoursDays",
     title: "Shopping Hours Heatmap",
-    description: "When you typically go shopping by hour and day of week",
+    description: "",
   },
   "fridge:shoppingHeatmapDaysMonths": {
     id: "fridge:shoppingHeatmapDaysMonths",
     title: "Monthly Shopping Patterns",
-    description: "Shopping frequency by day of week across months",
+    description: "",
   },
   "fridge:expenseBreakdown": {
     id: "fridge:expenseBreakdown",
     title: "Expense Breakdown",
-    description: "Distribution of grocery expenses across receipt categories",
+    description: "",
   },
   "fridge:macronutrientBreakdown": {
     id: "fridge:macronutrientBreakdown",
     title: "Macronutrient Breakdown",
-    description: "Grocery expenses distributed across macronutrient types",
+    description: "",
   },
   "fridge:snackPercentage": {
     id: "fridge:snackPercentage",
     title: "Snack Percentage per Store",
-    description: "Average percentage of snack spending per grocery trip by store",
+    description: "",
   },
   "fridge:netWorthAllocation": {
     id: "fridge:netWorthAllocation",
