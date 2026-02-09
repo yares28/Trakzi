@@ -36,6 +36,7 @@ export const DELETE = async (
             invalidateUserCachePrefix(userId, 'home'),
             invalidateUserCachePrefix(userId, 'trends'),
             invalidateUserCachePrefix(userId, 'savings'),
+            invalidateUserCachePrefix(userId, 'pockets'),
         ]);
 
         // Revalidate pages
@@ -119,12 +120,15 @@ export const PATCH = async (
             );
         }
 
-        // Invalidate caches after category update (affects analytics breakdown)
+        // Invalidate caches after category update (affects analytics breakdown and pockets)
         invalidateUserCachePrefix(userId, 'analytics').catch((err) => {
             console.error('[Update Transaction] Analytics cache invalidation error:', err);
         });
         invalidateUserCachePrefix(userId, 'data-library').catch((err) => {
             console.error('[Update Transaction] Data library cache invalidation error:', err);
+        });
+        invalidateUserCachePrefix(userId, 'pockets').catch((err) => {
+            console.error('[Update Transaction] Pockets cache invalidation error:', err);
         });
 
         return NextResponse.json({ 

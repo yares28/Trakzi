@@ -935,7 +935,7 @@ Bundle APIs aggregate multiple chart data sources into a single response with Re
 | `/api/charts/savings-bundle` | GET | Savings page charts (savings rate, cumulative) | 5 min |
 | `/api/charts/data-library-bundle` | GET | Data library overview | 5 min |
 | `/api/charts/test-charts-bundle` | GET | Test charts playground (transactions + receipt transactions) | 5 min |
-| `/api/charts/world-map-bundle` | GET | World map page (country spending, stats) | 5 min |
+| `/api/charts/pockets-bundle` | GET | Pockets page (country spending, stats) | 5 min |
 
 ### Individual Chart APIs
 
@@ -959,10 +959,10 @@ Bundle APIs aggregate multiple chart data sources into a single response with Re
 
 | Route | Method | Description |
 |-------|--------|-------------|
-| `/api/world-map/links` | POST | Link transactions to a country |
-| `/api/world-map/links` | DELETE | Unlink transactions from a country |
-| `/api/world-map/transactions` | GET | Get transactions for a specific country |
-| `/api/world-map/unlinked-transactions` | GET | Get transactions not linked to any country |
+| `/api/pockets/links` | POST | Link transactions to a country |
+| `/api/pockets/links` | DELETE | Unlink transactions from a country |
+| `/api/pockets/transactions` | GET | Get transactions for a specific country |
+| `/api/pockets/unlinked-transactions` | GET | Get transactions not linked to any country |
 
 ### Transaction APIs
 
@@ -1106,7 +1106,7 @@ getCachedOrCompute(cacheKey, aggregationFn, ttl)
 | Savings | `/api/charts/savings-bundle` | `lib/charts/home-trends-savings-aggregations.ts` | `SavingsSummary` |
 | Data Library | `/api/charts/data-library-bundle` | — | `DataLibrarySummary` |
 | Test Charts | `/api/charts/test-charts-bundle` | `lib/charts/aggregations.ts` | `TestChartsSummary` |
-| World Map | `/api/charts/world-map-bundle` | `lib/charts/world-map-aggregations.ts` | `WorldMapBundleResponse` |
+| Pockets | `/api/charts/pockets-bundle` | `lib/charts/pockets-aggregations.ts` | `PocketsBundleResponse` |
 
 ### Cache Configuration (`lib/cache/upstash.ts`)
 
@@ -1121,7 +1121,7 @@ const CACHE_PREFIX = {
     categories: 'categories',
     'data-library': 'data-library',
     'test-charts': 'test-charts',
-    'world-map': 'world-map',
+    'pockets': 'pockets',
 }
 ```
 
@@ -1130,7 +1130,7 @@ const CACHE_PREFIX = {
 |------|-----|----------|
 | `analytics` | 5 minutes | Chart data (default) |
 | `fridge` | 5 minutes | Receipt/grocery data |
-| `world-map` | 5 minutes | World map country spending data |
+| `pockets` | 5 minutes | Pockets page country spending data |
 | `categories` | 30 minutes | Category lookups |
 | `short` | 1 minute | Frequently changing data |
 
@@ -1175,11 +1175,11 @@ await invalidateUserCachePrefix(userId, 'home')
 
 | After... | Invalidate |
 |----------|------------|
-| Transaction create/update/delete | `analytics`, `home`, `trends`, `savings`, `world-map`, `test-charts` |
+| Transaction create/update/delete | `analytics`, `home`, `trends`, `savings`, `pockets`, `test-charts` |
 | Category create/update/delete | `categories`, `analytics`, `test-charts` |
 | Receipt create/update/delete | `fridge`, `test-charts` |
-| Statement import | `analytics`, `home`, `trends`, `savings`, `world-map`, `data-library`, `test-charts` |
-| World map link/unlink transactions | `world-map` |
+| Statement import | `analytics`, `home`, `trends`, `savings`, `pockets`, `data-library`, `test-charts` |
+| Pockets link/unlink transactions | `pockets` |
 
 ---
 
@@ -1306,8 +1306,8 @@ Notable schema and data changes since the previous snapshot.
 - **February 1, 2026**: World Map feature database integration:
   - Added `country_name` (text NULL) column to `transactions` table
   - Added `idx_transactions_user_country` partial index for country aggregation
-  - Added World Map APIs: `/api/charts/world-map-bundle`, `/api/world-map/links`, `/api/world-map/transactions`, `/api/world-map/unlinked-transactions`
-  - Added `world-map` cache prefix with 5-minute TTL
+  - Added Pockets APIs: `/api/charts/pockets-bundle`, `/api/pockets/links`, `/api/pockets/transactions`, `/api/pockets/unlinked-transactions`
+  - Added `pockets` cache prefix with 5-minute TTL
 - **January 26, 2026**: Added comprehensive API Routes Reference (68 routes), Bundle APIs & Caching documentation, and Data Flow diagrams
 - **December 30, 2025**: Refreshed organization, project, branch, compute, and size metrics via Neon MCP; added preview branch summary
 - **December 28, 2025**: Expanded category system:

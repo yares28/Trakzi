@@ -41,6 +41,8 @@ export interface SettingsPreferences {
   currency?: string
   /** Default date filter — "lastyear", "last3months", "2025", etc. */
   date_filter?: string
+  /** Font family — "geist-sans" | "geist-mono". */
+  font?: string
 }
 
 /**

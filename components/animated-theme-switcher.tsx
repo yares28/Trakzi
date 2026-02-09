@@ -44,7 +44,7 @@ export function AnimatedThemeSwitcher() {
     return (
         <div className="w-full">
             <Tabs value={activeTheme} onValueChange={setTheme} className="w-full">
-                <TabsList className="h-auto gap-1 rounded-xl p-1 w-full bg-muted/50">
+                <TabsList className="h-auto gap-1 rounded-xl p-1 w-full bg-muted/70 border-2 border-border shadow-md">
                     {themes.map(({ icon: Icon, name, value }) => {
                         const isActive = activeTheme === value
 

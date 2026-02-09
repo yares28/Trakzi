@@ -72,6 +72,7 @@ const LS_KEYS = {
   dateFilter: "global-date-filter",
   dateFilterLegacy: "dateFilter",
   defaultTimePeriod: "default-time-period",
+  font: "trakzi-font",
   // Migration flag
   migrated: "preferences-migrated-to-db",
 } as const
@@ -147,13 +148,15 @@ function loadAllFromLocalStorage(): UserPreferences {
       localStorage.getItem(LS_KEYS.dateFilter) ||
       localStorage.getItem(LS_KEYS.dateFilterLegacy) ||
       localStorage.getItem(LS_KEYS.defaultTimePeriod)
+    const sFont = localStorage.getItem(LS_KEYS.font)
 
-    if (sColorScheme || sTheme || sCurrency || sDateFilter) {
+    if (sColorScheme || sTheme || sCurrency || sDateFilter || sFont) {
       prefs.settings = {
         color_scheme: sColorScheme || undefined,
         theme: sTheme || undefined,
         currency: sCurrency || undefined,
         date_filter: sDateFilter || undefined,
+        font: sFont || undefined,
       }
     }
   } catch (error) {
@@ -240,6 +243,9 @@ function saveAllToLocalStorage(prefs: UserPreferences) {
       if (prefs.settings.date_filter !== undefined) {
         localStorage.setItem(LS_KEYS.dateFilter, prefs.settings.date_filter)
       }
+      if (prefs.settings.font !== undefined) {
+        localStorage.setItem(LS_KEYS.font, prefs.settings.font)
+      }
     }
   } catch (error) {
     console.error("[UserPreferences] Failed to save to localStorage:", error)
@@ -281,6 +287,27 @@ function ThemeSyncBridge({
       updatePagePreferences("settings", { theme })
     }
   }, [theme, updatePagePreferences])
+
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// FontSyncBridge — toggles font-mono class on <body>
+// ---------------------------------------------------------------------------
+
+function FontSyncBridge({
+  preferences,
+}: {
+  preferences: UserPreferences
+}) {
+  useEffect(() => {
+    const font = preferences.settings?.font
+    if (font === "geist-mono") {
+      document.body.classList.add("font-mono")
+    } else {
+      document.body.classList.remove("font-mono")
+    }
+  }, [preferences.settings?.font])
 
   return null
 }
@@ -467,6 +494,7 @@ export function UserPreferencesProvider({
         isServerSynced={isServerSynced}
         updatePagePreferences={updatePagePreferences}
       />
+      <FontSyncBridge preferences={preferences} />
       {children}
     </UserPreferencesContext.Provider>
   )

@@ -134,7 +134,7 @@ export const ChartAreaInteractiveFridge = React.memo(function ChartAreaInteracti
                 isOpen={isFullscreen}
                 onClose={() => setIsFullscreen(false)}
                 title="Grocery Spend Trend"
-                description="Daily grocery totals across the selected time filter"
+                description=""
                 headerActions={infoAction(true)}
             >
                 <div className="h-full w-full min-h-[400px] text-center flex items-center justify-center text-muted-foreground">
@@ -155,7 +155,6 @@ export const ChartAreaInteractiveFridge = React.memo(function ChartAreaInteracti
                         <CardTitle>Grocery Spend Trend</CardTitle>
                     </div>
                     <CardDescription>
-                        <span className="@[540px]/card:hidden">Daily totals</span>
                     </CardDescription>
                     <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                         {infoAction()}

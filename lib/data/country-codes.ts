@@ -10,8 +10,10 @@ export const COUNTRY_CODES: Record<string, string> = {
     "Afghanistan": "AF",
     "Albania": "AL",
     "Algeria": "DZ",
+    "Andorra": "AD",
     "Angola": "AO",
     "Antarctica": "AQ",
+    "Antigua and Barbuda": "AG",
     "Argentina": "AR",
     "Armenia": "AM",
     "Australia": "AU",
@@ -19,7 +21,9 @@ export const COUNTRY_CODES: Record<string, string> = {
     "Azerbaijan": "AZ",
 
     // B
+    "Bahrain": "BH",
     "Bangladesh": "BD",
+    "Barbados": "BB",
     "Belarus": "BY",
     "Belgium": "BE",
     "Belize": "BZ",
@@ -38,11 +42,13 @@ export const COUNTRY_CODES: Record<string, string> = {
     "Cambodia": "KH",
     "Cameroon": "CM",
     "Canada": "CA",
+    "Cape Verde": "CV",
     "Central African Republic": "CF",
     "Chad": "TD",
     "Chile": "CL",
     "China": "CN",
     "Colombia": "CO",
+    "Comoros": "KM",
     "Costa Rica": "CR",
     "Croatia": "HR",
     "Cuba": "CU",
@@ -53,6 +59,7 @@ export const COUNTRY_CODES: Record<string, string> = {
     "Democratic Republic of the Congo": "CD",
     "Denmark": "DK",
     "Djibouti": "DJ",
+    "Dominica": "DM",
     "Dominican Republic": "DO",
 
     // E
@@ -80,6 +87,7 @@ export const COUNTRY_CODES: Record<string, string> = {
     "Ghana": "GH",
     "Greece": "GR",
     "Greenland": "GL",
+    "Grenada": "GD",
     "Guatemala": "GT",
     "Guinea": "GN",
     "Guinea Bissau": "GW",
@@ -109,6 +117,7 @@ export const COUNTRY_CODES: Record<string, string> = {
     // K
     "Kazakhstan": "KZ",
     "Kenya": "KE",
+    "Kiribati": "KI",
     "Korea": "KR",  // South Korea in GeoJSON
     "Kosovo": "XK",
     "Kuwait": "KW",
@@ -121,6 +130,7 @@ export const COUNTRY_CODES: Record<string, string> = {
     "Lesotho": "LS",
     "Liberia": "LR",
     "Libya": "LY",
+    "Liechtenstein": "LI",
     "Lithuania": "LT",
     "Luxembourg": "LU",
 
@@ -129,10 +139,16 @@ export const COUNTRY_CODES: Record<string, string> = {
     "Madagascar": "MG",
     "Malawi": "MW",
     "Malaysia": "MY",
+    "Maldives": "MV",
     "Mali": "ML",
+    "Malta": "MT",
+    "Marshall Islands": "MH",
     "Mauritania": "MR",
+    "Mauritius": "MU",
     "Mexico": "MX",
+    "Micronesia": "FM",
     "Moldova": "MD",
+    "Monaco": "MC",
     "Mongolia": "MN",
     "Montenegro": "ME",
     "Morocco": "MA",
@@ -141,6 +157,7 @@ export const COUNTRY_CODES: Record<string, string> = {
 
     // N
     "Namibia": "NA",
+    "Nauru": "NR",
     "Nepal": "NP",
     "Netherlands": "NL",
     "New Caledonia": "NC",
@@ -148,6 +165,7 @@ export const COUNTRY_CODES: Record<string, string> = {
     "Nicaragua": "NI",
     "Niger": "NE",
     "Nigeria": "NG",
+    "North Korea": "KP",
     "Northern Cyprus": "CY",  // Uses Cyprus code
     "Norway": "NO",
 
@@ -156,6 +174,7 @@ export const COUNTRY_CODES: Record<string, string> = {
 
     // P
     "Pakistan": "PK",
+    "Palau": "PW",
     "Panama": "PA",
     "Papua New Guinea": "PG",
     "Paraguay": "PY",
@@ -175,10 +194,18 @@ export const COUNTRY_CODES: Record<string, string> = {
     "Rwanda": "RW",
 
     // S
+    "Saint Kitts and Nevis": "KN",
+    "Saint Lucia": "LC",
+    "Saint Vincent and the Grenadines": "VC",
+    "Samoa": "WS",
+    "San Marino": "SM",
+    "Sao Tome and Principe": "ST",
     "Saudi Arabia": "SA",
     "Senegal": "SN",
     "Serbia": "RS",
+    "Seychelles": "SC",
     "Sierra Leone": "SL",
+    "Singapore": "SG",
     "Slovakia": "SK",
     "Slovenia": "SI",
     "Solomon Islands": "SB",
@@ -202,10 +229,12 @@ export const COUNTRY_CODES: Record<string, string> = {
     "Thailand": "TH",
     "The Bahamas": "BS",
     "Togo": "TG",
+    "Tonga": "TO",
     "Trinidad and Tobago": "TT",
     "Tunisia": "TN",
     "Turkey": "TR",
     "Turkmenistan": "TM",
+    "Tuvalu": "TV",
 
     // U
     "Uganda": "UG",
@@ -217,6 +246,7 @@ export const COUNTRY_CODES: Record<string, string> = {
     "Uzbekistan": "UZ",
 
     // V
+    "Vatican City": "VA",
     "Vanuatu": "VU",
     "Venezuela": "VE",
     "Vietnam": "VN",

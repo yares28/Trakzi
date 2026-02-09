@@ -415,7 +415,6 @@ export const ChartTransactionHistoryFridge = memo(function ChartTransactionHisto
                     <CardTitle>Grocery Transaction History</CardTitle>
                 </div>
                 <CardDescription>
-                    <span className="@[540px]/card:hidden">Items by category</span>
                 </CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                     {renderInfoTrigger()}

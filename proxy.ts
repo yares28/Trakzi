@@ -33,7 +33,7 @@ const isProtectedRoute = createRouteMatcher([
   '/trends(.*)',
   '/chat(.*)',
   '/billing(.*)',
-  '/world-map(.*)',
+  '/pockets(.*)',
   '/testCharts(.*)',
 ])
 
@@ -87,7 +87,7 @@ export const config = {
     "/trends/:path*",
     "/chat/:path*",
     "/billing/:path*",
-    "/world-map/:path*",
+    "/pockets/:path*",
     "/testCharts/:path*",
     // Auth routes for sign-in redirect logic
     "/sign-in/:path*",

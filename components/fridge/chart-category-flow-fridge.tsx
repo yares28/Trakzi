@@ -368,7 +368,6 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
                     <CardTitle>Grocery Category Rankings</CardTitle>
                 </div>
                 <CardDescription>
-                    <span className="@[540px]/card:hidden">Category flow over months</span>
                 </CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                     {renderInfoTrigger()}

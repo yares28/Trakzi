@@ -1,14 +1,16 @@
 "use client"
 
-import { useCallback, useEffect } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useTheme } from "next-themes"
 import { useQueryClient } from "@tanstack/react-query"
 
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useDateFilter } from "@/components/date-filter-provider"
 import { useAnalyticsBundleData } from "@/hooks/use-dashboard-data"
+import { IconChartBar, IconFridge } from "@tabler/icons-react"
 
 import { AnalyticsLayout } from "./components/AnalyticsLayout"
+import { AnalyticsTrendsTab, type TrendsViewMode } from "./components/AnalyticsTrendsTab"
 import { AiReparseDialog } from "./components/AiReparseDialog"
 import { ChartsGrid } from "./components/ChartsGrid"
 import { StatementUploadDialog } from "./components/StatementUploadDialog"
@@ -19,11 +21,33 @@ import { useAnalyticsData } from "./hooks/useAnalyticsData"
 import { useAnalyticsStats } from "./hooks/useAnalyticsStats"
 import { useChartLayout } from "./hooks/useChartLayout"
 import { useStatementImport } from "./hooks/useStatementImport"
+import { cn } from "@/lib/utils"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+
+const AT_VIEW_MODE_KEY = "analytics-trends-view-mode"
+
+type AnalyticsViewMode = "analytics" | "advanced" | "trends"
 
 export default function AnalyticsPage() {
   const { resolvedTheme } = useTheme()
+  const [viewMode, setViewMode] = useState<AnalyticsViewMode>("analytics")
   const { getPalette } = useColorScheme()
   const { filter: dateFilter, setFilter: setDateFilter } = useDateFilter()
+
+  // Trends sub-toggle state (lifted here so toggle renders in the header row)
+  const [trendsViewMode, setTrendsViewMode] = useState<TrendsViewMode>("spending")
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(AT_VIEW_MODE_KEY)
+      if (saved === "spending" || saved === "groceries") setTrendsViewMode(saved)
+    } catch {}
+  }, [])
+
+  const handleTrendsViewModeChange = useCallback((mode: TrendsViewMode) => {
+    setTrendsViewMode(mode)
+    try { localStorage.setItem(AT_VIEW_MODE_KEY, mode) } catch {}
+  }, [])
 
   // Bundle API data - pre-aggregated with Redis caching (single request)
   const { data: bundleData, isLoading: bundleLoading } = useAnalyticsBundleData()
@@ -67,6 +91,10 @@ export default function AnalyticsPage() {
 
   const statementImport = useStatementImport({ refreshAnalyticsData })
 
+  const handleViewModeChange = useCallback((mode: AnalyticsViewMode) => {
+    setViewMode(mode)
+  }, [])
+
   return (
     <AnalyticsLayout
       isDragging={statementImport.isDragging}
@@ -77,26 +105,130 @@ export default function AnalyticsPage() {
     >
       <div className="@container/main flex flex-1 flex-col gap-2">
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+          {/* Top analytics summary cards (shared across modes) */}
           <StatsCards
             stats={stats}
             statsTrends={statsTrends}
             transactionSummary={transactionSummary}
           />
 
-          <ChartsGrid
-            analyticsChartOrder={chartLayout.analyticsChartOrder}
-            handleChartOrderChange={chartLayout.handleChartOrderChange}
-            savedSizes={chartLayout.savedSizes}
-            handleChartResize={chartLayout.handleChartResize}
-            bundleData={bundleData}
-            bundleLoading={bundleLoading}
-            rawTransactions={rawTransactions}
-            isLoadingTransactions={isLoadingTransactions}
-            dateFilter={dateFilter}
-            ringLimits={ringLimits}
-            setRingLimits={setRingLimits}
-            chartData={chartData}
-          />
+          {/* Analytics / Advanced / Trends switch + Spending/Groceries sub-toggle */}
+          <section>
+            <div className="relative flex items-center justify-center">
+              {/* Main mode toggle (centered) */}
+              <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border">
+                <button
+                  type="button"
+                  onClick={() => handleViewModeChange("analytics")}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                    viewMode === "analytics"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  Analytics
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleViewModeChange("advanced")}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                    viewMode === "advanced"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  Advanced
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleViewModeChange("trends")}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                    viewMode === "trends"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  Trends
+                </button>
+              </div>
+
+              {/* Spending / Groceries sub-toggle (right-aligned, only visible on trends tab) */}
+              {viewMode === "trends" && (
+                <div className="absolute right-0 inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border">
+                  <button
+                    type="button"
+                    onClick={() => handleTrendsViewModeChange("spending")}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                      trendsViewMode === "spending"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <IconChartBar className="h-4 w-4" />
+                    Spending
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTrendsViewModeChange("groceries")}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                      trendsViewMode === "groceries"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <IconFridge className="h-4 w-4" />
+                    Groceries
+                  </button>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Main content per mode */}
+          {viewMode === "analytics" && (
+            <ChartsGrid
+              analyticsChartOrder={chartLayout.analyticsChartOrder}
+              handleChartOrderChange={chartLayout.handleChartOrderChange}
+              savedSizes={chartLayout.savedSizes}
+              handleChartResize={chartLayout.handleChartResize}
+              bundleData={bundleData}
+              bundleLoading={bundleLoading}
+              rawTransactions={rawTransactions}
+              isLoadingTransactions={isLoadingTransactions}
+              dateFilter={dateFilter}
+              ringLimits={ringLimits}
+              setRingLimits={setRingLimits}
+              chartData={chartData}
+            />
+          )}
+
+          {viewMode === "advanced" && (
+            <section>
+              <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-1">
+                <Card className="@container/card h-full flex flex-col">
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base font-medium">
+                        Advanced Analytics
+                      </CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1">
+                    <div className="h-[250px] w-full flex items-center justify-center text-sm text-muted-foreground">
+                      This area is ready for advanced analytics cards and tools.
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </section>
+          )}
+
+          {viewMode === "trends" && <AnalyticsTrendsTab viewMode={trendsViewMode} />}
         </div>
       </div>
 

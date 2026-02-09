@@ -93,7 +93,7 @@ Every page loads chart data via a **single bundle API** that aggregates all char
 | Home | `/api/charts/home-bundle` | `lib/charts/home-trends-savings-aggregations.ts` | `home` |
 | Analytics | `/api/charts/analytics-bundle` | `lib/charts/aggregations.ts` | `analytics` |
 | Fridge | `/api/charts/fridge-bundle` | `lib/charts/fridge-aggregations.ts` | `fridge` |
-| Trends | `/api/charts/trends-bundle` | `lib/charts/home-trends-savings-aggregations.ts` | `trends` |
+| Analytics (Trends tab) | `/api/charts/trends-bundle` | `lib/charts/home-trends-savings-aggregations.ts` | `trends` |
 | Savings | `/api/charts/savings-bundle` | `lib/charts/home-trends-savings-aggregations.ts` | `savings` |
 | Data Library | `/api/charts/data-library-bundle` | — | `data-library` |
 

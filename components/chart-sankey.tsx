@@ -319,7 +319,7 @@ export const ChartSankey = memo(function ChartSankey({
         isOpen={isFullscreen}
         onClose={() => setIsFullscreen(false)}
         title="Cash Flow Sankey"
-        description="Follow how your income flows through expenses to savings"
+        description=""
         headerActions={renderInfoTrigger(true)}
       >
         <div className="h-full w-full min-h-[400px]">
@@ -340,8 +340,6 @@ export const ChartSankey = memo(function ChartSankey({
             <CardTitle>Cash Flow Sankey</CardTitle>
           </div>
           <CardDescription>
-            <span className="hidden @[540px]/card:block">Follow how your income flows through expenses to savings</span>
-
           </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
