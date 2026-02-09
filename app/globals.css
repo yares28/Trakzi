@@ -196,9 +196,9 @@ body {
   width: var(--sidebar-width);
 }
 
-/* When collapsed in icon mode, match icon container width for consistency */
+/* When collapsed in icon mode, match fixed container width so main content does not overlap */
 [data-slot="sidebar"][data-variant="inset"][data-collapsible="icon"][data-state="collapsed"] {
-  width: var(--sidebar-width-icon);
+  width: calc(var(--sidebar-width-icon) + 1rem + 2px);
 }
 
 /* Sidebar menu buttons smooth transition */

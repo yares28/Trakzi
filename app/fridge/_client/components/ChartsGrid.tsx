@@ -70,7 +70,7 @@ export function ChartsGrid({
     groceryPurchaseSizeComparison: "Purchase Size Comparison",
     groceryShoppingHeatmapHoursDays: "Shopping Heatmap (Hours/Days)",
     groceryShoppingHeatmapDaysMonths: "Shopping Heatmap (Days/Months)",
-    groceryNetWorthAllocation: "Net Worth Allocation",
+    groceryNetWorthAllocation: "Grocery Allocation",
   }
 
   const renderChart = (chartId: FridgeChartId) => {
