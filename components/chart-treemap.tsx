@@ -52,16 +52,14 @@ export const ChartTreeMap = memo(function ChartTreeMap({
   const [isFullscreen, setIsFullscreen] = useState(false)
   const isDark = resolvedTheme === "dark"
 
-  // In dark mode, use lighter colors (reverse the palette so lightest colors come first)
-  // Also handle the "dark" color scheme specially
+  // Palette indices i=0 to i=n-2 (exclude last). In dark mode, use lighter colors first.
   const chartColors = useMemo(() => {
     const palette = getPalette()
+    const base = palette.length <= 1 ? palette : palette.slice(0, -1)
     if (isDark) {
-      // In dark theme mode, reverse to get lighter colors first
-      return [...palette].reverse()
+      return [...base].reverse()
     }
-    // For "dark" color scheme in light mode, shift to lighter colors
-    return colorScheme === "dark" ? palette.slice(4) : palette
+    return colorScheme === "dark" && base.length > 4 ? base.slice(4) : base
   }, [getPalette, isDark, colorScheme])
 
   // Per-node contrast: compute white/black based on each cell's actual background
@@ -94,18 +92,11 @@ export const ChartTreeMap = memo(function ChartTreeMap({
     <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
         title="Net Worth Allocation"
-        description="Breakdown of your total assets - Click on a category to see transactions"
-        details={[
-          "Each rectangle represents a category; larger blocks indicate higher spend or allocation.",
-          "Click into a category to inspect the underlying transactions for that time period."
-        ]}
-        ignoredFootnote="Only expense-driven categories are included so you can focus on where money leaves your accounts."
         categoryControls={categoryControls}
       />
       <ChartAiInsightButton
         chartId="netWorthAllocation"
         chartTitle="Net Worth Allocation"
-        chartDescription="Breakdown of your total assets - Click on a category to see transactions"
         chartData={{
           categories: sanitizedData.children?.map(c => c.name) || [],
           totalCategories: sanitizedData.children?.length || 0
@@ -193,7 +184,6 @@ export const ChartTreeMap = memo(function ChartTreeMap({
         isOpen={isFullscreen}
         onClose={() => setIsFullscreen(false)}
         title="Net Worth Allocation"
-        description="Breakdown of total assets by category"
         headerActions={renderInfoTrigger(true)}
       >
         <div className="h-full w-full min-h-[400px]">

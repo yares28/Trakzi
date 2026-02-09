@@ -72,13 +72,14 @@ export const ChartTreeMapFridge = memo(function ChartTreeMapFridge({ receiptTran
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
 
-  // In dark mode, use lighter colors (reverse the palette so lightest colors come first)
+  // Palette indices i=0 to i=n-2 (exclude last). In dark mode, use lighter colors first.
   const chartColors = useMemo(() => {
     const palette = getShuffledPalette()
+    const base = palette.length <= 1 ? palette : palette.slice(0, -1)
     if (isDark) {
-      return [...palette].reverse()
+      return [...base].reverse()
     }
-    return colorScheme === "dark" ? palette.slice(4) : palette
+    return colorScheme === "dark" && base.length > 4 ? base.slice(4) : base
   }, [getShuffledPalette, isDark, colorScheme])
 
   // Text color function based on node background color for optimal contrast
@@ -205,20 +206,12 @@ export const ChartTreeMapFridge = memo(function ChartTreeMapFridge({ receiptTran
   const renderInfoTrigger = () => (
     <div className="flex flex-col items-center gap-2">
       <ChartInfoPopover
-        title="Net Worth Allocation"
-        description="Breakdown of your grocery spending by broad category, category, and individual items"
-        details={[
-          "Each rectangle represents spending; larger blocks indicate higher amounts.",
-          "Structure: Broad Categories (top level) → Categories (middle level) → Items (bottom level).",
-          "Click into a category to see the individual items purchased.",
-        ]}
-        ignoredFootnote="Only receipt transactions with assigned categories are included."
+        title="Grocery Allocation"
         categoryControls={categoryControls}
       />
       <ChartAiInsightButton
         chartId="fridge:netWorthAllocation"
-        chartTitle="Net Worth Allocation"
-        chartDescription="Breakdown of your grocery spending by broad category, category, and individual items"
+        chartTitle="Grocery Allocation"
         chartData={{
           broadCategories: sanitizedData.children?.map(c => c.name) || [],
           totalBroadCategories: sanitizedData.children?.length || 0,
@@ -236,10 +229,10 @@ export const ChartTreeMapFridge = memo(function ChartTreeMapFridge({ receiptTran
             <GridStackCardDragHandle />
             <ChartFavoriteButton
               chartId="fridge:netWorthAllocation"
-              chartTitle="Net Worth Allocation"
+              chartTitle="Grocery Allocation"
               size="md"
             />
-            <CardTitle>Net Worth Allocation</CardTitle>
+            <CardTitle>Grocery Allocation</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
@@ -259,10 +252,10 @@ export const ChartTreeMapFridge = memo(function ChartTreeMapFridge({ receiptTran
           <GridStackCardDragHandle />
           <ChartFavoriteButton
             chartId="fridge:netWorthAllocation"
-            chartTitle="Net Worth Allocation"
+            chartTitle="Grocery Allocation"
             size="md"
           />
-          <CardTitle>Net Worth Allocation</CardTitle>
+          <CardTitle>Grocery Allocation</CardTitle>
         </div>
         <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           {renderInfoTrigger()}

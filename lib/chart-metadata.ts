@@ -25,7 +25,7 @@ export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
   netWorthAllocation: {
     id: "netWorthAllocation",
     title: "Net Worth Allocation",
-    description: "Breakdown of your total assets",
+    description: "",
   },
   needsWantsBreakdown: {
     id: "needsWantsBreakdown",
@@ -209,8 +209,8 @@ export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
   },
   "fridge:netWorthAllocation": {
     id: "fridge:netWorthAllocation",
-    title: "Net Worth Allocation",
-    description: "Breakdown of grocery spending by broad category, category, and items",
+    title: "Grocery Allocation",
+    description: "",
   },
   "testCharts:weekendVsWeekday": {
     id: "testCharts:weekendVsWeekday",
