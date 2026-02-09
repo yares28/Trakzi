@@ -9,12 +9,12 @@ import {
   Banknote,
 } from "lucide-react"
 
-import type { VehicleData } from "@/lib/types/world-map"
+import type { VehicleData } from "@/lib/types/pockets"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { VehicleDetailContent } from "./VehicleDetailContent"
-import { VehicleFinancingContent } from "./VehicleFinancingContent"
+import { VehicleDetailContent } from "@/app/pockets/_page/components/VehicleDetailContent"
+import { VehicleFinancingContent } from "@/app/pockets/_page/components/VehicleFinancingContent"
 
 export type BackFaceView =
   | "fuel"
