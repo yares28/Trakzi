@@ -268,9 +268,7 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
                     <CardTitle>Purchase Size Comparison</CardTitle>
                 </div>
                 <CardDescription>
-                    <span className="hidden @[540px]/card:block">
-                        Distribution of {totalReceipts} shopping trips by receipt total
-                    </span>
+                    <span className="hidden @[540px]/card:block"></span>
                 </CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                     {renderInfoTrigger()}
