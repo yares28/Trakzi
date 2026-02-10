@@ -142,8 +142,9 @@ function extractDateAndTime(receiptText: string): { receipt_date: string | null;
         const displayDate = isoDate ? toDisplayDateDDMMYYYY(isoDate) : null
 
         // Try to find time from ticket único (contains timestamp)
-        // Format: ES-01032-03-00196912-20260117-105136 (last part is HHMMSS)
-        const ticketMatch = receiptText.match(/ticket\s+[úu]nico\s*:\s*\S+-(\d{2})(\d{2})(\d{2})\s*$/im)
+        // Format: ES-01032-03-00196912-20260117-105136 (YYYYMMDD-HHMMSS)
+        // Anchor on the 8-digit date to find the 6-digit time, works across line breaks
+        const ticketMatch = receiptText.match(/ticket\s+[úu]nico[\s\S]{0,200}?\d{8}-(\d{2})(\d{2})(\d{2})/im)
         let normalizedTime: string | null = null
         if (ticketMatch) {
             const [, hour, minute, second] = ticketMatch

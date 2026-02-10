@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge"
 import {
   Card,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -143,19 +142,21 @@ export function TrendLineBackground({
 
 function CardComponent({ card }: { card: CardData }) {
   const { formatCurrency } = useCurrency()
+  const showSpanning = card.footerText?.includes("Spanning")
+  const description = showSpanning ? `${card.title} · ${card.footerText}` : card.title
   return (
-    <Card className="@container/card relative group overflow-hidden">
+    <Card className="@container/card relative group overflow-hidden h-[7rem] py-4">
       <TrendLineBackground color={card.trendColor} seed={card.seed} dataPoints={card.trendData} />
-      <CardHeader className="pb-3">
-        <CardDescription className="text-xs mb-1">{card.title}</CardDescription>
+      <CardHeader className="pb-2 pt-0 flex-1 min-h-0">
+        <CardDescription className="text-xs mb-1 truncate">{description}</CardDescription>
         <div className="flex items-baseline justify-between gap-2">
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl truncate">
             {card.isCurrency !== false
               ? formatCurrency(card.value, card.formatOptions)
               : card.value.toLocaleString(undefined, card.formatOptions) + (card.valueSuffix ?? "")}
           </CardTitle>
           {card.showChange !== false && (
-            <Badge variant="outline" className="text-xs h-6">
+            <Badge variant="outline" className="text-xs h-6 shrink-0">
               {card.change >= 0 ? <IconTrendingUp className="size-3" /> : <IconTrendingDown className="size-3" />}
               {card.change >= 0 ? "+" : ""}
               {card.change.toFixed(1)}%
@@ -163,11 +164,6 @@ function CardComponent({ card }: { card: CardData }) {
           )}
         </div>
       </CardHeader>
-      {card.footerText && card.footerText.includes("Spanning") && (
-        <CardFooter className="pt-0 pb-3 text-xs text-muted-foreground">
-          {card.footerText}
-        </CardFooter>
-      )}
     </Card>
   )
 }
@@ -366,7 +362,7 @@ export function SectionCards({
     : ["transactions", "income", "expenses", fourthCard]
 
   return (
-    <div className={`*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 ${showSpendingAndSavingsRate ? "@5xl/main:grid-cols-5" : "@5xl/main:grid-cols-4"}`}>
+    <div className={`*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 min-w-0 ${showSpendingAndSavingsRate ? "@3xl/main:grid-cols-3 @5xl/main:grid-cols-5" : "@3xl/main:grid-cols-2 @5xl/main:grid-cols-4"}`}>
       {cardOrder.map((cardId) => (
         <CardComponent key={cardId} card={cardData[cardId]} />
       ))}

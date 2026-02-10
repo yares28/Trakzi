@@ -164,32 +164,74 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
         return fullDayData
     }, [receiptTransactions, hourlyActivityData])
 
-    const renderInfoTrigger = () => (
-        <div className="flex flex-col items-center gap-2">
-            <ChartInfoPopover
-                title="Time of Day Shopping"
-                description="See when you typically go grocery shopping throughout the day."
-                details={[
-                    "This chart shows your shopping trip frequency by hour of day.",
-                    "Taller bars indicate more frequent shopping times.",
-                    "Hover to see trip count and total spending for each hour.",
-                    "Only receipts with time data are included in the distribution.",
-                ]}
-                ignoredFootnote="Receipt times are extracted from your uploads."
-            />
-            <ChartAiInsightButton
-                chartId="fridge:time-of-day-spending"
-                chartTitle="Time of Day Shopping"
-                chartDescription="Shopping patterns by hour of day."
-                chartData={{
-                    peakHour: processedData.reduce((max, d) => d.trips > max.trips ? d : max, processedData[0]),
-                    totalTrips: processedData.reduce((sum, d) => sum + d.trips, 0),
-                    totalSpending: processedData.reduce((sum, d) => sum + d.spending, 0),
-                }}
-                size="sm"
-            />
-        </div>
-    )
+    const { missingTimeReceiptCount, totalUniqueReceipts } = useMemo(() => {
+        if (!Array.isArray(receiptTransactions) || receiptTransactions.length === 0) {
+            return { missingTimeReceiptCount: 0, totalUniqueReceipts: 0 }
+        }
+
+        const receiptTimePresence = new Map<string, { hasTime: boolean }>()
+
+        receiptTransactions.forEach((item) => {
+            const receiptId = item.receiptId || String(item.id)
+            if (!receiptId) return
+
+            const existing = receiptTimePresence.get(receiptId) ?? { hasTime: false }
+            const hour = parseReceiptHour(item.receiptTime)
+
+            if (hour !== null) {
+                existing.hasTime = true
+            }
+
+            receiptTimePresence.set(receiptId, existing)
+        })
+
+        let missing = 0
+        receiptTimePresence.forEach((value) => {
+            if (!value.hasTime) missing += 1
+        })
+
+        return {
+            missingTimeReceiptCount: missing,
+            totalUniqueReceipts: receiptTimePresence.size,
+        }
+    }, [receiptTransactions])
+
+    const renderInfoTrigger = () => {
+        const baseDetails = [
+            "This chart shows your shopping trip frequency by hour of day.",
+            "Taller bars indicate more frequent shopping times.",
+            "Hover to see trip count and total spending for each hour.",
+            "Only receipts with time data are included in the distribution.",
+        ]
+
+        if (totalUniqueReceipts > 0 && missingTimeReceiptCount > 0) {
+            baseDetails.push(
+                `${missingTimeReceiptCount} of ${totalUniqueReceipts} receipts are missing time information and are excluded from this chart.`
+            )
+        }
+
+        return (
+            <div className="flex flex-col items-center gap-2">
+                <ChartInfoPopover
+                    title="Time of Day Shopping"
+                    description="See when you typically go grocery shopping throughout the day."
+                    details={baseDetails}
+                    ignoredFootnote="Receipt times are extracted from your uploads."
+                />
+                <ChartAiInsightButton
+                    chartId="fridge:time-of-day-spending"
+                    chartTitle="Time of Day Shopping"
+                    chartDescription="Shopping patterns by hour of day."
+                    chartData={{
+                        peakHour: processedData.reduce((max, d) => d.trips > max.trips ? d : max, processedData[0]),
+                        totalTrips: processedData.reduce((sum, d) => sum + d.trips, 0),
+                        totalSpending: processedData.reduce((sum, d) => sum + d.spending, 0),
+                    }}
+                    size="sm"
+                />
+            </div>
+        )
+    }
 
     const isDark = resolvedTheme === "dark"
     const textColor = getChartTextColor(isDark)

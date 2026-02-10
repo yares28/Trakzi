@@ -738,7 +738,7 @@ export async function processReceiptNow({ receiptId, userId }: EnqueueParams) {
   } else {
     receiptDate = todayIsoDate()
   }
-  const receiptTime = normalizeTime(extracted.receipt_time) || nowIsoTime()
+  const receiptTime = normalizeTime(extracted.receipt_time)
   const currency = typeof extracted.currency === "string" && extracted.currency.trim().length > 0
     ? extracted.currency.trim().toUpperCase()
     : "EUR"
