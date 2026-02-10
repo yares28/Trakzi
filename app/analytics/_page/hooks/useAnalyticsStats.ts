@@ -41,8 +41,10 @@ export function useAnalyticsStats(rawTransactions: AnalyticsTransaction[]) {
     const netWorth =
       sortedByDate.length > 0 && sortedByDate[0].balance !== null ? sortedByDate[0].balance : 0
 
-    const now = new Date()
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    // Derive the "current" date window from the latest transaction date so that
+    // server and client renders stay deterministic and avoid hydration mismatch.
+    const latestTxDate = sortedByDate.length > 0 ? new Date(sortedByDate[0].date) : new Date()
+    const today = new Date(latestTxDate.getFullYear(), latestTxDate.getMonth(), latestTxDate.getDate())
     const threeMonthsAgo = new Date(today)
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
     const sixMonthsAgo = new Date(threeMonthsAgo)

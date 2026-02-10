@@ -109,7 +109,8 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
         // Use bundle data if available (pre-computed by server)
         if (hourlyActivityData && hourlyActivityData.length > 0) {
             hourlyActivityData.forEach(h => {
-                if (h.hour >= 0 && h.hour < 24) {
+                // Be strict about hour being a valid number between 0–23
+                if (typeof h.hour === "number" && h.hour >= 0 && h.hour < 24) {
                     fullDayData[h.hour].trips = h.count
                     fullDayData[h.hour].spending = h.total
                 }
@@ -155,7 +156,8 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
         })
 
         receiptBuckets.forEach(({ hour, receiptTotal, lineTotal, hasReceiptTotal }) => {
-            if (hour === null) return
+            // Guard against null/undefined/invalid hours to prevent indexing issues
+            if (typeof hour !== "number" || hour < 0 || hour > 23) return
             const total = hasReceiptTotal ? receiptTotal : lineTotal
             fullDayData[hour].trips += 1
             fullDayData[hour].spending += total
