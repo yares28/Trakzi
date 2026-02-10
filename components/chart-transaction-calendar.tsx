@@ -76,6 +76,10 @@ const getRangeForFilter = (filter: string) => {
       start.setFullYear(start.getFullYear() - 1)
       return { fromDate: formatDate(start), toDate: formatDate(today) }
     }
+    case "ytd": {
+      const start = new Date(today.getFullYear(), 0, 1)
+      return { fromDate: formatDate(start), toDate: formatDate(today) }
+    }
     default: {
       if (/^\d{4}$/.test(filter)) {
         return {
@@ -86,6 +90,18 @@ const getRangeForFilter = (filter: string) => {
       return null
     }
   }
+}
+
+/** Desktop: always single. Mobile: dual for 6m (two 3m), last year / ytd / annual year (two 6m). */
+export function getDailyTransactionActivityDisplayMode(
+  effectiveDateFilter: string,
+  isMobile: boolean
+): "single" | "dual" {
+  if (!isMobile) return "single"
+  if (["last7days", "last30days", "last3months"].includes(effectiveDateFilter)) return "single"
+  if (effectiveDateFilter === "last6months" || effectiveDateFilter === "lastyear" || effectiveDateFilter === "ytd") return "dual"
+  if (/^\d{4}$/.test(effectiveDateFilter)) return "dual"
+  return "single"
 }
 
 
@@ -103,10 +119,10 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
     <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
       <ChartInfoPopover
         title="Daily Transaction Activity"
-        description="6 months of spending patterns split into two quarterly views - darker cells mean higher spending"
+        description="Daily spending by day — darker cells mean higher spending. On desktop the full period is one chart; on mobile, 6-month and last-year views split into two periods."
         details={[
           "Each cell represents a day, colored by the total amount you spent.",
-          "The chart shows two 3-month periods for easier comparison between quarters.",
+          "On desktop the chart shows the full selected period. On mobile, 6 months shows two 3-month calendars and last year shows two 6-month calendars.",
           "Expense-only data is shown - income, transfers, and savings moves are excluded."
         ]}
         ignoredFootnote="The API filters to negative transactions only and trims out internal transfers and savings deposits."
@@ -114,7 +130,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
       <ChartAiInsightButton
         chartId="dailyTransactionActivity"
         chartTitle="Daily Transaction Activity"
-        chartDescription="6 months of spending patterns split into two quarterly views"
+        chartDescription="Daily spending by day; on mobile, 6-month and last-year views split into two periods"
         size="sm"
       />
     </div>
@@ -234,54 +250,138 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
     setMounted(true)
   }, [])
 
-  // Calculate date ranges for two 3-month periods (6 months YTD total)
-  // Period 1: 6 months ago to 3 months ago (older quarter)
-  // Period 2: 3 months ago to today (recent quarter)
-  const { period1, period2, singlePeriod, enforcedByFilter } = useMemo(() => {
+  // Desktop: always single full-period chart. Mobile: dual for 6m/ytd/lastyear/annual, single for ≤3m.
+  const { period1, period2, singlePeriod } = useMemo(() => {
     const today = new Date()
     const formatDate = (date: Date) => date.toISOString().split('T')[0]
+    const filter = effectiveDateFilter
 
-    // Check if user has a short-range date filter that should use single calendar
-    // Only last7days, last30days, and last3months use single calendar mode
-    // Everything else (lastyear, last6months, ytd, specific years) uses dual calendar
-    const shortRangeFilters = ["last7days", "last30days", "last3months"]
-    if (dateFilter && shortRangeFilters.includes(dateFilter)) {
-      const range = getRangeForFilter(dateFilter)
+    // Desktop (big screens): always one full-period calendar — never split into two
+    if (!isMobile) {
+      const range = getRangeForFilter(filter)
       if (range) {
-        return {
-          period1: null,
-          period2: null,
-          singlePeriod: range,
-          enforcedByFilter: true,
-        }
+        return { period1: null, period2: null, singlePeriod: range }
+      }
+      const sixMonthsAgo = new Date(today)
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+      return {
+        period1: null,
+        period2: null,
+        singlePeriod: { fromDate: formatDate(sixMonthsAgo), toDate: formatDate(today) },
       }
     }
 
-    // Default: 6 months YTD split into two 3-month periods
+    // Mobile (small screens): single for last7days, last30days, last3months
+    const shortRangeFilters = ["last7days", "last30days", "last3months"]
+    if (shortRangeFilters.includes(filter)) {
+      const range = getRangeForFilter(filter)
+      if (range) {
+        return { period1: null, period2: null, singlePeriod: range }
+      }
+    }
+
+    // Mobile last6months: dual two 3-month periods
+    if (filter === "last6months") {
+      const sixMonthsAgo = new Date(today)
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+      const threeMonthsAgo = new Date(today)
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
+      const period1End = new Date(threeMonthsAgo)
+      period1End.setDate(period1End.getDate() - 1)
+      return {
+        period1: {
+          fromDate: formatDate(sixMonthsAgo),
+          toDate: formatDate(period1End),
+          label: getMonthRangeLabel(sixMonthsAgo, period1End),
+        },
+        period2: {
+          fromDate: formatDate(threeMonthsAgo),
+          toDate: formatDate(today),
+          label: getMonthRangeLabel(threeMonthsAgo, today),
+        },
+        singlePeriod: null,
+      }
+    }
+
+    // Mobile lastyear: dual two 6-month periods
+    if (filter === "lastyear") {
+      const twelveMonthsAgo = new Date(today)
+      twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1)
+      const sixMonthsAgo = new Date(today)
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+      const period1End = new Date(sixMonthsAgo)
+      period1End.setDate(period1End.getDate() - 1)
+      return {
+        period1: {
+          fromDate: formatDate(twelveMonthsAgo),
+          toDate: formatDate(period1End),
+          label: getMonthRangeLabel(twelveMonthsAgo, period1End),
+        },
+        period2: {
+          fromDate: formatDate(sixMonthsAgo),
+          toDate: formatDate(today),
+          label: getMonthRangeLabel(sixMonthsAgo, today),
+        },
+        singlePeriod: null,
+      }
+    }
+
+    // Mobile ytd: dual two 6-month periods (Jan 1 - Jun 30, Jul 1 - today)
+    if (filter === "ytd") {
+      const year = today.getFullYear()
+      const jan1 = new Date(year, 0, 1)
+      const jul1 = new Date(year, 6, 1)
+      const jun30 = new Date(year, 5, 30)
+      return {
+        period1: {
+          fromDate: formatDate(jan1),
+          toDate: formatDate(jun30),
+          label: getMonthRangeLabel(jan1, jun30),
+        },
+        period2: {
+          fromDate: formatDate(jul1),
+          toDate: formatDate(today),
+          label: getMonthRangeLabel(jul1, today),
+        },
+        singlePeriod: null,
+      }
+    }
+
+    // Mobile annual (specific year e.g. "2024"): dual two 6-month periods (Jan-Jun, Jul-Dec)
+    if (/^\d{4}$/.test(filter)) {
+      const year = parseInt(filter, 10)
+      const jan1 = new Date(year, 0, 1)
+      const jul1 = new Date(year, 6, 1)
+      const jun30 = new Date(year, 5, 30)
+      const dec31 = new Date(year, 11, 31)
+      return {
+        period1: {
+          fromDate: formatDate(jan1),
+          toDate: formatDate(jun30),
+          label: getMonthRangeLabel(jan1, jun30),
+        },
+        period2: {
+          fromDate: formatDate(jul1),
+          toDate: formatDate(dec31),
+          label: getMonthRangeLabel(jul1, dec31),
+        },
+        singlePeriod: null,
+      }
+    }
+
+    // Mobile other: single full range
+    const range = getRangeForFilter(filter)
+    if (range) {
+      return { period1: null, period2: null, singlePeriod: range }
+    }
     const sixMonthsAgo = new Date(today)
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-
-    const threeMonthsAgo = new Date(today)
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
-    // Subtract one day from period 1 end to avoid overlap
-    const period1End = new Date(threeMonthsAgo)
-    period1End.setDate(period1End.getDate() - 1)
-
     return {
-      period1: {
-        fromDate: formatDate(sixMonthsAgo),
-        toDate: formatDate(period1End),
-        label: getMonthRangeLabel(sixMonthsAgo, period1End),
-      },
-      period2: {
-        fromDate: formatDate(threeMonthsAgo),
-        toDate: formatDate(today),
-        label: getMonthRangeLabel(threeMonthsAgo, today),
-      },
-      singlePeriod: null,
-      enforcedByFilter: false,
+      period1: null,
+      period2: null,
+      singlePeriod: { fromDate: formatDate(sixMonthsAgo), toDate: formatDate(today) },
     }
-  }, [dateFilter, isMobile])
+  }, [effectiveDateFilter, isMobile])
 
   // Helper to get month range label (e.g., "Aug - Oct 2025")
   function getMonthRangeLabel(start: Date, end: Date): string {
@@ -291,8 +391,9 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
     return `${startMonth} - ${endMonth} ${endYear}`
   }
 
-  // Determine if we're showing dual calendars
+  // Dual calendars only on mobile (6m = two 3m; ytd/lastyear/annual = two 6m). Desktop always single.
   const isDualCalendar = period1 !== null && period2 !== null
+  const isDualDisplayMode = getDailyTransactionActivityDisplayMode(effectiveDateFilter, isMobile) === "dual"
 
   // For backwards compatibility, compute fromDate/toDate for data filtering
   const fromDate = isDualCalendar ? period1!.fromDate : singlePeriod?.fromDate || ""
@@ -621,6 +722,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
   }, [chartData, colorScaleMax, fromDate, toDate, isDark, palette, isMobile, isDualCalendar, period1, period2, period1Data, period2Data])
 
   if (!mounted || isLoading) {
+    const loadingHeight = isDualDisplayMode ? "h-[300px] md:h-[360px]" : "h-[140px] md:h-[250px]"
     return (
       <Card className="@container/card">
         <CardHeader>
@@ -638,7 +740,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-          <div className="h-[180px] md:h-[360px] w-full">
+          <div className={`${loadingHeight} w-full`}>
             <ChartLoadingState
               isLoading
               skeletonType="grid"
@@ -653,6 +755,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
 
   // Show error or empty state
   if (error || chartData.length === 0) {
+    const emptyHeight = isDualDisplayMode ? "h-[300px] md:h-[360px]" : "h-[140px] md:h-[250px]"
     return (
       <Card className="@container/card">
         <CardHeader>
@@ -670,7 +773,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-          <div className="h-[180px] md:h-[360px] w-full">
+          <div className={`${emptyHeight} w-full`}>
             <ChartLoadingState
               skeletonType="grid"
               emptyTitle={emptyTitle || "No daily activity yet"}
@@ -713,7 +816,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 pb-2 sm:px-6 sm:pt-6 md:pb-6">
-          <div ref={containerRef} className={`relative w-full ${isDualCalendar ? 'h-[300px] md:h-[360px]' : 'h-[140px] md:h-[250px]'}`} style={{ minHeight: 0, minWidth: 0 }}>
+          <div ref={containerRef} className={`relative w-full ${isDualCalendar ? "h-[300px] md:h-[360px]" : "h-[140px] md:h-[250px]"}`} style={{ minHeight: 0, minWidth: 0 }}>
             <ReactECharts
               ref={chartRef}
               option={option}

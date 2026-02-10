@@ -1,6 +1,12 @@
 import { memo, useEffect, useState, type Dispatch, type SetStateAction } from "react"
 
 import { LazyChart } from "@/components/lazy-chart"
+import { useIsMobile } from "@/hooks/use-mobile"
+import {
+  FALLBACK_DATE_FILTER,
+  normalizeDateFilterValue,
+} from "@/lib/date-filter"
+import { getDailyTransactionActivityDisplayMode } from "@/components/chart-transaction-calendar"
 import { SortableGridItem, SortableGridProvider } from "@/components/sortable-grid"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { ChartCategoryBubble } from "@/components/chart-category-bubble"
@@ -111,6 +117,15 @@ export function ChartsGrid({
   const emptyDescription = hasDataInOtherPeriods
     ? "Try selecting a different time period to see your data"
     : "Import your bank statements or receipts to see insights here"
+
+  const isMobile = useIsMobile()
+  const effectiveDateFilter = normalizeDateFilterValue(dateFilter, FALLBACK_DATE_FILTER)
+  const dailyActivityDisplayMode = getDailyTransactionActivityDisplayMode(
+    effectiveDateFilter,
+    isMobile,
+  )
+  const dailyActivityPreferredH = dailyActivityDisplayMode === "dual" ? 8 : 5
+  const dailyActivityPreferredMobileH = dailyActivityDisplayMode === "dual" ? 8 : 5
 
   const [ringCategoryPopoverIndex, setRingCategoryPopoverIndex] = useState<number | null>(null)
   const [ringCategoryPopoverValue, setRingCategoryPopoverValue] = useState<string | null>(null)
@@ -773,8 +788,12 @@ export function ChartsGrid({
               day: d.date,
               value: Math.abs(d.expense)
             }))
+            // Use saved height when set so resize sticks; preferred height as initial. Allow minH 5 so user can resize down to single-chart size.
+            const dailyActivityH = savedSizes[chartId]?.h ?? dailyActivityPreferredH
+            const dailyActivityMobileH = savedSizes[chartId]?.h ?? dailyActivityPreferredMobileH
+            const dailyActivityMinH = Math.min(5, sizeConfig.minH)
             return (
-              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={dailyActivityH} mobileH={dailyActivityMobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={dailyActivityMinH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                 <LazyChart title="Daily Transaction Activity" height={250}>
                   <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                     <ChartTransactionCalendar

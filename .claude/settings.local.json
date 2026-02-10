@@ -32,8 +32,8 @@
     "commit-commands@claude-plugins-official": true,
     "security-guidance@claude-plugins-official": true,
     "superpowers@claude-plugins-official": true,
-    "vercel@claude-plugins-official": true,
-    "stripe@claude-plugins-official": true
+    "vercel@claude-plugins-official": false,
+    "stripe@claude-plugins-official": false
   },
   "outputStyle": "Explanatory",
   "spinnerTipsEnabled": false
