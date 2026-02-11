@@ -3,6 +3,12 @@
 
 import { currentUser } from '@clerk/nextjs/server'
 import { neonQuery, neonInsert } from '@/lib/neonClient'
+
+// Whitelist of tables allowed for dynamic cleanup queries
+const ALLOWED_CLEANUP_TABLES = new Set([
+    'subscriptions', 'categories', 'receipt_categories',
+    'transactions', 'statements', 'receipts', 'budgets',
+])
 import { DEFAULT_CATEGORIES as DEFAULT_TRANSACTION_CATEGORIES } from '@/lib/categories'
 import { ensureReceiptCategories } from '@/lib/receipts/receipt-categories-db'
 
@@ -175,6 +181,11 @@ export async function ensureUserExists(): Promise<string> {
             ]
 
             for (const table of tablesToClean) {
+                // Validate table name against whitelist before interpolating into SQL
+                if (!ALLOWED_CLEANUP_TABLES.has(table)) {
+                    console.error(`[User Sync] Invalid table name: ${table}`)
+                    continue
+                }
                 try {
                     await neonQuery(`DELETE FROM ${table} WHERE user_id = $1::text`, [oldId])
                     console.log(`[User Sync] Cleaned ${table} for old user ${oldId}`)

@@ -806,7 +806,7 @@ export default function AnalyticsPage() {
         console.error("Failed to fetch transactions: HTTP", response.status, data)
         if (response.status === 401) {
           toast.error("Authentication Error", {
-            description: "Please configure DEMO_USER_ID in .env.local",
+            description: "Please sign in to continue.",
             duration: 10000,
           })
         } else {

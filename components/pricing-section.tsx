@@ -200,6 +200,11 @@ export function PricingSection() {
       }
 
       if (data.url) {
+        // Validate redirect goes to Stripe before navigating
+        const redirectUrl = new URL(data.url)
+        if (!redirectUrl.hostname.endsWith('stripe.com')) {
+          throw new Error('Invalid checkout redirect URL')
+        }
         // Track successful redirect to Stripe
         safeCapture('checkout_redirect', {
           plan_name: plan.name,

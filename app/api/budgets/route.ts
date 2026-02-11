@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import { getCurrentUserId } from "@/lib/auth"
 import { neonQuery, neonInsert } from "@/lib/neonClient"
+
+const CreateBudgetSchema = z.object({
+  categoryName: z.string().min(1, "Category name is required").max(100).trim(),
+  budget: z.number({ coerce: true }).nonnegative("Budget must be a positive number").finite(),
+})
 
 type BudgetRow = {
   category_name: string
@@ -67,21 +73,15 @@ export const POST = async (req: NextRequest) => {
   try {
     const userId = await getCurrentUserId()
     const body = await req.json().catch(() => ({}))
-
-    const categoryName = (body.categoryName ?? "").trim()
-    const budgetValue =
-      typeof body.budget === "string"
-        ? parseFloat(body.budget)
-        : typeof body.budget === "number"
-          ? body.budget
-          : NaN
-
-    if (!categoryName || !Number.isFinite(budgetValue) || budgetValue < 0) {
+    const parsed = CreateBudgetSchema.safeParse(body)
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid category name or budget value" },
+        { error: parsed.error.issues[0]?.message || "Invalid input" },
         { status: 400 }
       )
     }
+
+    const { categoryName, budget: budgetValue } = parsed.data
 
     // Normalize category name (same as categories API)
     const normalizedName = categoryName.trim().replace(/\s+/g, " ")

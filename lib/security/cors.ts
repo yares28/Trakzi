@@ -31,11 +31,9 @@ export function isOriginAllowed(origin: string | null): boolean {
         }
     }
 
-    // Check against allowed origins
-    return ALLOWED_ORIGINS.some(allowed =>
-        origin === allowed ||
-        origin.endsWith('.vercel.app') // Allow all Vercel preview deployments
-    );
+    // Check against allowed origins and Trakzi-specific Vercel preview deployments
+    const trakziPreviewPattern = /^https:\/\/trakzi-[a-z0-9-]+\.vercel\.app$/
+    return ALLOWED_ORIGINS.includes(origin) || trakziPreviewPattern.test(origin);
 }
 
 /**

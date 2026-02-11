@@ -112,27 +112,28 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
   // getShuffledPalette() filters, trims by theme, and shuffles for visual variety
   const chartColors = useMemo(() => getShuffledPalette(), [getShuffledPalette])
 
-  // Theme for axis labels and text - match muted-foreground color from globals.css
+  // Theme: axis text from getChartTextColor; main axis lines transparent; tick lines #777777
   const swarmTheme = useMemo(() => {
-    // Use same muted-foreground colors as Recharts charts for consistency
     const textColor = getChartTextColor(resolvedTheme === "dark")
+    const tickLineColor = "#777777"
     return {
       axis: {
+        domain: {
+          line: { stroke: "transparent", strokeWidth: 1 },
+        },
         ticks: {
-          text: {
-            fill: textColor,
-          },
+          line: { stroke: tickLineColor, strokeWidth: 1 },
+          text: { fill: textColor },
         },
         legend: {
-          text: {
-            fill: textColor,
-          },
+          text: { fill: textColor },
         },
       },
+      grid: {
+        line: { stroke: tickLineColor, strokeWidth: 1 },
+      },
       labels: {
-        text: {
-          fill: textColor,
-        },
+        text: { fill: textColor },
       },
     }
   }, [resolvedTheme])

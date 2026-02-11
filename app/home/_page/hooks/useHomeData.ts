@@ -44,7 +44,7 @@ export function useHomeData({ dateFilter }: UseHomeDataOptions) {
           }
         } else if (response.status === 401) {
           toast.error("Authentication Error", {
-            description: "Please configure DEMO_USER_ID in .env.local",
+            description: "Please sign in to continue.",
             duration: 10000,
           })
         } else {

@@ -4,6 +4,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Webhook } from 'svix';
 import { neonQuery } from '@/lib/neonClient';
+import { checkRateLimit, createRateLimitResponse } from '@/lib/security/rate-limiter';
+
+// Whitelist of tables allowed for dynamic cleanup queries
+const ALLOWED_CLEANUP_TABLES = new Set([
+    'subscriptions', 'categories', 'receipt_categories',
+    'transactions', 'statements', 'receipts', 'budgets',
+]);
 
 // Clerk sends webhooks signed with this secret
 const CLERK_WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
@@ -35,6 +42,11 @@ async function deleteUserData(userId: string): Promise<void> {
     ];
 
     for (const table of tablesToClean) {
+        // Validate table name against whitelist before interpolating into SQL
+        if (!ALLOWED_CLEANUP_TABLES.has(table)) {
+            console.error(`[Clerk Webhook] Invalid table name: ${table}`);
+            continue;
+        }
         try {
             await neonQuery(`DELETE FROM ${table} WHERE user_id = $1::text`, [userId]);
             console.log(`[Clerk Webhook] Cleaned ${table} for user ${userId}`);
@@ -56,6 +68,13 @@ async function deleteUserData(userId: string): Promise<void> {
 }
 
 export async function POST(request: NextRequest) {
+    // IP-based rate limiting before signature verification (DoS protection)
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const rateLimitResult = await checkRateLimit(`webhook:clerk:${ip}`, 'webhook');
+    if (rateLimitResult.limited) {
+        return createRateLimitResponse(rateLimitResult.resetIn);
+    }
+
     // Verify webhook signature
     if (!CLERK_WEBHOOK_SECRET) {
         console.error('[Clerk Webhook] CLERK_WEBHOOK_SECRET not configured');
@@ -104,6 +123,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true });
     } catch (error: any) {
         console.error('[Clerk Webhook] Error processing event:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
     }
 }

@@ -52,10 +52,18 @@ export function getChartTextColor(isDark: boolean): string {
 }
 
 /**
- * Standard grid/axis line color for charts.
- * Uses Tailwind gray-200 for both themes.
+ * Standard grid/axis line color for charts (light theme).
+ * Uses Tailwind gray-200.
  */
 export const CHART_GRID_COLOR = "#e5e7eb"
+
+/**
+ * Theme-aware grid/axis line color for Nivo and other charts so grid and axis
+ * ticks use the same stroke and do not appear as two stacked lines.
+ */
+export function getChartAxisLineColor(isDark: boolean): string {
+  return isDark ? "#4b5563" : CHART_GRID_COLOR
+}
 
 /**
  * Standard transparent background for ECharts instances.

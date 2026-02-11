@@ -16,7 +16,7 @@ This document lists all chart components used on the Fridge (Grocery/Receipt) pa
 | 4 | `groceryMacronutrientBreakdown` | `chart-macronutrient-breakdown-fridge.tsx` | `ChartMacronutrientBreakdownFridge` | Macronutrient Breakdown - Protein/carbs/fats distribution |
 | 5 | `grocerySnackPercentage` | `chart-snack-percentage-fridge.tsx` | `ChartSnackPercentageFridge` | Snack Percentage - Percentage of purchases classified as snacks |
 | 6 | `groceryEmptyVsNutritious` | `chart-empty-vs-nutritious-fridge.tsx` | `ChartEmptyVsNutritiousFridge` | Empty vs Nutritious Foods - Empty calories vs nutritious comparison |
-| 7 | `groceryDailyActivity` | `chart-daily-activity-fridge.tsx` | `ChartDailyActivityFridge` | Daily Shopping Activity - Shopping frequency and spend per day |
+| 7 | `groceryDailyActivity` | `chart-daily-activity-fridge.tsx` | `ChartDailyActivityFridge` | Daily Grocery Activity - Contribution graph heatmap of daily grocery spending |
 | 8 | `groceryDayOfWeekCategory` | `chart-day-of-week-category-fridge.tsx` | `ChartDayOfWeekCategoryFridge` | Day of Week Category - Spending by category for each day |
 | 9 | `grocerySingleMonthCategory` | `chart-single-month-category-fridge.tsx` | `ChartSingleMonthCategoryFridge` | Single Month Category - Detailed breakdown for selected month |
 | 10 | `groceryAllMonthsCategory` | `chart-all-months-category-fridge.tsx` | `ChartAllMonthsCategoryFridge` | All Months Category - Category spending across all months |

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState, useRef, memo } from "react"
 import { ChevronDownIcon } from "lucide-react"
 import { ResponsiveSwarmPlot } from "@nivo/swarmplot"
 import { useTheme } from "next-themes"
+import { getChartTextColor } from "@/lib/chart-colors"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import {
@@ -134,28 +135,28 @@ export const ChartTransactionHistoryFridge = memo(function ChartTransactionHisto
         return resolvedTheme === "dark" ? [...palette].reverse() : palette
     }, [getShuffledPalette, resolvedTheme])
 
-    // Theme for axis labels and text
+    // Theme: axis text Light #6b7280 / Dark #9ca3af; main axis lines transparent; tick lines #777777
     const swarmTheme = useMemo(() => {
-        const textColor = resolvedTheme === "dark"
-            ? "oklch(0.6268 0 0)"
-            : "oklch(0.551 0.0234 264.3637)"
+        const textColor = getChartTextColor(resolvedTheme === "dark")
+        const tickLineColor = "#777777"
         return {
             axis: {
+                domain: {
+                    line: { stroke: "transparent", strokeWidth: 1 },
+                },
                 ticks: {
-                    text: {
-                        fill: textColor,
-                    },
+                    line: { stroke: tickLineColor, strokeWidth: 1 },
+                    text: { fill: textColor },
                 },
                 legend: {
-                    text: {
-                        fill: textColor,
-                    },
+                    text: { fill: textColor },
                 },
             },
+            grid: {
+                line: { stroke: tickLineColor, strokeWidth: 1 },
+            },
             labels: {
-                text: {
-                    fill: textColor,
-                },
+                text: { fill: textColor },
             },
         }
     }, [resolvedTheme])

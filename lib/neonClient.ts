@@ -136,9 +136,7 @@ export async function neonQuery<T = any>(
     } catch (error: any) {
         console.error(`[Neon] Query error:`, error.message);
         console.error(`[Neon] Query was:`, query.substring(0, 200));
-        console.error(`[Neon] Params were:`, params);
-        console.error(`[Neon] Full error:`, error);
-        console.error(`[Neon] Error stack:`, error.stack);
+        console.error(`[Neon] Params count:`, params.length);
         throw new Error(`Failed to query: ${error.message}`);
     }
 }

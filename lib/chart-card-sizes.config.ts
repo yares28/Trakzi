@@ -51,6 +51,7 @@ export type ChartId =
   | "fridge:grocerySpendTrend"
   | "fridge:emptyVsNutritious"
   | "fridge:dailyActivity"
+
   | "fridge:dayOfWeekCategory"
   | "fridge:singleMonthCategory"
   | "fridge:allMonthsCategory"

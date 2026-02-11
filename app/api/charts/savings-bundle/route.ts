@@ -1,23 +1,18 @@
 import { NextResponse } from 'next/server'
-import { getCurrentUserIdOrNull } from '@/lib/auth'
+import { getCurrentUserId } from '@/lib/auth'
 import { getSavingsBundle, type SavingsSummary } from '@/lib/charts/home-trends-savings-aggregations'
 import { getCachedOrCompute, buildCacheKey, CACHE_TTL } from '@/lib/cache/upstash'
 import { autoEnforceTransactionCap } from '@/lib/limits/auto-enforce-cap'
+import { checkRateLimit, createRateLimitResponse } from '@/lib/security/rate-limiter'
 
 export const GET = async (request: Request) => {
     try {
-        let userId: string | null = await getCurrentUserIdOrNull()
+        const userId = await getCurrentUserId()
 
-        if (!userId) {
-            // SECURITY: Only use demo user in development
-            if (process.env.NODE_ENV === 'development' && process.env.DEMO_USER_ID) {
-                userId = process.env.DEMO_USER_ID
-            } else {
-                return NextResponse.json(
-                    { error: 'Unauthorized - Please sign in' },
-                    { status: 401 }
-                )
-            }
+        // Rate limit - complex aggregation queries
+        const rateLimitResult = await checkRateLimit(userId, 'bundle')
+        if (rateLimitResult.limited) {
+            return createRateLimitResponse(rateLimitResult.resetIn)
         }
 
         // Automatically enforce transaction cap on page load

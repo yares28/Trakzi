@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { getCurrentUserId } from "@/lib/auth"
 import { DEFAULT_CATEGORIES } from "@/lib/categories"
 import { neonInsert, neonQuery } from "@/lib/neonClient"
+import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limiter"
 
 const CATEGORY_COLORS = [
   "#f97316",
@@ -19,6 +20,12 @@ const CATEGORY_COLORS = [
 export const POST = async () => {
   try {
     const userId = await getCurrentUserId()
+
+    // Rate limit - bulk delete + insert operation
+    const rateLimitResult = await checkRateLimit(userId, 'mutation')
+    if (rateLimitResult.limited) {
+      return createRateLimitResponse(rateLimitResult.resetIn)
+    }
 
     // Delete all existing categories for this user
     await neonQuery(

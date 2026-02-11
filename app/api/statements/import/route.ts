@@ -5,6 +5,7 @@ import Papa from "papaparse";
 import { neonInsert, neonQuery } from "@/lib/neonClient";
 import { getCurrentUserId } from "@/lib/auth";
 import { TxRow } from "@/lib/types/transactions";
+import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limiter";
 import { invalidateUserCache } from "@/lib/cache/upstash";
 import {
     assertCapacityOrExplain,
@@ -82,6 +83,13 @@ export const POST = async (req: NextRequest) => {
         }
 
         const userId = await getCurrentUserId();
+
+        // Rate limit - bulk imports are expensive (DB writes + parsing)
+        const rateLimitResult = await checkRateLimit(userId, 'mutation');
+        if (rateLimitResult.limited) {
+            return createRateLimitResponse(rateLimitResult.resetIn);
+        }
+
         await ensureTransactionsTimeColumn();
 
         // 1) Parse CSV into TxRow[]

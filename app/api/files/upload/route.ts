@@ -15,6 +15,6 @@ export const POST = async (req: NextRequest) => {
         return NextResponse.json({ fileId: stored.id, stored }, { status: 201 });
     } catch (err: any) {
         console.error(err);
-        return NextResponse.json({ error: err.message }, { status: 500 });
+        return NextResponse.json({ error: "File upload failed. Please try again." }, { status: 500 });
     }
 };

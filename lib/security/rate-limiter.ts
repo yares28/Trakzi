@@ -1,125 +1,81 @@
 // lib/security/rate-limiter.ts
-// In-memory rate limiter for API endpoints
-// For production at scale, consider using Redis (e.g., @upstash/ratelimit)
+// Redis-backed rate limiter using @upstash/ratelimit
+// Shared across all serverless instances via Upstash Redis
 
-interface RateLimitEntry {
-    count: number;
-    resetTime: number;
-}
+import { Ratelimit } from "@upstash/ratelimit"
+import { Redis } from "@upstash/redis"
 
-interface RateLimiterConfig {
-    windowMs: number;     // Time window in milliseconds
-    maxRequests: number;  // Max requests per window
-}
+// Check if Redis environment variables are configured
+const REDIS_CONFIGURED = !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
 
-// Default configurations for different endpoint types
+// Rate limit configurations for different endpoint types
 export const RATE_LIMIT_CONFIGS = {
-    // Dashboard read endpoints - very high for fast navigation
-    dashboardRead: { windowMs: 60 * 1000, maxRequests: 1000 }, // 1000 per minute
-
-    // AI endpoints - expensive, limit strictly
-    ai: { windowMs: 60 * 1000, maxRequests: 10 }, // 10 per minute
+    // AI endpoints - expensive (Gemini API calls), limit strictly
+    ai: { requests: 10, window: "1 m" as const },
 
     // File uploads - moderately expensive
-    upload: { windowMs: 60 * 1000, maxRequests: 20 }, // 20 per minute
+    upload: { requests: 20, window: "1 m" as const },
 
     // Standard API calls - more lenient
-    standard: { windowMs: 60 * 1000, maxRequests: 100 }, // 100 per minute
+    standard: { requests: 100, window: "1 m" as const },
+
+    // Expensive mutations (import, bulk operations)
+    mutation: { requests: 15, window: "1 m" as const },
+
+    // Chart bundle endpoints - complex aggregation queries
+    bundle: { requests: 60, window: "1 m" as const },
+
+    // Webhook endpoints - IP-based, before signature verification
+    webhook: { requests: 100, window: "1 m" as const },
 
     // Auth-related - strict to prevent brute force
-    auth: { windowMs: 15 * 60 * 1000, maxRequests: 10 }, // 10 per 15 minutes
-} as const;
+    auth: { requests: 10, window: "15 m" as const },
+} as const
 
-export type RateLimitType = keyof typeof RATE_LIMIT_CONFIGS;
+export type RateLimitType = keyof typeof RATE_LIMIT_CONFIGS
 
-class InMemoryRateLimiter {
-    private store: Map<string, RateLimitEntry> = new Map();
-    private cleanupInterval: NodeJS.Timeout | null = null;
+// Create rate limiters for each type using sliding window algorithm
+const limiters: Record<string, Ratelimit> = {}
 
-    constructor() {
-        // Clean up expired entries every minute
-        if (typeof setInterval !== 'undefined') {
-            this.cleanupInterval = setInterval(() => this.cleanup(), 60 * 1000);
-        }
+function getLimiter(type: RateLimitType): Ratelimit | null {
+    if (!REDIS_CONFIGURED) return null
+
+    if (!limiters[type]) {
+        const config = RATE_LIMIT_CONFIGS[type]
+        limiters[type] = new Ratelimit({
+            redis: Redis.fromEnv(),
+            limiter: Ratelimit.slidingWindow(config.requests, config.window),
+            analytics: true,
+            prefix: `ratelimit:${type}`,
+        })
     }
-
-    /**
-     * Check if request should be rate limited
-     * @returns { limited: boolean, remaining: number, resetIn: number }
-     */
-    check(
-        identifier: string,
-        config: RateLimiterConfig
-    ): { limited: boolean; remaining: number; resetIn: number } {
-        const now = Date.now();
-        const key = identifier;
-        const entry = this.store.get(key);
-
-        // First request or window expired
-        if (!entry || now >= entry.resetTime) {
-            this.store.set(key, {
-                count: 1,
-                resetTime: now + config.windowMs,
-            });
-            return {
-                limited: false,
-                remaining: config.maxRequests - 1,
-                resetIn: config.windowMs,
-            };
-        }
-
-        // Within window
-        if (entry.count >= config.maxRequests) {
-            return {
-                limited: true,
-                remaining: 0,
-                resetIn: entry.resetTime - now,
-            };
-        }
-
-        // Increment counter
-        entry.count++;
-        this.store.set(key, entry);
-
-        return {
-            limited: false,
-            remaining: config.maxRequests - entry.count,
-            resetIn: entry.resetTime - now,
-        };
-    }
-
-    private cleanup(): void {
-        const now = Date.now();
-        for (const [key, entry] of this.store.entries()) {
-            if (now >= entry.resetTime) {
-                this.store.delete(key);
-            }
-        }
-    }
-
-    destroy(): void {
-        if (this.cleanupInterval) {
-            clearInterval(this.cleanupInterval);
-        }
-        this.store.clear();
-    }
+    return limiters[type]
 }
-
-// Singleton instance
-const rateLimiter = new InMemoryRateLimiter();
 
 /**
  * Check rate limit for a request
- * @param userId - User identifier (use IP for unauthenticated requests)
+ * @param identifier - User ID or IP address
  * @param type - Type of rate limit to apply
  * @returns Rate limit status
  */
-export function checkRateLimit(
-    userId: string,
+export async function checkRateLimit(
+    identifier: string,
     type: RateLimitType = 'standard'
-): { limited: boolean; remaining: number; resetIn: number } {
-    const config = RATE_LIMIT_CONFIGS[type];
-    return rateLimiter.check(userId, config);
+): Promise<{ limited: boolean; remaining: number; resetIn: number }> {
+    const limiter = getLimiter(type)
+
+    // If Redis not configured, allow all requests (development fallback)
+    if (!limiter) {
+        return { limited: false, remaining: 999, resetIn: 0 }
+    }
+
+    const result = await limiter.limit(identifier)
+
+    return {
+        limited: !result.success,
+        remaining: result.remaining,
+        resetIn: result.reset ? result.reset - Date.now() : 0,
+    }
 }
 
 /**
@@ -131,7 +87,7 @@ export function createRateLimitHeaders(
     return {
         'X-RateLimit-Remaining': String(result.remaining),
         'X-RateLimit-Reset': String(Math.ceil(result.resetIn / 1000)),
-    };
+    }
 }
 
 /**
@@ -151,5 +107,5 @@ export function createRateLimitResponse(resetIn: number): Response {
                 'Retry-After': String(Math.ceil(resetIn / 1000)),
             },
         }
-    );
+    )
 }

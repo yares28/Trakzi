@@ -614,6 +614,11 @@ function SubscriptionSection() {
             const data = await response.json()
 
             if (data.action === 'checkout' && data.url) {
+                // Validate redirect goes to Stripe before navigating
+                const redirectUrl = new URL(data.url)
+                if (!redirectUrl.hostname.endsWith('stripe.com')) {
+                    throw new Error('Invalid checkout redirect URL')
+                }
                 window.location.href = data.url
             } else if (data.success) {
                 toast.success(data.message || `Upgraded to ${targetPlan.toUpperCase()}!`)

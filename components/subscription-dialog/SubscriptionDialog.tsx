@@ -315,7 +315,11 @@ export function SubscriptionDialog({ children, open: openProp, onOpenChange }: {
             const data = await response.json();
 
             if (data.action === 'checkout' && data.url) {
-                // Redirect to Stripe checkout
+                // Validate redirect goes to Stripe before navigating
+                const redirectUrl = new URL(data.url);
+                if (!redirectUrl.hostname.endsWith('stripe.com')) {
+                    throw new Error('Invalid checkout redirect URL');
+                }
                 window.location.href = data.url;
             } else if (data.success) {
                 toast.success(data.message || `Upgraded to ${targetPlan.toUpperCase()}!`);
@@ -527,7 +531,11 @@ export function SubscriptionDialog({ children, open: openProp, onOpenChange }: {
                                                 try {
                                                     const response = await fetch('/api/billing/portal', { method: 'POST' });
                                                     const data = await response.json();
-                                                    if (data.url) window.location.href = data.url;
+                                                    if (data.url) {
+                                                        const redirectUrl = new URL(data.url);
+                                                        if (!redirectUrl.hostname.endsWith('stripe.com')) throw new Error('Invalid redirect URL');
+                                                        window.location.href = data.url;
+                                                    }
                                                 } catch (e) {
                                                     toast.error('Unable to open billing portal');
                                                 }

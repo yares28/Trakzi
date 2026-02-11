@@ -6,6 +6,7 @@ import { neonInsert, neonQuery } from "@/lib/neonClient"
 import { ensureReceiptCategories } from "@/lib/receipts/receipt-categories-db"
 import { upsertReceiptItemCategoryPreferences } from "@/lib/receipts/item-category-preferences"
 import { invalidateUserCachePrefix } from "@/lib/cache/upstash"
+import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limiter"
 
 type CommitReceiptTransaction = {
   description?: string | null
@@ -71,6 +72,13 @@ function nowIsoTime(): string {
 export const POST = async (req: NextRequest) => {
   try {
     const userId = await getCurrentUserId()
+
+    // Rate limit - receipt commit involves AI categorization
+    const rateLimitResult = await checkRateLimit(userId, 'mutation')
+    if (rateLimitResult.limited) {
+      return createRateLimitResponse(rateLimitResult.resetIn)
+    }
+
     const body = await req.json().catch(() => ({}))
 
     const incoming = Array.isArray(body?.receipts) ? (body.receipts as CommitReceipt[]) : []

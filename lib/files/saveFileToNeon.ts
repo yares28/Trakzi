@@ -1,6 +1,7 @@
 // lib/files/saveFileToNeon.ts
 import { neonInsert } from "../neonClient";
 import { getCurrentUserId } from "../auth";
+import { sanitizeFileName } from "../security/input-sanitizer";
 
 export async function saveFileToNeon(params: {
     file: File;
@@ -12,7 +13,7 @@ export async function saveFileToNeon(params: {
     const buffer = Buffer.from(arrayBuffer);
     const hexData = "\\x" + buffer.toString("hex");
 
-    const fileName = params.file.name;
+    const fileName = sanitizeFileName(params.file.name);
     const mimeType = params.file.type || "application/octet-stream";
 
     const [inserted] = await neonInsert<{
