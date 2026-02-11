@@ -6,6 +6,7 @@ import { ChartExpenseBreakdownFridge } from "@/components/fridge/chart-expense-b
 import { ChartMacronutrientBreakdownFridge } from "@/components/fridge/chart-macronutrient-breakdown-fridge"
 import { ChartSnackPercentageFridge } from "@/components/fridge/chart-snack-percentage-fridge"
 import { ChartDailyActivityFridge } from "@/components/fridge/chart-daily-activity-fridge"
+
 import { ChartDayOfWeekCategoryFridge } from "@/components/fridge/chart-day-of-week-category-fridge"
 import { ChartSingleMonthCategoryFridge } from "@/components/fridge/chart-single-month-category-fridge"
 import { ChartAllMonthsCategoryFridge } from "@/components/fridge/chart-all-months-category-fridge"
@@ -60,6 +61,7 @@ export function ChartsGrid({
     groceryMacronutrientBreakdown: "Macronutrient Breakdown",
     grocerySnackPercentage: "Spending Breakdown",
     groceryDailyActivity: "Daily Activity",
+
     groceryDayOfWeekCategory: "Day of Week by Category",
     grocerySingleMonthCategory: "Single Month Category",
     groceryAllMonthsCategory: "All Months Category",

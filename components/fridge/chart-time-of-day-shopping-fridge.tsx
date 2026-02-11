@@ -206,10 +206,16 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
             "Only receipts with time data are included in the distribution.",
         ]
 
-        if (totalUniqueReceipts > 0 && missingTimeReceiptCount > 0) {
-            baseDetails.push(
-                `${missingTimeReceiptCount} of ${totalUniqueReceipts} receipts are missing time information and are excluded from this chart.`
-            )
+        if (totalUniqueReceipts > 0) {
+            if (missingTimeReceiptCount > 0) {
+                baseDetails.push(
+                    `${missingTimeReceiptCount} of ${totalUniqueReceipts} receipts in this date range are missing time information and are excluded from this chart.`
+                )
+            } else {
+                baseDetails.push(
+                    `All ${totalUniqueReceipts} receipts in this date range include time information and are counted in this chart.`
+                )
+            }
         }
 
         return (

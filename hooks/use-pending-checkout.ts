@@ -81,7 +81,11 @@ export function usePendingCheckout() {
                 }
 
                 if (data.url) {
-                    // Redirect to Stripe checkout
+                    // Validate redirect goes to Stripe before navigating
+                    const redirectUrl = new URL(data.url)
+                    if (!redirectUrl.hostname.endsWith('stripe.com')) {
+                        throw new Error('Invalid checkout redirect URL')
+                    }
                     window.location.href = data.url
                 }
             } catch (error) {

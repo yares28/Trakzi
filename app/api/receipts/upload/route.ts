@@ -609,7 +609,7 @@ export const POST = async (req: NextRequest) => {
     const userId = await getCurrentUserId()
 
     // Rate limit check - file uploads are expensive
-    const rateLimitResult = checkRateLimit(userId, 'upload')
+    const rateLimitResult = await checkRateLimit(userId, 'upload')
     if (rateLimitResult.limited) {
       return createRateLimitResponse(rateLimitResult.resetIn)
     }

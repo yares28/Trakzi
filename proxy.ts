@@ -1,13 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 
-// ============================================================================
-// DEVELOPMENT AUTH BYPASS
-// Set BYPASS_CLERK_AUTH=true in your .env file to skip authentication
-// See DEV_AUTH_BYPASS.md for more details
-// ============================================================================
-const BYPASS_AUTH = process.env.BYPASS_CLERK_AUTH === 'true'
-
 // Public routes that don't require authentication
 const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
@@ -19,6 +12,13 @@ const isPublicRoute = createRouteMatcher([
   '/legal(.*)',
   '/terms(.*)',
   '/api/webhooks(.*)',
+])
+
+// Public API routes that don't require authentication (webhooks, health checks)
+const isPublicApiRoute = createRouteMatcher([
+  '/api/webhook/(.*)',
+  '/api/webhooks/(.*)',
+  '/api/health(.*)',
 ])
 
 // Protected routes that require authentication
@@ -40,16 +40,21 @@ const isProtectedRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, req) => {
   const path = req.nextUrl.pathname
 
-  // FAST PATH: Skip auth() for API routes - they handle auth internally via getCurrentUserId()
-  // Proxy still runs to set up Clerk context, but we avoid the expensive auth() call
+  // API routes: enforce auth at middleware level as defense-in-depth
+  // Individual routes still call getCurrentUserId() for their own auth logic
   if (path.startsWith('/api/')) {
-    return NextResponse.next()
-  }
+    // Public API routes (webhooks, health) skip auth — they handle it differently
+    if (isPublicApiRoute(req)) {
+      return NextResponse.next()
+    }
 
-  // BYPASS: Skip all auth checks in development when enabled
-  if (BYPASS_AUTH) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[DEV] Auth bypass enabled - skipping authentication')
+    // For all other API routes, verify the user has a valid session
+    const { userId } = await auth()
+    if (!userId) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      )
     }
     return NextResponse.next()
   }

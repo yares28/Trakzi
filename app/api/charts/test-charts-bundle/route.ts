@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getCurrentUserId, getCurrentUserIdOrNull } from '@/lib/auth'
+import { getCurrentUserId } from '@/lib/auth'
 import { getTestChartsBundle, type TestChartsSummary } from '@/lib/charts/aggregations'
 import { getCachedOrCompute, buildCacheKey, CACHE_TTL } from '@/lib/cache/upstash'
 import { autoEnforceTransactionCap } from '@/lib/limits/auto-enforce-cap'
@@ -7,19 +7,7 @@ import { neonQuery } from '@/lib/neonClient'
 
 export const GET = async (request: Request) => {
     try {
-        let userId: string | null = await getCurrentUserIdOrNull()
-
-        if (!userId) {
-            // SECURITY: Only use demo user in development
-            if (process.env.NODE_ENV === 'development' && process.env.DEMO_USER_ID) {
-                userId = process.env.DEMO_USER_ID
-            } else {
-                return NextResponse.json(
-                    { error: 'Unauthorized - Please sign in' },
-                    { status: 401 }
-                )
-            }
-        }
+        const userId = await getCurrentUserId()
 
         // Automatically enforce transaction cap on page load
         await autoEnforceTransactionCap(userId, true)

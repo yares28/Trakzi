@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { revalidatePath } from "next/cache"
+import { z } from "zod"
 
 import { getCurrentUserId } from "@/lib/auth"
 import { DEFAULT_CATEGORIES } from "@/lib/categories"
 import { neonInsert, neonQuery } from "@/lib/neonClient"
 import { invalidateUserCachePrefix } from "@/lib/cache/upstash"
+
+const CreateCategorySchema = z.object({
+  name: z.string().min(1, "Category name is required").max(100).trim(),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
+})
 
 type CategoryRow = {
   id: number
@@ -144,17 +150,16 @@ export const POST = async (req: NextRequest) => {
     }
 
     const body = await req.json().catch(() => ({}))
-    const rawName = typeof body.name === "string" ? body.name : ""
-    const color = typeof body.color === "string" ? body.color.trim() : null
-
-    const normalizedName = rawName.trim().replace(/\s+/g, " ")
-
-    if (!normalizedName) {
+    const parsed = CreateCategorySchema.safeParse(body)
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Category name is required" },
+        { error: parsed.error.issues[0]?.message || "Invalid input" },
         { status: 400 }
       )
     }
+
+    const normalizedName = parsed.data.name.replace(/\s+/g, " ")
+    const color = parsed.data.color ?? null
 
     const paletteColor =
       color ||

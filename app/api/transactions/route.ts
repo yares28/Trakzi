@@ -1,8 +1,17 @@
 // app/api/transactions/route.ts
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { neonQuery } from "@/lib/neonClient";
-import { getCurrentUserId, getCurrentUserIdOrNull } from "@/lib/auth";
+import { getCurrentUserId } from "@/lib/auth";
+
+const CreateTransactionSchema = z.object({
+    date: z.string().min(1, "Date is required"),
+    description: z.string().min(1, "Description is required").max(500),
+    amount: z.number({ coerce: true }).finite("Amount must be a valid number"),
+    category_id: z.number().int().positive().optional().nullable(),
+    statement_id: z.number().int().positive().optional().nullable(),
+});
 import { invalidateUserCachePrefix } from "@/lib/cache/upstash";
 
 export function getDateRange(filter: string | null): { startDate: string | null; endDate: string | null } {
@@ -86,20 +95,7 @@ export function getDateRange(filter: string | null): { startDate: string | null;
 
 export const GET = async (request: Request) => {
     try {
-        let userId: string | null = await getCurrentUserIdOrNull();
-
-        if (!userId) {
-            // SECURITY: Only use demo user in development, never in production
-            if (process.env.NODE_ENV === 'development' && process.env.DEMO_USER_ID) {
-                userId = process.env.DEMO_USER_ID;
-                console.log(`[Transactions API] Using demo user in development: ${userId}`);
-            } else {
-                return NextResponse.json(
-                    { error: "Unauthorized - Please sign in to access transactions" },
-                    { status: 401 }
-                );
-            }
-        }
+        const userId = await getCurrentUserId();
 
         // Get filter from query params
         const { searchParams } = new URL(request.url);
@@ -176,10 +172,6 @@ export const GET = async (request: Request) => {
 
             if (totalCount === 0) {
                 console.warn(`[Transactions API] No transactions found for user_id: ${userId}`);
-                console.warn(`[Transactions API] This might mean:`);
-                console.warn(`  - DEMO_USER_ID doesn't match the user_id in transactions table`);
-                console.warn(`  - Transactions exist but with different user_id`);
-                console.warn(`  - To debug, run: SELECT DISTINCT user_id FROM transactions;`);
             }
 
             transactions = await neonQuery<{
@@ -301,7 +293,7 @@ export const GET = async (request: Request) => {
         console.error("[Transactions API] Error:", error);
         console.error("[Transactions API] Error stack:", error.stack);
         return NextResponse.json(
-            { error: error.message || "Failed to fetch transactions" },
+            { error: "Failed to fetch transactions" },
             { status: 500 }
         );
     }
@@ -312,24 +304,16 @@ export const POST = async (request: Request) => {
         const userId = await getCurrentUserId();
         const body = await request.json();
 
-        // Validate required fields
-        const { date, description, amount, category_id, statement_id } = body;
-
-        if (!date || !description || amount === undefined || amount === null) {
+        // Validate input with Zod schema
+        const parsed = CreateTransactionSchema.safeParse(body);
+        if (!parsed.success) {
             return NextResponse.json(
-                { error: "Date, description, and amount are required" },
+                { error: parsed.error.issues[0]?.message || "Invalid input" },
                 { status: 400 }
             );
         }
 
-        // Validate amount is a number
-        const amountNum = Number(amount);
-        if (isNaN(amountNum)) {
-            return NextResponse.json(
-                { error: "Amount must be a valid number" },
-                { status: 400 }
-            );
-        }
+        const { date, description, amount: amountNum, category_id, statement_id } = parsed.data;
 
         // Check transaction capacity before proceeding
         const { assertCapacityOrExplain } = await import("@/lib/limits/transactions-cap");
@@ -460,7 +444,7 @@ export const POST = async (request: Request) => {
     } catch (error: any) {
         console.error("[Transactions API] POST error:", error);
         return NextResponse.json(
-            { error: error.message || "Failed to create transaction" },
+            { error: "Failed to create transaction" },
             { status: 500 }
         );
     }

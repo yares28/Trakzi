@@ -529,9 +529,9 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
         : "Failed to parse the file. Please try again."
       setParseError(errorMessage)
 
-      if (errorMessage.includes("DEMO_USER_ID") || errorMessage.includes("Authentication")) {
-        toast.error("Configuration Error", {
-          description: "Please configure DEMO_USER_ID in your environment variables.",
+      if (errorMessage.includes("Unauthorized") || errorMessage.includes("Authentication")) {
+        toast.error("Authentication Error", {
+          description: "Please sign in to continue.",
           duration: 10000,
         })
       } else if (errorMessage.includes("No transactions found")) {

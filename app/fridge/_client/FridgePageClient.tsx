@@ -8,11 +8,14 @@ import type { TransactionLimitExceededData } from "@/components/limits/transacti
 import type { FileUpload01Lead } from "@/components/file-upload-01"
 import { useDateFilter } from "@/components/date-filter-provider"
 import { useFridgeBundleData } from "@/hooks/use-dashboard-data"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 
 import { FridgeLayout } from "./components/FridgeLayout"
 import { MetricsCards } from "./components/MetricsCards"
 import { ChartsGrid } from "./components/ChartsGrid"
 import { ReceiptsTable } from "./components/ReceiptsTable"
+import { FridgeTrendsTab } from "./components/FridgeTrendsTab"
 import { UploadDialog } from "./components/UploadDialog"
 import { ReviewDialog } from "./components/ReviewDialog"
 import { CreateCategoryDialog } from "./components/CreateCategoryDialog"
@@ -24,6 +27,8 @@ import { useFridgeMetrics } from "./hooks/useFridgeMetrics"
 import { useReceiptCategoryManagement } from "./hooks/useReceiptCategoryManagement"
 import { useReceiptUpload } from "./hooks/useReceiptUpload"
 import { useReviewDialog } from "./hooks/useReviewDialog"
+
+type FridgeViewMode = "fridge" | "advanced" | "trends"
 
 export function FridgePageClient() {
   const { user, isLoaded: isUserLoaded } = useUser()
@@ -169,6 +174,11 @@ export function FridgePageClient() {
 
   const isChartsLoading = bundleLoading || isLoadingReceiptTransactions
 
+  const [viewMode, setViewMode] = useState<FridgeViewMode>("fridge")
+  const handleViewModeChange = useCallback((mode: FridgeViewMode) => {
+    setViewMode(mode)
+  }, [])
+
   return (
     <FridgeLayout
       isDragging={upload.isDraggingUpload}
@@ -181,24 +191,95 @@ export function FridgePageClient() {
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 min-w-0 w-full">
           <MetricsCards metrics={metrics} metricsTrends={metricsTrends} />
 
-          <ChartsGrid
-            chartOrder={chartOrder}
-            onOrderChange={handleChartOrderChange}
-            savedChartSizes={savedChartSizes}
-            onResize={handleChartResize}
-            chartData={chartData}
-            receiptTransactions={receiptTransactions}
-            dateFilter={dateFilter}
-            isLoading={isChartsLoading}
-          />
+          {/* Fridge / Advanced / Trends switch */}
+          <section>
+            <div className="relative flex items-center justify-center">
+              <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border">
+                <button
+                  type="button"
+                  onClick={() => handleViewModeChange("fridge")}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                    viewMode === "fridge"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  Fridge
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleViewModeChange("advanced")}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                    viewMode === "advanced"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  Advanced
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleViewModeChange("trends")}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                    viewMode === "trends"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  Trends
+                </button>
+              </div>
+            </div>
+          </section>
 
-          <ReceiptsTable
-            dateFilter={dateFilter}
-            tableData={tableData}
-            receiptTransactions={receiptTransactions}
-            isLoading={isLoadingReceiptTransactions}
-            onReceiptsChanged={() => setReceiptsRefreshNonce((prev) => prev + 1)}
-          />
+          {viewMode === "fridge" && (
+            <>
+              <ChartsGrid
+                chartOrder={chartOrder}
+                onOrderChange={handleChartOrderChange}
+                savedChartSizes={savedChartSizes}
+                onResize={handleChartResize}
+                chartData={chartData}
+                receiptTransactions={receiptTransactions}
+                dateFilter={dateFilter}
+                isLoading={isChartsLoading}
+              />
+
+              <ReceiptsTable
+                dateFilter={dateFilter}
+                tableData={tableData}
+                receiptTransactions={receiptTransactions}
+                isLoading={isLoadingReceiptTransactions}
+                onReceiptsChanged={() => setReceiptsRefreshNonce((prev) => prev + 1)}
+              />
+            </>
+          )}
+
+          {viewMode === "advanced" && (
+            <section>
+              <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-1">
+                <Card className="@container/card h-full flex flex-col">
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base font-medium">
+                        Advanced Fridge
+                      </CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1">
+                    <div className="h-[250px] w-full flex items-center justify-center text-sm text-muted-foreground">
+                      This area is ready for advanced fridge analytics.
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </section>
+          )}
+
+          {viewMode === "trends" && <FridgeTrendsTab />}
         </div>
       </div>
 

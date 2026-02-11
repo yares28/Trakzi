@@ -1,16 +1,15 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import { useTheme } from "next-themes"
 import { useQueryClient } from "@tanstack/react-query"
 
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useDateFilter } from "@/components/date-filter-provider"
 import { useAnalyticsBundleData } from "@/hooks/use-dashboard-data"
-import { IconChartBar, IconFridge } from "@tabler/icons-react"
 
 import { AnalyticsLayout } from "./components/AnalyticsLayout"
-import { AnalyticsTrendsTab, type TrendsViewMode } from "./components/AnalyticsTrendsTab"
+import { AnalyticsTrendsTab } from "./components/AnalyticsTrendsTab"
 import { AiReparseDialog } from "./components/AiReparseDialog"
 import { ChartsGrid } from "./components/ChartsGrid"
 import { StatementUploadDialog } from "./components/StatementUploadDialog"
@@ -24,8 +23,6 @@ import { useStatementImport } from "./hooks/useStatementImport"
 import { cn } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-const AT_VIEW_MODE_KEY = "analytics-trends-view-mode"
-
 type AnalyticsViewMode = "analytics" | "advanced" | "trends"
 
 export default function AnalyticsPage() {
@@ -33,21 +30,6 @@ export default function AnalyticsPage() {
   const [viewMode, setViewMode] = useState<AnalyticsViewMode>("analytics")
   const { getPalette } = useColorScheme()
   const { filter: dateFilter, setFilter: setDateFilter } = useDateFilter()
-
-  // Trends sub-toggle state (lifted here so toggle renders in the header row)
-  const [trendsViewMode, setTrendsViewMode] = useState<TrendsViewMode>("spending")
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(AT_VIEW_MODE_KEY)
-      if (saved === "spending" || saved === "groceries") setTrendsViewMode(saved)
-    } catch {}
-  }, [])
-
-  const handleTrendsViewModeChange = useCallback((mode: TrendsViewMode) => {
-    setTrendsViewMode(mode)
-    try { localStorage.setItem(AT_VIEW_MODE_KEY, mode) } catch {}
-  }, [])
 
   // Bundle API data - pre-aggregated with Redis caching (single request)
   const { data: bundleData, isLoading: bundleLoading } = useAnalyticsBundleData()
@@ -112,10 +94,9 @@ export default function AnalyticsPage() {
             transactionSummary={transactionSummary}
           />
 
-          {/* Analytics / Advanced / Trends switch + Spending/Groceries sub-toggle */}
+          {/* Analytics / Advanced / Trends switch */}
           <section>
             <div className="relative flex items-center justify-center">
-              {/* Main mode toggle (centered) */}
               <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border">
                 <button
                   type="button"
@@ -154,38 +135,6 @@ export default function AnalyticsPage() {
                   Trends
                 </button>
               </div>
-
-              {/* Spending / Groceries sub-toggle (right-aligned, only visible on trends tab) */}
-              {viewMode === "trends" && (
-                <div className="absolute right-0 inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border">
-                  <button
-                    type="button"
-                    onClick={() => handleTrendsViewModeChange("spending")}
-                    className={cn(
-                      "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                      trendsViewMode === "spending"
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    <IconChartBar className="h-4 w-4" />
-                    Spending
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleTrendsViewModeChange("groceries")}
-                    className={cn(
-                      "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                      trendsViewMode === "groceries"
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    <IconFridge className="h-4 w-4" />
-                    Groceries
-                  </button>
-                </div>
-              )}
             </div>
           </section>
 
@@ -228,7 +177,7 @@ export default function AnalyticsPage() {
             </section>
           )}
 
-          {viewMode === "trends" && <AnalyticsTrendsTab viewMode={trendsViewMode} />}
+          {viewMode === "trends" && <AnalyticsTrendsTab />}
         </div>
       </div>
 

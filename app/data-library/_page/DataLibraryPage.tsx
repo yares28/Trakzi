@@ -275,7 +275,7 @@ export default function DataLibraryPage() {
                       return parsed.error || parsed.message || "Something went wrong"
                     } catch {
                       // If not JSON, show as-is but clean up common technical messages
-                      if (error.includes("DEMO_USER_ID")) {
+                      if (error.includes("Unauthorized")) {
                         return "Please sign in to access your data"
                       }
                       return error

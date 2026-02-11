@@ -11,7 +11,7 @@ export const POST = async (req: NextRequest) => {
         const userId = await getCurrentUserId();
 
         // Rate limit check - AI endpoints are expensive
-        const rateLimitResult = checkRateLimit(userId, 'ai');
+        const rateLimitResult = await checkRateLimit(userId, 'ai');
         if (rateLimitResult.limited) {
             return createRateLimitResponse(rateLimitResult.resetIn);
         }

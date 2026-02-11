@@ -67,6 +67,6 @@ export async function POST(request: Request) {
 
     } catch (error: any) {
         console.error("Error creating manual receipt transaction:", error)
-        return NextResponse.json({ error: error.message || "Failed to create receipt transaction" }, { status: 500 })
+        return NextResponse.json({ error: "Failed to create receipt transaction" }, { status: 500 })
     }
 }

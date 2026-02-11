@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { getCurrentUserId, getCurrentUserIdOrNull } from "@/lib/auth"
+import { getCurrentUserId } from "@/lib/auth"
 import { neonQuery } from "@/lib/neonClient"
 
 function getDateRange(filter: string | null): { startDate: string | null; endDate: string | null } {
@@ -100,11 +100,7 @@ function toIsoDate(value: string | Date): string {
 
 export const GET = async (request: Request) => {
   try {
-    let userId: string | null = await getCurrentUserIdOrNull()
-
-    if (!userId) {
-      userId = process.env.DEMO_USER_ID || "user_2qD6S6vB4Z5X9G2G7K8L0M1N2P3"
-    }
+    const userId = await getCurrentUserId()
     const { searchParams } = new URL(request.url)
 
     const filter = searchParams.get("filter")

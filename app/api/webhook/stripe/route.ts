@@ -14,6 +14,7 @@ import {
     markEventAsCompleted,
     markEventAsFailed,
 } from '@/lib/webhook-events';
+import { checkRateLimit, createRateLimitResponse } from '@/lib/security/rate-limiter';
 
 // Disable body parsing - we need raw body for signature verification
 export const runtime = 'nodejs';
@@ -65,6 +66,13 @@ function safeDateToISO(date: Date | null | undefined): string | undefined {
 }
 
 export async function POST(request: NextRequest) {
+    // IP-based rate limiting before signature verification (DoS protection)
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const rateLimitResult = await checkRateLimit(`webhook:stripe:${ip}`, 'webhook');
+    if (rateLimitResult.limited) {
+        return createRateLimitResponse(rateLimitResult.resetIn);
+    }
+
     const body = await request.text();
     const headersList = await headers();
     const signature = headersList.get('stripe-signature');

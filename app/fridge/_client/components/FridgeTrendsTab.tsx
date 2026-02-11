@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState, useMemo } from "react"
-import { useTrendsData } from "@/hooks/use-dashboard-data"
+import { useGroceriesTrendsBundleData } from "@/hooks/use-dashboard-data"
 import { SortableGridProvider, SortableGridItem } from "@/components/sortable-grid"
 import { ChartCategoryTrend } from "@/components/chart-category-trend"
 import { ChartCardSkeleton } from "@/components/chart-loading-state"
@@ -10,13 +10,13 @@ import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { TrendingUp, Upload, ArrowRight } from "lucide-react"
 import Link from "next/link"
 
-const AT_SPENDING_ORDER_KEY = "analytics-trends-category-order"
+const FRIDGE_TRENDS_ORDER_KEY = "fridge-trends-category-order"
 
-export function AnalyticsTrendsTab() {
-  const spendingData = useTrendsData()
-  const categoryTrends = spendingData.categoryTrends
-  const isLoading = spendingData.isLoading
-  const error = spendingData.error
+export function FridgeTrendsTab() {
+  const groceriesData = useGroceriesTrendsBundleData()
+  const categoryTrends = groceriesData.data?.categoryTrends ?? {}
+  const isLoading = groceriesData.isLoading
+  const error = groceriesData.error
 
   const categories = useMemo(() => {
     if (!categoryTrends || Object.keys(categoryTrends).length === 0) return []
@@ -33,13 +33,13 @@ export function AnalyticsTrendsTab() {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(AT_SPENDING_ORDER_KEY)
+      const saved = localStorage.getItem(FRIDGE_TRENDS_ORDER_KEY)
       if (saved) {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed)) setCategoryOrder(parsed)
       }
     } catch (e) {
-      console.error("Failed to load trends category order:", e)
+      console.error("Failed to load fridge trends category order:", e)
     }
   }, [])
 
@@ -58,9 +58,9 @@ export function AnalyticsTrendsTab() {
   const handleCategoryOrderChange = useCallback((newOrder: string[]) => {
     setCategoryOrder(newOrder)
     try {
-      localStorage.setItem(AT_SPENDING_ORDER_KEY, JSON.stringify(newOrder))
+      localStorage.setItem(FRIDGE_TRENDS_ORDER_KEY, JSON.stringify(newOrder))
     } catch (e) {
-      console.error("Failed to save trends category order:", e)
+      console.error("Failed to save fridge trends category order:", e)
     }
   }, [])
 
@@ -96,14 +96,14 @@ export function AnalyticsTrendsTab() {
             </div>
             <h2 className="text-xl font-semibold mb-2">Unable to Load Trends</h2>
             <p className="text-sm text-muted-foreground max-w-md mb-4">
-              We couldn&apos;t load your spending categories. This usually happens when there&apos;s no transaction data yet.
+              We couldn&apos;t load your grocery categories. This usually happens when there&apos;s no receipt data yet.
             </p>
             <Link
-              href="/data-library"
+              href="/fridge"
               className="group flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
             >
               <Upload className="h-4 w-4" />
-              Add Transactions
+              Add Receipts
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
@@ -123,21 +123,21 @@ export function AnalyticsTrendsTab() {
                 </div>
               </div>
               <div className="space-y-1">
-                <h2 className="text-lg font-semibold">No Trend Data Yet</h2>
+                <h2 className="text-lg font-semibold">No Grocery Trend Data Yet</h2>
                 <p className="text-sm text-muted-foreground max-w-md">
-                  Your spending trends will appear here once you have transaction data. Each category in your transactions will get its own trend chart.
+                  Your grocery trends will appear here once you have receipt data. Each broad category will get its own trend chart.
                 </p>
                 <p className="text-xs text-muted-foreground/70 mt-2">
-                  Upload your bank statements or add transactions to start seeing patterns.
+                  Upload your grocery receipts to start seeing patterns.
                 </p>
               </div>
             </div>
             <Link
-              href="/data-library"
+              href="/fridge"
               className="group flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors shrink-0"
             >
               <Upload className="h-4 w-4" />
-              Upload Transactions
+              Upload Receipts
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>

@@ -1,24 +1,12 @@
 import { NextResponse } from 'next/server'
-import { getCurrentUserIdOrNull } from '@/lib/auth'
+import { getCurrentUserId } from '@/lib/auth'
 import { getPocketsBundle } from '@/lib/charts/pockets-aggregations'
 import { getCachedOrCompute, buildCacheKey, CACHE_TTL } from '@/lib/cache/upstash'
 import type { PocketsBundleResponse } from '@/lib/types/pockets'
 
 export const GET = async () => {
     try {
-        let userId: string | null = await getCurrentUserIdOrNull()
-
-        if (!userId) {
-            // SECURITY: Only use demo user in development
-            if (process.env.NODE_ENV === 'development' && process.env.DEMO_USER_ID) {
-                userId = process.env.DEMO_USER_ID
-            } else {
-                return NextResponse.json(
-                    { error: 'Unauthorized - Please sign in' },
-                    { status: 401 }
-                )
-            }
-        }
+        const userId = await getCurrentUserId()
 
         // Build cache key (no filter for pockets, it's all-time data)
         const cacheKey = buildCacheKey('pockets', userId, null, 'bundle')

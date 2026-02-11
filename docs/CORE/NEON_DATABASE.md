@@ -1064,7 +1064,6 @@ Bundle APIs aggregate multiple chart data sources into a single response with Re
 
 | Route | Method | Description |
 |-------|--------|-------------|
-| `/api/admin/backfill-all-categories` | POST | Backfill all users' categories |
 | `/api/cache/invalidate` | POST | Manually invalidate cache |
 | `/api/health` | GET | Health check |
 | `/api/limits/status` | GET | User's current usage limits |

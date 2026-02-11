@@ -1,5 +1,6 @@
 // app/api/ai/chat/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { getCurrentUserId } from "@/lib/auth";
 import { neonQuery } from "@/lib/neonClient";
 import { checkAiChatLimit, recordAiChatMessage } from "@/lib/feature-access";
@@ -7,6 +8,17 @@ import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-lim
 import { sanitizeForAI } from "@/lib/security/input-sanitizer";
 import { getGeminiClient } from "@/lib/ai/posthog-gemini";
 import type { Content } from "@google/genai";
+
+const ChatMessageSchema = z.object({
+    role: z.enum(["user", "assistant", "system"]),
+    content: z.string().max(10000),
+    reasoning_details: z.unknown().optional(),
+});
+
+const ChatRequestSchema = z.object({
+    messages: z.array(ChatMessageSchema).min(1, "Messages array is required").max(50),
+    currency: z.string().max(5).optional(),
+});
 
 // Currency configuration - mirrors frontend currency-provider.tsx
 const CURRENCY_CONFIG: Record<string, { symbol: string; position: "before" | "after"; locale: string }> = {
@@ -267,7 +279,7 @@ export const POST = async (req: NextRequest) => {
         const userId = await getCurrentUserId();
 
         // Rate limit check - AI endpoints are expensive
-        const rateLimitResult = checkRateLimit(userId, 'ai');
+        const rateLimitResult = await checkRateLimit(userId, 'ai');
         if (rateLimitResult.limited) {
             return createRateLimitResponse(rateLimitResult.resetIn);
         }
@@ -286,17 +298,18 @@ export const POST = async (req: NextRequest) => {
         }
 
         const body = await req.json();
-        const { messages, currency } = body as { messages: ChatMessage[]; currency?: string };
-
-        // Use the provided currency or default to USD
-        const userCurrency = currency && CURRENCY_CONFIG[currency] ? currency : "USD";
-
-        if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        const parsed = ChatRequestSchema.safeParse(body);
+        if (!parsed.success) {
             return NextResponse.json(
-                { error: "Messages array is required" },
+                { error: parsed.error.issues[0]?.message || "Invalid input" },
                 { status: 400 }
             );
         }
+
+        const { messages, currency } = parsed.data;
+
+        // Use the provided currency or default to USD
+        const userCurrency = currency && CURRENCY_CONFIG[currency] ? currency : "USD";
 
         // Sanitize user messages to prevent prompt injection
         const sanitizedMessages = messages.map(m => ({
@@ -410,7 +423,7 @@ export const POST = async (req: NextRequest) => {
         }
 
         return NextResponse.json(
-            { error: "An error occurred", details: error.message },
+            { error: "An error occurred. Please try again." },
             { status: 500 }
         );
     }
