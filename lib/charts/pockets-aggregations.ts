@@ -18,36 +18,36 @@ import type {
 // ═══════════════════════════════════════════════════════
 
 /**
- * Get aggregated country spending data for the pockets page
- * Returns country instances with total spending (expenses only)
+ * Get aggregated country spending data for the pockets page.
+ * Aggregates directly from transactions.country_name (text column).
+ *
+ * NOTE: The country_instances table does not yet exist in the database.
+ * This query uses the simpler country_name grouping until the DDL is run.
+ * Each unique country_name gets a sequential pseudo-instance_id.
  */
 export async function getCountrySpending(userId: string): Promise<CountryData[]> {
     const rows = await neonQuery<{
-        instance_id: number
         country_name: string
-        label: string
         value: string
     }>(
         `SELECT
-            ci.id AS instance_id,
-            ci.country_name,
-            ci.label,
+            t.country_name,
             COALESCE(SUM(ABS(t.amount)), 0)::text AS value
-        FROM country_instances ci
-        LEFT JOIN transactions t ON t.country_instance_id = ci.id
-            AND t.user_id = $1
+        FROM transactions t
+        WHERE t.user_id = $1
+            AND t.country_name IS NOT NULL
+            AND t.country_name != ''
             AND t.amount < 0
-        WHERE ci.user_id = $1
-        GROUP BY ci.id, ci.country_name, ci.label
+        GROUP BY t.country_name
         HAVING COALESCE(SUM(ABS(t.amount)), 0) > 0
         ORDER BY SUM(ABS(t.amount)) DESC`,
         [userId]
     )
 
-    return rows.map(row => ({
+    return rows.map((row, index) => ({
         id: row.country_name,
-        instance_id: row.instance_id,
-        label: row.label,
+        instance_id: index + 1, // Sequential pseudo-ID (no instances table yet)
+        label: row.country_name,
         value: parseFloat(row.value) || 0
     }))
 }
@@ -230,9 +230,13 @@ function computeOtherStats(otherPockets: PocketItemWithTotals[]): OtherStats {
  * 3. Aggregated pocket totals
  */
 export async function getPocketsBundle(userId: string): Promise<PocketsBundleResponse> {
-    // Run travel + pockets queries in parallel
+    // Run travel + pockets queries in parallel.
+    // Travel is isolated with catch so a failure never crashes vehicle/property/other.
     const [countries, allPockets] = await Promise.all([
-        getCountrySpending(userId),
+        getCountrySpending(userId).catch((err) => {
+            console.error('[Pockets Bundle] getCountrySpending failed, returning empty:', err)
+            return [] as CountryData[]
+        }),
         getPocketsWithTotals(userId),
     ])
 
@@ -259,16 +263,17 @@ export async function getPocketsBundle(userId: string): Promise<PocketsBundleRes
 }
 
 /**
- * Get distinct countries the user has linked transactions to
- * Returns country names (not instance labels) for compatibility
+ * Get distinct countries the user has transactions in.
+ * Uses transactions.country_name directly (no country_instances table needed).
  */
 export async function getUserCountries(userId: string): Promise<string[]> {
     const rows = await neonQuery<{ country_name: string }>(
-        `SELECT DISTINCT ci.country_name
-        FROM country_instances ci
-        INNER JOIN transactions t ON t.country_instance_id = ci.id
-        WHERE ci.user_id = $1
-        ORDER BY ci.country_name`,
+        `SELECT DISTINCT country_name
+        FROM transactions
+        WHERE user_id = $1
+            AND country_name IS NOT NULL
+            AND country_name != ''
+        ORDER BY country_name`,
         [userId]
     )
 
