@@ -1,9 +1,9 @@
 "use client"
 
 import { memo, useState, useCallback } from "react"
-import { Loader2 } from "lucide-react"
+import { Loader2, ImageIcon } from "lucide-react"
 
-import type { VehicleData, VehicleTypeOption } from "@/lib/types/pockets"
+import type { VehicleTypeOption, VehicleMetadata } from "@/lib/types/pockets"
 
 import {
   Dialog,
@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 
 const VEHICLE_SVG_OPTIONS = [
   { value: "/topView/topviewcar2.svg", label: "topviewcar2" },
@@ -43,14 +44,10 @@ const VEHICLE_TYPES: VehicleTypeOption[] = [
   "Other",
 ]
 
-function generateVehicleId(): string {
-  return `vehicle-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-}
-
 interface AddVehicleDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSuccess: (vehicle: VehicleData) => void
+  onSuccess: () => void
 }
 
 export const AddVehicleDialog = memo(function AddVehicleDialog({
@@ -87,21 +84,32 @@ export const AddVehicleDialog = memo(function AddVehicleDialog({
     setIsSubmitting(true)
     setErrors({})
     try {
-      const vehicle: VehicleData = {
-        id: generateVehicleId(),
-        name: name.trim(),
+      const metadata: VehicleMetadata = {
         brand: brand.trim(),
         vehicleType,
         year: parseInt(year, 10),
         priceBought: parseFloat(priceBought) || 0,
-        licensePlate: licensePlate.trim(),
-        svgPath,
-        fuel: { linkedTransactionIds: [] },
-        maintenanceTransactionIds: [],
-        insuranceTransactionIds: [],
-        certificateTransactionIds: [],
+        licensePlate: licensePlate.trim() || undefined,
       }
-      onSuccess(vehicle)
+
+      const res = await fetch('/api/pockets/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'vehicle',
+          name: name.trim(),
+          metadata,
+          svg_path: svgPath,
+        }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        setErrors({ name: data.error || 'Failed to create vehicle' })
+        return
+      }
+
+      onSuccess()
       handleReset()
       onOpenChange(false)
     } finally {
@@ -243,19 +251,38 @@ export const AddVehicleDialog = memo(function AddVehicleDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label>Card icon</Label>
-            <Select value={svgPath} onValueChange={setSvgPath}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {VEHICLE_SVG_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Layout</Label>
+            <div className="grid grid-cols-2 gap-3">
+              {VEHICLE_SVG_OPTIONS.map((opt) => {
+                const isActive = svgPath === opt.value
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setSvgPath(opt.value)}
+                    className={cn(
+                      "relative aspect-[4/3] rounded-xl border bg-muted/40 p-3 transition-all",
+                      "hover:border-primary/50 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      isActive && "border-primary bg-primary/5 shadow-sm",
+                    )}
+                    aria-pressed={isActive}
+                    aria-label={opt.label}
+                  >
+                    <div className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-[inherit]">
+                      <img
+                        src={opt.value}
+                        alt={opt.label}
+                        className="h-full w-full max-h-[80%] max-w-[80%] object-contain"
+                      />
+                    </div>
+                    <div className="pointer-events-none absolute inset-x-2 bottom-2 flex items-center gap-1 rounded-full bg-background/85 px-2 py-0.5 text-[11px] font-medium text-muted-foreground shadow-sm">
+                      <ImageIcon className="h-3 w-3" />
+                      <span className="truncate">{opt.label}</span>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
 

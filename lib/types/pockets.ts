@@ -1,5 +1,9 @@
 // lib/types/pockets.ts
 
+// ═══════════════════════════════════════════════════════
+// TRAVEL (Country Instances) — existing, unchanged
+// ═══════════════════════════════════════════════════════
+
 /**
  * Country instance - represents a user's custom labeled country tracking
  */
@@ -21,23 +25,6 @@ export interface CountryData {
     instance_id: number // country_instances.id - unique identifier for this instance
     label: string      // Custom label for display (e.g., "Japan Trip 1")
     value: number      // total spent (absolute value of expenses)
-}
-
-/**
- * Stats computed from country spending data
- */
-export interface PocketsStats {
-    totalCountries: number
-    totalSpentAbroad: number
-    topCountry: { name: string; value: number } | null
-}
-
-/**
- * Bundle API response for pockets page
- */
-export interface PocketsBundleResponse {
-    countries: CountryData[]
-    stats: PocketsStats
 }
 
 /**
@@ -115,7 +102,13 @@ export interface UnlinkedTransactionsResponse {
     total: number
 }
 
-// --- Vehicle types (pockets Vehicles section) ---
+// ═══════════════════════════════════════════════════════
+// UNIFIED POCKETS (Vehicles, Properties, Other)
+// ═══════════════════════════════════════════════════════
+
+// ─── Core types ─────────────────────────────────────────
+
+export type PocketType = "vehicle" | "property" | "other"
 
 export type VehicleTypeOption =
     | "Car"
@@ -125,18 +118,249 @@ export type VehicleTypeOption =
     | "Motorcycle"
     | "Other"
 
-export interface VehicleFuelInfo {
+// ─── Tab types (sub-sections within each pocket card) ───
+
+export type VehicleTab = "fuel" | "maintenance" | "insurance" | "certificate" | "financing" | "parking"
+export type OwnedPropertyTab = "mortgage" | "maintenance" | "insurance" | "taxes"
+export type RentedPropertyTab = "rent" | "utilities" | "deposit" | "fees"
+export type OtherTab = "general"
+export type PocketTab = VehicleTab | OwnedPropertyTab | RentedPropertyTab | OtherTab
+
+// ─── Metadata schemas (JSONB in DB, typed in TS) ────────
+
+export interface VehicleMetadata {
+    brand: string
+    vehicleType: VehicleTypeOption
+    year: number
+    priceBought: number
+    licensePlate?: string
+    fuelType?: "Gasoline" | "Diesel" | "Electric" | "Hybrid" | "LPG"
     tankSizeL?: number
-    fuelType?: string
-    linkedTransactionIds: number[]
+    // Reminder dates (ISO date strings, e.g., "2026-06-15")
+    nextMaintenanceDate?: string
+    certificateEndDate?: string
+    insuranceRenewalDate?: string
+    // Financing (optional — only if user has a loan)
+    financing?: {
+        upfrontPaid: number
+        annualInterestRate: number
+        loanRemaining: number
+    }
 }
 
+export interface OwnedPropertyMetadata {
+    propertyType: "owned"
+    estimatedValue: number
+    mortgage?: {
+        originalAmount: number     // Original loan amount
+        interestRate: number       // Annual interest rate (%)
+        loanYears: number          // Total loan term in years
+        yearsPaid: number          // Years already paid
+    }
+}
+
+export interface RentedPropertyMetadata {
+    propertyType: "rented"
+    monthlyRent?: number
+}
+
+export interface OtherPocketMetadata {
+    // Intentionally empty — name is sufficient
+}
+
+export type PocketMetadata =
+    | VehicleMetadata
+    | OwnedPropertyMetadata
+    | RentedPropertyMetadata
+    | OtherPocketMetadata
+
+// ─── Pocket item (DB row) ───────────────────────────────
+
+export interface PocketItem {
+    id: number
+    user_id: string
+    type: PocketType
+    name: string
+    metadata: PocketMetadata
+    svg_path: string | null
+    created_at: string
+    updated_at: string
+}
+
+/** Pocket item enriched with aggregated totals from pocket_transactions */
+export interface PocketItemWithTotals {
+    id: number
+    type: PocketType
+    name: string
+    metadata: PocketMetadata
+    svg_path: string | null
+    created_at: string
+    totals: Record<string, number>      // e.g., { fuel: 1200, maintenance: 450 }
+    totalInvested: number               // Sum of all tab totals
+    transactionCount: number            // Total linked transactions
+}
+
+// ─── Transaction row for pocket detail sheets ───────────
+
+export interface PocketLinkedTransaction {
+    id: number
+    tx_date: string
+    description: string
+    amount: number
+    category_name: string | null
+}
+
+// ─── API request/response types ─────────────────────────
+
+export interface CreatePocketRequest {
+    type: PocketType
+    name: string
+    metadata: PocketMetadata
+    svg_path?: string
+}
+
+export interface UpdatePocketRequest {
+    name?: string
+    metadata?: Partial<PocketMetadata>
+    svg_path?: string
+}
+
+export interface PocketLinkRequest {
+    pocket_id: number
+    tab: string
+    transaction_ids: number[]
+}
+
+export interface PocketUnlinkRequest {
+    pocket_id: number
+    transaction_ids: number[]
+}
+
+export interface PocketTransactionsResponse {
+    pocket_id: number
+    tab: string
+    transactions: PocketLinkedTransaction[]
+    total: number
+}
+
+export interface PocketUnlinkedResponse {
+    transactions: PocketLinkedTransaction[]
+    total: number
+}
+
+// ─── Category → Tab mapping ─────────────────────────────
+// Maps each pocket tab to the category name(s) used to filter available transactions.
+// Empty array = no filter (show all categories).
+
+export const POCKET_TAB_CATEGORIES: Record<string, string[]> = {
+    // Vehicle tabs
+    fuel: ["Fuel"],
+    maintenance_vehicle: ["Car Maintenance"],
+    insurance_vehicle: ["Insurance", "Taxes & Fees"],
+    certificate: ["Car Certificate"],
+    financing: ["Car Loan"],
+    parking: ["Parking/Tolls"],
+    // Owned property tabs
+    mortgage: ["Mortgage"],
+    maintenance_property: ["Home Maintenance"],
+    insurance_property: ["Insurance"],
+    taxes: ["Taxes & Fees"],
+    // Rented property tabs
+    rent: ["Rent"],
+    utilities: ["Utilities"],
+    deposit: ["Deposit"],
+    fees: ["Taxes & Fees"],
+    // Other
+    general: [],  // Empty = all categories (no filter)
+}
+
+/**
+ * Resolves the category mapping key for a given pocket type and tab.
+ * Handles ambiguous tab names like "maintenance" and "insurance" that differ
+ * between vehicles and properties.
+ */
+export function resolveCategoryKey(pocketType: PocketType, tab: string): string {
+    if (tab === "maintenance") {
+        return pocketType === "vehicle" ? "maintenance_vehicle" : "maintenance_property"
+    }
+    if (tab === "insurance") {
+        return pocketType === "vehicle" ? "insurance_vehicle" : "insurance_property"
+    }
+    return tab
+}
+
+// ─── Stats types (per tab in bundle response) ───────────
+
+export interface TravelStats {
+    totalCountries: number
+    totalSpentAbroad: number
+    topCountry: { name: string; value: number } | null
+}
+
+export interface GarageStats {
+    totalVehicles: number
+    totalInvested: number
+    topVehicle: { name: string; value: number } | null
+}
+
+export interface PropertyStats {
+    totalProperties: number
+    totalValue: number
+    totalEquity: number
+    topProperty: { name: string; value: number } | null
+}
+
+export interface OtherStats {
+    totalItems: number
+    totalSpent: number
+    topItem: { name: string; value: number } | null
+}
+
+// ─── Bundle API response ────────────────────────────────
+
+export interface PocketsBundleResponse {
+    // Travel (existing)
+    countries: CountryData[]
+    // Garage, Property, Other (new)
+    vehicles: PocketItemWithTotals[]
+    properties: PocketItemWithTotals[]
+    otherPockets: PocketItemWithTotals[]
+    // Stats per tab (always from DB, never mock)
+    stats: {
+        travel: TravelStats
+        garage: GarageStats
+        property: PropertyStats
+        other: OtherStats
+    }
+}
+
+// ═══════════════════════════════════════════════════════
+// LEGACY (kept for backward compatibility during migration)
+// Remove these once all UI components are wired to new types
+// ═══════════════════════════════════════════════════════
+
+/** @deprecated Use PocketsBundleResponse.stats.travel instead */
+export type PocketsStats = TravelStats
+
+/** @deprecated Migrate to VehicleMetadata.financing */
 export interface VehicleFinancing {
     upfrontPaid: number
     annualInterestRate?: number
     loanRemaining: number
 }
 
+/** @deprecated Migrate to VehicleMetadata.fuelType + tankSizeL */
+export interface VehicleFuelInfo {
+    tankSizeL?: number
+    fuelType?: string
+    linkedTransactionIds: number[]
+}
+
+/**
+ * @deprecated Use PocketItemWithTotals + VehicleMetadata instead.
+ * This is the old client-side vehicle type used by mock data.
+ * Will be removed once VehicleCardsGrid and related components are wired to DB.
+ */
 export interface VehicleData {
     id: string
     name: string
@@ -150,15 +374,20 @@ export interface VehicleData {
     maintenanceTransactionIds: number[]
     insuranceTransactionIds: number[]
     certificateTransactionIds: number[]
-    /** Cached totals from linked transactions (updated when linking in detail sheets) */
+    parkingTransactionIds: number[]
     fuelTotal?: number
     maintenanceTotal?: number
     insuranceTotal?: number
     certificateTotal?: number
+    parkingTotal?: number
     financing?: VehicleFinancing
+    // Reminder dates (added for legacy compat)
+    nextMaintenanceDate?: string
+    certificateEndDate?: string
+    insuranceRenewalDate?: string
 }
 
-/** Transaction row for vehicle detail sheets (matches GET /api/transactions response) */
+/** @deprecated Use PocketLinkedTransaction instead */
 export interface VehicleLinkedTransaction {
     id: number
     date: string

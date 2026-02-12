@@ -40,9 +40,10 @@ const CATEGORY_NAMES: Record<DetailType, string> = {
   maintenance: "Maintenance",
   insurance: "Insurance",
   certificate: "Certificate",
+  parking: "Parking",
 }
 
-type DetailType = "fuel" | "maintenance" | "insurance" | "certificate"
+type DetailType = "fuel" | "maintenance" | "insurance" | "certificate" | "parking"
 
 interface TransactionsApiRow {
   id: number
@@ -86,7 +87,9 @@ export const VehicleDetailContent = memo(function VehicleDetailContent({
         ? vehicle.maintenanceTransactionIds
         : type === "insurance"
           ? vehicle.insuranceTransactionIds
-          : vehicle.certificateTransactionIds
+          : type === "certificate"
+            ? vehicle.certificateTransactionIds
+            : vehicle.parkingTransactionIds ?? []
 
   const { data, isLoading } = useSWR<{ data: TransactionsApiRow[] }>(
     `/api/transactions?category=${encodeURIComponent(categoryName)}&all=true`,
@@ -116,8 +119,10 @@ export const VehicleDetailContent = memo(function VehicleDetailContent({
         onUpdate({ maintenanceTransactionIds: arr, maintenanceTotal: newTotal })
       } else if (type === "insurance") {
         onUpdate({ insuranceTransactionIds: arr, insuranceTotal: newTotal })
-      } else {
+      } else if (type === "certificate") {
         onUpdate({ certificateTransactionIds: arr, certificateTotal: newTotal })
+      } else {
+        onUpdate({ parkingTransactionIds: arr, parkingTotal: newTotal })
       }
     },
     [linkedIds, type, vehicle.fuel, transactions, onUpdate]

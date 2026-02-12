@@ -6,11 +6,12 @@ This document lists all chart components used on the Savings page.
 
 ---
 
-## Charts (1 total)
+## Charts (2 total)
 
 | # | Chart ID | Component File | Component Name | Description |
 |---|----------|----------------|----------------|-------------|
 | 1 | `savingsAccumulation` | `chart-savings-accumulation.tsx` | `ChartSavingsAccumulation` | Savings Accumulation Over Time - Cumulative savings with daily aggregates and moving averages |
+| 2 | `mortgageAmortization` | `app/savings/_page/mortgage/MortgageAmortizationChart.tsx` | `MortgageAmortizationChart` | Mortgage Amortization Schedule - Stacked bars (principal/interest/taxes) with remaining balance line, used in Calculator tab |
 
 ---
 
@@ -21,6 +22,11 @@ This document lists all chart components used on the Savings page.
 | `app/savings/page.tsx` | Main savings page (contains all logic inline) |
 | `components/chart-savings-accumulation.tsx` | Savings accumulation chart component |
 | `lib/charts/home-trends-savings-aggregations.ts` | Shared aggregation for home/trends/savings |
+| `app/savings/_page/mortgage/MortgageCalculator.tsx` | Mortgage calculator (Calculator tab) |
+| `app/savings/_page/mortgage/MortgageAmortizationChart.tsx` | Amortization ComposedChart |
+| `app/savings/_page/mortgage/calculations.ts` | Pure mortgage math functions |
+| `app/savings/_page/mortgage/country-config.ts` | Spain regions, tax rates, defaults |
+| `app/savings/_page/mortgage/types.ts` | Shared TypeScript interfaces |
 
 ---
 
@@ -82,7 +88,7 @@ interface SavingsChartData {
 
 | Library | Charts Using It |
 |---------|-----------------|
-| **Recharts** | Area charts for accumulation visualization |
+| **Recharts** | Area charts for accumulation visualization, ComposedChart for mortgage amortization |
 
 ---
 

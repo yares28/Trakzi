@@ -199,23 +199,19 @@ function OtherCard({ id, label, value, onView, onRemove, onLabelUpdated }: Other
   )
 }
 
-export const OtherCardsGrid = memo(function OtherCardsGrid() {
-  const [items, setItems] = useState<OtherCardData[]>(MOCK_OTHER_ITEMS)
+interface OtherCardsGridProps {
+  items: OtherCardData[]
+  onRemove: (id: string) => void
+  onLabelUpdated: (id: string, newLabel: string) => void
+  onOpenAdd?: () => void
+}
 
-  const handleAdd = () => {
-    // Placeholder: no API yet
-  }
-
-  const handleRemove = useCallback((id: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== id))
-  }, [])
-
-  const handleLabelUpdated = useCallback((id: string, newLabel: string) => {
-    setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, label: newLabel } : i))
-    )
-  }, [])
-
+export const OtherCardsGrid = memo(function OtherCardsGrid({
+  items,
+  onRemove,
+  onLabelUpdated,
+  onOpenAdd,
+}: OtherCardsGridProps) {
   if (items.length === 0) {
     return (
       <div className="px-4 lg:px-6">
@@ -225,7 +221,7 @@ export const OtherCardsGrid = memo(function OtherCardsGrid() {
           <p className="mb-6 max-w-md text-center text-sm text-muted-foreground">
             Track other assets and their value. Add an item to get started.
           </p>
-          <Button variant="outline" onClick={handleAdd}>
+          <Button variant="outline" onClick={onOpenAdd}>
             <Plus className="mr-2 h-4 w-4" />
             Add your first item
           </Button>
@@ -243,8 +239,8 @@ export const OtherCardsGrid = memo(function OtherCardsGrid() {
           label={item.label}
           value={item.value}
           onView={() => {}}
-          onRemove={() => handleRemove(item.id)}
-          onLabelUpdated={(newLabel) => handleLabelUpdated(item.id, newLabel)}
+          onRemove={() => onRemove(item.id)}
+          onLabelUpdated={(newLabel) => onLabelUpdated(item.id, newLabel)}
         />
       ))}
     </div>

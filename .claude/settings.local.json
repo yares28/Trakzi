@@ -28,7 +28,9 @@
       "Bash(git add:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: Dia parser receipt_time extraction and null fallback\n\n- Remove nowIsoTime\\(\\) fallback in processing.ts so missing receipt_time\n  saves as null instead of the upload timestamp\n- Make ticket único regex robust: anchor on YYYYMMDD-HHMMSS pattern\n  instead of fragile \\\\S+ with end-of-line, works across line breaks\nEOF\n\\)\")",
       "Bash(git push:*)",
-      "Bash(npm audit fix:*)"
+      "Bash(npm audit fix:*)",
+      "mcp__Neon__list_projects",
+      "Bash(npx tsc:*)"
     ]
   },
   "enabledPlugins": {
