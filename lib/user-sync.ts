@@ -38,6 +38,8 @@ const CATEGORY_COLORS: Record<string, string> = {
     "Taxi/Rideshare": "#22d3d3",
     "Parking/Tolls": "#64748b",
     "Car Maintenance": "#475569",
+    "Car Certificate": "#f59e0b",
+    "Car Loan": "#ef4444",
     "Transport": "#14b8a6",
     // Health & Fitness
     "Health & Fitness": "#059669",
@@ -78,6 +80,7 @@ const CATEGORY_COLORS: Record<string, string> = {
     "Services": "#64748b",
     // Other
     "Cash": "#78716c",
+    "Deposit": "#8b5cf6",
     "Other": "#6b7280",
 }
 

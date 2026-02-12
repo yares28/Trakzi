@@ -8,7 +8,15 @@ import useSWR from "swr"
 import { MapPin, Car, Home, Package } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import type { PocketsBundleResponse, VehicleData } from "@/lib/types/pockets"
+import type {
+    PocketsBundleResponse,
+    PocketItemWithTotals,
+    VehicleMetadata,
+    OwnedPropertyMetadata,
+    RentedPropertyMetadata,
+    VehicleData,
+    UpdatePocketRequest,
+} from "@/lib/types/pockets"
 
 import { Badge } from "@/components/ui/badge"
 
@@ -24,12 +32,19 @@ import { AddVehicleDialog } from "./components/AddVehicleDialog"
 import { VehicleCardsGrid } from "./components/VehicleCardsGrid"
 import { PropertyStatsCards } from "./components/PropertyStatsCards"
 import { AddPropertyButton } from "./components/AddPropertyButton"
-import { PropertyCardsGrid } from "./components/PropertyCardsGrid"
+import {
+    PropertyCardsGrid,
+    type PropertyCardData,
+    MOCK_PROPERTIES as INITIAL_PROPERTY_MOCKS,
+} from "./components/PropertyCardsGrid"
 import { OtherStatsCards } from "./components/OtherStatsCards"
 import { AddOtherButton } from "./components/AddOtherButton"
-import { OtherCardsGrid } from "./components/OtherCardsGrid"
+import { OtherCardsGrid, type OtherCardData } from "./components/OtherCardsGrid"
+import { AddPropertyDialog } from "./components/AddPropertyDialog"
+import { AddOtherDialog } from "./components/AddOtherDialog"
 
-// Mock countries for testing — Travel: Brazil, China, Indonesia only (GeoJSON countries)
+// ─── Mock data (shown when no real data exists) ──────────────
+
 const MOCK_COUNTRIES: CountryData[] = [
     { id: "Brazil", instance_id: 1, label: "Brazil", value: 2500 },
     { id: "China", instance_id: 2, label: "China", value: 4200 },
@@ -41,34 +56,96 @@ const fetcher = (url: string) => fetch(url).then(res => {
     return res.json()
 })
 
-
-// Mock property stats (for Property section)
-const PROPERTY_STATS = {
-    count: 3,
-    topName: "Main Home",
-    topValue: 420000,
-    totalValue: 830000,
-    totalEquity: 520000,
-}
-
-// Mock other stats (for Other section)
-const OTHER_STATS = {
-    count: 3,
-    topName: "Collectible A",
-    topValue: 12500,
-    totalValue: 24200,
-    avgValue: 8067,
-}
-
-const INITIAL_VEHICLES: VehicleData[] = [
-    { id: "1", name: "topviewcar2", brand: "—", vehicleType: "Car", year: 2024, priceBought: 19800, licensePlate: "", svgPath: "/topView/topviewcar2.svg", fuel: { linkedTransactionIds: [] }, maintenanceTransactionIds: [], insuranceTransactionIds: [], certificateTransactionIds: [] },
-    { id: "2", name: "topviewcar6", brand: "—", vehicleType: "Car", year: 2024, priceBought: 19800, licensePlate: "", svgPath: "/topView/topviewcar6.svg", fuel: { linkedTransactionIds: [] }, maintenanceTransactionIds: [], insuranceTransactionIds: [], certificateTransactionIds: [] },
-    { id: "3", name: "topviewcar7", brand: "—", vehicleType: "Car", year: 2024, priceBought: 19800, licensePlate: "", svgPath: "/topView/topviewcar7.svg", fuel: { linkedTransactionIds: [] }, maintenanceTransactionIds: [], insuranceTransactionIds: [], certificateTransactionIds: [] },
-    { id: "4", name: "1bvYk01", brand: "—", vehicleType: "Car", year: 2024, priceBought: 19800, licensePlate: "", svgPath: "/topViewInterim/1bvYk01.svg", fuel: { linkedTransactionIds: [] }, maintenanceTransactionIds: [], insuranceTransactionIds: [], certificateTransactionIds: [] },
-    { id: "5", name: "hgNqW01", brand: "—", vehicleType: "Car", year: 2024, priceBought: 19800, licensePlate: "", svgPath: "/topViewInterim/hgNqW01.svg", fuel: { linkedTransactionIds: [] }, maintenanceTransactionIds: [], insuranceTransactionIds: [], certificateTransactionIds: [] },
-    { id: "6", name: "MEqPS01", brand: "—", vehicleType: "Car", year: 2024, priceBought: 19800, licensePlate: "", svgPath: "/topViewInterim/MEqPS01.svg", fuel: { linkedTransactionIds: [] }, maintenanceTransactionIds: [], insuranceTransactionIds: [], certificateTransactionIds: [] },
-    { id: "7", name: "tGWsP01", brand: "—", vehicleType: "Car", year: 2024, priceBought: 19800, licensePlate: "", svgPath: "/topViewInterim/tGWsP01.svg", fuel: { linkedTransactionIds: [] }, maintenanceTransactionIds: [], insuranceTransactionIds: [], certificateTransactionIds: [] },
+const MOCK_VEHICLES: VehicleData[] = [
+    {
+        id: "mock-1",
+        name: "topviewcar2",
+        brand: "—",
+        vehicleType: "Car",
+        year: 2024,
+        priceBought: 19800,
+        licensePlate: "",
+        svgPath: "/topView/topviewcar2.svg",
+        fuel: { linkedTransactionIds: [] },
+        maintenanceTransactionIds: [],
+        insuranceTransactionIds: [],
+        certificateTransactionIds: [],
+        parkingTransactionIds: [],
+    },
 ]
+
+// ─── Adapters: PocketItemWithTotals → legacy UI types ────────
+
+function pocketToVehicleData(pocket: PocketItemWithTotals): VehicleData {
+    const meta = pocket.metadata as VehicleMetadata
+    return {
+        id: String(pocket.id),
+        name: pocket.name,
+        brand: meta.brand || "—",
+        vehicleType: meta.vehicleType || "Car",
+        year: meta.year || 0,
+        priceBought: meta.priceBought || 0,
+        licensePlate: meta.licensePlate || "",
+        svgPath: pocket.svg_path || "/topView/topviewcar2.svg",
+        fuel: {
+            tankSizeL: meta.tankSizeL,
+            fuelType: meta.fuelType,
+            linkedTransactionIds: [],
+        },
+        maintenanceTransactionIds: [],
+        insuranceTransactionIds: [],
+        certificateTransactionIds: [],
+        parkingTransactionIds: [],
+        fuelTotal: pocket.totals.fuel ?? 0,
+        maintenanceTotal: pocket.totals.maintenance ?? 0,
+        insuranceTotal: pocket.totals.insurance ?? 0,
+        certificateTotal: pocket.totals.certificate ?? 0,
+        parkingTotal: pocket.totals.parking ?? 0,
+        financing: meta.financing ? {
+            upfrontPaid: meta.financing.upfrontPaid,
+            annualInterestRate: meta.financing.annualInterestRate,
+            loanRemaining: meta.financing.loanRemaining,
+        } : undefined,
+        nextMaintenanceDate: meta.nextMaintenanceDate,
+        certificateEndDate: meta.certificateEndDate,
+        insuranceRenewalDate: meta.insuranceRenewalDate,
+    }
+}
+
+function pocketToPropertyData(pocket: PocketItemWithTotals): PropertyCardData {
+    const meta = pocket.metadata as (OwnedPropertyMetadata | RentedPropertyMetadata)
+    const isOwned = 'propertyType' in meta && meta.propertyType === 'owned'
+    const ownedMeta = isOwned ? meta as OwnedPropertyMetadata : undefined
+
+    return {
+        id: String(pocket.id),
+        label: pocket.name,
+        value: ownedMeta?.estimatedValue ?? 0,
+        svgPath: pocket.svg_path || "/property/houseplan1.svg",
+        propertyType: isOwned ? "owned" : "rented",
+        mortgageOriginalAmount: ownedMeta?.mortgage?.originalAmount,
+        mortgageInterestRate: ownedMeta?.mortgage?.interestRate,
+        mortgageLoanYears: ownedMeta?.mortgage?.loanYears,
+        mortgageYearsPaid: ownedMeta?.mortgage?.yearsPaid,
+        mortgageTotalPaid: pocket.totals.mortgage ?? 0,
+    }
+}
+
+function pocketToOtherData(pocket: PocketItemWithTotals): OtherCardData {
+    return {
+        id: String(pocket.id),
+        label: pocket.name,
+        value: pocket.totalInvested,
+    }
+}
+
+const MOCK_OTHER_ITEMS: OtherCardData[] = [
+    { id: "mock-1", label: "Collectible A", value: 12500 },
+    { id: "mock-2", label: "Electronics", value: 3200 },
+    { id: "mock-3", label: "Artwork", value: 8500 },
+]
+
+// ─── Component ───────────────────────────────────────────────
 
 export type PocketViewMode = "travel" | "garage" | "assets" | "other"
 
@@ -77,16 +154,73 @@ export default function WorldMapPage() {
     const [pocketViewMode, setPocketViewMode] = useState<PocketViewMode>("travel")
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
     const [isAddVehicleDialogOpen, setIsAddVehicleDialogOpen] = useState(false)
-    const [vehicles, setVehicles] = useState<VehicleData[]>(INITIAL_VEHICLES)
+    const [isAddPropertyDialogOpen, setIsAddPropertyDialogOpen] = useState(false)
+    const [isAddOtherDialogOpen, setIsAddOtherDialogOpen] = useState(false)
+    const [propertyTypeToAdd, setPropertyTypeToAdd] = useState<"owned" | "rented">("owned")
 
-    // Vehicle stats derived from current vehicles list
-    const vehicleStats = useMemo(() => {
-        if (!vehicles.length) {
+    // Fetch all pockets data from bundle API
+    const { data, isLoading, mutate } = useSWR<PocketsBundleResponse>(
+        userId ? ['/api/charts/pockets-bundle', userId] : null,
+        ([url]) => fetcher(url),
+        {
+            revalidateOnFocus: false,
+            revalidateOnReconnect: false,
+            dedupingInterval: 30000,
+        }
+    )
+
+    // ─── Travel data ─────────────────────────────────────────
+    const stats = useMemo(() => {
+        const countries = data?.countries ?? []
+        const useMock = countries.length === 0
+        const activeCountries = useMock ? MOCK_COUNTRIES : countries
+
+        const sortedByValue = [...activeCountries].sort((a, b) => b.value - a.value)
+        const topCountry = sortedByValue[0]
+        const domesticName = "USA"
+        const domesticSpend = activeCountries.find(c => c.id === domesticName)?.value ?? 0
+        const totalAbroad = activeCountries
+            .filter(c => c.id !== domesticName)
+            .reduce((sum, c) => sum + c.value, 0)
+
+        return {
+            countriesCount: useMock ? MOCK_COUNTRIES.length : (data?.stats?.travel?.totalCountries ?? 0),
+            topCountrySpend: topCountry?.value ?? 0,
+            topCountryName: topCountry?.id ?? "—",
+            totalSpendAbroad: totalAbroad,
+            domesticSpend,
+        }
+    }, [data])
+
+    const { chartData, isMockData } = useMemo(() => {
+        const realData = data?.countries ?? []
+        const useMock = realData.length === 0
+        return {
+            chartData: useMock ? MOCK_COUNTRIES : realData,
+            isMockData: useMock,
+        }
+    }, [data])
+
+    // ─── Vehicle data (from bundle, with mock fallback) ──────
+    const { vehicles, isVehicleMock } = useMemo(() => {
+        const dbVehicles = data?.vehicles ?? []
+        if (dbVehicles.length > 0) {
             return {
-                count: 0,
-                topName: "—",
-                topValue: 0,
-                totalValue: 0,
+                vehicles: dbVehicles.map(pocketToVehicleData),
+                isVehicleMock: false,
+            }
+        }
+        return { vehicles: MOCK_VEHICLES, isVehicleMock: true }
+    }, [data])
+
+    const vehicleStats = useMemo(() => {
+        const bundleStats = data?.stats?.garage
+        if (bundleStats && bundleStats.totalVehicles > 0) {
+            return {
+                count: bundleStats.totalVehicles,
+                topName: bundleStats.topVehicle?.name ?? "—",
+                topValue: bundleStats.topVehicle?.value ?? 0,
+                totalValue: bundleStats.totalInvested,
                 monthlyCost: 0,
                 totalFuel: 0,
                 totalMaintenance: 0,
@@ -94,8 +228,16 @@ export default function WorldMapPage() {
                 totalLoanRemaining: 0,
             }
         }
-        const sortedByValue = [...vehicles].sort((a, b) => b.priceBought - a.priceBought)
-        const top = sortedByValue[0]
+        // Compute from current vehicles (mock or real)
+        if (!vehicles.length) {
+            return {
+                count: 0, topName: "—", topValue: 0, totalValue: 0,
+                monthlyCost: 0, totalFuel: 0, totalMaintenance: 0,
+                totalInsurance: 0, totalLoanRemaining: 0,
+            }
+        }
+        const sorted = [...vehicles].sort((a, b) => b.priceBought - a.priceBought)
+        const top = sorted[0]
         const totalValue = vehicles.reduce((sum, v) => sum + v.priceBought, 0)
         const monthlyCost = vehicles.reduce((sum, v) => {
             if (!v.financing?.loanRemaining || v.financing.loanRemaining <= 0) return sum
@@ -107,13 +249,6 @@ export default function WorldMapPage() {
                 : principal / months
             return sum + monthly
         }, 0)
-        const totalFuel = vehicles.reduce((sum, v) => sum + (v.fuelTotal ?? 0), 0)
-        const totalMaintenance = vehicles.reduce((sum, v) => sum + (v.maintenanceTotal ?? 0), 0)
-        const totalInsurance = vehicles.reduce((sum, v) => sum + (v.insuranceTotal ?? 0), 0)
-        const totalLoanRemaining = vehicles.reduce(
-            (sum, v) => sum + (v.financing?.loanRemaining ?? 0),
-            0
-        )
         const topName = top.brand && top.brand !== "—" ? `${top.brand} ${top.name}` : top.name
         return {
             count: vehicles.length,
@@ -121,80 +256,158 @@ export default function WorldMapPage() {
             topValue: top.priceBought,
             totalValue,
             monthlyCost: Math.round(monthlyCost),
-            totalFuel,
-            totalMaintenance,
-            totalInsurance,
-            totalLoanRemaining,
+            totalFuel: vehicles.reduce((sum, v) => sum + (v.fuelTotal ?? 0), 0),
+            totalMaintenance: vehicles.reduce((sum, v) => sum + (v.maintenanceTotal ?? 0), 0),
+            totalInsurance: vehicles.reduce((sum, v) => sum + (v.insuranceTotal ?? 0), 0),
+            totalLoanRemaining: vehicles.reduce((sum, v) => sum + (v.financing?.loanRemaining ?? 0), 0),
         }
-    }, [vehicles])
+    }, [data, vehicles])
 
-    // Fetch world map data from bundle API (key includes userId so cache is per-user)
-    const { data, isLoading, error, mutate } = useSWR<PocketsBundleResponse>(
-        userId ? ['/api/charts/pockets-bundle', userId] : null,
-        ([url]) => fetcher(url),
-        {
-            revalidateOnFocus: false,
-            revalidateOnReconnect: false,
-            dedupingInterval: 30000, // 30 seconds
+    // ─── Property data (from bundle, with mock fallback) ─────
+    const { properties, isPropertyMock } = useMemo(() => {
+        const dbProps = data?.properties ?? []
+        if (dbProps.length > 0) {
+            return {
+                properties: dbProps.map(pocketToPropertyData),
+                isPropertyMock: false,
+            }
         }
-    )
+        return { properties: INITIAL_PROPERTY_MOCKS, isPropertyMock: true }
+    }, [data])
 
-    // Calculate stats from the bundle data (or mock data)
-    const stats = useMemo(() => {
-        const countries = data?.countries ?? []
-        const useMock = countries.length === 0
-        const activeCountries = useMock ? MOCK_COUNTRIES : countries
-
-        // Find top country from active data
-        const sortedByValue = [...activeCountries].sort((a, b) => b.value - a.value)
-        const topCountry = sortedByValue[0]
-
-        // For domestic spend, we could use a configured "home" country
-        const domesticName = "USA" // TODO: Make configurable per user
-        const domesticSpend = activeCountries.find(c => c.id === domesticName)?.value ?? 0
-
-        // Total abroad = everything except domestic
-        const totalAbroad = activeCountries
-            .filter(c => c.id !== domesticName)
-            .reduce((sum, c) => sum + c.value, 0)
-
+    const propertyStats = useMemo(() => {
+        const bundleStats = data?.stats?.property
+        if (bundleStats && bundleStats.totalProperties > 0) {
+            return {
+                count: bundleStats.totalProperties,
+                topName: bundleStats.topProperty?.name ?? "—",
+                topValue: bundleStats.topProperty?.value ?? 0,
+                totalValue: bundleStats.totalValue,
+                totalEquity: bundleStats.totalEquity,
+            }
+        }
+        // Fallback from current properties
+        const sorted = [...properties].sort((a, b) => b.value - a.value)
         return {
-            countriesCount: useMock ? MOCK_COUNTRIES.length : (data?.stats.totalCountries ?? 0),
-            topCountrySpend: topCountry?.value ?? 0,
-            topCountryName: topCountry?.id ?? "—",
-            totalSpendAbroad: totalAbroad,
-            domesticSpend: domesticSpend,
+            count: properties.length,
+            topName: sorted[0]?.label ?? "—",
+            topValue: sorted[0]?.value ?? 0,
+            totalValue: properties.reduce((sum, p) => sum + p.value, 0),
+            totalEquity: Math.round(properties.reduce((sum, p) => sum + p.value, 0) * 0.6),
+        }
+    }, [data, properties])
+
+    // ─── Other data (from bundle, with mock fallback) ────────
+    const { otherItems, isOtherMock } = useMemo(() => {
+        const dbOthers = data?.otherPockets ?? []
+        if (dbOthers.length > 0) {
+            return {
+                otherItems: dbOthers.map(pocketToOtherData),
+                isOtherMock: false,
+            }
+        }
+        return { otherItems: MOCK_OTHER_ITEMS, isOtherMock: true }
+    }, [data])
+
+    // ─── Other stats ──────────────────────────────────────────
+    const otherStats = useMemo(() => {
+        const bundleStats = data?.stats?.other
+        if (bundleStats && bundleStats.totalItems > 0) {
+            return {
+                count: bundleStats.totalItems,
+                topName: bundleStats.topItem?.name ?? "—",
+                topValue: bundleStats.topItem?.value ?? 0,
+                totalValue: bundleStats.totalSpent,
+                avgValue: bundleStats.totalItems > 0
+                    ? Math.round(bundleStats.totalSpent / bundleStats.totalItems)
+                    : 0,
+            }
+        }
+        return {
+            count: 3,
+            topName: "Collectible A",
+            topValue: 12500,
+            totalValue: 24200,
+            avgValue: 8067,
         }
     }, [data])
 
-    // No longer need to exclude countries - users can add same country multiple times
+    // ─── Handlers ────────────────────────────────────────────
     const existingCountries: string[] = []
 
-    // Handle successful country addition
-    const handleAddSuccess = useCallback(() => {
-        // Revalidate the data
+    const handleAddSuccess = useCallback(() => { mutate() }, [mutate])
+    const handleCountryDeleted = useCallback(() => { mutate() }, [mutate])
+
+    // Generic pocket remove via API (works for vehicle, property, other)
+    const handlePocketRemove = useCallback(async (id: string) => {
+        await fetch(`/api/pockets/items?id=${id}`, { method: 'DELETE' })
         mutate()
     }, [mutate])
 
-    // Map data for the chart - use mock data if no real data exists
-    const { chartData, isMockData } = useMemo(() => {
-        const realData = data?.countries ?? []
-        const useMock = realData.length === 0
-        return {
-            chartData: useMock ? MOCK_COUNTRIES : realData,
-            isMockData: useMock,
+    // Generic pocket rename via API
+    const handlePocketRename = useCallback(async (id: string, newName: string) => {
+        const body: UpdatePocketRequest = { name: newName }
+        await fetch(`/api/pockets/items?id=${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        })
+        mutate()
+    }, [mutate])
+
+    // Vehicle update: name goes to top-level, other fields map to metadata
+    const handleVehicleUpdate = useCallback(async (id: string, updates: Partial<VehicleData>) => {
+        const body: UpdatePocketRequest = {}
+        if (updates.name !== undefined) body.name = updates.name
+        if (Object.keys(body).length > 0) {
+            await fetch(`/api/pockets/items?id=${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            })
+            mutate()
         }
-    }, [data])
-
-    // Handle country deletion - refresh data
-    const handleCountryDeleted = useCallback(() => {
-        mutate()
     }, [mutate])
+
+    // Property update: label→name, mortgage fields→metadata
+    const handlePropertyUpdate = useCallback(async (id: string, updates: Partial<PropertyCardData>) => {
+        const body: UpdatePocketRequest = {}
+        if (updates.label !== undefined) body.name = updates.label
+        // Map mortgage fields to OwnedPropertyMetadata.mortgage
+        const hasMortgageFields =
+            updates.mortgageOriginalAmount !== undefined ||
+            updates.mortgageInterestRate !== undefined ||
+            updates.mortgageLoanYears !== undefined ||
+            updates.mortgageYearsPaid !== undefined
+        if (hasMortgageFields) {
+            body.metadata = {
+                mortgage: {
+                    ...(updates.mortgageOriginalAmount !== undefined && { originalAmount: updates.mortgageOriginalAmount }),
+                    ...(updates.mortgageInterestRate !== undefined && { interestRate: updates.mortgageInterestRate }),
+                    ...(updates.mortgageLoanYears !== undefined && { loanYears: updates.mortgageLoanYears }),
+                    ...(updates.mortgageYearsPaid !== undefined && { yearsPaid: updates.mortgageYearsPaid }),
+                },
+            } as OwnedPropertyMetadata
+        }
+        if (body.name || body.metadata) {
+            await fetch(`/api/pockets/items?id=${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            })
+            mutate()
+        }
+    }, [mutate])
+
+    // Property label update (shorthand for handlePropertyUpdate)
+    const handlePropertyLabelUpdated = useCallback(async (id: string, newLabel: string) => {
+        await handlePocketRename(id, newLabel)
+    }, [handlePocketRename])
 
     const pocketTopCards: { mode: PocketViewMode; title: string; description: string; icon: ComponentType<{ className?: string }> }[] = [
         { mode: "travel", title: "Travel", description: "Countries and spend abroad. Add countries and track travel-related transactions.", icon: MapPin },
         { mode: "garage", title: "Garage", description: "Vehicles, fuel, maintenance, and financing. Manage your fleet in one place.", icon: Car },
-        { mode: "assets", title: "Assets", description: "Property and real estate. Track equity and property-linked transactions.", icon: Home },
+        { mode: "assets", title: "Property", description: "Property and real estate. Track equity and property-linked transactions.", icon: Home },
         { mode: "other", title: "Other", description: "Collectibles and other assets. Custom pockets beyond travel, garage, and property.", icon: Package },
     ]
 
@@ -261,7 +474,7 @@ export default function WorldMapPage() {
                                         : "text-muted-foreground hover:text-foreground",
                                 )}
                             >
-                                Assets
+                                Property
                             </button>
                             <button
                                 type="button"
@@ -306,20 +519,20 @@ export default function WorldMapPage() {
                     )}
                     {pocketViewMode === "assets" && (
                         <PropertyStatsCards
-                            propertiesCount={PROPERTY_STATS.count}
-                            topPropertyName={PROPERTY_STATS.topName}
-                            topPropertyValue={PROPERTY_STATS.topValue}
-                            totalValue={PROPERTY_STATS.totalValue}
-                            totalEquity={PROPERTY_STATS.totalEquity}
+                            propertiesCount={propertyStats.count}
+                            topPropertyName={propertyStats.topName}
+                            topPropertyValue={propertyStats.topValue}
+                            totalValue={propertyStats.totalValue}
+                            totalEquity={propertyStats.totalEquity}
                         />
                     )}
                     {pocketViewMode === "other" && (
                         <OtherStatsCards
-                            itemsCount={OTHER_STATS.count}
-                            topItemName={OTHER_STATS.topName}
-                            topItemValue={OTHER_STATS.topValue}
-                            totalValue={OTHER_STATS.totalValue}
-                            avgValue={OTHER_STATS.avgValue}
+                            itemsCount={otherStats.count}
+                            topItemName={otherStats.topName}
+                            topItemValue={otherStats.topValue}
+                            totalValue={otherStats.totalValue}
+                            avgValue={otherStats.avgValue}
                         />
                     )}
 
@@ -352,12 +565,13 @@ export default function WorldMapPage() {
                             <div className="px-4 lg:px-6">
                                 <AddVehicleButton
                                     onClick={() => setIsAddVehicleDialogOpen(true)}
-                                    disabled={false}
+                                    disabled={isLoading}
                                 />
                             </div>
                             <VehicleCardsGrid
                                 vehicles={vehicles}
-                                onVehiclesChange={setVehicles}
+                                onRemove={handlePocketRemove}
+                                onUpdate={handleVehicleUpdate}
                                 onOpenAddVehicle={() => setIsAddVehicleDialogOpen(true)}
                             />
                         </>
@@ -365,17 +579,41 @@ export default function WorldMapPage() {
                     {pocketViewMode === "assets" && (
                         <>
                             <div className="px-4 lg:px-6">
-                                <AddPropertyButton onClick={() => {}} disabled={false} />
+                                <AddPropertyButton
+                                    onAddOwned={() => {
+                                        setPropertyTypeToAdd("owned")
+                                        setIsAddPropertyDialogOpen(true)
+                                    }}
+                                    onAddRented={() => {
+                                        setPropertyTypeToAdd("rented")
+                                        setIsAddPropertyDialogOpen(true)
+                                    }}
+                                    disabled={isLoading}
+                                />
                             </div>
-                            <PropertyCardsGrid />
+                            <PropertyCardsGrid
+                                properties={properties}
+                                onRemove={handlePocketRemove}
+                                onUpdate={handlePropertyUpdate}
+                                onLabelUpdated={handlePropertyLabelUpdated}
+                                onOpenAddProperty={() => {
+                                    setPropertyTypeToAdd("owned")
+                                    setIsAddPropertyDialogOpen(true)
+                                }}
+                            />
                         </>
                     )}
                     {pocketViewMode === "other" && (
                         <>
                             <div className="px-4 lg:px-6">
-                                <AddOtherButton onClick={() => {}} disabled={false} />
+                                <AddOtherButton onClick={() => setIsAddOtherDialogOpen(true)} disabled={isLoading} />
                             </div>
-                            <OtherCardsGrid />
+                            <OtherCardsGrid
+                                items={otherItems}
+                                onRemove={handlePocketRemove}
+                                onLabelUpdated={handlePocketRename}
+                                onOpenAdd={() => setIsAddOtherDialogOpen(true)}
+                            />
                         </>
                     )}
                 </div>
@@ -389,13 +627,26 @@ export default function WorldMapPage() {
                 onSuccess={handleAddSuccess}
             />
 
-            {/* Add Vehicle Dialog */}
+            {/* Add Vehicle Dialog — now calls API */}
             <AddVehicleDialog
                 open={isAddVehicleDialogOpen}
                 onOpenChange={setIsAddVehicleDialogOpen}
-                onSuccess={(vehicle) => {
-                    setVehicles((prev) => [...prev, vehicle])
-                }}
+                onSuccess={() => mutate()}
+            />
+
+            {/* Add Property Dialog — now calls API */}
+            <AddPropertyDialog
+                open={isAddPropertyDialogOpen}
+                onOpenChange={setIsAddPropertyDialogOpen}
+                defaultPropertyType={propertyTypeToAdd}
+                onAddProperty={() => mutate()}
+            />
+
+            {/* Add Other Dialog — now calls API */}
+            <AddOtherDialog
+                open={isAddOtherDialogOpen}
+                onOpenChange={setIsAddOtherDialogOpen}
+                onSuccess={() => mutate()}
             />
         </WorldMapLayout>
     )

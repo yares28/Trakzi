@@ -7,6 +7,7 @@ import {
   Shield,
   FileCheck,
   Banknote,
+  Car,
 } from "lucide-react"
 
 import type { VehicleData } from "@/lib/types/pockets"
@@ -22,6 +23,7 @@ export type BackFaceView =
   | "insurance"
   | "certificate"
   | "financing"
+  | "parking"
 
 const TABS: { view: BackFaceView; icon: typeof Fuel; label: string }[] = [
   { view: "fuel", icon: Fuel, label: "Fuel" },
@@ -29,6 +31,7 @@ const TABS: { view: BackFaceView; icon: typeof Fuel; label: string }[] = [
   { view: "insurance", icon: Shield, label: "Insurance" },
   { view: "certificate", icon: FileCheck, label: "Certificate" },
   { view: "financing", icon: Banknote, label: "Financing" },
+  { view: "parking", icon: Car, label: "Parking" },
 ]
 
 interface VehicleCardBackFaceProps {
@@ -90,6 +93,7 @@ export const VehicleCardBackFace = memo(function VehicleCardBackFace({
             key="financing"
             vehicle={vehicle}
             onUpdate={onUpdate}
+            onDone={onFlipBack}
           />
         ) : (
           <VehicleDetailContent

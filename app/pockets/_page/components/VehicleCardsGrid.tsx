@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Progress } from "@/components/ui/progress"
 import { VehicleCardBackFace, type BackFaceView } from "./VehicleCardBackFace"
 
 function totalVehicleCost(v: VehicleData): number {
@@ -31,7 +32,8 @@ function totalVehicleCost(v: VehicleData): number {
     (v.fuelTotal ?? 0) +
     (v.maintenanceTotal ?? 0) +
     (v.insuranceTotal ?? 0) +
-    (v.certificateTotal ?? 0)
+    (v.certificateTotal ?? 0) +
+    (v.parkingTotal ?? 0)
   )
 }
 
@@ -101,14 +103,14 @@ function VehicleCard({ vehicle, onUpdate, onRemove }: VehicleCardProps) {
     setIsEditing(false)
   }, [editedName, vehicle.name, onUpdate])
 
-  const handleRemove = useCallback(async () => {
+  const handleRemove = useCallback(() => {
     if (!onRemove || isDeleting) return
     setIsDeleting(true)
-    try {
-      await onRemove()
-    } finally {
+    onRemove()
+    // Reset deleting state after a short delay to allow state update to propagate
+    setTimeout(() => {
       setIsDeleting(false)
-    }
+    }, 100)
   }, [onRemove, isDeleting])
 
   const handleActionClick = useCallback((view: BackFaceView) => {
@@ -148,13 +150,20 @@ function VehicleCard({ vehicle, onUpdate, onRemove }: VehicleCardProps) {
         >
           {onRemove && (
             <Button
+              type="button"
               variant="ghost"
               size="icon-sm"
-              onClick={handleRemove}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                if (!isDeleting) {
+                  handleRemove()
+                }
+              }}
               disabled={isDeleting}
               aria-label={`Remove ${vehicle.name}`}
               tabIndex={isFlipped ? -1 : undefined}
-              className="absolute right-2 top-2 z-20 h-8 w-8 rounded-full text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10"
+              className="absolute right-2 top-2 z-30 h-8 w-8 rounded-full text-muted-foreground opacity-60 transition-opacity hover:opacity-100 hover:text-destructive hover:bg-destructive/10 cursor-pointer"
             >
               {isDeleting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -235,6 +244,17 @@ function VehicleCard({ vehicle, onUpdate, onRemove }: VehicleCardProps) {
                   title="Financing"
                 >
                   <Banknote className="size-4 sm:size-[18px]" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-xl border-border/80 bg-background/90 shadow-md backdrop-blur-sm transition-all hover:scale-105 hover:bg-primary/10 hover:border-primary/30 hover:shadow-lg sm:h-10 sm:w-10 [&_svg]:size-4 sm:[&_svg]:size-[18px]"
+                  onClick={() => handleActionClick("parking")}
+                  tabIndex={isFlipped ? -1 : undefined}
+                  aria-label="Parking"
+                  title="Parking"
+                >
+                  <Car className="size-4 sm:size-[18px]" />
                 </Button>
               </div>
             </div>
@@ -331,15 +351,24 @@ function VehicleCard({ vehicle, onUpdate, onRemove }: VehicleCardProps) {
                 })}
               </p>
               {percentOwned !== null && vehicle.financing && (
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {percentOwned.toFixed(0)}% owned
-                  {" · "}
-                  {formatCurrency(vehicle.financing.loanRemaining, {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0,
-                  })}{" "}
-                  left to pay
-                </p>
+                <>
+                  <div className="mt-2 space-y-1">
+                    <Progress 
+                      value={percentOwned} 
+                      className="h-1.5" 
+                      aria-label={`Ownership progress: ${percentOwned.toFixed(0)}% of vehicle value paid off`}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {percentOwned.toFixed(0)}% owned
+                      {" · "}
+                      {formatCurrency(vehicle.financing.loanRemaining, {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0,
+                      })}{" "}
+                      left to pay
+                    </p>
+                  </div>
+                </>
               )}
             </div>
           </CardContent>
@@ -365,30 +394,17 @@ function VehicleCard({ vehicle, onUpdate, onRemove }: VehicleCardProps) {
 
 interface VehicleCardsGridProps {
   vehicles: VehicleData[]
-  onVehiclesChange: (updater: (prev: VehicleData[]) => VehicleData[]) => void
+  onRemove: (id: string) => void
+  onUpdate: (id: string, updates: Partial<VehicleData>) => void
   onOpenAddVehicle?: () => void
 }
 
 export const VehicleCardsGrid = memo(function VehicleCardsGrid({
   vehicles,
-  onVehiclesChange,
+  onRemove,
+  onUpdate,
   onOpenAddVehicle,
 }: VehicleCardsGridProps) {
-  const handleRemove = useCallback(
-    (id: string) => {
-      onVehiclesChange((prev) => prev.filter((v) => v.id !== id))
-    },
-    [onVehiclesChange]
-  )
-
-  const handleUpdate = useCallback(
-    (id: string, updates: Partial<VehicleData>) => {
-      onVehiclesChange((prev) =>
-        prev.map((v) => (v.id === id ? { ...v, ...updates } : v))
-      )
-    },
-    [onVehiclesChange]
-  )
 
   if (vehicles.length === 0) {
     return (
@@ -416,8 +432,8 @@ export const VehicleCardsGrid = memo(function VehicleCardsGrid({
         <VehicleCard
           key={v.id}
           vehicle={v}
-          onUpdate={(updates) => handleUpdate(v.id, updates)}
-          onRemove={() => handleRemove(v.id)}
+          onUpdate={(updates) => onUpdate(v.id, updates)}
+          onRemove={() => onRemove(v.id)}
         />
       ))}
     </div>

@@ -16,6 +16,7 @@ import { toast } from "sonner"
 import { normalizeTransactions } from "@/lib/utils"
 import { cn } from "@/lib/utils"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
+import { MortgageCalculator } from "./_page/mortgage/MortgageCalculator"
 import {
   FALLBACK_DATE_FILTER,
   isValidDateFilterValue,
@@ -524,24 +525,7 @@ export default function Page() {
               )}
 
               {viewMode === "calculator" && (
-                <section className="px-4 lg:px-6">
-                  <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-1">
-                    <Card className="@container/card h-full flex flex-col">
-                      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-                        <div className="flex items-center gap-2">
-                          <CardTitle className="text-base font-medium">
-                            Savings & Payoff Calculator
-                          </CardTitle>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1">
-                        <div className="h-[250px] w-full flex items-center justify-center text-sm text-muted-foreground">
-                          Your interactive calculator will live here.
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </section>
+                <MortgageCalculator />
               )}
             </div>
           </div>

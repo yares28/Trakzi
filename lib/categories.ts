@@ -54,6 +54,8 @@ export const DEFAULT_CATEGORY_GROUPS: CategoryGroup[] = [
       { name: "Taxi/Rideshare", type: "want" },
       { name: "Parking/Tolls", type: "need" },
       { name: "Car Maintenance", type: "need" },
+      { name: "Car Certificate", type: "need" },
+      { name: "Car Loan", type: "need" },
     ],
   },
   {
@@ -121,6 +123,7 @@ export const DEFAULT_CATEGORY_GROUPS: CategoryGroup[] = [
     label: "Other",
     categories: [
       { name: "Cash", type: "need" },
+      { name: "Deposit", type: "need" },
       { name: "Other", type: "want" },
     ],
   },

@@ -248,6 +248,9 @@ Quick list of tables by schema; details follow.
 15. **ai_chat_usage** - AI chat usage tracking (rate limiting)
 16. **receipt_store_language_preferences** - Per-store receipt language preferences
 17. **user_preferences** - User UI preferences (chart favourites, layout, sizes)
+18. **country_instances** - Country tracking instances for travel pockets
+19. **pockets** - Unified pocket items (vehicles, properties, other assets)
+20. **pocket_transactions** - Junction table linking transactions to pockets with tab classification
 
 ### Neon Auth Schema Tables
 
@@ -755,6 +758,72 @@ Per-table columns, indexes, constraints, and sizes.
 
 **Size**: Table: 0 bytes, Indexes: 8 kB, Total: 8 kB (new table)
 
+### 18. country_instances
+
+**Purpose**: Stores user country tracking instances for the Travel pocket tab. Each instance links a GeoJSON country to a custom user label.
+
+**Columns**:
+- `id` (serial, PRIMARY KEY)
+- `user_id` (text, NOT NULL) - References `users(id)` ON DELETE CASCADE
+- `country_name` (text, NOT NULL) - GeoJSON country name (e.g., "Japan")
+- `label` (text, NOT NULL) - Custom display label (e.g., "Japan Trip 1")
+- `created_at` (timestamptz, NOT NULL, DEFAULT now())
+- `updated_at` (timestamptz, NOT NULL, DEFAULT now())
+
+**Related**: Transactions link to country_instances via `transactions.country_instance_id`.
+
+### 19. pockets
+
+**Purpose**: Unified storage for vehicles, properties, and other pocket items. Uses JSONB `metadata` for type-specific data (vehicle details, mortgage info, etc.).
+
+**Columns**:
+- `id` (serial, PRIMARY KEY)
+- `user_id` (text, NOT NULL) - References `users(id)` ON DELETE CASCADE
+- `type` (text, NOT NULL) - Discriminator: `'vehicle'` | `'property'` | `'other'`
+- `name` (text, NOT NULL) - Display name (e.g., "My Toyota", "Main Apartment")
+- `metadata` (jsonb, NOT NULL, DEFAULT '{}') - Type-specific data (see TypeScript types in `lib/types/pockets.ts`)
+- `svg_path` (text, nullable) - Icon/image path (e.g., "/topView/topviewcar2.svg")
+- `created_at` (timestamptz, NOT NULL, DEFAULT now())
+- `updated_at` (timestamptz, NOT NULL, DEFAULT now())
+
+**Indexes**:
+- `idx_pockets_user` - ON `(user_id)`
+- `idx_pockets_user_type` - ON `(user_id, type)`
+
+**Constraints**:
+- `pockets_user_type_name_unique` - UNIQUE `(user_id, type, name)` — prevents duplicate names per user per type
+
+**Triggers**:
+- `update_pockets_updated_at` - Auto-updates `updated_at` via `update_updated_at_column()`
+
+**JSONB Metadata Schemas** (TypeScript types in `lib/types/pockets.ts`):
+- **VehicleMetadata**: `{ brand, vehicleType, year, priceBought, licensePlate?, fuelType?, tankSizeL?, financing?: {...}, nextMaintenanceDate?, ... }`
+- **OwnedPropertyMetadata**: `{ propertyType: "owned", estimatedValue, mortgage?: { originalAmount, interestRate, loanYears, yearsPaid } }`
+- **RentedPropertyMetadata**: `{ propertyType: "rented", monthlyRent? }`
+- **OtherPocketMetadata**: `{}` (name is sufficient)
+
+### 20. pocket_transactions
+
+**Purpose**: Junction table linking transactions to pockets with a `tab` discriminator for sub-categorization.
+
+**Columns**:
+- `id` (serial, PRIMARY KEY)
+- `pocket_id` (integer, NOT NULL) - References `pockets(id)` ON DELETE CASCADE
+- `transaction_id` (integer, NOT NULL) - References `transactions(id)` ON DELETE CASCADE
+- `user_id` (text, NOT NULL) - References `users(id)` ON DELETE CASCADE (denormalized for fast queries)
+- `tab` (text, NOT NULL) - Sub-section: `'fuel'`, `'maintenance'`, `'insurance'`, `'certificate'`, `'financing'`, `'parking'`, `'mortgage'`, `'taxes'`, `'rent'`, `'utilities'`, `'deposit'`, `'fees'`, `'general'`
+- `created_at` (timestamptz, NOT NULL, DEFAULT now())
+
+**Indexes**:
+- `idx_pocket_tx_pocket` - ON `(pocket_id)`
+- `idx_pocket_tx_user` - ON `(user_id)`
+- `idx_pocket_tx_transaction` - ON `(transaction_id)`
+- `idx_pocket_tx_pocket_tab` - ON `(pocket_id, tab)`
+- `idx_pocket_tx_user_agg` - ON `(user_id, pocket_id, tab)` — covering index for bundle aggregation
+
+**Constraints**:
+- UNIQUE `(pocket_id, transaction_id)` — each transaction can only be linked once per pocket
+
 ---
 
 ## Database Functions
@@ -963,6 +1032,14 @@ Bundle APIs aggregate multiple chart data sources into a single response with Re
 | `/api/pockets/links` | DELETE | Unlink transactions from a country |
 | `/api/pockets/transactions` | GET | Get transactions for a specific country |
 | `/api/pockets/unlinked-transactions` | GET | Get transactions not linked to any country |
+| `/api/pockets/items` | GET | List all pocket items (vehicles, properties, other) with totals |
+| `/api/pockets/items` | POST | Create a new pocket (vehicle, property, or other) |
+| `/api/pockets/items?id=` | PATCH | Update pocket name, metadata, or svg_path |
+| `/api/pockets/items?id=` | DELETE | Delete a pocket (cascade deletes linked transactions) |
+| `/api/pockets/item-links` | POST | Link transactions to a pocket tab |
+| `/api/pockets/item-links` | DELETE | Unlink transactions from a pocket |
+| `/api/pockets/item-transactions` | GET | Get linked transactions for a pocket tab |
+| `/api/pockets/item-unlinked` | GET | Get unlinked transactions filtered by pocket tab categories |
 
 ### Transaction APIs
 
@@ -1295,6 +1372,13 @@ Metadata, metrics, and connection details were refreshed using Neon MCP tools an
 
 Notable schema and data changes since the previous snapshot.
 
+- **February 12, 2026**: Pockets DB integration (vehicles, properties, other):
+  - Added `pockets` table with JSONB metadata for unified vehicle/property/other storage
+  - Added `pocket_transactions` junction table with tab discriminator for sub-categorization
+  - Added 8 new API routes: `/api/pockets/items` (CRUD), `/api/pockets/item-links`, `/api/pockets/item-transactions`, `/api/pockets/item-unlinked`
+  - Extended `/api/charts/pockets-bundle` to return vehicles, properties, otherPockets, and per-tab stats
+  - Added 3 new default categories: Car Certificate, Car Loan, Deposit
+  - Total public schema tables: 17 → 20
 - **February 7, 2026**: User preferences migration to database:
   - Added `user_preferences` table (JSONB) for chart favourites, layout order, and grid sizes across Home, Analytics, and Fridge pages
   - Added `ai_chat_usage` table to docs (already existed in DB, missing from docs)
