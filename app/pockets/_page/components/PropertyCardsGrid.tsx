@@ -113,11 +113,24 @@ export interface PropertyCardData {
 }
 
 export const MOCK_PROPERTIES: PropertyCardData[] = [
-  { id: "1", label: "Main Home", value: 420000, svgPath: "/property/houseplan1.svg", propertyType: "owned" },
-  { id: "2", label: "City Apartment", value: 285000, svgPath: "/property/houseplan2.svg", propertyType: "owned" },
-  { id: "3", label: "Rental Duplex", value: 360000, svgPath: "/property/houseplan3.svg", propertyType: "owned" },
-  { id: "4", label: "Cabin Retreat", value: 125000, svgPath: "/property/houseplan4.svg", propertyType: "owned" },
-  { id: "5", label: "Studio Rental", value: 1800, svgPath: "/property/houseplan2.svg", propertyType: "rented" },
+  {
+    id: "mock-1",
+    label: "Main Home",
+    value: 420000,
+    svgPath: "/property/houseplan1.svg",
+    propertyType: "owned",
+    mortgageOriginalAmount: 336000,
+    mortgageInterestRate: 3.5,
+    mortgageLoanYears: 25,
+    mortgageYearsPaid: 6,
+  },
+  {
+    id: "mock-2",
+    label: "Studio Rental",
+    value: 1800,
+    svgPath: "/property/houseplan2.svg",
+    propertyType: "rented",
+  },
 ]
 
 type PropertyBackFaceView = "mortgage" | "maintenance" | "insurance" | "taxes"
@@ -727,7 +740,7 @@ export const PropertyCardsGrid = memo(function PropertyCardsGrid({
           <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
             Owned Properties
           </h3>
-          <div className="grid grid-cols-1 gap-4 @md/main:grid-cols-2 @3xl/main:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {ownedProperties.map(renderPropertyCard)}
           </div>
         </div>
@@ -739,7 +752,7 @@ export const PropertyCardsGrid = memo(function PropertyCardsGrid({
           <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
             Rented Properties
           </h3>
-          <div className="grid grid-cols-1 gap-4 @md/main:grid-cols-2 @3xl/main:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {rentedProperties.map(renderPropertyCard)}
           </div>
         </div>
