@@ -65,6 +65,13 @@ export interface AnalyticsBundleData {
         category: string
         total: number
     }>
+    spendingPyramid: Array<{
+        category: string
+        userTotal: number
+        userPercent: number
+        avgTotal: number
+        avgPercent: number
+    }>
 }
 
 // Home Bundle Types

@@ -48,3 +48,12 @@ export const DEFAULT_CHART_SIZES: Record<string, { w: number; h: number; x?: num
   "dayOfWeekCategory": { w: 6, h: 8, x: 0, y: 110 },
   "cashFlowSankey": { w: 12, h: 10, x: 0, y: 118 },
 }
+
+// Advanced tab chart order and default sizes
+export const DEFAULT_ADVANCED_CHART_ORDER = [
+  "spendingPyramid",
+]
+
+export const DEFAULT_ADVANCED_CHART_SIZES: Record<string, { w: number; h: number; x?: number; y?: number }> = {
+  "spendingPyramid": { w: 6, h: 8, x: 0, y: 0 },
+}
