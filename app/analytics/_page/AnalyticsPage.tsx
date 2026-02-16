@@ -7,7 +7,6 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useDateFilter } from "@/components/date-filter-provider"
 import { useAnalyticsBundleData } from "@/hooks/use-dashboard-data"
-
 import { AnalyticsLayout } from "./components/AnalyticsLayout"
 import { AnalyticsTrendsTab } from "./components/AnalyticsTrendsTab"
 import { AiReparseDialog } from "./components/AiReparseDialog"
@@ -92,6 +91,7 @@ export default function AnalyticsPage() {
             stats={stats}
             statsTrends={statsTrends}
             transactionSummary={transactionSummary}
+            dateFilter={dateFilter}
           />
 
           {/* Analytics / Advanced / Trends switch */}

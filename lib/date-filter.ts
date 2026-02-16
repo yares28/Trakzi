@@ -34,3 +34,32 @@ export function normalizeDateFilterValue(
   if (!isValidDateFilterValue(value)) return fallback
   return value.trim()
 }
+
+/** Approximate number of days in the period for the given filter (for per-day calculations). */
+export function getPeriodDaysFromFilter(filter: string | null | undefined): number {
+  if (!filter || typeof filter !== "string") return 0
+  const f = filter.trim().toLowerCase()
+  switch (f) {
+    case "last7days":
+      return 7
+    case "last30days":
+      return 30
+    case "last3months":
+      return 91
+    case "last6months":
+      return 182
+    case "lastyear":
+      return 365
+    case "ytd": {
+      const now = new Date()
+      const start = new Date(now.getFullYear(), 0, 1)
+      return Math.max(1, Math.ceil((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)))
+    }
+    default:
+      if (YEAR_FILTER_RE.test(f)) {
+        const year = parseInt(f, 10)
+        return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 366 : 365
+      }
+      return 0
+  }
+}

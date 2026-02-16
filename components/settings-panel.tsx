@@ -399,6 +399,8 @@ function TimePeriodSection() {
 const fontOptions = [
     { id: "geist-sans", label: "Geist Sans", description: "Clean, modern sans-serif", fontClass: "font-sans" },
     { id: "geist-mono", label: "Geist Mono", description: "Monospaced, technical feel", fontClass: "font-mono" },
+    { id: "favorit", label: "Favorit", description: "300 weight, system stack", fontClass: "font-favorit font-light" },
+    { id: "brandmark-neon-gothic", label: "Brandmark Neon Gothic", description: "600 weight, display", fontClass: "font-brandmark-neon-gothic font-semibold" },
 ] as const
 
 function FontsSection() {
@@ -447,7 +449,7 @@ function FontsSection() {
             <div className="rounded-xl bg-muted/15 border border-border/30 px-4 py-2.5">
                 <p className={cn(
                     "text-[11px] text-muted-foreground/70 text-center",
-                    currentFont === "geist-mono" ? "font-mono" : "font-sans"
+                    fontOptions.find((o) => o.id === currentFont)?.fontClass ?? "font-sans"
                 )}>
                     Preview: <span className="font-semibold text-foreground">The quick brown fox jumps over $1,234.56</span>
                 </p>

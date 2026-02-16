@@ -1,7 +1,6 @@
 // Original charts (improved styling)
 export { ChartWeekendVsWeekday } from "./chart-weekend-vs-weekday"
 export { ChartAvgTransactionTrend } from "./chart-avg-transaction-trend"
-export { ChartSpendingVelocity } from "./chart-spending-velocity"
 export { ChartCategoryDiversity } from "./chart-category-diversity"
 export { ChartMoMGrowth } from "./chart-mom-growth"
 export { ChartTransactionHeatmap } from "./chart-transaction-heatmap"

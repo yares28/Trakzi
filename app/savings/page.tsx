@@ -22,6 +22,7 @@ import {
   isValidDateFilterValue,
   normalizeDateFilterValue,
 } from "@/lib/date-filter"
+import { useSavingsBundleData } from "@/hooks/use-dashboard-data"
 
 type SavingsViewMode = "savings" | "debt" | "calculator"
 
@@ -170,6 +171,9 @@ export default function Page() {
       })
     }
   }, [dateFilter])
+
+  // Savings bundle (savings category aggregation) for accumulation chart
+  const { data: savingsBundle, isLoading: savingsBundleLoading } = useSavingsBundleData()
 
   // Fetch transactions on mount and when filter changes
   useEffect(() => {
@@ -356,43 +360,17 @@ export default function Page() {
     }
   }, [transactions])
 
-  // Transform transactions into chart data format (daily aggregates)
-  const chartData = useMemo(() => {
-    if (!transactions || transactions.length === 0) {
-      return []
-    }
-
-    // Group transactions by date
-    const dailyData = transactions.reduce((acc, tx) => {
-      const date = tx.date.split('T')[0] // Get YYYY-MM-DD format
-      if (!acc[date]) {
-        acc[date] = { date, income: 0, expenses: 0, savings: 0 }
-      }
-
-      if (tx.amount > 0) {
-        acc[date].income += tx.amount
-      } else {
-        acc[date].expenses += Math.abs(tx.amount)
-      }
-
-      return acc
-    }, {} as Record<string, { date: string; income: number; expenses: number; savings: number }>)
-
-    // Convert to array and calculate cumulative savings
-    const sortedDates = Object.keys(dailyData).sort()
-    let cumulativeSavings = 0
-
-    return sortedDates.map(date => {
-      const day = dailyData[date]
-      cumulativeSavings += day.income - day.expenses
-      return {
-        date: day.date,
-        income: day.income,
-        expenses: day.expenses,
-        savings: cumulativeSavings
-      }
-    })
-  }, [transactions])
+  // Accumulation chart: use savings-bundle (savings category data from DB)
+  const accumulationChartData = useMemo(() => {
+    const chartData = savingsBundle?.chartData
+    if (!chartData || chartData.length === 0) return []
+    return chartData.map((point) => ({
+      date: point.date,
+      savings: point.cumulative,
+      income: 0,
+      expenses: 0,
+    }))
+  }, [savingsBundle?.chartData])
 
   return (
     <SidebarProvider
@@ -493,7 +471,10 @@ export default function Page() {
                             onResize={handleResize}
                           >
                             {chartId === "savingsAccumulation" && (
-                              <ChartSavingsAccumulation data={chartData} />
+                              <ChartSavingsAccumulation
+                                data={accumulationChartData}
+                                isLoading={savingsBundleLoading}
+                              />
                             )}
                           </SortableGridItem>
                         )

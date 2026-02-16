@@ -222,11 +222,6 @@ export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
     title: "Average Transaction Size",
     description: "Track how your average transaction size changes over time",
   },
-  "testCharts:spendingVelocity": {
-    id: "testCharts:spendingVelocity",
-    title: "Spending Velocity",
-    description: "Measures how fast you're spending compared to your historical average",
-  },
   "testCharts:categoryDiversity": {
     id: "testCharts:categoryDiversity",
     title: "Category Diversity",

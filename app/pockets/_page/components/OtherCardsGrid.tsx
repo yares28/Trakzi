@@ -16,9 +16,9 @@ export interface OtherCardData {
 }
 
 const MOCK_OTHER_ITEMS: OtherCardData[] = [
-  { id: "1", label: "Collectible A", value: 12500 },
-  { id: "2", label: "Electronics", value: 3200 },
-  { id: "3", label: "Artwork", value: 8500 },
+  { id: "mock-other-1", label: "Collectible A", value: 12500 },
+  { id: "mock-other-2", label: "Electronics", value: 3200 },
+  { id: "mock-other-3", label: "Artwork", value: 8500 },
 ]
 
 interface OtherCardProps {
@@ -26,7 +26,7 @@ interface OtherCardProps {
   label: string
   value: number
   onView?: () => void
-  onRemove?: () => void
+  onRemove?: () => void | Promise<void>
   onLabelUpdated?: (newLabel: string) => void
 }
 

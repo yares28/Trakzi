@@ -731,6 +731,8 @@ import { ChartLoadingState } from "@/components/chart-loading-state"
 - `"grid"` — grid of rectangles shimmer (for TreeMap)
 - `"area"` — filled area shimmer
 
+**Skeleton must be the size of the card.** Use `CardContent` with `h-[250px]` (not `flex-1`) for the empty/loading state so the content area has a fixed height. Pass `height="h-full"` to `ChartLoadingState` so the skeleton fills that area. This prevents layout shift when data loads and keeps the card height consistent.
+
 ### The Three States
 
 ```

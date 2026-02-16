@@ -15,7 +15,6 @@ import { ChartSwarmPlot } from "@/components/chart-swarm-plot"
 import { ChartSpendingStreamgraph } from "@/components/chart-spending-streamgraph"
 import { ChartSankey } from "@/components/chart-sankey"
 import { ChartTransactionCalendar } from "@/components/chart-transaction-calendar"
-
 import type { HomeChartData } from "../hooks/useHomeChartData"
 import { normalizeCategoryName } from "../utils/categories"
 

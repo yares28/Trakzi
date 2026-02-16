@@ -376,43 +376,49 @@ export const ContributionGraphCalendar = ({
     [weeks, labels.months]
   );
 
+  // 10% smaller vertically: scale content and viewBox height
+  const scaleY = 0.9;
+  const viewBoxHeight = height * scaleY;
+
   return (
     <div
       className={cn("max-w-full overflow-x-auto overflow-y-hidden", className)}
       {...props}
     >
       <svg
-        className="block w-full overflow-visible"
-        viewBox={`0 0 ${width} ${height}`}
+        className="block w-full overflow-visible p-[5px]"
+        viewBox={`0 0 ${width} ${viewBoxHeight}`}
         preserveAspectRatio="xMidYMid meet"
       >
         <title>Contribution Graph</title>
-        {!hideMonthLabels && (
-          <g className="fill-current">
-            {monthLabels.map(({ label, weekIndex }) => (
-              <text
-                dominantBaseline="hanging"
-                key={weekIndex}
-                x={(blockSize + blockMargin) * weekIndex}
-              >
-                {label}
-              </text>
-            ))}
-          </g>
-        )}
-        {weeks.map((week, weekIndex) =>
-          week.map((activity, dayIndex) => {
-            if (!activity) {
-              return null;
-            }
+        <g transform={`scale(1, ${scaleY})`}>
+          {!hideMonthLabels && (
+            <g className="fill-current">
+              {monthLabels.map(({ label, weekIndex }) => (
+                <text
+                  dominantBaseline="hanging"
+                  key={weekIndex}
+                  x={(blockSize + blockMargin) * weekIndex}
+                >
+                  {label}
+                </text>
+              ))}
+            </g>
+          )}
+          {weeks.map((week, weekIndex) =>
+            week.map((activity, dayIndex) => {
+              if (!activity) {
+                return null;
+              }
 
-            return (
-              <Fragment key={`${weekIndex}-${dayIndex}`}>
-                {children({ activity, dayIndex, weekIndex })}
-              </Fragment>
-            );
-          })
-        )}
+              return (
+                <Fragment key={`${weekIndex}-${dayIndex}`}>
+                  {children({ activity, dayIndex, weekIndex })}
+                </Fragment>
+              );
+            })
+          )}
+        </g>
       </svg>
     </div>
   );

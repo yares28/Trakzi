@@ -37,6 +37,23 @@ function totalVehicleCost(v: VehicleData): number {
   )
 }
 
+/** Total amount paid: paid up front (or full price if no loan) + fuel + maintenance + insurance + certificate + parking + car loan payments. */
+function totalAmountPaid(v: VehicleData): number {
+  const upfront = v.financing ? v.financing.upfrontPaid : v.priceBought
+  const carLoanPaid = v.financing
+    ? Math.max(0, v.priceBought - v.financing.upfrontPaid - v.financing.loanRemaining)
+    : 0
+  return (
+    upfront +
+    (v.fuelTotal ?? 0) +
+    (v.maintenanceTotal ?? 0) +
+    (v.insuranceTotal ?? 0) +
+    (v.certificateTotal ?? 0) +
+    (v.parkingTotal ?? 0) +
+    carLoanPaid
+  )
+}
+
 function ownershipPercent(v: VehicleData): number | null {
   if (!v.financing || v.priceBought <= 0) return null
   const owned = v.priceBought - v.financing.loanRemaining
@@ -46,7 +63,7 @@ function ownershipPercent(v: VehicleData): number | null {
 interface VehicleCardProps {
   vehicle: VehicleData
   onUpdate: (updates: Partial<VehicleData>) => void
-  onRemove?: () => void
+  onRemove?: () => void | Promise<void>
 }
 
 function VehicleCard({ vehicle, onUpdate, onRemove }: VehicleCardProps) {
@@ -60,6 +77,7 @@ function VehicleCard({ vehicle, onUpdate, onRemove }: VehicleCardProps) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const totalCost = totalVehicleCost(vehicle)
+  const amountPaid = totalAmountPaid(vehicle)
   const percentOwned = ownershipPercent(vehicle)
 
   useEffect(() => {
@@ -103,14 +121,14 @@ function VehicleCard({ vehicle, onUpdate, onRemove }: VehicleCardProps) {
     setIsEditing(false)
   }, [editedName, vehicle.name, onUpdate])
 
-  const handleRemove = useCallback(() => {
+  const handleRemove = useCallback(async () => {
     if (!onRemove || isDeleting) return
     setIsDeleting(true)
-    onRemove()
-    // Reset deleting state after a short delay to allow state update to propagate
-    setTimeout(() => {
+    try {
+      await onRemove()
+    } finally {
       setIsDeleting(false)
-    }, 100)
+    }
   }, [onRemove, isDeleting])
 
   const handleActionClick = useCallback((view: BackFaceView) => {
@@ -194,6 +212,17 @@ function VehicleCard({ vehicle, onUpdate, onRemove }: VehicleCardProps) {
                   variant="outline"
                   size="icon"
                   className="h-9 w-9 rounded-xl border-border/80 bg-background/90 shadow-md backdrop-blur-sm transition-all hover:scale-105 hover:bg-primary/10 hover:border-primary/30 hover:shadow-lg sm:h-10 sm:w-10 [&_svg]:size-4 sm:[&_svg]:size-[18px]"
+                  onClick={() => handleActionClick("financing")}
+                  tabIndex={isFlipped ? -1 : undefined}
+                  aria-label="Financing"
+                  title="Financing"
+                >
+                  <Banknote className="size-4 sm:size-[18px]" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-xl border-border/80 bg-background/90 shadow-md backdrop-blur-sm transition-all hover:scale-105 hover:bg-primary/10 hover:border-primary/30 hover:shadow-lg sm:h-10 sm:w-10 [&_svg]:size-4 sm:[&_svg]:size-[18px]"
                   onClick={() => handleActionClick("fuel")}
                   tabIndex={isFlipped ? -1 : undefined}
                   aria-label="Fuel"
@@ -233,17 +262,6 @@ function VehicleCard({ vehicle, onUpdate, onRemove }: VehicleCardProps) {
                   title="Certificate"
                 >
                   <FileCheck className="size-4 sm:size-[18px]" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 rounded-xl border-border/80 bg-background/90 shadow-md backdrop-blur-sm transition-all hover:scale-105 hover:bg-primary/10 hover:border-primary/30 hover:shadow-lg sm:h-10 sm:w-10 [&_svg]:size-4 sm:[&_svg]:size-[18px]"
-                  onClick={() => handleActionClick("financing")}
-                  tabIndex={isFlipped ? -1 : undefined}
-                  aria-label="Financing"
-                  title="Financing"
-                >
-                  <Banknote className="size-4 sm:size-[18px]" />
                 </Button>
                 <Button
                   variant="outline"
@@ -344,12 +362,20 @@ function VehicleCard({ vehicle, onUpdate, onRemove }: VehicleCardProps) {
                   {vehicle.licensePlate ? ` · ${vehicle.licensePlate}` : ""}
                 </p>
               )}
-              <p className="mt-1 text-lg tabular-nums text-foreground">
-                {formatCurrency(totalCost, {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 0,
-                })}
-              </p>
+              <div className="mt-1 flex items-baseline justify-between gap-2">
+                <p className="text-lg tabular-nums text-foreground">
+                  {formatCurrency(totalCost, {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  })}
+                </p>
+                <p className="text-right text-sm tabular-nums text-muted-foreground" title="Total paid: upfront + fuel + maintenance + insurance + certificate + parking + car loan">
+                  Paid {formatCurrency(amountPaid, {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  })}
+                </p>
+              </div>
               {percentOwned !== null && vehicle.financing && (
                 <>
                   <div className="mt-2 space-y-1">
