@@ -12,14 +12,14 @@ The Test Charts page is a playground for testing and previewing chart components
 
 | Section | Chart Count | Description |
 |---------|-------------|-------------|
-| Analytics Playground | 48 | General spending analysis and trends |
+| Analytics Playground | 47 | General spending analysis and trends |
 | Savings & Wealth | 3 | Net worth, savings rates, and goals |
 | Fridge & Groceries | 5 | Food spending and nutrition data |
-| **Total** | **56** | |
+| **Total** | **55** | |
 
 ---
 
-## Analytics Playground Charts (48 total)
+## Analytics Playground Charts (47 total)
 
 | # | Chart ID | Component Name | Description |
 |---|----------|----------------|-------------|
@@ -32,45 +32,44 @@ The Test Charts page is a playground for testing and previewing chart components
 | 7 | `testCharts:cumulativeSpending` | `ChartCumulativeSpending` | Cumulative spending over time |
 | 8 | `testCharts:budgetBurndown` | `ChartBudgetBurndown` | Budget burndown chart |
 | 9 | `testCharts:monthlyBudgetPace` | `ChartMonthlyBudgetPace` | Monthly budget pacing indicator |
-| 10 | `testCharts:spendingVelocity` | `ChartSpendingVelocity` | Rate of spending change |
-| 11 | `testCharts:spendingStreak` | `ChartSpendingStreak` | Spending streak tracker |
-| 12 | `testCharts:topCategoriesPie` | `ChartTopCategoriesPie` | Top categories pie chart |
-| 13 | `testCharts:categoryBubbles` | `ChartCategoryBubbles` | Category bubble visualization |
-| 14 | `testCharts:smallVsLargePurchases` | `ChartSmallVsLargePurchases` | Small vs large purchase distribution |
-| 15 | `testCharts:recurringVsOneTime` | `ChartRecurringVsOneTime` | Recurring vs one-time expenses |
-| 16 | `testCharts:categoryRanking` | `ChartCategoryRanking` | Category spending ranking |
-| 17 | `testCharts:categoryGrowth` | `ChartCategoryGrowth` | Category growth over time |
-| 18 | `testCharts:weeklyComparison` | `ChartWeeklyComparison` | Week over week comparison |
-| 19 | `testCharts:seasonalSpending` | `ChartSeasonalSpending` | Seasonal spending patterns |
-| 20 | `testCharts:categoryDiversity` | `ChartCategoryDiversity` | Spending diversity across categories |
-| 21 | `testCharts:momGrowth` | `ChartMoMGrowth` | Month over month growth |
-| 22 | `testCharts:avgTransactionTrend` | `ChartAvgTransactionTrend` | Average transaction amount trend |
-| 23 | `testCharts:transactionCountTrend` | `ChartTransactionCountTrend` | Transaction count over time |
-| 24 | `testCharts:rolling7DayAvg` | `ChartRolling7DayAvg` | 7-day rolling average |
-| 25 | `testCharts:transactionHeatmap` | `ChartTransactionHeatmap` | Transaction activity heatmap |
-| 26 | `testCharts:paydayImpact` | `ChartPaydayImpact` | Spending around payday |
-| 27 | `testCharts:topMerchantsRace` | `ChartTopMerchantsRace` | Top merchants racing bar chart |
-| 28 | `testCharts:incomeSources` | `ChartIncomeSources` | Income sources breakdown |
-| 29 | `testCharts:spendingDistribution` | `ChartSpendingDistribution` | Spending amount distribution |
-| 30 | `testCharts:largestTransactions` | `ChartLargestTransactions` | Largest transactions list |
-| 31 | `testCharts:expenseVelocityGauge` | `ChartExpenseVelocityGauge` | Expense velocity gauge |
-| 32 | `testCharts:monthCompare` | `ChartMonthCompare` | Month to month comparison |
-| 33 | `testCharts:dailyHighLow` | `ChartDailyHighLow` | Daily high/low spending |
-| 34 | `testCharts:financialSummary` | `ChartFinancialSummary` | Overall financial summary |
-| 35 | `testCharts:monthlyTrend` | `ChartMonthlyTrend` | Monthly spending trend line |
-| 36 | `testCharts:weekdayRadar` | `ChartWeekdayRadar` | Weekday spending radar |
-| 37 | `testCharts:spendingByHourHeatmap` | `ChartSpendingByHourHeatmap` | Spending by hour heatmap |
-| 38 | `testCharts:categoryProgress` | `ChartCategoryProgress` | Category budget progress bars |
-| 39 | `testCharts:needsVsWantsDonut` | `ChartNeedsVsWantsDonut` | Needs vs wants donut chart |
-| 40 | `testCharts:spendingByMerchant` | `ChartSpendingByMerchant` | Spending by merchant breakdown |
-| 41 | `testCharts:yearOverYear` | `ChartYearOverYear` | Year over year comparison |
-| 42 | `testCharts:quarterlyComparison` | `ChartQuarterlyComparison` | Quarterly spending comparison |
-| 43 | `testCharts:dailyAverageByMonth` | `ChartDailyAverageByMonth` | Daily average by month |
-| 44 | `testCharts:paymentMethods` | `ChartPaymentMethods` | Payment methods breakdown |
-| 45 | `testCharts:biggestExpenseCategories` | `ChartBiggestExpenseCategories` | Biggest expense categories |
-| 46 | `testCharts:spendingAlerts` | `ChartSpendingAlerts` | Spending alerts and anomalies |
-| 47 | `testCharts:balanceHistory` | `ChartBalanceHistory` | Account balance history |
-| 48 | `testCharts:monthlyInsights` | `ChartMonthlyInsights` | Monthly insights summary |
+| 10 | `testCharts:spendingStreak` | `ChartSpendingStreak` | Spending streak tracker |
+| 11 | `testCharts:topCategoriesPie` | `ChartTopCategoriesPie` | Top categories pie chart |
+| 12 | `testCharts:categoryBubbles` | `ChartCategoryBubbles` | Category bubble visualization |
+| 13 | `testCharts:smallVsLargePurchases` | `ChartSmallVsLargePurchases` | Small vs large purchase distribution |
+| 14 | `testCharts:recurringVsOneTime` | `ChartRecurringVsOneTime` | Recurring vs one-time expenses |
+| 15 | `testCharts:categoryRanking` | `ChartCategoryRanking` | Category spending ranking |
+| 16 | `testCharts:categoryGrowth` | `ChartCategoryGrowth` | Category growth over time |
+| 17 | `testCharts:weeklyComparison` | `ChartWeeklyComparison` | Week over week comparison |
+| 18 | `testCharts:seasonalSpending` | `ChartSeasonalSpending` | Seasonal spending patterns |
+| 19 | `testCharts:categoryDiversity` | `ChartCategoryDiversity` | Spending diversity across categories |
+| 20 | `testCharts:momGrowth` | `ChartMoMGrowth` | Month over month growth |
+| 21 | `testCharts:avgTransactionTrend` | `ChartAvgTransactionTrend` | Average transaction amount trend |
+| 22 | `testCharts:transactionCountTrend` | `ChartTransactionCountTrend` | Transaction count over time |
+| 23 | `testCharts:rolling7DayAvg` | `ChartRolling7DayAvg` | 7-day rolling average |
+| 24 | `testCharts:transactionHeatmap` | `ChartTransactionHeatmap` | Transaction activity heatmap |
+| 25 | `testCharts:paydayImpact` | `ChartPaydayImpact` | Spending around payday |
+| 26 | `testCharts:topMerchantsRace` | `ChartTopMerchantsRace` | Top merchants racing bar chart |
+| 27 | `testCharts:incomeSources` | `ChartIncomeSources` | Income sources breakdown |
+| 28 | `testCharts:spendingDistribution` | `ChartSpendingDistribution` | Spending amount distribution |
+| 29 | `testCharts:largestTransactions` | `ChartLargestTransactions` | Largest transactions list |
+| 30 | `testCharts:expenseVelocityGauge` | `ChartExpenseVelocityGauge` | Expense velocity gauge |
+| 31 | `testCharts:monthCompare` | `ChartMonthCompare` | Month to month comparison |
+| 32 | `testCharts:dailyHighLow` | `ChartDailyHighLow` | Daily high/low spending |
+| 33 | `testCharts:financialSummary` | `ChartFinancialSummary` | Overall financial summary |
+| 34 | `testCharts:monthlyTrend` | `ChartMonthlyTrend` | Monthly spending trend line |
+| 35 | `testCharts:weekdayRadar` | `ChartWeekdayRadar` | Weekday spending radar |
+| 36 | `testCharts:spendingByHourHeatmap` | `ChartSpendingByHourHeatmap` | Spending by hour heatmap |
+| 37 | `testCharts:categoryProgress` | `ChartCategoryProgress` | Category budget progress bars |
+| 38 | `testCharts:needsVsWantsDonut` | `ChartNeedsVsWantsDonut` | Needs vs wants donut chart |
+| 39 | `testCharts:spendingByMerchant` | `ChartSpendingByMerchant` | Spending by merchant breakdown |
+| 40 | `testCharts:yearOverYear` | `ChartYearOverYear` | Year over year comparison |
+| 41 | `testCharts:quarterlyComparison` | `ChartQuarterlyComparison` | Quarterly spending comparison |
+| 42 | `testCharts:dailyAverageByMonth` | `ChartDailyAverageByMonth` | Daily average by month |
+| 43 | `testCharts:paymentMethods` | `ChartPaymentMethods` | Payment methods breakdown |
+| 44 | `testCharts:biggestExpenseCategories` | `ChartBiggestExpenseCategories` | Biggest expense categories |
+| 45 | `testCharts:spendingAlerts` | `ChartSpendingAlerts` | Spending alerts and anomalies |
+| 46 | `testCharts:balanceHistory` | `ChartBalanceHistory` | Account balance history |
+| 47 | `testCharts:monthlyInsights` | `ChartMonthlyInsights` | Monthly insights summary |
 
 ---
 

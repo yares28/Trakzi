@@ -68,17 +68,17 @@ export function ChartLoadingState({
     />
   }
 
-  // Loading state with appropriate skeleton
+  // Loading state with appropriate skeleton — min-h-0 so it fits the card (doesn't overflow)
   if (isLoading) {
     return (
-      <div className={cn("flex flex-col w-full", height, className)}>
-        <div className="w-full flex-1 flex flex-col px-6 pt-2 pb-4">
-          <div className="w-full flex-1 min-h-[180px]">
+      <div className={cn("flex min-h-0 flex-col w-full", height, className)}>
+        <div className="flex min-h-0 flex-1 flex-col px-4 pt-1 pb-2 sm:px-6 sm:pt-2 sm:pb-4">
+          <div className="min-h-0 flex-1 w-full">
             <ChartSkeleton type={skeletonType} />
           </div>
           <ShimmeringText
             text="Loading .."
-            className="text-muted-foreground font-medium text-sm text-center mt-2"
+            className="text-muted-foreground font-medium text-sm text-center mt-1.5 shrink-0"
             duration={1.8}
             repeatDelay={0.3}
             spread={2.5}

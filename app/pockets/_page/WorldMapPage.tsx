@@ -43,6 +43,25 @@ import { OtherCardsGrid, type OtherCardData } from "./components/OtherCardsGrid"
 import { AddPropertyDialog } from "./components/AddPropertyDialog"
 import { AddOtherDialog } from "./components/AddOtherDialog"
 
+// ─── Dismissed-mock helpers (localStorage persistence) ────────
+
+const DISMISSED_MOCKS_KEY = "trakzi-dismissed-pocket-mocks"
+
+function getDismissedMocks(): Set<string> {
+    try {
+        const raw = localStorage.getItem(DISMISSED_MOCKS_KEY)
+        return raw ? new Set(JSON.parse(raw) as string[]) : new Set()
+    } catch {
+        return new Set()
+    }
+}
+
+function persistDismissedMock(id: string) {
+    const dismissed = getDismissedMocks()
+    dismissed.add(id)
+    localStorage.setItem(DISMISSED_MOCKS_KEY, JSON.stringify([...dismissed]))
+}
+
 // ─── Mock data (shown when no real data exists) ──────────────
 
 const MOCK_COUNTRIES: CountryData[] = [
@@ -128,6 +147,7 @@ function pocketToPropertyData(pocket: PocketItemWithTotals): PropertyCardData {
         mortgageLoanYears: ownedMeta?.mortgage?.loanYears,
         mortgageYearsPaid: ownedMeta?.mortgage?.yearsPaid,
         mortgageTotalPaid: pocket.totals.mortgage ?? 0,
+        totalSpent: pocket.totalInvested ?? 0,
     }
 }
 
@@ -157,6 +177,7 @@ export default function WorldMapPage() {
     const [isAddPropertyDialogOpen, setIsAddPropertyDialogOpen] = useState(false)
     const [isAddOtherDialogOpen, setIsAddOtherDialogOpen] = useState(false)
     const [propertyTypeToAdd, setPropertyTypeToAdd] = useState<"owned" | "rented">("owned")
+    const [dismissedMocks, setDismissedMocks] = useState<Set<string>>(() => getDismissedMocks())
 
     // Fetch all pockets data from bundle API
     const { data, isLoading, mutate } = useSWR<PocketsBundleResponse>(
@@ -210,8 +231,9 @@ export default function WorldMapPage() {
                 isVehicleMock: false,
             }
         }
-        return { vehicles: MOCK_VEHICLES, isVehicleMock: true }
-    }, [data])
+        const filtered = MOCK_VEHICLES.filter(v => !dismissedMocks.has(v.id))
+        return { vehicles: filtered, isVehicleMock: true }
+    }, [data, dismissedMocks])
 
     const vehicleStats = useMemo(() => {
         const bundleStats = data?.stats?.garage
@@ -272,8 +294,9 @@ export default function WorldMapPage() {
                 isPropertyMock: false,
             }
         }
-        return { properties: INITIAL_PROPERTY_MOCKS, isPropertyMock: true }
-    }, [data])
+        const filtered = INITIAL_PROPERTY_MOCKS.filter(p => !dismissedMocks.has(p.id))
+        return { properties: filtered, isPropertyMock: true }
+    }, [data, dismissedMocks])
 
     const propertyStats = useMemo(() => {
         const bundleStats = data?.stats?.property
@@ -306,8 +329,9 @@ export default function WorldMapPage() {
                 isOtherMock: false,
             }
         }
-        return { otherItems: MOCK_OTHER_ITEMS, isOtherMock: true }
-    }, [data])
+        const filtered = MOCK_OTHER_ITEMS.filter(o => !dismissedMocks.has(o.id))
+        return { otherItems: filtered, isOtherMock: true }
+    }, [data, dismissedMocks])
 
     // ─── Other stats ──────────────────────────────────────────
     const otherStats = useMemo(() => {
@@ -338,8 +362,13 @@ export default function WorldMapPage() {
     const handleAddSuccess = useCallback(() => { mutate() }, [mutate])
     const handleCountryDeleted = useCallback(() => { mutate() }, [mutate])
 
-    // Generic pocket remove via API (works for vehicle, property, other)
+    // Generic pocket remove — mock cards dismiss via localStorage, real cards delete via API
     const handlePocketRemove = useCallback(async (id: string) => {
+        if (id.startsWith("mock-")) {
+            persistDismissedMock(id)
+            setDismissedMocks(prev => new Set([...prev, id]))
+            return
+        }
         await fetch(`/api/pockets/items?id=${id}`, { method: 'DELETE' })
         mutate()
     }, [mutate])

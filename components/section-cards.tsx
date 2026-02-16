@@ -45,6 +45,8 @@ interface SectionCardsProps {
   showSpendingAndSavingsRate?: boolean
   spendingRateChange?: number
   spendingRateTrend?: TrendDataPoint[]
+  /** When set and showSpendingAndSavingsRate, shows spent/saved per day under rate cards */
+  periodDays?: number
 }
 
 type CardId = "income" | "expenses" | "netWorth" | "transactions" | "savingsRate" | "spendingRate"
@@ -57,6 +59,8 @@ interface CardData {
   description: string
   footerText: string
   footerSubtext: string
+  /** Optional line under the value (e.g. "Spanning X" or "$X per day") */
+  subtextUnderValue?: string
   formatOptions: { minimumFractionDigits: number; maximumFractionDigits: number }
   trendColor: string
   seed: number
@@ -140,14 +144,40 @@ export function TrendLineBackground({
   )
 }
 
+// Spending rate: share of income spent. Very Low = very little spent, Very High = most income spent.
+function getSpendingRateLevel(rate: number): "Very Low" | "Low" | "Medium" | "High" | "Very High" {
+  if (rate < 40) return "Very Low"
+  if (rate < 60) return "Low"
+  if (rate <= 85) return "Medium"
+  if (rate <= 95) return "High"
+  return "Very High"
+}
+
+// Savings rate: share of income saved. Very Low = little saved, Very High = saving a lot.
+function getSavingsRateLevel(rate: number): "Very Low" | "Low" | "Medium" | "High" | "Very High" {
+  if (rate < 5) return "Very Low"
+  if (rate < 15) return "Low"
+  if (rate <= 30) return "Medium"
+  if (rate <= 50) return "High"
+  return "Very High"
+}
+
 function CardComponent({ card }: { card: CardData }) {
   const { formatCurrency } = useCurrency()
-  const showSpanning = card.footerText?.includes("Spanning")
-  const description = showSpanning ? `${card.title} · ${card.footerText}` : card.title
+  const showSpanningUnderNumber = card.footerText?.includes("Spanning")
+  const description = card.title
+
+  const badgeLabel =
+    card.id === "spendingRate"
+      ? getSpendingRateLevel(card.value)
+      : card.id === "savingsRate"
+        ? getSavingsRateLevel(card.value)
+        : null
+
   return (
     <Card className="@container/card relative group overflow-hidden h-[7rem] py-4">
       <TrendLineBackground color={card.trendColor} seed={card.seed} dataPoints={card.trendData} />
-      <CardHeader className="pb-2 pt-0 flex-1 min-h-0">
+      <CardHeader className="pb-2 pt-[5px] flex-1 min-h-0">
         <CardDescription className="text-xs mb-1 truncate">{description}</CardDescription>
         <div className="flex items-baseline justify-between gap-2">
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl truncate">
@@ -157,12 +187,24 @@ function CardComponent({ card }: { card: CardData }) {
           </CardTitle>
           {card.showChange !== false && (
             <Badge variant="outline" className="text-xs h-6 shrink-0">
-              {card.change >= 0 ? <IconTrendingUp className="size-3" /> : <IconTrendingDown className="size-3" />}
-              {card.change >= 0 ? "+" : ""}
-              {card.change.toFixed(1)}%
+              {badgeLabel !== null ? (
+                badgeLabel
+              ) : (
+                <>
+                  {card.change >= 0 ? <IconTrendingUp className="size-3" /> : <IconTrendingDown className="size-3" />}
+                  {card.change >= 0 ? "+" : ""}
+                  {card.change.toFixed(1)}%
+                </>
+              )}
             </Badge>
           )}
         </div>
+        {showSpanningUnderNumber && card.footerText && (
+          <p className="text-xs text-muted-foreground mt-0 truncate">{card.footerText}</p>
+        )}
+        {card.subtextUnderValue && (
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">{card.subtextUnderValue}</p>
+        )}
       </CardHeader>
     </Card>
   )
@@ -193,7 +235,9 @@ export function SectionCards({
   showSpendingAndSavingsRate = false,
   spendingRateChange = 0,
   spendingRateTrend = [],
+  periodDays = 0,
 }: SectionCardsProps) {
+  const { formatCurrency } = useCurrency()
   // Ensure all values are numbers (handle case where API returns strings)
   const safeTotalIncome = Number(totalIncome) || 0
   const safeTotalExpenses = Number(totalExpenses) || 0
@@ -237,6 +281,11 @@ export function SectionCards({
   const safeSpendingRate =
     safeTotalIncome > 0 ? (safeTotalExpenses / safeTotalIncome) * 100 : 0
   const safeSpendingRateChange = Number(spendingRateChange) || 0
+
+  const safePeriodDays = Number(periodDays) || 0
+  const spentPerDay = safePeriodDays > 0 ? safeTotalExpenses / safePeriodDays : 0
+  const savedPerDay =
+    safePeriodDays > 0 ? (safeTotalIncome - safeTotalExpenses) / safePeriodDays : 0
 
   const cardData = useMemo<Record<CardId, CardData>>(() => ({
     transactions: {
@@ -310,6 +359,10 @@ export function SectionCards({
       footerText: `${safeSavingsRateChange >= 0 ? "Saving more" : "Saving less"
         } this period`,
       footerSubtext: "Income saved after expenses",
+      subtextUnderValue:
+        safePeriodDays > 0 && savedPerDay !== 0
+          ? `${formatCurrency(savedPerDay, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} saved per day`
+          : undefined,
       formatOptions: { minimumFractionDigits: 1, maximumFractionDigits: 1 },
       trendColor: trendColors[2],
       seed: 4,
@@ -327,6 +380,8 @@ export function SectionCards({
       footerText: `${safeSpendingRateChange <= 0 ? "Spending less" : "Spending more"
         } this period`,
       footerSubtext: "Share of income spent",
+      subtextUnderValue:
+        safePeriodDays > 0 ? `${formatCurrency(spentPerDay, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} spent per day` : undefined,
       formatOptions: { minimumFractionDigits: 1, maximumFractionDigits: 1 },
       trendColor: trendColors[5],
       seed: 5,
@@ -355,6 +410,10 @@ export function SectionCards({
     displayTransactionCount,
     displayTransactionTimeSpan,
     displayTransactionTrend,
+    safePeriodDays,
+    spentPerDay,
+    savedPerDay,
+    formatCurrency,
   ])
 
   const cardOrder: CardId[] = showSpendingAndSavingsRate

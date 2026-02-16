@@ -110,6 +110,8 @@ export interface PropertyCardData {
   mortgageTotalPaid?: number
   mortgageLoanYears?: number
   mortgageYearsPaid?: number
+  /** Total spent on this property (mortgage + maintenance + insurance + taxes, or rent + utilities + deposit + fees). */
+  totalSpent?: number
 }
 
 export const MOCK_PROPERTIES: PropertyCardData[] = [
@@ -147,10 +149,11 @@ interface PropertyCardProps {
   mortgageRemainingAmount?: number
   mortgageLinkedTransactionIds?: number[]
   mortgageTotalPaid?: number
-   mortgageLoanYears?: number
+  mortgageLoanYears?: number
   mortgageYearsPaid?: number
+  totalSpent?: number
   onView?: () => void
-  onRemove?: () => void
+  onRemove?: () => void | Promise<void>
   onLabelUpdated?: (newLabel: string) => void
   onUpdate: (updates: Partial<PropertyCardData>) => void
 }
@@ -182,6 +185,7 @@ function PropertyCard({
   mortgageTotalPaid,
   mortgageLoanYears,
   mortgageYearsPaid,
+  totalSpent,
   onView,
   onRemove,
   onLabelUpdated,
@@ -258,14 +262,14 @@ function PropertyCard({
     setIsEditing(false)
   }, [editedLabel, label, onLabelUpdated])
 
-  const handleRemove = useCallback(() => {
+  const handleRemove = useCallback(async () => {
     if (!onRemove || isDeleting) return
     setIsDeleting(true)
-    onRemove()
-    // Reset deleting state after a short delay to allow state update to propagate
-    setTimeout(() => {
+    try {
+      await onRemove()
+    } finally {
       setIsDeleting(false)
-    }, 100)
+    }
   }, [onRemove, isDeleting])
 
   const handleBackTabClick = useCallback(
@@ -448,12 +452,23 @@ function PropertyCard({
                 )}
               </div>
 
-              <p className="mt-1 text-lg tabular-nums text-foreground">
-                {formatCurrency(value, {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 0,
-                })}
-              </p>
+              <div className="mt-1 flex items-baseline justify-between gap-2">
+                <p className="text-lg tabular-nums text-foreground">
+                  {formatCurrency(value, {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  })}
+                </p>
+                <p className="text-right text-sm tabular-nums text-muted-foreground" title={propertyType === "owned" ? "Spent (linked) + equity owned (amount, not %)" : "Total spent: rent + utilities + deposit + fees"}>
+                  Spent {formatCurrency(
+                    (totalSpent ?? 0) +
+                    (propertyType === "owned" && ownershipMetrics.percentOwned != null
+                      ? (ownershipMetrics.percentOwned / 100) * value
+                      : 0),
+                    { minimumFractionDigits: 0, maximumFractionDigits: 0 }
+                  )}
+                </p>
+              </div>
 
               {/* Mortgage ownership info */}
               {ownershipMetrics.percentOwned !== null && ownershipMetrics.amountLeftWithInterestAndFees !== null && (
@@ -710,21 +725,22 @@ export const PropertyCardsGrid = memo(function PropertyCardsGrid({
     )
   }
 
-  const renderPropertyCard = (p: PropertyCardData) => (
-    <PropertyCard
-      key={p.id}
-      id={p.id}
-      label={p.label}
-      value={p.value}
-      svgPath={p.svgPath}
-      propertyType={p.propertyType}
-      mortgageOriginalAmount={p.mortgageOriginalAmount}
-      mortgageInterestRate={p.mortgageInterestRate}
-      mortgageRemainingAmount={p.mortgageRemainingAmount}
-      mortgageLinkedTransactionIds={p.mortgageLinkedTransactionIds}
-      mortgageTotalPaid={p.mortgageTotalPaid}
-      mortgageLoanYears={p.mortgageLoanYears}
-      mortgageYearsPaid={p.mortgageYearsPaid}
+    const renderPropertyCard = (p: PropertyCardData) => (
+      <PropertyCard
+        key={p.id}
+        id={p.id}
+        label={p.label}
+        value={p.value}
+        svgPath={p.svgPath}
+        propertyType={p.propertyType}
+        mortgageOriginalAmount={p.mortgageOriginalAmount}
+        mortgageInterestRate={p.mortgageInterestRate}
+        mortgageRemainingAmount={p.mortgageRemainingAmount}
+        mortgageLinkedTransactionIds={p.mortgageLinkedTransactionIds}
+        mortgageTotalPaid={p.mortgageTotalPaid}
+        mortgageLoanYears={p.mortgageLoanYears}
+        mortgageYearsPaid={p.mortgageYearsPaid}
+        totalSpent={p.totalSpent}
       onView={() => {}}
       onRemove={() => onRemove(p.id)}
       onLabelUpdated={(newLabel) => onLabelUpdated(p.id, newLabel)}

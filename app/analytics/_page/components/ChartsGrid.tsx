@@ -322,6 +322,8 @@ export function ChartsGrid({
             )
           }
 
+
+
           if (chartId === "spendingCategoryRankings") {
             return (
               <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>

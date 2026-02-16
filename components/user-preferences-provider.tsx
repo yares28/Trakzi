@@ -292,8 +292,17 @@ function ThemeSyncBridge({
 }
 
 // ---------------------------------------------------------------------------
-// FontSyncBridge — toggles font-mono class on <body>
+// FontSyncBridge — applies selected font class on <body>
 // ---------------------------------------------------------------------------
+
+const FONT_ID_TO_CLASS: Record<string, string> = {
+  "geist-sans": "font-sans",
+  "geist-mono": "font-mono",
+  favorit: "font-favorit font-light",
+  "brandmark-neon-gothic": "font-brandmark-neon-gothic font-semibold",
+}
+
+const BODY_FONT_CLASSES = ["font-sans", "font-mono", "font-favorit", "font-light", "font-brandmark-neon-gothic", "font-semibold"]
 
 function FontSyncBridge({
   preferences,
@@ -301,12 +310,10 @@ function FontSyncBridge({
   preferences: UserPreferences
 }) {
   useEffect(() => {
-    const font = preferences.settings?.font
-    if (font === "geist-mono") {
-      document.body.classList.add("font-mono")
-    } else {
-      document.body.classList.remove("font-mono")
-    }
+    const font = preferences.settings?.font ?? "geist-sans"
+    const toAdd = FONT_ID_TO_CLASS[font] ?? "font-sans"
+    BODY_FONT_CLASSES.forEach((c) => document.body.classList.remove(c))
+    toAdd.split(" ").forEach((c) => document.body.classList.add(c))
   }, [preferences.settings?.font])
 
   return null

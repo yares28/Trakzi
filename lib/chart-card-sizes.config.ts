@@ -68,7 +68,6 @@ export type ChartId =
   | "fridge:netWorthAllocation"
   | "testCharts:weekendVsWeekday"
   | "testCharts:avgTransactionTrend"
-  | "testCharts:spendingVelocity"
   | "testCharts:categoryDiversity"
   | "testCharts:momGrowth"
   | "testCharts:transactionHeatmap"
@@ -507,15 +506,6 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 6,
     maxH: 10,
-    mobileH: 5,
-  },
-
-  // Test Charts: Spending Velocity
-  "testCharts:spendingVelocity": {
-    minW: 6,
-    maxW: 12,
-    minH: 8,
-    maxH: 12,
     mobileH: 5,
   },
 

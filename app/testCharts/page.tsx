@@ -23,7 +23,6 @@ import { Activity, Wallet, Refrigerator, ChevronRight } from "lucide-react"
 import {
     ChartWeekendVsWeekday,
     ChartAvgTransactionTrend,
-    ChartSpendingVelocity,
     ChartCategoryDiversity,
     ChartMoMGrowth,
     ChartTransactionHeatmap,
@@ -106,7 +105,7 @@ export default function TestChartsPage() {
         "testCharts:quickStats", "testCharts:spendingScore", "testCharts:cashFlowIndicator",
         "testCharts:incomeExpenseRatio", "testCharts:weekendVsWeekday", "testCharts:hourlySpending",
         "testCharts:cumulativeSpending", "testCharts:budgetBurndown", "testCharts:monthlyBudgetPace",
-        "testCharts:spendingVelocity", "testCharts:spendingStreak", "testCharts:topCategoriesPie",
+        "testCharts:spendingStreak", "testCharts:topCategoriesPie",
         "testCharts:categoryBubbles", "testCharts:smallVsLargePurchases", "testCharts:recurringVsOneTime",
         "testCharts:categoryRanking", "testCharts:categoryGrowth", "testCharts:weeklyComparison",
         "testCharts:seasonalSpending", "testCharts:categoryDiversity", "testCharts:momGrowth",
@@ -348,7 +347,6 @@ export default function TestChartsPage() {
         switch (chartId) {
             case "testCharts:weekendVsWeekday": return <ChartWeekendVsWeekday {...chartProps} />
             case "testCharts:avgTransactionTrend": return <ChartAvgTransactionTrend {...chartProps} />
-            case "testCharts:spendingVelocity": return <ChartSpendingVelocity {...chartProps} />
             case "testCharts:categoryDiversity": return <ChartCategoryDiversity {...chartProps} />
             case "testCharts:momGrowth": return <ChartMoMGrowth {...chartProps} />
             case "testCharts:transactionHeatmap": return <ChartTransactionHeatmap {...chartProps} />
