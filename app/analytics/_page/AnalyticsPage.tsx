@@ -20,15 +20,19 @@ import { useAnalyticsStats } from "./hooks/useAnalyticsStats"
 import { useChartLayout } from "./hooks/useChartLayout"
 import { useStatementImport } from "./hooks/useStatementImport"
 import { cn } from "@/lib/utils"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
+import { SortableGridItem, SortableGridProvider } from "@/components/sortable-grid"
+import { ChartSpendingPyramid } from "@/components/chart-spending-pyramid"
+import { DEFAULT_ADVANCED_CHART_ORDER, DEFAULT_ADVANCED_CHART_SIZES } from "./constants"
 
 type AnalyticsViewMode = "analytics" | "advanced" | "trends"
 
 export default function AnalyticsPage() {
   const { resolvedTheme } = useTheme()
   const [viewMode, setViewMode] = useState<AnalyticsViewMode>("analytics")
+  const [advancedChartOrder, setAdvancedChartOrder] = useState(DEFAULT_ADVANCED_CHART_ORDER)
   const { getPalette } = useColorScheme()
-  const { filter: dateFilter, setFilter: setDateFilter } = useDateFilter()
+  const { filter: dateFilter } = useDateFilter()
 
   // Bundle API data - pre-aggregated with Redis caching (single request)
   const { data: bundleData, isLoading: bundleLoading } = useAnalyticsBundleData()
@@ -157,24 +161,48 @@ export default function AnalyticsPage() {
           )}
 
           {viewMode === "advanced" && (
-            <section>
-              <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-1">
-                <Card className="@container/card h-full flex flex-col">
-                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-base font-medium">
-                        Advanced Analytics
-                      </CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1">
-                    <div className="h-[250px] w-full flex items-center justify-center text-sm text-muted-foreground">
-                      This area is ready for advanced analytics cards and tools.
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </section>
+            <div className="w-full mb-4 px-4 lg:px-6">
+              <SortableGridProvider
+                chartOrder={advancedChartOrder}
+                onOrderChange={setAdvancedChartOrder}
+              >
+                {advancedChartOrder.map((chartId) => {
+                  const defaultSize = DEFAULT_ADVANCED_CHART_SIZES[chartId] || { w: 6, h: 8 }
+                  const sizeConfig = getChartCardSize(chartId as ChartId)
+                  const w = (chartLayout.savedSizes[chartId]?.w ?? defaultSize.w) as 6 | 12
+                  const h = chartLayout.savedSizes[chartId]?.h ?? defaultSize.h
+
+                  if (chartId === "spendingPyramid") {
+                    return (
+                      <SortableGridItem
+                        key={chartId}
+                        id={chartId}
+                        w={w}
+                        h={h}
+                        mobileH={sizeConfig.mobileH}
+                        resizable
+                        minW={sizeConfig.minW}
+                        maxW={sizeConfig.maxW}
+                        minH={sizeConfig.minH}
+                        maxH={sizeConfig.maxH}
+                        onResize={chartLayout.handleChartResize}
+                      >
+                        <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                          <ChartSpendingPyramid
+                            data={bundleData?.spendingPyramid}
+                            isLoading={bundleLoading}
+                            emptyTitle="No data yet"
+                            emptyDescription="Import your bank statements to compare your spending with the average user"
+                          />
+                        </div>
+                      </SortableGridItem>
+                    )
+                  }
+
+                  return null
+                })}
+              </SortableGridProvider>
+            </div>
           )}
 
           {viewMode === "trends" && <AnalyticsTrendsTab />}

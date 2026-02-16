@@ -90,6 +90,14 @@ transactionHistory: {
 
 ---
 
+## Advanced Tab Charts (1 total)
+
+| # | Chart ID | Component File | Component Name | Description |
+|---|----------|----------------|----------------|-------------|
+| 1 | `spendingPyramid` | `chart-spending-pyramid.tsx` | `ChartSpendingPyramid` | Spending Pyramid - Horizontal mirrored bar chart comparing user spending distribution vs platform average by category |
+
+---
+
 ## Trends Tab
 
 The Analytics page includes a **Trends** tab (toggled via Analytics / Advanced / Trends pills). When active, a secondary **Spending / Groceries** toggle appears on the right side of the toggle bar.

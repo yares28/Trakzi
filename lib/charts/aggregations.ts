@@ -1,5 +1,6 @@
 import { neonQuery } from '@/lib/neonClient'
 import { getDateRange } from '@/app/api/transactions/route'
+import { getCachedOrCompute } from '@/lib/cache/upstash'
 
 // Types for aggregated chart data
 export interface CategorySpending {
@@ -71,6 +72,14 @@ export interface MonthlyByCategory {
     total: number
 }
 
+export interface SpendingPyramidItem {
+    category: string
+    userTotal: number
+    userPercent: number
+    avgTotal: number
+    avgPercent: number
+}
+
 export interface AnalyticsSummary {
     kpis: {
         totalIncome: number
@@ -89,6 +98,7 @@ export interface AnalyticsSummary {
     needsWants: NeedsWantsItem[]
     cashFlow: CashFlowData
     monthlyByCategory: MonthlyByCategory[]
+    spendingPyramid: SpendingPyramidItem[]
 }
 
 // Category classification for needs/wants
@@ -612,6 +622,136 @@ export async function getMonthlyByCategory(
 }
 
 /**
+ * Get platform-wide average spending by category (globally cached, shared across all users).
+ * Uses HAVING COUNT(*) >= 2 so at least 2 users must share a category for a meaningful average.
+ */
+async function getPlatformCategoryAverages(
+    startDate?: string,
+    endDate?: string
+): Promise<Map<string, number>> {
+    const cacheKey = `platform:v2:category-avg:${startDate ?? 'all'}:${endDate ?? 'all'}`
+
+    const result = await getCachedOrCompute<Array<{ category: string; avg_total: string }>>(
+        cacheKey,
+        async () => {
+            let avgQuery = `
+                SELECT
+                    category_name AS category,
+                    AVG(user_total) AS avg_total
+                FROM (
+                    SELECT
+                        t.user_id,
+                        COALESCE(c.name, 'Uncategorized') AS category_name,
+                        ABS(SUM(t.amount)) AS user_total
+                    FROM transactions t
+                    LEFT JOIN categories c ON t.category_id = c.id
+                    WHERE t.amount < 0
+            `
+            const avgParams: (string | number)[] = []
+
+            if (startDate) {
+                avgParams.push(startDate)
+                avgQuery += ` AND t.tx_date >= $${avgParams.length}::date`
+            }
+            if (endDate) {
+                avgParams.push(endDate)
+                avgQuery += ` AND t.tx_date <= $${avgParams.length}::date`
+            }
+
+            avgQuery += `
+                    GROUP BY t.user_id, c.name
+                ) user_totals
+                GROUP BY category_name
+                HAVING COUNT(*) >= 2
+                ORDER BY avg_total DESC
+            `
+
+            return neonQuery<{ category: string; avg_total: string }>(avgQuery, avgParams)
+        },
+        60 * 60 // 1 hour TTL — platform averages change slowly
+    )
+
+    const avgMap = new Map<string, number>()
+    result.forEach(r => {
+        avgMap.set(r.category, parseFloat(r.avg_total) || 0)
+    })
+    return avgMap
+}
+
+/**
+ * Get spending pyramid data comparing current user vs platform average.
+ * Returns top 10 categories with both user and average spending percentages.
+ */
+export async function getSpendingPyramid(
+    userId: string,
+    startDate?: string,
+    endDate?: string
+): Promise<SpendingPyramidItem[]> {
+    // Query 1: Current user spending by category
+    let userQuery = `
+        SELECT
+            COALESCE(c.name, 'Uncategorized') AS category,
+            ABS(SUM(t.amount)) AS total
+        FROM transactions t
+        LEFT JOIN categories c ON t.category_id = c.id
+        WHERE t.user_id = $1 AND t.amount < 0
+    `
+    const userParams: (string | number)[] = [userId]
+
+    if (startDate) {
+        userParams.push(startDate)
+        userQuery += ` AND t.tx_date >= $${userParams.length}::date`
+    }
+    if (endDate) {
+        userParams.push(endDate)
+        userQuery += ` AND t.tx_date <= $${userParams.length}::date`
+    }
+
+    userQuery += ` GROUP BY c.name ORDER BY total DESC`
+
+    // Query 2: Platform average (globally cached, k-anonymous)
+    const [userRows, avgMap] = await Promise.all([
+        neonQuery<{ category: string; total: string }>(userQuery, userParams),
+        getPlatformCategoryAverages(startDate, endDate),
+    ])
+
+    // Calculate totals for percentage computation
+    const userGrandTotal = userRows.reduce((sum, r) => sum + (parseFloat(r.total) || 0), 0)
+    const avgGrandTotal = Array.from(avgMap.values()).reduce((sum, v) => sum + v, 0)
+
+    // Combine: use the union of categories from both user and average
+    const allCategories = new Set<string>()
+    userRows.forEach(r => allCategories.add(r.category))
+    avgMap.forEach((_, cat) => allCategories.add(cat))
+
+    const userMap = new Map<string, number>()
+    userRows.forEach(r => {
+        userMap.set(r.category, parseFloat(r.total) || 0)
+    })
+
+    const result: SpendingPyramidItem[] = Array.from(allCategories).map(category => {
+        const userTotal = userMap.get(category) || 0
+        const avgTotal = avgMap.get(category) || 0
+        return {
+            category,
+            userTotal,
+            userPercent: userGrandTotal > 0 ? (userTotal / userGrandTotal) * 100 : 0,
+            avgTotal,
+            avgPercent: avgGrandTotal > 0 ? (avgTotal / avgGrandTotal) * 100 : 0,
+        }
+    })
+
+    // Sort by the max of user or average spending, with stable secondary sort
+    result.sort((a, b) => {
+        const diff = Math.max(b.userTotal, b.avgTotal) - Math.max(a.userTotal, a.avgTotal)
+        return diff !== 0 ? diff : a.category.localeCompare(b.category)
+    })
+
+    // Return top 10 categories for clean display
+    return result.slice(0, 10)
+}
+
+/**
  * Get KPI summary
  */
 export async function getKPIs(
@@ -679,6 +819,7 @@ export async function getAnalyticsBundle(
         needsWants,
         cashFlow,
         monthlyByCategory,
+        spendingPyramid,
     ] = await Promise.all([
         getKPIs(userId, startDate ?? undefined, endDate ?? undefined),
         getCategorySpending(userId, startDate ?? undefined, endDate ?? undefined),
@@ -689,6 +830,7 @@ export async function getAnalyticsBundle(
         getNeedsWantsBreakdown(userId, startDate ?? undefined, endDate ?? undefined),
         getCashFlowData(userId, startDate ?? undefined, endDate ?? undefined),
         getMonthlyByCategory(userId, startDate ?? undefined, endDate ?? undefined),
+        getSpendingPyramid(userId, startDate ?? undefined, endDate ?? undefined),
     ])
 
     return {
@@ -701,6 +843,7 @@ export async function getAnalyticsBundle(
         needsWants,
         cashFlow,
         monthlyByCategory,
+        spendingPyramid,
     }
 }
 

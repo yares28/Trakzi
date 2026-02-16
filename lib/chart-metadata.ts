@@ -117,6 +117,11 @@ export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
     title: "Savings Accumulation",
     description: "Track your cumulative savings over time",
   },
+  spendingPyramid: {
+    id: "spendingPyramid",
+    title: "Spending Pyramid",
+    description: "Compare your spending distribution against the average user",
+  },
   "fridge:day-of-week-spending": {
     id: "fridge:day-of-week-spending",
     title: "Fridge: Day of Week Spending",

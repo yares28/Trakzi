@@ -66,6 +66,7 @@ export type ChartId =
   | "fridge:macronutrientBreakdown"
   | "fridge:snackPercentage"
   | "fridge:netWorthAllocation"
+  | "spendingPyramid"
   | "testCharts:weekendVsWeekday"
   | "testCharts:avgTransactionTrend"
   | "testCharts:categoryDiversity"
@@ -318,6 +319,15 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     minH: 6,
     maxH: 10,
     mobileH: 5,
+  },
+
+  // Spending Pyramid - Horizontal mirrored bar chart (user vs average)
+  spendingPyramid: {
+    minW: 6,
+    maxW: 12,
+    minH: 8,
+    maxH: 16,
+    mobileH: 8,
   },
 
   // Fridge: Day of Week Spending - Bar chart

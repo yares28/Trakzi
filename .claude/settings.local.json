@@ -30,7 +30,16 @@
       "Bash(git push:*)",
       "Bash(npm audit fix:*)",
       "mcp__Neon__list_projects",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "WebFetch(domain:recharts.github.io)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:codesandbox.io)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:www.react-graph-gallery.com)",
+      "WebFetch(domain:www.folkstalk.com)",
+      "WebFetch(domain:www.olioapps.com)",
+      "WebFetch(domain:madlogos.github.io)"
     ]
   },
   "enabledPlugins": {
