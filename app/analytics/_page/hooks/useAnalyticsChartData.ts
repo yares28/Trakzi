@@ -1474,6 +1474,55 @@ export function useAnalyticsChartData({
       }))
   }, [bundleData?.transactionHistory, rawTransactions, dateFilter])
 
+  // ── Chart data status map ────────────────────────────────────────────
+  const chartDataStatusMap = useMemo(() => {
+    const hasArr = (arr: unknown[] | undefined | null) => Array.isArray(arr) && arr.length > 0
+
+    return {
+      incomeExpensesTracking1: hasArr(incomeExpenseTopChartData) ? "has-data" : "empty",
+      incomeExpensesTracking2: hasArr(incomeExpenseChart.data) ? "has-data" : "empty",
+      categoryFlow: hasArr(categoryFlowChart.data) ? "has-data" : "empty",
+      netWorthAllocation: hasArr(treeMapData) ? "has-data" : "empty",
+      spendingFunnel: hasArr(spendingFunnelChart.data) ? "has-data" : "empty",
+      expenseBreakdown: hasArr(expensesPieData.slices) ? "has-data" : "empty",
+      needsWantsBreakdown: hasArr(needsWantsPieData.slices) ? "has-data" : "empty",
+      categoryBubbleMap: hasArr(circlePackingData.tree.children) ? "has-data" : "empty",
+      householdSpendMix: hasArr(polarBarData.data) ? "has-data" : "empty",
+      spendingActivityRings: hasArr(activityData) ? "has-data" : "empty",
+      spendingStreamgraph: hasArr(spendingStreamData.data) ? "has-data" : "empty",
+      cashFlowSankey: hasArr(sankeyData.graph.links) ? "has-data" : "empty",
+      transactionHistory: hasArr(swarmPlotData) ? "has-data" : "empty",
+      dayOfWeekSpending: hasArr(rawTransactions) ? "has-data" : "empty",
+      allMonthsCategorySpending: hasArr(rawTransactions) ? "has-data" : "empty",
+      singleMonthCategorySpending: hasArr(bundleData?.monthlyCategories) ? "has-data" : "empty",
+      dailyTransactionActivity: hasArr(bundleData?.dailySpending) ? "has-data" : "empty",
+      dayOfWeekCategory: hasArr(rawTransactions) ? "has-data" : "empty",
+      financialHealthScore: hasArr(rawTransactions) ? "has-data" : "empty",
+    } as Record<string, "has-data" | "empty">
+  }, [
+    incomeExpenseTopChartData,
+    incomeExpenseChart.data,
+    categoryFlowChart.data,
+    treeMapData,
+    spendingFunnelChart.data,
+    expensesPieData.slices,
+    needsWantsPieData.slices,
+    circlePackingData.tree.children,
+    polarBarData.data,
+    activityData,
+    spendingStreamData.data,
+    sankeyData.graph.links,
+    swarmPlotData,
+    rawTransactions,
+    bundleData?.monthlyCategories,
+    bundleData?.dailySpending,
+  ])
+
+  const pageHasAnyData = useMemo(
+    () => Object.values(chartDataStatusMap).some((s) => s === "has-data"),
+    [chartDataStatusMap],
+  )
+
   return {
     activityConfig,
     activityData,
@@ -1481,6 +1530,7 @@ export function useAnalyticsChartData({
     allExpenseCategories,
     categoryFlowChart,
     categoryFlowControls,
+    chartDataStatusMap,
     circlePackingControls,
     circlePackingData,
     dayOfWeekSpendingControls,
@@ -1494,6 +1544,7 @@ export function useAnalyticsChartData({
     monthOfYearSpendingControls,
     needsWantsControls,
     needsWantsPieData,
+    pageHasAnyData,
     polarBarControls,
     polarBarData,
     sankeyControls,
