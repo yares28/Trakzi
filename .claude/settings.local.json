@@ -42,7 +42,8 @@
       "WebFetch(domain:madlogos.github.io)",
       "Bash(grep:*)",
       "mcp__Neon__prepare_database_migration",
-      "Bash(powershell -Command:*)"
+      "Bash(powershell -Command:*)",
+      "Bash(git branch:*)"
     ]
   },
   "enabledPlugins": {

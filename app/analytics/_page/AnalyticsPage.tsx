@@ -35,7 +35,7 @@ export default function AnalyticsPage() {
   const { filter: dateFilter } = useDateFilter()
 
   // Bundle API data - pre-aggregated with Redis caching (single request)
-  const { data: bundleData, isLoading: bundleLoading } = useAnalyticsBundleData()
+  const { data: bundleData, isLoading: bundleLoading, isError: bundleError } = useAnalyticsBundleData()
   const palette = getPalette()
 
   const queryClient = useQueryClient()
@@ -157,6 +157,7 @@ export default function AnalyticsPage() {
               ringLimits={ringLimits}
               setRingLimits={setRingLimits}
               chartData={chartData}
+              isError={bundleError}
             />
           )}
 
