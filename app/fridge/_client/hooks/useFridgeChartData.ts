@@ -97,8 +97,52 @@ export function useFridgeChartData({ bundleData, receiptTransactions }: UseFridg
     }))
   }, [bundleData?.dailySpending])
 
+  // ── Chart data status map ────────────────────────────────────────────
+  const chartDataStatusMap = useMemo(() => {
+    const hasArr = (arr: unknown[] | undefined | null) => Array.isArray(arr) && arr.length > 0
+    const hasTx = hasArr(receiptTransactions)
+
+    return {
+      grocerySpendTrend: hasArr(spendTrendData) ? "has-data" : "empty",
+      groceryCategoryRankings: hasTx ? "has-data" : "empty",
+      groceryExpenseBreakdown: hasArr(expenseBreakdownData) ? "has-data" : "empty",
+      groceryMacronutrientBreakdown: hasArr(bundleData?.macronutrientBreakdown as unknown[] | undefined) ? "has-data" : "empty",
+      grocerySnackPercentage: hasArr(categorySpendingData) ? "has-data" : "empty",
+      groceryDailyActivity: hasArr(dailySpendingData) || hasTx ? "has-data" : "empty",
+      groceryDayOfWeekCategory: hasArr(bundleData?.dayOfWeekCategory as unknown[] | undefined) || hasTx ? "has-data" : "empty",
+      grocerySingleMonthCategory: hasArr(bundleData?.monthlyCategories as unknown[] | undefined) || hasTx ? "has-data" : "empty",
+      groceryAllMonthsCategory: hasArr(bundleData?.monthlyCategories as unknown[] | undefined) || hasTx ? "has-data" : "empty",
+      groceryDayOfWeekSpending: hasTx ? "has-data" : "empty",
+      groceryTimeOfDay: hasArr(bundleData?.hourlyActivity as unknown[] | undefined) || hasTx ? "has-data" : "empty",
+      groceryVsRestaurant: hasTx ? "has-data" : "empty",
+      groceryTransactionHistory: hasTx ? "has-data" : "empty",
+      groceryPurchaseSizeComparison: hasTx ? "has-data" : "empty",
+      groceryShoppingHeatmapHoursDays: hasArr(bundleData?.hourDayHeatmap as unknown[] | undefined) || hasTx ? "has-data" : "empty",
+      groceryShoppingHeatmapDaysMonths: hasArr(bundleData?.dayMonthHeatmap as unknown[] | undefined) || hasTx ? "has-data" : "empty",
+      groceryNetWorthAllocation: hasArr(categorySpendingData) || hasTx ? "has-data" : "empty",
+    } as Record<string, "has-data" | "empty">
+  }, [
+    spendTrendData,
+    receiptTransactions,
+    expenseBreakdownData,
+    categorySpendingData,
+    dailySpendingData,
+    bundleData?.macronutrientBreakdown,
+    bundleData?.dayOfWeekCategory,
+    bundleData?.monthlyCategories,
+    bundleData?.hourlyActivity,
+    bundleData?.hourDayHeatmap,
+    bundleData?.dayMonthHeatmap,
+  ])
+
+  const pageHasAnyData = useMemo(
+    () => Object.values(chartDataStatusMap).some((s) => s === "has-data"),
+    [chartDataStatusMap],
+  )
+
   return {
     categorySpendingData,
+    chartDataStatusMap,
     expenseBreakdownData,
     spendTrendData,
     dailySpendingData,
@@ -108,6 +152,7 @@ export function useFridgeChartData({ bundleData, receiptTransactions }: UseFridg
     hourlyActivityData: bundleData?.hourlyActivity,
     hourDayHeatmapData: bundleData?.hourDayHeatmap,
     dayMonthHeatmapData: bundleData?.dayMonthHeatmap,
+    pageHasAnyData,
   }
 }
 
