@@ -14,6 +14,8 @@ import {
   Shield,
   FileCheck,
   Banknote,
+  Eye,
+  Settings,
 } from "lucide-react"
 
 import { useCurrency } from "@/components/currency-provider"
@@ -25,6 +27,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { VehicleCardBackFace, type BackFaceView } from "./VehicleCardBackFace"
+import { VehicleTransactionsDialog } from "./VehicleTransactionsDialog"
 
 function totalVehicleCost(v: VehicleData): number {
   return (
@@ -64,9 +67,10 @@ interface VehicleCardProps {
   vehicle: VehicleData
   onUpdate: (updates: Partial<VehicleData>) => void
   onRemove?: () => void | Promise<void>
+  onViewTransactions?: () => void
 }
 
-function VehicleCard({ vehicle, onUpdate, onRemove }: VehicleCardProps) {
+function VehicleCard({ vehicle, onUpdate, onRemove, onViewTransactions }: VehicleCardProps) {
   const { formatCurrency } = useCurrency()
   const [isDeleting, setIsDeleting] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -197,11 +201,7 @@ function VehicleCard({ vehicle, onUpdate, onRemove }: VehicleCardProps) {
               <img
                 src={vehicle.svgPath}
                 alt=""
-                className={
-                  vehicle.svgPath?.includes("tGWsP01")
-                    ? "h-full w-full max-h-[65%] max-w-[65%] object-contain"
-                    : "h-full w-full object-contain"
-                }
+                className="h-full w-full object-contain"
               />
             </div>
 
@@ -274,6 +274,17 @@ function VehicleCard({ vehicle, onUpdate, onRemove }: VehicleCardProps) {
                 >
                   <Car className="size-4 sm:size-[18px]" />
                 </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-xl border-border/80 bg-background/90 shadow-md backdrop-blur-sm transition-all hover:scale-105 hover:bg-primary/10 hover:border-primary/30 hover:shadow-lg sm:h-10 sm:w-10 [&_svg]:size-4 sm:[&_svg]:size-[18px]"
+                  onClick={() => handleActionClick("details")}
+                  tabIndex={isFlipped ? -1 : undefined}
+                  aria-label="Details"
+                  title="Details"
+                >
+                  <Settings className="size-4 sm:size-[18px]" />
+                </Button>
               </div>
             </div>
 
@@ -334,9 +345,9 @@ function VehicleCard({ vehicle, onUpdate, onRemove }: VehicleCardProps) {
                     )}
                   </div>
                 ) : (
-                  <>
+                  <div className="flex items-center gap-1.5">
                     <span
-                      className="block pr-8 truncate text-base font-medium text-foreground"
+                      className="truncate text-base font-medium text-foreground min-w-0"
                       title={vehicle.name}
                     >
                       {vehicle.name}
@@ -347,13 +358,13 @@ function VehicleCard({ vehicle, onUpdate, onRemove }: VehicleCardProps) {
                         size="icon-sm"
                         onClick={handleStartEdit}
                         tabIndex={isFlipped ? -1 : undefined}
-                        className="absolute right-0 top-0 h-6 w-6 opacity-0 transition-opacity group-hover/label:opacity-100 hover:bg-accent"
+                        className="h-6 w-6 shrink-0 opacity-0 transition-opacity group-hover/label:opacity-100 hover:bg-accent"
                         aria-label={`Edit name for ${vehicle.name}`}
                       >
                         <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                       </Button>
                     )}
-                  </>
+                  </div>
                 )}
               </div>
               {showSubtitle && (
@@ -369,7 +380,7 @@ function VehicleCard({ vehicle, onUpdate, onRemove }: VehicleCardProps) {
                     maximumFractionDigits: 0,
                   })}
                 </p>
-                <p className="text-right text-sm tabular-nums text-muted-foreground" title="Total paid: upfront + fuel + maintenance + insurance + certificate + parking + car loan">
+                <p className="text-right text-sm tabular-nums text-muted-foreground pr-[30px]" title="Total paid: upfront + fuel + maintenance + insurance + certificate + parking + car loan">
                   Paid {formatCurrency(amountPaid, {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 0,
@@ -397,6 +408,20 @@ function VehicleCard({ vehicle, onUpdate, onRemove }: VehicleCardProps) {
                 </>
               )}
             </div>
+
+            {/* Hover action: view (bottom-right) */}
+            {onViewTransactions && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="absolute bottom-2 right-2 z-30 h-8 w-8 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground hover:bg-accent"
+                onClick={onViewTransactions}
+                tabIndex={isFlipped ? -1 : undefined}
+                aria-label={`View transactions for ${vehicle.name}`}
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            )}
           </CardContent>
         </Card>
 
@@ -420,17 +445,45 @@ function VehicleCard({ vehicle, onUpdate, onRemove }: VehicleCardProps) {
 
 interface VehicleCardsGridProps {
   vehicles: VehicleData[]
+  isLoading?: boolean
   onRemove: (id: string) => void
   onUpdate: (id: string, updates: Partial<VehicleData>) => void
   onOpenAddVehicle?: () => void
+  onTransactionsLinked?: () => void
 }
 
 export const VehicleCardsGrid = memo(function VehicleCardsGrid({
   vehicles,
+  isLoading = false,
   onRemove,
   onUpdate,
   onOpenAddVehicle,
+  onTransactionsLinked,
 }: VehicleCardsGridProps) {
+  const [selectedPocketId, setSelectedPocketId] = useState<number | null>(null)
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @md/main:grid-cols-2 @3xl/main:grid-cols-3">
+        {[1, 2].map((i) => (
+          <Card key={i} className="overflow-hidden">
+            <CardContent className="p-6">
+              <div className="flex flex-col gap-3">
+                <div className="h-32 w-full rounded bg-muted animate-pulse" />
+                <div className="h-5 w-2/3 rounded bg-muted animate-pulse" />
+                <div className="h-4 w-1/3 rounded bg-muted animate-pulse" />
+                <div className="flex gap-2 mt-2">
+                  <div className="h-8 w-16 rounded bg-muted animate-pulse" />
+                  <div className="h-8 w-16 rounded bg-muted animate-pulse" />
+                  <div className="h-8 w-16 rounded bg-muted animate-pulse" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )
+  }
 
   if (vehicles.length === 0) {
     return (
@@ -453,16 +506,35 @@ export const VehicleCardsGrid = memo(function VehicleCardsGrid({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 sm:grid-cols-2">
-      {vehicles.map((v) => (
-        <VehicleCard
-          key={v.id}
-          vehicle={v}
-          onUpdate={(updates) => onUpdate(v.id, updates)}
-          onRemove={() => onRemove(v.id)}
-        />
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 sm:grid-cols-2">
+        {vehicles.map((v) => (
+          <VehicleCard
+            key={v.id}
+            vehicle={v}
+            onUpdate={(updates) => onUpdate(v.id, updates)}
+            onRemove={() => onRemove(v.id)}
+            onViewTransactions={() => {
+              const pId = parseInt(v.id, 10)
+              if (!isNaN(pId)) setSelectedPocketId(pId)
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Transactions Dialog */}
+      <VehicleTransactionsDialog
+        pocketId={selectedPocketId}
+        open={selectedPocketId !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedPocketId(null)
+        }}
+        onTransactionsLinked={() => {
+          onTransactionsLinked?.()
+          setSelectedPocketId(null)
+        }}
+      />
+    </>
   )
 })
 

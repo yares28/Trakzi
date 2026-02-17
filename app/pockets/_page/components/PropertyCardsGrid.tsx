@@ -15,6 +15,7 @@ import {
   X,
   X as XIcon,
   Eye,
+  Settings,
   Zap,
 } from "lucide-react"
 
@@ -27,6 +28,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { PropertyMortgageContent } from "./PropertyMortgageContent"
+import { PropertyDetailsContent } from "./PropertyDetailsContent"
+import { PropertyTransactionsDialog } from "./PropertyTransactionsDialog"
 
 /**
  * Compute remaining mortgage balance after a number of years paid,
@@ -135,8 +138,8 @@ export const MOCK_PROPERTIES: PropertyCardData[] = [
   },
 ]
 
-type PropertyBackFaceView = "mortgage" | "maintenance" | "insurance" | "taxes"
-type RentedBackFaceView = "rent" | "utilities" | "deposit" | "fees"
+type PropertyBackFaceView = "mortgage" | "maintenance" | "insurance" | "taxes" | "details"
+type RentedBackFaceView = "rent" | "utilities" | "deposit" | "fees" | "details"
 
 interface PropertyCardProps {
   id: string
@@ -205,21 +208,23 @@ function PropertyCard({
 
   const actions = propertyType === "owned" ? PROPERTY_ACTIONS : RENTED_PROPERTY_ACTIONS
   const backFaceTitle =
-    propertyType === "owned"
-      ? (backFaceView === "mortgage"
-          ? "Mortgage"
-          : backFaceView === "maintenance"
-            ? "Maintenance"
-            : backFaceView === "insurance"
-              ? "Insurance"
-              : "Taxes")
-      : (backFaceView === "rent"
-          ? "Rent"
-          : backFaceView === "utilities"
-            ? "Utilities"
-            : backFaceView === "deposit"
-              ? "Deposit"
-              : "Fees")
+    backFaceView === "details"
+      ? "Details"
+      : propertyType === "owned"
+        ? (backFaceView === "mortgage"
+            ? "Mortgage"
+            : backFaceView === "maintenance"
+              ? "Maintenance"
+              : backFaceView === "insurance"
+                ? "Insurance"
+                : "Taxes")
+        : (backFaceView === "rent"
+            ? "Rent"
+            : backFaceView === "utilities"
+              ? "Utilities"
+              : backFaceView === "deposit"
+                ? "Deposit"
+                : "Fees")
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -372,6 +377,20 @@ function PropertyCard({
                     <Icon className="size-4 sm:size-[18px]" />
                   </Button>
                 ))}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-xl border-border/80 bg-background/90 shadow-md backdrop-blur-sm transition-all hover:scale-105 hover:bg-primary/10 hover:border-primary/30 hover:shadow-lg sm:h-10 sm:w-10 [&_svg]:size-4 sm:[&_svg]:size-[18px]"
+                  aria-label="Details"
+                  title="Details"
+                  onClick={() => {
+                    setActiveAction("details")
+                    setBackFaceView("details")
+                    setIsFlipped(true)
+                  }}
+                >
+                  <Settings className="size-4 sm:size-[18px]" />
+                </Button>
               </div>
             </div>
 
@@ -430,9 +449,9 @@ function PropertyCard({
                     )}
                   </div>
                 ) : (
-                  <>
+                  <div className="flex items-center gap-1.5">
                     <span
-                      className="block pr-8 truncate text-base font-medium text-foreground"
+                      className="truncate text-base font-medium text-foreground min-w-0"
                       title={label}
                     >
                       {label}
@@ -442,13 +461,13 @@ function PropertyCard({
                         variant="ghost"
                         size="icon-sm"
                         onClick={handleStartEdit}
-                        className="absolute right-0 top-0 h-6 w-6 opacity-0 transition-opacity group-hover/label:opacity-100 hover:bg-accent"
+                        className="h-6 w-6 shrink-0 opacity-0 transition-opacity group-hover/label:opacity-100 hover:bg-accent"
                         aria-label={`Edit name for ${label}`}
                       >
                         <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                       </Button>
                     )}
-                  </>
+                  </div>
                 )}
               </div>
 
@@ -459,7 +478,7 @@ function PropertyCard({
                     maximumFractionDigits: 0,
                   })}
                 </p>
-                <p className="text-right text-sm tabular-nums text-muted-foreground" title={propertyType === "owned" ? "Spent (linked) + equity owned (amount, not %)" : "Total spent: rent + utilities + deposit + fees"}>
+                <p className="text-right text-sm tabular-nums text-muted-foreground pr-[30px]" title={propertyType === "owned" ? "Spent (linked) + equity owned (amount, not %)" : "Total spent: rent + utilities + deposit + fees"}>
                   Spent {formatCurrency(
                     (totalSpent ?? 0) +
                     (propertyType === "owned" && ownershipMetrics.percentOwned != null
@@ -492,18 +511,20 @@ function PropertyCard({
                 </>
               )}
 
-              {onView && (
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="absolute bottom-2 right-2 z-10 h-8 w-8 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground hover:bg-accent"
-                  onClick={onView}
-                  aria-label={`View ${label}`}
-                >
-                  <Eye className="h-4 w-4" />
-                </Button>
-              )}
             </div>
+
+            {/* Hover action: view (bottom-right) */}
+            {onView && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="absolute bottom-2 right-2 z-30 h-8 w-8 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground hover:bg-accent"
+                onClick={onView}
+                aria-label={`View ${label}`}
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            )}
           </CardContent>
         </Card>
 
@@ -544,6 +565,32 @@ function PropertyCard({
                   <Icon className="h-4 w-4" />
                 </Button>
               ))}
+              <Button
+                type="button"
+                variant={backFaceView === "details" ? "default" : "ghost"}
+                size="icon-sm"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  handleBackTabClick("details")
+                }}
+                className={cn(
+                  "h-8 w-8 rounded-lg transition-all",
+                  backFaceView === "details"
+                    ? "shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                aria-label={
+                  backFaceView === "details"
+                    ? "Details (click to go back)"
+                    : "Details"
+                }
+                title={
+                  backFaceView === "details" ? "Back to property card" : "Details"
+                }
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
             </div>
 
             <div className="flex items-center justify-between gap-2">
@@ -567,7 +614,20 @@ function PropertyCard({
             </div>
 
             <div className="mt-3 flex-1">
-              {propertyType === "owned" && backFaceView === "mortgage" ? (
+              {backFaceView === "details" ? (
+                <PropertyDetailsContent
+                  key="details"
+                  property={{
+                    id,
+                    label,
+                    value,
+                    svgPath,
+                    propertyType,
+                  }}
+                  onUpdate={onUpdate}
+                  onCancel={() => setIsFlipped(false)}
+                />
+              ) : propertyType === "owned" && backFaceView === "mortgage" ? (
                 <PropertyMortgageContent
                   property={{
                     id,
@@ -683,19 +743,25 @@ function PropertyCard({
 
 interface PropertyCardsGridProps {
   properties: PropertyCardData[]
+  isLoading?: boolean
   onRemove: (id: string) => void
   onUpdate: (id: string, updates: Partial<PropertyCardData>) => void
   onLabelUpdated: (id: string, newLabel: string) => void
   onOpenAddProperty?: () => void
+  onTransactionsLinked?: () => void
 }
 
 export const PropertyCardsGrid = memo(function PropertyCardsGrid({
   properties,
+  isLoading = false,
   onRemove,
   onUpdate,
   onLabelUpdated,
   onOpenAddProperty,
+  onTransactionsLinked,
 }: PropertyCardsGridProps) {
+  const [selectedPocketId, setSelectedPocketId] = useState<number | null>(null)
+  const [selectedPropertyType, setSelectedPropertyType] = useState<"owned" | "rented">("owned")
 
   // Group properties by type
   const ownedProperties = useMemo(
@@ -706,6 +772,25 @@ export const PropertyCardsGrid = memo(function PropertyCardsGrid({
     () => properties.filter((p) => p.propertyType === "rented"),
     [properties],
   )
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @md/main:grid-cols-2 @3xl/main:grid-cols-3">
+        {[1, 2].map((i) => (
+          <Card key={i} className="overflow-hidden">
+            <CardContent className="p-6">
+              <div className="flex flex-col gap-3">
+                <div className="h-40 w-full rounded bg-muted animate-pulse" />
+                <div className="h-5 w-2/3 rounded bg-muted animate-pulse" />
+                <div className="h-4 w-1/2 rounded bg-muted animate-pulse" />
+                <div className="h-4 w-1/4 rounded bg-muted animate-pulse" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )
+  }
 
   if (properties.length === 0) {
     return (
@@ -741,7 +826,13 @@ export const PropertyCardsGrid = memo(function PropertyCardsGrid({
         mortgageLoanYears={p.mortgageLoanYears}
         mortgageYearsPaid={p.mortgageYearsPaid}
         totalSpent={p.totalSpent}
-      onView={() => {}}
+      onView={() => {
+        const pId = parseInt(p.id, 10)
+        if (!isNaN(pId)) {
+          setSelectedPocketId(pId)
+          setSelectedPropertyType(p.propertyType)
+        }
+      }}
       onRemove={() => onRemove(p.id)}
       onLabelUpdated={(newLabel) => onLabelUpdated(p.id, newLabel)}
       onUpdate={(updates) => onUpdate(p.id, updates)}
@@ -749,31 +840,47 @@ export const PropertyCardsGrid = memo(function PropertyCardsGrid({
   )
 
   return (
-    <div className="space-y-6 px-4 lg:px-6">
-      {/* Owned Properties Section */}
-      {ownedProperties.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Owned Properties
-          </h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {ownedProperties.map(renderPropertyCard)}
+    <>
+      <div className="space-y-6 px-4 lg:px-6">
+        {/* Owned Properties Section */}
+        {ownedProperties.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Owned Properties
+            </h3>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {ownedProperties.map(renderPropertyCard)}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Rented Properties Section */}
-      {rentedProperties.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Rented Properties
-          </h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {rentedProperties.map(renderPropertyCard)}
+        {/* Rented Properties Section */}
+        {rentedProperties.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Rented Properties
+            </h3>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {rentedProperties.map(renderPropertyCard)}
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+
+      {/* Property Transactions Dialog */}
+      <PropertyTransactionsDialog
+        pocketId={selectedPocketId}
+        propertyType={selectedPropertyType}
+        open={selectedPocketId !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedPocketId(null)
+        }}
+        onTransactionsLinked={() => {
+          onTransactionsLinked?.()
+          setSelectedPocketId(null)
+        }}
+      />
+    </>
   )
 })
 

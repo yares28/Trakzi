@@ -1367,15 +1367,20 @@ Metadata, metrics, and connection details were refreshed using Neon MCP tools an
 
 Notable schema and data changes since the previous snapshot.
 
+- **February 16, 2026**: Created `country_instances` table for travel feature:
+  - Added `country_instances` table (id, user_id, country_name, label, created_at, updated_at)
+  - Added indexes: `idx_country_instances_user`, `idx_country_instances_user_country_label` (unique)
+  - Added `country_instance_id` column to `transactions` (FK to `country_instances.id`, ON DELETE SET NULL)
+  - Added `idx_transactions_country_instance` partial index
+  - Total public schema tables: 20 → 21
 - **February 12, 2026**: Database documentation refresh:
   - Updated project metrics (active time, CPU usage, storage size)
   - Updated branch information (Prod branch metrics, added dev and preview/main branches)
   - Updated compute endpoint information (last active time, release version)
   - Updated table schemas with latest column information (added `simplified_description` to transactions, `broad_type` to categories)
   - Updated table sizes and index information
-  - Removed `country_instances` table reference (table does not exist in database)
   - Updated triggers section (only `pockets` table has active trigger)
-  - Total public schema tables: 19 (removed country_instances from count)
+  - Total public schema tables: 19 → 20 (added country_instances)
 - **February 12, 2026**: Pockets DB integration (vehicles, properties, other):
   - Added `pockets` table with JSONB metadata for unified vehicle/property/other storage
   - Added `pocket_transactions` junction table with tab discriminator for sub-categorization

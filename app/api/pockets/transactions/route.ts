@@ -16,7 +16,7 @@ export async function GET(request: Request) {
         // Validate instance_id parameter
         if (!instanceIdParam) {
             return NextResponse.json(
-                { error: 'instance_id query parameter is required' },
+                { error: 'Could not find which country to load transactions for' },
                 { status: 400 }
             )
         }
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
         const instanceId = parseInt(instanceIdParam, 10)
         if (isNaN(instanceId)) {
             return NextResponse.json(
-                { error: 'instance_id must be a valid integer' },
+                { error: 'Could not find which country to load transactions for' },
                 { status: 400 }
             )
         }
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 
         if (instanceCheck.length === 0) {
             return NextResponse.json(
-                { error: 'Country instance not found or access denied' },
+                { error: 'This country was not found. It may have been deleted.' },
                 { status: 404 }
             )
         }
@@ -95,7 +95,7 @@ export async function GET(request: Request) {
 
     } catch (error: unknown) {
         console.error('[Pockets Transactions] Error:', error)
-        const message = error instanceof Error ? error.message : 'Failed to fetch country transactions'
+        const message = error instanceof Error ? error.message : 'Something went wrong loading transactions'
         return NextResponse.json(
             { error: message },
             { status: 500 }

@@ -2,18 +2,16 @@
 
 import { memo, useState, useCallback, useMemo, useEffect } from "react"
 import useSWR from "swr"
-import ReactCountryFlag from "react-country-flag"
-import { Loader2, Search, X, CalendarIcon } from "lucide-react"
+import { Car, Loader2, Search, X, CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 
 import { useCurrency } from "@/components/currency-provider"
-import { getCountryCode } from "@/lib/data/country-codes"
 import { formatDateForDisplay } from "@/lib/date"
 import type { 
-    CountryTransactionsResponse,
-    UnlinkedTransactionsResponse,
-    CountryTransaction,
+    PocketLinkedTransaction,
+    PocketUnlinkedResponse,
 } from "@/lib/types/pockets"
+import { POCKET_TAB_CATEGORIES, resolveCategoryKey } from "@/lib/types/pockets"
 
 import {
     Dialog,
@@ -50,11 +48,17 @@ import {
 } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 
-interface CountryTransactionsDialogProps {
-    instanceId: number | null
+interface VehicleTransactionsResponse {
+    pocket_id: number
+    vehicle_name: string
+    transactions: PocketLinkedTransaction[]
+    total: number
+}
+
+interface VehicleTransactionsDialogProps {
+    pocketId: number | null
     open: boolean
     onOpenChange: (open: boolean) => void
-    isMockData?: boolean
     onTransactionsLinked?: () => void
 }
 
@@ -79,13 +83,29 @@ const fetcher = async (url: string) => {
     return res.json()
 }
 
-export const CountryTransactionsDialog = memo(function CountryTransactionsDialog({
-    instanceId,
+// Determine which tab a transaction belongs to based on its category
+function getTabForCategory(categoryName: string | null): string {
+    if (!categoryName) return "general"
+    
+    const categoryMap: Record<string, string> = {
+        "Fuel": "fuel",
+        "Car Maintenance": "maintenance",
+        "Insurance": "insurance",
+        "Taxes & Fees": "insurance", // Insurance tab for vehicle
+        "Car Certificate": "certificate",
+        "Car Loan": "financing",
+        "Parking/Tolls": "parking",
+    }
+    
+    return categoryMap[categoryName] || "general"
+}
+
+export const VehicleTransactionsDialog = memo(function VehicleTransactionsDialog({
+    pocketId,
     open,
     onOpenChange,
-    isMockData = false,
     onTransactionsLinked,
-}: CountryTransactionsDialogProps) {
+}: VehicleTransactionsDialogProps) {
     const { formatCurrency } = useCurrency()
     const [selectedTransactions, setSelectedTransactions] = useState<Set<number>>(new Set())
     const [searchFilter, setSearchFilter] = useState("")
@@ -95,15 +115,15 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    // Fetch linked transactions for this instance
-    const { data: linkedData, isLoading: isLoadingLinked, mutate: mutateLinked } = useSWR<CountryTransactionsResponse>(
-        open && instanceId && !isMockData ? `/api/pockets/transactions?instance_id=${instanceId}` : null,
+    // Fetch linked transactions for this vehicle
+    const { data: linkedData, isLoading: isLoadingLinked, mutate: mutateLinked, error: linkedError } = useSWR<VehicleTransactionsResponse>(
+        open && pocketId ? `/api/pockets/vehicle-transactions?pocket_id=${pocketId}` : null,
         fetcher
     )
 
-    // Fetch ALL unlinked transactions (no limit)
-    const { data: unlinkedData, isLoading: isLoadingUnlinked } = useSWR<UnlinkedTransactionsResponse>(
-        open && instanceId && !isMockData ? `/api/pockets/unlinked-transactions` : null,
+    // Fetch unlinked vehicle transactions
+    const { data: unlinkedData, isLoading: isLoadingUnlinked, error: unlinkedError } = useSWR<PocketUnlinkedResponse>(
+        open && pocketId ? `/api/pockets/vehicle-unlinked?pocket_id=${pocketId}` : null,
         fetcher
     )
 
@@ -132,17 +152,35 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
         })
     }, [linkedData?.transactions, unlinkedData?.transactions])
 
-    const countryCode = linkedData?.country ? getCountryCode(linkedData.country) : null
+    // Vehicle-specific categories that should appear in the filter
+    const VEHICLE_CATEGORIES = [
+        "Fuel",
+        "Car Maintenance",
+        "Insurance",
+        "Taxes & Fees",
+        "Car Certificate",
+        "Car Loan",
+        "Parking/Tolls",
+    ]
 
-    // Get unique categories from all transactions
+    // Get unique categories from all transactions, filtered to vehicle-relevant ones
+    // Only show categories that actually exist in the transactions
     const uniqueCategories = useMemo(() => {
         if (allTransactions.length === 0) return []
         const categories = new Set(
             allTransactions
                 .map(tx => tx.category_name)
-                .filter((name): name is string => !!name)
+                .filter((name): name is string => !!name && VEHICLE_CATEGORIES.includes(name))
         )
-        return Array.from(categories).sort()
+        return Array.from(categories).sort((a, b) => {
+            // Sort by VEHICLE_CATEGORIES order
+            const indexA = VEHICLE_CATEGORIES.indexOf(a)
+            const indexB = VEHICLE_CATEGORIES.indexOf(b)
+            if (indexA === -1 && indexB === -1) return a.localeCompare(b)
+            if (indexA === -1) return 1
+            if (indexB === -1) return -1
+            return indexA - indexB
+        })
     }, [allTransactions])
 
     // Filter transactions by search, category, and date (maintains date sort)
@@ -230,7 +268,7 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
 
     // Handle submit - link new selections and unlink deselections
     const handleSubmit = async () => {
-        if (!instanceId) return
+        if (!pocketId) return
 
         setIsSubmitting(true)
         setError(null)
@@ -244,29 +282,48 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
             // Transactions to unlink (originally linked but not selected)
             const toUnlink = Array.from(originallyLinkedIds).filter(id => !selectedTransactions.has(id))
 
-            // Link new transactions
+            // Link new transactions - group by tab based on category
             if (toLink.length > 0) {
-                const linkResponse = await fetch('/api/pockets/links', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        country_instance_id: instanceId,
-                        transaction_ids: toLink
-                    })
-                })
+                // Group transactions by tab
+                const transactionsByTab = new Map<string, number[]>()
+                
+                for (const txId of toLink) {
+                    const tx = allTransactions.find(t => t.id === txId)
+                    if (tx) {
+                        const tab = getTabForCategory(tx.category_name)
+                        if (!transactionsByTab.has(tab)) {
+                            transactionsByTab.set(tab, [])
+                        }
+                        transactionsByTab.get(tab)!.push(txId)
+                    }
+                }
 
-                if (!linkResponse.ok) {
-                    const errorData = await linkResponse.json()
-                    throw new Error(errorData.error || 'Failed to link transactions')
+                // Link each tab's transactions
+                for (const [tab, txIds] of transactionsByTab.entries()) {
+                    const linkResponse = await fetch('/api/pockets/item-links', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            pocket_id: pocketId,
+                            tab,
+                            transaction_ids: txIds
+                        })
+                    })
+
+                    if (!linkResponse.ok) {
+                        const errorData = await linkResponse.json()
+                        throw new Error(errorData.error || `Failed to link transactions to ${tab}`)
+                    }
                 }
             }
 
             // Unlink deselected transactions
             if (toUnlink.length > 0) {
-                const unlinkResponse = await fetch('/api/pockets/links', {
+                const unlinkResponse = await fetch('/api/pockets/item-links', {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        pocket_id: pocketId,
                         transaction_ids: toUnlink
                     })
                 })
@@ -304,6 +361,7 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
     }
 
     const isLoading = isLoadingLinked || isLoadingUnlinked
+    const fetchError = linkedError || unlinkedError
     const hasActiveFilters = searchFilter || categoryFilter !== "all" || startDate || endDate
     const hasChanges = useMemo(() => {
         if (!linkedData?.transactions) return false
@@ -323,21 +381,8 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
             <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
                 <DialogHeader className="flex-shrink-0">
                     <DialogTitle className="flex items-center gap-2">
-                        {countryCode ? (
-                            <ReactCountryFlag
-                                countryCode={countryCode}
-                                svg
-                                style={{
-                                    width: "1.5em",
-                                    height: "1.5em",
-                                }}
-                                title={linkedData?.country || undefined}
-                                aria-label={linkedData?.country ? `Flag of ${linkedData.country}` : undefined}
-                            />
-                        ) : (
-                            <span className="text-2xl">🌍</span>
-                        )}
-                        <span>Manage Transactions for {linkedData?.label || linkedData?.country || 'Country'}</span>
+                        <Car className="h-5 w-5" />
+                        <span>Manage Transactions for {linkedData?.vehicle_name || 'Vehicle'}</span>
                     </DialogTitle>
                 </DialogHeader>
 
@@ -481,11 +526,7 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
 
                     {/* Transactions Table */}
                     <div className="flex-1 min-h-0 border rounded-md overflow-auto">
-                        {isMockData ? (
-                            <div className="py-8 text-center text-muted-foreground">
-                                This is demo data. Add a real country and link transactions to see them here.
-                            </div>
-                        ) : isLoading ? (
+                        {isLoading ? (
                             <div className="p-4 space-y-3">
                                 {[1, 2, 3, 4, 5].map((i) => (
                                     <div key={i} className="flex items-center gap-4">
@@ -497,9 +538,11 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
                                     </div>
                                 ))}
                             </div>
-                        ) : error ? (
+                        ) : fetchError ? (
                             <div className="py-8 text-center text-muted-foreground">
-                                Failed to load transactions
+                                <p className="text-destructive text-sm">
+                                    {fetchError instanceof Error ? fetchError.message : "Something went wrong loading transactions"}
+                                </p>
                             </div>
                         ) : filteredTransactions.length === 0 ? (
                             <div className="py-8 text-center text-muted-foreground">
@@ -558,7 +601,7 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
                     </DialogClose>
                     <Button
                         onClick={handleSubmit}
-                        disabled={!hasChanges || isSubmitting || isMockData || !instanceId}
+                        disabled={!hasChanges || isSubmitting || !pocketId}
                     >
                         {isSubmitting ? (
                             <>
@@ -575,11 +618,11 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
     )
 })
 
-CountryTransactionsDialog.displayName = "CountryTransactionsDialog"
+VehicleTransactionsDialog.displayName = "VehicleTransactionsDialog"
 
 // Transaction row component
 interface TransactionRowProps {
-    transaction: CountryTransaction
+    transaction: PocketLinkedTransaction
     isSelected: boolean
     onToggle: () => void
     formatCurrency: (amount: number, options?: { showSign?: boolean }) => string

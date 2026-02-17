@@ -2,17 +2,15 @@
 
 import { memo, useState, useCallback, useMemo, useEffect } from "react"
 import useSWR from "swr"
-import ReactCountryFlag from "react-country-flag"
-import { Loader2, Search, X, CalendarIcon } from "lucide-react"
+import { Package, Loader2, Search, X, CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 
 import { useCurrency } from "@/components/currency-provider"
-import { getCountryCode } from "@/lib/data/country-codes"
 import { formatDateForDisplay } from "@/lib/date"
-import type { 
-    CountryTransactionsResponse,
-    UnlinkedTransactionsResponse,
-    CountryTransaction,
+import type {
+    PocketLinkedTransaction,
+    PocketTransactionsResponse,
+    PocketUnlinkedResponse,
 } from "@/lib/types/pockets"
 
 import {
@@ -50,11 +48,10 @@ import {
 } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 
-interface CountryTransactionsDialogProps {
-    instanceId: number | null
+interface OtherTransactionsDialogProps {
+    pocketId: number | null
     open: boolean
     onOpenChange: (open: boolean) => void
-    isMockData?: boolean
     onTransactionsLinked?: () => void
 }
 
@@ -79,13 +76,12 @@ const fetcher = async (url: string) => {
     return res.json()
 }
 
-export const CountryTransactionsDialog = memo(function CountryTransactionsDialog({
-    instanceId,
+export const OtherTransactionsDialog = memo(function OtherTransactionsDialog({
+    pocketId,
     open,
     onOpenChange,
-    isMockData = false,
     onTransactionsLinked,
-}: CountryTransactionsDialogProps) {
+}: OtherTransactionsDialogProps) {
     const { formatCurrency } = useCurrency()
     const [selectedTransactions, setSelectedTransactions] = useState<Set<number>>(new Set())
     const [searchFilter, setSearchFilter] = useState("")
@@ -95,15 +91,15 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    // Fetch linked transactions for this instance
-    const { data: linkedData, isLoading: isLoadingLinked, mutate: mutateLinked } = useSWR<CountryTransactionsResponse>(
-        open && instanceId && !isMockData ? `/api/pockets/transactions?instance_id=${instanceId}` : null,
+    // Fetch linked transactions (tab=general means all categories)
+    const { data: linkedData, isLoading: isLoadingLinked, mutate: mutateLinked, error: linkedError } = useSWR<PocketTransactionsResponse>(
+        open && pocketId ? `/api/pockets/item-transactions?pocket_id=${pocketId}&tab=general` : null,
         fetcher
     )
 
-    // Fetch ALL unlinked transactions (no limit)
-    const { data: unlinkedData, isLoading: isLoadingUnlinked } = useSWR<UnlinkedTransactionsResponse>(
-        open && instanceId && !isMockData ? `/api/pockets/unlinked-transactions` : null,
+    // Fetch unlinked transactions (tab=general = no category filter, shows all)
+    const { data: unlinkedData, isLoading: isLoadingUnlinked, error: unlinkedError } = useSWR<PocketUnlinkedResponse>(
+        open && pocketId ? `/api/pockets/item-unlinked?pocket_id=${pocketId}&tab=general` : null,
         fetcher
     )
 
@@ -115,24 +111,19 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
         }
     }, [linkedData?.transactions, open])
 
-    // Combine transactions and sort by date (newest first)
+    // Combine and sort by date (newest first)
     const allTransactions = useMemo(() => {
         const linked = linkedData?.transactions || []
         const unlinked = unlinkedData?.transactions || []
         const combined = [...linked, ...unlinked]
-        
-        // Sort by date descending (newest first), then by id descending as tiebreaker
+
         return combined.sort((a, b) => {
             const dateA = new Date(a.tx_date).getTime()
             const dateB = new Date(b.tx_date).getTime()
-            if (dateB !== dateA) {
-                return dateB - dateA
-            }
+            if (dateB !== dateA) return dateB - dateA
             return b.id - a.id
         })
     }, [linkedData?.transactions, unlinkedData?.transactions])
-
-    const countryCode = linkedData?.country ? getCountryCode(linkedData.country) : null
 
     // Get unique categories from all transactions
     const uniqueCategories = useMemo(() => {
@@ -142,13 +133,12 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
                 .map(tx => tx.category_name)
                 .filter((name): name is string => !!name)
         )
-        return Array.from(categories).sort()
+        return Array.from(categories).sort((a, b) => a.localeCompare(b))
     }, [allTransactions])
 
-    // Filter transactions by search, category, and date (maintains date sort)
+    // Filter transactions
     const filteredTransactions = useMemo(() => {
         return allTransactions.filter(tx => {
-            // Search filter
             if (searchFilter) {
                 const searchLower = searchFilter.toLowerCase()
                 if (!tx.description.toLowerCase().includes(searchLower)) {
@@ -156,25 +146,19 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
                 }
             }
 
-            // Category filter
             if (categoryFilter !== "all") {
                 if (tx.category_name !== categoryFilter) {
                     return false
                 }
             }
 
-            // Date filters
             if (startDate || endDate) {
                 const txDate = new Date(tx.tx_date)
-                if (startDate && txDate < startDate) {
-                    return false
-                }
+                if (startDate && txDate < startDate) return false
                 if (endDate) {
                     const endOfDay = new Date(endDate)
                     endOfDay.setHours(23, 59, 59, 999)
-                    if (txDate > endOfDay) {
-                        return false
-                    }
+                    if (txDate > endOfDay) return false
                 }
             }
 
@@ -182,7 +166,6 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
         })
     }, [allTransactions, searchFilter, categoryFilter, startDate, endDate])
 
-    // Toggle transaction selection
     const toggleTransaction = useCallback((id: number) => {
         setSelectedTransactions(prev => {
             const next = new Set(prev)
@@ -195,23 +178,19 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
         })
     }, [])
 
-    // Check if all filtered transactions are selected
     const allSelected = useMemo(() => {
         if (filteredTransactions.length === 0) return false
         return filteredTransactions.every(tx => selectedTransactions.has(tx.id))
     }, [filteredTransactions, selectedTransactions])
 
-    // Toggle all filtered transactions
     const toggleAll = useCallback(() => {
         if (allSelected) {
-            // Deselect all filtered
             setSelectedTransactions(prev => {
                 const next = new Set(prev)
                 filteredTransactions.forEach(tx => next.delete(tx.id))
                 return next
             })
         } else {
-            // Select all filtered
             setSelectedTransactions(prev => {
                 const next = new Set(prev)
                 filteredTransactions.forEach(tx => next.add(tx.id))
@@ -220,7 +199,6 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
         }
     }, [allSelected, filteredTransactions])
 
-    // Clear all filters
     const clearFilters = useCallback(() => {
         setSearchFilter("")
         setCategoryFilter("all")
@@ -228,30 +206,28 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
         setEndDate(undefined)
     }, [])
 
-    // Handle submit - link new selections and unlink deselections
+    // Handle submit — link new selections and unlink deselections
     const handleSubmit = async () => {
-        if (!instanceId) return
+        if (!pocketId) return
 
         setIsSubmitting(true)
         setError(null)
 
         try {
             const originallyLinkedIds = new Set(linkedData?.transactions?.map(tx => tx.id) || [])
-            
-            // Transactions to link (selected but not originally linked)
+
             const toLink = Array.from(selectedTransactions).filter(id => !originallyLinkedIds.has(id))
-            
-            // Transactions to unlink (originally linked but not selected)
             const toUnlink = Array.from(originallyLinkedIds).filter(id => !selectedTransactions.has(id))
 
-            // Link new transactions
+            // Link — all go under tab="general" for other items
             if (toLink.length > 0) {
-                const linkResponse = await fetch('/api/pockets/links', {
+                const linkResponse = await fetch('/api/pockets/item-links', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        country_instance_id: instanceId,
-                        transaction_ids: toLink
+                        pocket_id: pocketId,
+                        tab: "general",
+                        transaction_ids: toLink,
                     })
                 })
 
@@ -261,13 +237,14 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
                 }
             }
 
-            // Unlink deselected transactions
+            // Unlink
             if (toUnlink.length > 0) {
-                const unlinkResponse = await fetch('/api/pockets/links', {
+                const unlinkResponse = await fetch('/api/pockets/item-links', {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        transaction_ids: toUnlink
+                        pocket_id: pocketId,
+                        transaction_ids: toUnlink,
                     })
                 })
 
@@ -277,11 +254,9 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
                 }
             }
 
-            // Refresh data
             mutateLinked()
             onTransactionsLinked?.()
 
-            // Reset state and close
             setSelectedTransactions(new Set())
             clearFilters()
             onOpenChange(false)
@@ -293,7 +268,6 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
         }
     }
 
-    // Reset state when dialog closes
     const handleOpenChange = (newOpen: boolean) => {
         if (!newOpen) {
             setSelectedTransactions(new Set())
@@ -304,17 +278,13 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
     }
 
     const isLoading = isLoadingLinked || isLoadingUnlinked
+    const fetchError = linkedError || unlinkedError
     const hasActiveFilters = searchFilter || categoryFilter !== "all" || startDate || endDate
     const hasChanges = useMemo(() => {
         if (!linkedData?.transactions) return false
         const originallyLinkedIds = new Set(linkedData.transactions.map(tx => tx.id))
-        const currentlySelectedIds = selectedTransactions
-        
-        // Check if any linked transactions were deselected
-        const anyUnlinked = Array.from(originallyLinkedIds).some(id => !currentlySelectedIds.has(id))
-        // Check if any new transactions were selected
-        const anyLinked = Array.from(currentlySelectedIds).some(id => !originallyLinkedIds.has(id))
-        
+        const anyUnlinked = Array.from(originallyLinkedIds).some(id => !selectedTransactions.has(id))
+        const anyLinked = Array.from(selectedTransactions).some(id => !originallyLinkedIds.has(id))
         return anyUnlinked || anyLinked
     }, [linkedData?.transactions, selectedTransactions])
 
@@ -323,21 +293,8 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
             <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
                 <DialogHeader className="flex-shrink-0">
                     <DialogTitle className="flex items-center gap-2">
-                        {countryCode ? (
-                            <ReactCountryFlag
-                                countryCode={countryCode}
-                                svg
-                                style={{
-                                    width: "1.5em",
-                                    height: "1.5em",
-                                }}
-                                title={linkedData?.country || undefined}
-                                aria-label={linkedData?.country ? `Flag of ${linkedData.country}` : undefined}
-                            />
-                        ) : (
-                            <span className="text-2xl">🌍</span>
-                        )}
-                        <span>Manage Transactions for {linkedData?.label || linkedData?.country || 'Country'}</span>
+                        <Package className="h-5 w-5" />
+                        <span>Manage Transactions</span>
                     </DialogTitle>
                 </DialogHeader>
 
@@ -345,7 +302,7 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
                     {/* Total */}
                     {linkedData && !isLoading && (
                         <div className="flex items-center justify-between py-2 border-b">
-                            <span className="text-sm text-muted-foreground">Total Spent</span>
+                            <span className="text-sm text-muted-foreground">Total Linked</span>
                             <span className="text-lg font-semibold">
                                 {formatCurrency(linkedData.total)}
                             </span>
@@ -375,7 +332,7 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
                             )}
                         </div>
 
-                        {/* Category Filter */}
+                        {/* Category Filter — shows ALL categories since "other" has no restrictions */}
                         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                             <SelectTrigger className="w-full sm:w-[160px]">
                                 <SelectValue placeholder="Category" />
@@ -481,11 +438,7 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
 
                     {/* Transactions Table */}
                     <div className="flex-1 min-h-0 border rounded-md overflow-auto">
-                        {isMockData ? (
-                            <div className="py-8 text-center text-muted-foreground">
-                                This is demo data. Add a real country and link transactions to see them here.
-                            </div>
-                        ) : isLoading ? (
+                        {isLoading ? (
                             <div className="p-4 space-y-3">
                                 {[1, 2, 3, 4, 5].map((i) => (
                                     <div key={i} className="flex items-center gap-4">
@@ -497,9 +450,11 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
                                     </div>
                                 ))}
                             </div>
-                        ) : error ? (
+                        ) : fetchError ? (
                             <div className="py-8 text-center text-muted-foreground">
-                                Failed to load transactions
+                                <p className="text-destructive text-sm">
+                                    {fetchError instanceof Error ? fetchError.message : "Something went wrong loading transactions"}
+                                </p>
                             </div>
                         ) : filteredTransactions.length === 0 ? (
                             <div className="py-8 text-center text-muted-foreground">
@@ -525,15 +480,13 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {/* All transactions sorted by date, visually distinguished by selection state */}
                                     {filteredTransactions.map((tx) => (
-                                        <TransactionRow
+                                        <OtherTransactionRow
                                             key={tx.id}
                                             transaction={tx}
                                             isSelected={selectedTransactions.has(tx.id)}
                                             onToggle={() => toggleTransaction(tx.id)}
                                             formatCurrency={formatCurrency}
-                                            isLinked={selectedTransactions.has(tx.id)}
                                         />
                                     ))}
                                 </TableBody>
@@ -544,7 +497,7 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
                     {/* Error message */}
                     {error && (
                         <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 dark:bg-destructive/20 p-3 rounded-md border border-destructive/20">
-                            <span className="mt-0.5">⚠</span>
+                            <span className="mt-0.5">!</span>
                             <span>{error}</span>
                         </div>
                     )}
@@ -558,7 +511,7 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
                     </DialogClose>
                     <Button
                         onClick={handleSubmit}
-                        disabled={!hasChanges || isSubmitting || isMockData || !instanceId}
+                        disabled={!hasChanges || isSubmitting || !pocketId}
                     >
                         {isSubmitting ? (
                             <>
@@ -575,27 +528,25 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
     )
 })
 
-CountryTransactionsDialog.displayName = "CountryTransactionsDialog"
+OtherTransactionsDialog.displayName = "OtherTransactionsDialog"
 
 // Transaction row component
-interface TransactionRowProps {
-    transaction: CountryTransaction
+interface OtherTransactionRowProps {
+    transaction: PocketLinkedTransaction
     isSelected: boolean
     onToggle: () => void
     formatCurrency: (amount: number, options?: { showSign?: boolean }) => string
-    isLinked: boolean
 }
 
-const TransactionRow = memo(function TransactionRow({
+const OtherTransactionRow = memo(function OtherTransactionRow({
     transaction,
     isSelected,
     onToggle,
     formatCurrency,
-    isLinked,
-}: TransactionRowProps) {
+}: OtherTransactionRowProps) {
     return (
         <TableRow
-            className={`cursor-pointer hover:bg-muted/50 ${isLinked ? 'bg-muted/30' : ''}`}
+            className={`cursor-pointer hover:bg-muted/50 ${isSelected ? 'bg-muted/30' : ''}`}
             data-state={isSelected ? "selected" : undefined}
             onClick={onToggle}
         >
@@ -630,11 +581,11 @@ const TransactionRow = memo(function TransactionRow({
                         {transaction.category_name}
                     </Badge>
                 ) : (
-                    <span className="text-muted-foreground text-xs">—</span>
+                    <span className="text-muted-foreground text-xs">-</span>
                 )}
             </TableCell>
         </TableRow>
     )
 })
 
-TransactionRow.displayName = "TransactionRow"
+OtherTransactionRow.displayName = "OtherTransactionRow"

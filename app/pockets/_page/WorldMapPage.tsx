@@ -1,7 +1,7 @@
 "use client"
 
 import type { ComponentType } from "react"
-import { useMemo, useState, useCallback } from "react"
+import { useMemo, useState, useCallback, useEffect } from "react"
 import { useAuth } from "@clerk/nextjs"
 import useSWR from "swr"
 
@@ -45,7 +45,22 @@ import { AddOtherDialog } from "./components/AddOtherDialog"
 
 // ─── Dismissed-mock helpers (localStorage persistence) ────────
 
+const POCKET_TAB_KEY = "trakzi-pocket-tab"
 const DISMISSED_MOCKS_KEY = "trakzi-dismissed-pocket-mocks"
+
+const VALID_POCKET_TABS: PocketViewMode[] = ["travel", "garage", "assets", "other"]
+
+function getPersistedTab(): PocketViewMode {
+    try {
+        const raw = localStorage.getItem(POCKET_TAB_KEY)
+        if (raw && VALID_POCKET_TABS.includes(raw as PocketViewMode)) {
+            return raw as PocketViewMode
+        }
+    } catch {
+        // SSR or localStorage unavailable
+    }
+    return "travel"
+}
 
 function getDismissedMocks(): Set<string> {
     try {
@@ -170,8 +185,22 @@ const MOCK_OTHER_ITEMS: OtherCardData[] = [
 export type PocketViewMode = "travel" | "garage" | "assets" | "other"
 
 export default function WorldMapPage() {
-    const { userId } = useAuth()
-    const [pocketViewMode, setPocketViewMode] = useState<PocketViewMode>("travel")
+    const { userId, isLoaded: isAuthLoaded } = useAuth()
+
+    // Tab state — default to "travel" for SSR, then hydrate from localStorage
+    const [pocketViewMode, setPocketViewModeRaw] = useState<PocketViewMode>("travel")
+    const [hasMounted, setHasMounted] = useState(false)
+
+    useEffect(() => {
+        setPocketViewModeRaw(getPersistedTab())
+        setHasMounted(true)
+    }, [])
+
+    const setPocketViewMode = useCallback((mode: PocketViewMode) => {
+        setPocketViewModeRaw(mode)
+        try { localStorage.setItem(POCKET_TAB_KEY, mode) } catch { /* noop */ }
+    }, [])
+
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
     const [isAddVehicleDialogOpen, setIsAddVehicleDialogOpen] = useState(false)
     const [isAddPropertyDialogOpen, setIsAddPropertyDialogOpen] = useState(false)
@@ -180,7 +209,7 @@ export default function WorldMapPage() {
     const [dismissedMocks, setDismissedMocks] = useState<Set<string>>(() => getDismissedMocks())
 
     // Fetch all pockets data from bundle API
-    const { data, isLoading, mutate } = useSWR<PocketsBundleResponse>(
+    const { data, isLoading: isFetching, mutate } = useSWR<PocketsBundleResponse>(
         userId ? ['/api/charts/pockets-bundle', userId] : null,
         ([url]) => fetcher(url),
         {
@@ -190,8 +219,17 @@ export default function WorldMapPage() {
         }
     )
 
+    // Effective loading: covers SSR hydration, auth loading, and data fetching
+    const isLoading = !hasMounted || !isAuthLoaded || isFetching
+
     // ─── Travel data ─────────────────────────────────────────
     const stats = useMemo(() => {
+        if (isLoading) {
+            return {
+                countriesCount: 0, topCountrySpend: 0, topCountryName: "—",
+                totalSpendAbroad: 0, domesticSpend: 0,
+            }
+        }
         const countries = data?.countries ?? []
         const useMock = countries.length === 0
         const activeCountries = useMock ? MOCK_COUNTRIES : countries
@@ -211,19 +249,21 @@ export default function WorldMapPage() {
             totalSpendAbroad: totalAbroad,
             domesticSpend,
         }
-    }, [data])
+    }, [data, isLoading])
 
     const { chartData, isMockData } = useMemo(() => {
+        if (isLoading) return { chartData: [], isMockData: false }
         const realData = data?.countries ?? []
         const useMock = realData.length === 0
         return {
             chartData: useMock ? MOCK_COUNTRIES : realData,
             isMockData: useMock,
         }
-    }, [data])
+    }, [data, isLoading])
 
     // ─── Vehicle data (from bundle, with mock fallback) ──────
     const { vehicles, isVehicleMock } = useMemo(() => {
+        if (isLoading) return { vehicles: [], isVehicleMock: false }
         const dbVehicles = data?.vehicles ?? []
         if (dbVehicles.length > 0) {
             return {
@@ -233,7 +273,7 @@ export default function WorldMapPage() {
         }
         const filtered = MOCK_VEHICLES.filter(v => !dismissedMocks.has(v.id))
         return { vehicles: filtered, isVehicleMock: true }
-    }, [data, dismissedMocks])
+    }, [data, isLoading, dismissedMocks])
 
     const vehicleStats = useMemo(() => {
         const bundleStats = data?.stats?.garage
@@ -287,6 +327,7 @@ export default function WorldMapPage() {
 
     // ─── Property data (from bundle, with mock fallback) ─────
     const { properties, isPropertyMock } = useMemo(() => {
+        if (isLoading) return { properties: [], isPropertyMock: false }
         const dbProps = data?.properties ?? []
         if (dbProps.length > 0) {
             return {
@@ -296,7 +337,7 @@ export default function WorldMapPage() {
         }
         const filtered = INITIAL_PROPERTY_MOCKS.filter(p => !dismissedMocks.has(p.id))
         return { properties: filtered, isPropertyMock: true }
-    }, [data, dismissedMocks])
+    }, [data, isLoading, dismissedMocks])
 
     const propertyStats = useMemo(() => {
         const bundleStats = data?.stats?.property
@@ -322,6 +363,7 @@ export default function WorldMapPage() {
 
     // ─── Other data (from bundle, with mock fallback) ────────
     const { otherItems, isOtherMock } = useMemo(() => {
+        if (isLoading) return { otherItems: [], isOtherMock: false }
         const dbOthers = data?.otherPockets ?? []
         if (dbOthers.length > 0) {
             return {
@@ -331,10 +373,13 @@ export default function WorldMapPage() {
         }
         const filtered = MOCK_OTHER_ITEMS.filter(o => !dismissedMocks.has(o.id))
         return { otherItems: filtered, isOtherMock: true }
-    }, [data, dismissedMocks])
+    }, [data, isLoading, dismissedMocks])
 
     // ─── Other stats ──────────────────────────────────────────
     const otherStats = useMemo(() => {
+        if (isLoading) {
+            return { count: 0, topName: "—", topValue: 0, totalValue: 0, avgValue: 0 }
+        }
         const bundleStats = data?.stats?.other
         if (bundleStats && bundleStats.totalItems > 0) {
             return {
@@ -347,14 +392,18 @@ export default function WorldMapPage() {
                     : 0,
             }
         }
+        // Fallback from current other items (mock or empty)
+        const sorted = [...otherItems].sort((a, b) => b.value - a.value)
         return {
-            count: 3,
-            topName: "Collectible A",
-            topValue: 12500,
-            totalValue: 24200,
-            avgValue: 8067,
+            count: otherItems.length,
+            topName: sorted[0]?.label ?? "—",
+            topValue: sorted[0]?.value ?? 0,
+            totalValue: otherItems.reduce((sum, o) => sum + o.value, 0),
+            avgValue: otherItems.length > 0
+                ? Math.round(otherItems.reduce((sum, o) => sum + o.value, 0) / otherItems.length)
+                : 0,
         }
-    }, [data])
+    }, [data, isLoading, otherItems])
 
     // ─── Handlers ────────────────────────────────────────────
     const existingCountries: string[] = []
@@ -599,9 +648,11 @@ export default function WorldMapPage() {
                             </div>
                             <VehicleCardsGrid
                                 vehicles={vehicles}
+                                isLoading={isLoading}
                                 onRemove={handlePocketRemove}
                                 onUpdate={handleVehicleUpdate}
                                 onOpenAddVehicle={() => setIsAddVehicleDialogOpen(true)}
+                                onTransactionsLinked={() => mutate()}
                             />
                         </>
                     )}
@@ -622,6 +673,7 @@ export default function WorldMapPage() {
                             </div>
                             <PropertyCardsGrid
                                 properties={properties}
+                                isLoading={isLoading}
                                 onRemove={handlePocketRemove}
                                 onUpdate={handlePropertyUpdate}
                                 onLabelUpdated={handlePropertyLabelUpdated}
@@ -629,6 +681,7 @@ export default function WorldMapPage() {
                                     setPropertyTypeToAdd("owned")
                                     setIsAddPropertyDialogOpen(true)
                                 }}
+                                onTransactionsLinked={() => mutate()}
                             />
                         </>
                     )}
@@ -639,9 +692,11 @@ export default function WorldMapPage() {
                             </div>
                             <OtherCardsGrid
                                 items={otherItems}
+                                isLoading={isLoading}
                                 onRemove={handlePocketRemove}
                                 onLabelUpdated={handlePocketRename}
                                 onOpenAdd={() => setIsAddOtherDialogOpen(true)}
+                                onTransactionsLinked={() => mutate()}
                             />
                         </>
                     )}

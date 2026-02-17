@@ -14,41 +14,46 @@ import type {
 } from '@/lib/types/pockets'
 
 // ═══════════════════════════════════════════════════════
-// TRAVEL (existing)
+// TRAVEL (countries / country instances)
 // ═══════════════════════════════════════════════════════
 
 /**
  * Get aggregated country spending data for the pockets page.
- * Aggregates directly from transactions.country_name (text column).
  *
- * NOTE: The country_instances table does not yet exist in the database.
- * This query uses the simpler country_name grouping until the DDL is run.
- * Each unique country_name gets a sequential pseudo-instance_id.
+ * Aggregates per *country instance* (country_instances.id) so that:
+ * - Cards can use a real instance_id (for delete/rename/linking)
+ * - The CountryTransactionsDialog can query `/api/pockets/transactions`
+ *   with a real instance_id that exists in the database.
  */
 export async function getCountrySpending(userId: string): Promise<CountryData[]> {
     const rows = await neonQuery<{
+        instance_id: number
         country_name: string
+        label: string
         value: string
     }>(
         `SELECT
-            t.country_name,
+            ci.id AS instance_id,
+            ci.country_name,
+            ci.label,
             COALESCE(SUM(ABS(t.amount)), 0)::text AS value
-        FROM transactions t
-        WHERE t.user_id = $1
-            AND t.country_name IS NOT NULL
-            AND t.country_name != ''
+        FROM country_instances ci
+        JOIN transactions t
+            ON t.country_instance_id = ci.id
+        WHERE ci.user_id = $1
+            AND t.user_id = $1
             AND t.amount < 0
-        GROUP BY t.country_name
+        GROUP BY ci.id, ci.country_name, ci.label
         HAVING COALESCE(SUM(ABS(t.amount)), 0) > 0
         ORDER BY SUM(ABS(t.amount)) DESC`,
         [userId]
     )
 
-    return rows.map((row, index) => ({
-        id: row.country_name,
-        instance_id: index + 1, // Sequential pseudo-ID (no instances table yet)
-        label: row.country_name,
-        value: parseFloat(row.value) || 0
+    return rows.map((row) => ({
+        id: row.country_name,          // GeoJSON country name (for map + flag)
+        instance_id: row.instance_id,  // country_instances.id (real instance)
+        label: row.label,              // Custom display label (e.g., "Japan Trip 1")
+        value: parseFloat(row.value) || 0,
     }))
 }
 

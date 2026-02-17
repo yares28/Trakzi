@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useState, useCallback } from "react"
-import { Loader2, ImageIcon } from "lucide-react"
+import { Loader2, ImageIcon, ChevronDown, ChevronUp } from "lucide-react"
 
 import type { VehicleTypeOption, VehicleMetadata } from "@/lib/types/pockets"
 
@@ -26,13 +26,12 @@ import {
 import { cn } from "@/lib/utils"
 
 const VEHICLE_SVG_OPTIONS = [
+  { value: "/topView/topviewcar1.svg", label: "topviewcar1" },
   { value: "/topView/topviewcar2.svg", label: "topviewcar2" },
-  { value: "/topView/topviewcar6.svg", label: "topviewcar6" },
+  { value: "/topView/topviewcar3.svg", label: "topviewcar3" },
+  { value: "/topView/topviewcar4.svg", label: "topviewcar4" },
+  { value: "/topView/topviewcar5.svg", label: "topviewcar5" },
   { value: "/topView/topviewcar7.svg", label: "topviewcar7" },
-  { value: "/topViewInterim/1bvYk01.svg", label: "1bvYk01" },
-  { value: "/topViewInterim/hgNqW01.svg", label: "hgNqW01" },
-  { value: "/topViewInterim/MEqPS01.svg", label: "MEqPS01" },
-  { value: "/topViewInterim/tGWsP01.svg", label: "tGWsP01" },
 ] as const
 
 const VEHICLE_TYPES: VehicleTypeOption[] = [
@@ -64,6 +63,7 @@ export const AddVehicleDialog = memo(function AddVehicleDialog({
   const [svgPath, setSvgPath] = useState<string>(VEHICLE_SVG_OPTIONS[0].value)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [isLayoutOpen, setIsLayoutOpen] = useState(false)
 
   const validate = useCallback((): boolean => {
     const next: Record<string, string> = {}
@@ -251,38 +251,51 @@ export const AddVehicleDialog = memo(function AddVehicleDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label>Layout</Label>
-            <div className="grid grid-cols-2 gap-3">
-              {VEHICLE_SVG_OPTIONS.map((opt) => {
-                const isActive = svgPath === opt.value
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setSvgPath(opt.value)}
-                    className={cn(
-                      "relative aspect-[4/3] rounded-xl border bg-muted/40 p-3 transition-all",
-                      "hover:border-primary/50 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      isActive && "border-primary bg-primary/5 shadow-sm",
-                    )}
-                    aria-pressed={isActive}
-                    aria-label={opt.label}
-                  >
-                    <div className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-[inherit]">
-                      <img
-                        src={opt.value}
-                        alt={opt.label}
-                        className="h-full w-full max-h-[80%] max-w-[80%] object-contain"
-                      />
-                    </div>
-                    <div className="pointer-events-none absolute inset-x-2 bottom-2 flex items-center gap-1 rounded-full bg-background/85 px-2 py-0.5 text-[11px] font-medium text-muted-foreground shadow-sm">
-                      <ImageIcon className="h-3 w-3" />
-                      <span className="truncate">{opt.label}</span>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
+            <button
+              type="button"
+              onClick={() => setIsLayoutOpen(!isLayoutOpen)}
+              className="flex items-center justify-between rounded-lg border bg-muted/40 px-3 py-2 text-left transition-all hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Label className="cursor-pointer font-medium">Layout</Label>
+              {isLayoutOpen ? (
+                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              )}
+            </button>
+            {isLayoutOpen && (
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                {VEHICLE_SVG_OPTIONS.map((opt) => {
+                  const isActive = svgPath === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setSvgPath(opt.value)}
+                      className={cn(
+                        "relative aspect-[4/3] rounded-xl border bg-muted/40 p-3 transition-all",
+                        "hover:border-primary/50 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        isActive && "border-primary bg-primary/5 shadow-sm",
+                      )}
+                      aria-pressed={isActive}
+                      aria-label={opt.label}
+                    >
+                      <div className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-[inherit]">
+                        <img
+                          src={opt.value}
+                          alt={opt.label}
+                          className="h-full w-full max-h-[80%] max-w-[80%] object-contain"
+                        />
+                      </div>
+                      <div className="pointer-events-none absolute inset-x-2 bottom-2 flex items-center gap-1 rounded-full bg-background/85 px-2 py-0.5 text-[11px] font-medium text-muted-foreground shadow-sm">
+                        <ImageIcon className="h-3 w-3" />
+                        <span className="truncate">{opt.label}</span>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
 
