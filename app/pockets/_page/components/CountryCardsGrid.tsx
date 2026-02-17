@@ -125,10 +125,12 @@ export const CountryCardsGrid = memo(function CountryCardsGrid({
             {/* Transactions Dialog */}
             <CountryTransactionsDialog
                 instanceId={selectedInstanceId}
+                isMockData={isMockData}
                 open={selectedInstanceId !== null}
                 onOpenChange={(open) => {
                     if (!open) setSelectedInstanceId(null)
                 }}
+                onTransactionsLinked={onCountryDeleted}
             />
         </>
     )

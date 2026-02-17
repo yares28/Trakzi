@@ -40,7 +40,7 @@ export async function GET() {
 
     } catch (error: unknown) {
         console.error('[Pockets Instances GET] Error:', error)
-        const message = error instanceof Error ? error.message : 'Failed to fetch country instances'
+        const message = error instanceof Error ? error.message : 'Something went wrong loading your countries'
         return NextResponse.json(
             { error: message },
             { status: 500 }
@@ -62,14 +62,14 @@ export async function POST(request: Request) {
         // Validate country name
         if (!country_name || typeof country_name !== 'string') {
             return NextResponse.json(
-                { error: 'country_name is required' },
+                { error: 'Please select a country' },
                 { status: 400 }
             )
         }
 
         if (!isValidCountryName(country_name)) {
             return NextResponse.json(
-                { error: `Invalid country name: "${country_name}". Must match GeoJSON country names.` },
+                { error: `"${country_name}" is not a recognised country name` },
                 { status: 400 }
             )
         }
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
         // Validate label
         if (!label || typeof label !== 'string' || label.trim().length === 0) {
             return NextResponse.json(
-                { error: 'label is required and must be a non-empty string' },
+                { error: 'Please enter a name for this trip' },
                 { status: 400 }
             )
         }
@@ -94,8 +94,8 @@ export async function POST(request: Request) {
 
         if (existing.length > 0) {
             return NextResponse.json(
-                { error: `A country instance with label "${trimmedLabel}" already exists for ${country_name}. Please choose a different label.` },
-                { status: 409 } // Conflict
+                { error: `"${trimmedLabel}" already exists for ${country_name}. Please choose a different name.` },
+                { status: 409 }
             )
         }
 
@@ -130,7 +130,7 @@ export async function POST(request: Request) {
 
     } catch (error: unknown) {
         console.error('[Pockets Instances POST] Error:', error)
-        const message = error instanceof Error ? error.message : 'Failed to create country instance'
+        const message = error instanceof Error ? error.message : 'Something went wrong creating this country'
         return NextResponse.json(
             { error: message },
             { status: 500 }
@@ -151,7 +151,7 @@ export async function PATCH(request: Request) {
 
         if (!instanceId) {
             return NextResponse.json(
-                { error: 'id query parameter is required' },
+                { error: 'Could not find which country to update' },
                 { status: 400 }
             )
         }
@@ -159,7 +159,7 @@ export async function PATCH(request: Request) {
         const id = parseInt(instanceId, 10)
         if (isNaN(id)) {
             return NextResponse.json(
-                { error: 'id must be a valid integer' },
+                { error: 'Could not find which country to update' },
                 { status: 400 }
             )
         }
@@ -169,7 +169,7 @@ export async function PATCH(request: Request) {
         // Validate label
         if (!label || typeof label !== 'string' || label.trim().length === 0) {
             return NextResponse.json(
-                { error: 'label is required and must be a non-empty string' },
+                { error: 'Please enter a name for this trip' },
                 { status: 400 }
             )
         }
@@ -185,7 +185,7 @@ export async function PATCH(request: Request) {
 
         if (verify.length === 0) {
             return NextResponse.json(
-                { error: 'Country instance not found or access denied' },
+                { error: 'This country was not found. It may have been deleted.' },
                 { status: 404 }
             )
         }
@@ -201,8 +201,8 @@ export async function PATCH(request: Request) {
 
         if (duplicate.length > 0) {
             return NextResponse.json(
-                { error: `A country instance with label "${trimmedLabel}" already exists for ${instance.country_name}. Please choose a different label.` },
-                { status: 409 } // Conflict
+                { error: `"${trimmedLabel}" already exists for ${instance.country_name}. Please choose a different name.` },
+                { status: 409 }
             )
         }
 
@@ -237,7 +237,7 @@ export async function PATCH(request: Request) {
 
     } catch (error: unknown) {
         console.error('[Pockets Instances PATCH] Error:', error)
-        const message = error instanceof Error ? error.message : 'Failed to update country instance'
+        const message = error instanceof Error ? error.message : 'Something went wrong updating this country'
         return NextResponse.json(
             { error: message },
             { status: 500 }
@@ -257,7 +257,7 @@ export async function DELETE(request: Request) {
 
         if (!instanceId) {
             return NextResponse.json(
-                { error: 'id query parameter is required' },
+                { error: 'Could not find which country to delete' },
                 { status: 400 }
             )
         }
@@ -265,7 +265,7 @@ export async function DELETE(request: Request) {
         const id = parseInt(instanceId, 10)
         if (isNaN(id)) {
             return NextResponse.json(
-                { error: 'id must be a valid integer' },
+                { error: 'Could not find which country to delete' },
                 { status: 400 }
             )
         }
@@ -279,7 +279,7 @@ export async function DELETE(request: Request) {
 
         if (verify.length === 0) {
             return NextResponse.json(
-                { error: 'Country instance not found or access denied' },
+                { error: 'This country was not found. It may have already been deleted.' },
                 { status: 404 }
             )
         }
@@ -301,7 +301,7 @@ export async function DELETE(request: Request) {
 
     } catch (error: unknown) {
         console.error('[Pockets Instances DELETE] Error:', error)
-        const message = error instanceof Error ? error.message : 'Failed to delete country instance'
+        const message = error instanceof Error ? error.message : 'Something went wrong deleting this country'
         return NextResponse.json(
             { error: message },
             { status: 500 }

@@ -741,14 +741,14 @@ export async function getSpendingPyramid(
         }
     })
 
-    // Sort by the max of user or average spending, with stable secondary sort
+    // Sort by user's spending (most spent first), with stable secondary sort
     result.sort((a, b) => {
-        const diff = Math.max(b.userTotal, b.avgTotal) - Math.max(a.userTotal, a.avgTotal)
+        const diff = b.userTotal - a.userTotal
         return diff !== 0 ? diff : a.category.localeCompare(b.category)
     })
 
-    // Return top 10 categories for clean display
-    return result.slice(0, 10)
+    // Return top 20 categories — client dynamically slices based on chart height
+    return result.slice(0, 20)
 }
 
 /**

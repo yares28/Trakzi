@@ -8,6 +8,7 @@ import { useCurrency } from "@/components/currency-provider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { OtherTransactionsDialog } from "./OtherTransactionsDialog"
 
 export interface OtherCardData {
   id: string
@@ -160,8 +161,8 @@ function OtherCard({ id, label, value, onView, onRemove, onLabelUpdated }: Other
               )}
             </div>
           ) : (
-            <>
-              <span className="text-base font-medium text-foreground truncate block pr-8" title={label}>
+            <div className="flex items-center gap-1.5">
+              <span className="truncate text-base font-medium text-foreground min-w-0" title={label}>
                 {label}
               </span>
               {onLabelUpdated && (
@@ -169,13 +170,13 @@ function OtherCard({ id, label, value, onView, onRemove, onLabelUpdated }: Other
                   variant="ghost"
                   size="icon-sm"
                   onClick={handleStartEdit}
-                  className="absolute right-0 top-0 h-6 w-6 opacity-0 transition-opacity group-hover/label:opacity-100 hover:bg-accent"
+                  className="h-6 w-6 shrink-0 opacity-0 transition-opacity group-hover/label:opacity-100 hover:bg-accent"
                   aria-label={`Edit name for ${label}`}
                 >
                   <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                 </Button>
               )}
-            </>
+            </div>
           )}
         </div>
 
@@ -201,17 +202,41 @@ function OtherCard({ id, label, value, onView, onRemove, onLabelUpdated }: Other
 
 interface OtherCardsGridProps {
   items: OtherCardData[]
+  isLoading?: boolean
   onRemove: (id: string) => void
   onLabelUpdated: (id: string, newLabel: string) => void
   onOpenAdd?: () => void
+  onTransactionsLinked?: () => void
 }
 
 export const OtherCardsGrid = memo(function OtherCardsGrid({
   items,
+  isLoading = false,
   onRemove,
   onLabelUpdated,
   onOpenAdd,
+  onTransactionsLinked,
 }: OtherCardsGridProps) {
+  const [selectedPocketId, setSelectedPocketId] = useState<number | null>(null)
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @md/main:grid-cols-2 @3xl/main:grid-cols-3">
+        {[1, 2, 3].map((i) => (
+          <Card key={i} className="overflow-hidden">
+            <CardContent className="p-4">
+              <div className="flex flex-col gap-3">
+                <div className="h-3 w-12 rounded bg-muted animate-pulse" />
+                <div className="h-5 w-2/3 rounded bg-muted animate-pulse" />
+                <div className="h-6 w-1/3 rounded bg-muted animate-pulse" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )
+  }
+
   if (items.length === 0) {
     return (
       <div className="px-4 lg:px-6">
@@ -231,19 +256,37 @@ export const OtherCardsGrid = memo(function OtherCardsGrid({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @md/main:grid-cols-2 @3xl/main:grid-cols-3">
-      {items.map((item) => (
-        <OtherCard
-          key={item.id}
-          id={item.id}
-          label={item.label}
-          value={item.value}
-          onView={() => {}}
-          onRemove={() => onRemove(item.id)}
-          onLabelUpdated={(newLabel) => onLabelUpdated(item.id, newLabel)}
-        />
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @md/main:grid-cols-2 @3xl/main:grid-cols-3">
+        {items.map((item) => (
+          <OtherCard
+            key={item.id}
+            id={item.id}
+            label={item.label}
+            value={item.value}
+            onView={() => {
+              const pId = parseInt(item.id, 10)
+              if (!isNaN(pId)) setSelectedPocketId(pId)
+            }}
+            onRemove={() => onRemove(item.id)}
+            onLabelUpdated={(newLabel) => onLabelUpdated(item.id, newLabel)}
+          />
+        ))}
+      </div>
+
+      {/* Transactions Dialog */}
+      <OtherTransactionsDialog
+        pocketId={selectedPocketId}
+        open={selectedPocketId !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedPocketId(null)
+        }}
+        onTransactionsLinked={() => {
+          onTransactionsLinked?.()
+          setSelectedPocketId(null)
+        }}
+      />
+    </>
   )
 })
 

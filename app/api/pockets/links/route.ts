@@ -18,7 +18,7 @@ export async function POST(request: Request) {
         // Validate country instance ID
         if (!country_instance_id || typeof country_instance_id !== 'number' || !Number.isInteger(country_instance_id)) {
             return NextResponse.json(
-                { error: 'country_instance_id is required and must be an integer' },
+                { error: 'Please select a country to link transactions to' },
                 { status: 400 }
             )
         }
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
 
         if (instanceCheck.length === 0) {
             return NextResponse.json(
-                { error: 'Country instance not found or access denied' },
+                { error: 'This country was not found. It may have been deleted.' },
                 { status: 404 }
             )
         }
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
         // Validate transaction IDs
         if (!Array.isArray(transaction_ids) || transaction_ids.length === 0) {
             return NextResponse.json(
-                { error: 'transaction_ids must be a non-empty array' },
+                { error: 'Please select at least one transaction to link' },
                 { status: 400 }
             )
         }
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
         // Validate all IDs are numbers
         if (!transaction_ids.every(id => typeof id === 'number' && Number.isInteger(id))) {
             return NextResponse.json(
-                { error: 'All transaction_ids must be integers' },
+                { error: 'Some selected transactions are invalid. Please try again.' },
                 { status: 400 }
             )
         }
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
 
     } catch (error: unknown) {
         console.error('[Pockets Links POST] Error:', error)
-        const message = error instanceof Error ? error.message : 'Failed to link transactions'
+        const message = error instanceof Error ? error.message : 'Something went wrong linking your transactions'
         return NextResponse.json(
             { error: message },
             { status: 500 }
@@ -110,7 +110,7 @@ export async function DELETE(request: Request) {
         // Validate transaction IDs
         if (!Array.isArray(transaction_ids) || transaction_ids.length === 0) {
             return NextResponse.json(
-                { error: 'transaction_ids must be a non-empty array' },
+                { error: 'Please select at least one transaction to unlink' },
                 { status: 400 }
             )
         }
@@ -118,7 +118,7 @@ export async function DELETE(request: Request) {
         // Validate all IDs are numbers
         if (!transaction_ids.every(id => typeof id === 'number' && Number.isInteger(id))) {
             return NextResponse.json(
-                { error: 'All transaction_ids must be integers' },
+                { error: 'Some selected transactions are invalid. Please try again.' },
                 { status: 400 }
             )
         }
@@ -148,7 +148,7 @@ export async function DELETE(request: Request) {
 
     } catch (error: unknown) {
         console.error('[Pockets Links DELETE] Error:', error)
-        const message = error instanceof Error ? error.message : 'Failed to unlink transactions'
+        const message = error instanceof Error ? error.message : 'Something went wrong unlinking your transactions'
         return NextResponse.json(
             { error: message },
             { status: 500 }

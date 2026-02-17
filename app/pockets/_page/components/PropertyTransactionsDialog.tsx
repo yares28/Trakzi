@@ -2,17 +2,14 @@
 
 import { memo, useState, useCallback, useMemo, useEffect } from "react"
 import useSWR from "swr"
-import ReactCountryFlag from "react-country-flag"
-import { Loader2, Search, X, CalendarIcon } from "lucide-react"
+import { Home, Loader2, Search, X, CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 
 import { useCurrency } from "@/components/currency-provider"
-import { getCountryCode } from "@/lib/data/country-codes"
 import { formatDateForDisplay } from "@/lib/date"
-import type { 
-    CountryTransactionsResponse,
-    UnlinkedTransactionsResponse,
-    CountryTransaction,
+import type {
+    PocketLinkedTransaction,
+    PocketUnlinkedResponse,
 } from "@/lib/types/pockets"
 
 import {
@@ -50,11 +47,19 @@ import {
 } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 
-interface CountryTransactionsDialogProps {
-    instanceId: number | null
+interface PropertyTransactionsResponse {
+    pocket_id: number
+    property_name: string
+    property_type: "owned" | "rented"
+    transactions: PocketLinkedTransaction[]
+    total: number
+}
+
+interface PropertyTransactionsDialogProps {
+    pocketId: number | null
+    propertyType: "owned" | "rented"
     open: boolean
     onOpenChange: (open: boolean) => void
-    isMockData?: boolean
     onTransactionsLinked?: () => void
 }
 
@@ -79,13 +84,49 @@ const fetcher = async (url: string) => {
     return res.json()
 }
 
-export const CountryTransactionsDialog = memo(function CountryTransactionsDialog({
-    instanceId,
+const OWNED_CATEGORIES = [
+    "Mortgage",
+    "Home Maintenance",
+    "Insurance",
+    "Taxes & Fees",
+]
+
+const RENTED_CATEGORIES = [
+    "Rent",
+    "Utilities",
+    "Deposit",
+    "Taxes & Fees",
+]
+
+// Tab mapping for owned properties
+const OWNED_TAB_MAP: Record<string, string> = {
+    "Mortgage": "mortgage",
+    "Home Maintenance": "maintenance",
+    "Insurance": "insurance",
+    "Taxes & Fees": "taxes",
+}
+
+// Tab mapping for rented properties
+const RENTED_TAB_MAP: Record<string, string> = {
+    "Rent": "rent",
+    "Utilities": "utilities",
+    "Deposit": "deposit",
+    "Taxes & Fees": "fees",
+}
+
+function getTabForCategory(categoryName: string | null, propertyType: "owned" | "rented"): string {
+    if (!categoryName) return propertyType === "owned" ? "mortgage" : "rent"
+    const map = propertyType === "owned" ? OWNED_TAB_MAP : RENTED_TAB_MAP
+    return map[categoryName] || (propertyType === "owned" ? "mortgage" : "rent")
+}
+
+export const PropertyTransactionsDialog = memo(function PropertyTransactionsDialog({
+    pocketId,
+    propertyType,
     open,
     onOpenChange,
-    isMockData = false,
     onTransactionsLinked,
-}: CountryTransactionsDialogProps) {
+}: PropertyTransactionsDialogProps) {
     const { formatCurrency } = useCurrency()
     const [selectedTransactions, setSelectedTransactions] = useState<Set<number>>(new Set())
     const [searchFilter, setSearchFilter] = useState("")
@@ -95,15 +136,17 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    // Fetch linked transactions for this instance
-    const { data: linkedData, isLoading: isLoadingLinked, mutate: mutateLinked } = useSWR<CountryTransactionsResponse>(
-        open && instanceId && !isMockData ? `/api/pockets/transactions?instance_id=${instanceId}` : null,
+    const PROPERTY_CATEGORIES = propertyType === "owned" ? OWNED_CATEGORIES : RENTED_CATEGORIES
+
+    // Fetch linked transactions for this property
+    const { data: linkedData, isLoading: isLoadingLinked, mutate: mutateLinked, error: linkedError } = useSWR<PropertyTransactionsResponse>(
+        open && pocketId ? `/api/pockets/property-transactions?pocket_id=${pocketId}` : null,
         fetcher
     )
 
-    // Fetch ALL unlinked transactions (no limit)
-    const { data: unlinkedData, isLoading: isLoadingUnlinked } = useSWR<UnlinkedTransactionsResponse>(
-        open && instanceId && !isMockData ? `/api/pockets/unlinked-transactions` : null,
+    // Fetch unlinked property transactions
+    const { data: unlinkedData, isLoading: isLoadingUnlinked, error: unlinkedError } = useSWR<PocketUnlinkedResponse>(
+        open && pocketId ? `/api/pockets/property-unlinked?pocket_id=${pocketId}` : null,
         fetcher
     )
 
@@ -120,98 +163,78 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
         const linked = linkedData?.transactions || []
         const unlinked = unlinkedData?.transactions || []
         const combined = [...linked, ...unlinked]
-        
-        // Sort by date descending (newest first), then by id descending as tiebreaker
+
         return combined.sort((a, b) => {
             const dateA = new Date(a.tx_date).getTime()
             const dateB = new Date(b.tx_date).getTime()
-            if (dateB !== dateA) {
-                return dateB - dateA
-            }
+            if (dateB !== dateA) return dateB - dateA
             return b.id - a.id
         })
     }, [linkedData?.transactions, unlinkedData?.transactions])
 
-    const countryCode = linkedData?.country ? getCountryCode(linkedData.country) : null
-
-    // Get unique categories from all transactions
+    // Get unique categories from all transactions, filtered to property-relevant ones
     const uniqueCategories = useMemo(() => {
         if (allTransactions.length === 0) return []
         const categories = new Set(
             allTransactions
                 .map(tx => tx.category_name)
-                .filter((name): name is string => !!name)
+                .filter((name): name is string => !!name && PROPERTY_CATEGORIES.includes(name))
         )
-        return Array.from(categories).sort()
-    }, [allTransactions])
+        return Array.from(categories).sort((a, b) => {
+            const indexA = PROPERTY_CATEGORIES.indexOf(a)
+            const indexB = PROPERTY_CATEGORIES.indexOf(b)
+            if (indexA === -1 && indexB === -1) return a.localeCompare(b)
+            if (indexA === -1) return 1
+            if (indexB === -1) return -1
+            return indexA - indexB
+        })
+    }, [allTransactions, PROPERTY_CATEGORIES])
 
-    // Filter transactions by search, category, and date (maintains date sort)
+    // Filter transactions
     const filteredTransactions = useMemo(() => {
         return allTransactions.filter(tx => {
-            // Search filter
             if (searchFilter) {
                 const searchLower = searchFilter.toLowerCase()
-                if (!tx.description.toLowerCase().includes(searchLower)) {
-                    return false
-                }
+                if (!tx.description.toLowerCase().includes(searchLower)) return false
             }
-
-            // Category filter
             if (categoryFilter !== "all") {
-                if (tx.category_name !== categoryFilter) {
-                    return false
-                }
+                if (tx.category_name !== categoryFilter) return false
             }
-
-            // Date filters
             if (startDate || endDate) {
                 const txDate = new Date(tx.tx_date)
-                if (startDate && txDate < startDate) {
-                    return false
-                }
+                if (startDate && txDate < startDate) return false
                 if (endDate) {
                     const endOfDay = new Date(endDate)
                     endOfDay.setHours(23, 59, 59, 999)
-                    if (txDate > endOfDay) {
-                        return false
-                    }
+                    if (txDate > endOfDay) return false
                 }
             }
-
             return true
         })
     }, [allTransactions, searchFilter, categoryFilter, startDate, endDate])
 
-    // Toggle transaction selection
     const toggleTransaction = useCallback((id: number) => {
         setSelectedTransactions(prev => {
             const next = new Set(prev)
-            if (next.has(id)) {
-                next.delete(id)
-            } else {
-                next.add(id)
-            }
+            if (next.has(id)) next.delete(id)
+            else next.add(id)
             return next
         })
     }, [])
 
-    // Check if all filtered transactions are selected
     const allSelected = useMemo(() => {
         if (filteredTransactions.length === 0) return false
         return filteredTransactions.every(tx => selectedTransactions.has(tx.id))
     }, [filteredTransactions, selectedTransactions])
 
-    // Toggle all filtered transactions
     const toggleAll = useCallback(() => {
         if (allSelected) {
-            // Deselect all filtered
             setSelectedTransactions(prev => {
                 const next = new Set(prev)
                 filteredTransactions.forEach(tx => next.delete(tx.id))
                 return next
             })
         } else {
-            // Select all filtered
             setSelectedTransactions(prev => {
                 const next = new Set(prev)
                 filteredTransactions.forEach(tx => next.add(tx.id))
@@ -220,7 +243,6 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
         }
     }, [allSelected, filteredTransactions])
 
-    // Clear all filters
     const clearFilters = useCallback(() => {
         setSearchFilter("")
         setCategoryFilter("all")
@@ -228,72 +250,81 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
         setEndDate(undefined)
     }, [])
 
-    // Handle submit - link new selections and unlink deselections
+    // Handle submit
     const handleSubmit = async () => {
-        if (!instanceId) return
+        if (!pocketId) return
 
         setIsSubmitting(true)
         setError(null)
 
         try {
             const originallyLinkedIds = new Set(linkedData?.transactions?.map(tx => tx.id) || [])
-            
-            // Transactions to link (selected but not originally linked)
+
             const toLink = Array.from(selectedTransactions).filter(id => !originallyLinkedIds.has(id))
-            
-            // Transactions to unlink (originally linked but not selected)
             const toUnlink = Array.from(originallyLinkedIds).filter(id => !selectedTransactions.has(id))
 
-            // Link new transactions
+            // Link new transactions grouped by tab
             if (toLink.length > 0) {
-                const linkResponse = await fetch('/api/pockets/links', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        country_instance_id: instanceId,
-                        transaction_ids: toLink
-                    })
-                })
+                const transactionsByTab = new Map<string, number[]>()
 
-                if (!linkResponse.ok) {
-                    const errorData = await linkResponse.json()
-                    throw new Error(errorData.error || 'Failed to link transactions')
+                for (const txId of toLink) {
+                    const tx = allTransactions.find(t => t.id === txId)
+                    if (tx) {
+                        const tab = getTabForCategory(tx.category_name, propertyType)
+                        if (!transactionsByTab.has(tab)) transactionsByTab.set(tab, [])
+                        transactionsByTab.get(tab)!.push(txId)
+                    }
+                }
+
+                for (const [tab, txIds] of transactionsByTab.entries()) {
+                    const linkResponse = await fetch('/api/pockets/item-links', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            pocket_id: pocketId,
+                            tab,
+                            transaction_ids: txIds
+                        })
+                    })
+
+                    if (!linkResponse.ok) {
+                        const errorData = await linkResponse.json()
+                        throw new Error(errorData.error || `Something went wrong linking transactions`)
+                    }
                 }
             }
 
             // Unlink deselected transactions
             if (toUnlink.length > 0) {
-                const unlinkResponse = await fetch('/api/pockets/links', {
+                const unlinkResponse = await fetch('/api/pockets/item-links', {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        pocket_id: pocketId,
                         transaction_ids: toUnlink
                     })
                 })
 
                 if (!unlinkResponse.ok) {
                     const errorData = await unlinkResponse.json()
-                    throw new Error(errorData.error || 'Failed to unlink transactions')
+                    throw new Error(errorData.error || 'Something went wrong unlinking transactions')
                 }
             }
 
-            // Refresh data
             mutateLinked()
             onTransactionsLinked?.()
 
-            // Reset state and close
             setSelectedTransactions(new Set())
             clearFilters()
             onOpenChange(false)
 
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'An error occurred')
+            setError(err instanceof Error ? err.message : 'Something went wrong')
         } finally {
             setIsSubmitting(false)
         }
     }
 
-    // Reset state when dialog closes
     const handleOpenChange = (newOpen: boolean) => {
         if (!newOpen) {
             setSelectedTransactions(new Set())
@@ -304,17 +335,13 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
     }
 
     const isLoading = isLoadingLinked || isLoadingUnlinked
+    const fetchError = linkedError || unlinkedError
     const hasActiveFilters = searchFilter || categoryFilter !== "all" || startDate || endDate
     const hasChanges = useMemo(() => {
         if (!linkedData?.transactions) return false
         const originallyLinkedIds = new Set(linkedData.transactions.map(tx => tx.id))
-        const currentlySelectedIds = selectedTransactions
-        
-        // Check if any linked transactions were deselected
-        const anyUnlinked = Array.from(originallyLinkedIds).some(id => !currentlySelectedIds.has(id))
-        // Check if any new transactions were selected
-        const anyLinked = Array.from(currentlySelectedIds).some(id => !originallyLinkedIds.has(id))
-        
+        const anyUnlinked = Array.from(originallyLinkedIds).some(id => !selectedTransactions.has(id))
+        const anyLinked = Array.from(selectedTransactions).some(id => !originallyLinkedIds.has(id))
         return anyUnlinked || anyLinked
     }, [linkedData?.transactions, selectedTransactions])
 
@@ -323,21 +350,8 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
             <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
                 <DialogHeader className="flex-shrink-0">
                     <DialogTitle className="flex items-center gap-2">
-                        {countryCode ? (
-                            <ReactCountryFlag
-                                countryCode={countryCode}
-                                svg
-                                style={{
-                                    width: "1.5em",
-                                    height: "1.5em",
-                                }}
-                                title={linkedData?.country || undefined}
-                                aria-label={linkedData?.country ? `Flag of ${linkedData.country}` : undefined}
-                            />
-                        ) : (
-                            <span className="text-2xl">🌍</span>
-                        )}
-                        <span>Manage Transactions for {linkedData?.label || linkedData?.country || 'Country'}</span>
+                        <Home className="h-5 w-5" />
+                        <span>Manage Transactions for {linkedData?.property_name || 'Property'}</span>
                     </DialogTitle>
                 </DialogHeader>
 
@@ -450,7 +464,7 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
                         </Popover>
                     </div>
 
-                    {/* Header with counts and actions */}
+                    {/* Header with counts */}
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <span className="text-sm text-muted-foreground">
@@ -481,11 +495,7 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
 
                     {/* Transactions Table */}
                     <div className="flex-1 min-h-0 border rounded-md overflow-auto">
-                        {isMockData ? (
-                            <div className="py-8 text-center text-muted-foreground">
-                                This is demo data. Add a real country and link transactions to see them here.
-                            </div>
-                        ) : isLoading ? (
+                        {isLoading ? (
                             <div className="p-4 space-y-3">
                                 {[1, 2, 3, 4, 5].map((i) => (
                                     <div key={i} className="flex items-center gap-4">
@@ -497,9 +507,11 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
                                     </div>
                                 ))}
                             </div>
-                        ) : error ? (
+                        ) : fetchError ? (
                             <div className="py-8 text-center text-muted-foreground">
-                                Failed to load transactions
+                                <p className="text-destructive text-sm">
+                                    {fetchError instanceof Error ? fetchError.message : "Something went wrong loading transactions"}
+                                </p>
                             </div>
                         ) : filteredTransactions.length === 0 ? (
                             <div className="py-8 text-center text-muted-foreground">
@@ -525,15 +537,13 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {/* All transactions sorted by date, visually distinguished by selection state */}
                                     {filteredTransactions.map((tx) => (
-                                        <TransactionRow
+                                        <PropertyTransactionRow
                                             key={tx.id}
                                             transaction={tx}
                                             isSelected={selectedTransactions.has(tx.id)}
                                             onToggle={() => toggleTransaction(tx.id)}
                                             formatCurrency={formatCurrency}
-                                            isLinked={selectedTransactions.has(tx.id)}
                                         />
                                     ))}
                                 </TableBody>
@@ -544,7 +554,7 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
                     {/* Error message */}
                     {error && (
                         <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 dark:bg-destructive/20 p-3 rounded-md border border-destructive/20">
-                            <span className="mt-0.5">⚠</span>
+                            <span className="mt-0.5">&#9888;</span>
                             <span>{error}</span>
                         </div>
                     )}
@@ -558,7 +568,7 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
                     </DialogClose>
                     <Button
                         onClick={handleSubmit}
-                        disabled={!hasChanges || isSubmitting || isMockData || !instanceId}
+                        disabled={!hasChanges || isSubmitting || !pocketId}
                     >
                         {isSubmitting ? (
                             <>
@@ -575,27 +585,25 @@ export const CountryTransactionsDialog = memo(function CountryTransactionsDialog
     )
 })
 
-CountryTransactionsDialog.displayName = "CountryTransactionsDialog"
+PropertyTransactionsDialog.displayName = "PropertyTransactionsDialog"
 
 // Transaction row component
-interface TransactionRowProps {
-    transaction: CountryTransaction
+interface PropertyTransactionRowProps {
+    transaction: PocketLinkedTransaction
     isSelected: boolean
     onToggle: () => void
     formatCurrency: (amount: number, options?: { showSign?: boolean }) => string
-    isLinked: boolean
 }
 
-const TransactionRow = memo(function TransactionRow({
+const PropertyTransactionRow = memo(function PropertyTransactionRow({
     transaction,
     isSelected,
     onToggle,
     formatCurrency,
-    isLinked,
-}: TransactionRowProps) {
+}: PropertyTransactionRowProps) {
     return (
         <TableRow
-            className={`cursor-pointer hover:bg-muted/50 ${isLinked ? 'bg-muted/30' : ''}`}
+            className={`cursor-pointer hover:bg-muted/50 ${isSelected ? 'bg-muted/30' : ''}`}
             data-state={isSelected ? "selected" : undefined}
             onClick={onToggle}
         >
@@ -637,4 +645,4 @@ const TransactionRow = memo(function TransactionRow({
     )
 })
 
-TransactionRow.displayName = "TransactionRow"
+PropertyTransactionRow.displayName = "PropertyTransactionRow"
