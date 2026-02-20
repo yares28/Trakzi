@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Sparkles, Crown, Zap, Star } from "lucide-react";
+import { Sparkles, Crown, Zap } from "lucide-react";
 
 import type { PlanType } from "./types";
 
@@ -8,10 +8,6 @@ export const planIcons: Record<PlanType, { light: string; dark: string }> = {
     free: {
         light: "/Trakzi/subs/freeicon.png",
         dark: "/Trakzi/subs/freeiconB.png",
-    },
-    basic: {
-        light: "/Trakzi/subs/TrakziBasicicon.png",
-        dark: "/Trakzi/subs/TrakziBasicicon.png",
     },
     pro: {
         light: "/Trakzi/subs/TrakziProLogo.png",
@@ -43,25 +39,12 @@ export const PLAN_INFO: Record<PlanType, PlanInfo> = {
         iconColor: "text-muted-foreground",
         badgeClass: "bg-muted text-muted-foreground",
         features: [
-            "400 transactions",
-            "Unlimited receipt scans",
-            "5 AI chat/day",
-            "Analytics charts",
-            "10 custom categories",
-        ],
-    },
-    basic: {
-        name: "Basic",
-        price: "€1.99/mo",
-        annualPrice: "€19.99/yr",
-        icon: Star,
-        iconColor: "text-blue-500",
-        badgeClass: "bg-gradient-to-r from-primary to-primary/80 text-white border-0",
-        features: [
-            "Everything in Free",
-            "More AI chat/day",
-            "AI categorization",
-            "Priority support",
+            "500 base transactions",
+            "+50 monthly bonus",
+            "10 receipt scans/month",
+            "10 AI chat/week",
+            "3 AI insights preview",
+            "1 custom category",
         ],
     },
     pro: {
@@ -72,12 +55,13 @@ export const PLAN_INFO: Record<PlanType, PlanInfo> = {
         iconColor: "text-primary",
         badgeClass: "bg-gradient-to-r from-primary to-primary/80 text-white border-0",
         features: [
-            "3,000 transactions",
-            "Unlimited receipt scans",
-            "Unlimited AI chat",
-            "AI insights & summaries",
-            "Unlimited categories",
-            "Export to CSV",
+            "1,500 base transactions",
+            "+250 monthly bonus",
+            "50 receipt scans/month",
+            "50 AI chat/week",
+            "Full AI insights",
+            "Advanced charts",
+            "10 custom categories",
         ],
     },
     max: {
@@ -88,12 +72,14 @@ export const PLAN_INFO: Record<PlanType, PlanInfo> = {
         iconColor: "text-amber-500",
         badgeClass: "bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0",
         features: [
-            "Unlimited transactions",
-            "Everything in PRO",
+            "5,000 base transactions",
+            "+750 monthly bonus",
+            "150 receipt scans/month",
+            "100 AI chat/week",
+            "Full AI insights",
+            "Advanced charts",
+            "25 custom categories",
             "Priority support",
-            "Early access",
-            "Sub-accounts (soon)",
-            "Custom API (soon)",
         ],
     },
 };

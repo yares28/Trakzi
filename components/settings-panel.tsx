@@ -19,6 +19,8 @@ import {
     IconExternalLink,
     IconX,
     IconCheck,
+    IconShoppingCart,
+    IconDatabase,
 } from "@tabler/icons-react"
 import {
     Dialog,
@@ -540,19 +542,49 @@ function LayoutSection() {
 }
 
 // ============ SUBSCRIPTION SECTION (INLINE WITH FULL FUNCTIONALITY) ============
+
+interface WalletData {
+    baseCapacity: number
+    monthlyBonusEarned: number
+    purchasedCapacity: number
+    monthlyAvailable: number
+    monthlyUsed: number
+    totalCapacity: number
+    used: number
+    remaining: number
+    plan: string
+}
+
+interface PackOption {
+    id: string
+    name: string
+    transactions: number
+    priceCents: number
+    currency: string
+    priceId: string | null
+}
+
 function SubscriptionSection() {
     const [status, setStatus] = React.useState<SubscriptionStatus | null>(null)
     const [isLoading, setIsLoading] = React.useState(true)
     const [isManaging, setIsManaging] = React.useState(false)
     const [billingPeriod, setBillingPeriod] = React.useState<"monthly" | "annual">("monthly")
+    const [walletData, setWalletData] = React.useState<WalletData | null>(null)
+    const [packs, setPacks] = React.useState<PackOption[]>([])
+    const [isBuyingPack, setIsBuyingPack] = React.useState(false)
 
-    // Fetch subscription status
+    // Fetch subscription status, wallet breakdown, and pack options
     React.useEffect(() => {
         const fetchStatus = async () => {
             try {
-                const response = await fetch("/api/subscription/me")
-                if (response.ok) {
-                    const data = await response.json()
+                const [subRes, walletRes, packsRes] = await Promise.all([
+                    fetch("/api/subscription/me"),
+                    fetch("/api/transactions/wallet"),
+                    fetch("/api/transactions/buy"),
+                ])
+
+                if (subRes.ok) {
+                    const data = await subRes.json()
                     setStatus({
                         plan: data.plan,
                         status: data.status,
@@ -561,7 +593,7 @@ function SubscriptionSection() {
                             bankTransactions: data.usage?.bank_transactions || 0,
                             fridgeItems: data.usage?.receipt_trips || 0,
                             totalTransactions: data.used_total || 0,
-                            transactionLimit: data.cap || 400,
+                            transactionLimit: data.cap || 300,
                             percentUsed: data.cap > 0 ? Math.round((data.used_total / data.cap) * 100) : 0,
                         },
                         subscription: {
@@ -569,6 +601,16 @@ function SubscriptionSection() {
                             cancelAtPeriodEnd: data.cancel_at_period_end,
                         },
                     })
+                }
+
+                if (walletRes.ok) {
+                    const walletJson = await walletRes.json()
+                    setWalletData(walletJson)
+                }
+
+                if (packsRes.ok) {
+                    const packsJson = await packsRes.json()
+                    setPacks(packsJson.packs || [])
                 }
             } catch (err) {
                 console.error("Failed to fetch subscription status:", err)
@@ -579,13 +621,39 @@ function SubscriptionSection() {
         fetchStatus()
     }, [])
 
+    const handleBuyPack = async (packId: string) => {
+        const pack = packs.find((p) => p.id === packId)
+        if (!pack?.priceId) {
+            toast.error("Pack unavailable. Please try again.")
+            return
+        }
+        setIsBuyingPack(true)
+        try {
+            const res = await fetch("/api/transactions/buy", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ priceId: pack.priceId }),
+            })
+            const data = await res.json()
+            if (data.url) {
+                const redirectUrl = new URL(data.url)
+                if (!redirectUrl.hostname.endsWith("stripe.com")) {
+                    throw new Error("Invalid checkout redirect URL")
+                }
+                window.location.href = data.url
+            } else {
+                toast.error(data.error || "Unable to start checkout")
+            }
+        } catch (err) {
+            console.error("Buy pack error:", err)
+            toast.error("Failed to start checkout")
+        } finally {
+            setIsBuyingPack(false)
+        }
+    }
+
     // Get price ID for a plan
     const getPriceIdForPlan = (plan: PlanType, period: "monthly" | "annual" = "monthly"): string | null => {
-        if (plan === 'basic') {
-            return period === 'annual'
-                ? process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_BASIC_ANNUAL || null
-                : process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_BASIC_MONTHLY || null
-        }
         if (plan === 'pro') {
             return period === 'annual'
                 ? process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_ANNUAL || null
@@ -636,7 +704,7 @@ function SubscriptionSection() {
                             bankTransactions: newData.usage?.bank_transactions || 0,
                             fridgeItems: newData.usage?.receipt_trips || 0,
                             totalTransactions: newData.used_total || 0,
-                            transactionLimit: newData.cap || 400,
+                            transactionLimit: newData.cap || 300,
                             percentUsed: newData.cap > 0 ? Math.round((newData.used_total / newData.cap) * 100) : 0,
                         },
                         subscription: {
@@ -693,7 +761,7 @@ function SubscriptionSection() {
                             bankTransactions: newData.usage?.bank_transactions || 0,
                             fridgeItems: newData.usage?.receipt_trips || 0,
                             totalTransactions: newData.used_total || 0,
-                            transactionLimit: newData.cap || 400,
+                            transactionLimit: newData.cap || 300,
                             percentUsed: newData.cap > 0 ? Math.round((newData.used_total / newData.cap) * 100) : 0,
                         },
                         subscription: {
@@ -740,7 +808,7 @@ function SubscriptionSection() {
                             bankTransactions: newData.usage?.bank_transactions || 0,
                             fridgeItems: newData.usage?.receipt_trips || 0,
                             totalTransactions: newData.used_total || 0,
-                            transactionLimit: newData.cap || 400,
+                            transactionLimit: newData.cap || 300,
                             percentUsed: newData.cap > 0 ? Math.round((newData.used_total / newData.cap) * 100) : 0,
                         },
                         subscription: {
@@ -782,7 +850,7 @@ function SubscriptionSection() {
                             bankTransactions: newData.usage?.bank_transactions || 0,
                             fridgeItems: newData.usage?.receipt_trips || 0,
                             totalTransactions: newData.used_total || 0,
-                            transactionLimit: newData.cap || 400,
+                            transactionLimit: newData.cap || 300,
                             percentUsed: newData.cap > 0 ? Math.round((newData.used_total / newData.cap) * 100) : 0,
                         },
                         subscription: {
@@ -825,7 +893,7 @@ function SubscriptionSection() {
     }
 
     // Order plans with current plan first
-    const allPlans: PlanType[] = ["free", "basic", "pro", "max"]
+    const allPlans: PlanType[] = ["free", "pro", "max"]
     const orderedPlans: PlanType[] = [status.plan, ...allPlans.filter((p) => p !== status.plan)]
 
     return (
@@ -840,6 +908,90 @@ function SubscriptionSection() {
                     </p>
                 )}
             </div>
+
+            {/* Transaction Wallet Breakdown */}
+            {walletData && (
+                <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <IconDatabase className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-medium">Transaction Wallet</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                            {walletData.remaining.toLocaleString()} remaining
+                        </span>
+                    </div>
+
+                    {/* Usage bar */}
+                    <div className="space-y-1">
+                        <div className="h-2 rounded-full bg-muted overflow-hidden">
+                            <div
+                                className="h-full rounded-full bg-primary transition-all"
+                                style={{
+                                    width: `${walletData.totalCapacity > 0
+                                        ? Math.min(100, Math.round((walletData.used / walletData.totalCapacity) * 100))
+                                        : 0}%`
+                                }}
+                            />
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>{walletData.used.toLocaleString()} used</span>
+                            <span>{walletData.totalCapacity.toLocaleString()} total</span>
+                        </div>
+                    </div>
+
+                    {/* Capacity breakdown */}
+                    <div className="space-y-1.5 text-xs">
+                        <div className="flex justify-between text-muted-foreground">
+                            <span>Base capacity</span>
+                            <span>{walletData.baseCapacity.toLocaleString()}</span>
+                        </div>
+                        {walletData.monthlyBonusEarned > 0 && (
+                            <div className="flex justify-between text-muted-foreground">
+                                <span>Rollover bonus</span>
+                                <span>+{walletData.monthlyBonusEarned.toLocaleString()}</span>
+                            </div>
+                        )}
+                        {walletData.purchasedCapacity > 0 && (
+                            <div className="flex justify-between text-muted-foreground">
+                                <span>Purchased packs</span>
+                                <span>+{walletData.purchasedCapacity.toLocaleString()}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between text-muted-foreground">
+                            <span>Monthly allotment</span>
+                            <span>+{walletData.monthlyAvailable.toLocaleString()}</span>
+                        </div>
+                    </div>
+
+                    {/* Buy more packs */}
+                    {packs.length > 0 && (
+                        <div className="pt-2 space-y-2">
+                            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                <IconShoppingCart className="h-3.5 w-3.5" />
+                                Buy Transaction Packs
+                            </p>
+                            <div className="grid grid-cols-3 gap-2">
+                                {packs.map((pack) => (
+                                    <button
+                                        key={pack.id}
+                                        onClick={() => handleBuyPack(pack.id)}
+                                        disabled={isBuyingPack}
+                                        className="flex flex-col items-center gap-0.5 rounded-lg border bg-background p-2 text-xs hover:border-primary hover:bg-primary/5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                    >
+                                        <span className="font-semibold">{pack.transactions.toLocaleString()}</span>
+                                        <span className="text-muted-foreground">txns</span>
+                                        <span className="text-primary font-medium">€{(pack.priceCents / 100).toFixed(0)}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                                One-time purchase · Permanent capacity · Never expires
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Billing Period Toggle */}
             <div className="flex justify-center">

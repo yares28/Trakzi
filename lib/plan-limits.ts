@@ -2,7 +2,7 @@
 // ============================================================================
 // CUSTOMIZE YOUR PLAN LIMITS HERE
 // ============================================================================
-// 
+//
 // Edit the values below to define what each plan gets access to.
 // Use `Infinity` for unlimited, `true`/`false` for feature toggles.
 //
@@ -13,19 +13,19 @@ import { PlanType } from './subscriptions';
 
 export interface PlanLimits {
     // -------------------------------------------------------------------------
-    // TOTAL TRANSACTIONS (LIFETIME CAP)
-    // Combines: bank statement transactions + fridge/receipt items
-    // This is a TOTAL cap on stored transactions, not per-month.
-    // Used when: User imports CSV, adds manual transaction, or scans receipt items
+    // TRANSACTION ECONOMY
+    // Base capacity = initial gift when signing up (monthly billing).
+    // Annual variant = higher gift for annual subscribers.
+    // Monthly transactions = renewable bonus slots per billing cycle.
     // -------------------------------------------------------------------------
     maxTotalTransactions: number;
+    maxTotalTransactionsAnnual: number;
+    monthlyTransactions: number;
 
     // -------------------------------------------------------------------------
     // RECEIPT SCANS
     // Number of receipt images user can upload/scan per month
     // Each scan can contain multiple items (which count toward total transactions)
-    // Used when: User uploads a receipt image for OCR processing
-    // Recommendation: Free 15-25, Pro 100-200, Max unlimited
     // -------------------------------------------------------------------------
     maxReceiptScansPerMonth: number;
 
@@ -33,62 +33,50 @@ export interface PlanLimits {
     // RECEIPT OCR
     // Whether AI can extract items from receipt images
     // If false, user can only manually enter receipt items
-    // Recommendation: Enable for all plans (it's a core feature)
     // -------------------------------------------------------------------------
     receiptOcrEnabled: boolean;
 
     // -------------------------------------------------------------------------
-    // AI CHAT
-    // Access to the AI financial assistant chat feature
-    // Used when: User opens /chat page and asks questions
-    // Recommendation: Free disabled or 3-5/day, Pro 30-50/day, Max unlimited
+    // AI CHAT (period-based rate limiting)
+    // aiChatMessages = max messages per period
+    // aiChatPeriod = 'week' for all plans
     // -------------------------------------------------------------------------
     aiChatEnabled: boolean;
-    aiChatMessagesPerDay: number;
+    aiChatMessages: number;
+    aiChatPeriod: 'day' | 'week' | 'month';
 
     // -------------------------------------------------------------------------
     // AI INSIGHTS
-    // AI-generated insights on dashboard and analytics (chart explanations, tips)
-    // Used when: Viewing charts, weekly summaries, financial health scores
-    // Recommendation: Free disabled, Pro/Max enabled (good upsell feature)
+    // aiInsightsEnabled = full access to AI insights
+    // aiInsightsFreePreviewCount = how many insights Free users can see (rest blurred)
+    //   0 = none visible, 3 = show 3 then blur rest
     // -------------------------------------------------------------------------
     aiInsightsEnabled: boolean;
+    aiInsightsFreePreviewCount: number;
 
     // -------------------------------------------------------------------------
     // AI CATEGORIZATION
     // AI auto-categorizes transactions when importing CSV
-    // If disabled, user must manually categorize each transaction
-    // Recommendation: Enable for all plans (reduces friction)
     // -------------------------------------------------------------------------
     aiCategorizationEnabled: boolean;
 
     // -------------------------------------------------------------------------
     // ADVANCED CHARTS
-    // Access to detailed analytics charts beyond basic ones
-    // Used when: Viewing /analytics page advanced visualizations
-    // Recommendation: Free enabled (shows value), or disable for upsell
+    // Access to detailed analytics charts beyond standard ones
+    // Free users see a blurred "Advanced" button
     // -------------------------------------------------------------------------
     advancedChartsEnabled: boolean;
 
     // -------------------------------------------------------------------------
-    // CUSTOM TRANSACTION CATEGORIES
-    // Extra categories user can create beyond the 21 default ones
-    // For bank transactions (Groceries, Shopping, etc.)
-    // Recommendation: Free 5-10, Pro 30-50, Max unlimited
+    // CUSTOM CATEGORIES
+    // Extra categories user can create beyond the defaults
     // -------------------------------------------------------------------------
     customTransactionCategoriesLimit: number;
-
-    // -------------------------------------------------------------------------
-    // CUSTOM FRIDGE CATEGORIES  
-    // Extra food categories user can create beyond the 28 default ones
-    // For receipt/fridge items (Meat, Dairy, Snacks, etc.)
-    // Recommendation: Free 5-10, Pro 30-50, Max unlimited
-    // -------------------------------------------------------------------------
     customFridgeCategoriesLimit: number;
 }
 
 // ============================================================================
-// PLAN CONFIGURATION - EDIT THESE VALUES!
+// PLAN CONFIGURATION
 // ============================================================================
 
 export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
@@ -97,69 +85,116 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     // FREE PLAN
     // =========================================================================
     free: {
-        maxTotalTransactions: 100,
+        maxTotalTransactions: 300,
+        maxTotalTransactionsAnnual: 300,        // Free has no annual variant
+        monthlyTransactions: 50,
         maxReceiptScansPerMonth: 10,
         receiptOcrEnabled: true,
-        aiChatEnabled: false,
-        aiChatMessagesPerDay: 0,
+        aiChatEnabled: true,
+        aiChatMessages: 10,
+        aiChatPeriod: 'week',
         aiInsightsEnabled: false,
-        aiCategorizationEnabled: false,
-        advancedChartsEnabled: false,
+        aiInsightsFreePreviewCount: 3,          // Show 3 insights, blur the rest
+        aiCategorizationEnabled: true,
+        advancedChartsEnabled: false,            // Blurred for free users
         customTransactionCategoriesLimit: 1,
         customFridgeCategoriesLimit: 1,
-    },
-
-    // =========================================================================
-    // BASIC PLAN
-    // =========================================================================
-    basic: {
-        maxTotalTransactions: 400,       // User will customize
-        maxReceiptScansPerMonth: 20,
-        receiptOcrEnabled: true,
-        aiChatEnabled: true,
-        aiChatMessagesPerDay: 1,
-        aiInsightsEnabled: false,
-        aiCategorizationEnabled: false,
-        advancedChartsEnabled: true,
-        customTransactionCategoriesLimit: 5,
-        customFridgeCategoriesLimit: 5,
     },
 
     // =========================================================================
     // PRO PLAN
     // =========================================================================
     pro: {
-        maxTotalTransactions: 3000,
+        maxTotalTransactions: 1500,
+        maxTotalTransactionsAnnual: 2000,        // +500 for annual subscribers
+        monthlyTransactions: 250,
         maxReceiptScansPerMonth: 50,
         receiptOcrEnabled: true,
         aiChatEnabled: true,
-        aiChatMessagesPerDay: 5,
+        aiChatMessages: 50,
+        aiChatPeriod: 'week',
         aiInsightsEnabled: true,
+        aiInsightsFreePreviewCount: 0,           // Full access
         aiCategorizationEnabled: true,
         advancedChartsEnabled: true,
-        customTransactionCategoriesLimit: 20,
-        customFridgeCategoriesLimit: 20,
+        customTransactionCategoriesLimit: 10,
+        customFridgeCategoriesLimit: 10,
     },
 
     // =========================================================================
     // MAX PLAN
     // =========================================================================
     max: {
-        maxTotalTransactions: 15000,
-        maxReceiptScansPerMonth: 100,
+        maxTotalTransactions: 5000,
+        maxTotalTransactionsAnnual: 6000,        // +1000 for annual subscribers
+        monthlyTransactions: 750,
+        maxReceiptScansPerMonth: 150,
         receiptOcrEnabled: true,
         aiChatEnabled: true,
-        aiChatMessagesPerDay: 20,
+        aiChatMessages: 100,
+        aiChatPeriod: 'week',
         aiInsightsEnabled: true,
+        aiInsightsFreePreviewCount: 0,           // Full access
         aiCategorizationEnabled: true,
         advancedChartsEnabled: true,
-        customTransactionCategoriesLimit: 50,
-        customFridgeCategoriesLimit: 50,
+        customTransactionCategoriesLimit: 25,
+        customFridgeCategoriesLimit: 25,
     },
 };
 
 // ============================================================================
-// HELPER FUNCTIONS (Don't edit below this line)
+// TRANSACTION PACK DEFINITIONS
+// ============================================================================
+
+export interface TransactionPack {
+    id: string;
+    name: string;
+    transactions: number;
+    priceCents: number;
+    currency: string;
+    stripePriceEnvKey: string;
+}
+
+export const TRANSACTION_PACKS: TransactionPack[] = [
+    {
+        id: 'pack_500',
+        name: 'Bundle 1',
+        transactions: 500,
+        priceCents: 1000,       // €10
+        currency: 'eur',
+        stripePriceEnvKey: 'STRIPE_PRICE_ID_TRANSACTION_PACK_500',
+    },
+    {
+        id: 'pack_1500',
+        name: 'Bundle 2',
+        transactions: 1500,
+        priceCents: 2000,       // €20
+        currency: 'eur',
+        stripePriceEnvKey: 'STRIPE_PRICE_ID_TRANSACTION_PACK_1500',
+    },
+    {
+        id: 'pack_5000',
+        name: 'Bundle 3',
+        transactions: 5000,
+        priceCents: 5000,       // €50
+        currency: 'eur',
+        stripePriceEnvKey: 'STRIPE_PRICE_ID_TRANSACTION_PACK_5000',
+    },
+];
+
+export function getTransactionPack(packId: string): TransactionPack | undefined {
+    return TRANSACTION_PACKS.find(p => p.id === packId);
+}
+
+export function getTransactionPackByPriceId(priceId: string): TransactionPack | undefined {
+    return TRANSACTION_PACKS.find(p => {
+        const envValue = process.env[p.stripePriceEnvKey];
+        return envValue === priceId;
+    });
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
 // ============================================================================
 
 export function getPlanLimits(plan: PlanType): PlanLimits {
@@ -177,7 +212,6 @@ export function isFeatureEnabled(plan: PlanType, feature: keyof PlanLimits): boo
 export function getPlanDisplayName(plan: PlanType): string {
     switch (plan) {
         case 'free': return 'Free';
-        case 'basic': return 'Basic';
         case 'pro': return 'Pro';
         case 'max': return 'Max';
         default: return 'Free';
@@ -185,26 +219,31 @@ export function getPlanDisplayName(plan: PlanType): string {
 }
 
 export function needsUpgrade(currentPlan: PlanType, requiredPlan: PlanType): boolean {
-    const planOrder: PlanType[] = ['free', 'basic', 'pro', 'max'];
+    const planOrder: PlanType[] = ['free', 'pro', 'max'];
     return planOrder.indexOf(currentPlan) < planOrder.indexOf(requiredPlan);
 }
 
 /**
- * Get the next plan that would increase transaction capacity
+ * Get the plans that would be an upgrade from the current plan
  */
 export function getUpgradePlans(currentPlan: PlanType): PlanType[] {
-    const currentCap = PLAN_LIMITS[currentPlan].maxTotalTransactions;
     const upgrades: PlanType[] = [];
 
     if (currentPlan === 'free') {
-        upgrades.push('basic', 'pro', 'max');
-    } else if (currentPlan === 'basic') {
         upgrades.push('pro', 'max');
     } else if (currentPlan === 'pro') {
-        if (PLAN_LIMITS.max.maxTotalTransactions > currentCap) {
-            upgrades.push('max');
-        }
+        upgrades.push('max');
     }
 
     return upgrades;
+}
+
+/**
+ * Get the base capacity for a plan considering billing interval
+ */
+export function getBaseCapacity(plan: PlanType, billingInterval: 'monthly' | 'annual' = 'monthly'): number {
+    const limits = getPlanLimits(plan);
+    return billingInterval === 'annual'
+        ? limits.maxTotalTransactionsAnnual
+        : limits.maxTotalTransactions;
 }

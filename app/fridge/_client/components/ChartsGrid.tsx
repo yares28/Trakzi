@@ -18,6 +18,8 @@ import { ChartPurchaseSizeComparisonFridge } from "@/components/fridge/chart-pur
 import { ChartShoppingHeatmapHoursDaysFridge } from "@/components/fridge/chart-shopping-heatmap-hours-days-fridge"
 import { ChartShoppingHeatmapDaysMonthsFridge } from "@/components/fridge/chart-shopping-heatmap-days-months-fridge"
 import { ChartTreeMapFridge } from "@/components/fridge/chart-treemap-fridge"
+import { PageEmptyState, FRIDGE_EMPTY_STATE } from "@/components/page-empty-state"
+import { CollapsedChartCard } from "@/components/collapsed-chart-card"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 
 import type { ReceiptTransactionRow, FridgeChartId } from "../types"
@@ -33,6 +35,7 @@ type ChartsGridProps = {
   receiptTransactions: ReceiptTransactionRow[]
   dateFilter: string | null
   isLoading: boolean
+  isError?: boolean
 }
 
 export function ChartsGrid({
@@ -44,6 +47,7 @@ export function ChartsGrid({
   receiptTransactions,
   dateFilter,
   isLoading,
+  isError = false,
 }: ChartsGridProps) {
   const handleOrderChange = (newOrder: string[]) => {
     onOrderChange(newOrder as FridgeChartId[])
@@ -74,6 +78,12 @@ export function ChartsGrid({
     groceryShoppingHeatmapDaysMonths: "Shopping Heatmap (Days/Months)",
     groceryNetWorthAllocation: "Grocery Allocation",
   }
+
+  const { chartDataStatusMap, pageHasAnyData } = chartData
+
+  // ── Page-level empty state flags ────────────────────────────────────
+  const showPageEmptyState = !isLoading && !pageHasAnyData && !isError
+  const showErrorState = !isLoading && isError
 
   const renderChart = (chartId: FridgeChartId) => {
     switch (chartId) {
@@ -117,6 +127,7 @@ export function ChartsGrid({
           <ChartDailyActivityFridge
             receiptTransactions={receiptTransactions}
             dailySpendingData={chartData.dailySpendingData}
+            dateFilter={dateFilter}
             isLoading={isLoading}
           />
         )
@@ -206,6 +217,25 @@ export function ChartsGrid({
 
   return (
     <div className="w-full mb-4">
+      {showPageEmptyState && (
+        <div className="px-4 lg:px-6">
+          <PageEmptyState
+            icon={FRIDGE_EMPTY_STATE.icon}
+            title={FRIDGE_EMPTY_STATE.title}
+            description={FRIDGE_EMPTY_STATE.description}
+          />
+        </div>
+      )}
+
+      {showErrorState && (
+        <div className="px-4 lg:px-6">
+          <PageEmptyState
+            title="Unable to load charts"
+            description="Something went wrong fetching your grocery data. Please refresh the page."
+          />
+        </div>
+      )}
+
       <SortableGridProvider
         chartOrder={chartOrder}
         onOrderChange={handleOrderChange}
@@ -216,6 +246,21 @@ export function ChartsGrid({
           const sizeConfig = getChartCardSize(FRIDGE_CHART_TO_ANALYTICS_CHART[chartId] as ChartId)
           // Above-fold: first 5 charts load immediately (rootMargin="0px") for snappier LCP
           const rootMargin = index < 5 ? "0px" : "200px"
+
+          // ── Per-chart empty state logic ──────────────────────────────────
+          const analyticsChartId = FRIDGE_CHART_TO_ANALYTICS_CHART[chartId] as ChartId
+          const chartStatus = chartDataStatusMap[chartId]
+
+          if (!isLoading && chartStatus === "empty") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={6} h={1}>
+                <CollapsedChartCard
+                  chartId={analyticsChartId}
+                  chartTitle={chartTitles[chartId]}
+                />
+              </SortableGridItem>
+            )
+          }
 
           return (
             <SortableGridItem

@@ -14,11 +14,12 @@ const isPublicRoute = createRouteMatcher([
   '/api/webhooks(.*)',
 ])
 
-// Public API routes that don't require authentication (webhooks, health checks)
+// Public API routes that don't require authentication (webhooks, health checks, demo)
 const isPublicApiRoute = createRouteMatcher([
   '/api/webhook/(.*)',
   '/api/webhooks/(.*)',
   '/api/health(.*)',
+  '/api/demo/(.*)',
 ])
 
 // Protected routes that require authentication
@@ -68,10 +69,15 @@ export default clerkMiddleware(async (auth, req) => {
   }
 
   // If user is not signed in and trying to access protected routes, redirect to sign-in
+  // Exception: demo mode users (identified by cookie) can access pages without auth
   if (!userId && isProtectedRoute(req)) {
-    const signInUrl = new URL('/sign-in', req.url)
-    signInUrl.searchParams.set('redirect_url', path)
-    return NextResponse.redirect(signInUrl)
+    const cookieHeader = req.headers.get('cookie')
+    const isDemoMode = cookieHeader?.includes('trakzi-demo-mode=true')
+    if (!isDemoMode) {
+      const signInUrl = new URL('/sign-in', req.url)
+      signInUrl.searchParams.set('redirect_url', path)
+      return NextResponse.redirect(signInUrl)
+    }
   }
 
   return NextResponse.next()

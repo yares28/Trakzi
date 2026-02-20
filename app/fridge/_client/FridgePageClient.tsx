@@ -33,7 +33,7 @@ type FridgeViewMode = "fridge" | "advanced" | "trends"
 export function FridgePageClient() {
   const { user, isLoaded: isUserLoaded } = useUser()
   const { filter: dateFilter } = useDateFilter()
-  const { data: bundleData, isLoading: bundleLoading, refetch: refetchBundle } = useFridgeBundleData()
+  const { data: bundleData, isLoading: bundleLoading, isError: bundleError, refetch: refetchBundle } = useFridgeBundleData()
 
   const [receiptsRefreshNonce, setReceiptsRefreshNonce] = useState(0)
   const [limitExceededData, setLimitExceededData] = useState<TransactionLimitExceededData | null>(null)
@@ -246,6 +246,7 @@ export function FridgePageClient() {
                 receiptTransactions={receiptTransactions}
                 dateFilter={dateFilter}
                 isLoading={isChartsLoading}
+                isError={bundleError}
               />
 
               <ReceiptsTable

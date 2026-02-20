@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useTransactionDialog } from "@/components/transaction-dialog-provider"
 import { toast } from "sonner"
 import { normalizeTransactions } from "@/lib/utils"
+import { demoFetch } from "@/lib/demo/demo-fetch"
 
 import type { HomeTransaction } from "../types"
 
@@ -24,7 +25,7 @@ export function useHomeData({ dateFilter }: UseHomeDataOptions) {
         const url = dateFilter
           ? `/api/transactions?all=true&filter=${encodeURIComponent(dateFilter)}`
           : "/api/transactions?all=true"
-        const response = await fetch(url, {
+        const response = await demoFetch(url, {
           cache: bypassCache ? "no-store" : "default",
           headers: bypassCache ? { "Cache-Control": "no-cache" } : undefined,
         })

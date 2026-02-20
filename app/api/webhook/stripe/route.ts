@@ -5,9 +5,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import Stripe from 'stripe';
 import { clerkClient } from '@clerk/nextjs/server';
-import { getStripe, getPlanFromPriceId } from '@/lib/stripe';
+import { getStripe, getPlanFromPriceId, isTransactionPackPriceId } from '@/lib/stripe';
 import { upsertSubscription, getSubscriptionByStripeCustomerId, mapStripeStatus } from '@/lib/subscriptions';
-import { enforceTransactionCap, getTransactionCap } from '@/lib/limits/transactions-cap';
+import { getTransactionPackByPriceId } from '@/lib/plan-limits';
+import { syncWalletForPlan, addPurchasedCapacity } from '@/lib/limits/transaction-wallet';
 import {
     isEventProcessed,
     markEventAsProcessing,
@@ -232,17 +233,12 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     const customerId = typeof session.customer === 'string'
         ? session.customer
         : session.customer?.id;
-    const subscriptionId = typeof session.subscription === 'string'
-        ? session.subscription
-        : session.subscription?.id;
 
     if (!userId) {
         console.error('[Webhook] No userId in checkout session metadata', {
             sessionId: session.id,
             customerId,
-            subscriptionId,
         });
-        // Store for manual review - don't throw, but log extensively
         return;
     }
 
@@ -253,6 +249,31 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         });
         return;
     }
+
+    // ── Transaction Pack Purchase (one-time payment) ──────────────────────────
+    if (session.metadata?.purchase_type === 'transaction_pack') {
+        const packId = session.metadata.pack_id;
+        const packTransactions = parseInt(session.metadata.pack_transactions || '0', 10);
+
+        if (!packId || packTransactions <= 0) {
+            console.error('[Webhook] Invalid transaction pack metadata', {
+                sessionId: session.id,
+                userId,
+                packId,
+                packTransactions,
+            });
+            return;
+        }
+
+        await addPurchasedCapacity(userId, packTransactions);
+        console.log(`[Webhook] Added ${packTransactions} purchased transactions for user ${userId} (pack: ${packId})`);
+        return;
+    }
+
+    // ── Subscription Purchase ─────────────────────────────────────────────────
+    const subscriptionId = typeof session.subscription === 'string'
+        ? session.subscription
+        : session.subscription?.id;
 
     if (!subscriptionId) {
         console.error('[Webhook] No subscription ID in checkout session', {
@@ -265,53 +286,38 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
     console.log(`[Webhook] Checkout completed for user ${userId}`);
 
-    // Get subscription details from Stripe
     const stripe = getStripe();
     const subscriptionResponse = await stripe.subscriptions.retrieve(subscriptionId);
-    // Use our interface type for proper typing
     const subscription = subscriptionResponse as unknown as StripeSubscriptionData;
 
-    // Validate subscription has items
     if (!subscription.items?.data || subscription.items.data.length === 0) {
-        console.error('[Webhook] Subscription has no items', {
-            subscriptionId,
-            customerId,
-            userId,
-        });
+        console.error('[Webhook] Subscription has no items', { subscriptionId, customerId, userId });
         return;
     }
 
     const priceId = subscription.items.data[0]?.price.id;
 
     if (!priceId) {
-        console.error('[Webhook] Subscription item has no price ID', {
-            subscriptionId,
-            customerId,
-            userId,
-        });
+        console.error('[Webhook] Subscription item has no price ID', { subscriptionId, customerId, userId });
         return;
     }
 
     const plan = getPlanFromPriceId(priceId);
 
-    // Validate plan mapping (should not be 'free' for paid subscriptions)
     if (plan === 'free' && priceId) {
         console.error('[Webhook] Price ID maps to free plan unexpectedly', {
-            priceId,
-            subscriptionId,
-            customerId,
-            userId,
+            priceId, subscriptionId, customerId, userId,
         });
-        // Don't process - this indicates a configuration error
         return;
     }
 
     const periodEnd = safeTimestampToDate(subscription.current_period_end);
+    const periodStart = periodEnd ? new Date(periodEnd.getTime() - 31 * 24 * 60 * 60 * 1000) : new Date();
 
     await upsertSubscription({
         userId,
         plan,
-        status: 'active', // Always active, no trial
+        status: 'active',
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscriptionId,
         stripePriceId: priceId,
@@ -319,9 +325,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
     });
 
-    // Sync to Clerk - always 'active' (no trial)
-    await syncSubscriptionToClerk(userId, plan, 'active', customerId, periodEnd);
+    // Sync wallet — sets base_capacity, resets monthly period
+    await syncWalletForPlan(userId, plan, periodStart);
 
+    await syncSubscriptionToClerk(userId, plan, 'active', customerId, periodEnd);
     console.log(`[Webhook] Subscription created for user ${userId}, plan: ${plan}`);
 }
 
@@ -466,14 +473,12 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
                 pendingPlan: null, // Clear any pending plan
             });
 
-            // If downgrade was just applied, enforce cap by deleting oldest transactions
+                // Sync wallet for plan change or renewal (sets new base, resets monthly period)
+            const periodStart = periodEnd ? new Date(periodEnd.getTime() - 31 * 24 * 60 * 60 * 1000) : new Date();
+            await syncWalletForPlan(userId, newPlan, periodStart);
+
             if (isPendingDowngradeApplied || isDowngrade) {
-                const newCap = getTransactionCap(newPlan);
-                console.log(`[Webhook] Downgrade applied to ${newPlan}, enforcing cap of ${newCap}`);
-                const result = await enforceTransactionCap(userId, newCap);
-                if (result.deleted > 0) {
-                    console.log(`[Webhook] Auto-deleted ${result.deleted} transactions for user ${userId} to fit ${newPlan} cap`);
-                }
+                console.log(`[Webhook] Downgrade applied to ${newPlan} for user ${userId} — wallet synced, writes blocked when over capacity`);
             }
 
             // Sync to Clerk
@@ -517,18 +522,10 @@ async function handleSubscriptionDeleted(subscription: StripeSubscriptionData) {
             currentPeriodEnd: periodEnd ?? undefined,
         });
 
-        // CRITICAL: Enforce transaction cap when downgrading to free plan
-        // Only enforce if downgrading from paid plan (prevents double deletion)
+        // Sync wallet to free plan — blocks new writes if over capacity, no auto-delete
         if (isDowngradingToFree) {
-            const freePlanCap = getTransactionCap('free');
-            console.log(`[Webhook] Subscription canceled - enforcing free plan cap of ${freePlanCap} for user ${userId} (downgrading from ${currentPlan})`);
-            const capResult = await enforceTransactionCap(userId, freePlanCap);
-
-            if (capResult.deleted > 0) {
-                console.log(`[Webhook] Auto-deleted ${capResult.deleted} oldest transactions for user ${userId} to fit free plan cap`);
-            }
-        } else {
-            console.log(`[Webhook] Subscription canceled but user already on free plan, skipping cap enforcement`);
+            await syncWalletForPlan(userId, 'free', new Date());
+            console.log(`[Webhook] Subscription canceled — wallet synced to free plan for user ${userId} (was: ${currentPlan})`);
         }
 
         // Sync to Clerk - mark as canceled/free
@@ -656,18 +653,10 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
         currentPeriodEnd: new Date(), // Access ends immediately on refund
     });
 
-    // CRITICAL: Enforce transaction cap when downgrading to free plan
-    // Only enforce if downgrading from paid plan (prevents double deletion)
+    // Sync wallet to free plan — blocks new writes if over capacity, no auto-delete
     if (isDowngradingToFree) {
-        const freePlanCap = getTransactionCap('free');
-        console.log(`[Webhook] Subscription canceled due to refund - enforcing free plan cap of ${freePlanCap} for user ${userId} (downgrading from ${currentPlan})`);
-        const capResult = await enforceTransactionCap(userId, freePlanCap);
-
-        if (capResult.deleted > 0) {
-            console.log(`[Webhook] Auto-deleted ${capResult.deleted} oldest transactions for user ${userId} to fit free plan cap`);
-        }
-    } else {
-        console.log(`[Webhook] Subscription canceled due to refund but user already on free plan, skipping cap enforcement`);
+        await syncWalletForPlan(userId, 'free', new Date());
+        console.log(`[Webhook] Refund: wallet synced to free plan for user ${userId} (was: ${currentPlan})`);
     }
 
     // Sync to Clerk - mark as canceled/free with refund flag

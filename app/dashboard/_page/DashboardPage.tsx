@@ -39,6 +39,7 @@ import {
 } from "./score-style";
 import { getCardIcon, getIconForTip, IconLightbulb } from "./icons";
 import type { DashboardStats, ScoreInsight } from "./types";
+import { demoFetch } from "@/lib/demo/demo-fetch";
 export default function DashboardPage() {
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -51,7 +52,7 @@ export default function DashboardPage() {
         async function fetchDashboardStats() {
             try {
                 setIsLoading(true);
-                const response = await fetch("/api/dashboard-stats");
+                const response = await demoFetch("/api/dashboard-stats");
                 if (!response.ok) {
                     throw new Error("Failed to fetch dashboard stats");
                 }

@@ -64,9 +64,8 @@ export const ChartRadar = memo(function ChartRadar({
   const { resolvedTheme } = useTheme()
   const { getShuffledPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
-  const financialHealthUrl = dateFilter
-    ? `/api/financial-health?filter=${encodeURIComponent(dateFilter)}`
-    : "/api/financial-health"
+  // Always fetch full annual data, ignoring the global date filter
+  const financialHealthUrl = "/api/financial-health"
   const cachedFinancialHealth = getCachedResponse<FinancialHealthResponse>(
     financialHealthUrl,
   )
@@ -90,9 +89,8 @@ export const ChartRadar = memo(function ChartRadar({
     let isMounted = true
 
     async function loadNeonData() {
-      const url = dateFilter
-        ? `/api/financial-health?filter=${encodeURIComponent(dateFilter)}`
-        : "/api/financial-health"
+      // Always fetch full annual data, ignoring the global date filter
+      const url = "/api/financial-health"
       const cached = getCachedResponse<FinancialHealthResponse>(url)
       if (cached) {
         if (isMounted) {
@@ -121,12 +119,6 @@ export const ChartRadar = memo(function ChartRadar({
           throw new Error("Unexpected response shape: payload.years is not an array")
         }
         if (isMounted) {
-          console.log("[ChartRadar] Received payload:", {
-            dataLength: payload.data?.length || 0,
-            yearsLength: payload.years?.length || 0,
-            sampleData: payload.data?.[0],
-            years: payload.years
-          })
           setChartData(payload.data as RadarDatum[])
           setYearSummaries(payload.years as FinancialHealthYearSummary[])
 
@@ -136,8 +128,6 @@ export const ChartRadar = memo(function ChartRadar({
               dataLength: payload.data.length,
               yearsLength: payload.years.length
             })
-            // This is a valid response indicating no data - don't set error, just empty state
-            // The component will handle this in the render logic
           }
         }
       } catch (err) {
@@ -159,7 +149,7 @@ export const ChartRadar = memo(function ChartRadar({
     return () => {
       isMounted = false
     }
-  }, [dateFilter])
+  }, [])
 
   const sanitizedData = useMemo(() => {
     if (!chartData || chartData.length === 0) return []

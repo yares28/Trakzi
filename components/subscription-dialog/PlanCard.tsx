@@ -34,7 +34,7 @@ export function PlanCard({
     const info = PLAN_INFO[plan];
     const displayPrice = billingPeriod === "annual" ? info.annualPrice : info.price;
 
-    const planOrder: PlanType[] = ["free", "basic", "pro", "max"];
+    const planOrder: PlanType[] = ["free", "pro", "max"];
     const currentIndex = planOrder.indexOf(currentUserPlan);
     const thisIndex = planOrder.indexOf(plan);
     const isUpgrade = thisIndex > currentIndex;
@@ -52,9 +52,6 @@ export function PlanCard({
             )}
 
             {/* Glow effect based on plan tier */}
-            {plan === "basic" && (
-                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 opacity-10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
-            )}
             {plan === "pro" && (
                 <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-orange-400 to-orange-600 opacity-10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
             )}

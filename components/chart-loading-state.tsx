@@ -18,6 +18,8 @@ interface ChartLoadingStateProps {
   skeletonType?: ChartSkeletonType
   /** Maximum loading time in ms before transitioning to empty state (default: 15000) */
   maxLoadingTime?: number
+  /** When true, shows an enhanced "Waiting for data" empty state for favorited charts */
+  isFavorite?: boolean
 }
 
 export function ChartLoadingState({
@@ -28,7 +30,8 @@ export function ChartLoadingState({
   emptyIcon = "chart",
   height = "h-full",
   skeletonType = "bar",
-  maxLoadingTime = 15000
+  maxLoadingTime = 15000,
+  isFavorite = false,
 }: ChartLoadingStateProps) {
   const [timedOut, setTimedOut] = useState(false)
   const [showContent, setShowContent] = useState(!isLoading)
@@ -88,6 +91,17 @@ export function ChartLoadingState({
     )
   }
 
+  // Enhanced empty state for favorited charts — more prominent "waiting" look
+  if (isFavorite) {
+    return (
+      <FavoriteEmptyState
+        emptyIcon={emptyIcon}
+        height={height}
+        className={cn(showContent && "chart-content-enter", className)}
+      />
+    )
+  }
+
   // Empty state with optional fade-in animation
   return (
     <EmptyState
@@ -133,6 +147,40 @@ function EmptyState({
       </p>
       <p className="text-xs text-muted-foreground max-w-[200px]">
         {emptyDescription}
+      </p>
+    </div>
+  )
+}
+
+/**
+ * Enhanced empty state for favorited charts — uses primary tint to signal "waiting for data".
+ */
+function FavoriteEmptyState({
+  emptyIcon,
+  height,
+  className,
+}: {
+  emptyIcon: "chart" | "upload" | "receipt" | "info"
+  height: string
+  className?: string
+}) {
+  const IconComponent = {
+    chart: ChartLine,
+    upload: FileUp,
+    receipt: Receipt,
+    info: Info,
+  }[emptyIcon]
+
+  return (
+    <div className={cn("flex flex-col items-center justify-center text-center px-4 w-full", height, className)}>
+      <div className="p-3 rounded-full bg-primary/10 mb-3">
+        <IconComponent className="h-6 w-6 text-primary/60" />
+      </div>
+      <p className="text-sm font-medium text-foreground mb-1">
+        Waiting for data
+      </p>
+      <p className="text-xs text-muted-foreground max-w-[200px]">
+        Import statements to populate this chart
       </p>
     </div>
   )

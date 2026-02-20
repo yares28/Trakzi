@@ -386,7 +386,8 @@ export const ContributionGraphCalendar = ({
       {...props}
     >
       <svg
-        className="block w-full overflow-visible p-[5px]"
+        className="block overflow-visible p-[5px]"
+        width={width}
         viewBox={`0 0 ${width} ${viewBoxHeight}`}
         preserveAspectRatio="xMidYMid meet"
       >
@@ -461,8 +462,8 @@ export const ContributionGraphTotalCount = ({
     <div className={cn("text-muted-foreground", className)} {...props}>
       {labels.totalCount
         ? labels.totalCount
-            .replace("{{count}}", String(totalCount))
-            .replace("{{year}}", String(year))
+          .replace("{{count}}", String(totalCount))
+          .replace("{{year}}", String(year))
         : `${totalCount} activities in ${year}`}
     </div>
   );

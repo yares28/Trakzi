@@ -3,8 +3,16 @@
 
 import { neonQuery } from './neonClient';
 
-export type PlanType = 'free' | 'basic' | 'pro' | 'max';
+export type PlanType = 'free' | 'pro' | 'max';
 export type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'paused';
+
+const VALID_PLANS: readonly PlanType[] = ['free', 'pro', 'max'];
+
+/** Sanitize a raw plan string from the DB — falls back to 'free' if unrecognized */
+function sanitizePlan(plan: string | null | undefined): PlanType {
+    if (plan && (VALID_PLANS as readonly string[]).includes(plan)) return plan as PlanType;
+    return 'free';
+}
 
 export interface Subscription {
     id: string;
@@ -42,7 +50,7 @@ function rowToSubscription(row: SubscriptionRow): Subscription {
     return {
         id: row.id,
         userId: row.user_id,
-        plan: (row.plan || 'free') as PlanType,
+        plan: sanitizePlan(row.plan),
         status: (row.status || 'active') as SubscriptionStatus,
         stripeCustomerId: row.stripe_customer_id,
         stripeSubscriptionId: row.stripe_subscription_id,
@@ -50,7 +58,7 @@ function rowToSubscription(row: SubscriptionRow): Subscription {
         currentPeriodEnd: row.current_period_end ? new Date(row.current_period_end) : null,
         cancelAtPeriodEnd: row.cancel_at_period_end ?? false,
         isLifetime: row.is_lifetime ?? false,
-        pendingPlan: row.pending_plan ? (row.pending_plan as PlanType) : null,
+        pendingPlan: row.pending_plan ? sanitizePlan(row.pending_plan) : null,
         createdAt: new Date(row.created_at),
         updatedAt: new Date(row.updated_at),
     };

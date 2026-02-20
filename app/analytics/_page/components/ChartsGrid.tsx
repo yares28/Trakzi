@@ -33,6 +33,9 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
+import { PageEmptyState, ANALYTICS_EMPTY_STATE, ANALYTICS_EMPTY_PERIOD_STATE } from "@/components/page-empty-state"
+import { CollapsedChartCard } from "@/components/collapsed-chart-card"
+
 
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { safeCapture } from "@/lib/posthog-safe"
@@ -58,6 +61,30 @@ type ChartsGridProps = {
   ringLimits: Record<string, number>
   setRingLimits: Dispatch<SetStateAction<Record<string, number>>>
   chartData: AnalyticsChartData
+  isError?: boolean
+}
+
+/** Human-readable titles for each chart — used by collapsed cards */
+const CHART_TITLES: Record<string, string> = {
+  transactionHistory: "Transaction History",
+  dayOfWeekSpending: "Day of Week Spending",
+  allMonthsCategorySpending: "All Months Category Spending",
+  incomeExpensesTracking1: "Income & Expenses Cumulative",
+  incomeExpensesTracking2: "Income & Expenses",
+  spendingCategoryRankings: "Spending Category Rankings",
+  netWorthAllocation: "Net Worth Allocation",
+  moneyFlow: "Money Flow",
+  expenseBreakdown: "Expense Breakdown",
+  needsWantsBreakdown: "Needs vs Wants",
+  categoryBubbleMap: "Category Bubble Map",
+  householdSpendMix: "Household Spend Mix",
+  financialHealthScore: "Financial Health Score",
+  spendingActivityRings: "Spending Activity Rings",
+  spendingStreamgraph: "Spending Streamgraph",
+  singleMonthCategorySpending: "Single Month Category",
+  dayOfWeekCategory: "Day of Week Category",
+  dailyTransactionActivity: "Daily Transaction Activity",
+  cashFlowSankey: "Cash Flow Sankey",
 }
 
 export function ChartsGrid({
@@ -73,6 +100,7 @@ export function ChartsGrid({
   ringLimits,
   setRingLimits,
   chartData,
+  isError = false,
 }: ChartsGridProps) {
   const {
     activityConfig,
@@ -83,6 +111,7 @@ export function ChartsGrid({
     circlePackingData,
     categoryFlowChart,
     categoryFlowControls,
+    chartDataStatusMap,
     dayOfWeekSpendingControls,
     expensesPieControls,
     expensesPieData,
@@ -94,6 +123,7 @@ export function ChartsGrid({
     monthOfYearSpendingControls,
     needsWantsControls,
     needsWantsPieData,
+    pageHasAnyData,
     polarBarControls,
     polarBarData,
     sankeyControls,
@@ -124,8 +154,8 @@ export function ChartsGrid({
     effectiveDateFilter,
     isMobile,
   )
-  const dailyActivityPreferredH = dailyActivityDisplayMode === "dual" ? 8 : 5
-  const dailyActivityPreferredMobileH = dailyActivityDisplayMode === "dual" ? 8 : 5
+  const dailyActivityPreferredH = dailyActivityDisplayMode === "dual" ? 10 : 7
+  const dailyActivityPreferredMobileH = dailyActivityDisplayMode === "dual" ? 10 : 7
 
   const [ringCategoryPopoverIndex, setRingCategoryPopoverIndex] = useState<number | null>(null)
   const [ringCategoryPopoverValue, setRingCategoryPopoverValue] = useState<string | null>(null)
@@ -203,8 +233,31 @@ export function ChartsGrid({
     )
   })
 
+  // ── Page-level empty state ──────────────────────────────────────────
+  const isStillLoading = bundleLoading || isLoadingTransactions
+  const showPageEmptyState = !isStillLoading && !pageHasAnyData && !isError
+  const showErrorState = !isStillLoading && isError
+
+  const emptyConfig = hasDataInOtherPeriods
+    ? ANALYTICS_EMPTY_PERIOD_STATE
+    : ANALYTICS_EMPTY_STATE
+
   return (
     <div className="w-full mb-4 px-4 lg:px-6">
+      {showPageEmptyState && (
+        <PageEmptyState
+          icon={emptyConfig.icon}
+          title={emptyConfig.title}
+          description={emptyConfig.description}
+        />
+      )}
+
+      {showErrorState && (
+        <PageEmptyState
+          title="Unable to load charts"
+          description="Something went wrong fetching your data. Please refresh the page."
+        />
+      )}
       <SortableGridProvider
         chartOrder={analyticsChartOrder}
         onOrderChange={handleChartOrderChange}
@@ -221,6 +274,20 @@ export function ChartsGrid({
           // Saved sizes will be applied by GridStack after mount via load() method
           const initialW = defaultSize.w
           const initialH = defaultSize.h
+
+          // ── Per-chart empty state logic ──────────────────────────────────
+          const chartStatus = chartDataStatusMap[chartId]
+
+          if (!isStillLoading && chartStatus === "empty") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={6} h={1}>
+                <CollapsedChartCard
+                  chartId={chartId}
+                  chartTitle={CHART_TITLES[chartId] || chartId}
+                />
+              </SortableGridItem>
+            )
+          }
 
           if (chartId === "transactionHistory") {
             return (
@@ -345,17 +412,15 @@ export function ChartsGrid({
           if (chartId === "netWorthAllocation") {
             return (
               <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                <LazyChart title="Net Worth Allocation" height={250}>
-                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                    <ChartTreeMap
-                      categoryControls={treeMapControls}
-                      data={treeMapData}
-                      isLoading={isLoadingTransactions}
-                      emptyTitle={emptyTitle}
-                      emptyDescription={emptyDescription}
-                    />
-                  </div>
-                </LazyChart>
+                <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                  <ChartTreeMap
+                    categoryControls={treeMapControls}
+                    data={treeMapData}
+                    isLoading={bundleLoading}
+                    emptyTitle={emptyTitle}
+                    emptyDescription={emptyDescription}
+                  />
+                </div>
               </SortableGridItem>
             )
           }
@@ -793,7 +858,7 @@ export function ChartsGrid({
             // Use saved height when set so resize sticks; preferred height as initial. Allow minH 5 so user can resize down to single-chart size.
             const dailyActivityH = savedSizes[chartId]?.h ?? dailyActivityPreferredH
             const dailyActivityMobileH = savedSizes[chartId]?.h ?? dailyActivityPreferredMobileH
-            const dailyActivityMinH = Math.min(5, sizeConfig.minH)
+            const dailyActivityMinH = Math.min(8, sizeConfig.minH)
             return (
               <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={dailyActivityH} mobileH={dailyActivityMobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={dailyActivityMinH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
                 <LazyChart title="Daily Transaction Activity" height={250}>

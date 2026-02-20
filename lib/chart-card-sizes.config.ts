@@ -246,7 +246,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 8,
     maxH: 20,
-    mobileH: 6,
+    mobileH: 4,
   },
 
   // Day of Week Spending - Bar chart
@@ -370,9 +370,9 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
   "fridge:dailyActivity": {
     minW: 6,
     maxW: 12,
-    minH: 6,
+    minH: 7,
     maxH: 20,
-    mobileH: 5,
+    mobileH: 4,
   },
 
   // Fridge: Day of Week Category Spending - Heatmap

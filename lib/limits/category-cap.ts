@@ -4,9 +4,9 @@
 // ============================================================================
 //
 // This module enforces category limits based on user subscription plans.
-// - Free: 5 transaction categories, 5 receipt categories
-// - Pro: 20 transaction categories, 20 receipt categories
-// - Max: 100 transaction categories, 100 receipt categories
+// - Free: 1 transaction category, 1 receipt category
+// - Pro: 10 transaction categories, 10 receipt categories
+// - Max: 25 transaction categories, 25 receipt categories
 //
 // Default/system categories (is_default = true or canonical default name) do NOT count toward limits.
 // ============================================================================
@@ -38,13 +38,13 @@ export interface CategoryCapacity {
 export function getCategoryCap(plan: PlanType): { transactions: number; receipts: number } {
     switch (plan) {
         case 'free':
-            return { transactions: 5, receipts: 5 };
+            return { transactions: 1, receipts: 1 };
         case 'pro':
-            return { transactions: 20, receipts: 20 };
+            return { transactions: 10, receipts: 10 };
         case 'max':
-            return { transactions: 100, receipts: 100 };
+            return { transactions: 25, receipts: 25 };
         default:
-            return { transactions: 5, receipts: 5 };
+            return { transactions: 1, receipts: 1 };
     }
 }
 
