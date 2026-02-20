@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
-import { MOCK_ANALYTICS_BUNDLE } from '@/lib/demo/mock-data'
+import { buildFilteredAnalyticsBundle } from '@/lib/demo/mock-data'
 
-export async function GET() {
-    return NextResponse.json(MOCK_ANALYTICS_BUNDLE)
+export async function GET(req: Request) {
+    const { searchParams } = new URL(req.url)
+    const filter = searchParams.get('filter')
+    return NextResponse.json(buildFilteredAnalyticsBundle(filter))
 }

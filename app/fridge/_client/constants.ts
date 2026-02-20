@@ -52,7 +52,7 @@ export const DEFAULT_CHART_SIZES: Record<
   groceryCategoryRankings: { w: 6, h: 6, x: 6, y: 0 },
   groceryNetWorthAllocation: { w: 12, h: 10, x: 0, y: 6 },
   groceryExpenseBreakdown: { w: 6, h: 11, x: 0, y: 16 },
-  groceryDailyActivity: { w: 12, h: 7, x: 0, y: 27 },
+  groceryDailyActivity: { w: 12, h: 6, x: 0, y: 27 },
   groceryMacronutrientBreakdown: { w: 6, h: 11, x: 6, y: 16 },
   grocerySnackPercentage: { w: 6, h: 10, x: 0, y: 34 },
   groceryDayOfWeekCategory: { w: 6, h: 10, x: 0, y: 44 },

@@ -12,7 +12,7 @@ export type DateFilterType = (typeof KNOWN_DATE_FILTERS)[number] | string
 const INVALID_FILTER_VALUES = new Set(["null", "all", "all_time", "undefined"])
 const YEAR_FILTER_RE = /^\d{4}$/
 
-export const FALLBACK_DATE_FILTER: DateFilterType = "lastyear"
+export const FALLBACK_DATE_FILTER: DateFilterType = "last6months"
 
 export function isValidDateFilterValue(
   value: string | null | undefined,

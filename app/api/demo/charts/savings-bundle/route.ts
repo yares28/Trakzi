@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
-import { MOCK_SAVINGS_BUNDLE } from '@/lib/demo/mock-data'
+import { buildFilteredSavingsBundle } from '@/lib/demo/mock-data'
 
-export async function GET() {
-    return NextResponse.json(MOCK_SAVINGS_BUNDLE)
+export async function GET(req: Request) {
+    const { searchParams } = new URL(req.url)
+    const filter = searchParams.get('filter')
+    return NextResponse.json(buildFilteredSavingsBundle(filter))
 }

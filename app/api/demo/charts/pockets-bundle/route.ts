@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
-import { MOCK_POCKETS_BUNDLE } from '@/lib/demo/mock-data'
+import { buildFilteredPocketsBundle } from '@/lib/demo/mock-data'
 
-export async function GET() {
-    return NextResponse.json(MOCK_POCKETS_BUNDLE)
+export async function GET(req: Request) {
+    const { searchParams } = new URL(req.url)
+    const filter = searchParams.get('filter')
+    return NextResponse.json(buildFilteredPocketsBundle(filter))
 }

@@ -50,9 +50,9 @@ export default function RootLayout({
 
   return (
     <ClerkProvider publishableKey={publishableKey} afterSignOutUrl="/" signInFallbackRedirectUrl="/home" signUpFallbackRedirectUrl="/home">
-      <html lang="en" suppressHydrationWarning className="overflow-x-hidden">
+      <html lang="en" suppressHydrationWarning className="overflow-x-hidden md:overflow-hidden">
         <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
+          className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden md:overflow-hidden`}
           suppressHydrationWarning
         >
           <ThemeProvider
@@ -72,9 +72,13 @@ export default function RootLayout({
                           <DateFilterProvider>
                             <TransactionDialogProvider>
                               <DemoModeProvider>
-                                <PostHogUserIdentifier />
-                                <DemoBanner />
-                                {children}
+                                <div className="flex flex-col md:h-svh">
+                                  <PostHogUserIdentifier />
+                                  <DemoBanner />
+                                  <div className="flex-1 min-h-0">
+                                    {children}
+                                  </div>
+                                </div>
                               </DemoModeProvider>
                             </TransactionDialogProvider>
                           </DateFilterProvider>
