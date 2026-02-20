@@ -174,7 +174,7 @@ function SidebarProvider({
             // Mobile: Allow window scroll (no overflow-hidden)
             "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full",
             // Desktop: Fixed height with overflow control
-            "md:h-svh md:overflow-hidden",
+            "md:h-full md:overflow-hidden",
             className
           )}
           {...props}
@@ -199,7 +199,7 @@ function Sidebar({
   collapsible?: "offcanvas" | "icon" | "none"
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
-  
+
   // GPU-accelerated transitions using transform ONLY
   // Width transitions cause layout thrashing - avoid them for smooth 60fps animations
   // For offcanvas: scaleX and translateX are pure transforms (GPU-composited)
@@ -340,7 +340,7 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
         "bg-background relative flex w-full flex-1 flex-col min-h-screen-mobile mobile-bg-gradient",
         // Desktop: Container scrolls for sticky header behavior
         // NOTE: Removed margin transition - only ml changes instantly to avoid layout thrashing during animation
-        "md:overflow-y-auto md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 md:peer-data-[variant=inset]:h-[calc(100svh-1rem)]",
+        "md:overflow-y-auto md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 md:peer-data-[variant=inset]:h-[calc(100%-1rem)]",
         // GPU-accelerated transform ONLY - no margin transition to prevent layout thrashing
         "transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform",
         // When offcanvas collapsed: translate left to fill the visual gap

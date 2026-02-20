@@ -244,7 +244,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
   dailyTransactionActivity: {
     minW: 6,
     maxW: 12,
-    minH: 8,
+    minH: 6,
     maxH: 20,
     mobileH: 4,
   },
@@ -370,7 +370,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
   "fridge:dailyActivity": {
     minW: 6,
     maxW: 12,
-    minH: 7,
+    minH: 6,
     maxH: 20,
     mobileH: 4,
   },

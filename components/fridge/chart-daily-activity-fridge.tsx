@@ -147,7 +147,7 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
   const { resolvedTheme } = useTheme()
   const [isFullscreen, setIsFullscreen] = useState(false)
   const isMobile = useIsMobile()
-  const { getRawPalette } = useColorScheme()
+  const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const { filter: contextFilter } = useDateFilter()
   const [mounted, setMounted] = useState(false)
@@ -342,7 +342,7 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
   )
 
   const levelColors = useMemo(() => {
-    const colors = getRawPalette().filter((c) => c !== "#c3c3c3")
+    const colors = getPalette()
     const reversed = [...colors].reverse()
     if (reversed.length >= 4) {
       const step = (reversed.length - 1) / 3
@@ -354,7 +354,7 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
       ]
     }
     return reversed.length > 0 ? reversed.slice(0, 4) : DEFAULT_FALLBACK_PALETTE.slice(0, 4)
-  }, [getRawPalette])
+  }, [getPalette])
 
   const isDark = resolvedTheme === "dark"
 
@@ -418,16 +418,19 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
     }
     if (!from || !to) return 14
     const days = Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86400000) + 1
-    return Math.ceil(days / 7) + 2
-  }, [isDualCalendar, period1, singlePeriod])
+    const weeks = Math.ceil(days / 7) + 2
+
+    // On desktop, enforce a minimum horizontal span to keep the chart horizontal (e.g. at least 6 months)
+    return !isMobile ? Math.max(weeks, 26) : weeks
+  }, [isDualCalendar, period1, singlePeriod, isMobile])
 
   // Dynamic block sizing based on container width
   const { blockSize, blockMargin } = useMemo(() => {
     if (containerWidth === 0) {
       // Fallback before ResizeObserver fires
       return {
-        blockSize: isMobile ? (isShortPeriod ? 37 : 26) : (isShortPeriod ? 50 : 31),
-        blockMargin: isMobile ? (isShortPeriod ? 6 : 5) : (isShortPeriod ? 8 : 6),
+        blockSize: isMobile ? (isShortPeriod ? 37 : 26) : 31,
+        blockMargin: isMobile ? (isShortPeriod ? 6 : 5) : 6,
       }
     }
     const dayLabelWidth = isMobile ? 28 : 38
@@ -436,7 +439,7 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
     const margin = Math.max(2, Math.round(rawSize * 0.16))
     const size = rawSize - margin
     return {
-      blockSize: Math.max(8, Math.min(size, 80)),
+      blockSize: Math.max(8, Math.min(size, 30)), // Reduced from 34 to 30
       blockMargin: margin,
     }
   }, [containerWidth, numWeeks, isMobile, isShortPeriod])
@@ -561,7 +564,7 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
     </CardHeader>
   )
 
-  const contentHeight = isDualDisplayMode ? "h-[400px] md:h-[480px]" : "h-[200px] md:h-[320px]"
+  const contentHeight = isDualDisplayMode ? "h-[400px] md:h-[480px]" : "h-[150px] md:h-[220px]"
 
   if (!mounted || isLoading) {
     return (

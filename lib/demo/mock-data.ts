@@ -69,8 +69,8 @@ export const MOCK_TRANSACTIONS = (() => {
     let currentBalance = 4250.50
     let idCounter = 1
 
-    // Generate for 7 months (approx 210 days)
-    for (let day = 0; day < 210; day++) {
+    // Generate for 6 months (approx 180 days)
+    for (let day = 0; day < 180; day++) {
         const date = daysAgo(day)
         const dateObj = new Date(date)
         const isStartOfMonth = dateObj.getDate() === 1
@@ -308,8 +308,8 @@ export const MOCK_HOME_BUNDLE = {
         percentage: Math.min(100, Math.round((c.total / 1500) * 100)),
         color: c.color
     })),
-    dailySpending: Array.from({ length: 210 }, (_, i) => {
-        const d = daysAgo(209 - i)
+    dailySpending: Array.from({ length: 180 }, (_, i) => {
+        const d = daysAgo(179 - i)
         const dayTxs = expenses.filter(t => t.date === d)
         return {
             date: d,
@@ -340,8 +340,8 @@ export const MOCK_ANALYTICS_BUNDLE = {
 
     categorySpending: spendingByCategory,
 
-    dailySpending: Array.from({ length: 210 }, (_, i) => {
-        const d = daysAgo(209 - i)
+    dailySpending: Array.from({ length: 180 }, (_, i) => {
+        const d = daysAgo(179 - i)
         const dayTxs = MOCK_TRANSACTIONS.filter(t => t.date === d)
         const dayInc = dayTxs.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0)
         const dayExp = Math.abs(dayTxs.filter(t => t.amount < 0).reduce((sum, t) => sum + t.amount, 0))
@@ -627,8 +627,8 @@ export const MOCK_FRIDGE_BUNDLE = {
         return acc
     }, [] as any[]),
 
-    dailySpending: Array.from({ length: 210 }, (_, i) => {
-        const d = daysAgo(209 - i)
+    dailySpending: Array.from({ length: 180 }, (_, i) => {
+        const d = daysAgo(179 - i)
         const dayTxs = groceryTxs.filter(t => t.date === d)
         return {
             date: d,
@@ -689,7 +689,7 @@ export const MOCK_FRIDGE_BUNDLE = {
             let weight = 0.1
             if (h >= 17 && h <= 20) weight += 0.4
             if (h >= 10 && h <= 14) weight += 0.2
-            
+
             const count = Math.floor(seeded(h * 100) * weight * 8)
             if (count > 0) {
                 result.push({
@@ -710,7 +710,7 @@ export const MOCK_FRIDGE_BUNDLE = {
             for (let day = 0; day < 7; day++) {
                 let weight = 0.1
                 if (day === 5 || day === 6) weight += 0.3
-                
+
                 const count = Math.floor(seeded(month * 100 + day * 10) * weight * 6)
                 if (count > 0) {
                     result.push({
@@ -776,14 +776,14 @@ export const MOCK_RECEIPT_TRANSACTIONS = (() => {
     for (let day = 0; day < 60; day++) {
         const date = daysAgo(day)
         const seed = day * 777
-        
+
         if (seeded(seed) > 0.35) continue
 
         const storeName = storeNames[Math.floor(seeded(seed + 1) * storeNames.length)]
         const receiptId = `rcpt_${receiptIdCounter++}`
         const hour = Math.floor(seeded(seed + 2) * 12) + 8
         const time = `${String(hour).padStart(2, '0')}:${String(Math.floor(seeded(seed + 3) * 60)).padStart(2, '0')}`
-        
+
         const numItems = Math.floor(seeded(seed + 4) * 8) + 3
         let receiptTotal = 0
 
@@ -792,15 +792,16 @@ export const MOCK_RECEIPT_TRANSACTIONS = (() => {
             const category = RECEIPT_CATEGORIES[catIdx]
             const itemNames = RECEIPT_ITEM_NAMES[category.name]
             const itemName = itemNames[Math.floor(seeded(seed + 20 + i) * itemNames.length)]
-            
+
             const quantity = Math.floor(seeded(seed + 30 + i) * 3) + 1
             const pricePerUnit = Math.round((1.5 + seeded(seed + 40 + i) * 8) * 100) / 100
             const totalPrice = Math.round(pricePerUnit * quantity * 100) / 100
-            
+
             receiptTotal += totalPrice
 
             items.push({
                 id: idCounter++,
+                date: date, // For compatibility with filterByPeriod
                 receiptId: receiptId,
                 storeName: storeName,
                 receiptDate: date,
@@ -836,10 +837,10 @@ const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep
 const currentYear = new Date().getFullYear()
 
 export const MOCK_GROCERY_VS_RESTAURANT = (() => {
-    const groceryTx = MOCK_TRANSACTIONS.filter(t => 
+    const groceryTx = MOCK_TRANSACTIONS.filter(t =>
         t.category === "Groceries" && t.type === "expense"
     )
-    const diningTx = MOCK_TRANSACTIONS.filter(t => 
+    const diningTx = MOCK_TRANSACTIONS.filter(t =>
         t.category === "Dining" && t.type === "expense"
     )
 
@@ -849,7 +850,7 @@ export const MOCK_GROCERY_VS_RESTAURANT = (() => {
         const date = new Date(t.date)
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
         const monthLabel = `${monthNames[date.getMonth()]} ${date.getFullYear()}`
-        
+
         if (!monthlyData.has(monthKey)) {
             monthlyData.set(monthKey, { month: monthLabel, "Home Food": 0, "Outside Food": 0 })
         }
@@ -860,7 +861,7 @@ export const MOCK_GROCERY_VS_RESTAURANT = (() => {
         const date = new Date(t.date)
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
         const monthLabel = `${monthNames[date.getMonth()]} ${date.getFullYear()}`
-        
+
         if (!monthlyData.has(monthKey)) {
             monthlyData.set(monthKey, { month: monthLabel, "Home Food": 0, "Outside Food": 0 })
         }
@@ -1190,3 +1191,646 @@ export const MOCK_TOTAL_TRANSACTION_COUNT = {
     })),
 }
 
+
+// ═══════════════════════════════════════════════════════
+// PERIOD FILTER HELPERS (used by demo API routes)
+// ═══════════════════════════════════════════════════════
+
+/**
+ * Returns the cutoff Date for a given filter string.
+ * Transactions on or after this date are included.
+ */
+export function getPeriodCutoff(filter: string | null | undefined): Date {
+    const now = new Date()
+    if (!filter) {
+        // Default: last 6 months
+        const d = new Date(now)
+        d.setMonth(d.getMonth() - 6)
+        return d
+    }
+    const f = filter.trim().toLowerCase()
+    switch (f) {
+        case 'last7days': {
+            const d = new Date(now); d.setDate(d.getDate() - 7); return d
+        }
+        case 'last30days': {
+            const d = new Date(now); d.setDate(d.getDate() - 30); return d
+        }
+        case 'last3months': {
+            const d = new Date(now); d.setMonth(d.getMonth() - 3); return d
+        }
+        case 'last6months': {
+            const d = new Date(now); d.setMonth(d.getMonth() - 6); return d
+        }
+        case 'lastyear': {
+            const d = new Date(now); d.setFullYear(d.getFullYear() - 1); return d
+        }
+        case 'ytd': {
+            return new Date(now.getFullYear(), 0, 1)
+        }
+        default: {
+            // Year filter (e.g. "2025")
+            if (/^\d{4}$/.test(f)) {
+                return new Date(parseInt(f), 0, 1)
+            }
+            // Unknown — no cutoff (return all)
+            return new Date(0)
+        }
+    }
+}
+
+/** Returns the end Date for a given filter (for year filters). */
+function getPeriodEnd(filter: string | null | undefined): Date | null {
+    if (!filter) return null
+    const f = filter.trim().toLowerCase()
+    if (/^\d{4}$/.test(f)) {
+        return new Date(parseInt(f) + 1, 0, 1) // exclusive end of that year
+    }
+    return null // no explicit end — "up to today"
+}
+
+/** Filters an array of date-bearing objects to the selected period. */
+export function filterByPeriod<T extends { date: string }>(items: T[], filter: string | null | undefined): T[] {
+    const cutoff = getPeriodCutoff(filter)
+    const end = getPeriodEnd(filter)
+    return items.filter(item => {
+        const d = new Date(item.date)
+        if (d < cutoff) return false
+        if (end && d >= end) return false
+        return true
+    })
+}
+
+/** Filter MOCK_TRANSACTIONS to a given period. */
+export function filterMockTransactionsByPeriod(filter: string | null | undefined) {
+    return filterByPeriod(MOCK_TRANSACTIONS, filter)
+}
+
+/**
+ * Build a filtered analytics bundle for the given period.
+ * Recomputes all aggregates from scratch using only transactions in the period.
+ */
+export function buildFilteredAnalyticsBundle(filter: string | null | undefined) {
+    const txs = filterMockTransactionsByPeriod(filter)
+    const filteredExpenses = txs.filter(t => t.type === 'expense')
+    const filteredIncome = txs.filter(t => t.type === 'income')
+    const filteredTotalIncome = filteredIncome.reduce((s, t) => s + t.amount, 0)
+    const filteredTotalExpense = Math.abs(filteredExpenses.reduce((s, t) => s + t.amount, 0))
+    const filteredNetSavings = filteredTotalIncome - filteredTotalExpense
+
+    const catMap: Record<string, { total: number; count: number; color: string }> = {}
+    filteredExpenses.forEach(t => {
+        if (!catMap[t.category]) catMap[t.category] = { total: 0, count: 0, color: t.color }
+        catMap[t.category].total += Math.abs(t.amount)
+        catMap[t.category].count++
+    })
+    const filteredCategorySpending = Object.entries(catMap)
+        .map(([category, { total, count, color }]) => ({ category, total: Math.round(total * 100) / 100, count, color, percentage: 0 }))
+        .sort((a, b) => b.total - a.total)
+    const filteredTotalSpending = filteredCategorySpending.reduce((s, c) => s + c.total, 0)
+    filteredCategorySpending.forEach(c => c.percentage = filteredTotalSpending > 0 ? Math.round((c.total / filteredTotalSpending) * 1000) / 10 : 0)
+
+    // Daily spending (all days in period)
+    const cutoff = getPeriodCutoff(filter)
+    const dayCount = Math.ceil((Date.now() - cutoff.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    const filteredDailySpending = Array.from({ length: dayCount }, (_, i) => {
+        const d = daysAgo(dayCount - 1 - i)
+        const dayTxs = txs.filter(t => t.date === d)
+        return {
+            date: d,
+            total: Math.abs(dayTxs.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0)),
+            income: dayTxs.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0),
+            expense: Math.abs(dayTxs.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0)),
+        }
+    })
+
+    // Monthly categories
+    const monthCatMap: Record<string, Record<string, number>> = {}
+    filteredExpenses.forEach(t => {
+        const mo = t.date.slice(0, 7)
+        if (!monthCatMap[mo]) monthCatMap[mo] = {}
+        monthCatMap[mo][t.category] = (monthCatMap[mo][t.category] || 0) + Math.abs(t.amount)
+    })
+    const filteredMonthlyCategories = Object.entries(monthCatMap).flatMap(([month, cats]) =>
+        Object.entries(cats).map(([category, total]) => ({ month, category, total: Math.round(total) }))
+    )
+
+    // Day of week
+    const filteredDayOfWeekSpending = Array.from({ length: 7 }, (_, d) => {
+        const dayTxs = filteredExpenses.filter(t => new Date(t.date).getDay() === d)
+        return { dayOfWeek: d, total: Math.abs(dayTxs.reduce((s, t) => s + t.amount, 0)), count: dayTxs.length }
+    })
+
+    const filteredDayOfWeekCategory: { dayOfWeek: number; category: string; total: number }[] = []
+    for (let d = 0; d < 7; d++) {
+        const dayTxs = filteredExpenses.filter(t => new Date(t.date).getDay() === d)
+        const byCat: Record<string, number> = {}
+        dayTxs.forEach(t => { byCat[t.category] = (byCat[t.category] || 0) + Math.abs(t.amount) })
+        Object.entries(byCat).forEach(([cat, total]) => filteredDayOfWeekCategory.push({ dayOfWeek: d, category: cat, total }))
+    }
+
+    // Needs/Wants
+    const essentials = ['Housing', 'Groceries', 'Utilities', 'Transport', 'Medical/Healthcare']
+    const filteredNeedsWants = [
+        { classification: 'Essentials' as const, total: filteredCategorySpending.filter(c => essentials.includes(c.category)).reduce((s, c) => s + c.total, 0), count: 0 },
+        { classification: 'Wants' as const, total: filteredCategorySpending.filter(c => !essentials.includes(c.category)).reduce((s, c) => s + c.total, 0), count: 0 },
+    ]
+
+    // monthlyByCategory (same as monthlyCategories but keyed differently for streamgraph)
+    const filteredMonthlyByCategory = filteredMonthlyCategories
+
+    return {
+        ...MOCK_ANALYTICS_BUNDLE,
+        kpis: {
+            totalIncome: filteredTotalIncome,
+            totalExpense: filteredTotalExpense,
+            netSavings: filteredNetSavings,
+            transactionCount: txs.length,
+            avgTransaction: filteredExpenses.length > 0 ? Math.round(filteredTotalExpense / filteredExpenses.length) : 0,
+        },
+        totalIncome: filteredTotalIncome,
+        totalExpense: filteredTotalExpense,
+        netSavings: filteredNetSavings,
+        transactionCount: txs.length,
+        avgTransaction: filteredExpenses.length > 0 ? Math.round(filteredTotalExpense / filteredExpenses.length) : 0,
+        categorySpending: filteredCategorySpending,
+        dailySpending: filteredDailySpending,
+        monthlyCategories: filteredMonthlyCategories,
+        dayOfWeekSpending: filteredDayOfWeekSpending,
+        dayOfWeekCategory: filteredDayOfWeekCategory,
+        needsWants: filteredNeedsWants,
+        monthlyByCategory: filteredMonthlyByCategory,
+        transactionHistory: filteredExpenses.map(t => ({
+            id: t.id, date: t.date, description: t.description, amount: t.amount, category: t.category, color: t.color,
+        })),
+    }
+}
+
+/**
+ * Build a filtered fridge bundle for the given period.
+ */
+export function buildFilteredFridgeBundle(filter: string | null | undefined) {
+    const filteredGroceryTxs = filterByPeriod(
+        MOCK_TRANSACTIONS.filter(t => t.category === 'Groceries' && t.type === 'expense'),
+        filter
+    )
+    const filteredTotalGrocery = filteredGroceryTxs.reduce((s, t) => s + Math.abs(t.amount), 0)
+
+    const cats = ['Fruits', 'Vegetables', 'Meat & Poultry', 'Dairy (Milk/Yogurt)', 'Salty Snacks', 'Chocolate & Candy', 'Pastries', 'Soft Drinks', 'Bread', 'Coffee & Tea']
+    const catBroadTypes: Record<string, string> = {
+        'Fruits': 'Nutritious', 'Vegetables': 'Nutritious', 'Meat & Poultry': 'Nutritious',
+        'Dairy (Milk/Yogurt)': 'Nutritious', 'Salty Snacks': 'Snacks', 'Chocolate & Candy': 'Snacks',
+        'Pastries': 'Snacks', 'Soft Drinks': 'Other', 'Bread': 'Nutritious', 'Coffee & Tea': 'Other',
+    }
+
+    const filteredCategorySpending = filteredGroceryTxs.reduce((acc, item) => {
+        const subCat = cats[item.id % cats.length]
+        const existing = acc.find((c: any) => c.category === subCat)
+        const amt = Math.abs(item.amount)
+        if (existing) { existing.total += amt; existing.count++ }
+        else acc.push({ category: subCat, total: amt, count: 1, color: item.color, broadType: catBroadTypes[subCat] })
+        return acc
+    }, [] as any[])
+
+    // Daily spending
+    const cutoff = getPeriodCutoff(filter)
+    const dayCount = Math.ceil((Date.now() - cutoff.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    const filteredDailySpending = Array.from({ length: dayCount }, (_, i) => {
+        const d = daysAgo(dayCount - 1 - i)
+        const dayTxs = filteredGroceryTxs.filter(t => t.date === d)
+        return { date: d, total: Math.abs(dayTxs.reduce((s, t) => s + t.amount, 0)) }
+    })
+
+    // Store spending
+    const storeNames = ['Mercadona', 'Lidl', 'Carrefour', 'Aldi', 'Local Market', 'Costco']
+    const filteredStoreSpending = storeNames.map(store => {
+        const storeTxs = filteredGroceryTxs.filter(t => t.description.includes(store))
+        return { storeName: store, total: Math.abs(storeTxs.reduce((s, t) => s + t.amount, 0)), count: storeTxs.length }
+    }).filter(s => s.count > 0).sort((a, b) => b.total - a.total)
+
+    // Day of week
+    const filteredDayOfWeekSpending = Array.from({ length: 7 }, (_, d) => {
+        const dayTxs = filteredGroceryTxs.filter(t => new Date(t.date).getDay() === d)
+        return { dayOfWeek: d, total: Math.abs(dayTxs.reduce((s, t) => s + t.amount, 0)), count: dayTxs.length }
+    })
+
+    const filteredDayOfWeekCategory: { dayOfWeek: number; category: string; total: number }[] = []
+    for (let d = 0; d < 7; d++) {
+        const dayTxs = filteredGroceryTxs.filter(t => new Date(t.date).getDay() === d)
+        const subCatMap: Record<string, number> = {}
+        dayTxs.forEach(t => {
+            const subCat = cats[t.id % cats.length]
+            subCatMap[subCat] = (subCatMap[subCat] || 0) + Math.abs(t.amount)
+        })
+        Object.entries(subCatMap).forEach(([cat, val]) => filteredDayOfWeekCategory.push({ dayOfWeek: d, category: cat, total: Math.round(val * 100) / 100 }))
+    }
+
+    // Monthly categories
+    const gTxsByMonth: Record<string, typeof filteredGroceryTxs> = {}
+    filteredGroceryTxs.forEach(t => { const mo = t.date.slice(0, 7); if (!gTxsByMonth[mo]) gTxsByMonth[mo] = []; gTxsByMonth[mo].push(t) })
+    const filteredMonthlyCategories: { month: number; category: string; total: number }[] = []
+    Object.entries(gTxsByMonth).forEach(([monthStr, txs]) => {
+        const monthNum = parseInt(monthStr.split('-')[1])
+        const subCatMap: Record<string, number> = {}
+        txs.forEach(t => { const subCat = cats[t.id % cats.length]; subCatMap[subCat] = (subCatMap[subCat] || 0) + Math.abs(t.amount) })
+        Object.entries(subCatMap).forEach(([cat, val]) => filteredMonthlyCategories.push({ month: monthNum, category: cat, total: Math.round(val * 100) / 100 }))
+    })
+
+    // Macronutrient breakdown from filtered txs
+    const filteredGroceryItems = filteredGroceryTxs.map(t => {
+        const seed = t.id * 7
+        const rand = seeded(seed)
+        const type = rand < 0.3 ? 'Snacks' : rand < 0.5 ? 'Other' : 'Nutritious'
+        return { ...t, broadType: type }
+    })
+    const filteredMacros = Object.values(
+        filteredGroceryItems.reduce((acc, t) => {
+            if (!acc[t.broadType]) acc[t.broadType] = { typeName: t.broadType, total: 0, color: t.broadType === 'Nutritious' ? '#22c55e' : t.broadType === 'Snacks' ? '#f97316' : '#94a3b8' }
+            acc[t.broadType].total += Math.abs(t.amount)
+            return acc
+        }, {} as Record<string, { typeName: string; total: number; color: string }>)
+    )
+
+    return {
+        ...MOCK_FRIDGE_BUNDLE,
+        kpis: {
+            totalSpent: filteredTotalGrocery,
+            shoppingTrips: filteredGroceryTxs.length,
+            storesVisited: filteredStoreSpending.length,
+            averageReceipt: filteredGroceryTxs.length > 0 ? Math.round(filteredTotalGrocery / filteredGroceryTxs.length) : 0,
+            itemCount: Math.round(filteredGroceryTxs.length * 5.5),
+        },
+        categorySpending: filteredCategorySpending,
+        dailySpending: filteredDailySpending,
+        storeSpending: filteredStoreSpending,
+        macronutrientBreakdown: filteredMacros,
+        dayOfWeekSpending: filteredDayOfWeekSpending,
+        dayOfWeekCategory: filteredDayOfWeekCategory,
+        monthlyCategories: filteredMonthlyCategories,
+    }
+}
+
+/**
+ * Build filtered trends bundle (category trends) for the given period.
+ */
+export function buildFilteredTrendsBundle(filter: string | null | undefined) {
+    const txs = filterMockTransactionsByPeriod(filter)
+    const filteredExpenses = txs.filter(t => t.type === 'expense')
+
+    // GroupByCategory then calculate monthly values
+    const trendCats = CATEGORIES_CONFIG.filter(c => c.type === 'expense').map(c => c.name)
+
+    // Group by month
+    const byMonth: Record<string, typeof filteredExpenses> = {}
+    filteredExpenses.forEach(t => {
+        const mo = t.date.slice(0, 7)
+        if (!byMonth[mo]) byMonth[mo] = []
+        byMonth[mo].push(t)
+    })
+    const allMonths = Object.keys(byMonth).sort()
+
+    const filteredCategoryTrends: Record<string, Array<{ date: string; value: number }>> = {}
+    trendCats.forEach(cat => {
+        filteredCategoryTrends[cat] = allMonths.map(mo => ({
+            date: mo + '-01',
+            value: Math.round(Math.abs((byMonth[mo] || []).filter(t => t.category === cat).reduce((s, t) => s + t.amount, 0)) * 100) / 100
+        }))
+    })
+
+    return {
+        categoryTrends: filteredCategoryTrends,
+        categories: trendCats,
+    }
+}
+
+/**
+ * Build filtered groceries trends bundle (category trends) for the given period.
+ */
+export function buildFilteredGroceriesTrendsBundle(filter: string | null | undefined) {
+    const txs = filterByPeriod(MOCK_RECEIPT_TRANSACTIONS, filter)
+
+    // GroupByCategory then calculate monthly values
+    const trendCats = RECEIPT_CATEGORIES.map(c => c.name)
+
+    // Group by month
+    const byMonth: Record<string, typeof txs> = {}
+    txs.forEach(t => {
+        const mo = t.date.slice(0, 7)
+        if (!byMonth[mo]) byMonth[mo] = []
+        byMonth[mo].push(t)
+    })
+    const allMonths = Object.keys(byMonth).sort()
+
+    const filteredCategoryTrends: Record<string, Array<{ date: string; value: number }>> = {}
+    trendCats.forEach(cat => {
+        filteredCategoryTrends[cat] = allMonths.map(mo => ({
+            date: mo + '-01',
+            value: Math.round((byMonth[mo] || []).filter(t => t.categoryName === cat).reduce((s, t) => s + t.totalPrice, 0) * 100) / 100
+        }))
+    })
+
+    return {
+        categoryTrends: filteredCategoryTrends,
+        categories: trendCats,
+    }
+}
+
+/**
+ * Build filtered grocery-vs-restaurant data for the given period.
+ */
+export function buildFilteredGroceryVsRestaurant(filter: string | null | undefined) {
+    const txs = filterMockTransactionsByPeriod(filter)
+    const groceryTx = txs.filter(t => t.category === 'Groceries' && t.type === 'expense')
+    const diningTx = txs.filter(t => t.category === 'Dining' && t.type === 'expense')
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+    const monthlyData = new Map<string, { month: string; 'Home Food': number; 'Outside Food': number }>()
+    groceryTx.forEach(t => {
+        const date = new Date(t.date)
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+        const label = `${monthNames[date.getMonth()]} ${date.getFullYear()}`
+        if (!monthlyData.has(key)) monthlyData.set(key, { month: label, 'Home Food': 0, 'Outside Food': 0 })
+        monthlyData.get(key)!['Home Food'] += Math.abs(t.amount)
+    })
+    diningTx.forEach(t => {
+        const date = new Date(t.date)
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+        const label = `${monthNames[date.getMonth()]} ${date.getFullYear()}`
+        if (!monthlyData.has(key)) monthlyData.set(key, { month: label, 'Home Food': 0, 'Outside Food': 0 })
+        monthlyData.get(key)!['Outside Food'] += Math.abs(t.amount)
+    })
+
+    return Array.from(monthlyData.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([, v]) => ({ ...v, 'Home Food': Math.round(v['Home Food'] * 100) / 100, 'Outside Food': Math.round(v['Outside Food'] * 100) / 100 }))
+}
+
+/**
+ * Build a filtered home bundle for the given period.
+ */
+export function buildFilteredHomeBundle(filter: string | null | undefined) {
+    const txs = filterMockTransactionsByPeriod(filter)
+    const expenses = txs.filter(t => t.type === 'expense')
+    const income = txs.filter(t => t.type === 'income')
+    const totalIncome = income.reduce((s, t) => s + t.amount, 0)
+    const totalExpense = Math.abs(expenses.reduce((s, t) => s + t.amount, 0))
+    const netSavings = totalIncome - totalExpense
+
+    const catMap: Record<string, { total: number; color: string }> = {}
+    expenses.forEach(t => {
+        if (!catMap[t.category]) catMap[t.category] = { total: 0, color: t.color }
+        catMap[t.category].total += Math.abs(t.amount)
+    })
+    const spendingByCategory = Object.entries(catMap)
+        .map(([category, { total, color }]) => ({ category, total: Math.round(total * 100) / 100, color }))
+        .sort((a, b) => b.total - a.total)
+
+    // Daily spending (all days in period)
+    const cutoff = getPeriodCutoff(filter)
+    const dayCount = Math.ceil((Date.now() - cutoff.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    const dailySpending = Array.from({ length: dayCount }, (_, i) => {
+        const d = daysAgo(dayCount - 1 - i)
+        const dayTxs = expenses.filter(t => t.date === d)
+        return { date: d, total: Math.abs(dayTxs.reduce((s, t) => s + t.amount, 0)) }
+    })
+
+    return {
+        ...MOCK_HOME_BUNDLE,
+        kpis: {
+            totalIncome,
+            totalExpense,
+            netSavings,
+            transactionCount: txs.length,
+            avgTransaction: expenses.length > 0 ? Math.round(totalExpense / expenses.length) : 0,
+        },
+        topCategories: spendingByCategory.slice(0, 8),
+        activityRings: spendingByCategory.slice(0, 5).map(c => ({
+            category: c.category,
+            spent: c.total,
+            percentage: Math.min(100, Math.round((c.total / 1500) * 100)),
+            color: c.color
+        })),
+        dailySpending,
+        recentTransactions: txs.length,
+    }
+}
+
+/**
+ * Build filtered total transaction count for the given period.
+ */
+export function buildFilteredTotalTransactionCount(filter: string | null | undefined) {
+    const txs = filterMockTransactionsByPeriod(filter)
+    const cutoff = getPeriodCutoff(filter)
+    const days = Math.ceil((Date.now() - cutoff.getTime()) / (1000 * 60 * 60 * 24)) + 1
+
+    const segments = 6
+    const trend = Array.from({ length: segments }, (_, i) => {
+        const d = monthsAgo(segments - 1 - i)
+        return {
+            date: d,
+            value: txs.filter(t => t.date.startsWith(d)).length
+        }
+    })
+
+    return {
+        count: txs.length,
+        timeSpan: filter || "6 months",
+        firstDate: txs.length > 0 ? txs[txs.length - 1].date : daysAgo(days),
+        lastDate: txs.length > 0 ? txs[0].date : daysAgo(0),
+        trend
+    }
+}
+
+/**
+ * Build filtered savings bundle for the given period.
+ */
+export function buildFilteredSavingsBundle(filter: string | null | undefined) {
+    const txs = filterMockTransactionsByPeriod(filter)
+    const expenses = txs.filter(t => t.type === 'expense')
+    const income = txs.filter(t => t.type === 'income')
+    const totalIncome = income.reduce((s, t) => s + t.amount, 0)
+    const totalExpense = Math.abs(expenses.reduce((s, t) => s + t.amount, 0))
+    const netSavings = totalIncome - totalExpense
+
+    const cutoff = getPeriodCutoff(filter)
+    const dayCount = Math.ceil((Date.now() - cutoff.getTime()) / (1000 * 60 * 60 * 24)) + 1
+
+    let cumulative = 0
+    const savingsChartData = Array.from({ length: dayCount }, (_, i) => {
+        const d = daysAgo(dayCount - 1 - i)
+        const dayInc = income.filter(t => t.date === d).reduce((s, t) => s + t.amount, 0)
+        const dayExp = Math.abs(expenses.filter(t => t.date === d).reduce((s, t) => s + t.amount, 0))
+        cumulative += (dayInc - dayExp)
+        return { date: d, amount: dayInc - dayExp, cumulative }
+    }).filter((_, i, arr) => {
+        // Decimate to approx 15-20 points
+        const stride = Math.max(1, Math.floor(arr.length / 15))
+        return i % stride === 0
+    })
+
+    return {
+        kpis: {
+            totalSaved: netSavings,
+            savingsRate: totalIncome > 0 ? Math.round((netSavings / totalIncome) * 100) : 0,
+            transactionCount: income.length,
+            avgSavingsPerTransaction: Math.round(netSavings / Math.max(1, dayCount / 30)),
+        },
+        chartData: savingsChartData
+    }
+}
+
+/**
+ * Build filtered pockets bundle for the given period.
+ */
+export function buildFilteredPocketsBundle(filter: string | null | undefined) {
+    const txs = filterMockTransactionsByPeriod(filter)
+    const expenses = txs.filter(t => t.type === 'expense')
+    const totalExpense = Math.abs(expenses.reduce((s, t) => s + t.amount, 0))
+
+    const byCat: Record<string, { total: number; count: number }> = {}
+    expenses.forEach(t => {
+        if (!byCat[t.category]) byCat[t.category] = { total: 0, count: 0 }
+        byCat[t.category].total += Math.abs(t.amount)
+        byCat[t.category].count++
+    })
+
+    return {
+        ...MOCK_POCKETS_BUNDLE,
+        countries: MOCK_POCKETS_BUNDLE.countries.map(c => ({
+            ...c,
+            total_spent: c.country_name === "Spain" ? totalExpense * 0.8 : (byCat["Travel"]?.total || 0),
+            transaction_count: c.country_name === "Spain" ? expenses.length * 0.8 : (byCat["Travel"]?.count || 0),
+        })),
+        vehicles: MOCK_POCKETS_BUNDLE.vehicles.map(v => ({
+            ...v,
+            totalSpent: byCat["Transport"]?.total || 0,
+            transactionCount: byCat["Transport"]?.count || 0,
+        })),
+        properties: MOCK_POCKETS_BUNDLE.properties.map(p => ({
+            ...p,
+            totalSpent: byCat["Housing"]?.total || 0,
+            transactionCount: byCat["Housing"]?.count || 0,
+        })),
+        travelStats: {
+            countriesVisited: byCat["Travel"]?.total > 0 ? 2 : 1,
+            totalSpent: totalExpense,
+            totalTransactions: expenses.length,
+        },
+        garageStats: {
+            vehicleCount: 1,
+            totalSpent: byCat["Transport"]?.total || 0,
+            avgPerVehicle: byCat["Transport"]?.total || 0,
+        },
+        propertyStats: {
+            ...MOCK_POCKETS_BUNDLE.propertyStats,
+            totalSpent: byCat["Housing"]?.total || 0,
+            avgPerProperty: byCat["Housing"]?.total || 0,
+        }
+    }
+}
+
+/**
+ * Build filtered dashboard stats for the given period.
+ */
+export function buildFilteredDashboardStats(filter: string | null | undefined) {
+    const analytics = buildFilteredAnalyticsBundle(filter)
+    const fridge = buildFilteredFridgeBundle(filter)
+    const savings = buildFilteredSavingsBundle(filter)
+    const trends = buildFilteredTrendsBundle(filter)
+
+    return {
+        analytics: {
+            transactionCount: analytics.transactionCount,
+            score: 72,
+            needsPercent: 53,
+            wantsPercent: 25,
+            savingsPercent: 15,
+            otherPercent: 7,
+            hasEnoughTransactions: true,
+            minRequired: 100,
+            breakdown: {
+                needs: analytics.needsWants.find(n => n.classification === 'Essentials')?.total || 0,
+                wants: analytics.needsWants.find(n => n.classification === 'Wants')?.total || 0,
+                savings: analytics.netSavings,
+                other: 0
+            },
+            scoreHistory: MOCK_DASHBOARD_STATS.analytics.scoreHistory,
+        },
+        fridge: {
+            transactionCount: fridge.kpis.shoppingTrips,
+            score: 68,
+            healthyPercent: Math.round((fridge.macronutrientBreakdown.find(m => m.typeName === 'Nutritious')?.total || 0) / Math.max(1, fridge.kpis.totalSpent) * 100),
+            unhealthyPercent: Math.round((fridge.macronutrientBreakdown.find(m => m.typeName === 'Snacks')?.total || 0) / Math.max(1, fridge.kpis.totalSpent) * 100),
+            hasEnoughTransactions: true,
+            minRequired: 200,
+            breakdown: {
+                healthy: fridge.macronutrientBreakdown.find(m => m.typeName === 'Nutritious')?.total || 0,
+                unhealthy: fridge.macronutrientBreakdown.find(m => m.typeName === 'Snacks')?.total || 0,
+                neutral: fridge.macronutrientBreakdown.find(m => m.typeName === 'Other')?.total || 0
+            },
+            itemCounts: {
+                healthy: fridge.categorySpending.filter(c => c.broadType === 'Nutritious').reduce((s, c) => s + c.count, 0),
+                unhealthy: fridge.categorySpending.filter(c => c.broadType === 'Snacks').reduce((s, c) => s + c.count, 0),
+                neutral: fridge.categorySpending.filter(c => c.broadType === 'Other').reduce((s, c) => s + c.count, 0)
+            },
+        },
+        savings: {
+            transactionCount: analytics.transactionCount,
+            totalIncome: analytics.totalIncome,
+            totalExpenses: analytics.totalExpense,
+            actualSavings: analytics.netSavings,
+            savingsRate: savings.kpis.savingsRate,
+            score: 75,
+            monthlyAvgSavings: savings.kpis.avgSavingsPerTransaction,
+            targetSavings: 1500,
+            gap: 1500 - savings.kpis.avgSavingsPerTransaction,
+            trend: MOCK_DASHBOARD_STATS.savings.trend,
+            scoreHistory: MOCK_DASHBOARD_STATS.savings.scoreHistory,
+        },
+        trends: {
+            transactionCount: analytics.transactionCount,
+            categoryCount: analytics.categorySpending.length,
+            monthCount: 6,
+            score: 65,
+            categoryAnalysis: analytics.categorySpending.slice(0, 5).map(c => ({
+                category: c.category,
+                userPercent: Math.round(c.percentage),
+                avgPercent: 15,
+                status: "average" as const,
+                difference: 0
+            })),
+        },
+        comparison: MOCK_DASHBOARD_STATS.comparison
+    }
+}
+
+/**
+ * Build filtered data library bundle for the given period.
+ */
+export function buildFilteredDataLibraryBundle(filter: string | null | undefined) {
+    const txs = filterMockTransactionsByPeriod(filter)
+    const expenses = txs.filter(t => t.type === 'expense')
+    const income = txs.filter(t => t.type === 'income')
+    const totalIncome = income.reduce((s, t) => s + t.amount, 0)
+    const totalExpense = Math.abs(expenses.reduce((s, t) => s + t.amount, 0))
+    const netSavings = totalIncome - totalExpense
+
+    return {
+        ...MOCK_DATA_LIBRARY_BUNDLE,
+        transactions: txs.map(t => ({
+            id: t.id,
+            date: t.date,
+            description: t.description,
+            amount: t.amount,
+            balance: t.balance,
+            category: t.category,
+        })),
+        stats: {
+            ...MOCK_DATA_LIBRARY_BUNDLE.stats,
+            totalIncome,
+            totalExpenses: totalExpense,
+            savingsRate: totalIncome > 0 ? Math.round((netSavings / totalIncome) * 100) : 0,
+            netWorth: netSavings,
+        }
+    }
+}
