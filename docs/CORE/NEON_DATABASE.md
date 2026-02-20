@@ -261,6 +261,7 @@ Quick list of tables by schema; details follow.
 17. **user_preferences** - User UI preferences (chart favourites, layout, sizes)
 18. **pockets** - Unified pocket items (vehicles, properties, other assets)
 19. **pocket_transactions** - Junction table linking transactions to pockets with tab classification
+20. **transaction_wallet** - Per-user transaction capacity tracking (base gift + earned monthly bonuses + purchased packs)
 
 ### Neon Auth Schema Tables
 
@@ -639,7 +640,7 @@ Per-table columns, indexes, constraints, and sizes.
 **Columns**:
 - `id` (text, PRIMARY KEY)
 - `user_id` (text, NOT NULL, UNIQUE) - References `users(id)`
-- `plan` (text, NOT NULL, DEFAULT 'free') - free, pro, max
+- `plan` (text, NOT NULL, DEFAULT 'free') - free, pro, max (basic was removed in Feb 2026 overhaul)
 - `status` (text, NOT NULL, DEFAULT 'active') - active, canceled, past_due, trialing
 - `stripe_customer_id` (text, NULLABLE, UNIQUE) - Stripe customer ID
 - `stripe_subscription_id` (text, NULLABLE, UNIQUE) - Stripe subscription ID
@@ -827,6 +828,51 @@ Per-table columns, indexes, constraints, and sizes.
 
 ---
 
+### 20. transaction_wallet
+
+**Purpose**: Tracks per-user transaction capacity using a wallet model: base gift from plan + earned monthly bonuses (permanent) + purchased packs (permanent) + renewable monthly slots.
+
+**Columns**:
+- `user_id` (text, PRIMARY KEY) - References `users(id)`
+- `base_capacity` (integer, NOT NULL, DEFAULT 500) - Initial gift from plan. Set on signup or plan change. Free=500, Pro=1500/2000, Max=5000/6000
+- `monthly_bonus_earned` (integer, NOT NULL, DEFAULT 0) - Cumulative monthly bonus converted to permanent capacity. Grows each rollover by the amount of monthly slots used that period
+- `purchased_capacity` (integer, NOT NULL, DEFAULT 0) - Transactions bought via one-time Stripe payment. Survives plan changes (permanent)
+- `monthly_used` (integer, NOT NULL, DEFAULT 0) - Monthly bonus slots consumed this period. Resets on period rollover. ONE-WAY: only increments, never decrements (deleting transactions does NOT free monthly slots)
+- `monthly_period_start` (timestamp with time zone, NOT NULL, DEFAULT DATE_TRUNC('month', NOW())) - Start of current monthly period. Used to detect lazy rollover
+- `updated_at` (timestamp with time zone, NOT NULL, DEFAULT NOW())
+
+**Indexes**:
+- `transaction_wallet_pkey` - PRIMARY KEY on `user_id`
+
+**Constraints**:
+- PRIMARY KEY: `user_id`
+- FOREIGN KEY: `user_id` -> `users(id)` ON DELETE CASCADE
+
+**Capacity Formula**:
+```
+total_capacity = base_capacity
+               + monthly_bonus_earned
+               + purchased_capacity
+               + MAX(0, plan.monthlyTransactions - monthly_used)
+```
+
+**Rollover Behavior** (lazy, detected on first request after period expires):
+```
+1. monthly_bonus_earned += monthly_used   (used slots become permanent)
+2. monthly_used = 0                       (reset for new period)
+3. monthly_period_start = new period start
+```
+
+**Key Invariants**:
+- `monthly_used` is one-way -- only increments, never decrements within a period
+- Purchased capacity is permanent -- survives plan downgrades and cancellations
+- On plan upgrade: `base_capacity = GREATEST(current, new_plan_base)` (never reduces)
+- NEVER auto-delete transactions -- block writes and show helpful error instead
+
+**Code Reference**: `lib/limits/transaction-wallet.ts`
+
+---
+
 ## Database Functions
 
 Server-side functions available in the database.
@@ -984,7 +1030,7 @@ Important context and caveats for the schema and infrastructure.
 
 ## API Routes Reference
 
-Complete listing of all API endpoints organized by feature domain. Total: **74 routes**.
+Complete listing of all API endpoints organized by feature domain. Total: **76 routes**.
 
 ### Chart Bundles (Aggregated Data APIs)
 
@@ -1047,6 +1093,8 @@ Bundle APIs aggregate multiple chart data sources into a single response with Re
 | `/api/transactions/years` | GET | Available transaction years |
 | `/api/transactions/total-count` | GET | Total transaction count |
 | `/api/transactions/preferences` | GET, POST | User's categorization preferences |
+| `/api/transactions/buy` | GET, POST | GET: list available transaction packs; POST: create Stripe checkout for one-time pack purchase |
+| `/api/transactions/wallet` | GET | Current user's transaction wallet capacity breakdown (base, earned, purchased, monthly) |
 
 ### Category APIs
 
@@ -1367,6 +1415,16 @@ Metadata, metrics, and connection details were refreshed using Neon MCP tools an
 
 Notable schema and data changes since the previous snapshot.
 
+- **February 18, 2026**: Plan & Subscription System Overhaul:
+  - Removed `basic` plan -- only `free`, `pro`, `max` remain in `PlanType`
+  - Added `transaction_wallet` table for per-user capacity tracking (base + earned + purchased + monthly)
+  - Added API routes: `GET/POST /api/transactions/buy` (transaction pack purchases), `GET /api/transactions/wallet` (wallet capacity)
+  - Transaction wallet uses lazy monthly rollover (no cron needed)
+  - `monthly_used` is one-way -- deleting transactions does NOT free monthly slots
+  - NEVER auto-delete transactions; block writes and show helpful error instead
+  - AI chat rate limiting changed from per-day to rolling 7-day window for all plans
+  - See `docs/CORE/PLAN_SUBSCRIPTION_OVERHAUL.md` for full details
+  - Total public schema tables: 21 -> 22
 - **February 16, 2026**: Created `country_instances` table for travel feature:
   - Added `country_instances` table (id, user_id, country_name, label, created_at, updated_at)
   - Added indexes: `idx_country_instances_user`, `idx_country_instances_user_country_label` (unique)

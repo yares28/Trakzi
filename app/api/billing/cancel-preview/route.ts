@@ -1,9 +1,12 @@
 // app/api/billing/cancel-preview/route.ts
-// Preview how many transactions will be deleted if subscription is canceled
+// Preview capacity impact if subscription is canceled (downgrade to free)
+// NOTE: We never auto-delete transactions. This endpoint shows how many slots
+// the user would be over capacity, so the UI can warn them about write-blocking.
 
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getTransactionCount, getTransactionCap, calculateDeletionsForCap } from '@/lib/limits/transactions-cap';
+import { getWalletCapacity } from '@/lib/limits/transaction-wallet';
+import { PLAN_LIMITS } from '@/lib/plan-limits';
 
 export async function GET() {
     try {
@@ -16,20 +19,21 @@ export async function GET() {
             );
         }
 
-        // Get current transaction count
-        const counts = await getTransactionCount(userId);
-        const freePlanCap = getTransactionCap('free');
+        const currentCapacity = await getWalletCapacity(userId);
 
-        // Calculate how many would be deleted
-        const deletionInfo = await calculateDeletionsForCap(userId, freePlanCap);
+        // Free plan base capacity (after cancellation, user keeps purchased packs + earned bonus)
+        // The new "base_capacity" will be set to free plan's base on next wallet sync
+        const freeBase = PLAN_LIMITS.free.maxTotalTransactions;
+        const freePlanCap = freeBase + currentCapacity.purchasedCapacity + currentCapacity.monthlyBonusEarned;
+
+        const currentTotal = currentCapacity.used;
+        const excessTransactions = Math.max(0, currentTotal - freePlanCap);
 
         return NextResponse.json({
-            currentTotal: deletionInfo.currentTotal,
+            currentTotal,
             freePlanCap,
-            transactionsToDelete: deletionInfo.toDelete,
-            willExceed: deletionInfo.wouldExceed,
-            bankTransactions: counts.bankTransactions,
-            receiptTrips: counts.receiptTrips,
+            transactionsToDelete: excessTransactions,  // kept for UI compatibility — means "over by this amount"
+            willExceed: excessTransactions > 0,
         });
     } catch (error: any) {
         console.error('[Cancel Preview] Error:', error);
@@ -39,4 +43,3 @@ export async function GET() {
         );
     }
 }
-

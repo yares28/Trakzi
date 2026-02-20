@@ -16,6 +16,8 @@ import { ChartResizeProvider } from "@/lib/chart-resize-context";
 import { ChartVisibilityProvider } from "@/components/chart-visibility-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { PostHogUserIdentifier } from "@/components/posthog-user-identifier";
+import { DemoModeProvider } from "@/lib/demo/demo-context";
+import { DemoBanner } from "@/components/demo-banner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -62,25 +64,28 @@ export default function RootLayout({
           >
             <QueryProvider>
               <UserPreferencesProvider>
-              <ChartResizeProvider>
-                <ChartVisibilityProvider storageScope="analytics">
-                <ColorSchemeProvider>
-                  <CurrencyProvider>
-                    <FavoritesProvider>
-                      <DateFilterProvider>
-                        <TransactionDialogProvider>
-                          <PostHogUserIdentifier />
-                          {children}
-                        </TransactionDialogProvider>
-                      </DateFilterProvider>
-                    </FavoritesProvider>
-                    <Toaster />
-                    <Analytics />
-                    <SpeedInsights />
-                  </CurrencyProvider>
-                </ColorSchemeProvider>
-                </ChartVisibilityProvider>
-              </ChartResizeProvider>
+                <ChartResizeProvider>
+                  <ChartVisibilityProvider storageScope="analytics">
+                    <ColorSchemeProvider>
+                      <CurrencyProvider>
+                        <FavoritesProvider>
+                          <DateFilterProvider>
+                            <TransactionDialogProvider>
+                              <DemoModeProvider>
+                                <PostHogUserIdentifier />
+                                <DemoBanner />
+                                {children}
+                              </DemoModeProvider>
+                            </TransactionDialogProvider>
+                          </DateFilterProvider>
+                        </FavoritesProvider>
+                        <Toaster />
+                        <Analytics />
+                        <SpeedInsights />
+                      </CurrencyProvider>
+                    </ColorSchemeProvider>
+                  </ChartVisibilityProvider>
+                </ChartResizeProvider>
               </UserPreferencesProvider>
             </QueryProvider>
           </ThemeProvider>

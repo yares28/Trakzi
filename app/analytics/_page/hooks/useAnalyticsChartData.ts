@@ -2,6 +2,7 @@ import { useMemo, useState } from "react"
 
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
+import type { ChartDataStatusMap } from "@/lib/types/chart-data-status"
 
 import type { ActivityRingsConfig, ActivityRingsData, AnalyticsTransaction } from "../types"
 import { getDefaultRingLimit, normalizeCategoryName } from "../utils/categories"
@@ -63,6 +64,13 @@ type BundleTransaction = {
   color?: string | null
 }
 
+type BundleTreeMapData = {
+  name: string
+  loc?: number
+  fullDescription?: string
+  children?: BundleTreeMapData[]
+}
+
 type BundleData = {
   dailySpending?: BundleDailySpending[]
   categorySpending?: BundleCategorySpending[]
@@ -72,6 +80,7 @@ type BundleData = {
   cashFlow?: BundleCashFlow
   kpis?: BundleKpis
   transactionHistory?: BundleTransaction[]
+  treeMapData?: BundleTreeMapData
 }
 
 type UseAnalyticsChartDataParams = {
@@ -438,73 +447,46 @@ export function useAnalyticsChartData({
     if (bundleData?.monthlyCategories && bundleData.monthlyCategories.length > 0) {
       const categorySet = new Set<string>(bundleData.monthlyCategories.map(m => m.category))
 
-      // Group by month - collect totals per category per month
-      const monthTotals = new Map<string, Map<string, number>>()
+      // Group by month — collect totals per category per month (expenses only)
+      const categoryMonthMap = new Map<string, Map<string, number>>()
+      const allMonths = new Set<string>()
 
       bundleData.monthlyCategories.forEach(m => {
         const monthKey = String(m.month).padStart(2, '0')
-        if (!monthTotals.has(monthKey)) monthTotals.set(monthKey, new Map())
-        monthTotals.get(monthKey)!.set(m.category, m.total)
+        allMonths.add(monthKey)
+        const category = m.category
+        if (categoryFlowVisibility.hiddenCategorySet.has(category)) return
+        if (!categoryMonthMap.has(category)) categoryMonthMap.set(category, new Map())
+        const monthMap = categoryMonthMap.get(category)!
+        monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + m.total)
       })
 
-      let sortedPeriods = Array.from(monthTotals.keys()).sort(sortPeriodKeys)
+      const sortedPeriods = Array.from(allMonths).sort(sortPeriodKeys)
 
-      // Get all unique categories (filtered by visibility)
-      const visibleCategories = Array.from(categorySet).filter(c => !categoryFlowVisibility.hiddenCategorySet.has(c))
-
-      // Calculate rankings and percentages per period (higher y = higher spending = appears at top)
-      const categoryRankings = new Map<string, { x: string; y: number; percentage: number }[]>()
-      visibleCategories.forEach(cat => categoryRankings.set(cat, []))
-
+      // Compute percentage-based y values per period (same as Home page)
+      const periodTotals = new Map<string, number>()
       sortedPeriods.forEach(period => {
-        const catMap = monthTotals.get(period)!
-        // Get totals for all visible categories
-        const totals: { category: string; total: number }[] = []
-        let periodTotal = 0
-        visibleCategories.forEach(cat => {
-          const catTotal = catMap.get(cat) || 0
-          totals.push({ category: cat, total: catTotal })
-          periodTotal += catTotal
-        })
-        // Sort by total descending to assign ranks
-        totals.sort((a, b) => b.total - a.total)
-        const numCategories = totals.length
-        // Assign inverted ranks and percentages (higher y = higher spending = top of chart)
-        totals.forEach((item, index) => {
-          const percentage = periodTotal > 0 ? (item.total / periodTotal) * 100 : 0
-          // Invert rank so highest spending has highest y value (appears at top)
-          const invertedRank = numCategories - index
-          categoryRankings.get(item.category)!.push({ x: period, y: invertedRank, percentage })
-        })
-      })
-
-      // Area Bump needs 2 distinct x-points to draw the band
-      if (sortedPeriods.length === 1) {
-        const sole = sortedPeriods[0]
-        const soleContinuation = sole + "\u200B" // zero-width space = distinct key, same display
-        sortedPeriods = [sole, soleContinuation]
-        // Duplicate rankings for continuation (including percentage)
-        visibleCategories.forEach(cat => {
-          const rankings = categoryRankings.get(cat)!
-          if (rankings.length > 0) {
-            rankings.push({ x: soleContinuation, y: rankings[0].y, percentage: rankings[0].percentage })
-          }
-        })
-      }
-
-      // Get top 5 categories by total spending
-      const categoryTotals: { category: string; total: number }[] = []
-      visibleCategories.forEach(cat => {
         let total = 0
-        monthTotals.forEach(catMap => total += catMap.get(cat) || 0)
-        categoryTotals.push({ category: cat, total })
+        categoryMonthMap.forEach(months => { total += months.get(period) || 0 })
+        periodTotals.set(period, total)
       })
-      categoryTotals.sort((a, b) => b.total - a.total)
 
-      const data = categoryTotals.slice(0, 5).map(item => ({
-        id: item.category,
-        data: categoryRankings.get(item.category) || []
-      })).filter(series => series.data.length > 0)
+      const data = Array.from(categoryMonthMap.entries())
+        .map(([category, months]) => ({
+          id: category,
+          data: sortedPeriods.map(period => {
+            const value = months.get(period) || 0
+            const total = periodTotals.get(period) || 1
+            const percentage = total > 0 ? (value / total) * 100 : 0
+            return { x: period, y: Math.max(percentage, 0.1) }
+          }),
+        }))
+        .filter(series =>
+          series.data.some(d => {
+            const originalValue = categoryMonthMap.get(series.id)?.get(d.x) || 0
+            return originalValue > 0
+          })
+        )
 
       return { data, categories: Array.from(categorySet) }
     }
@@ -571,64 +553,32 @@ export function useAnalyticsChartData({
       return { data: [], categories: Array.from(categorySet) }
     }
 
-    let sortedTimePeriods = Array.from(allTimePeriods).sort(sortPeriodKeys)
+    const sortedTimePeriods = Array.from(allTimePeriods).sort(sortPeriodKeys)
 
-    // Get all visible categories
-    const visibleCategories = Array.from(categoryMap.keys())
-
-    // Calculate rankings and percentages per period (higher y = higher spending = appears at top)
-    const categoryRankings = new Map<string, { x: string; y: number; percentage: number }[]>()
-    visibleCategories.forEach(cat => categoryRankings.set(cat, []))
-
+    // Compute percentage-based y values per period (same as Home page)
+    const periodTotals = new Map<string, number>()
     sortedTimePeriods.forEach(period => {
-      // Get totals for all visible categories for this period
-      const totals: { category: string; total: number }[] = []
-      let periodTotal = 0
-      visibleCategories.forEach(category => {
-        const periodMap = categoryMap.get(category)
-        const catTotal = periodMap?.get(period) || 0
-        totals.push({ category, total: catTotal })
-        periodTotal += catTotal
-      })
-      // Sort by total descending to assign ranks
-      totals.sort((a, b) => b.total - a.total)
-      const numCategories = totals.length
-      // Assign inverted ranks and percentages (higher y = higher spending = top of chart)
-      totals.forEach((item, index) => {
-        const percentage = periodTotal > 0 ? (item.total / periodTotal) * 100 : 0
-        // Invert rank so highest spending has highest y value (appears at top)
-        const invertedRank = numCategories - index
-        categoryRankings.get(item.category)!.push({ x: period, y: invertedRank, percentage })
-      })
-    })
-
-    // Area Bump needs 2 distinct x-points to draw the band
-    if (sortedTimePeriods.length === 1) {
-      const sole = sortedTimePeriods[0]
-      const soleContinuation = sole + "\u200B"
-      sortedTimePeriods = [sole, soleContinuation]
-      // Duplicate rankings for continuation (including percentage)
-      visibleCategories.forEach(cat => {
-        const rankings = categoryRankings.get(cat)!
-        if (rankings.length > 0) {
-          rankings.push({ x: soleContinuation, y: rankings[0].y, percentage: rankings[0].percentage })
-        }
-      })
-    }
-
-    // Get top 5 categories by total spending
-    const categoryTotals: { category: string; total: number }[] = []
-    visibleCategories.forEach(category => {
       let total = 0
-      categoryMap.get(category)?.forEach(amount => total += amount)
-      categoryTotals.push({ category, total })
+      categoryMap.forEach(timeMap => { total += timeMap.get(period) || 0 })
+      periodTotals.set(period, total)
     })
-    categoryTotals.sort((a, b) => b.total - a.total)
 
-    const data = categoryTotals.slice(0, 5).map(item => ({
-      id: item.category,
-      data: categoryRankings.get(item.category) || []
-    })).filter(series => series.data.length > 0)
+    const data = Array.from(categoryMap.entries())
+      .map(([category, timeMap]) => ({
+        id: category,
+        data: sortedTimePeriods.map(period => {
+          const value = timeMap.get(period) || 0
+          const total = periodTotals.get(period) || 1
+          const percentage = total > 0 ? (value / total) * 100 : 0
+          return { x: period, y: Math.max(percentage, 0.1) }
+        }),
+      }))
+      .filter(series =>
+        series.data.some(d => {
+          const originalValue = categoryMap.get(series.id)?.get(d.x) || 0
+          return originalValue > 0
+        })
+      )
 
     return {
       data,
@@ -1354,6 +1304,22 @@ export function useAnalyticsChartData({
   }, [rawTransactions, incomeExpenseTopVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
 
   const treeMapData = useMemo(() => {
+    // Use bundle data if available (pre-computed by server)
+    if (bundleData?.treeMapData?.children) {
+      const children = bundleData.treeMapData.children.filter(c =>
+        !treeMapVisibility.hiddenCategorySet.has(normalizeCategoryName(c.name))
+      )
+      return {
+        ...bundleData.treeMapData,
+        children
+      }
+    }
+
+    // Fallback to rawTransactions
+    if (!rawTransactions || rawTransactions.length === 0) {
+      return { name: "Expenses", children: [] }
+    }
+
     const filteredSource =
       treeMapVisibility.hiddenCategorySet.size === 0
         ? rawTransactions
@@ -1367,7 +1333,7 @@ export function useAnalyticsChartData({
       if (!description) return "Misc"
       const delimiterSplit = description.split(/[-??"|]/)[0] ?? description
       const trimmed = delimiterSplit.trim()
-      return trimmed.length > 24 ? `${trimmed.slice(0, 21)}???` : (trimmed || "Misc")
+      return trimmed.length > 24 ? `${trimmed.slice(0, 21)}...` : (trimmed || "Misc")
     }
     filteredSource
       .filter(tx => tx.amount < 0)
@@ -1416,8 +1382,8 @@ export function useAnalyticsChartData({
           const bTotal = b.children.reduce((sum, child) => sum + (child.loc || 0), 0)
           return bTotal - aTotal
         }),
-    }
-  }, [rawTransactions, treeMapVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
+    } as any
+  }, [bundleData?.treeMapData, rawTransactions, treeMapVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
 
   const dayOfWeekSpendingControls = useMemo(() => {
     const categories = Array.from(
@@ -1474,16 +1440,18 @@ export function useAnalyticsChartData({
       }))
   }, [bundleData?.transactionHistory, rawTransactions, dateFilter])
 
-  // ── Chart data status map ────────────────────────────────────────────
-  const chartDataStatusMap = useMemo(() => {
+  // Build a status map so ChartsGrid knows which charts have data
+  const chartDataStatusMap = useMemo<ChartDataStatusMap>(() => {
     const hasArr = (arr: unknown[] | undefined | null) => Array.isArray(arr) && arr.length > 0
+    const hasObj = (obj: { children?: unknown[] } | undefined | null) =>
+      !!obj && Array.isArray(obj.children) && obj.children.length > 0
 
     return {
       incomeExpensesTracking1: hasArr(incomeExpenseTopChartData) ? "has-data" : "empty",
       incomeExpensesTracking2: hasArr(incomeExpenseChart.data) ? "has-data" : "empty",
-      categoryFlow: hasArr(categoryFlowChart.data) ? "has-data" : "empty",
-      netWorthAllocation: hasArr(treeMapData) ? "has-data" : "empty",
-      spendingFunnel: hasArr(spendingFunnelChart.data) ? "has-data" : "empty",
+      spendingCategoryRankings: hasArr(categoryFlowChart.data) ? "has-data" : "empty",
+      netWorthAllocation: hasObj(treeMapData) ? "has-data" : "empty",
+      moneyFlow: hasArr(spendingFunnelChart.data) ? "has-data" : "empty",
       expenseBreakdown: hasArr(expensesPieData.slices) ? "has-data" : "empty",
       needsWantsBreakdown: hasArr(needsWantsPieData.slices) ? "has-data" : "empty",
       categoryBubbleMap: hasArr(circlePackingData.tree.children) ? "has-data" : "empty",
@@ -1498,7 +1466,7 @@ export function useAnalyticsChartData({
       dailyTransactionActivity: hasArr(bundleData?.dailySpending) ? "has-data" : "empty",
       dayOfWeekCategory: hasArr(rawTransactions) ? "has-data" : "empty",
       financialHealthScore: hasArr(rawTransactions) ? "has-data" : "empty",
-    } as Record<string, "has-data" | "empty">
+    }
   }, [
     incomeExpenseTopChartData,
     incomeExpenseChart.data,

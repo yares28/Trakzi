@@ -4,15 +4,18 @@ import { useAuth } from "@clerk/nextjs"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import { normalizeTransactions } from "@/lib/utils"
 import { toast } from "sonner"
+import { demoFetch } from "@/lib/demo/demo-fetch"
+import { useDemoMode } from "@/lib/demo/demo-context"
 
 import type { AnalyticsTransaction } from "../types"
 import { getAnalyticsCacheEntry, getAnalyticsCacheKey, isAnalyticsCacheFresh, setAnalyticsCacheEntry } from "../cache"
 
 export function useAnalyticsData(dateFilter: string | null) {
   const { userId } = useAuth()
-  const userIdArg = userId ?? undefined
+  const { isDemoMode } = useDemoMode()
+  const userIdArg = isDemoMode ? 'demo' : (userId ?? undefined)
   const filterArg = dateFilter ?? undefined
-  const analyticsCacheEntry = getAnalyticsCacheEntry(userIdArg, filterArg)
+  const analyticsCacheEntry = isDemoMode ? null : getAnalyticsCacheEntry(userIdArg, filterArg)
 
   // Transactions state (keyed by user: when userId changes we reset so we don't show previous user's data)
   const [rawTransactions, setRawTransactions] = useState<AnalyticsTransaction[]>(
@@ -49,6 +52,18 @@ export function useAnalyticsData(dateFilter: string | null) {
       }
     } else {
       setIsLoadingTransactions(true)
+    }
+
+    // Demo mode: fetch from demo API directly
+    if (isDemoMode) {
+      try {
+        const res = await demoFetch("/api/transactions?all=true")
+        const data = await res.json()
+        const txArray = Array.isArray(data) ? data : (data?.data ?? [])
+        setRawTransactions(normalizeTransactions(txArray) as AnalyticsTransaction[])
+      } catch { /* demo data unavailable */ }
+      setIsLoadingTransactions(false)
+      return
     }
 
     try {
@@ -145,9 +160,9 @@ export function useAnalyticsData(dateFilter: string | null) {
 
   // Fetch all data when user and filter are set (don't fetch with stale or missing user)
   useEffect(() => {
-    if (!userId) return
+    if (!isDemoMode && !userId) return
     fetchAllAnalyticsData()
-  }, [userId, fetchAllAnalyticsData])
+  }, [userId, isDemoMode, fetchAllAnalyticsData])
 
   return {
     rawTransactions,

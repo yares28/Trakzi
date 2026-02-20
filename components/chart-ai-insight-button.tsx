@@ -1,14 +1,35 @@
 "use client"
 
-import { useState, useCallback, useRef } from "react"
+import { useState, useCallback, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { IconSparkles, IconAlertTriangle, IconCheck, IconLoader2 } from "@tabler/icons-react"
+import { IconSparkles, IconAlertTriangle, IconCheck, IconLoader2, IconLock } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
+import { usePlanFeatures } from "@/hooks/use-plan-features"
+import Link from "next/link"
+
+const AI_INSIGHTS_USED_KEY = "ai_insights_previews_used"
+
+function getPreviewsUsed(): number {
+  try {
+    return parseInt(localStorage.getItem(AI_INSIGHTS_USED_KEY) || "0", 10)
+  } catch {
+    return 0
+  }
+}
+
+function incrementPreviewsUsed(): void {
+  try {
+    const current = getPreviewsUsed()
+    localStorage.setItem(AI_INSIGHTS_USED_KEY, String(current + 1))
+  } catch {
+    // ignore localStorage errors
+  }
+}
 
 // Custom lightbulb icon
 const IconLightbulb = ({ className }: { className?: string }) => (
@@ -51,7 +72,18 @@ export function ChartAiInsightButton({
   const [isLoading, setIsLoading] = useState(false)
   const [insight, setInsight] = useState<InsightData | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isPreviewLocked, setIsPreviewLocked] = useState(false)
   const fetchedRef = useRef(false)
+  const planFeatures = usePlanFeatures()
+
+  // Check preview limit when plan features load or popover opens
+  useEffect(() => {
+    if (!planFeatures) return
+    const limit = planFeatures.aiInsightsFreePreviewCount
+    if (limit > 0 && getPreviewsUsed() >= limit) {
+      setIsPreviewLocked(true)
+    }
+  }, [planFeatures])
 
   // Helper to generate a robust cache key based on data content
   const getCacheKey = useCallback(async () => {
@@ -84,6 +116,7 @@ export function ChartAiInsightButton({
     fetchedRef.current = true
     setIsLoading(true)
     setError(null)
+    let didError = true // assume error until success path clears it
 
     try {
       // 1. Check LocalStorage Cache
@@ -123,7 +156,16 @@ export function ChartAiInsightButton({
 
       const data: InsightData = await response.json()
 
-      // 3. Save to Cache
+      // 3. Increment preview counter for free-plan tracking (new API fetch = new preview used)
+      if (planFeatures && planFeatures.aiInsightsFreePreviewCount > 0) {
+        incrementPreviewsUsed()
+        const used = getPreviewsUsed()
+        if (used >= planFeatures.aiInsightsFreePreviewCount) {
+          setIsPreviewLocked(true)
+        }
+      }
+
+      // 4. Save to Cache
       setInsight(data)
       try {
         localStorage.setItem(cacheKey, JSON.stringify(data))
@@ -144,17 +186,27 @@ export function ChartAiInsightButton({
         console.warn("Failed to save to localStorage (likely quota)", e)
       }
 
+      didError = false
     } catch (err: any) {
-      console.error("[ChartAiInsight] Error:", err)
+      didError = true
       setError(err.message || "Unable to generate insight")
     } finally {
       setIsLoading(false)
       // Allow re-fetch on error, but keep blocked on success to avoid loops
-      if (error) fetchedRef.current = false
+      if (didError) fetchedRef.current = false
     }
-  }, [chartId, chartTitle, chartDescription, chartData, isLoading, getCacheKey])
+  }, [chartId, chartTitle, chartDescription, chartData, isLoading, getCacheKey, planFeatures])
 
   const handleOpenChange = (open: boolean) => {
+    // Re-check preview lock on each open (in case limit was reached in another tab)
+    if (open && planFeatures) {
+      const limit = planFeatures.aiInsightsFreePreviewCount
+      if (limit > 0 && getPreviewsUsed() >= limit) {
+        setIsPreviewLocked(true)
+        setIsOpen(true)
+        return
+      }
+    }
     setIsOpen(open)
     if (open && !insight && !error) {
       fetchInsight()
@@ -234,7 +286,28 @@ export function ChartAiInsightButton({
         </div>
 
         <div className="p-4">
-          {isLoading && (
+          {isPreviewLocked && (
+            <div className="flex flex-col items-center justify-center py-6 gap-3 text-center">
+              <div className="rounded-full bg-primary/10 border border-primary/20 p-3">
+                <IconLock className="h-5 w-5 text-primary" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Preview limit reached</p>
+                <p className="text-xs text-muted-foreground">
+                  You&apos;ve used your {planFeatures?.aiInsightsFreePreviewCount ?? 3} free AI insight previews.
+                  Upgrade to Pro or Max for unlimited insights.
+                </p>
+              </div>
+              <Button size="sm" asChild>
+                <Link href="/settings">
+                  <IconSparkles className="h-3.5 w-3.5 mr-1.5" />
+                  Upgrade Plan
+                </Link>
+              </Button>
+            </div>
+          )}
+
+          {!isPreviewLocked && isLoading && (
             <div className="flex flex-col items-center justify-center py-6 gap-3">
               <div className="relative">
                 <IconLoader2 className="h-8 w-8 text-primary animate-spin" />
@@ -253,7 +326,7 @@ export function ChartAiInsightButton({
             </div>
           )}
 
-          {error && (
+          {!isPreviewLocked && error && (
             <div className="flex items-start gap-3 p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-950/30">
               <IconAlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
               <div>
@@ -278,7 +351,7 @@ export function ChartAiInsightButton({
             </div>
           )}
 
-          {insight && !isLoading && (
+          {!isPreviewLocked && insight && !isLoading && (
             <div className="space-y-3">
               <div className={cn(
                 "p-3 rounded-lg border",

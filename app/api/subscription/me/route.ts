@@ -68,8 +68,11 @@ export async function GET() {
             limits: {
                 max_total_transactions: safeNumber(limits.maxTotalTransactions),
                 ai_chat_enabled: limits.aiChatEnabled,
-                ai_chat_messages_per_day: safeNumber(limits.aiChatMessagesPerDay),
+                ai_chat_messages: safeNumber(limits.aiChatMessages),
+                ai_chat_period: limits.aiChatPeriod,
                 ai_insights_enabled: limits.aiInsightsEnabled,
+                ai_insights_free_preview_count: limits.aiInsightsFreePreviewCount,
+                advanced_charts_enabled: limits.advancedChartsEnabled,
             },
         });
     } catch (error: any) {

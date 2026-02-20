@@ -45,7 +45,7 @@ export default async function ChatPage() {
               </div>
               <h1 className="text-2xl font-bold mb-3">Chat Requires an Upgrade</h1>
               <p className="text-muted-foreground mb-8">
-                AI Chat is available on Basic, Pro, and Max plans. Upgrade your subscription to unlock unlimited AI-powered financial insights.
+                AI Chat is available on all plans. Free users get 10 messages per week. Upgrade to Pro or Max for more.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Button asChild variant="outline">

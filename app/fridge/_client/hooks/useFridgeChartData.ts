@@ -2,6 +2,7 @@ import { useMemo } from "react"
 
 import type { FridgeBundleData } from "@/hooks/use-dashboard-data"
 import { getReceiptCategoryByName } from "@/lib/receipt-categories"
+import type { ChartDataStatusMap } from "@/lib/types/chart-data-status"
 
 import type { ReceiptTransactionRow } from "../types"
 import { normalizeCategoryName } from "../utils/categories"
@@ -97,8 +98,8 @@ export function useFridgeChartData({ bundleData, receiptTransactions }: UseFridg
     }))
   }, [bundleData?.dailySpending])
 
-  // ── Chart data status map ────────────────────────────────────────────
-  const chartDataStatusMap = useMemo(() => {
+  // Build a status map so ChartsGrid knows which charts have data
+  const chartDataStatusMap = useMemo<ChartDataStatusMap>(() => {
     const hasArr = (arr: unknown[] | undefined | null) => Array.isArray(arr) && arr.length > 0
     const hasTx = hasArr(receiptTransactions)
 
@@ -120,7 +121,7 @@ export function useFridgeChartData({ bundleData, receiptTransactions }: UseFridg
       groceryShoppingHeatmapHoursDays: hasArr(bundleData?.hourDayHeatmap as unknown[] | undefined) || hasTx ? "has-data" : "empty",
       groceryShoppingHeatmapDaysMonths: hasArr(bundleData?.dayMonthHeatmap as unknown[] | undefined) || hasTx ? "has-data" : "empty",
       groceryNetWorthAllocation: hasArr(categorySpendingData) || hasTx ? "has-data" : "empty",
-    } as Record<string, "has-data" | "empty">
+    }
   }, [
     spendTrendData,
     receiptTransactions,

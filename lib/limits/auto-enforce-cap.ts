@@ -1,92 +1,49 @@
 // lib/limits/auto-enforce-cap.ts
 // ============================================================================
-// AUTOMATIC TRANSACTION CAP ENFORCEMENT
+// TRANSACTION CAP STATUS CHECK
 // ============================================================================
 //
-// This module provides automatic enforcement of transaction caps when users
-// exceed their limits (e.g., from subscription downgrades or data corruption).
-// 
-// It is called on page loads to ensure users are always within their limits.
+// Checks whether a user is over their transaction wallet capacity.
+//
+// IMPORTANT: We NEVER auto-delete transactions. If a user is over their
+// wallet capacity (e.g. after a downgrade), we block NEW writes and show
+// a helpful error with options to delete oldest entries themselves or upgrade.
 // ============================================================================
 
-import { getUserPlan } from '../subscriptions';
-import { getTransactionCap, getTransactionCount, enforceTransactionCap } from './transactions-cap';
+import { getWalletCapacity } from './transaction-wallet';
 
 export interface CapEnforcementResult {
     wasOverLimit: boolean;
-    deletedCount: number;
+    deletedCount: number;  // always 0 — we never auto-delete
     currentCount: number;
     cap: number;
     plan: string;
 }
 
 /**
- * Check if user is over their transaction cap and automatically delete
- * oldest transactions to bring them back within limits.
- * 
- * This should be called during page loads or bundle fetches as a safety measure.
- * 
+ * Check if user is over their wallet capacity.
+ * Does NOT delete anything — blocks writes instead.
+ *
  * @param userId - The user ID to check
- * @param silent - If true, don't log to console (for background checks)
- * @returns Result indicating if enforcement was needed and what was done
+ * @param _silent - Unused (kept for API compatibility)
  */
 export async function autoEnforceTransactionCap(
     userId: string,
-    silent: boolean = false
+    _silent: boolean = false
 ): Promise<CapEnforcementResult> {
     try {
-        // Get user's current plan and cap
-        const plan = await getUserPlan(userId);
-        const cap = getTransactionCap(plan);
-
-        // If unlimited, no need to check
-        if (cap === Infinity) {
-            return {
-                wasOverLimit: false,
-                deletedCount: 0,
-                currentCount: 0,
-                cap: Infinity,
-                plan,
-            };
-        }
-
-        // Get current transaction count
-        const counts = await getTransactionCount(userId);
-        const currentTotal = counts.total;
-
-        // If within limits, no action needed
-        if (currentTotal <= cap) {
-            return {
-                wasOverLimit: false,
-                deletedCount: 0,
-                currentCount: currentTotal,
-                cap,
-                plan,
-            };
-        }
-
-        // User is over limit - enforce cap by deleting oldest transactions
-        if (!silent) {
-            console.warn(`[Auto Cap Enforcement] User ${userId} is over limit (${currentTotal}/${cap}) - deleting oldest transactions`);
-        }
-
-        const result = await enforceTransactionCap(userId, cap);
-
-        if (!silent) {
-            console.log(`[Auto Cap Enforcement] User ${userId} - deleted ${result.deleted} transactions (now ${currentTotal - result.deleted}/${cap})`);
-        }
+        const capacity = await getWalletCapacity(userId);
 
         return {
-            wasOverLimit: true,
-            deletedCount: result.deleted,
-            currentCount: currentTotal - result.deleted,
-            cap,
-            plan,
+            wasOverLimit: capacity.remaining <= 0,
+            deletedCount: 0,
+            currentCount: capacity.used,
+            cap: capacity.totalCapacity,
+            plan: capacity.plan,
         };
-
     } catch (error) {
-        // Log error but don't throw - we don't want to break page loads
-        console.error('[Auto Cap Enforcement] Error:', error);
+        // Don't throw — avoid breaking page loads on wallet errors
+        console.error('[Cap Enforcement] Error checking wallet capacity:', error);
         return {
             wasOverLimit: false,
             deletedCount: 0,
@@ -98,12 +55,8 @@ export async function autoEnforceTransactionCap(
 }
 
 /**
- * Check if user would be over limit after adding new transactions.
- * This is a dry-run that doesn't delete anything.
- * 
- * @param userId - The user ID to check
- * @param incomingCount - Number of transactions user wants to add
- * @returns Object indicating if they would exceed and by how much
+ * Check if user would exceed their wallet capacity after adding new transactions.
+ * Dry-run — does not modify any data.
  */
 export async function wouldExceedCap(
     userId: string,
@@ -116,31 +69,16 @@ export async function wouldExceedCap(
     excessCount: number;
     plan: string;
 }> {
-    const plan = await getUserPlan(userId);
-    const cap = getTransactionCap(plan);
-
-    if (cap === Infinity) {
-        return {
-            wouldExceed: false,
-            currentCount: 0,
-            cap: Infinity,
-            afterAddition: 0,
-            excessCount: 0,
-            plan,
-        };
-    }
-
-    const counts = await getTransactionCount(userId);
-    const currentTotal = counts.total;
-    const afterAddition = currentTotal + incomingCount;
-    const excessCount = Math.max(0, afterAddition - cap);
+    const capacity = await getWalletCapacity(userId);
+    const afterAddition = capacity.used + incomingCount;
+    const excessCount = Math.max(0, afterAddition - capacity.totalCapacity);
 
     return {
-        wouldExceed: afterAddition > cap,
-        currentCount: currentTotal,
-        cap,
+        wouldExceed: afterAddition > capacity.totalCapacity,
+        currentCount: capacity.used,
+        cap: capacity.totalCapacity,
         afterAddition,
         excessCount,
-        plan,
+        plan: capacity.plan,
     };
 }

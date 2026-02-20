@@ -21,7 +21,26 @@ type SubscriptionData = {
         totalTransactions: number;
         transactionLimit: number; // -1 means unlimited
     };
+    subscription?: {
+        currentPeriodEnd?: string | null;
+    };
 };
+
+type WalletInfo = {
+    monthlyBonusEarned: number;
+    monthlyAvailable: number;
+    monthlyUsed: number;
+};
+
+/** Next period-start date: paid plans use Stripe period end, free uses 1st of next month. */
+function getNextRenewalDate(plan: string, currentPeriodEnd?: string | null): Date {
+    if (plan !== "free" && currentPeriodEnd) {
+        return new Date(currentPeriodEnd);
+    }
+    // Free plan: calendar month — resets on the 1st of next month
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth() + 1, 1);
+}
 
 function getPlanIcon(plan: string) {
     switch (plan) {
@@ -52,6 +71,7 @@ export function TransactionProgressBar({
     className,
 }: TransactionProgressBarProps) {
     const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
+    const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
     const [categoryData, setCategoryData] = useState<{
         transactions: number;
         receipts: number;
@@ -72,18 +92,30 @@ export function TransactionProgressBar({
             try {
                 setIsLoading(true);
 
-                // Fetch subscription status (no-store so prod never uses cached counts)
-                const subResponse = await fetch("/api/subscription/status", { cache: "no-store" });
+                // Fetch all three in parallel — no-store so prod never uses cached counts
+                const [subResponse, catResponse, walletResponse] = await Promise.all([
+                    fetch("/api/subscription/status", { cache: "no-store" }),
+                    fetch("/api/categories/count", { cache: "no-store" }),
+                    fetch("/api/transactions/wallet", { cache: "no-store" }),
+                ]);
+
                 if (subResponse.ok) {
                     const subData = await subResponse.json();
                     setSubscriptionData(subData);
                 }
 
-                // Fetch category counts (no-store so prod never uses cached counts)
-                const catResponse = await fetch("/api/categories/count", { cache: "no-store" });
                 if (catResponse.ok) {
                     const catData = await catResponse.json();
                     setCategoryData(catData);
+                }
+
+                if (walletResponse.ok) {
+                    const walletData = await walletResponse.json();
+                    setWalletInfo({
+                        monthlyBonusEarned: walletData.monthlyBonusEarned ?? 0,
+                        monthlyAvailable: walletData.monthlyAvailable ?? 0,
+                        monthlyUsed: walletData.monthlyUsed ?? 0,
+                    });
                 }
             } catch (error) {
                 console.error("Failed to fetch data:", error);
@@ -148,7 +180,7 @@ export function TransactionProgressBar({
         <Card className={cn("w-full shadow-sm", className)}>
             <CardContent className="py-4">
                 {/* Header with subscription badge */}
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-2">
                     <p className="text-base text-muted-foreground">
                         Transactions tracked{" "}
                         <span className="font-semibold tabular-nums text-foreground">
@@ -161,6 +193,36 @@ export function TransactionProgressBar({
                         <span className="font-semibold">{plan.toUpperCase()}</span>
                     </Badge>
                 </div>
+
+                {/* Renewal date + accumulated bonus */}
+                {!isUnlimited && (() => {
+                    const renewalDate = getNextRenewalDate(plan, subscriptionData?.subscription?.currentPeriodEnd);
+                    const bonus = walletInfo?.monthlyBonusEarned ?? 0;
+                    const monthlyAdd = walletInfo?.monthlyAvailable ?? 0;
+                    return (
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-4 text-xs text-muted-foreground">
+                            <span>
+                                Monthly allocation renews{" "}
+                                <span className="font-medium text-foreground">
+                                    {renewalDate.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                                </span>
+                                {monthlyAdd > 0 && (
+                                    <span className="ml-1 text-muted-foreground">
+                                        (+{monthlyAdd.toLocaleString()} slots)
+                                    </span>
+                                )}
+                            </span>
+                            {bonus > 0 && (
+                                <span>
+                                    Accumulated bonus{" "}
+                                    <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                                        +{bonus.toLocaleString()}
+                                    </span>
+                                </span>
+                            )}
+                        </div>
+                    );
+                })()}
 
                 {/* Progress bar - hide if unlimited */}
                 {!isUnlimited && (

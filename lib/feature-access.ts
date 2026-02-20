@@ -152,26 +152,25 @@ export async function checkAiChatLimit(userId: string): Promise<FeatureAccessRes
         };
     }
 
-    if (limits.aiChatMessagesPerDay === Infinity) {
+    if (limits.aiChatMessages === Infinity) {
         return { allowed: true, plan };
     }
 
-    // Count today's messages
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    // Count messages in the rolling 7-day window
     const result = await neonQuery<{ count: string }>(
-        `SELECT COUNT(*) as count FROM ai_chat_usage 
-         WHERE user_id = $1 AND DATE(created_at) = $2`,
-        [userId, today]
+        `SELECT COUNT(*) as count FROM ai_chat_usage
+         WHERE user_id = $1 AND created_at >= NOW() - INTERVAL '7 days'`,
+        [userId]
     );
 
     const currentCount = parseInt(result[0]?.count || '0');
 
-    if (currentCount >= limits.aiChatMessagesPerDay) {
+    if (currentCount >= limits.aiChatMessages) {
         return {
             allowed: false,
-            reason: `You've reached your daily limit of ${limits.aiChatMessagesPerDay} AI chat messages. Resets at midnight.`,
+            reason: `You've reached your weekly limit of ${limits.aiChatMessages} AI chat messages. Limit resets on a rolling 7-day basis.`,
             currentUsage: currentCount,
-            limit: limits.aiChatMessagesPerDay,
+            limit: limits.aiChatMessages,
             plan,
             upgradeRequired: true,
         };
@@ -180,7 +179,7 @@ export async function checkAiChatLimit(userId: string): Promise<FeatureAccessRes
     return {
         allowed: true,
         currentUsage: currentCount,
-        limit: limits.aiChatMessagesPerDay,
+        limit: limits.aiChatMessages,
         plan,
     };
 }

@@ -22,10 +22,24 @@ export function useChartLayout() {
 
   useEffect(() => {
     const saved = analyticsPrefs?.order
-    if (saved && Array.isArray(saved) && saved.length === DEFAULT_CHART_ORDER.length) {
-      setAnalyticsChartOrder(saved)
+    if (!saved || !Array.isArray(saved)) return
+
+    // Filter out obsolete chart IDs that no longer exist in the default order
+    const validCharts = saved.filter((id: string) =>
+      DEFAULT_CHART_ORDER.includes(id)
+    )
+    // Add any new charts that aren't in the saved order
+    const missingCharts = DEFAULT_CHART_ORDER.filter(
+      (id) => !validCharts.includes(id)
+    )
+    const mergedOrder = [...validCharts, ...missingCharts]
+    setAnalyticsChartOrder(mergedOrder)
+
+    // Save the cleaned-up order if it changed
+    if (mergedOrder.length !== saved.length) {
+      updatePagePreferences("analytics", { order: mergedOrder })
     }
-  }, [analyticsPrefs?.order])
+  }, [analyticsPrefs?.order, updatePagePreferences])
 
   const handleChartOrderChange = useCallback(
     (newOrder: string[]) => {
@@ -98,17 +112,17 @@ export function useChartLayout() {
       const finalSize =
         needsUpdate || !savedSize
           ? {
-              w: defaultSize.w,
-              h: defaultSize.h,
-              x: savedSize?.x ?? defaultSize.x,
-              y: savedSize?.y ?? defaultSize.y,
-            }
+            w: defaultSize.w,
+            h: defaultSize.h,
+            x: savedSize?.x ?? defaultSize.x,
+            y: savedSize?.y ?? defaultSize.y,
+          }
           : {
-              w: savedSize.w,
-              h: savedSize.h,
-              x: savedSize.x ?? defaultSize.x,
-              y: savedSize.y ?? defaultSize.y,
-            }
+            w: savedSize.w,
+            h: savedSize.h,
+            x: savedSize.x ?? defaultSize.x,
+            y: savedSize.y ?? defaultSize.y,
+          }
 
       result[chartId] = finalSize
 

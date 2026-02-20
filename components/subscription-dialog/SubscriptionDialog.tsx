@@ -76,7 +76,7 @@ export function SubscriptionDialog({ children, open: openProp, onOpenChange }: {
     } | null>(null);
 
     // Plan caps for downgrade warning
-    const PLAN_CAPS: Record<PlanType, number> = { free: 400, basic: 400, pro: 3000, max: 15000 };
+    const PLAN_CAPS: Record<PlanType, number> = { free: 500, pro: 1500, max: 5000 };
 
     // Fetch subscription status with usage data
     const fetchStatus = async () => {
@@ -93,7 +93,7 @@ export function SubscriptionDialog({ children, open: openProp, onOpenChange }: {
                     bankTransactions: data.usage?.bank_transactions || 0,
                     fridgeItems: data.usage?.receipt_trips || 0,
                     totalTransactions: data.used_total || 0,
-                    transactionLimit: data.cap || 400,
+                    transactionLimit: data.cap || 300,
                     percentUsed: data.cap > 0 ? Math.round((data.used_total / data.cap) * 100) : 0,
                 },
                 subscription: {
@@ -280,11 +280,6 @@ export function SubscriptionDialog({ children, open: openProp, onOpenChange }: {
     // Get price ID for a plan based on billing period
     const getPriceIdForPlan = (plan: PlanType, period: "monthly" | "annual" = "monthly"): string | null => {
         // Use NEXT_PUBLIC_ env vars since this is client-side
-        if (plan === 'basic') {
-            return period === 'annual'
-                ? process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_BASIC_ANNUAL || null
-                : process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_BASIC_MONTHLY || null;
-        }
         if (plan === 'pro') {
             return period === 'annual'
                 ? process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_ANNUAL || null
@@ -472,7 +467,7 @@ export function SubscriptionDialog({ children, open: openProp, onOpenChange }: {
     };
 
     // Order plans with current plan first
-    const allPlans: PlanType[] = ["free", "basic", "pro", "max"];
+    const allPlans: PlanType[] = ["free", "pro", "max"];
     const orderedPlans: PlanType[] = status
         ? [status.plan, ...allPlans.filter((p) => p !== status.plan)]
         : allPlans;
@@ -651,21 +646,21 @@ export function SubscriptionDialog({ children, open: openProp, onOpenChange }: {
                                     </div>
                                 </div>
 
-                                {/* Transaction Deletion Warning */}
+                                {/* Capacity Warning */}
                                 {cancelPreview?.willExceed && cancelPreview.transactionsToDelete > 0 && (
                                     <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
                                         <div className="flex items-start gap-3">
                                             <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                                             <div className="flex-1">
                                                 <p className="text-sm font-semibold text-amber-900 dark:text-amber-100 mb-1">
-                                                    Transaction Limit Warning
+                                                    Transaction Capacity Warning
                                                 </p>
                                                 <p className="text-sm text-amber-800 dark:text-amber-200">
-                                                    You currently have <strong>{cancelPreview.currentTotal.toLocaleString()}</strong> transactions.
-                                                    The free plan allows up to <strong>{cancelPreview.freePlanCap.toLocaleString()}</strong> transactions.
+                                                    You currently have <strong>{cancelPreview.currentTotal.toLocaleString()}</strong> transactions,
+                                                    but your free plan wallet capacity will be <strong>{cancelPreview.freePlanCap.toLocaleString()}</strong>.
                                                 </p>
                                                 <p className="text-sm font-medium text-amber-900 dark:text-amber-100 mt-2">
-                                                    ⚠️ <strong>{cancelPreview.transactionsToDelete.toLocaleString()}</strong> oldest transaction(s) will be automatically deleted to fit the free plan limit.
+                                                    ⚠️ Your data is safe — we never auto-delete. You will be blocked from adding new transactions until you free up space or upgrade.
                                                 </p>
                                             </div>
                                         </div>
@@ -713,11 +708,6 @@ export function SubscriptionDialog({ children, open: openProp, onOpenChange }: {
                                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
                             ) : null}
                             Cancel Now
-                            {cancelPreview?.willExceed && cancelPreview.transactionsToDelete > 0 && (
-                                <span className="ml-2 text-xs opacity-90">
-                                    ({cancelPreview.transactionsToDelete.toLocaleString()} transactions will be deleted)
-                                </span>
-                            )}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -911,22 +901,21 @@ export function SubscriptionDialog({ children, open: openProp, onOpenChange }: {
                                     )}
                                 </div>
 
-                                {/* Auto-delete warning if over cap */}
+                                {/* Capacity warning if over new plan cap */}
                                 {downgradeCapInfo && downgradeCapInfo.toDelete > 0 && (
-                                    <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4">
+                                    <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
                                         <div className="flex items-start gap-3">
-                                            <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                                            <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                                             <div>
-                                                <p className="text-sm font-medium text-destructive">
-                                                    Transaction Limit Warning
+                                                <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                                                    Transaction Capacity Warning
                                                 </p>
                                                 <p className="text-sm text-muted-foreground mt-1">
                                                     You have <strong>{downgradeCapInfo.currentTotal.toLocaleString()}</strong> transactions,
-                                                    but the {showDowngradeConfirm?.toUpperCase()} plan allows only <strong>{downgradeCapInfo.targetCap.toLocaleString()}</strong>.
+                                                    but the {showDowngradeConfirm?.toUpperCase()} plan base capacity is <strong>{downgradeCapInfo.targetCap.toLocaleString()}</strong>.
                                                 </p>
-                                                <p className="text-sm text-destructive mt-2">
-                                                    If you don't delete <strong>{downgradeCapInfo.toDelete.toLocaleString()}</strong> transactions
-                                                    before {billingDate}, Trakzi will automatically delete your oldest transactions to fit the plan.
+                                                <p className="text-sm text-amber-800 dark:text-amber-200 mt-2">
+                                                    Your data is safe — we never auto-delete. You will be blocked from adding new transactions until you free up space or buy a transaction pack.
                                                 </p>
                                             </div>
                                         </div>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 
 import { normalizeTransactions } from "@/lib/utils"
+import { demoFetch } from "@/lib/demo/demo-fetch"
 
 import type {
   Category,
@@ -32,7 +33,7 @@ export const useLibraryData = () => {
 
     try {
       console.log("[Data Library] Fetching bundle with cache: no-store")
-      const bundleRes = await fetch("/api/charts/data-library-bundle", {
+      const bundleRes = await demoFetch("/api/charts/data-library-bundle", {
         cache: "no-store",
       })
 

@@ -99,6 +99,7 @@ export interface AnalyticsSummary {
     cashFlow: CashFlowData
     monthlyByCategory: MonthlyByCategory[]
     spendingPyramid: SpendingPyramidItem[]
+    treeMapData: TreeMapNode
 }
 
 // Category classification for needs/wants
@@ -458,7 +459,7 @@ export async function getNeedsWantsBreakdown(
         classified[classification].count += row.count
     }
 
-    return (Object.entries(classified) as Array<[ 'Essentials' | 'Mandatory' | 'Wants' | 'Other', { total: number; count: number } ]>)
+    return (Object.entries(classified) as Array<['Essentials' | 'Mandatory' | 'Wants' | 'Other', { total: number; count: number }]>)
         .map(([classification, data]) => ({
             classification,
             total: data.total,
@@ -798,6 +799,120 @@ export async function getKPIs(
     }
 }
 
+
+export interface TreeMapNode {
+    name: string
+    loc?: number
+    fullDescription?: string
+    children?: TreeMapNode[]
+}
+
+/**
+ * Get tree map data for net worth allocation (expenses breakdown)
+ * Pre-aggregates sub-categories to avoid heavy client-side processing
+ */
+export async function getTreeMapData(
+    userId: string,
+    startDate?: string,
+    endDate?: string
+): Promise<TreeMapNode> {
+    let query = `
+        SELECT 
+            t.description,
+            ABS(t.amount) as amount,
+            COALESCE(c.name, 'Uncategorized') as category
+        FROM transactions t
+        LEFT JOIN categories c ON t.category_id = c.id
+        WHERE t.user_id = $1 AND t.amount < 0
+    `
+    const params: (string | number)[] = [userId]
+
+    if (startDate) {
+        params.push(startDate)
+        query += ` AND t.tx_date >= $${params.length}::date`
+    }
+    if (endDate) {
+        params.push(endDate)
+        query += ` AND t.tx_date <= $${params.length}::date`
+    }
+
+    // Order by absolute amount for better processing
+    query += ` ORDER BY ABS(t.amount) DESC`
+
+    const rows = await neonQuery<{
+        description: string
+        amount: string
+        category: string
+    }>(query, params)
+
+    // Process in memory (faster than complex recursive SQL for this depth)
+    const categoryMap = new Map<string, { total: number; subcategories: Map<string, { amount: number; fullDescription: string }> }>()
+
+    const getSubCategoryLabel = (description?: string) => {
+        if (!description) return "Misc"
+        const delimiterSplit = description.split(/[-??"|]/)[0] ?? description
+        const trimmed = delimiterSplit.trim()
+        return trimmed.length > 24 ? `${trimmed.slice(0, 21)}...` : (trimmed || "Misc")
+    }
+
+    rows.forEach(row => {
+        const category = row.category
+        const amount = parseFloat(row.amount) || 0
+
+        if (!categoryMap.has(category)) {
+            categoryMap.set(category, { total: 0, subcategories: new Map() })
+        }
+
+        const categoryEntry = categoryMap.get(category)!
+        categoryEntry.total += amount
+
+        const subCategory = getSubCategoryLabel(row.description)
+        const existing = categoryEntry.subcategories.get(subCategory)
+
+        if (existing) {
+            existing.amount += amount
+        } else {
+            categoryEntry.subcategories.set(subCategory, {
+                amount,
+                fullDescription: row.description || subCategory,
+            })
+        }
+    })
+
+    const maxSubCategories = 5
+    const children = Array.from(categoryMap.entries())
+        .map(([name, { total, subcategories }]) => {
+            const sortedSubs = Array.from(subcategories.entries()).sort((a, b) => b[1].amount - a[1].amount)
+            const topSubs = sortedSubs.slice(0, maxSubCategories)
+            const remainingTotal = sortedSubs.slice(maxSubCategories).reduce((sum, [, value]) => sum + value.amount, 0)
+
+            const subChildren = topSubs.map(([subName, { amount: loc, fullDescription }]) => ({
+                name: subName,
+                loc,
+                fullDescription,
+            }))
+
+            if (remainingTotal > 0) {
+                subChildren.push({ name: "Other", loc: remainingTotal, fullDescription: "Other transactions" })
+            }
+
+            return {
+                name,
+                children: subChildren.length > 0 ? subChildren : [{ name, loc: total, fullDescription: name }],
+            } as TreeMapNode
+        })
+        .sort((a, b) => {
+            const aTotal = (a.children || []).reduce((sum, child) => sum + (child.loc || 0), 0)
+            const bTotal = (b.children || []).reduce((sum, child) => sum + (child.loc || 0), 0)
+            return bTotal - aTotal
+        })
+
+    return {
+        name: "Expenses",
+        children
+    }
+}
+
 /**
  * Get complete analytics bundle - single endpoint for all chart data
  * Note: transactionHistory removed - fetched separately via /api/transactions
@@ -820,6 +935,7 @@ export async function getAnalyticsBundle(
         cashFlow,
         monthlyByCategory,
         spendingPyramid,
+        treeMapData,
     ] = await Promise.all([
         getKPIs(userId, startDate ?? undefined, endDate ?? undefined),
         getCategorySpending(userId, startDate ?? undefined, endDate ?? undefined),
@@ -831,6 +947,7 @@ export async function getAnalyticsBundle(
         getCashFlowData(userId, startDate ?? undefined, endDate ?? undefined),
         getMonthlyByCategory(userId, startDate ?? undefined, endDate ?? undefined),
         getSpendingPyramid(userId, startDate ?? undefined, endDate ?? undefined),
+        getTreeMapData(userId, startDate ?? undefined, endDate ?? undefined),
     ])
 
     return {
@@ -844,6 +961,7 @@ export async function getAnalyticsBundle(
         cashFlow,
         monthlyByCategory,
         spendingPyramid,
+        treeMapData,
     }
 }
 

@@ -65,15 +65,15 @@ describe('Transaction Cap Logic', () => {
 
     describe('getTransactionCap', () => {
         it('returns correct cap for free plan', () => {
-            expect(getTransactionCap('free')).toBe(400);
+            expect(getTransactionCap('free')).toBe(300);
         });
 
         it('returns correct cap for pro plan', () => {
-            expect(getTransactionCap('pro')).toBe(3000);
+            expect(getTransactionCap('pro')).toBe(1500);
         });
 
         it('returns correct cap for max plan', () => {
-            expect(getTransactionCap('max')).toBe(15000);
+            expect(getTransactionCap('max')).toBe(5000);
         });
     });
 
@@ -148,33 +148,28 @@ describe('Transaction Cap Logic', () => {
 
     describe('enforceTransactionCap', () => {
         it('does nothing when under cap', async () => {
-            // Mock getTransactionCount
             mockNeonQuery
                 .mockResolvedValueOnce([{ count: '100' }])
                 .mockResolvedValueOnce([{ count: '50' }]);
 
-            const result = await enforceTransactionCap('user-123', 400);
+            const result = await enforceTransactionCap('user-123', 500);
 
             expect(result.deleted).toBe(0);
             expect(result.tables.transactions).toBe(0);
             expect(result.tables.receipts).toBe(0);
-            expect(result.remaining).toBe(250);
+            expect(result.remaining).toBe(350);
         });
 
-        it('deletes oldest transactions when over cap', async () => {
-            // Mock getTransactionCount
+        it('deletes oldest transactions when over cap (manual user action only)', async () => {
             mockNeonQuery
-                .mockResolvedValueOnce([{ count: '300' }]) // bank
-                .mockResolvedValueOnce([{ count: '200' }]) // receipt trips
-                // Mock getOldestTransactionsToDelete
+                .mockResolvedValueOnce([{ count: '300' }])
+                .mockResolvedValueOnce([{ count: '200' }])
                 .mockResolvedValueOnce([
                     { source_table: 'transactions', id: '1', ts: '2024-01-01' },
                     { source_table: 'receipts', id: '10', ts: '2024-01-02' },
                     { source_table: 'transactions', id: '2', ts: '2024-01-03' },
                 ])
-                // Mock delete from transactions
                 .mockResolvedValueOnce([{ count: '2' }])
-                // Mock delete from receipts
                 .mockResolvedValueOnce([{ count: '1' }]);
 
             const result = await enforceTransactionCap('user-123', 497);

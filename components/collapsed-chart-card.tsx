@@ -1,13 +1,14 @@
 "use client"
 
 import { memo } from "react"
-import { BarChart3 } from "lucide-react"
+import { ChartLine } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
+import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
+import { type ChartId } from "@/lib/chart-card-sizes.config"
 import { cn } from "@/lib/utils"
 
-type CollapsedChartCardProps = {
+interface CollapsedChartCardProps {
   chartId: string
   chartTitle: string
   className?: string
@@ -21,19 +22,23 @@ export const CollapsedChartCard = memo(function CollapsedChartCard({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-xl border bg-card px-4 py-3 h-full min-h-[52px]",
+        "flex items-center gap-2 px-3 py-2 rounded-xl border bg-card h-[60px]",
         className,
       )}
     >
       <GridStackCardDragHandle />
-      <BarChart3 className="h-4 w-4 shrink-0 text-muted-foreground" />
-      <span className="text-sm font-medium text-foreground truncate">
+      <ChartLine className="h-4 w-4 text-muted-foreground shrink-0" />
+      <span className="text-sm font-medium text-foreground truncate flex-1">
         {chartTitle}
       </span>
-      <Badge variant="secondary" className="ml-auto shrink-0 text-xs">
+      <Badge variant="secondary" className="text-xs shrink-0">
         No data
       </Badge>
-      <ChartFavoriteButton chartId={chartId} />
+      <ChartFavoriteButton
+        chartId={chartId as ChartId}
+        chartTitle={chartTitle}
+        size="sm"
+      />
     </div>
   )
 })

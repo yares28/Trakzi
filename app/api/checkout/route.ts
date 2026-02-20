@@ -33,8 +33,6 @@ export async function POST(request: NextRequest) {
         // Validate priceId against allowed prices (defense in depth)
         // Stripe will also validate, but this prevents unnecessary API calls
         const allowedPriceIds = [
-            STRIPE_PRICES.BASIC_MONTHLY,
-            STRIPE_PRICES.BASIC_ANNUAL,
             STRIPE_PRICES.PRO_MONTHLY,
             STRIPE_PRICES.PRO_ANNUAL,
             STRIPE_PRICES.MAX_MONTHLY,

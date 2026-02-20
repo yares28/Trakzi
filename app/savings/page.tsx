@@ -14,6 +14,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
 import { normalizeTransactions } from "@/lib/utils"
+import { demoFetch } from "@/lib/demo/demo-fetch"
 import { cn } from "@/lib/utils"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { MortgageCalculator } from "./_page/mortgage/MortgageCalculator"
@@ -23,6 +24,8 @@ import {
   normalizeDateFilterValue,
 } from "@/lib/date-filter"
 import { useSavingsBundleData } from "@/hooks/use-dashboard-data"
+import { PageEmptyState, SAVINGS_EMPTY_STATE } from "@/components/page-empty-state"
+import { CollapsedChartCard } from "@/components/collapsed-chart-card"
 
 type SavingsViewMode = "savings" | "debt" | "calculator"
 
@@ -124,7 +127,7 @@ export default function Page() {
 
       const url = `/api/transactions?${params.toString()}`
       console.log("[Savings] Fetching transactions from:", url)
-      const response = await fetch(url)
+      const response = await demoFetch(url)
       const data = await response.json()
 
       if (response.ok) {
@@ -447,41 +450,59 @@ export default function Page() {
               </section>
 
               {viewMode === "savings" && (
-                <>
-                  {/* @dnd-kit chart grid */}
-                  <div className="px-4 lg:px-6">
-                    <SortableGridProvider
-                      chartOrder={chartOrder}
-                      onOrderChange={handleOrderChange}
-                    >
-                      {chartOrder.map((chartId) => {
-                        const sizeConfig = getChartCardSize(chartId as ChartId)
-                        const savedSize = savedChartSizes[chartId]
+                <div className="px-4 lg:px-6">
+                  {!savingsBundleLoading && accumulationChartData.length === 0 && (
+                    <PageEmptyState
+                      icon={SAVINGS_EMPTY_STATE.icon}
+                      title={SAVINGS_EMPTY_STATE.title}
+                      description={SAVINGS_EMPTY_STATE.description}
+                    />
+                  )}
+
+                  <SortableGridProvider
+                    chartOrder={chartOrder}
+                    onOrderChange={handleOrderChange}
+                  >
+                    {chartOrder.map((chartId) => {
+                      const sizeConfig = getChartCardSize(chartId as ChartId)
+                      const savedSize = savedChartSizes[chartId]
+
+                      // Collapsed card when chart has no data
+                      if (!savingsBundleLoading && accumulationChartData.length === 0) {
                         return (
-                          <SortableGridItem
-                            key={chartId}
-                            id={chartId}
-                            w={(savedSize?.w ?? 12) as any}
-                            h={savedSize?.h ?? sizeConfig.minH}
-                            resizable
-                            minW={sizeConfig.minW}
-                            maxW={sizeConfig.maxW}
-                            minH={sizeConfig.minH}
-                            maxH={sizeConfig.maxH}
-                            onResize={handleResize}
-                          >
-                            {chartId === "savingsAccumulation" && (
-                              <ChartSavingsAccumulation
-                                data={accumulationChartData}
-                                isLoading={savingsBundleLoading}
-                              />
-                            )}
+                          <SortableGridItem key={chartId} id={chartId} w={6} h={1}>
+                            <CollapsedChartCard
+                              chartId={chartId}
+                              chartTitle="Savings Accumulation"
+                            />
                           </SortableGridItem>
                         )
-                      })}
-                    </SortableGridProvider>
-                  </div>
-                </>
+                      }
+
+                      return (
+                        <SortableGridItem
+                          key={chartId}
+                          id={chartId}
+                          w={(savedSize?.w ?? 12) as any}
+                          h={savedSize?.h ?? sizeConfig.minH}
+                          resizable
+                          minW={sizeConfig.minW}
+                          maxW={sizeConfig.maxW}
+                          minH={sizeConfig.minH}
+                          maxH={sizeConfig.maxH}
+                          onResize={handleResize}
+                        >
+                          {chartId === "savingsAccumulation" && (
+                            <ChartSavingsAccumulation
+                              data={accumulationChartData}
+                              isLoading={savingsBundleLoading}
+                            />
+                          )}
+                        </SortableGridItem>
+                      )
+                    })}
+                  </SortableGridProvider>
+                </div>
               )}
 
               {viewMode === "debt" && (

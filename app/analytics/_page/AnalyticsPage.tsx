@@ -7,6 +7,8 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useDateFilter } from "@/components/date-filter-provider"
 import { useAnalyticsBundleData } from "@/hooks/use-dashboard-data"
+import { usePlanFeatures } from "@/hooks/use-plan-features"
+import { FeatureGateBlur } from "@/components/feature-gate-blur"
 import { AnalyticsLayout } from "./components/AnalyticsLayout"
 import { AnalyticsTrendsTab } from "./components/AnalyticsTrendsTab"
 import { AiReparseDialog } from "./components/AiReparseDialog"
@@ -33,9 +35,10 @@ export default function AnalyticsPage() {
   const [advancedChartOrder, setAdvancedChartOrder] = useState(DEFAULT_ADVANCED_CHART_ORDER)
   const { getPalette } = useColorScheme()
   const { filter: dateFilter } = useDateFilter()
+  const planFeatures = usePlanFeatures()
 
   // Bundle API data - pre-aggregated with Redis caching (single request)
-  const { data: bundleData, isLoading: bundleLoading } = useAnalyticsBundleData()
+  const { data: bundleData, isLoading: bundleLoading, isError: bundleError } = useAnalyticsBundleData()
   const palette = getPalette()
 
   const queryClient = useQueryClient()
@@ -157,10 +160,17 @@ export default function AnalyticsPage() {
               ringLimits={ringLimits}
               setRingLimits={setRingLimits}
               chartData={chartData}
+              isError={bundleError}
             />
           )}
 
           {viewMode === "advanced" && (
+            <FeatureGateBlur
+              enabled={planFeatures?.advancedChartsEnabled ?? false}
+              featureName="Advanced Charts"
+              description="Upgrade to Pro or Max to unlock advanced analytics charts"
+              className="w-full mb-4"
+            >
             <div className="w-full mb-4 px-4 lg:px-6">
               <SortableGridProvider
                 chartOrder={advancedChartOrder}
@@ -203,6 +213,7 @@ export default function AnalyticsPage() {
                 })}
               </SortableGridProvider>
             </div>
+            </FeatureGateBlur>
           )}
 
           {viewMode === "trends" && <AnalyticsTrendsTab />}

@@ -182,13 +182,12 @@ export function useHomeChartData({
         label:
           ratioToLimit !== null
             ? `Category: ${category}\nUsed: ${pct}%\nSpent: $${amount.toFixed(
-                2
-              )}\nBudget: $${effectiveLimit.toFixed(2)}${
-                exceeded ? "\nExceeded" : ""
-              }`
+              2
+            )}\nBudget: $${effectiveLimit.toFixed(2)}${exceeded ? "\nExceeded" : ""
+            }`
             : `Category: ${category}\nSpent: $${amount.toFixed(
-                2
-              )}\nNo budget set`,
+              2
+            )}\nNo budget set`,
         category,
         spent: amount,
         value,
@@ -367,7 +366,8 @@ export function useHomeChartData({
     if (!chartTransactions || chartTransactions.length === 0) return []
     const categoryMap = new Map<string, Map<string, number>>()
     const allMonths = new Set<string>()
-    chartTransactions.forEach((tx) => {
+    // Only include expenses (negative amounts) — no income categories
+    chartTransactions.filter((tx) => tx.amount < 0).forEach((tx) => {
       const category = tx.category || "Other"
       const normalizedCategory = normalizeCategoryName(category)
       if (categoryFlowVisibility.hiddenCategorySet.has(normalizedCategory)) return

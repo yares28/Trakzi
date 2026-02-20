@@ -8,7 +8,7 @@ import { getUserSubscription, upsertSubscription } from '@/lib/subscriptions';
 import { clerkClient } from '@clerk/nextjs/server';
 
 // Plan hierarchy for determining upgrade vs downgrade
-const PLAN_HIERARCHY = { free: 0, basic: 1, pro: 2, max: 3 } as const;
+const PLAN_HIERARCHY = { free: 0, pro: 1, max: 2 } as const;
 
 /**
  * Safely convert Unix timestamp to Date
@@ -46,9 +46,9 @@ export async function POST(request: NextRequest) {
         }
 
         // Validate target plan
-        if (!['basic', 'pro', 'max'].includes(targetPlan)) {
+        if (!['pro', 'max'].includes(targetPlan)) {
             return NextResponse.json(
-                { error: 'Invalid target plan. Use basic, pro or max.' },
+                { error: 'Invalid target plan. Use pro or max.' },
                 { status: 400 }
             );
         }
@@ -57,8 +57,6 @@ export async function POST(request: NextRequest) {
 
         // Validate priceId against allowed prices
         const allowedPriceIds = [
-            STRIPE_PRICES.BASIC_MONTHLY,
-            STRIPE_PRICES.BASIC_ANNUAL,
             STRIPE_PRICES.PRO_MONTHLY,
             STRIPE_PRICES.PRO_ANNUAL,
             STRIPE_PRICES.MAX_MONTHLY,

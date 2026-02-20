@@ -81,7 +81,7 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
   const [visibleGroups, setVisibleGroups] = useState<string[]>([])
   const [isGroupSelectorOpen, setIsGroupSelectorOpen] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [containerWidth, setContainerWidth] = useState(1200) // Default to large screen
+  const [containerWidth, setContainerWidth] = useState(() => typeof window !== 'undefined' ? window.innerWidth : 800)
   const containerRef = useRef<HTMLDivElement>(null)
   const chartVisibility = useChartCategoryVisibility({
     chartId: "analytics:transaction-history",

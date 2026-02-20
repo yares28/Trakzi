@@ -14,7 +14,6 @@ import Image from "next/image"
 // Plan logos for landing page (these replace the plan name text)
 const planLogos = {
   Starter: "/Trakzi/subs/freeiconB.png",
-  Basic: "/Trakzi/subs/TrakziBasiciconB.png",
   PRO: "/Trakzi/subs/TrakziProIconB.png",
   MAX: "/Trakzi/subs/TrakziMaxIconB.png",
 } as const
@@ -35,24 +34,6 @@ const pricingPlans = [
     priceId: null, // Free plan - no Stripe price
   },
   {
-    name: "Basic",
-    monthlyPrice: 1.99,
-    annualPrice: 19.99,
-    description: "Perfect for getting started",
-    features: [
-      "400 transactions (~ 1 year)",
-      "20 scans/month",
-      "1 AI chat/day",
-      "Advanced charts",
-      "10 custom categories",
-    ],
-    popular: false,
-    ctaMonthly: "Go Basic",
-    ctaAnnual: "Go Basic",
-    monthlyPriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_BASIC_MONTHLY,
-    annualPriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_BASIC_ANNUAL,
-  },
-  {
     name: "PRO",
     monthlyPrice: 4.99,
     annualPrice: 49.99,
@@ -61,7 +42,7 @@ const pricingPlans = [
       "3,000 transactions (~6 years)",
       "50 scans/month",
       "5 AI chats/day",
-      "Everything in Basic",
+      "Everything in Free",
       "AI insights & categorization",
       "40 custom categories",
     ],
@@ -300,7 +281,7 @@ export function PricingSection() {
         </motion.div>
 
         {/* Pricing Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
           {pricingPlans.map((plan, index) => (
             <motion.div
               key={plan.name}
@@ -325,7 +306,7 @@ export function PricingSection() {
               <div className="text-center mb-8">
                 <div className="flex items-center justify-center gap-2 mb-2 h-10">
                   {/* Show plan logo for all plans */}
-                  {(plan.name === "PRO" || plan.name === "MAX" || plan.name === "Starter" || plan.name === "Basic") ? (
+                  {(plan.name === "PRO" || plan.name === "MAX" || plan.name === "Starter") ? (
                     <Image
                       src={planLogos[plan.name as keyof typeof planLogos]}
                       alt={`${plan.name} plan`}

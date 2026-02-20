@@ -1,6 +1,8 @@
 import { useAuth } from "@clerk/nextjs"
 import { useQuery } from "@tanstack/react-query"
 import { useDateFilter } from "@/components/date-filter-provider"
+import { demoFetch } from "@/lib/demo/demo-fetch"
+import { useDemoMode } from "@/lib/demo/demo-context"
 
 // ============================================
 // TYPES - Bundle API Response Types
@@ -72,6 +74,22 @@ export interface AnalyticsBundleData {
         avgTotal: number
         avgPercent: number
     }>
+    treeMapData: {
+        name: string
+        loc?: number
+        fullDescription?: string
+        children?: Array<{
+            name: string
+            loc?: number
+            fullDescription?: string
+            children?: Array<{
+                name: string
+                loc?: number
+                fullDescription?: string
+                children?: any[]
+            }>
+        }>
+    }
 }
 
 // Home Bundle Types
@@ -221,7 +239,7 @@ async function fetchAnalyticsBundle(filter: string | null): Promise<AnalyticsBun
         ? `/api/charts/analytics-bundle?filter=${encodeURIComponent(filter)}`
         : `/api/charts/analytics-bundle`
 
-    const response = await fetch(url)
+    const response = await demoFetch(url)
     if (!response.ok) {
         throw new Error(`Failed to fetch analytics bundle: ${response.statusText}`)
     }
@@ -233,7 +251,7 @@ async function fetchHomeBundle(filter: string | null): Promise<HomeBundleData> {
         ? `/api/charts/home-bundle?filter=${encodeURIComponent(filter)}`
         : `/api/charts/home-bundle`
 
-    const response = await fetch(url)
+    const response = await demoFetch(url)
     if (!response.ok) {
         throw new Error(`Failed to fetch home bundle: ${response.statusText}`)
     }
@@ -245,7 +263,7 @@ async function fetchTrendsBundle(filter: string | null): Promise<TrendsBundleDat
         ? `/api/charts/trends-bundle?filter=${encodeURIComponent(filter)}`
         : `/api/charts/trends-bundle`
 
-    const response = await fetch(url)
+    const response = await demoFetch(url)
     if (!response.ok) {
         throw new Error(`Failed to fetch trends bundle: ${response.statusText}`)
     }
@@ -257,7 +275,7 @@ async function fetchSavingsBundle(filter: string | null): Promise<SavingsBundleD
         ? `/api/charts/savings-bundle?filter=${encodeURIComponent(filter)}`
         : `/api/charts/savings-bundle`
 
-    const response = await fetch(url)
+    const response = await demoFetch(url)
     if (!response.ok) {
         throw new Error(`Failed to fetch savings bundle: ${response.statusText}`)
     }
@@ -269,7 +287,7 @@ async function fetchFridgeBundle(filter: string | null): Promise<FridgeBundleDat
         ? `/api/charts/fridge-bundle?filter=${encodeURIComponent(filter)}`
         : `/api/charts/fridge-bundle`
 
-    const response = await fetch(url)
+    const response = await demoFetch(url)
     if (!response.ok) {
         throw new Error(`Failed to fetch fridge bundle: ${response.statusText}`)
     }
@@ -286,7 +304,7 @@ async function fetchTransactions(filter: string | null): Promise<Transaction[]> 
         ? `/api/transactions?${baseParams}&filter=${encodeURIComponent(filter)}`
         : `/api/transactions?${baseParams}`
 
-    const response = await fetch(url)
+    const response = await demoFetch(url)
     if (!response.ok) {
         throw new Error(`Failed to fetch transactions: ${response.statusText}`)
     }
@@ -299,7 +317,7 @@ async function fetchTransactions(filter: string | null): Promise<Transaction[]> 
 }
 
 async function fetchCategories(): Promise<Category[]> {
-    const response = await fetch("/api/categories")
+    const response = await demoFetch("/api/categories")
     if (!response.ok) {
         throw new Error(`Failed to fetch categories: ${response.statusText}`)
     }
@@ -319,7 +337,7 @@ export interface TotalTransactionCount {
 }
 
 async function fetchTotalTransactionCount(): Promise<TotalTransactionCount> {
-    const response = await fetch('/api/transactions/total-count')
+    const response = await demoFetch('/api/transactions/total-count')
     if (!response.ok) {
         throw new Error(`Failed to fetch total transaction count: ${response.statusText}`)
     }
@@ -332,12 +350,13 @@ async function fetchTotalTransactionCount(): Promise<TotalTransactionCount> {
  */
 export function useTotalTransactionCount() {
     const { isLoaded, isSignedIn, userId } = useAuth()
+    const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["total-transaction-count", userId ?? ""],
+        queryKey: ["total-transaction-count", isDemoMode ? "demo" : (userId ?? "")],
         queryFn: fetchTotalTransactionCount,
         staleTime: 5 * 60 * 1000, // 5 minutes
-        enabled: isLoaded && !!isSignedIn && !!userId,
+        enabled: isDemoMode || (isLoaded && !!isSignedIn && !!userId),
     })
 }
 
@@ -351,11 +370,12 @@ export function useTotalTransactionCount() {
 export function useAnalyticsBundleData() {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
+    const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["analytics-bundle", userId ?? "", filter],
+        queryKey: ["analytics-bundle", isDemoMode ? "demo" : (userId ?? ""), filter],
         queryFn: () => fetchAnalyticsBundle(filter),
-        enabled: !!userId && isReady,
+        enabled: (isDemoMode || !!userId) && isReady,
     })
 }
 
@@ -365,11 +385,12 @@ export function useAnalyticsBundleData() {
 export function useHomeBundleData() {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
+    const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["home-bundle", userId ?? "", filter],
+        queryKey: ["home-bundle", isDemoMode ? "demo" : (userId ?? ""), filter],
         queryFn: () => fetchHomeBundle(filter),
-        enabled: !!userId && isReady,
+        enabled: (isDemoMode || !!userId) && isReady,
     })
 }
 
@@ -379,11 +400,12 @@ export function useHomeBundleData() {
 export function useTrendsBundleData() {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
+    const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["trends-bundle", userId ?? "", filter],
+        queryKey: ["trends-bundle", isDemoMode ? "demo" : (userId ?? ""), filter],
         queryFn: () => fetchTrendsBundle(filter),
-        enabled: !!userId && isReady,
+        enabled: (isDemoMode || !!userId) && isReady,
     })
 }
 
@@ -393,11 +415,12 @@ export function useTrendsBundleData() {
 export function useSavingsBundleData() {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
+    const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["savings-bundle", userId ?? "", filter],
+        queryKey: ["savings-bundle", isDemoMode ? "demo" : (userId ?? ""), filter],
         queryFn: () => fetchSavingsBundle(filter),
-        enabled: !!userId && isReady,
+        enabled: (isDemoMode || !!userId) && isReady,
     })
 }
 
@@ -407,11 +430,12 @@ export function useSavingsBundleData() {
 export function useFridgeBundleData() {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
+    const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["fridge-bundle", userId ?? "", filter],
+        queryKey: ["fridge-bundle", isDemoMode ? "demo" : (userId ?? ""), filter],
         queryFn: () => fetchFridgeBundle(filter),
-        enabled: !!userId && isReady,
+        enabled: (isDemoMode || !!userId) && isReady,
     })
 }
 
@@ -426,7 +450,7 @@ async function fetchGroceriesTrendsBundle(filter: string | null): Promise<Grocer
         ? `/api/charts/groceries-trends-bundle?filter=${encodeURIComponent(filter)}`
         : `/api/charts/groceries-trends-bundle`
 
-    const response = await fetch(url)
+    const response = await demoFetch(url)
     if (!response.ok) {
         throw new Error(`Failed to fetch groceries trends bundle: ${response.statusText}`)
     }
@@ -439,11 +463,12 @@ async function fetchGroceriesTrendsBundle(filter: string | null): Promise<Grocer
 export function useGroceriesTrendsBundleData() {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
+    const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["groceries-trends-bundle", userId ?? "", filter],
+        queryKey: ["groceries-trends-bundle", isDemoMode ? "demo" : (userId ?? ""), filter],
         queryFn: () => fetchGroceriesTrendsBundle(filter),
-        enabled: !!userId && isReady,
+        enabled: (isDemoMode || !!userId) && isReady,
     })
 }
 
@@ -457,12 +482,13 @@ export function useGroceriesTrendsBundleData() {
 export function useTransactions(filter?: string | null) {
     const { userId } = useAuth()
     const { filter: contextFilter, isReady } = useDateFilter()
+    const { isDemoMode } = useDemoMode()
     const effectiveFilter = filter !== undefined ? filter : contextFilter
 
     return useQuery({
-        queryKey: ["transactions", userId ?? "", effectiveFilter],
+        queryKey: ["transactions", isDemoMode ? "demo" : (userId ?? ""), effectiveFilter],
         queryFn: () => fetchTransactions(effectiveFilter),
-        enabled: !!userId && isReady,
+        enabled: (isDemoMode || !!userId) && isReady,
     })
 }
 
@@ -471,12 +497,13 @@ export function useTransactions(filter?: string | null) {
  */
 export function useCategories() {
     const { userId } = useAuth()
+    const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["categories", userId ?? ""],
+        queryKey: ["categories", isDemoMode ? "demo" : (userId ?? "")],
         queryFn: fetchCategories,
         staleTime: 5 * 60 * 1000,
-        enabled: !!userId,
+        enabled: isDemoMode || !!userId,
     })
 }
 
