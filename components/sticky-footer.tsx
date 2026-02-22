@@ -15,7 +15,7 @@ export function StickyFooter() {
           const scrollTop = window.scrollY
           const windowHeight = window.innerHeight
           const documentHeight = document.documentElement.scrollHeight
-          const isNearBottom = scrollTop + windowHeight >= documentHeight - 100
+          const isNearBottom = scrollTop + windowHeight >= documentHeight - 200
 
           setIsAtBottom(isNearBottom)
           ticking = false

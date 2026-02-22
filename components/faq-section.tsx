@@ -40,7 +40,7 @@ export function FAQSection() {
   ]
 
   return (
-    <section id="faq" className="relative overflow-hidden pb-120 pt-24">
+    <section id="faq" className="relative overflow-hidden pt-48 pb-96">
       {/* Background blur effects */}
       <div className="bg-primary/20 absolute top-1/2 -right-20 z-[-1] h-64 w-64 rounded-full opacity-80 blur-3xl"></div>
       <div className="bg-primary/20 absolute top-1/2 -left-20 z-[-1] h-64 w-64 rounded-full opacity-80 blur-3xl"></div>
@@ -60,19 +60,19 @@ export function FAQSection() {
         </motion.div>
 
         <motion.h2
-          className="mx-auto mt-6 max-w-xl text-center text-4xl font-medium md:text-[54px] md:leading-[60px]"
+          className="mx-auto mt-6 pb-2 text-center text-5xl font-medium md:text-[72px] md:leading-[80px]"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
           viewport={{ once: true }}
         >
           Questions? We've got{" "}
-          <span className="bg-gradient-to-b from-foreground via-rose-200 to-primary bg-clip-text text-transparent">
+          <span className="bg-gradient-to-b from-foreground via-rose-200 to-primary bg-clip-text text-transparent py-1">
             answers
           </span>
         </motion.h2>
 
-        <div className="mx-auto mt-12 flex max-w-xl flex-col gap-6">
+        <div className="mx-auto mt-12 flex max-w-5xl flex-col gap-6">
           {faqs.map((faq, index) => (
             <motion.div
               key={index}

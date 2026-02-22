@@ -655,7 +655,7 @@ export function ChartsShowcase() {
   ]
 
   return (
-    <section ref={ref} className="py-24 px-4 relative">
+    <section ref={ref} className="py-48 px-4 relative">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <motion.div

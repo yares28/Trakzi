@@ -33,7 +33,7 @@ export function HomeLayout({
       }
     >
       <AppSidebar variant="inset" />
-      <SidebarInset>
+      <SidebarInset className="h-svh overflow-hidden flex flex-col">
         <SiteHeader />
         <div
           className="flex-1 space-y-4 p-4 pt-0 lg:p-6 lg:pt-2"

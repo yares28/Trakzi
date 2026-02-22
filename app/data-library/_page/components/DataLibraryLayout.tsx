@@ -33,7 +33,7 @@ export function DataLibraryLayout({
       }
     >
       <AppSidebar variant="inset" />
-      <SidebarInset>
+      <SidebarInset className="h-svh overflow-hidden flex flex-col">
         <SiteHeader />
         <div
           className="flex flex-1 flex-col relative"
