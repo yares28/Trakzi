@@ -212,7 +212,7 @@ export function PricingSection() {
   }
 
   return (
-    <section className="relative py-24 px-4">
+    <section className="relative py-48 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <motion.div

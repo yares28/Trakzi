@@ -22,9 +22,65 @@ export default function Hero() {
 
   return (
     <>
-      <section className="relative overflow-hidden min-h-screen flex flex-col">
-        <div className="container mx-auto px-4 py-24 sm:py-32 relative z-10 flex-1 flex flex-col">
-          <div className="mx-auto max-w-4xl text-center flex-1 flex flex-col justify-center">
+      <section className="relative min-h-screen flex flex-col">
+        <div className="container mx-auto px-4 py-32 sm:py-48 relative z-10 flex-1 flex flex-col">
+          <div className="mx-auto max-w-4xl text-center flex-1 flex flex-col justify-center relative">
+            {/* Background Logo with Special Glow */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1.5, ease: "easeOut" }}
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 pointer-events-none select-none flex items-center justify-center w-[120%] h-[120%]"
+            >
+              {/* Animated Outer Glow */}
+              <motion.div
+                animate={{
+                  scale: [1, 1.2, 1],
+                  opacity: [0.1, 0.3, 0.1]
+                }}
+                transition={{
+                  duration: 80,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="absolute w-[600px] h-[600px] sm:w-[1200px] sm:h-[1200px] bg-white/20 blur-[150px] rounded-full mix-blend-screen"
+              />
+
+              {/* Logo with Liquid Glass Effect */}
+              <motion.div
+                animate={{
+                  scale: [0.95, 1.05, 0.95],
+                }}
+                transition={{
+                  duration: 80,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="absolute flex items-center justify-center w-[800px] h-[800px] sm:w-[1600px] sm:h-[1600px] opacity-[0.35] mix-blend-plus-lighter"
+              >
+                {/* Base SVG inverted to white with light drop shadow */}
+                <img
+                  src="/Trakzi/fulleticonB.svg"
+                  alt=""
+                  className="absolute w-full h-full object-contain brightness-0 invert drop-shadow-[0_0_40px_rgba(255,255,255,1)]"
+                />
+
+                {/* Secondary blurred logo for liquid volume/glow spread */}
+                <img
+                  src="/Trakzi/fulleticonB.svg"
+                  alt=""
+                  className="absolute w-full h-full object-contain brightness-0 invert blur-[30px] opacity-80"
+                />
+
+                {/* Third crisp layer to give the glass edge reflection */}
+                <img
+                  src="/Trakzi/fulleticonB.svg"
+                  alt=""
+                  className="absolute w-full h-full object-contain brightness-0 invert opacity-60 mix-blend-overlay"
+                />
+              </motion.div>
+            </motion.div>
+
             {/* Badge */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -45,7 +101,7 @@ export default function Hero() {
               transition={{ duration: 0.5, delay: 0.1 }}
               className="mb-8"
             >
-              <h1 id="main-title" className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl lg:text-7xl">
+              <h1 id="main-title" className="text-4xl font-bold tracking-tight text-foreground sm:text-7xl lg:text-9xl">
                 One <strong>spend.</strong> <span></span> <br />
                 <strong>A dozen </strong> <em className="italic"> ways to see it.</em>
               </h1>

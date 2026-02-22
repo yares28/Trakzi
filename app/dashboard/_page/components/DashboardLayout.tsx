@@ -20,7 +20,7 @@ export function DashboardLayout({ children, overlay }: DashboardLayoutProps) {
       }
     >
       <AppSidebar variant="inset" />
-      <SidebarInset>
+      <SidebarInset className="h-svh overflow-hidden flex flex-col">
         <DashboardHeader />
         {children}
       </SidebarInset>
