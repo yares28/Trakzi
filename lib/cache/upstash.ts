@@ -24,6 +24,8 @@ const CACHE_PREFIX = {
     'test-charts': 'test-charts',
     'pockets': 'pockets',
     'groceries-trends': 'groceries-trends',
+    'friends': 'friends',
+    'room': 'room',
 } as const
 
 // TTL in seconds
@@ -33,6 +35,8 @@ const CACHE_TTL = {
     'pockets': 5 * 60, // 5 minutes
     categories: 30 * 60, // 30 minutes
     short: 60, // 1 minute
+    friends: 2 * 60, // 2 minutes (social data changes frequently)
+    room: 2 * 60, // 2 minutes
 } as const
 
 /**
@@ -199,6 +203,35 @@ export async function invalidateUserCachePrefix(
         }
     } catch (error) {
         console.error('[Cache] Prefix invalidation error:', error)
+    }
+}
+
+/**
+ * Invalidate all cache keys for a specific room.
+ * Room bundles are keyed by roomId (not userId) since room data is shared.
+ */
+export async function invalidateRoomCache(roomId: string): Promise<void> {
+    if (!redis) return
+
+    try {
+        const keys: string[] = []
+        let cursor = '0'
+        const pattern = `user:${roomId}:room:*`
+
+        do {
+            const result = await redis.scan(cursor, {
+                match: pattern,
+                count: 100,
+            })
+            cursor = String(result[0])
+            keys.push(...result[1])
+        } while (cursor !== '0')
+
+        if (keys.length > 0) {
+            await redis.del(...keys)
+        }
+    } catch {
+        // Cache invalidation is best-effort
     }
 }
 

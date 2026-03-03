@@ -1834,3 +1834,184 @@ export function buildFilteredDataLibraryBundle(filter: string | null | undefined
         }
     }
 }
+
+// ═══════════════════════════════════════════════════════
+// FRIENDS BUNDLE
+// ═══════════════════════════════════════════════════════
+
+export const MOCK_FRIENDS = [
+    { id: "1", friendUserId: "user_alice", name: "Alice Chen", savingsRate: 34, financialHealth: 78, consistencyScore: 72, fridgeScore: 68, wantsPercent: 24, overallScore: 71, isPrivate: false, isRanked: true, lastActive: "2h ago" },
+    { id: "2", friendUserId: "user_bob", name: "Bob Smith", savingsRate: 28, financialHealth: 62, consistencyScore: 55, fridgeScore: 45, wantsPercent: 38, overallScore: 53, isPrivate: false, isRanked: true, lastActive: "1d ago" },
+    { id: "3", friendUserId: "user_charlie", name: "Charlie Davis", savingsRate: 42, financialHealth: 88, consistencyScore: 80, fridgeScore: 75, wantsPercent: 18, overallScore: 78, isPrivate: false, isRanked: true, lastActive: "5m ago" },
+    { id: "4", friendUserId: "user_diana", name: "Diana Prince", savingsRate: 0, financialHealth: 0, consistencyScore: 0, fridgeScore: 0, wantsPercent: 0, overallScore: 0, isPrivate: true, isRanked: false, lastActive: "3d ago" },
+    { id: "5", friendUserId: "user_ethan", name: "Ethan Hunt", savingsRate: 22, financialHealth: 58, consistencyScore: 48, fridgeScore: 52, wantsPercent: 42, overallScore: 49, isPrivate: false, isRanked: true, lastActive: "12h ago" },
+    { id: "6", friendUserId: "user_fiona", name: "Fiona Gallagher", savingsRate: 31, financialHealth: 74, consistencyScore: 70, fridgeScore: 62, wantsPercent: 28, overallScore: 65, isPrivate: false, isRanked: true, lastActive: "1h ago" },
+    { id: "self", friendUserId: "user_you", name: "You", savingsRate: 25, financialHealth: 66, consistencyScore: 60, fridgeScore: 55, wantsPercent: 32, overallScore: 57, isPrivate: false, isRanked: true, lastActive: "Just now" },
+]
+
+export const MOCK_ROOMS = [
+    {
+        id: "room-1",
+        name: "Apartment 4B",
+        description: "Rent, utilities, and internet",
+        memberCount: 3,
+        members: [
+            { id: "1", name: "Alice C." },
+            { id: "2", name: "Bob S." },
+            { id: "7", name: "You" }
+        ],
+        totalShared: 3200,
+        yourBalance: -150.50,
+        currency: "EUR",
+        lastActivity: "2 hours ago",
+        theme: "blue" as const,
+    },
+    {
+        id: "room-2",
+        name: "Weekend Getaway",
+        description: "Flights, Airbnb, and drinks",
+        memberCount: 4,
+        members: [
+            { id: "3", name: "Charlie D." },
+            { id: "4", name: "Diana P." },
+            { id: "5", name: "Ethan H." },
+            { id: "7", name: "You" }
+        ],
+        totalShared: 1850,
+        yourBalance: 45.00,
+        currency: "EUR",
+        lastActivity: "Yesterday",
+        theme: "violet" as const,
+    },
+    {
+        id: "room-3",
+        name: "Groceries & Co.",
+        description: "Weekly supermarket runs",
+        memberCount: 2,
+        members: [
+            { id: "6", name: "Fiona G." },
+            { id: "7", name: "You" }
+        ],
+        totalShared: 420.75,
+        yourBalance: 0,
+        currency: "EUR",
+        lastActivity: "3 days ago",
+        theme: "emerald" as const,
+    }
+]
+
+export const MOCK_FRIENDS_LIST = [
+    { friendship_id: "1", user_id: "user_alice", display_name: "Alice Chen", avatar_url: null, net_balance: -45.50, currency: "EUR", last_active_at: "2h ago" },
+    { friendship_id: "2", user_id: "user_bob", display_name: "Bob Smith", avatar_url: null, net_balance: 120.00, currency: "EUR", last_active_at: "1d ago" },
+    { friendship_id: "3", user_id: "user_charlie", display_name: "Charlie Davis", avatar_url: null, net_balance: 0, currency: "EUR", last_active_at: "5m ago" },
+    { friendship_id: "4", user_id: "user_diana", display_name: "Diana Prince", avatar_url: null, net_balance: -25.00, currency: "EUR", last_active_at: "3d ago" },
+    { friendship_id: "5", user_id: "user_ethan", display_name: "Ethan Hunt", avatar_url: null, net_balance: 75.25, currency: "EUR", last_active_at: "12h ago" },
+    { friendship_id: "6", user_id: "user_fiona", display_name: "Fiona Gallagher", avatar_url: null, net_balance: -10.00, currency: "EUR", last_active_at: "1h ago" },
+]
+
+export const MOCK_PENDING_REQUESTS = {
+    incoming: [
+        { friendship_id: "req-1", direction: "incoming" as const, user_id: "user_grace", display_name: "Grace Hopper", avatar_url: null, created_at: "2026-03-01T10:00:00Z" },
+    ],
+    outgoing: [
+        { friendship_id: "req-2", direction: "outgoing" as const, user_id: "user_linus", display_name: "Linus Torvalds", avatar_url: null, created_at: "2026-02-28T15:00:00Z" },
+    ],
+}
+
+export const MOCK_ACTIVITY_FEED = [
+    { id: "act-1", type: "split_created" as const, actor_name: "Alice Chen", description: "Electricity bill - February", amount: 85.40, currency: "EUR", room_name: "Apartment 4B", created_at: "2026-03-01T18:30:00Z" },
+    { id: "act-2", type: "split_settled" as const, actor_name: "Bob Smith", description: "Settled up for groceries", amount: 32.50, currency: "EUR", room_name: null, created_at: "2026-03-01T14:00:00Z" },
+    { id: "act-3", type: "split_created" as const, actor_name: "Charlie Davis", description: "Dinner at Luigi's", amount: 120.00, currency: "EUR", room_name: "Weekend Getaway", created_at: "2026-02-28T20:15:00Z" },
+    { id: "act-4", type: "friend_added" as const, actor_name: "Fiona Gallagher", description: "Became friends", amount: 0, currency: "EUR", room_name: null, created_at: "2026-02-27T09:00:00Z" },
+]
+
+export const MOCK_CHALLENGES = [
+    {
+        id: "ch-1",
+        created_by: "user_alice",
+        title: "No Eating Out March",
+        category: "Dining",
+        goal_type: "individual_cap" as const,
+        target_amount: 50,
+        starts_at: "2026-03-01",
+        ends_at: "2026-03-31",
+        created_at: "2026-02-28T10:00:00Z",
+        participants: [
+            { challenge_id: "ch-1", user_id: "user_alice", joined_at: "2026-02-28T10:00:00Z", current_spend: 12.50, display_name: "Alice Chen", avatar_url: null },
+            { challenge_id: "ch-1", user_id: "user_you", joined_at: "2026-02-28T10:01:00Z", current_spend: 8.00, display_name: "You", avatar_url: null },
+            { challenge_id: "ch-1", user_id: "user_bob", joined_at: "2026-02-28T10:02:00Z", current_spend: 22.00, display_name: "Bob Smith", avatar_url: null },
+        ],
+        days_remaining: 29,
+        is_member: true,
+    },
+    {
+        id: "ch-2",
+        created_by: "user_you",
+        title: "Grocery Budget Challenge",
+        category: "Groceries",
+        goal_type: "individual_cap" as const,
+        target_amount: 200,
+        starts_at: "2026-03-01",
+        ends_at: "2026-03-15",
+        created_at: "2026-03-01T08:00:00Z",
+        participants: [
+            { challenge_id: "ch-2", user_id: "user_you", joined_at: "2026-03-01T08:00:00Z", current_spend: 45.00, display_name: "You", avatar_url: null },
+            { challenge_id: "ch-2", user_id: "user_fiona", joined_at: "2026-03-01T08:05:00Z", current_spend: 62.00, display_name: "Fiona Gallagher", avatar_url: null },
+        ],
+        days_remaining: 13,
+        is_member: true,
+    },
+]
+
+export const MOCK_NET_BALANCE = {
+    totalOwedToYou: 195.25,
+    totalYouOwe: 80.50,
+}
+
+export const MOCK_CHALLENGE_GROUPS = [
+    {
+        id: "cg-1",
+        name: "Savings Warriors",
+        created_by: "user_alice",
+        is_public: false,
+        invite_code: "SAV-XK9",
+        metrics: ["savingsRate", "financialHealth"] as const,
+        created_at: "2026-01-15T10:00:00Z",
+        memberCount: 4,
+        daysLeftInMonth: 28,
+        yourRanks: { savingsRate: 2, financialHealth: 3 },
+        members: [
+            { user_id: "user_alice", display_name: "Alice Chen", avatar_url: null, total_points: 18, joined_at: "2026-01-15T10:00:00Z", currentScores: { savingsRate: 34, financialHealth: 78 }, isRanked: true },
+            { user_id: "user_you", display_name: "You", avatar_url: null, total_points: 12, joined_at: "2026-01-15T10:01:00Z", currentScores: { savingsRate: 25, financialHealth: 66 }, isRanked: true },
+            { user_id: "user_charlie", display_name: "Charlie Davis", avatar_url: null, total_points: 24, joined_at: "2026-01-16T08:00:00Z", currentScores: { savingsRate: 42, financialHealth: 88 }, isRanked: true },
+            { user_id: "user_ethan", display_name: "Ethan Hunt", avatar_url: null, total_points: 6, joined_at: "2026-01-20T14:00:00Z", currentScores: { savingsRate: 22, financialHealth: 58 }, isRanked: true },
+        ],
+    },
+    {
+        id: "cg-2",
+        name: "Fridge Champions",
+        created_by: "user_you",
+        is_public: true,
+        invite_code: "FRG-M3P",
+        metrics: ["fridgeScore", "wantsPercent"] as const,
+        created_at: "2026-02-01T12:00:00Z",
+        memberCount: 3,
+        daysLeftInMonth: 28,
+        yourRanks: { fridgeScore: 2, wantsPercent: 1 },
+        members: [
+            { user_id: "user_you", display_name: "You", avatar_url: null, total_points: 9, joined_at: "2026-02-01T12:00:00Z", currentScores: { fridgeScore: 55, wantsPercent: 32 }, isRanked: true },
+            { user_id: "user_fiona", display_name: "Fiona Gallagher", avatar_url: null, total_points: 15, joined_at: "2026-02-01T12:05:00Z", currentScores: { fridgeScore: 62, wantsPercent: 28 }, isRanked: true },
+            { user_id: "user_bob", display_name: "Bob Smith", avatar_url: null, total_points: 3, joined_at: "2026-02-03T09:00:00Z", currentScores: { fridgeScore: 45, wantsPercent: 38 }, isRanked: true },
+        ],
+    },
+]
+
+export const MOCK_FRIENDS_BUNDLE = {
+    friends: MOCK_FRIENDS,
+    rooms: MOCK_ROOMS,
+    friendsList: MOCK_FRIENDS_LIST,
+    pendingRequests: MOCK_PENDING_REQUESTS,
+    activityFeed: MOCK_ACTIVITY_FEED,
+    challenges: MOCK_CHALLENGES,
+    netBalance: MOCK_NET_BALANCE,
+}

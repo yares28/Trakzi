@@ -262,6 +262,18 @@ Quick list of tables by schema; details follow.
 18. **pockets** - Unified pocket items (vehicles, properties, other assets)
 19. **pocket_transactions** - Junction table linking transactions to pockets with tab classification
 20. **transaction_wallet** - Per-user transaction capacity tracking (base gift + earned monthly bonuses + purchased packs)
+21. **friendships** - Friend relationships (bidirectional, status: pending/accepted/declined/blocked)
+22. **friend_codes** - Personal 8-char friend codes (XXXX-XXXX format)
+23. **rooms** - Shared expense rooms for group cost splitting
+24. **room_members** - Room membership with roles (owner/admin/member)
+25. **shared_transactions** - Transactions shared in rooms or between friends
+26. **receipt_items** - Individual receipt items for item-level splitting
+27. **transaction_splits** - Individual split amounts owed per user per shared transaction
+28. **challenges** - Time-boxed category spending challenges
+29. **challenge_participants** - Challenge membership with cached spending
+30. **challenge_groups** - Score-based leaderboard groups (monthly metric competitions)
+31. **challenge_group_members** - Challenge group membership with accumulated points
+32. **challenge_monthly_results** - Monthly scoring snapshots per member per metric
 
 ### Neon Auth Schema Tables
 
@@ -281,10 +293,13 @@ Per-table columns, indexes, constraints, and sizes.
 - `name` (text, NULLABLE) - User display name
 - `created_at` (timestamp without time zone, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
 - `updated_at` (timestamp without time zone, NOT NULL)
+- `share_with_friends` (boolean, DEFAULT false) - Opt-in to share ranking metrics with friends
+- `share_publicly` (boolean, DEFAULT false) - Opt-in to share ranking metrics publicly
 
 **Indexes**:
 - `users_pkey` (16 kB) - PRIMARY KEY on `id`
 - `users_email_key` (16 kB) - UNIQUE index on `email`
+- `idx_users_sharing_prefs` - Partial index on `id` WHERE `share_with_friends = true`
 
 **Constraints**:
 - PRIMARY KEY: `id`
@@ -873,6 +888,250 @@ total_capacity = base_capacity
 
 ---
 
+### 21. friendships
+
+**Purpose**: Tracks friend relationships between users (bidirectional)
+
+**Columns**:
+- `id` (text, PRIMARY KEY) - UUID
+- `requester_id` (text, NOT NULL) - References `users(id)` ON DELETE CASCADE
+- `addressee_id` (text, NOT NULL) - References `users(id)` ON DELETE CASCADE
+- `status` (text, NOT NULL) - CHECK: `pending`, `accepted`, `declined`, `blocked`
+- `created_at` (timestamptz, DEFAULT NOW())
+- `updated_at` (timestamptz, DEFAULT NOW())
+
+**Indexes**:
+- `friendships_pkey` - PRIMARY KEY on `id`
+- `idx_friendships_pair` - UNIQUE on `(LEAST(requester_id, addressee_id), GREATEST(requester_id, addressee_id))` — prevents duplicate (A,B)/(B,A) pairs
+- `idx_friendships_requester` - on `requester_id`
+- `idx_friendships_addressee` - on `addressee_id`
+- `idx_friendships_status` - on `status` WHERE `status = 'accepted'`
+
+**Constraints**:
+- PRIMARY KEY: `id`
+- UNIQUE: `(requester_id, addressee_id)`
+- CHECK: `status IN ('pending', 'accepted', 'declined', 'blocked')`
+- FOREIGN KEY: `requester_id` → `users(id)`, `addressee_id` → `users(id)`
+
+---
+
+### 22. friend_codes
+
+**Purpose**: Personal 8-character friend codes for adding friends (format: XXXX-XXXX)
+
+**Columns**:
+- `user_id` (text, PRIMARY KEY) - References `users(id)` ON DELETE CASCADE
+- `code` (text, UNIQUE, NOT NULL) - 8-char code from restricted alphabet
+
+**Indexes**:
+- `friend_codes_pkey` - PRIMARY KEY on `user_id`
+- `friend_codes_code_key` - UNIQUE on `code`
+
+---
+
+### 23. rooms
+
+**Purpose**: Shared expense rooms for group cost splitting
+
+**Columns**:
+- `id` (text, PRIMARY KEY) - UUID
+- `name` (text, NOT NULL) - Room display name
+- `created_by` (text, NOT NULL) - References `users(id)` ON DELETE CASCADE
+- `invite_code` (text, UNIQUE, NOT NULL) - 6-char code for joining
+- `description` (text, NULLABLE)
+- `currency` (text, DEFAULT 'EUR')
+- `is_archived` (boolean, DEFAULT false)
+- `created_at` (timestamptz, DEFAULT NOW())
+- `updated_at` (timestamptz, DEFAULT NOW())
+
+**Indexes**:
+- `rooms_pkey` - PRIMARY KEY on `id`
+- `rooms_invite_code_key` - UNIQUE on `invite_code`
+- `idx_rooms_created_by` - on `created_by`
+
+---
+
+### 24. room_members
+
+**Purpose**: Membership records linking users to rooms with roles
+
+**Columns**:
+- `room_id` (text, NOT NULL) - References `rooms(id)` ON DELETE CASCADE
+- `user_id` (text, NOT NULL) - References `users(id)` ON DELETE CASCADE
+- `role` (text, NOT NULL) - CHECK: `owner`, `admin`, `member`
+- `joined_at` (timestamptz, DEFAULT NOW())
+
+**Indexes**:
+- Composite PRIMARY KEY on `(room_id, user_id)`
+- `idx_room_members_user` - on `user_id`
+
+**Constraints**:
+- PRIMARY KEY: `(room_id, user_id)`
+- CHECK: `role IN ('owner', 'admin', 'member')`
+
+---
+
+### 25. shared_transactions
+
+**Purpose**: Transactions shared in rooms or between friends for splitting
+
+**Columns**:
+- `id` (text, PRIMARY KEY) - UUID
+- `room_id` (text, NULLABLE) - References `rooms(id)` ON DELETE CASCADE
+- `friendship_id` (text, NULLABLE) - References `friendships(id)` ON DELETE SET NULL
+- `uploaded_by` (text, NOT NULL) - References `users(id)` ON DELETE CASCADE
+- `original_tx_id` (text, NULLABLE) - References `transactions(id)` ON DELETE SET NULL
+- `total_amount` (numeric(10,2), NOT NULL)
+- `currency` (text, DEFAULT 'EUR')
+- `description` (text, NOT NULL)
+- `category` (text, NULLABLE)
+- `transaction_date` (date, NOT NULL)
+- `receipt_url` (text, NULLABLE)
+- `split_type` (text, NULLABLE) - CHECK: `equal`, `percentage`, `custom`, `item_level`
+- `metadata` (jsonb, DEFAULT '{}')
+- `created_at` (timestamptz, DEFAULT NOW())
+
+**Indexes**:
+- `shared_transactions_pkey` - PRIMARY KEY on `id`
+- `idx_shared_tx_room` - on `room_id` WHERE `room_id IS NOT NULL`
+- `idx_shared_tx_friendship` - on `friendship_id` WHERE `friendship_id IS NOT NULL`
+- `idx_shared_tx_uploaded_by` - on `uploaded_by`
+
+**Constraints**:
+- CHECK: `room_id IS NOT NULL OR friendship_id IS NOT NULL` — must belong to a room or friendship
+
+---
+
+### 26. receipt_items
+
+**Purpose**: Individual items from scanned receipts for item-level splitting
+
+**Columns**:
+- `id` (text, PRIMARY KEY) - UUID
+- `shared_tx_id` (text, NOT NULL) - References `shared_transactions(id)` ON DELETE CASCADE
+- `name` (text, NOT NULL) - Item description
+- `amount` (numeric(10,2), NOT NULL) - Item price
+- `quantity` (integer, DEFAULT 1)
+- `category` (text, NULLABLE)
+
+**Indexes**:
+- `receipt_items_pkey` - PRIMARY KEY on `id`
+- `idx_receipt_items_shared_tx` - on `shared_tx_id`
+
+---
+
+### 27. transaction_splits
+
+**Purpose**: Individual split amounts owed by each user for a shared transaction
+
+**Columns**:
+- `id` (text, PRIMARY KEY) - UUID
+- `shared_tx_id` (text, NOT NULL) - References `shared_transactions(id)` ON DELETE CASCADE
+- `item_id` (text, NULLABLE) - References `receipt_items(id)` ON DELETE SET NULL
+- `user_id` (text, NOT NULL) - References `users(id)` ON DELETE CASCADE
+- `amount` (numeric(10,2), NOT NULL) - Amount owed
+- `status` (text, DEFAULT 'pending') - CHECK: `pending`, `settled`
+- `settled_at` (timestamptz, NULLABLE)
+
+**Indexes**:
+- `transaction_splits_pkey` - PRIMARY KEY on `id`
+- `idx_splits_shared_tx` - on `shared_tx_id`
+- `idx_splits_user` - on `user_id`
+- `idx_splits_status` - on `status` WHERE `status = 'pending'`
+
+---
+
+### 28. challenges
+
+**Purpose**: Time-boxed category spending challenges between friends
+
+**Columns**:
+- `id` (uuid, PRIMARY KEY, DEFAULT uuid_generate_v4())
+- `created_by` (text, NOT NULL) - References `users(id)` ON DELETE CASCADE
+- `title` (varchar(100), NOT NULL) - Challenge name
+- `category` (varchar(100), NOT NULL) - Spending category to track
+- `goal_type` (text, NOT NULL) - CHECK: `individual_cap`, `group_total`
+- `target_amount` (numeric(10,2), NOT NULL)
+- `starts_at` (date, NOT NULL) - Challenge start date
+- `ends_at` (date, NOT NULL) - Challenge end date
+- `created_at` (timestamptz, DEFAULT NOW())
+
+**Indexes**:
+- `challenges_pkey` - PRIMARY KEY on `id`
+- `idx_challenges_created_by` - on `created_by`
+- `idx_challenges_active` - on `ends_at` WHERE `ends_at >= CURRENT_DATE`
+
+---
+
+### 29. challenge_participants
+
+**Purpose**: Tracks who joined each challenge and their cached spending
+
+**Columns**:
+- `challenge_id` (uuid, NOT NULL) - References `challenges(id)` ON DELETE CASCADE
+- `user_id` (text, NOT NULL) - References `users(id)` ON DELETE CASCADE
+- `joined_at` (timestamptz, DEFAULT NOW())
+- `current_spend` (numeric(10,2), DEFAULT 0) - Cached spending aggregate (refreshed via /refresh endpoint)
+
+**Indexes**:
+- Composite PRIMARY KEY on `(challenge_id, user_id)`
+
+---
+
+### 30. challenge_groups
+
+**Purpose**: Score-based leaderboard groups that compete on ranking metrics monthly
+
+**Columns**:
+- `id` (uuid, PRIMARY KEY, DEFAULT uuid_generate_v4())
+- `name` (varchar(100), NOT NULL) - Group name
+- `created_by` (text, NOT NULL) - References `users(id)` ON DELETE CASCADE
+- `invite_code` (varchar(10), UNIQUE, NOT NULL) - 6-char join code
+- `metrics` (text[], NOT NULL) - Array of metrics to compete on (e.g., `{savingsRate,financialHealth}`)
+- `is_public` (boolean, DEFAULT false) - Whether group is publicly joinable
+- `created_at` (timestamptz, DEFAULT NOW())
+
+**Indexes**:
+- `challenge_groups_pkey` - PRIMARY KEY on `id`
+- `challenge_groups_invite_code_key` - UNIQUE on `invite_code`
+
+---
+
+### 31. challenge_group_members
+
+**Purpose**: Membership in challenge groups with accumulated points
+
+**Columns**:
+- `group_id` (uuid, NOT NULL) - References `challenge_groups(id)` ON DELETE CASCADE
+- `user_id` (text, NOT NULL) - References `users(id)` ON DELETE CASCADE
+- `joined_at` (timestamptz, DEFAULT NOW())
+- `total_points` (integer, DEFAULT 0) - Accumulated all-time points
+
+**Indexes**:
+- Composite PRIMARY KEY on `(group_id, user_id)`
+
+---
+
+### 32. challenge_monthly_results
+
+**Purpose**: Monthly scoring snapshots per group member per metric (3/2/1/0 points)
+
+**Columns**:
+- `id` (uuid, PRIMARY KEY, DEFAULT uuid_generate_v4())
+- `group_id` (uuid, NOT NULL) - References `challenge_groups(id)` ON DELETE CASCADE
+- `user_id` (text, NOT NULL) - References `users(id)` ON DELETE CASCADE
+- `month` (date, NOT NULL) - First day of the scored month
+- `metric` (text, NOT NULL) - Which metric this result is for
+- `score` (numeric, NOT NULL) - Raw metric score value
+- `points` (integer, NOT NULL, DEFAULT 0) - Points awarded (3=1st, 2=2nd, 1=3rd, 0=other)
+- `created_at` (timestamptz, DEFAULT NOW())
+
+**Indexes**:
+- `challenge_monthly_results_pkey` - PRIMARY KEY on `id`
+- UNIQUE on `(group_id, user_id, month, metric)` — one result per member per metric per month
+
+---
+
 ## Database Functions
 
 Server-side functions available in the database.
@@ -1415,6 +1674,15 @@ Metadata, metrics, and connection details were refreshed using Neon MCP tools an
 
 Notable schema and data changes since the previous snapshot.
 
+- **March 3, 2026**: Friends & Rooms — Full Feature (Phase 5):
+  - Added 12 new tables: `friendships`, `friend_codes`, `rooms`, `room_members`, `shared_transactions`, `receipt_items`, `transaction_splits`, `challenges`, `challenge_participants`, `challenge_groups`, `challenge_group_members`, `challenge_monthly_results`
+  - Added `share_with_friends` and `share_publicly` columns to `users` table with partial index
+  - 29+ API endpoints across `/api/friends/`, `/api/rooms/`, `/api/challenges/`, `/api/challenge-groups/`, `/api/splits/`
+  - Privacy engine: opt-in sharing, `canViewMetrics()` checks, ranking metrics never expose dollar amounts
+  - Ranking metrics: savingsRate, financialHealth, consistencyScore, fridgeScore, wantsPercent, overallScore (0-100 scores only)
+  - Challenge system: time-boxed spending challenges + score-based leaderboard groups
+  - Friends bundle cached at 2-min TTL via Upstash Redis
+  - Total public schema tables: 22 → 32 (not counting `country_instances` which was removed)
 - **February 18, 2026**: Plan & Subscription System Overhaul:
   - Removed `basic` plan -- only `free`, `pro`, `max` remain in `PlanType`
   - Added `transaction_wallet` table for per-user capacity tracking (base + earned + purchased + monthly)

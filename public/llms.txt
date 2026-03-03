@@ -1,0 +1,33 @@
+# Trakzi
+
+> Trakzi is an all-in-one budgeting workspace for tracking income, expenses, savings, and shared costs.
+
+## What is Trakzi?
+
+Trakzi is a personal finance and budgeting application. Users can import bank transaction CSVs, scan grocery and retail receipts, and visualize their spending with AI-powered interactive charts. Trakzi also supports shared expense tracking with friends and roommates through collaborative rooms.
+
+## Core Features
+
+- **CSV Import**: Upload any CSV export from your bank or card provider. Trakzi normalizes the data and charts spending automatically.
+- **Receipt Scanning**: Snap or upload grocery and retail receipts. Trakzi extracts totals for comparison against budgets and past habits.
+- **AI-Powered Analytics**: An integrated AI assistant spots overspending patterns, answers natural language questions about your finances, and suggests budget adjustments.
+- **Interactive Charts**: A rich collection of spending visualizations including heatmaps, category breakdowns, trend lines, and calendar views.
+- **Shared Expenses & Rooms**: Create rooms with friends or roommates to track group expenses, split bills, and see balances at a glance.
+- **Savings Tracking**: Set savings goals and monitor progress over time.
+- **Challenges & Rankings**: Compete with friends on financial goals through score-based challenges and leaderboards.
+
+## Target Audience
+
+- Individuals wanting to track personal finances without connecting bank accounts directly (CSV-first approach).
+- Roommates and friend groups who need to split shared expenses like rent, groceries, and bills.
+- Budget-conscious users looking for AI-driven insights into their spending patterns.
+
+## Technology
+
+Trakzi is built with Next.js (React), uses Prisma with a PostgreSQL database, and is deployed on Vercel. Authentication is handled by Clerk. Analytics are powered by PostHog.
+
+## Links
+
+- Website: https://trakzi.com
+- Sign Up: https://trakzi.com/sign-up
+- Log In: https://trakzi.com/sign-in

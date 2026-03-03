@@ -17,6 +17,46 @@ export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
     title: "Income & Expenses Cumulative Tracking",
     description: "Your cumulative cash flow for the last 3 months",
   },
+  spendingScore: {
+    id: "spendingScore",
+    title: "Spending Score",
+    description: "AI-calculated score based on your spending patterns, diversity, and trends",
+  },
+  cashFlowIndicator: {
+    id: "cashFlowIndicator",
+    title: "Cash Flow Indicator",
+    description: "Visualize your income vs expenses this month. Stay in the green zone!",
+  },
+  incomeExpenseRatio: {
+    id: "incomeExpenseRatio",
+    title: "Income to Expense Ratio",
+    description: "Shows how your income compares to your expenses",
+  },
+  weekendVsWeekday: {
+    id: "weekendVsWeekday",
+    title: "Weekend vs Weekday",
+    description: "Compare your spending habits between weekdays and weekends",
+  },
+  monthlyBudgetPace: {
+    id: "monthlyBudgetPace",
+    title: "Monthly Budget Pace",
+    description: "Are you on track this month? Compare your spending pace against your typical month",
+  },
+  budgetBurndown: {
+    id: "budgetBurndown",
+    title: "Budget Burndown",
+    description: "Track how quickly you're burning through your monthly budget",
+  },
+  purchaseSizeBreakdown: {
+    id: "purchaseSizeBreakdown",
+    title: "Purchase Size Breakdown",
+    description: "See how your spending is distributed between small, medium, and large purchases",
+  },
+  recurringVsOneTime: {
+    id: "recurringVsOneTime",
+    title: "Recurring vs One-Time",
+    description: "How much of your spending is on subscriptions versus one-time purchases",
+  },
   spendingCategoryRankings: {
     id: "spendingCategoryRankings",
     title: "Spending Category Rankings",

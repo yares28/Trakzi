@@ -30,14 +30,75 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Trakzi",
-  description: "Track your income, expenses, savings, and net worth",
+  metadataBase: new URL("https://trakzi.com"),
+  title: {
+    default: "Trakzi — The All-in-One Budgeting Workspace",
+    template: "%s | Trakzi",
+  },
+  description:
+    "Trakzi is an all-in-one budgeting workspace. Import bank CSVs, scan receipts, track expenses, visualize spending with AI-powered charts, and manage shared costs with friends — all in one place.",
+  keywords: [
+    "budgeting app",
+    "expense tracker",
+    "personal finance",
+    "budget planner",
+    "track expenses",
+    "CSV import budget",
+    "receipt scanner",
+    "shared expenses",
+    "split bills",
+    "savings tracker",
+    "spending analytics",
+    "AI budgeting",
+    "money management",
+    "financial dashboard",
+    "grocery budget tracker",
+  ],
+  authors: [{ name: "Trakzi" }],
+  creator: "Trakzi",
+  publisher: "Trakzi",
+  applicationName: "Trakzi",
   appleWebApp: {
     title: "Trakzi",
     capable: true,
     statusBarStyle: "default",
   },
-  applicationName: "Trakzi",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://trakzi.com",
+    siteName: "Trakzi",
+    title: "Trakzi — The All-in-One Budgeting Workspace",
+    description:
+      "Import bank CSVs, scan receipts, track expenses, and visualize spending with AI-powered charts. Manage shared costs with friends — all in one place.",
+    images: [
+      {
+        url: "/Trakzi/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Trakzi — The All-in-One Budgeting Workspace",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Trakzi — The All-in-One Budgeting Workspace",
+    description:
+      "Import bank CSVs, scan receipts, track expenses, and visualize spending with AI-powered charts.",
+    images: ["/Trakzi/og-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  category: "finance",
 };
 
 export default function RootLayout({

@@ -3,44 +3,81 @@
 import { useState } from "react"
 import { Plus, Minus } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import { safeCapture } from "@/lib/posthog-safe"
+
+const faqs = [
+  {
+    question: "What is Trakzi and how does it help me budget?",
+    answer:
+      "Trakzi is an all-in-one budgeting workspace where you can bring together your bank accounts, CSV exports, and receipts to see where your money is going at a glance. It combines AI-powered charts, spending analytics, and shared-expense tracking in a single app.",
+  },
+  {
+    question: "How do I import my bank transactions into Trakzi?",
+    answer:
+      "Upload any CSV from your bank or card provider. Trakzi normalizes the data, keeps your original columns intact, and charts your spending automatically — no manual data entry required.",
+  },
+  {
+    question: "Can I scan and store grocery receipts in Trakzi?",
+    answer:
+      "Yes. Snap or upload your grocery and retail receipts, and Trakzi extracts the totals so you can compare them against your budget and past spending habits.",
+  },
+  {
+    question: "What does the AI in Trakzi actually do?",
+    answer:
+      'The built-in AI helps you spot overspending patterns, answers questions like "why was food higher this month?", and suggests adjustments to keep you on track with your financial goals.',
+  },
+  {
+    question: "Is my financial transaction data safe with Trakzi?",
+    answer:
+      "Your data stays in your workspace. Trakzi never resells or shares it, and you can delete your uploads at any time. We follow security best practices to protect your files and insights.",
+  },
+  {
+    question: "Can I track shared expenses and split bills with friends?",
+    answer:
+      "Absolutely. Trakzi lets you create shared rooms with friends or roommates, track group expenses, and see who owes what — making it easy to split bills, rent, and groceries.",
+  },
+]
+
+// Generate the FAQPage JSON-LD schema for search engines and AI models
+function generateFaqSchema() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: faq.answer,
+      },
+    })),
+  }
+}
 
 export function FAQSection() {
   const [openItems, setOpenItems] = useState<number[]>([])
 
   const toggleItem = (index: number) => {
+    const isOpening = !openItems.includes(index)
     setOpenItems((prev) => (prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]))
-  }
 
-  const faqs = [
-    {
-      question: "What is Trakzi?",
-      answer:
-        "Trakzi is an all-in-one budgeting workspace where you can bring together your accounts, CSV exports, and receipts to see where your money is going at a glance.",
-    },
-    {
-      question: "How do I import my transactions?",
-      answer:
-        "Upload any CSV from your bank or card provider. We normalize the data, keep your original columns intact, and chart your spending automatically.",
-    },
-    {
-      question: "Can I scan and store receipts?",
-      answer:
-        "Yes. Snap or upload your grocery and retail receipts, and Trakzi extracts the totals so you can compare them against your budget and past habits.",
-    },
-    {
-      question: "What does the AI actually do?",
-      answer:
-        'The built-in AI helps you spot overspending patterns, answers questions like "why was food higher this month?", and suggests adjustments to keep you on track.',
-    },
-    {
-      question: "Is my data safe?",
-      answer:
-        "Your data stays in your workspace. We never resell or share it, and you can delete your uploads at any time. We follow security best practices to protect your files and insights.",
-    },
-  ]
+    // Track which FAQ questions users are most interested in
+    if (isOpening) {
+      safeCapture("faq_question_expanded", {
+        question: faqs[index].question,
+        question_index: index,
+      })
+    }
+  }
 
   return (
     <section id="faq" className="relative overflow-hidden pt-48 pb-96">
+      {/* FAQPage JSON-LD Schema for SEO / AEO / GEO */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(generateFaqSchema()) }}
+      />
+
       {/* Background blur effects */}
       <div className="bg-primary/20 absolute top-1/2 -right-20 z-[-1] h-64 w-64 rounded-full opacity-80 blur-3xl"></div>
       <div className="bg-primary/20 absolute top-1/2 -left-20 z-[-1] h-64 w-64 rounded-full opacity-80 blur-3xl"></div>
@@ -132,3 +169,4 @@ export function FAQSection() {
     </section>
   )
 }
+

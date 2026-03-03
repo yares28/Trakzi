@@ -73,6 +73,15 @@ export interface PlanLimits {
     // -------------------------------------------------------------------------
     customTransactionCategoriesLimit: number;
     customFridgeCategoriesLimit: number;
+
+    // -------------------------------------------------------------------------
+    // FRIENDS & ROOMS
+    // Social features: friend list, rooms, shared transactions, quick splits
+    // -------------------------------------------------------------------------
+    maxFriends: number;
+    maxRooms: number;
+    sharedTxPerMonth: number;
+    quickSplitsPerMonth: number;
 }
 
 // ============================================================================
@@ -99,6 +108,10 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
         advancedChartsEnabled: false,            // Blurred for free users
         customTransactionCategoriesLimit: 1,
         customFridgeCategoriesLimit: 1,
+        maxFriends: 5,
+        maxRooms: 2,
+        sharedTxPerMonth: 50,
+        quickSplitsPerMonth: 20,
     },
 
     // =========================================================================
@@ -119,6 +132,10 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
         advancedChartsEnabled: true,
         customTransactionCategoriesLimit: 10,
         customFridgeCategoriesLimit: 10,
+        maxFriends: 50,
+        maxRooms: 10,
+        sharedTxPerMonth: 200,
+        quickSplitsPerMonth: 100,
     },
 
     // =========================================================================
@@ -139,6 +156,10 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
         advancedChartsEnabled: true,
         customTransactionCategoriesLimit: 25,
         customFridgeCategoriesLimit: 25,
+        maxFriends: Infinity,
+        maxRooms: Infinity,
+        sharedTxPerMonth: Infinity,
+        quickSplitsPerMonth: Infinity,
     },
 };
 

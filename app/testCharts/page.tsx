@@ -21,57 +21,29 @@ import { Activity, Wallet, Refrigerator, ChevronRight } from "lucide-react"
 
 // Import all test chart components
 import {
-    ChartWeekendVsWeekday,
-    ChartAvgTransactionTrend,
-    ChartCategoryDiversity,
     ChartMoMGrowth,
-    ChartTransactionHeatmap,
     ChartSpendingDistribution,
-    ChartIncomeExpenseRatio,
-    ChartRolling7DayAvg,
     ChartTopMerchantsRace,
     ChartLargestTransactions,
-    ChartRecurringVsOneTime,
     ChartHourlySpending,
-    ChartCumulativeSpending,
-    ChartCategoryGrowth,
-    ChartSpendingStreak,
     ChartPaydayImpact,
     ChartSavingsRateTrend,
-    ChartSpendingScore,
-    ChartSmallVsLargePurchases,
     ChartCategoryBubbles,
-    ChartWeeklyComparison,
-    ChartMonthlyBudgetPace,
     ChartTransactionCountTrend,
-    ChartQuickStats,
-    ChartTopCategoriesPie,
     ChartSeasonalSpending,
-    ChartBudgetBurndown,
-    ChartCashFlowIndicator,
     ChartCategoryRanking,
     ChartIncomeSources,
-    // New batch of 20 charts
-    ChartExpenseVelocityGauge,
     ChartSpendingByMerchant,
     ChartDailyHighLow,
     ChartMonthlyTrend,
     ChartWeekdayRadar,
     ChartMonthCompare,
-    ChartNeedsVsWantsDonut,
     ChartBudgetMilestone,
     ChartYearOverYear,
-    ChartSpendingByHourHeatmap,
-    ChartCategoryProgress,
     ChartNetWorthTrend,
-    ChartFinancialSummary,
     ChartDailyAverageByMonth,
-    ChartPaymentMethods,
     ChartBiggestExpenseCategories,
-    ChartSpendingAlerts,
     ChartQuarterlyComparison,
-    ChartBalanceHistory,
-    ChartMonthlyInsights,
 } from "@/components/test-charts"
 
 // Fridge charts
@@ -102,23 +74,18 @@ type ReceiptTransaction = {
 export default function TestChartsPage() {
     // @dnd-kit: Chart order state for each section
     const [analyticsOrder, setAnalyticsOrder] = useState<string[]>([
-        "testCharts:quickStats", "testCharts:spendingScore", "testCharts:cashFlowIndicator",
-        "testCharts:incomeExpenseRatio", "testCharts:weekendVsWeekday", "testCharts:hourlySpending",
-        "testCharts:cumulativeSpending", "testCharts:budgetBurndown", "testCharts:monthlyBudgetPace",
-        "testCharts:spendingStreak", "testCharts:topCategoriesPie",
-        "testCharts:categoryBubbles", "testCharts:smallVsLargePurchases", "testCharts:recurringVsOneTime",
-        "testCharts:categoryRanking", "testCharts:categoryGrowth", "testCharts:weeklyComparison",
-        "testCharts:seasonalSpending", "testCharts:categoryDiversity", "testCharts:momGrowth",
-        "testCharts:avgTransactionTrend", "testCharts:transactionCountTrend", "testCharts:rolling7DayAvg",
-        "testCharts:transactionHeatmap", "testCharts:paydayImpact", "testCharts:topMerchantsRace",
+        "testCharts:hourlySpending",
+        "testCharts:categoryBubbles",
+        "testCharts:categoryRanking",
+        "testCharts:seasonalSpending", "testCharts:momGrowth",
+        "testCharts:transactionCountTrend",
+        "testCharts:paydayImpact", "testCharts:topMerchantsRace",
         "testCharts:incomeSources", "testCharts:spendingDistribution", "testCharts:largestTransactions",
-        "testCharts:expenseVelocityGauge", "testCharts:monthCompare", "testCharts:dailyHighLow",
-        "testCharts:financialSummary", "testCharts:monthlyTrend", "testCharts:weekdayRadar",
-        "testCharts:spendingByHourHeatmap", "testCharts:categoryProgress",
-        "testCharts:needsVsWantsDonut", "testCharts:spendingByMerchant", "testCharts:yearOverYear",
-        "testCharts:quarterlyComparison", "testCharts:dailyAverageByMonth", "testCharts:paymentMethods",
-        "testCharts:biggestExpenseCategories", "testCharts:spendingAlerts", "testCharts:balanceHistory",
-        "testCharts:monthlyInsights"
+        "testCharts:monthCompare", "testCharts:dailyHighLow",
+        "testCharts:monthlyTrend", "testCharts:weekdayRadar",
+        "testCharts:spendingByMerchant", "testCharts:yearOverYear",
+        "testCharts:quarterlyComparison", "testCharts:dailyAverageByMonth",
+        "testCharts:biggestExpenseCategories"
     ])
 
     const [savingsOrder, setSavingsOrder] = useState<string[]>([
@@ -345,56 +312,29 @@ export default function TestChartsPage() {
         }
 
         switch (chartId) {
-            case "testCharts:weekendVsWeekday": return <ChartWeekendVsWeekday {...chartProps} />
-            case "testCharts:avgTransactionTrend": return <ChartAvgTransactionTrend {...chartProps} />
-            case "testCharts:categoryDiversity": return <ChartCategoryDiversity {...chartProps} />
             case "testCharts:momGrowth": return <ChartMoMGrowth {...chartProps} />
-            case "testCharts:transactionHeatmap": return <ChartTransactionHeatmap {...chartProps} />
             case "testCharts:spendingDistribution": return <ChartSpendingDistribution {...chartProps} />
-            case "testCharts:incomeExpenseRatio": return <ChartIncomeExpenseRatio {...chartProps} />
-            case "testCharts:rolling7DayAvg": return <ChartRolling7DayAvg {...chartProps} />
             case "testCharts:topMerchantsRace": return <ChartTopMerchantsRace {...chartProps} />
             case "testCharts:largestTransactions": return <ChartLargestTransactions {...chartProps} />
-            case "testCharts:recurringVsOneTime": return <ChartRecurringVsOneTime {...chartProps} />
             case "testCharts:hourlySpending": return <ChartHourlySpending {...chartProps} />
-            case "testCharts:cumulativeSpending": return <ChartCumulativeSpending {...chartProps} />
-            case "testCharts:categoryGrowth": return <ChartCategoryGrowth {...chartProps} />
-            case "testCharts:spendingStreak": return <ChartSpendingStreak {...chartProps} />
             case "testCharts:paydayImpact": return <ChartPaydayImpact {...chartProps} />
             case "testCharts:savingsRateTrend": return <ChartSavingsRateTrend {...chartProps} />
-            case "testCharts:spendingScore": return <ChartSpendingScore {...chartProps} />
-            case "testCharts:smallVsLargePurchases": return <ChartSmallVsLargePurchases {...chartProps} />
             case "testCharts:categoryBubbles": return <ChartCategoryBubbles {...chartProps} />
-            case "testCharts:weeklyComparison": return <ChartWeeklyComparison {...chartProps} />
-            case "testCharts:monthlyBudgetPace": return <ChartMonthlyBudgetPace {...chartProps} />
             case "testCharts:transactionCountTrend": return <ChartTransactionCountTrend {...chartProps} />
-            case "testCharts:quickStats": return <ChartQuickStats {...chartProps} />
-            case "testCharts:topCategoriesPie": return <ChartTopCategoriesPie {...chartProps} />
             case "testCharts:seasonalSpending": return <ChartSeasonalSpending {...chartProps} />
-            case "testCharts:budgetBurndown": return <ChartBudgetBurndown {...chartProps} />
-            case "testCharts:cashFlowIndicator": return <ChartCashFlowIndicator {...chartProps} />
             case "testCharts:categoryRanking": return <ChartCategoryRanking {...chartProps} />
             case "testCharts:incomeSources": return <ChartIncomeSources {...chartProps} />
-            case "testCharts:expenseVelocityGauge": return <ChartExpenseVelocityGauge {...chartProps} />
             case "testCharts:spendingByMerchant": return <ChartSpendingByMerchant {...chartProps} />
             case "testCharts:dailyHighLow": return <ChartDailyHighLow {...chartProps} />
             case "testCharts:monthlyTrend": return <ChartMonthlyTrend {...chartProps} />
             case "testCharts:weekdayRadar": return <ChartWeekdayRadar {...chartProps} />
             case "testCharts:monthCompare": return <ChartMonthCompare {...chartProps} />
-            case "testCharts:needsVsWantsDonut": return <ChartNeedsVsWantsDonut {...chartProps} />
             case "testCharts:budgetMilestone": return <ChartBudgetMilestone {...chartProps} />
             case "testCharts:yearOverYear": return <ChartYearOverYear {...chartProps} />
-            case "testCharts:spendingByHourHeatmap": return <ChartSpendingByHourHeatmap {...chartProps} />
-            case "testCharts:categoryProgress": return <ChartCategoryProgress {...chartProps} />
             case "testCharts:netWorthTrend": return <ChartNetWorthTrend {...chartProps} />
-            case "testCharts:financialSummary": return <ChartFinancialSummary {...chartProps} />
             case "testCharts:dailyAverageByMonth": return <ChartDailyAverageByMonth {...chartProps} />
-            case "testCharts:paymentMethods": return <ChartPaymentMethods {...chartProps} />
             case "testCharts:biggestExpenseCategories": return <ChartBiggestExpenseCategories {...chartProps} />
-            case "testCharts:spendingAlerts": return <ChartSpendingAlerts {...chartProps} />
             case "testCharts:quarterlyComparison": return <ChartQuarterlyComparison {...chartProps} />
-            case "testCharts:balanceHistory": return <ChartBalanceHistory {...chartProps} />
-            case "testCharts:monthlyInsights": return <ChartMonthlyInsights {...chartProps} />
             // Fridge charts
             case "fridge:spend-trend": return <ChartAreaInteractiveFridge data={fridgeSpendTrendData} />
             case "fridge:category-flow": return <ChartCategoryFlowFridge receiptTransactions={receiptTransactions.map(tx => ({ ...tx, totalPrice: tx.amount, categoryName: tx.category, receiptDate: tx.date })) as any} isLoading={isLoading} />

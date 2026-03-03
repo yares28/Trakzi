@@ -1,0 +1,61 @@
+import { useAuth } from "@clerk/nextjs"
+import { useQuery } from "@tanstack/react-query"
+import { demoFetch } from "@/lib/demo/demo-fetch"
+import { useDemoMode } from "@/lib/demo/demo-context"
+
+export interface RoomBundleData {
+    room: {
+        id: string
+        name: string
+        description: string | null
+        invite_code: string
+        currency: string
+        is_archived: boolean
+        created_at: string
+    }
+    members: {
+        user_id: string
+        display_name: string
+        role: string
+        joined_at: string
+    }[]
+    balances: {
+        user_id: string
+        display_name: string
+        net_balance: number
+        total_paid: number
+        total_owed: number
+    }[]
+    recentTransactions: {
+        id: string
+        description: string
+        total_amount: number
+        currency: string
+        uploaded_by: string
+        uploader_name: string
+        split_type: string
+        created_at: string
+    }[]
+    stats: {
+        total_transactions: number
+        total_volume: number
+        pending_splits: number
+    }
+}
+
+async function fetchRoomBundle(roomId: string): Promise<RoomBundleData> {
+    const res = await demoFetch(`/api/rooms/${roomId}/bundle`)
+    if (!res.ok) throw new Error(`Failed to fetch room bundle: ${res.statusText}`)
+    return res.json()
+}
+
+export function useRoomBundle(roomId: string) {
+    const { userId } = useAuth()
+    const { isDemoMode } = useDemoMode()
+
+    return useQuery({
+        queryKey: ["room-bundle", roomId, isDemoMode ? "demo" : (userId ?? "")],
+        queryFn: () => fetchRoomBundle(roomId),
+        enabled: (isDemoMode || !!userId) && !!roomId,
+    })
+}
