@@ -143,6 +143,26 @@ const IconFridge = React.forwardRef<
 ))
 IconFridge.displayName = "IconFridge"
 
+// Custom Friends icon component (Users/People)
+const IconFriends = React.forwardRef<
+  SVGSVGElement,
+  React.ComponentProps<"svg">
+>((props, ref) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    width="16"
+    height="16"
+    fill="currentColor"
+    className="icon-friends"
+    ref={ref}
+    {...props}
+  >
+    <path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0-6a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm7 15v-1a5 5 0 0 0-5-5H10a5 5 0 0 0-5 5v1a1 1 0 1 0 2 0v-1a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1a1 1 0 1 0 2 0zm2-8a3 3 0 1 0-2-5.24 1 1 0 1 0 .68 1.88 1 1 0 1 1 0 1.72 1 1 0 1 0-.68 1.88A3 3 0 0 0 21 12zm1 6v-1a3 3 0 0 0-2-2.82 1 1 0 1 0-.64 1.9A1 1 0 0 1 20 17v1a1 1 0 1 0 2 0zM3 12a3 3 0 0 0 2.24-1 1 1 0 0 0-.68-1.88 1 1 0 1 1 0-1.72A1 1 0 0 0 5.24 5.5 3 3 0 1 0 3 12zM2 18v-1a1 1 0 0 1 .64-.94 1 1 0 1 0-.64-1.9A3 3 0 0 0 0 17v1a1 1 0 1 0 2 0z" />
+  </svg>
+))
+IconFriends.displayName = "IconFriends"
+
 // Custom Map icon component (World/Globe)
 const IconMap = React.forwardRef<
   SVGSVGElement,
@@ -241,6 +261,11 @@ const data = {
       url: "/chat",
       icon: IconChat,
     },
+    {
+      title: "Friends",
+      url: "/friends",
+      icon: IconFriends,
+    }
   ],
   navClouds: [
     {

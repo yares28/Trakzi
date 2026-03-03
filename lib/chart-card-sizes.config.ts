@@ -46,6 +46,14 @@ export type ChartId =
   | "categoryTrend"
   | "cashFlowSankey"
   | "savingsAccumulation"
+  | "spendingScore"
+  | "cashFlowIndicator"
+  | "incomeExpenseRatio"
+  | "weekendVsWeekday"
+  | "monthlyBudgetPace"
+  | "budgetBurndown"
+  | "purchaseSizeBreakdown"
+  | "recurringVsOneTime"
   | "fridge:day-of-week-spending"
   | "fridge:time-of-day-spending"
   | "fridge:grocerySpendTrend"
@@ -328,6 +336,78 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     minH: 8,
     maxH: 16,
     mobileH: 8,
+  },
+
+  // Spending Score - Gauge/score indicator
+  spendingScore: {
+    minW: 6,
+    maxW: 12,
+    minH: 6,
+    maxH: 10,
+    mobileH: 5,
+  },
+
+  // Cash Flow Indicator - Gauge with income vs expense
+  cashFlowIndicator: {
+    minW: 6,
+    maxW: 12,
+    minH: 6,
+    maxH: 10,
+    mobileH: 5,
+  },
+
+  // Income Expense Ratio - Ratio gauge
+  incomeExpenseRatio: {
+    minW: 6,
+    maxW: 12,
+    minH: 6,
+    maxH: 10,
+    mobileH: 5,
+  },
+
+  // Weekend vs Weekday - Comparison bar chart
+  weekendVsWeekday: {
+    minW: 6,
+    maxW: 12,
+    minH: 7,
+    maxH: 12,
+    mobileH: 5,
+  },
+
+  // Monthly Budget Pace - Progress indicator
+  monthlyBudgetPace: {
+    minW: 6,
+    maxW: 12,
+    minH: 6,
+    maxH: 10,
+    mobileH: 5,
+  },
+
+  // Budget Burndown - Line chart
+  budgetBurndown: {
+    minW: 6,
+    maxW: 12,
+    minH: 7,
+    maxH: 12,
+    mobileH: 5,
+  },
+
+  // Purchase Size Breakdown - Bar chart
+  purchaseSizeBreakdown: {
+    minW: 6,
+    maxW: 12,
+    minH: 7,
+    maxH: 12,
+    mobileH: 5,
+  },
+
+  // Recurring vs One-Time - Comparison chart
+  recurringVsOneTime: {
+    minW: 6,
+    maxW: 12,
+    minH: 7,
+    maxH: 12,
+    mobileH: 5,
   },
 
   // Fridge: Day of Week Spending - Bar chart

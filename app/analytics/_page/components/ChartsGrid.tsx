@@ -29,6 +29,14 @@ import { ChartSwarmPlot } from "@/components/chart-swarm-plot"
 import { ChartTransactionCalendar } from "@/components/chart-transaction-calendar"
 import { ChartTreeMap } from "@/components/chart-treemap"
 import { ChartAllMonthsCategorySpending } from "@/components/chart-all-months-category-spending"
+import { ChartSpendingScore } from "@/components/chart-spending-score"
+import { ChartCashFlowIndicator } from "@/components/chart-cash-flow-indicator"
+import { ChartIncomeExpenseRatio } from "@/components/chart-income-expense-ratio"
+import { ChartWeekendVsWeekday } from "@/components/chart-weekend-vs-weekday"
+import { ChartMonthlyBudgetPace } from "@/components/chart-monthly-budget-pace"
+import { ChartBudgetBurndown } from "@/components/chart-budget-burndown"
+import { ChartPurchaseSizeBreakdown } from "@/components/chart-purchase-size-breakdown"
+import { ChartRecurringVsOneTime } from "@/components/chart-recurring-vs-onetime"
 import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -85,6 +93,14 @@ const CHART_TITLES: Record<string, string> = {
   dayOfWeekCategory: "Day of Week Category",
   dailyTransactionActivity: "Daily Transaction Activity",
   cashFlowSankey: "Cash Flow Sankey",
+  spendingScore: "Spending Score",
+  cashFlowIndicator: "Cash Flow Indicator",
+  incomeExpenseRatio: "Income to Expense Ratio",
+  weekendVsWeekday: "Weekend vs Weekday",
+  monthlyBudgetPace: "Monthly Budget Pace",
+  budgetBurndown: "Budget Burndown",
+  purchaseSizeBreakdown: "Purchase Size Breakdown",
+  recurringVsOneTime: "Recurring vs One-Time",
 }
 
 export function ChartsGrid({
@@ -886,6 +902,142 @@ export function ChartsGrid({
                       isLoading={bundleLoading}
                       emptyTitle={emptyTitle}
                       emptyDescription={emptyDescription}
+                    />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "spendingScore") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Spending Score" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartSpendingScore
+                      data={rawTransactions}
+                      isLoading={isLoadingTransactions}
+                      emptyTitle="No spending data yet"
+                      emptyDescription="Import your bank statements to see your spending score."
+                    />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "cashFlowIndicator") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Cash Flow Indicator" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartCashFlowIndicator
+                      data={rawTransactions}
+                      isLoading={isLoadingTransactions}
+                      emptyTitle="No cash flow data yet"
+                      emptyDescription="Import your bank statements to see your cash flow."
+                    />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "incomeExpenseRatio") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Income to Expense Ratio" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartIncomeExpenseRatio
+                      data={rawTransactions}
+                      isLoading={isLoadingTransactions}
+                      emptyTitle="No income/expense data yet"
+                      emptyDescription="Import your bank statements to see your income to expense ratio."
+                    />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "weekendVsWeekday") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Weekend vs Weekday" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartWeekendVsWeekday
+                      data={rawTransactions}
+                      isLoading={isLoadingTransactions}
+                      emptyTitle="No spending data yet"
+                      emptyDescription="Import your bank statements to compare weekday vs weekend spending."
+                    />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "monthlyBudgetPace") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Monthly Budget Pace" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartMonthlyBudgetPace
+                      data={rawTransactions}
+                      isLoading={isLoadingTransactions}
+                      emptyTitle="No budget data yet"
+                      emptyDescription="Import your bank statements to track your monthly spending pace."
+                    />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "budgetBurndown") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Budget Burndown" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartBudgetBurndown
+                      data={rawTransactions}
+                      isLoading={isLoadingTransactions}
+                      emptyTitle="No budget data yet"
+                      emptyDescription="Import your bank statements to track your budget burndown."
+                    />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "purchaseSizeBreakdown") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Purchase Size Breakdown" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartPurchaseSizeBreakdown
+                      data={rawTransactions}
+                      isLoading={isLoadingTransactions}
+                      emptyTitle="No purchase data yet"
+                      emptyDescription="Import your bank statements to see your purchase size breakdown."
+                    />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "recurringVsOneTime") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Recurring vs One-Time" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartRecurringVsOneTime
+                      data={rawTransactions}
+                      isLoading={isLoadingTransactions}
+                      emptyTitle="No transaction data yet"
+                      emptyDescription="Import your bank statements to see recurring vs one-time spending."
                     />
                   </div>
                 </LazyChart>
