@@ -271,7 +271,9 @@ export function SortableGridItem({
     // Current dimensions (resize state or props)
     // Use effectiveH for display, but resize operations work with original h
     const currentH = resizeHeight ?? effectiveH
-    const currentW = resizeWidth ?? w
+    // On mobile the grid is grid-cols-1, so items must span 1 column
+    // to avoid creating implicit overflow columns
+    const currentW = isMobile ? 1 : (resizeWidth ?? w)
 
     // Handle resize start
     const handleResizeStart = React.useCallback((e: React.MouseEvent) => {

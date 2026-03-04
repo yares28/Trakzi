@@ -303,45 +303,112 @@ function AppearanceSection() {
 
 // ============ CURRENCY SECTION ============
 function CurrencySection() {
-    const { currency, setCurrency } = useCurrency()
+    const { currency, setCurrency, compactNumbers, setCompactNumbers, formatCurrency } = useCurrency()
 
     return (
-        <div className="space-y-3">
-            <div>
-                <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">Currency</span>
-                <p className="text-[11px] text-muted-foreground/60 mt-1">
-                    How monetary values are displayed
-                </p>
-            </div>
+        <div className="space-y-8">
+            {/* Currency Selector */}
+            <div className="space-y-3">
+                <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">Currency</span>
+                    <p className="text-[11px] text-muted-foreground/60 mt-1">
+                        How monetary values are displayed
+                    </p>
+                </div>
 
-            <div className="flex flex-wrap gap-1.5">
-                {Object.entries(currencies).map(([code, config]) => {
-                    const isSelected = currency === code
-                    return (
-                        <button
-                            key={code}
-                            onClick={() => setCurrency(code)}
-                            className={cn(
-                                "relative inline-flex items-center justify-center rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-all duration-150",
-                                isSelected
-                                    ? "border-primary bg-primary/[0.06] text-primary"
-                                    : "border-border/40 bg-muted/15 text-muted-foreground hover:border-border hover:bg-muted/30"
-                            )}
-                        >
-                            <span className="font-semibold mr-1.5">{config.symbol}</span>
-                            <span>{code}</span>
-                        </button>
-                    )
-                })}
-            </div>
+                <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(currencies).map(([code, config]) => {
+                        const isSelected = currency === code
+                        return (
+                            <button
+                                key={code}
+                                onClick={() => setCurrency(code)}
+                                className={cn(
+                                    "relative inline-flex items-center justify-center rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-all duration-150",
+                                    isSelected
+                                        ? "border-primary bg-primary/[0.06] text-primary"
+                                        : "border-border/40 bg-muted/15 text-muted-foreground hover:border-border hover:bg-muted/30"
+                                )}
+                            >
+                                <span className="font-semibold mr-1.5">{config.symbol}</span>
+                                <span>{code}</span>
+                            </button>
+                        )
+                    })}
+                </div>
 
-            <div className="rounded-xl bg-muted/15 border border-border/30 px-4 py-2.5 text-center">
-                <span className="text-[11px] text-muted-foreground/70">
-                    Preview:{" "}
-                    <span className="font-semibold text-foreground">
-                        {currency === "EUR" ? "1,234.56 €" : currency === "GBP" ? "£1,234.56" : "$1,234.56"}
+                <div className="rounded-xl bg-muted/15 border border-border/30 px-4 py-2.5 text-center">
+                    <span className="text-[11px] text-muted-foreground/70">
+                        Preview:{" "}
+                        <span className="font-semibold text-foreground">
+                            {formatCurrency(42616.68)}
+                        </span>
                     </span>
-                </span>
+                </div>
+            </div>
+
+            {/* Number Display Mode */}
+            <div className="space-y-3">
+                <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">Number Display</span>
+                    <p className="text-[11px] text-muted-foreground/60 mt-1">
+                        How large numbers appear in stat cards
+                    </p>
+                </div>
+
+                <div className="flex gap-1.5">
+                    <button
+                        onClick={() => setCompactNumbers(true)}
+                        className={cn(
+                            "flex-1 relative flex flex-col items-center gap-1 rounded-xl border px-3 py-3 transition-all duration-150",
+                            compactNumbers
+                                ? "border-primary bg-primary/[0.06]"
+                                : "border-border/40 bg-muted/15 hover:border-border hover:bg-muted/30"
+                        )}
+                    >
+                        <span className={cn("text-sm font-semibold tabular-nums", compactNumbers && "text-primary")}>
+                            42.6K
+                        </span>
+                        <span className="text-[10px] text-muted-foreground/70">Abbreviated</span>
+                        {compactNumbers && (
+                            <div className="absolute -top-1.5 -right-1.5 size-[18px] rounded-full bg-primary flex items-center justify-center shadow-sm">
+                                <IconCheck className="size-2.5 text-primary-foreground" strokeWidth={3} />
+                            </div>
+                        )}
+                    </button>
+                    <button
+                        onClick={() => setCompactNumbers(false)}
+                        className={cn(
+                            "flex-1 relative flex flex-col items-center gap-1 rounded-xl border px-3 py-3 transition-all duration-150",
+                            !compactNumbers
+                                ? "border-primary bg-primary/[0.06]"
+                                : "border-border/40 bg-muted/15 hover:border-border hover:bg-muted/30"
+                        )}
+                    >
+                        <span className={cn("text-sm font-semibold tabular-nums", !compactNumbers && "text-primary")}>
+                            42,616.68
+                        </span>
+                        <span className="text-[10px] text-muted-foreground/70">Full</span>
+                        {!compactNumbers && (
+                            <div className="absolute -top-1.5 -right-1.5 size-[18px] rounded-full bg-primary flex items-center justify-center shadow-sm">
+                                <IconCheck className="size-2.5 text-primary-foreground" strokeWidth={3} />
+                            </div>
+                        )}
+                    </button>
+                </div>
+
+                <div className="rounded-xl bg-muted/15 border border-border/30 px-4 py-2.5 text-center">
+                    <span className="text-[11px] text-muted-foreground/70">
+                        Preview:{" "}
+                        <span className="font-semibold text-foreground">
+                            {formatCurrency(42616.68)}
+                        </span>
+                        {" · "}
+                        <span className="font-semibold text-foreground">
+                            {formatCurrency(1234567.89)}
+                        </span>
+                    </span>
+                </div>
             </div>
         </div>
     )

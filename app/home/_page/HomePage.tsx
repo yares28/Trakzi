@@ -64,8 +64,8 @@ export default function Page() {
       onDragOver={statementImport.handleDragOver}
       onDrop={statementImport.handleDrop}
     >
-      <div className="@container/main flex flex-1 flex-col gap-2">
-        <main className="flex-1 space-y-4 p-4 pt-0 lg:p-6 lg:pt-2">
+      <div className="@container/main flex flex-1 flex-col gap-2 min-w-0">
+        <main className="flex-1 space-y-4 pt-0 lg:pt-2 min-w-0 w-full">
           <StatsCards
             stats={stats}
             trends={statsTrends}

@@ -173,7 +173,7 @@ export const FavoritesGrid = memo(function FavoritesGrid({
 
   if (favorites.size === 0) {
     return (
-      <div className="px-4 lg:px-6 mb-6">
+      <div className="px-4 lg:px-6 mb-6 min-w-0">
         <Card className="border-dashed border-2 bg-muted/30">
           <CardHeader className="text-center py-10">
             <div className="mx-auto bg-primary/10 p-4 rounded-full w-fit mb-4">
@@ -200,7 +200,7 @@ export const FavoritesGrid = memo(function FavoritesGrid({
 
   return (
     <div className="space-y-6">
-      <div className="px-4 lg:px-6">
+      <div className="px-4 lg:px-6 min-w-0">
         <div className="flex items-center gap-2 mb-4">
           <h2 className="text-lg font-semibold">Favorite Charts</h2>
           <Badge variant="secondary">{favorites.size}</Badge>
@@ -209,7 +209,7 @@ export const FavoritesGrid = memo(function FavoritesGrid({
       <SortableGridProvider
         chartOrder={favoritesOrder}
         onOrderChange={onOrderChange}
-        className="w-full px-4 lg:px-6"
+        className="w-full px-4 lg:px-6 min-w-0"
       >
         {favoritesOrder.length > 0 &&
           favoritesOrder.map((chartId) => {

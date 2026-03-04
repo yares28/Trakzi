@@ -43,6 +43,8 @@ export interface SettingsPreferences {
   date_filter?: string
   /** Font family — "geist-sans" | "geist-mono". */
   font?: string
+  /** Compact number display — true = abbreviated (42.6K), false = full (42,616.68). */
+  compactNumbers?: boolean
 }
 
 /**

@@ -4,6 +4,7 @@ import * as React from "react"
 import { useUserPreferences } from "@/components/user-preferences-provider"
 
 const CURRENCY_STORAGE_KEY = "selected-currency"
+const COMPACT_NUMBERS_STORAGE_KEY = "compact-numbers"
 
 // Currency configuration with locale info
 export const currencies: Record<string, {
@@ -38,17 +39,28 @@ function detectDefaultCurrency(): string {
     return regionToCurrency[region] || "USD"
 }
 
+// Abbreviate a number: 42616.68 → "42.6K", 1234567 → "1.2M"
+function abbreviateNumber(num: number): string {
+    const abs = Math.abs(num)
+    if (abs >= 1_000_000) return `${(abs / 1_000_000).toFixed(1)}M`
+    if (abs >= 10_000) return `${(abs / 1_000).toFixed(1)}K`
+    return ""
+}
+
 interface CurrencyContextType {
     currency: string
     setCurrency: (currency: string) => void
     symbol: string
-    formatCurrency: (amount: number, options?: { minimumFractionDigits?: number; maximumFractionDigits?: number; showSign?: boolean }) => string
+    compactNumbers: boolean
+    setCompactNumbers: (compact: boolean) => void
+    formatCurrency: (amount: number, options?: { minimumFractionDigits?: number; maximumFractionDigits?: number; showSign?: boolean; forceFullNumber?: boolean }) => string
 }
 
 const CurrencyContext = React.createContext<CurrencyContextType | undefined>(undefined)
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     const [currency, setCurrencyState] = React.useState<string>("USD")
+    const [compactNumbers, setCompactNumbersState] = React.useState(true) // Default: abbreviated
     const [mounted, setMounted] = React.useState(false)
     const { preferences, isServerSynced, updatePagePreferences } = useUserPreferences()
     const hasSyncedFromDb = React.useRef(false)
@@ -64,6 +76,12 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
             const detected = detectDefaultCurrency()
             setCurrencyState(detected)
         }
+
+        // Load compact numbers preference
+        const savedCompact = localStorage.getItem(COMPACT_NUMBERS_STORAGE_KEY)
+        if (savedCompact !== null) {
+            setCompactNumbersState(savedCompact !== "false")
+        }
     }, [])
 
     // Sync from DB when available (DB is source of truth)
@@ -74,13 +92,24 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         if (dbCurrency && currencies[dbCurrency]) {
             setCurrencyState(dbCurrency)
         }
-    }, [isServerSynced, preferences.settings?.currency])
+        // Sync compact numbers from DB
+        const dbCompact = preferences.settings?.compactNumbers
+        if (dbCompact !== undefined) {
+            setCompactNumbersState(dbCompact)
+        }
+    }, [isServerSynced, preferences.settings?.currency, preferences.settings?.compactNumbers])
 
     React.useEffect(() => {
         if (mounted) {
             localStorage.setItem(CURRENCY_STORAGE_KEY, currency)
         }
     }, [currency, mounted])
+
+    React.useEffect(() => {
+        if (mounted) {
+            localStorage.setItem(COMPACT_NUMBERS_STORAGE_KEY, String(compactNumbers))
+        }
+    }, [compactNumbers, mounted])
 
     // Listen for currency changes from settings popover
     React.useEffect(() => {
@@ -96,6 +125,18 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         }
     }, [])
 
+    // Listen for compact numbers changes from settings
+    React.useEffect(() => {
+        const handleCompactChange = (event: CustomEvent) => {
+            setCompactNumbersState(event.detail as boolean)
+        }
+
+        window.addEventListener("compactNumbersChanged", handleCompactChange as EventListener)
+        return () => {
+            window.removeEventListener("compactNumbersChanged", handleCompactChange as EventListener)
+        }
+    }, [])
+
     const setCurrency = React.useCallback((newCurrency: string) => {
         if (currencies[newCurrency]) {
             setCurrencyState(newCurrency)
@@ -105,22 +146,21 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         }
     }, [updatePagePreferences])
 
+    const setCompactNumbers = React.useCallback((compact: boolean) => {
+        setCompactNumbersState(compact)
+        localStorage.setItem(COMPACT_NUMBERS_STORAGE_KEY, String(compact))
+        window.dispatchEvent(new CustomEvent("compactNumbersChanged", { detail: compact }))
+        updatePagePreferences("settings", { compactNumbers: compact })
+    }, [updatePagePreferences])
+
     const currencyConfig = currencies[currency] || currencies.USD
 
     const formatCurrency = React.useCallback((
         amount: number,
-        options?: { minimumFractionDigits?: number; maximumFractionDigits?: number; showSign?: boolean }
+        options?: { minimumFractionDigits?: number; maximumFractionDigits?: number; showSign?: boolean; forceFullNumber?: boolean }
     ): string => {
-        const maxDigits = options?.maximumFractionDigits ?? 2
-        const minDigits = options?.minimumFractionDigits ?? Math.min(2, maxDigits)
+        const forceFullNumber = options?.forceFullNumber ?? false
         const showSign = options?.showSign ?? false
-
-        // Always use en-US locale for consistent number formatting (1,000.00)
-        const absAmount = Math.abs(amount)
-        const formatted = absAmount.toLocaleString("en-US", {
-            minimumFractionDigits: minDigits,
-            maximumFractionDigits: maxDigits,
-        })
 
         // Determine sign prefix
         let sign = ""
@@ -130,20 +170,44 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
             sign = "-"
         }
 
+        // Compact mode: abbreviate large numbers (unless forced full)
+        if (compactNumbers && !forceFullNumber) {
+            const abbreviated = abbreviateNumber(amount)
+            if (abbreviated) {
+                if (currencyConfig.position === "after") {
+                    return `${sign}${abbreviated}${currencyConfig.symbol}`
+                } else {
+                    return `${sign}${currencyConfig.symbol}${abbreviated}`
+                }
+            }
+        }
+
+        // Full number formatting
+        const maxDigits = options?.maximumFractionDigits ?? 2
+        const minDigits = options?.minimumFractionDigits ?? Math.min(2, maxDigits)
+
+        const absAmount = Math.abs(amount)
+        const formatted = absAmount.toLocaleString("en-US", {
+            minimumFractionDigits: minDigits,
+            maximumFractionDigits: maxDigits,
+        })
+
         // Position symbol based on currency convention
         if (currencyConfig.position === "after") {
             return `${sign}${formatted}${currencyConfig.symbol}`
         } else {
             return `${sign}${currencyConfig.symbol}${formatted}`
         }
-    }, [currencyConfig])
+    }, [currencyConfig, compactNumbers])
 
     const value = React.useMemo(() => ({
         currency,
         setCurrency,
         symbol: currencyConfig.symbol,
+        compactNumbers,
+        setCompactNumbers,
         formatCurrency,
-    }), [currency, setCurrency, currencyConfig.symbol, formatCurrency])
+    }), [currency, setCurrency, currencyConfig.symbol, compactNumbers, setCompactNumbers, formatCurrency])
 
     return (
         <CurrencyContext.Provider value={value}>
@@ -160,16 +224,11 @@ export function useCurrency() {
             currency: "USD",
             setCurrency: () => { },
             symbol: "$",
-            formatCurrency: (amount: number, options?: { minimumFractionDigits?: number; maximumFractionDigits?: number; showSign?: boolean }) => {
-                const maxDigits = options?.maximumFractionDigits ?? 2
-                const minDigits = options?.minimumFractionDigits ?? Math.min(2, maxDigits)
+            compactNumbers: true,
+            setCompactNumbers: () => { },
+            formatCurrency: (amount: number, options?: { minimumFractionDigits?: number; maximumFractionDigits?: number; showSign?: boolean; forceFullNumber?: boolean }) => {
+                const forceFullNumber = options?.forceFullNumber ?? false
                 const showSign = options?.showSign ?? false
-
-                const absAmount = Math.abs(amount)
-                const formatted = absAmount.toLocaleString("en-US", {
-                    minimumFractionDigits: minDigits,
-                    maximumFractionDigits: maxDigits,
-                })
 
                 let sign = ""
                 if (showSign) {
@@ -177,6 +236,23 @@ export function useCurrency() {
                 } else if (amount < 0) {
                     sign = "-"
                 }
+
+                // Compact mode by default in SSR fallback
+                if (!forceFullNumber) {
+                    const abbreviated = abbreviateNumber(amount)
+                    if (abbreviated) {
+                        return `${sign}$${abbreviated}`
+                    }
+                }
+
+                const maxDigits = options?.maximumFractionDigits ?? 2
+                const minDigits = options?.minimumFractionDigits ?? Math.min(2, maxDigits)
+
+                const absAmount = Math.abs(amount)
+                const formatted = absAmount.toLocaleString("en-US", {
+                    minimumFractionDigits: minDigits,
+                    maximumFractionDigits: maxDigits,
+                })
 
                 return `${sign}$${formatted}`
             },

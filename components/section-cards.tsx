@@ -175,23 +175,23 @@ function CardComponent({ card }: { card: CardData }) {
         : null
 
   return (
-    <Card className="@container/card relative group overflow-hidden h-[7rem] py-4">
+    <Card className="@container/card w-full relative group overflow-hidden h-[7rem] py-4">
       <TrendLineBackground color={card.trendColor} seed={card.seed} dataPoints={card.trendData} />
       <CardHeader className="pb-2 pt-[5px] flex-1 min-h-0">
-        <CardDescription className="text-xs mb-1 truncate">{description}</CardDescription>
-        <div className="flex items-baseline justify-between gap-2">
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl truncate">
+        <CardDescription className="text-xs mb-0.5 truncate">{description}</CardDescription>
+        <div className="flex items-baseline justify-between gap-1.5">
+          <CardTitle className="text-lg font-semibold tabular-nums @[180px]/card:text-xl @[250px]/card:text-2xl @[350px]/card:text-3xl truncate">
             {card.isCurrency !== false
               ? formatCurrency(card.value, card.formatOptions)
               : card.value.toLocaleString(undefined, card.formatOptions) + (card.valueSuffix ?? "")}
           </CardTitle>
           {card.showChange !== false && (
-            <Badge variant="outline" className="text-xs h-6 shrink-0">
+            <Badge variant="outline" className="text-[10px] h-5 px-1 shrink-0">
               {badgeLabel !== null ? (
                 badgeLabel
               ) : (
                 <>
-                  {card.change >= 0 ? <IconTrendingUp className="size-3" /> : <IconTrendingDown className="size-3" />}
+                  {card.change >= 0 ? <IconTrendingUp className="size-2.5" /> : <IconTrendingDown className="size-2.5" />}
                   {card.change >= 0 ? "+" : ""}
                   {card.change.toFixed(1)}%
                 </>
@@ -200,10 +200,10 @@ function CardComponent({ card }: { card: CardData }) {
           )}
         </div>
         {showSpanningUnderNumber && card.footerText && (
-          <p className="text-xs text-muted-foreground mt-0 truncate">{card.footerText}</p>
+          <p className="text-[10px] text-muted-foreground mt-0 truncate hidden @[180px]/card:block">{card.footerText}</p>
         )}
         {card.subtextUnderValue && (
-          <p className="text-xs text-muted-foreground mt-0.5 truncate">{card.subtextUnderValue}</p>
+          <p className="text-[10px] text-muted-foreground mt-0 truncate hidden @[180px]/card:block">{card.subtextUnderValue}</p>
         )}
       </CardHeader>
     </Card>
@@ -421,7 +421,7 @@ export function SectionCards({
     : ["transactions", "income", "expenses", fourthCard]
 
   return (
-    <div className={`*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 min-w-0 ${showSpendingAndSavingsRate ? "@3xl/main:grid-cols-3 @5xl/main:grid-cols-5" : "@3xl/main:grid-cols-2 @5xl/main:grid-cols-4"}`}>
+    <div className={`w-full *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-2 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @3xl/main:grid-cols-2 min-w-0 ${showSpendingAndSavingsRate ? "@5xl/main:grid-cols-3 @7xl/main:grid-cols-5" : "@5xl/main:grid-cols-2 @7xl/main:grid-cols-4"}`}>
       {cardOrder.map((cardId) => (
         <CardComponent key={cardId} card={cardData[cardId]} />
       ))}

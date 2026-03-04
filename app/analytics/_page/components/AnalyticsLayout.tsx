@@ -36,7 +36,7 @@ export function AnalyticsLayout({
       <SidebarInset className="h-svh overflow-hidden flex flex-col">
         <SiteHeader />
         <main
-          className="flex-1 space-y-4 p-4 pt-0 lg:p-6 lg:pt-2"
+          className="flex-1 space-y-4 pt-0 lg:pt-2 overflow-y-auto"
           onDragEnter={onDragEnter}
           onDragLeave={onDragLeave}
           onDragOver={onDragOver}

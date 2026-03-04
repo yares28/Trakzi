@@ -133,7 +133,7 @@ export default function RootLayout({
                           <DateFilterProvider>
                             <TransactionDialogProvider>
                               <DemoModeProvider>
-                                <div className="flex flex-col min-h-screen">
+                                <div className="flex flex-col min-h-screen overflow-x-hidden">
                                   <PostHogUserIdentifier />
                                   <DemoBanner />
                                   <div className="flex-1">

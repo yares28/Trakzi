@@ -29,7 +29,7 @@ import {
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "21.875rem"  // 350px - increased to close gap with header
-const SIDEBAR_WIDTH_MOBILE = "18rem"
+const SIDEBAR_WIDTH_MOBILE = "16rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 const SIDEBAR_TRANSITION_DURATION = 300 // ms - match CSS animation duration exactly (no dead zone)
@@ -124,6 +124,19 @@ function SidebarProvider({
     // 300ms matches CSS transition duration (no dead zone)
     resumeResize(SIDEBAR_TRANSITION_DURATION)
   }, [setOpen, setOpenMobile, pauseResize, resumeResize])
+
+  // Sync mobile sidebar state to body for global CSS access
+  // This allows elements outside the SidebarProvider (like DemoBanner) to react
+  React.useEffect(() => {
+    if (isMobile) {
+      document.body.setAttribute("data-sidebar-mobile-open", String(openMobile))
+    } else {
+      document.body.removeAttribute("data-sidebar-mobile-open")
+    }
+    return () => {
+      document.body.removeAttribute("data-sidebar-mobile-open")
+    }
+  }, [isMobile, openMobile])
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
@@ -226,26 +239,27 @@ function Sidebar({
 
   if (isMobile) {
     return (
-      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
-        <SheetContent
+      <>
+        {/* Push-style mobile sidebar: slides in from left, pushes content right */}
+        <div
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="bg-sidebar text-sidebar-foreground w-(--sidebar-width) p-0 [&>button]:hidden rounded-r-2xl"
+          className={cn(
+            "fixed inset-y-0 left-0 z-50 bg-sidebar text-sidebar-foreground flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform",
+            openMobile ? "translate-x-0" : "-translate-x-full",
+            className
+          )}
           style={
             {
-              "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
+              width: SIDEBAR_WIDTH_MOBILE,
             } as React.CSSProperties
           }
-          side={side}
+          {...props}
         >
-          <SheetHeader className="sr-only">
-            <SheetTitle>Sidebar</SheetTitle>
-            <SheetDescription>Displays the mobile sidebar.</SheetDescription>
-          </SheetHeader>
-          <div className="flex h-full w-full flex-col">{children}</div>
-        </SheetContent>
-      </Sheet>
+          <div className="flex h-full w-full flex-col overflow-y-auto">{children}</div>
+        </div>
+      </>
     )
   }
 
@@ -332,21 +346,27 @@ function SidebarTrigger({
 }
 
 function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
+  const { openMobile, isMobile } = useSidebar()
+
   return (
     <main
       data-slot="sidebar-inset"
       className={cn(
         // Mobile: Let window scroll (enables iOS tap status bar scroll-to-top)
-        "bg-background relative flex w-full flex-1 flex-col min-h-screen-mobile mobile-bg-gradient",
+        "bg-background relative flex w-full flex-1 flex-col min-h-screen-mobile",
         // Desktop: Container scrolls for sticky header behavior
-        // NOTE: Removed margin transition - only ml changes instantly to avoid layout thrashing during animation
         "md:overflow-y-auto md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 md:peer-data-[variant=inset]:h-[calc(100%-1rem)]",
-        // GPU-accelerated transform ONLY - no margin transition to prevent layout thrashing
+        // GPU-accelerated transform
         "transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform",
         // When offcanvas collapsed: translate left to fill the visual gap
         "md:peer-data-[collapsible=offcanvas]:-translate-x-[var(--sidebar-width)]",
         className
       )}
+      style={
+        isMobile
+          ? { transform: openMobile ? `translateX(${SIDEBAR_WIDTH_MOBILE})` : "translateX(0)" }
+          : undefined
+      }
       {...props}
     />
   )

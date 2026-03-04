@@ -245,10 +245,10 @@ export default function DataLibraryPage() {
       onDragOver={statementImport.handleDragOver}
       onDrop={statementImport.handleDrop}
     >
-      <div className="@container/main flex flex-1 flex-col gap-2">
+      <div className="@container/main flex flex-1 flex-col gap-2 overflow-y-auto">
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
           <section className="px-4 lg:px-6">
-            <div className="flex flex-col justify-between gap-4 rounded-3xl border bg-muted/30 px-6 py-6 lg:flex-row lg:items-center">
+            <div className="flex flex-col justify-between gap-4 rounded-3xl border bg-muted/30 px-4 py-6 lg:px-6 lg:py-6 lg:flex-row lg:items-center">
               <div className="space-y-2">
                 <Badge variant="outline" className="gap-1 px-3 py-1 text-sm">
                   <IconDatabase className="size-4" />

@@ -143,16 +143,16 @@ export function SectionCardsFridge({
     }, [getPalette])
 
     return (
-        <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @3xl/main:grid-cols-3 @5xl/main:grid-cols-5 min-w-0">
+        <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-2 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @3xl/main:grid-cols-2 @5xl/main:grid-cols-3 @7xl/main:grid-cols-5 min-w-0">
             <Card className="@container/card relative overflow-hidden h-[7rem] py-4">
                 <TrendLineBackground color={trendColors[0]} seed={1} dataPoints={totalSpentTrend} />
                 <CardHeader className="pb-2 pt-[5px] flex-1 min-h-0">
-                    <CardDescription className="text-xs mb-1 truncate">Total Spent</CardDescription>
-                    <div className="flex items-baseline justify-between gap-2">
-                        <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl truncate">
+                    <CardDescription className="text-xs mb-0.5 truncate">Total Spent</CardDescription>
+                    <div className="flex items-baseline justify-between gap-1.5">
+                        <CardTitle className="text-lg font-semibold tabular-nums @[180px]/card:text-xl @[250px]/card:text-2xl @[350px]/card:text-3xl truncate">
                             {formatCurrency(totalSpent)}
                         </CardTitle>
-                        <Badge variant="outline" className="text-xs h-6 shrink-0">
+                        <Badge variant="outline" className="text-[10px] h-5 px-1 shrink-0">
                             {totalSpentChange >= 0 ? <IconTrendingUp className="size-3" /> : <IconTrendingDown className="size-3" />}
                             {totalSpentChange >= 0 ? "+" : ""}
                             {totalSpentChange.toFixed(1)}%
@@ -163,12 +163,12 @@ export function SectionCardsFridge({
             <Card className="@container/card relative overflow-hidden h-[7rem] py-4">
                 <TrendLineBackground color={trendColors[1]} seed={2} dataPoints={shoppingTripsTrend} />
                 <CardHeader className="pb-2 pt-[5px] flex-1 min-h-0">
-                    <CardDescription className="text-xs mb-1 truncate">Shopping Trips</CardDescription>
-                    <div className="flex items-baseline justify-between gap-2">
-                        <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl truncate">
+                    <CardDescription className="text-xs mb-0.5 truncate">Shopping Trips</CardDescription>
+                    <div className="flex items-baseline justify-between gap-1.5">
+                        <CardTitle className="text-lg font-semibold tabular-nums @[180px]/card:text-xl @[250px]/card:text-2xl @[350px]/card:text-3xl truncate">
                             {shoppingTrips}
                         </CardTitle>
-                        <Badge variant="outline" className="text-xs h-6 shrink-0">
+                        <Badge variant="outline" className="text-[10px] h-5 px-1 shrink-0">
                             {shoppingTripsChange >= 0 ? <IconTrendingUp className="size-3" /> : <IconTrendingDown className="size-3" />}
                             {shoppingTripsChange >= 0 ? "+" : ""}
                             {shoppingTripsChange.toFixed(1)}%
@@ -179,12 +179,12 @@ export function SectionCardsFridge({
             <Card className="@container/card relative overflow-hidden h-[7rem] py-4">
                 <TrendLineBackground color={trendColors[2]} seed={3} dataPoints={storesVisitedTrend} />
                 <CardHeader className="pb-2 pt-[5px] flex-1 min-h-0">
-                    <CardDescription className="text-xs mb-1 truncate">Stores Visited</CardDescription>
-                    <div className="flex items-baseline justify-between gap-2">
-                        <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl truncate">
+                    <CardDescription className="text-xs mb-0.5 truncate">Stores Visited</CardDescription>
+                    <div className="flex items-baseline justify-between gap-1.5">
+                        <CardTitle className="text-lg font-semibold tabular-nums @[180px]/card:text-xl @[250px]/card:text-2xl @[350px]/card:text-3xl truncate">
                             {storesVisited}
                         </CardTitle>
-                        <Badge variant="outline" className="text-xs h-6 shrink-0">
+                        <Badge variant="outline" className="text-[10px] h-5 px-1 shrink-0">
                             {storesVisitedChange >= 0 ? <IconTrendingUp className="size-3" /> : <IconTrendingDown className="size-3" />}
                             {storesVisitedChange >= 0 ? "+" : ""}
                             {storesVisitedChange.toFixed(1)}%
@@ -195,12 +195,12 @@ export function SectionCardsFridge({
             <Card className="@container/card relative overflow-hidden h-[7rem] py-4">
                 <TrendLineBackground color={trendColors[3]} seed={4} dataPoints={averageReceiptTrend} />
                 <CardHeader className="pb-2 pt-[5px] flex-1 min-h-0">
-                    <CardDescription className="text-xs mb-1 truncate">Average Receipt</CardDescription>
-                    <div className="flex items-baseline justify-between gap-2">
-                        <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl truncate">
+                    <CardDescription className="text-xs mb-0.5 truncate">Average Receipt</CardDescription>
+                    <div className="flex items-baseline justify-between gap-1.5">
+                        <CardTitle className="text-lg font-semibold tabular-nums @[180px]/card:text-xl @[250px]/card:text-2xl @[350px]/card:text-3xl truncate">
                             {formatCurrency(averageReceipt)}
                         </CardTitle>
-                        <Badge variant="outline" className="text-xs h-6 shrink-0">
+                        <Badge variant="outline" className="text-[10px] h-5 px-1 shrink-0">
                             {averageReceiptChange >= 0 ? <IconTrendingUp className="size-3" /> : <IconTrendingDown className="size-3" />}
                             {averageReceiptChange >= 0 ? "+" : ""}
                             {averageReceiptChange.toFixed(1)}%
@@ -211,12 +211,12 @@ export function SectionCardsFridge({
             <Card className="@container/card relative overflow-hidden h-[7rem] py-4">
                 <TrendLineBackground color={trendColors[4]} seed={5} dataPoints={tripsFrequencyTrend} />
                 <CardHeader className="pb-2 pt-[5px] flex-1 min-h-0">
-                    <CardDescription className="text-xs mb-1 truncate">Trips Frequency</CardDescription>
-                    <div className="flex items-baseline justify-between gap-2">
-                        <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl truncate">
+                    <CardDescription className="text-xs mb-0.5 truncate">Trips Frequency</CardDescription>
+                    <div className="flex items-baseline justify-between gap-1.5">
+                        <CardTitle className="text-lg font-semibold tabular-nums @[180px]/card:text-xl @[250px]/card:text-2xl @[350px]/card:text-3xl truncate">
                             {tripsFrequency.toFixed(1)} days
                         </CardTitle>
-                        <Badge variant="outline" className="text-xs h-6 shrink-0">
+                        <Badge variant="outline" className="text-[10px] h-5 px-1 shrink-0">
                             {tripsFrequencyChange >= 0 ? <IconTrendingUp className="size-3" /> : <IconTrendingDown className="size-3" />}
                             {tripsFrequencyChange >= 0 ? "+" : ""}
                             {tripsFrequencyChange.toFixed(1)}%

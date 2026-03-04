@@ -259,7 +259,7 @@ export function ChartsGrid({
     : ANALYTICS_EMPTY_STATE
 
   return (
-    <div className="w-full mb-4 px-4 lg:px-6">
+    <div className="w-full mb-4 px-4 lg:px-6 min-w-0">
       {showPageEmptyState && (
         <PageEmptyState
           icon={emptyConfig.icon}

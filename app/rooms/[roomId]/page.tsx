@@ -19,14 +19,14 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
 
     return (
         <FriendsLayout>
-            <div className="max-w-5xl mx-auto font-mono font-medium space-y-6">
+            <div className="max-w-5xl mx-auto font-mono font-medium space-y-6 px-3 sm:px-0">
                 <Button
                     variant="ghost"
                     size="sm"
                     className="gap-1.5"
                     onClick={() => router.push('/friends')}
                 >
-                    <ArrowLeft className="w-4 h-4" /> Back to Groups
+                    <ArrowLeft className="w-4 h-4" /> <span className="hidden sm:inline">Back to Groups</span>
                 </Button>
 
                 {isLoading && (

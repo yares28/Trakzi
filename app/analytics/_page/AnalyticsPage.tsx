@@ -8,6 +8,7 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { useDateFilter } from "@/components/date-filter-provider"
 import { useAnalyticsBundleData } from "@/hooks/use-dashboard-data"
 import { usePlanFeatures } from "@/hooks/use-plan-features"
+import { useDemoMode } from "@/lib/demo/demo-context"
 import { FeatureGateBlur } from "@/components/feature-gate-blur"
 import { AnalyticsLayout } from "./components/AnalyticsLayout"
 import { AnalyticsTrendsTab } from "./components/AnalyticsTrendsTab"
@@ -36,6 +37,7 @@ export default function AnalyticsPage() {
   const { getPalette } = useColorScheme()
   const { filter: dateFilter } = useDateFilter()
   const planFeatures = usePlanFeatures()
+  const { isDemoMode } = useDemoMode()
 
   // Bundle API data - pre-aggregated with Redis caching (single request)
   const { data: bundleData, isLoading: bundleLoading, isError: bundleError } = useAnalyticsBundleData()
@@ -91,8 +93,8 @@ export default function AnalyticsPage() {
       onDragOver={statementImport.handleDragOver}
       onDrop={statementImport.handleDrop}
     >
-      <div className="@container/main flex flex-1 flex-col gap-2">
-        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+      <div className="@container/main flex flex-1 flex-col gap-2 min-w-0">
+        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 min-w-0 w-full">
           {/* Top analytics summary cards (shared across modes) */}
           <StatsCards
             stats={stats}
@@ -101,46 +103,48 @@ export default function AnalyticsPage() {
             dateFilter={dateFilter}
           />
 
-          {/* Analytics / Advanced / Trends switch */}
+          {/* Analytics / Advanced / Trends switch - Horizontal scroll on mobile */}
           <section>
-            <div className="relative flex items-center justify-center">
-              <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border">
-                <button
-                  type="button"
-                  onClick={() => handleViewModeChange("analytics")}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                    viewMode === "analytics"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  Analytics
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleViewModeChange("advanced")}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                    viewMode === "advanced"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  Advanced
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleViewModeChange("trends")}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                    viewMode === "trends"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  Trends
-                </button>
+            <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden -mx-4 px-4 sm:mx-0 sm:px-0">
+              <div className="relative flex items-center justify-center">
+                <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border w-max min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => handleViewModeChange("analytics")}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0",
+                      viewMode === "analytics"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    Analytics
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleViewModeChange("advanced")}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0",
+                      viewMode === "advanced"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    Advanced
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleViewModeChange("trends")}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0",
+                      viewMode === "trends"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    Trends
+                  </button>
+                </div>
               </div>
             </div>
           </section>
@@ -166,53 +170,53 @@ export default function AnalyticsPage() {
 
           {viewMode === "advanced" && (
             <FeatureGateBlur
-              enabled={planFeatures?.advancedChartsEnabled ?? false}
+              enabled={(planFeatures?.advancedChartsEnabled ?? false) || isDemoMode}
               featureName="Advanced Charts"
               description="Upgrade to Pro or Max to unlock advanced analytics charts"
               className="w-full mb-4"
             >
-            <div className="w-full mb-4 px-4 lg:px-6">
-              <SortableGridProvider
-                chartOrder={advancedChartOrder}
-                onOrderChange={setAdvancedChartOrder}
-              >
-                {advancedChartOrder.map((chartId) => {
-                  const defaultSize = DEFAULT_ADVANCED_CHART_SIZES[chartId] || { w: 6, h: 8 }
-                  const sizeConfig = getChartCardSize(chartId as ChartId)
-                  const w = (chartLayout.savedSizes[chartId]?.w ?? defaultSize.w) as 6 | 12
-                  const h = chartLayout.savedSizes[chartId]?.h ?? defaultSize.h
+              <div className="w-full mb-4 px-4 lg:px-6">
+                <SortableGridProvider
+                  chartOrder={advancedChartOrder}
+                  onOrderChange={setAdvancedChartOrder}
+                >
+                  {advancedChartOrder.map((chartId) => {
+                    const defaultSize = DEFAULT_ADVANCED_CHART_SIZES[chartId] || { w: 6, h: 8 }
+                    const sizeConfig = getChartCardSize(chartId as ChartId)
+                    const w = (chartLayout.savedSizes[chartId]?.w ?? defaultSize.w) as 6 | 12
+                    const h = chartLayout.savedSizes[chartId]?.h ?? defaultSize.h
 
-                  if (chartId === "spendingPyramid") {
-                    return (
-                      <SortableGridItem
-                        key={chartId}
-                        id={chartId}
-                        w={w}
-                        h={h}
-                        mobileH={sizeConfig.mobileH}
-                        resizable
-                        minW={sizeConfig.minW}
-                        maxW={sizeConfig.maxW}
-                        minH={sizeConfig.minH}
-                        maxH={sizeConfig.maxH}
-                        onResize={chartLayout.handleChartResize}
-                      >
-                        <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                          <ChartSpendingPyramid
-                            data={bundleData?.spendingPyramid}
-                            isLoading={bundleLoading}
-                            emptyTitle="No data yet"
-                            emptyDescription="Import your bank statements to compare your spending with the average user"
-                          />
-                        </div>
-                      </SortableGridItem>
-                    )
-                  }
+                    if (chartId === "spendingPyramid") {
+                      return (
+                        <SortableGridItem
+                          key={chartId}
+                          id={chartId}
+                          w={w}
+                          h={h}
+                          mobileH={sizeConfig.mobileH}
+                          resizable
+                          minW={sizeConfig.minW}
+                          maxW={sizeConfig.maxW}
+                          minH={sizeConfig.minH}
+                          maxH={sizeConfig.maxH}
+                          onResize={chartLayout.handleChartResize}
+                        >
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                            <ChartSpendingPyramid
+                              data={bundleData?.spendingPyramid}
+                              isLoading={bundleLoading}
+                              emptyTitle="No data yet"
+                              emptyDescription="Import your bank statements to compare your spending with the average user"
+                            />
+                          </div>
+                        </SortableGridItem>
+                      )
+                    }
 
-                  return null
-                })}
-              </SortableGridProvider>
-            </div>
+                    return null
+                  })}
+                </SortableGridProvider>
+              </div>
             </FeatureGateBlur>
           )}
 

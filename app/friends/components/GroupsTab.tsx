@@ -47,49 +47,49 @@ export default function GroupsTab() {
     }
 
     return (
-        <div className="w-full max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
+        <div className="w-full max-w-5xl mx-auto space-y-6 sm:space-y-8 animate-in fade-in duration-500">
 
             {/* Header with actions */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <p className="text-sm text-muted-foreground">
                     {rooms.length > 0
                         ? `${rooms.length} active room${rooms.length > 1 ? "s" : ""}`
                         : "No active rooms"}
                 </p>
-                <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setJoinOpen(true)}>
-                        <LogIn className="w-4 h-4" /> Join
+                <div className="flex gap-2 w-full sm:w-auto">
+                    <Button variant="outline" size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={() => setJoinOpen(true)}>
+                        <LogIn className="w-4 h-4" /> <span className="hidden sm:inline">Join</span>
                     </Button>
-                    <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
-                        <Plus className="w-4 h-4" /> Create
+                    <Button size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={() => setCreateOpen(true)}>
+                        <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Create</span>
                     </Button>
                 </div>
             </div>
 
             {/* Summary Top Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="relative group overflow-hidden h-[7rem] py-4 bg-card/60 backdrop-blur-sm border-border/50 shadow-sm">
-                    <CardHeader className="pb-2 pt-[5px] flex-1 min-h-0">
-                        <CardDescription className="text-xs mb-1 truncate">Active rooms</CardDescription>
-                        <CardTitle className="text-2xl font-semibold tabular-nums md:text-3xl truncate">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                <Card className="relative group overflow-hidden h-[5.5rem] sm:h-[7rem] py-3 sm:py-4 bg-card/60 backdrop-blur-sm border-border/50 shadow-sm">
+                    <CardHeader className="pb-1 sm:pb-2 pt-2 sm:pt-[5px] flex-1 min-h-0">
+                        <CardDescription className="text-[10px] sm:text-xs mb-0.5 sm:mb-1 truncate">Active rooms</CardDescription>
+                        <CardTitle className="text-lg sm:text-2xl font-semibold tabular-nums md:text-3xl truncate">
                             {activeGroups}
                         </CardTitle>
                     </CardHeader>
                 </Card>
 
-                <Card className="relative group overflow-hidden h-[7rem] py-4 bg-card/60 backdrop-blur-sm border-border/50 shadow-sm">
-                    <CardHeader className="pb-2 pt-[5px] flex-1 min-h-0">
-                        <CardDescription className="text-xs mb-1 truncate">Owed to you</CardDescription>
-                        <CardTitle className="text-2xl font-semibold tabular-nums md:text-3xl truncate text-emerald-500">
+                <Card className="relative group overflow-hidden h-[5.5rem] sm:h-[7rem] py-3 sm:py-4 bg-card/60 backdrop-blur-sm border-border/50 shadow-sm">
+                    <CardHeader className="pb-1 sm:pb-2 pt-2 sm:pt-[5px] flex-1 min-h-0">
+                        <CardDescription className="text-[10px] sm:text-xs mb-0.5 sm:mb-1 truncate">Owed to you</CardDescription>
+                        <CardTitle className="text-lg sm:text-2xl font-semibold tabular-nums md:text-3xl truncate text-emerald-500">
                             {formatCurrency(totalOwedToYou)}
                         </CardTitle>
                     </CardHeader>
                 </Card>
 
-                <Card className="relative group overflow-hidden h-[7rem] py-4 bg-card/60 backdrop-blur-sm border-border/50 shadow-sm">
-                    <CardHeader className="pb-2 pt-[5px] flex-1 min-h-0">
-                        <CardDescription className="text-xs mb-1 truncate">You owe</CardDescription>
-                        <CardTitle className="text-2xl font-semibold tabular-nums md:text-3xl truncate text-rose-500">
+                <Card className="relative group overflow-hidden h-[5.5rem] sm:h-[7rem] py-3 sm:py-4 bg-card/60 backdrop-blur-sm border-border/50 shadow-sm">
+                    <CardHeader className="pb-1 sm:pb-2 pt-2 sm:pt-[5px] flex-1 min-h-0">
+                        <CardDescription className="text-[10px] sm:text-xs mb-0.5 sm:mb-1 truncate">You owe</CardDescription>
+                        <CardTitle className="text-lg sm:text-2xl font-semibold tabular-nums md:text-3xl truncate text-rose-500">
                             {formatCurrency(totalYouOwe)}
                         </CardTitle>
                     </CardHeader>
@@ -98,14 +98,14 @@ export default function GroupsTab() {
 
             {/* Empty state */}
             {rooms.length === 0 && (
-                <Card className="border-border/40 bg-card/60 backdrop-blur-sm rounded-3xl overflow-hidden">
-                    <CardContent className="py-16 text-center">
-                        <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground/40" />
-                        <h3 className="text-lg font-semibold mb-2">No rooms yet</h3>
-                        <p className="text-muted-foreground text-sm max-w-md mx-auto mb-6">
+                <Card className="border-border/40 bg-card/60 backdrop-blur-sm rounded-2xl sm:rounded-3xl overflow-hidden">
+                    <CardContent className="py-10 sm:py-16 text-center px-4">
+                        <Users className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 text-muted-foreground/40" />
+                        <h3 className="text-base sm:text-lg font-semibold mb-2">No rooms yet</h3>
+                        <p className="text-muted-foreground text-sm max-w-md mx-auto mb-5 sm:mb-6">
                             Create a room to split shared expenses with roommates, friends, or travel buddies.
                         </p>
-                        <Button className="gap-2" onClick={() => setCreateOpen(true)}>
+                        <Button className="gap-2 w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
                             <Plus className="w-4 h-4" /> Create your first room
                         </Button>
                     </CardContent>
@@ -114,18 +114,18 @@ export default function GroupsTab() {
 
             {/* Room Cards Grid */}
             {rooms.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     {rooms.map((room, idx) => {
                         const cardColor = getCardColor(idx)
                         return (
                             <Card
                                 key={room.id}
                                 onClick={() => router.push(`/rooms/${room.id}`)}
-                                className="relative h-[220px] rounded-3xl bg-card/60 backdrop-blur-md shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer overflow-hidden border border-border/50 hover:border-border"
+                                className="relative h-[180px] sm:h-[220px] rounded-2xl sm:rounded-3xl bg-card/60 backdrop-blur-md shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer overflow-hidden border border-border/50 hover:border-border"
                             >
                                 {/* Palette-based accent glow */}
                                 <div
-                                    className="absolute -top-12 -right-12 w-32 h-32 rounded-full blur-3xl opacity-20"
+                                    className="absolute -top-12 -right-12 w-24 sm:w-32 h-24 sm:h-32 rounded-full blur-3xl opacity-20"
                                     style={{ backgroundColor: cardColor }}
                                 />
                                 <div
@@ -133,27 +133,27 @@ export default function GroupsTab() {
                                     style={{ backgroundColor: cardColor }}
                                 />
 
-                                <CardContent className="p-6 h-full flex flex-col justify-between z-10 relative">
-                                    <div className="flex items-start justify-between">
-                                        <div className="space-y-1 max-w-[70%]">
-                                            <h3 className="font-semibold text-lg truncate" title={room.name}>{room.name}</h3>
+                                <CardContent className="p-4 sm:p-6 h-full flex flex-col justify-between z-10 relative">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="space-y-1 max-w-[65%] sm:max-w-[70%]">
+                                            <h3 className="font-semibold text-base sm:text-lg truncate" title={room.name}>{room.name}</h3>
                                             {room.description && (
-                                                <p className="text-xs text-muted-foreground truncate" title={room.description}>{room.description}</p>
+                                                <p className="text-[10px] sm:text-xs text-muted-foreground truncate" title={room.description}>{room.description}</p>
                                             )}
                                         </div>
                                         <div
-                                            className="p-2 rounded-xl"
+                                            className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl shrink-0"
                                             style={{ backgroundColor: `${cardColor}20`, color: cardColor }}
                                         >
-                                            <Users className="w-4 h-4" />
+                                            <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                         </div>
                                     </div>
 
-                                    <div className="flex items-end justify-between mt-4">
-                                        <div className="space-y-1">
-                                            <span className="text-xs text-muted-foreground block">Your Balance</span>
+                                    <div className="flex items-end justify-between mt-2 sm:mt-4 gap-2">
+                                        <div className="space-y-0.5 sm:space-y-1">
+                                            <span className="text-[10px] sm:text-xs text-muted-foreground block">Your Balance</span>
                                             <div className={cn(
-                                                "text-xl font-bold font-sans",
+                                                "text-base sm:text-xl font-bold font-sans",
                                                 room.yourBalance > 0 ? "text-emerald-500" :
                                                     room.yourBalance < 0 ? "text-rose-500" :
                                                         "text-foreground"
@@ -163,28 +163,29 @@ export default function GroupsTab() {
                                                         "Settled"}
                                             </div>
                                         </div>
-                                        <Badge variant="secondary" className="bg-background/50 border-border/50 text-xs shadow-none">
-                                            <Activity className="w-3 h-3 mr-1" />
-                                            {formatCurrency(room.totalShared)} Total
+                                        <Badge variant="secondary" className="bg-background/50 border-border/50 text-[10px] sm:text-xs shadow-none px-1.5 sm:px-2">
+                                            <Activity className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1" />
+                                            <span className="hidden sm:inline">{formatCurrency(room.totalShared)} Total</span>
+                                            <span className="sm:hidden">{formatCurrency(room.totalShared)}</span>
                                         </Badge>
                                     </div>
 
-                                    <div className="flex items-center justify-between pt-4 border-t border-border/40 mt-auto">
-                                        <div className="flex -space-x-2">
+                                    <div className="flex items-center justify-between pt-2 sm:pt-4 border-t border-border/40 mt-auto">
+                                        <div className="flex -space-x-1.5 sm:-space-x-2">
                                             {room.members.slice(0, 4).map((member) => (
                                                 <div key={member.id} className="relative z-0">
-                                                    <Avatar className="w-8 h-8 border-2 border-background shadow-sm hover:z-20 hover:scale-110 transition-transform">
-                                                        <AvatarFallback className="text-[10px] bg-muted">{member.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                                    <Avatar className="w-6 h-6 sm:w-8 sm:h-8 border-2 border-background shadow-sm hover:z-20 hover:scale-110 transition-transform">
+                                                        <AvatarFallback className="text-[8px] sm:text-[10px] bg-muted">{member.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                                                     </Avatar>
                                                 </div>
                                             ))}
                                             {room.members.length > 4 && (
-                                                <div className="w-8 h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[10px] font-medium z-10 text-muted-foreground shadow-sm">
+                                                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[8px] sm:text-[10px] font-medium z-10 text-muted-foreground shadow-sm">
                                                     +{room.members.length - 4}
                                                 </div>
                                             )}
                                         </div>
-                                        <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                                        <span className="text-[9px] sm:text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
                                             {room.lastActivity}
                                         </span>
                                     </div>

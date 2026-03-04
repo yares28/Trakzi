@@ -1,18 +1,47 @@
 import { auth } from "@clerk/nextjs/server"
+import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { ChatInterface } from "@/components/chat/chat-interface"
+import { DemoChatInterface } from "@/components/chat/demo-chat-interface"
 import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar"
 import { getUserSubscription } from "@/lib/subscriptions"
+import { isDemoCookie } from "@/lib/demo/demo-context"
 import { Lock, ArrowLeft, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export default async function ChatPage() {
+  // Check for demo mode first
+  const cookieStore = await cookies()
+  const cookieHeader = cookieStore.toString()
+  const isDemo = isDemoCookie(cookieHeader)
+
+  if (isDemo) {
+    return (
+      <SidebarProvider
+        style={
+          {
+            "--sidebar-width": "calc(var(--spacing) * 72 - 15px)",
+            "--header-height": "calc(var(--spacing) * 12)",
+          } as React.CSSProperties
+        }
+      >
+        <AppSidebar variant="inset" />
+        <SidebarInset>
+          <SiteHeader />
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <DemoChatInterface />
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
+    )
+  }
+
   // Protect this page with Clerk authentication
   const { userId } = await auth()
 

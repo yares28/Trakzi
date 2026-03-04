@@ -216,30 +216,24 @@ export function ChartsGrid({
   }
 
   return (
-    <div className="w-full mb-4">
+    <div className="w-full mb-4 px-4 lg:px-6 min-w-0">
       {showPageEmptyState && (
-        <div className="px-4 lg:px-6">
-          <PageEmptyState
-            icon={FRIDGE_EMPTY_STATE.icon}
-            title={FRIDGE_EMPTY_STATE.title}
-            description={FRIDGE_EMPTY_STATE.description}
-          />
-        </div>
+        <PageEmptyState
+          icon={FRIDGE_EMPTY_STATE.icon}
+          title={FRIDGE_EMPTY_STATE.title}
+          description={FRIDGE_EMPTY_STATE.description}
+        />
       )}
 
       {showErrorState && (
-        <div className="px-4 lg:px-6">
-          <PageEmptyState
-            title="Unable to load charts"
-            description="Something went wrong fetching your grocery data. Please refresh the page."
-          />
-        </div>
+        <PageEmptyState
+          title="Unable to load charts"
+          description="Something went wrong fetching your grocery data. Please refresh the page."
+        />
       )}
-
       <SortableGridProvider
         chartOrder={chartOrder}
         onOrderChange={handleOrderChange}
-        className="px-4 lg:px-6"
       >
         {chartOrder.map((chartId, index) => {
           const defaultSize = DEFAULT_CHART_SIZES[chartId]

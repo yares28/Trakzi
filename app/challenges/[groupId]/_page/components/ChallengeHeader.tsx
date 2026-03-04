@@ -33,7 +33,7 @@ export function ChallengeHeader({ name, isPublic, inviteCode, memberCount, daysL
     }
 
     return (
-        <div className="rounded-3xl border bg-muted/30 px-6 py-6">
+        <div className="rounded-3xl border bg-muted/30 px-4 py-6 lg:px-6 lg:py-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-2">
                     <h1 className="text-3xl font-semibold tracking-tight">{name}</h1>
