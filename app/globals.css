@@ -929,7 +929,7 @@ button[data-active="true"] .icon-chat,
 @media (max-width: 767px) {
   .mobile-bg-gradient::before {
     content: '';
-    position: fixed;
+    position: absolute;
     inset: 0;
     z-index: -1;
     background:

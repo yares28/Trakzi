@@ -12,7 +12,7 @@ export function DemoBanner() {
     if (!isDemoMode || pathname === "/") return null
 
     return (
-        <div className="sticky top-0 z-50 flex items-center justify-center gap-3 bg-gradient-to-r from-amber-500/90 to-orange-500/90 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm">
+        <div className="sticky top-0 z-50 flex items-center justify-center gap-3 bg-gradient-to-r from-amber-500/90 to-orange-500/90 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform [[data-sidebar-mobile-open='true']_&]:translate-x-[16rem]">
             <span>
                 🎯 You&apos;re exploring Trakzi with sample data.{" "}
                 <Link

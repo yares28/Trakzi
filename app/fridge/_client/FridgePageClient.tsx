@@ -191,46 +191,48 @@ export function FridgePageClient() {
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 min-w-0 w-full">
           <MetricsCards metrics={metrics} metricsTrends={metricsTrends} />
 
-          {/* Fridge / Advanced / Trends switch */}
+          {/* Fridge / Advanced / Trends switch - Horizontal scroll on mobile */}
           <section>
-            <div className="relative flex items-center justify-center">
-              <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border">
-                <button
-                  type="button"
-                  onClick={() => handleViewModeChange("fridge")}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                    viewMode === "fridge"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  Fridge
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleViewModeChange("advanced")}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                    viewMode === "advanced"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  Advanced
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleViewModeChange("trends")}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                    viewMode === "trends"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  Trends
-                </button>
+            <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden -mx-4 px-4 lg:mx-0 lg:px-0">
+              <div className="relative flex items-center justify-center">
+                <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border w-max min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => handleViewModeChange("fridge")}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0",
+                      viewMode === "fridge"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    Fridge
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleViewModeChange("advanced")}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0",
+                      viewMode === "advanced"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    Advanced
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleViewModeChange("trends")}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0",
+                      viewMode === "trends"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    Trends
+                  </button>
+                </div>
               </div>
             </div>
           </section>
@@ -261,7 +263,7 @@ export function FridgePageClient() {
 
           {viewMode === "advanced" && (
             <section>
-              <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-1">
+              <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-1 min-w-0">
                 <Card className="@container/card h-full flex flex-col">
                   <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                     <div className="flex items-center gap-2">

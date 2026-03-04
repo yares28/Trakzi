@@ -112,7 +112,7 @@ export function AnalyticsTrendsTab() {
 
       {!isLoading && !hasCategories && !error && (
         <section>
-          <div className="flex flex-col justify-between gap-6 rounded-3xl border bg-muted/30 px-6 py-6 lg:flex-row lg:items-center">
+          <div className="flex flex-col justify-between gap-6 rounded-3xl border bg-muted/30 px-4 py-6 lg:px-6 lg:py-6 lg:flex-row lg:items-center">
             <div className="flex items-start gap-4">
               <div className="relative shrink-0">
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
@@ -155,7 +155,7 @@ export function AnalyticsTrendsTab() {
                 key={category}
                 id={category}
                 w={6}
-                h={sizeConfig.minH || 6}
+                h={sizeConfig.maxH || 6}
               >
                 <ChartCategoryTrend
                   categoryName={category}

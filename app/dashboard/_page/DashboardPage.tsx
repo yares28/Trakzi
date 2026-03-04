@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -126,12 +126,12 @@ export default function DashboardPage() {
 
     return (
         <DashboardLayout>
-            <div className="flex flex-1 flex-col">
-                <div className="@container/main flex flex-1 flex-col gap-2">
+            <div className="flex flex-1 flex-col overflow-hidden">
+                <div className="@container/main flex flex-1 flex-col gap-2 overflow-y-auto">
                     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
                         {/* Header Section */}
                         <section className="px-4 lg:px-6">
-                            <div className="flex flex-col justify-between gap-4 rounded-3xl border bg-muted/30 px-6 py-6 lg:flex-row lg:items-center">
+                            <div className="flex flex-col justify-between gap-4 rounded-3xl border bg-muted/30 px-4 py-6 lg:px-6 lg:py-6 lg:flex-row lg:items-center">
                                 <div className="space-y-2">
                                     <span className="inline-flex items-center gap-1 px-3 py-1 text-sm border rounded-full">
                                         <Sparkles className="size-4" />

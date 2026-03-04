@@ -387,9 +387,9 @@ export default function Page() {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="@container/main flex flex-1 flex-col gap-2 overflow-y-auto min-w-0">
+            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 min-w-0 w-full">
               {/* Top summary cards – shared layout for all modes */}
               <SectionCards
                 totalIncome={stats.totalIncome}
@@ -405,52 +405,54 @@ export default function Page() {
                 netWorthTrend={statsTrends.netWorthTrend}
               />
 
-              {/* Savings / Debt / Calculator switch (under top cards) */}
-              <section className="px-4 lg:px-6">
-                <div className="flex justify-center">
-                  <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border">
-                    <button
-                      type="button"
-                      onClick={() => handleViewModeChange("savings")}
-                      className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                        viewMode === "savings"
-                          ? "bg-background text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      Savings
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleViewModeChange("debt")}
-                      className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                        viewMode === "debt"
-                          ? "bg-background text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      Debt
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleViewModeChange("calculator")}
-                      className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                        viewMode === "calculator"
-                          ? "bg-background text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      Calculator
-                    </button>
+              {/* Savings / Debt / Calculator switch - Horizontal scroll on mobile */}
+              <section>
+                <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden -mx-4 px-4 lg:mx-0 lg:px-0">
+                  <div className="flex justify-center">
+                    <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border w-max min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => handleViewModeChange("savings")}
+                        className={cn(
+                          "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0",
+                          viewMode === "savings"
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        Savings
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleViewModeChange("debt")}
+                        className={cn(
+                          "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0",
+                          viewMode === "debt"
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        Debt
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleViewModeChange("calculator")}
+                        className={cn(
+                          "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0",
+                          viewMode === "calculator"
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        Calculator
+                      </button>
+                    </div>
                   </div>
                 </div>
               </section>
 
               {viewMode === "savings" && (
-                <div className="px-4 lg:px-6">
+                <div className="px-4 lg:px-6 min-w-0">
                   {!savingsBundleLoading && accumulationChartData.length === 0 && (
                     <PageEmptyState
                       icon={SAVINGS_EMPTY_STATE.icon}

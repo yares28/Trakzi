@@ -494,7 +494,7 @@ export default function WorldMapPage() {
             <div className="@container/main flex flex-1 flex-col gap-2 font-mono font-medium">
                 {/* Top card – one visible per option (data-library style) */}
                 <section className="px-4 lg:px-6">
-                    <div className="flex flex-col justify-between gap-4 rounded-3xl border bg-muted/30 px-6 py-6 lg:flex-row lg:items-center">
+                    <div className="flex flex-col justify-between gap-4 rounded-3xl border bg-muted/30 px-4 py-6 lg:px-6 lg:py-6 lg:flex-row lg:items-center">
                         {pocketTopCards
                             .filter(({ mode }) => mode === pocketViewMode)
                             .map(({ mode, title, description, icon: Icon }) => (
@@ -514,58 +514,60 @@ export default function WorldMapPage() {
                     </div>
                 </section>
 
-                {/* Switch: under top cards, over stats cards */}
-                <section className="px-4 lg:px-6">
-                    <div className="relative flex items-center justify-center py-2">
-                        <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border">
-                            <button
-                                type="button"
-                                onClick={() => setPocketViewMode("travel")}
-                                className={cn(
-                                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                                    pocketViewMode === "travel"
-                                        ? "bg-background text-foreground shadow-sm"
-                                        : "text-muted-foreground hover:text-foreground",
-                                )}
-                            >
-                                Travel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setPocketViewMode("garage")}
-                                className={cn(
-                                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                                    pocketViewMode === "garage"
-                                        ? "bg-background text-foreground shadow-sm"
-                                        : "text-muted-foreground hover:text-foreground",
-                                )}
-                            >
-                                Garage
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setPocketViewMode("assets")}
-                                className={cn(
-                                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                                    pocketViewMode === "assets"
-                                        ? "bg-background text-foreground shadow-sm"
-                                        : "text-muted-foreground hover:text-foreground",
-                                )}
-                            >
-                                Property
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setPocketViewMode("other")}
-                                className={cn(
-                                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                                    pocketViewMode === "other"
-                                        ? "bg-background text-foreground shadow-sm"
-                                        : "text-muted-foreground hover:text-foreground",
-                                )}
-                            >
-                                Other
-                            </button>
+                {/* Switch: under top cards, over stats cards - Horizontal scroll on mobile */}
+                <section className="px-0 lg:px-6">
+                    <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden -mx-4 px-4 lg:mx-0 lg:px-0">
+                        <div className="relative flex items-center justify-center py-2">
+                            <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border w-max min-w-0">
+                                <button
+                                    type="button"
+                                    onClick={() => setPocketViewMode("travel")}
+                                    className={cn(
+                                        "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0",
+                                        pocketViewMode === "travel"
+                                            ? "bg-background text-foreground shadow-sm"
+                                            : "text-muted-foreground hover:text-foreground",
+                                    )}
+                                >
+                                    Travel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setPocketViewMode("garage")}
+                                    className={cn(
+                                        "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0",
+                                        pocketViewMode === "garage"
+                                            ? "bg-background text-foreground shadow-sm"
+                                            : "text-muted-foreground hover:text-foreground",
+                                    )}
+                                >
+                                    Garage
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setPocketViewMode("assets")}
+                                    className={cn(
+                                        "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0",
+                                        pocketViewMode === "assets"
+                                            ? "bg-background text-foreground shadow-sm"
+                                            : "text-muted-foreground hover:text-foreground",
+                                    )}
+                                >
+                                    Property
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setPocketViewMode("other")}
+                                    className={cn(
+                                        "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0",
+                                        pocketViewMode === "other"
+                                            ? "bg-background text-foreground shadow-sm"
+                                            : "text-muted-foreground hover:text-foreground",
+                                    )}
+                                >
+                                    Other
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </section>

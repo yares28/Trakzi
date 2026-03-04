@@ -35,13 +35,13 @@ function StatCard({ card }: { card: CardData }) {
 
   return (
     <Card className="overflow-hidden border-border/60 bg-card/50">
-      <CardContent className="p-4">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider">{card.title}</p>
-        <p className="mt-1 text-xl font-medium tabular-nums text-foreground md:text-2xl">
+      <CardContent className="p-3">
+        <p className="text-[10px] text-muted-foreground uppercase tracking-wider truncate">{card.title}</p>
+        <p className="mt-0.5 text-base font-medium tabular-nums text-foreground sm:text-lg md:text-xl truncate">
           {displayValue}
         </p>
         {card.totalSpent != null && card.totalSpent > 0 && (
-          <p className="mt-0.5 text-sm tabular-nums text-muted-foreground">
+          <p className="mt-0.5 text-xs tabular-nums text-muted-foreground truncate">
             {formatCurrency(card.totalSpent, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
           </p>
         )}
@@ -91,7 +91,7 @@ export function WorldMapStatsCards({
   const cardOrder: CardId[] = ["countries", "topCountry", "abroad", "domestic"]
 
   return (
-    <div className="grid grid-cols-1 gap-3 px-4 sm:grid-cols-2 lg:px-6 @xl/main:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4 px-4 lg:px-6 @5xl/main:grid-cols-4">
       {cardOrder.map((cardId) => (
         <StatCard key={cardId} card={cardData[cardId]} />
       ))}
