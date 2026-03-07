@@ -32,9 +32,6 @@ export function ChallengeMembers({ members, currentUserId }: ChallengeMembersPro
                                             {m.display_name}
                                             {isYou && <span className="ml-1 text-xs">(You)</span>}
                                         </p>
-                                        <p className="text-[10px] text-muted-foreground">
-                                            Joined {new Date(m.joined_at).toLocaleDateString()}
-                                        </p>
                                     </div>
                                 </div>
                                 <Badge variant="outline" className="text-xs tabular-nums">

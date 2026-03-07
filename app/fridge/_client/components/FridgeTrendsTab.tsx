@@ -80,7 +80,7 @@ export function FridgeTrendsTab() {
               spread={2.2}
             />
           </div>
-          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 overflow-hidden max-w-full">
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 overflow-hidden max-w-full [&>*]:min-w-0">
             {Array.from({ length: 4 }).map((_, index) => (
               <ChartCardSkeleton key={`trend-skeleton-${index}`} height="h-[240px]" />
             ))}

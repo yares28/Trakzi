@@ -136,7 +136,7 @@ export const ChartIncomeExpenseRatio = memo(function ChartIncomeExpenseRatio({
         <ResponsivePie
           data={pieData}
           margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-          innerRadius={0.5}
+          innerRadius={0.35}
           padAngle={0.7}
           cornerRadius={3}
           activeOuterRadiusOffset={8}

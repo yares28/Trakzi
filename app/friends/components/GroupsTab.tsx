@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { Plus, Users, LogIn, Activity } from "lucide-react"
 import { useRouter } from "next/navigation"
 
@@ -21,6 +22,7 @@ import type { RoomData } from "@/lib/charts/friends-aggregations"
 
 export default function GroupsTab() {
     const { data: bundleData, isLoading } = useFriendsBundleData()
+    const queryClient = useQueryClient()
     const [createOpen, setCreateOpen] = useState(false)
     const [joinOpen, setJoinOpen] = useState(false)
     const [selectedUser, setSelectedUser] = useState<ProfileModalUser | null>(null)
@@ -242,8 +244,8 @@ export default function GroupsTab() {
                 </div>
             )}
 
-            <CreateRoomDialog open={createOpen} onOpenChange={setCreateOpen} />
-            <JoinRoomDialog open={joinOpen} onOpenChange={setJoinOpen} />
+            <CreateRoomDialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) queryClient.invalidateQueries({ queryKey: ['friends-bundle'] }) }} />
+            <JoinRoomDialog open={joinOpen} onOpenChange={(open) => { setJoinOpen(open); if (!open) queryClient.invalidateQueries({ queryKey: ['friends-bundle'] }) }} />
             <ProfileModal open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)} user={selectedUser} />
         </div>
     )

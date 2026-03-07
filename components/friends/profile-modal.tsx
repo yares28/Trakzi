@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import { AnimatePresence, MotionConfig, motion } from "framer-motion"
-import { X, Lock } from "lucide-react"
+import { X, Lock, UserPlus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -59,6 +59,7 @@ interface ProfileModalProps {
     open: boolean
     onOpenChange: (open: boolean) => void
     user: ProfileModalUser | null
+    onInvite?: (userId: string | number) => void
 }
 
 // ── Avatar content helper ────────────────────────────────────────────────────
@@ -217,7 +218,7 @@ function MiniActivityRings({ rings }: { rings: RingDatum[] }) {
 
 // ── component ────────────────────────────────────────────────────────────────
 
-export function ProfileModal({ open, onOpenChange, user }: ProfileModalProps) {
+export function ProfileModal({ open, onOpenChange, user, onInvite }: ProfileModalProps) {
     const { isDemoMode } = useDemoMode()
     const { getPalette } = useColorScheme()
     const [expand, setExpand] = useState(false)
@@ -406,6 +407,15 @@ export function ProfileModal({ open, onOpenChange, user }: ProfileModalProps) {
                         <div className="text-center py-4">
                             <p className="text-sm text-muted-foreground">No stats available</p>
                         </div>
+                    )}
+                    {onInvite && user && (
+                        <Button
+                            className="w-full mt-3 gap-2"
+                            variant="outline"
+                            onClick={() => onInvite(user.id)}
+                        >
+                            <UserPlus className="w-4 h-4" /> Add Friend
+                        </Button>
                     )}
                 </div>
             </DialogContent>

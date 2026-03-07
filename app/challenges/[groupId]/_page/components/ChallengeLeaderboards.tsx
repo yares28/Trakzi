@@ -189,10 +189,27 @@ interface ChallengeLeaderboardsProps {
     metrics: ChallengeMetric[]
     members: ChallengeGroupMember[]
     currentUserId: string
+    hideAllTime?: boolean
+    allTimeOnly?: boolean
 }
 
-export function ChallengeLeaderboards({ metrics, members, currentUserId }: ChallengeLeaderboardsProps) {
+export function ChallengeLeaderboards({ metrics, members, currentUserId, hideAllTime, allTimeOnly }: ChallengeLeaderboardsProps) {
     const [activeTab, setActiveTab] = useState<ChallengeMetric | "allTime">(metrics[0] ?? "allTime")
+
+    if (allTimeOnly) {
+        return (
+            <TooltipProvider>
+                <div className="space-y-3">
+                    <h2 className="text-lg font-semibold px-1">All-Time Rankings</h2>
+                    <Card className="border-border/40 bg-card/60 backdrop-blur-sm rounded-3xl overflow-hidden">
+                        <CardContent className="px-2 py-4">
+                            <AllTimeLeaderboard members={members} currentUserId={currentUserId} />
+                        </CardContent>
+                    </Card>
+                </div>
+            </TooltipProvider>
+        )
+    }
 
     return (
         <TooltipProvider>
@@ -217,19 +234,21 @@ export function ChallengeLeaderboards({ metrics, members, currentUserId }: Chall
                                 {METRIC_CONFIG[m].label}
                             </button>
                         ))}
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab("allTime")}
-                            className={cn(
-                                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
-                                activeTab === "allTime"
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-muted/40 text-muted-foreground hover:text-foreground"
-                            )}
-                        >
-                            <Trophy className="w-3.5 h-3.5" />
-                            All-Time
-                        </button>
+                        {!hideAllTime && (
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab("allTime")}
+                                className={cn(
+                                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
+                                    activeTab === "allTime"
+                                        ? "bg-primary text-primary-foreground"
+                                        : "bg-muted/40 text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                <Trophy className="w-3.5 h-3.5" />
+                                All-Time
+                            </button>
+                        )}
                     </div>
 
                     {/* Tab Content */}
