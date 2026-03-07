@@ -21,6 +21,7 @@ import {
     IconCheck,
     IconShoppingCart,
     IconDatabase,
+    IconLock,
 } from "@tabler/icons-react"
 import {
     Dialog,
@@ -43,7 +44,7 @@ import type { PlanType, SubscriptionStatus } from "@/components/subscription-dia
 import { AnimatedThemeSwitcher } from "@/components/animated-theme-switcher"
 import { useIsMobile } from "@/hooks/use-mobile"
 
-type SettingsSection = "preferences" | "subscription" | "bug-report"
+type SettingsSection = "preferences" | "subscription" | "privacy" | "bug-report"
 
 interface SettingsPanelProps {
     children: React.ReactNode
@@ -52,6 +53,7 @@ interface SettingsPanelProps {
 const sidebarItems: { id: SettingsSection; label: string; icon: React.ReactNode }[] = [
     { id: "preferences", label: "Preferences", icon: <IconPalette className="size-4" /> },
     { id: "subscription", label: "Subscription", icon: <IconCrown className="size-4" /> },
+    { id: "privacy", label: "Privacy", icon: <IconLock className="size-4" /> },
     { id: "bug-report", label: "Bug Report", icon: <IconBug className="size-4" /> },
 ]
 
@@ -146,6 +148,7 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                             >
                                 {activeSection === "preferences" && <PreferencesContent />}
                                 {activeSection === "subscription" && <SubscriptionSection />}
+                                {activeSection === "privacy" && <PrivacySection />}
                                 {activeSection === "bug-report" && <BugReportSection />}
                             </main>
                         </>
@@ -186,6 +189,7 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                             >
                                 {activeSection === "preferences" && <PreferencesContent />}
                                 {activeSection === "subscription" && <SubscriptionSection />}
+                                {activeSection === "privacy" && <PrivacySection />}
                                 {activeSection === "bug-report" && <BugReportSection />}
                             </main>
                         </>
@@ -1119,6 +1123,131 @@ const bugFormSchema = z.object({
     title: z.string().min(5, "Title must be at least 5 characters.").max(50, "Title must be at most 50 characters."),
     description: z.string().min(20, "Description must be at least 20 characters.").max(500, "Description must be at most 500 characters."),
 })
+
+// ============ PRIVACY SECTION ============
+function PrivacySection() {
+    const [shareWithFriends, setShareWithFriends] = React.useState(true)
+    const [sharePublicly, setSharePublicly] = React.useState(false)
+    const [isLoading, setIsLoading] = React.useState(true)
+    const [isSaving, setIsSaving] = React.useState(false)
+
+    React.useEffect(() => {
+        let cancelled = false
+        async function load() {
+            try {
+                const res = await fetch("/api/users/sharing-preferences")
+                if (!res.ok) throw new Error()
+                const data = await res.json()
+                if (cancelled) return
+                setShareWithFriends(data.share_with_friends ?? true)
+                setSharePublicly(data.share_publicly ?? false)
+            } catch {
+                // keep defaults
+            } finally {
+                if (!cancelled) setIsLoading(false)
+            }
+        }
+        load()
+        return () => { cancelled = true }
+    }, [])
+
+    const handleToggle = async (key: "share_with_friends" | "share_publicly", value: boolean) => {
+        if (key === "share_with_friends") setShareWithFriends(value)
+        else setSharePublicly(value)
+
+        setIsSaving(true)
+        try {
+            const res = await fetch("/api/users/sharing-preferences", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ [key]: value }),
+            })
+            if (!res.ok) throw new Error()
+            toast.success("Privacy settings updated")
+        } catch {
+            // revert on failure
+            if (key === "share_with_friends") setShareWithFriends(!value)
+            else setSharePublicly(!value)
+            toast.error("Failed to update privacy settings")
+        } finally {
+            setIsSaving(false)
+        }
+    }
+
+    return (
+        <div className="space-y-8">
+            <div>
+                <h3 className="text-base font-semibold mb-1">Privacy Settings</h3>
+                <p className="text-[11px] text-muted-foreground/70">
+                    Control who can see your financial stats and activity.
+                </p>
+            </div>
+
+            {isLoading ? (
+                <div className="space-y-4">
+                    <div className="h-16 rounded-xl bg-muted/30 animate-pulse" />
+                    <div className="h-16 rounded-xl bg-muted/30 animate-pulse" />
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    <div className="flex items-start justify-between gap-4 rounded-xl border border-border/40 bg-muted/10 px-4 py-3.5">
+                        <div className="space-y-1 flex-1">
+                            <span className="text-sm font-medium">Share stats with friends</span>
+                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                Your friends can see your savings rate, financial health score, and other stats on your profile.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked={shareWithFriends}
+                            disabled={isSaving}
+                            onClick={() => handleToggle("share_with_friends", !shareWithFriends)}
+                            className={cn(
+                                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out disabled:opacity-50",
+                                shareWithFriends ? "bg-primary" : "bg-muted-foreground/30"
+                            )}
+                        >
+                            <span
+                                className={cn(
+                                    "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out",
+                                    shareWithFriends ? "translate-x-5" : "translate-x-0"
+                                )}
+                            />
+                        </button>
+                    </div>
+
+                    <div className="flex items-start justify-between gap-4 rounded-xl border border-border/40 bg-muted/10 px-4 py-3.5">
+                        <div className="space-y-1 flex-1">
+                            <span className="text-sm font-medium">Share stats publicly</span>
+                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                Anyone with your profile link can see your stats. When off, only friends (if enabled above) can view your profile.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked={sharePublicly}
+                            disabled={isSaving}
+                            onClick={() => handleToggle("share_publicly", !sharePublicly)}
+                            className={cn(
+                                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out disabled:opacity-50",
+                                sharePublicly ? "bg-primary" : "bg-muted-foreground/30"
+                            )}
+                        >
+                            <span
+                                className={cn(
+                                    "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out",
+                                    sharePublicly ? "translate-x-5" : "translate-x-0"
+                                )}
+                            />
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}
 
 function BugReportSection() {
     const form = useForm<z.infer<typeof bugFormSchema>>({

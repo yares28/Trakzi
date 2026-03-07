@@ -200,10 +200,10 @@ function CardComponent({ card }: { card: CardData }) {
           )}
         </div>
         {showSpanningUnderNumber && card.footerText && (
-          <p className="text-[10px] text-muted-foreground mt-0 truncate hidden @[180px]/card:block">{card.footerText}</p>
+          <p className="text-[10px] text-muted-foreground mt-1 sm:mt-1.5 truncate hidden @[180px]/card:block">{card.footerText}</p>
         )}
         {card.subtextUnderValue && (
-          <p className="text-[10px] text-muted-foreground mt-0 truncate hidden @[180px]/card:block">{card.subtextUnderValue}</p>
+          <p className="text-[10px] text-muted-foreground mt-1 sm:mt-1.5 truncate hidden @[180px]/card:block">{card.subtextUnderValue}</p>
         )}
       </CardHeader>
     </Card>
@@ -252,7 +252,7 @@ export function SectionCards({
   // Total Transactions: when transactionsAllTimeOnly, use only all-time data (no filter fallback)
   const displayTransactionCount =
     transactionsAllTimeOnly
-      ? (totalAllTimeCount ?? 0)
+      ? (totalAllTimeCount ?? safeTransactionCount)
       : (totalAllTimeCount ?? safeTransactionCount)
   const displayTransactionTimeSpan =
     transactionsAllTimeOnly

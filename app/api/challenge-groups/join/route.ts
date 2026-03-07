@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { neonQuery } from '@/lib/neonClient'
 import { getCurrentUserId } from '@/lib/auth'
+import { invalidateUserCachePrefix } from '@/lib/cache/upstash'
 
 export async function POST(request: Request) {
     try {
@@ -50,6 +51,8 @@ export async function POST(request: Request) {
             `INSERT INTO challenge_group_members (group_id, user_id) VALUES ($1, $2)`,
             [group.id, userId]
         )
+
+        await invalidateUserCachePrefix(userId, 'friends')
 
         return NextResponse.json({ success: true, group_id: group.id })
     } catch (error: any) {

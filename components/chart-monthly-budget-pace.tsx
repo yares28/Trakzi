@@ -55,65 +55,55 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return { paceData: [], projectedTotal: 0, currentTotal: 0, daysRemaining: 0, dayOfMonth: 0, daysInMonth: 0, avgMonthlySpend: 0 }
 
-    const now = new Date()
-    const currentMonth = now.getMonth()
-    const currentYear = now.getFullYear()
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
-    const dayOfMonth = now.getDate()
-    const daysRemaining = daysInMonth - dayOfMonth
-
+    // Use all passed data (already filtered by date picker)
+    let totalSpending = 0
     const monthlyTotals = new Map<string, number>()
-    let currentMonthTotal = 0
 
     data.forEach((tx) => {
       if (tx.amount >= 0) return
+      totalSpending += Math.abs(tx.amount)
       const txDate = new Date(tx.date)
-      const txMonth = txDate.getMonth()
-      const txYear = txDate.getFullYear()
-
-      if (txMonth === currentMonth && txYear === currentYear) {
-        currentMonthTotal += Math.abs(tx.amount)
-      }
-
-      const monthKey = `${txYear}-${txMonth}`
+      const monthKey = `${txDate.getFullYear()}-${txDate.getMonth()}`
       monthlyTotals.set(monthKey, (monthlyTotals.get(monthKey) || 0) + Math.abs(tx.amount))
     })
 
-    const pastMonths = Array.from(monthlyTotals.entries())
-      .filter(([key]) => {
-        const [y, m] = key.split("-").map(Number)
-        return !(y === currentYear && m === currentMonth)
-      })
-      .map(([, val]) => val)
+    const monthCount = monthlyTotals.size
+    const avgMonthlySpend = monthCount > 0 ? totalSpending / monthCount : 0
 
-    const avgMonthlySpend = pastMonths.length > 0
-      ? pastMonths.reduce((a, b) => a + b, 0) / pastMonths.length
-      : 0
+    // For pace calculation, use current month context
+    const now = new Date()
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+    const dayOfMonth = now.getDate()
+    const daysRemaining = daysInMonth - dayOfMonth
 
-    // Only show projection when we have enough data (at least 3 days in)
-    // to avoid wildly inaccurate extrapolations on day 1-2
-    const hasReliableProjection = dayOfMonth >= 3
+    // Current month spending (if available in the data)
+    const currentMonthKey = `${now.getFullYear()}-${now.getMonth()}`
+    const currentMonthTotal = monthlyTotals.get(currentMonthKey) || totalSpending
+
+    const hasReliableProjection = dayOfMonth >= 2
     const expectedAtThisPoint = avgMonthlySpend > 0
       ? (avgMonthlySpend / daysInMonth) * dayOfMonth
       : 0
-    const projectedTotal = hasReliableProjection
-      ? (currentMonthTotal / dayOfMonth) * daysInMonth
+    const projectedTotal = hasReliableProjection && monthlyTotals.has(currentMonthKey)
+      ? ((monthlyTotals.get(currentMonthKey) || 0) / dayOfMonth) * daysInMonth
       : 0
 
+    const displaySpent = monthlyTotals.has(currentMonthKey) ? (monthlyTotals.get(currentMonthKey) || 0) : totalSpending
+
     const paceData = [
-      { label: "Spent", value: currentMonthTotal, color: palette[0] || "#fe8339" },
-      ...(avgMonthlySpend > 0
+      { label: "Spent", value: displaySpent, color: palette[0] || "#fe8339" },
+      ...(avgMonthlySpend > 0 && monthCount > 1
         ? [{ label: "Expected", value: expectedAtThisPoint, color: palette[1] || "#10b981" }]
         : []),
-      ...(hasReliableProjection && currentMonthTotal > 0
+      ...(hasReliableProjection && projectedTotal > 0
         ? [{ label: "Projected", value: projectedTotal, color: palette[2] || "#3b82f6" }]
         : []),
-      ...(avgMonthlySpend > 0
+      ...(avgMonthlySpend > 0 && monthCount > 1
         ? [{ label: "Avg Month", value: avgMonthlySpend, color: isDark ? "#6b7280" : "#9ca3af" }]
         : []),
     ]
 
-    return { paceData, projectedTotal, currentTotal: currentMonthTotal, daysRemaining, dayOfMonth, daysInMonth, avgMonthlySpend }
+    return { paceData, projectedTotal, currentTotal: displaySpent, daysRemaining, dayOfMonth, daysInMonth, avgMonthlySpend }
   }, [data, palette, isDark])
 
   const textColor = getChartTextColor(isDark)

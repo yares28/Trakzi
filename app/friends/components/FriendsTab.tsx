@@ -2,8 +2,8 @@
 
 import { useState, type ReactNode } from "react"
 import { UserPlus, UserCheck, ArrowRightLeft, Clock, Check, X, Wallet, Receipt, Home } from "lucide-react"
-import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { useQueryClient } from "@tanstack/react-query"
 
 import { cn } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardDescription, CardTitle } from "@/components/ui/card"
@@ -14,7 +14,8 @@ import { demoFetch } from "@/lib/demo/demo-fetch"
 import { useFriendsBundleData } from "@/hooks/use-friends-bundle"
 import { useCurrency } from "@/components/currency-provider"
 import { AddFriendDialog } from "@/components/friends/add-friend-dialog"
-import { QuickSplitDialog } from "@/components/friends/quick-split-dialog"
+import { ProfileModal } from "@/components/friends/profile-modal"
+import type { ProfileModalUser } from "@/components/friends/profile-modal"
 import type { FriendWithBalance, FriendRequest, ActivityItem } from "@/lib/types/friends"
 
 const ACTIVITY_ICONS: Record<ActivityItem["type"], ReactNode> = {
@@ -26,11 +27,11 @@ const ACTIVITY_ICONS: Record<ActivityItem["type"], ReactNode> = {
 }
 
 export default function FriendsTab() {
-    const { data: bundleData, isLoading, refetch } = useFriendsBundleData()
+    const { data: bundleData, isLoading } = useFriendsBundleData()
+    const queryClient = useQueryClient()
     const [addFriendOpen, setAddFriendOpen] = useState(false)
-    const [splitFriend, setSplitFriend] = useState<FriendWithBalance | null>(null)
+    const [selectedUser, setSelectedUser] = useState<ProfileModalUser | null>(null)
     const [actionLoading, setActionLoading] = useState<string | null>(null)
-    const router = useRouter()
     const { formatCurrency } = useCurrency()
 
     const friendsList = (bundleData?.friendsList ?? []) as FriendWithBalance[]
@@ -50,7 +51,7 @@ export default function FriendsTab() {
             })
             if (!res.ok) throw new Error('Failed to accept request')
             toast.success('Friend request accepted')
-            refetch()
+            queryClient.invalidateQueries({ queryKey: ['friends-bundle'] })
         } catch {
             toast.error('Failed to accept friend request')
         } finally {
@@ -68,7 +69,7 @@ export default function FriendsTab() {
             })
             if (!res.ok) throw new Error('Failed to decline request')
             toast.success('Friend request declined')
-            refetch()
+            queryClient.invalidateQueries({ queryKey: ['friends-bundle'] })
         } catch {
             toast.error('Failed to decline friend request')
         } finally {
@@ -194,8 +195,8 @@ export default function FriendsTab() {
                             role="button"
                             tabIndex={0}
                             className="flex items-center justify-between px-3 sm:px-6 py-3 hover:bg-muted/10 transition-colors cursor-pointer gap-2"
-                            onClick={() => router.push(`/friends/${friend.friendship_id}`)}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/friends/${friend.friendship_id}`) } }}
+                            onClick={() => setSelectedUser({ id: friend.user_id || friend.friendship_id, name: friend.display_name, avatar: null })}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUser({ id: friend.user_id || friend.friendship_id, name: friend.display_name, avatar: null }) } }}
                         >
                             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                                 <Avatar className="w-9 h-9 sm:w-10 sm:h-10 border border-border/50 shrink-0">
@@ -215,14 +216,6 @@ export default function FriendsTab() {
                                     </div>
                                 </div>
                             </div>
-                            <Button
-                                size="sm"
-                                variant="ghost"
-                                className="gap-1 text-xs shrink-0 px-1.5 sm:px-2"
-                                onClick={(e) => { e.stopPropagation(); setSplitFriend(friend) }}
-                            >
-                                <ArrowRightLeft className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Split</span>
-                            </Button>
                         </div>
                     ))}
                 </CardContent>
@@ -264,11 +257,7 @@ export default function FriendsTab() {
             )}
 
             <AddFriendDialog open={addFriendOpen} onOpenChange={setAddFriendOpen} />
-            <QuickSplitDialog
-                friend={splitFriend}
-                open={!!splitFriend}
-                onOpenChange={(open) => { if (!open) setSplitFriend(null) }}
-            />
+            <ProfileModal open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)} user={selectedUser} />
         </div>
     )
 }

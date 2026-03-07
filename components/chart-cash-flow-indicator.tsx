@@ -51,17 +51,10 @@ export const ChartCashFlowIndicator = memo(function ChartCashFlowIndicator({
   const cashFlowData = useMemo(() => {
     if (!data || data.length === 0) return { income: 0, expenses: 0, netFlow: 0, flowPercentage: 50, incomePercent: 50, expensePercent: 50 }
 
-    const now = new Date()
-    const currentMonth = now.getMonth()
-    const currentYear = now.getFullYear()
-
     let income = 0
     let expenses = 0
 
     data.forEach((tx) => {
-      const txDate = new Date(tx.date)
-      if (txDate.getMonth() !== currentMonth || txDate.getFullYear() !== currentYear) return
-
       if (tx.amount > 0) {
         income += tx.amount
       } else {
@@ -83,7 +76,7 @@ export const ChartCashFlowIndicator = memo(function ChartCashFlowIndicator({
   const textColor = getChartTextColor(isDark)
 
   const chartTitle = "Cash Flow Indicator"
-  const chartDescription = "Visualize your income vs expenses this month. Stay in the green zone!"
+  const chartDescription = "Visualize your income vs expenses for your selected period. Stay in the green zone!"
 
   const getFlowStatus = () => {
     if (cashFlowData.flowPercentage >= 70) return { text: "Excellent", color: "#10b981" }

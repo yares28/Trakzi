@@ -4,6 +4,7 @@ import { z } from "zod"
 import { getCurrentUserId } from "@/lib/auth"
 import { neonQuery } from "@/lib/neonClient"
 import { checkFriendLimit } from "@/lib/friends/permissions"
+import { invalidateUserCachePrefix } from '@/lib/cache/upstash'
 
 const PatchSchema = z.object({
     action: z.enum(["accept", "decline"]),
@@ -80,6 +81,12 @@ export async function PATCH(
                 { status: 409 }
             )
         }
+
+        // Invalidate friends cache for both users
+        await Promise.all([
+            invalidateUserCachePrefix(userId, 'friends'),
+            invalidateUserCachePrefix(rows[0].requester_id, 'friends'),
+        ])
 
         return NextResponse.json({
             success: true,

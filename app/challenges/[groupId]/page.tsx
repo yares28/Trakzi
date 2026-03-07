@@ -111,8 +111,9 @@ export default function ChallengeDetailPage({ params }: { params: Promise<{ grou
                         {/* Leaderboards / About tab switch (desktop only — mobile shows all) */}
                         <div className="hidden sm:block">
                             <Tabs value={activeTab} onValueChange={setActiveTab}>
-                                <TabsList className="grid w-full max-w-xs grid-cols-2">
-                                    <TabsTrigger value="leaderboards">Leaderboards</TabsTrigger>
+                                <TabsList className="grid w-full max-w-md grid-cols-3">
+                                    <TabsTrigger value="leaderboards">Leaderboard</TabsTrigger>
+                                    <TabsTrigger value="allTime">All Time</TabsTrigger>
                                     <TabsTrigger value="about">About</TabsTrigger>
                                 </TabsList>
 
@@ -121,6 +122,16 @@ export default function ChallengeDetailPage({ params }: { params: Promise<{ grou
                                         metrics={data.metrics as ChallengeMetric[]}
                                         members={data.members}
                                         currentUserId={user?.id ?? ""}
+                                        hideAllTime
+                                    />
+                                </TabsContent>
+
+                                <TabsContent value="allTime" className="mt-6">
+                                    <ChallengeLeaderboards
+                                        metrics={[]}
+                                        members={data.members}
+                                        currentUserId={user?.id ?? ""}
+                                        allTimeOnly
                                     />
                                 </TabsContent>
 
@@ -187,6 +198,13 @@ export default function ChallengeDetailPage({ params }: { params: Promise<{ grou
                                 metrics={data.metrics as ChallengeMetric[]}
                                 members={data.members}
                                 currentUserId={user?.id ?? ""}
+                                hideAllTime
+                            />
+                            <ChallengeLeaderboards
+                                metrics={[]}
+                                members={data.members}
+                                currentUserId={user?.id ?? ""}
+                                allTimeOnly
                             />
                             <ChallengeMembers
                                 members={data.members}

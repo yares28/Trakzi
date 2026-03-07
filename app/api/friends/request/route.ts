@@ -8,6 +8,7 @@ import {
     isBlocked,
     existingFriendship,
 } from "@/lib/friends/permissions"
+import { invalidateUserCachePrefix } from '@/lib/cache/upstash'
 
 const RequestSchema = z.object({
     targetUserId: z.string().min(1, "Target user ID is required"),
@@ -87,6 +88,10 @@ export async function POST(req: NextRequest) {
                      WHERE id = $3`,
                     [userId, targetUserId, existing.id]
                 )
+                await Promise.all([
+                    invalidateUserCachePrefix(userId, 'friends'),
+                    invalidateUserCachePrefix(targetUserId, 'friends'),
+                ])
                 return NextResponse.json({
                     success: true,
                     data: { friendship_id: existing.id, status: "pending" },
@@ -112,6 +117,11 @@ export async function POST(req: NextRequest) {
             addressee_id: targetUserId,
             status: "pending",
         })
+
+        await Promise.all([
+            invalidateUserCachePrefix(userId, 'friends'),
+            invalidateUserCachePrefix(targetUserId, 'friends'),
+        ])
 
         return NextResponse.json(
             {
