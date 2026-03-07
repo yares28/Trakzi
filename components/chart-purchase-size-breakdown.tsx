@@ -6,7 +6,6 @@ import { ResponsiveBar } from "@nivo/bar"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
   CardAction,
@@ -218,10 +217,6 @@ export const ChartPurchaseSizeBreakdown = memo(function ChartPurchaseSizeBreakdo
             <ChartFavoriteButton chartId="purchaseSizeBreakdown" chartTitle={chartTitle} size="md" />
             <CardTitle>{chartTitle}</CardTitle>
           </div>
-          <CardDescription>
-            <span className="hidden @[540px]/card:block">{chartDescription}</span>
-            <span className="@[540px]/card:hidden">Small vs large purchases</span>
-          </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
           </CardAction>

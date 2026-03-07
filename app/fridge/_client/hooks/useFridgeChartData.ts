@@ -94,7 +94,7 @@ export function useFridgeChartData({ bundleData, receiptTransactions }: UseFridg
     return bundleData.dailySpending.map((item) => ({
       date: item.date,
       total: item.total,
-      count: 0,
+      count: item.count,
     }))
   }, [bundleData?.dailySpending])
 

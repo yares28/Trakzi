@@ -70,6 +70,7 @@ type ChartsGridProps = {
   setRingLimits: Dispatch<SetStateAction<Record<string, number>>>
   chartData: AnalyticsChartData
   isError?: boolean
+  isDemoMode?: boolean
 }
 
 /** Human-readable titles for each chart — used by collapsed cards */
@@ -117,6 +118,7 @@ export function ChartsGrid({
   setRingLimits,
   chartData,
   isError = false,
+  isDemoMode = false,
 }: ChartsGridProps) {
   const {
     activityConfig,
@@ -587,7 +589,7 @@ export function ChartsGrid({
                                   typeof storedLimit === "number" &&
                                     storedLimit > 0
                                     ? storedLimit
-                                    : getDefaultRingLimit(dateFilter)
+                                    : getDefaultRingLimit(dateFilter, isDemoMode)
                                 const percent = (item.value * 100).toFixed(1)
                                 const spent =
                                   typeof (item as { spent?: number }).spent ===
@@ -617,7 +619,7 @@ export function ChartsGrid({
                                           typeof currentLimitRaw === "number" &&
                                             currentLimitRaw > 0
                                             ? currentLimitRaw
-                                            : getDefaultRingLimit(dateFilter)
+                                            : getDefaultRingLimit(dateFilter, isDemoMode)
                                         setRingLimitPopoverValue(
                                           currentLimit.toString()
                                         )
@@ -767,7 +769,7 @@ export function ChartsGrid({
                                 config={activityConfig}
                                 theme={activityTheme as "light" | "dark"}
                                 ringLimits={ringLimits}
-                                getDefaultLimit={() => getDefaultRingLimit(dateFilter)}
+                                getDefaultLimit={() => getDefaultRingLimit(dateFilter, isDemoMode)}
                               />
                             </div>
                             <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">

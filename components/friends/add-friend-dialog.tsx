@@ -42,16 +42,17 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
                 return
             }
 
-            // Send friend request
+            // Send friend request — API wraps result in { success, data: { user_id, display_name } }
+            const target = data.data
             const reqRes = await demoFetch('/api/friends/request', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ addressee_id: data.user_id }),
+                body: JSON.stringify({ targetUserId: target.user_id }),
             })
             const reqData = await reqRes.json()
 
             if (reqRes.ok) {
-                setResult({ success: true, message: `Friend request sent to ${data.display_name}!` })
+                setResult({ success: true, message: `Friend request sent to ${target.display_name}!` })
                 queryClient.invalidateQueries({ queryKey: ["friends-bundle"] })
             } else {
                 setResult({ success: false, message: reqData.error || 'Failed to send request' })
@@ -92,7 +93,7 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
         try {
             const res = await demoFetch('/api/friends/my-code')
             const data = await res.json()
-            if (res.ok) setMyCode(data.code)
+            if (res.ok) setMyCode(data.data?.code ?? data.code)
         } catch { /* swallow */ }
     }
 

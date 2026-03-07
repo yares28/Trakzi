@@ -161,6 +161,7 @@ export interface FridgeBundleData {
     dailySpending: Array<{
         date: string
         total: number
+        count: number
     }>
     storeSpending: Array<{
         storeName: string

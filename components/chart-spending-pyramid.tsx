@@ -269,8 +269,12 @@ export const ChartSpendingPyramid = memo(function ChartSpendingPyramid({
             verticalAlign="top"
             align="center"
             wrapperStyle={{ paddingBottom: 8 }}
+            payload={[
+              { value: "You", type: "square", color: youColor },
+              { value: "Avg User", type: "square", color: avgColor },
+            ]}
             formatter={(value: string) => (
-              <span className="text-xs text-muted-foreground">{value === "you" ? "You" : "Avg User"}</span>
+              <span className="text-xs text-muted-foreground">{value}</span>
             )}
           />
           <Bar

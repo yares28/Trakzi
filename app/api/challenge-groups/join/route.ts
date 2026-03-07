@@ -9,20 +9,31 @@ export async function POST(request: Request) {
     try {
         const userId = await getCurrentUserId()
         const body = await request.json()
-        const { invite_code } = body as { invite_code: string }
+        const { invite_code, group_id } = body as { invite_code?: string; group_id?: string }
 
-        if (!invite_code) {
-            return NextResponse.json({ error: 'invite_code is required' }, { status: 400 })
+        if (!invite_code && !group_id) {
+            return NextResponse.json({ error: 'invite_code or group_id is required' }, { status: 400 })
         }
 
-        // Find the group by invite code
-        const [group] = await neonQuery<{ id: string; is_public: boolean }>(
-            `SELECT id, is_public FROM challenge_groups WHERE invite_code = $1`,
-            [invite_code.toUpperCase()]
-        )
+        // Find the group by invite code or group_id (public only for direct join)
+        let group: { id: string; is_public: boolean } | undefined
+
+        if (group_id) {
+            const [row] = await neonQuery<{ id: string; is_public: boolean }>(
+                `SELECT id, is_public FROM challenge_groups WHERE id = $1 AND is_public = true`,
+                [group_id]
+            )
+            group = row
+        } else {
+            const [row] = await neonQuery<{ id: string; is_public: boolean }>(
+                `SELECT id, is_public FROM challenge_groups WHERE invite_code = $1`,
+                [invite_code!.toUpperCase()]
+            )
+            group = row
+        }
 
         if (!group) {
-            return NextResponse.json({ error: 'Invalid invite code' }, { status: 404 })
+            return NextResponse.json({ error: group_id ? 'Group not found or is private' : 'Invalid invite code' }, { status: 404 })
         }
 
         // Check if already a member

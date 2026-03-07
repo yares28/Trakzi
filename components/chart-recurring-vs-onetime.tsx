@@ -6,7 +6,6 @@ import { ResponsivePie } from "@nivo/pie"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
   CardAction,
@@ -27,6 +26,7 @@ interface ChartRecurringVsOneTimeProps {
   data: Array<{
     date: string
     amount: number
+    category?: string
     isRecurring?: boolean
     description: string
   }>
@@ -38,10 +38,19 @@ interface ChartRecurringVsOneTimeProps {
 const RECURRING_KEYWORDS = [
   "subscription", "netflix", "spotify", "amazon prime", "gym", "membership",
   "insurance", "rent", "mortgage", "utility", "phone", "internet", "electric",
-  "water", "gas", "loan", "payment", "monthly", "annual", "hulu", "disney",
+  "water", "loan", "hulu", "disney", "apple music", "icloud", "youtube premium",
+  "adobe", "microsoft 365", "dropbox", "chatgpt", "openai", "github",
+  "google storage", "google one",
 ]
 
-function isLikelyRecurring(description: string): boolean {
+const RECURRING_CATEGORIES = [
+  "subscription", "subscriptions", "recurring", "bills", "utilities",
+]
+
+function isLikelyRecurring(description: string, category?: string): boolean {
+  if (category && RECURRING_CATEGORIES.some((c) => category.toLowerCase().includes(c))) {
+    return true
+  }
   const lower = description.toLowerCase()
   return RECURRING_KEYWORDS.some((kw) => lower.includes(kw))
 }
@@ -75,7 +84,7 @@ export const ChartRecurringVsOneTime = memo(function ChartRecurringVsOneTime({
     data.forEach((tx) => {
       if (tx.amount >= 0) return
       const amount = Math.abs(tx.amount)
-      const recurring = tx.isRecurring ?? isLikelyRecurring(tx.description)
+      const recurring = tx.isRecurring ?? isLikelyRecurring(tx.description, tx.category)
 
       if (recurring) {
         recurringTotal += amount
@@ -125,19 +134,15 @@ export const ChartRecurringVsOneTime = memo(function ChartRecurringVsOneTime({
   const renderChart = () => (
     <ResponsivePie
       data={chartData}
-      margin={{ top: 30, right: 80, bottom: 30, left: 80 }}
-      innerRadius={0.6}
-      padAngle={2}
-      cornerRadius={6}
+      margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+      innerRadius={0.5}
+      padAngle={0.7}
+      cornerRadius={3}
       activeOuterRadiusOffset={8}
       colors={{ datum: "data.color" }}
       borderWidth={0}
-      arcLinkLabelsSkipAngle={10}
-      arcLinkLabelsTextColor={textColor}
-      arcLinkLabelsThickness={2}
-      arcLinkLabelsColor={{ from: "color" }}
-      arcLabelsSkipAngle={20}
-      arcLabelsTextColor="#ffffff"
+      enableArcLinkLabels={false}
+      arcLabelsSkipAngle={15}
       valueFormat={(v) => formatCurrency(v)}
       tooltip={({ datum }) => {
         const pct = total > 0 ? (Number(datum.value) / total) * 100 : 0
@@ -207,10 +212,6 @@ export const ChartRecurringVsOneTime = memo(function ChartRecurringVsOneTime({
             <ChartFavoriteButton chartId="recurringVsOneTime" chartTitle={chartTitle} size="md" />
             <CardTitle>{chartTitle}</CardTitle>
           </div>
-          <CardDescription>
-            <span className="hidden @[540px]/card:block">{chartDescription}</span>
-            <span className="@[540px]/card:hidden">Recurring vs one-time spend</span>
-          </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
           </CardAction>

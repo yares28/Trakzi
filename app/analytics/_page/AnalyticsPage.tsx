@@ -165,6 +165,7 @@ export default function AnalyticsPage() {
               setRingLimits={setRingLimits}
               chartData={chartData}
               isError={bundleError}
+              isDemoMode={isDemoMode}
             />
           )}
 

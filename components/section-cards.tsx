@@ -178,7 +178,7 @@ function CardComponent({ card }: { card: CardData }) {
     <Card className="@container/card w-full relative group overflow-hidden h-[7rem] py-4">
       <TrendLineBackground color={card.trendColor} seed={card.seed} dataPoints={card.trendData} />
       <CardHeader className="pb-2 pt-[5px] flex-1 min-h-0">
-        <CardDescription className="text-xs mb-0.5 truncate">{description}</CardDescription>
+        <CardDescription className="text-xs mb-0.5 sm:mb-1.5 truncate">{description}</CardDescription>
         <div className="flex items-baseline justify-between gap-1.5">
           <CardTitle className="text-lg font-semibold tabular-nums @[180px]/card:text-xl @[250px]/card:text-2xl @[350px]/card:text-3xl truncate">
             {card.isCurrency !== false

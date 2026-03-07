@@ -489,7 +489,7 @@ export const ChartRadar = memo(function ChartRadar({
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[180px] md:h-[250px]">
         <ChartLoadingState
           isLoading={isLoading}
-          skeletonType="grid"
+          skeletonType="pie"
           emptyTitle={emptyTitle || "No financial data yet"}
           emptyDescription={emptyDescription || "Import your bank statements to see your financial health score"}
         />

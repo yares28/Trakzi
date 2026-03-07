@@ -47,11 +47,20 @@ export type ChallengeMetric = 'savingsRate' | 'financialHealth' | 'fridgeScore' 
 export type ChallengeGroup = {
     id: string;
     name: string;
+    description: string | null;
     created_by: string;
     is_public: boolean;
     invite_code: string;
     metrics: ChallengeMetric[];
     created_at: string;
+};
+
+/** A single month's score snapshot for a member */
+export type MonthlyScore = {
+    month: string;   // 'YYYY-MM'
+    score: number;
+    rank: number;
+    points: number;
 };
 
 /** Member within a challenge group — includes live score + all-time points */
@@ -64,6 +73,8 @@ export type ChallengeGroupMember = {
     // Live current-month scores (null if not yet ranked)
     currentScores: Partial<Record<ChallengeMetric, number | null>>;
     isRanked: boolean;
+    /** Past month scores per metric (for sparkline trends) */
+    scoreHistory?: Partial<Record<ChallengeMetric, MonthlyScore[]>>;
 };
 
 /** Full group detail for the Challenges Tab UI */

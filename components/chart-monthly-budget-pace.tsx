@@ -6,7 +6,6 @@ import { ResponsiveBar } from "@nivo/bar"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
   CardAction,
@@ -89,16 +88,29 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
 
     const avgMonthlySpend = pastMonths.length > 0
       ? pastMonths.reduce((a, b) => a + b, 0) / pastMonths.length
-      : currentMonthTotal * (daysInMonth / dayOfMonth)
+      : 0
 
-    const expectedAtThisPoint = (avgMonthlySpend / daysInMonth) * dayOfMonth
-    const projectedTotal = (currentMonthTotal / dayOfMonth) * daysInMonth
+    // Only show projection when we have enough data (at least 3 days in)
+    // to avoid wildly inaccurate extrapolations on day 1-2
+    const hasReliableProjection = dayOfMonth >= 3
+    const expectedAtThisPoint = avgMonthlySpend > 0
+      ? (avgMonthlySpend / daysInMonth) * dayOfMonth
+      : 0
+    const projectedTotal = hasReliableProjection
+      ? (currentMonthTotal / dayOfMonth) * daysInMonth
+      : 0
 
     const paceData = [
       { label: "Spent", value: currentMonthTotal, color: palette[0] || "#fe8339" },
-      { label: "Expected", value: expectedAtThisPoint, color: palette[1] || "#10b981" },
-      { label: "Projected", value: projectedTotal, color: palette[2] || "#3b82f6" },
-      { label: "Avg Month", value: avgMonthlySpend, color: isDark ? "#6b7280" : "#9ca3af" },
+      ...(avgMonthlySpend > 0
+        ? [{ label: "Expected", value: expectedAtThisPoint, color: palette[1] || "#10b981" }]
+        : []),
+      ...(hasReliableProjection && currentMonthTotal > 0
+        ? [{ label: "Projected", value: projectedTotal, color: palette[2] || "#3b82f6" }]
+        : []),
+      ...(avgMonthlySpend > 0
+        ? [{ label: "Avg Month", value: avgMonthlySpend, color: isDark ? "#6b7280" : "#9ca3af" }]
+        : []),
     ]
 
     return { paceData, projectedTotal, currentTotal: currentMonthTotal, daysRemaining, dayOfMonth, daysInMonth, avgMonthlySpend }
@@ -235,10 +247,6 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
             <ChartFavoriteButton chartId="monthlyBudgetPace" chartTitle={chartTitle} size="md" />
             <CardTitle>{chartTitle}</CardTitle>
           </div>
-          <CardDescription>
-            <span className="hidden @[540px]/card:block">{chartDescription}</span>
-            <span className="@[540px]/card:hidden">Monthly spending pace</span>
-          </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
           </CardAction>

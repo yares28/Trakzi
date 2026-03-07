@@ -632,7 +632,8 @@ export const MOCK_FRIDGE_BUNDLE = {
         const dayTxs = groceryTxs.filter(t => t.date === d)
         return {
             date: d,
-            total: Math.abs(dayTxs.reduce((sum, t) => sum + t.amount, 0))
+            total: Math.abs(dayTxs.reduce((sum, t) => sum + t.amount, 0)),
+            count: dayTxs.length,
         }
     }),
 
@@ -1398,7 +1399,7 @@ export function buildFilteredFridgeBundle(filter: string | null | undefined) {
     const filteredDailySpending = Array.from({ length: dayCount }, (_, i) => {
         const d = daysAgo(dayCount - 1 - i)
         const dayTxs = filteredGroceryTxs.filter(t => t.date === d)
-        return { date: d, total: Math.abs(dayTxs.reduce((s, t) => s + t.amount, 0)) }
+        return { date: d, total: Math.abs(dayTxs.reduce((s, t) => s + t.amount, 0)), count: dayTxs.length }
     })
 
     // Store spending
