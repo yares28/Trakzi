@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { ChallengeMetric, ChallengeGroupMember } from "@/lib/types/challenges"
+import { ScoreSparkline } from "./ScoreSparkline"
 
 const METRIC_CONFIG: Record<ChallengeMetric, { label: string; icon: React.ReactNode; unit: string; higherIsBetter: boolean }> = {
     savingsRate: { label: "Savings Rate", icon: <PiggyBank className="w-4 h-4" />, unit: "%", higherIsBetter: true },
@@ -76,6 +77,12 @@ function MetricLeaderboard({
                             {m.display_name}
                             {isYou && <span className="ml-1 text-xs text-primary">(You)</span>}
                         </span>
+                        <ScoreSparkline
+                            history={m.scoreHistory?.[metric] ?? []}
+                            currentScore={score}
+                            lowerIsBetter={!cfg.higherIsBetter}
+                            className="hidden sm:flex"
+                        />
                         <span className="text-sm font-bold tabular-nums">
                             {score}{cfg.unit}
                         </span>

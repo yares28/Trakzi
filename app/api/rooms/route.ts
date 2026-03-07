@@ -99,6 +99,7 @@ export async function POST(req: NextRequest) {
                 { status: 401 }
             )
         }
+        console.error('[Rooms POST]', error)
         return NextResponse.json(
             { success: false, error: "Failed to create room" },
             { status: 500 }

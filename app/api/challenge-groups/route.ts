@@ -20,13 +20,14 @@ export async function GET() {
         const groupRows = await neonQuery<{
             id: string
             name: string
+            description: string | null
             created_by: string
             is_public: boolean
             invite_code: string
             metrics: string[]
             created_at: string
         }>(
-            `SELECT cg.id, cg.name, cg.created_by, cg.is_public, cg.invite_code, cg.metrics, cg.created_at
+            `SELECT cg.id, cg.name, cg.description, cg.created_by, cg.is_public, cg.invite_code, cg.metrics, cg.created_at
              FROM challenge_groups cg
              JOIN challenge_group_members cgm ON cgm.group_id = cg.id AND cgm.user_id = $1
              ORDER BY cg.created_at DESC`,
@@ -137,6 +138,7 @@ export async function GET() {
             return {
                 id: g.id,
                 name: g.name,
+                description: g.description,
                 created_by: g.created_by,
                 is_public: g.is_public,
                 invite_code: g.invite_code,

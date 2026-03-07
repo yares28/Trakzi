@@ -3,6 +3,12 @@
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react"
 import { type ChartId } from "@/lib/chart-card-sizes.config"
 import { useUserPreferences } from "@/components/user-preferences-provider"
+import { useDemoMode } from "@/lib/demo/demo-context"
+
+const DEMO_DEFAULT_FAVORITES: ChartId[] = [
+  "netWorthAllocation" as ChartId,
+  "spendingCategoryRankings" as ChartId,
+]
 
 interface FavoritesContextType {
   favorites: Set<ChartId>
@@ -22,12 +28,17 @@ export function useFavorites() {
 
 export function FavoritesProvider({ children }: { children: ReactNode }) {
   const { preferences, updatePagePreferences } = useUserPreferences()
+  const { isDemoMode } = useDemoMode()
 
   // Derive the Set from the preferences object (memoised).
+  // In demo mode, provide default favorites when none are set.
   const favorites = useMemo<Set<ChartId>>(() => {
     const arr = preferences.home?.favorites ?? []
+    if (arr.length === 0 && isDemoMode) {
+      return new Set(DEMO_DEFAULT_FAVORITES)
+    }
     return new Set(arr as ChartId[])
-  }, [preferences.home?.favorites])
+  }, [preferences.home?.favorites, isDemoMode])
 
   const toggleFavorite = useCallback(
     (chartId: ChartId) => {

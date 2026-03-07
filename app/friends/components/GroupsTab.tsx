@@ -14,18 +14,22 @@ import { Button } from "@/components/ui/button"
 import { useFriendsBundleData } from "@/hooks/use-friends-bundle"
 import { CreateRoomDialog } from "@/components/rooms/create-room-dialog"
 import { JoinRoomDialog } from "@/components/rooms/join-room-dialog"
+import { AnimatedTooltip } from "@/components/ui/animated-tooltip"
+import { ProfileModal } from "@/components/friends/profile-modal"
+import type { ProfileModalUser } from "@/components/friends/profile-modal"
 import type { RoomData } from "@/lib/charts/friends-aggregations"
 
 export default function GroupsTab() {
     const { data: bundleData, isLoading } = useFriendsBundleData()
     const [createOpen, setCreateOpen] = useState(false)
     const [joinOpen, setJoinOpen] = useState(false)
+    const [selectedUser, setSelectedUser] = useState<ProfileModalUser | null>(null)
     const router = useRouter()
     const { formatCurrency } = useCurrency()
     const { getPalette } = useColorScheme()
+    const palette = getPalette()
 
     const rooms = (bundleData?.rooms || []) as RoomData[]
-    const palette = getPalette()
 
     const activeGroups = rooms.length
     const totalYouOwe = rooms.reduce((acc, r) => r.yourBalance < 0 ? acc + Math.abs(r.yourBalance) : acc, 0)
@@ -121,7 +125,7 @@ export default function GroupsTab() {
                             <Card
                                 key={room.id}
                                 onClick={() => router.push(`/rooms/${room.id}`)}
-                                className="relative h-[180px] sm:h-[220px] rounded-2xl sm:rounded-3xl bg-card/60 backdrop-blur-md shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer overflow-hidden border border-border/50 hover:border-border"
+                                className="relative h-[210px] sm:h-[260px] rounded-2xl sm:rounded-3xl bg-card/60 backdrop-blur-md shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer overflow-hidden border border-border/50 hover:border-border"
                             >
                                 {/* Palette-based accent glow */}
                                 <div
@@ -171,17 +175,59 @@ export default function GroupsTab() {
                                     </div>
 
                                     <div className="flex items-center justify-between pt-2 sm:pt-4 border-t border-border/40 mt-auto">
-                                        <div className="flex -space-x-1.5 sm:-space-x-2">
-                                            {room.members.slice(0, 4).map((member) => (
-                                                <div key={member.id} className="relative z-0">
-                                                    <Avatar className="w-6 h-6 sm:w-8 sm:h-8 border-2 border-background shadow-sm hover:z-20 hover:scale-110 transition-transform">
-                                                        <AvatarFallback className="text-[8px] sm:text-[10px] bg-muted">{member.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                                    </Avatar>
+                                        {/* Mobile: max 2 avatars */}
+                                        <div className="flex z-20 ml-2 sm:hidden">
+                                            <AnimatedTooltip
+                                                items={room.members.slice(0, 2).map((member, mIdx) => {
+                                                    const memberColor = palette[mIdx % palette.length]
+                                                    return {
+                                                        id: member.id,
+                                                        name: member.name,
+                                                        designation: "Member",
+                                                        image: null,
+                                                        color: memberColor,
+                                                        onClick: () => {
+                                                            setSelectedUser({
+                                                                id: member.id,
+                                                                name: member.name,
+                                                                avatar: null,
+                                                                color: memberColor,
+                                                            })
+                                                        }
+                                                    }
+                                                })}
+                                            />
+                                            {room.members.length > 2 && (
+                                                <div className="w-7 h-7 ml-1 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[9px] font-medium z-10 text-muted-foreground shadow-sm">
+                                                    +{room.members.length - 2}
                                                 </div>
-                                            ))}
-                                            {room.members.length > 4 && (
-                                                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[8px] sm:text-[10px] font-medium z-10 text-muted-foreground shadow-sm">
-                                                    +{room.members.length - 4}
+                                            )}
+                                        </div>
+                                        {/* Desktop: max 3 avatars */}
+                                        <div className="hidden sm:flex z-20 ml-2">
+                                            <AnimatedTooltip
+                                                items={room.members.slice(0, 3).map((member, mIdx) => {
+                                                    const memberColor = palette[mIdx % palette.length]
+                                                    return {
+                                                        id: member.id,
+                                                        name: member.name,
+                                                        designation: "Member",
+                                                        image: null,
+                                                        color: memberColor,
+                                                        onClick: () => {
+                                                            setSelectedUser({
+                                                                id: member.id,
+                                                                name: member.name,
+                                                                avatar: null,
+                                                                color: memberColor,
+                                                            })
+                                                        }
+                                                    }
+                                                })}
+                                            />
+                                            {room.members.length > 3 && (
+                                                <div className="w-9 h-9 ml-1 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[10px] font-medium z-10 text-muted-foreground shadow-sm">
+                                                    +{room.members.length - 3}
                                                 </div>
                                             )}
                                         </div>
@@ -198,6 +244,7 @@ export default function GroupsTab() {
 
             <CreateRoomDialog open={createOpen} onOpenChange={setCreateOpen} />
             <JoinRoomDialog open={joinOpen} onOpenChange={setJoinOpen} />
+            <ProfileModal open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)} user={selectedUser} />
         </div>
     )
 }

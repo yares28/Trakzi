@@ -16,6 +16,7 @@ const METRIC_LABELS: Record<ChallengeMetric, string> = {
 
 interface ChallengeHeaderProps {
     name: string
+    description: string | null
     isPublic: boolean
     inviteCode: string
     memberCount: number
@@ -23,7 +24,7 @@ interface ChallengeHeaderProps {
     metrics: ChallengeMetric[]
 }
 
-export function ChallengeHeader({ name, isPublic, inviteCode, memberCount, daysLeft, metrics }: ChallengeHeaderProps) {
+export function ChallengeHeader({ name, description, isPublic, inviteCode, memberCount, daysLeft, metrics }: ChallengeHeaderProps) {
     const [copied, setCopied] = useState(false)
 
     const copyCode = () => {
@@ -37,6 +38,9 @@ export function ChallengeHeader({ name, isPublic, inviteCode, memberCount, daysL
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-2">
                     <h1 className="text-3xl font-semibold tracking-tight">{name}</h1>
+                    {description && (
+                        <p className="text-sm text-muted-foreground">{description}</p>
+                    )}
                     <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant="outline" className="gap-1">
                             {isPublic ? <Globe className="w-3 h-3" /> : <Lock className="w-3 h-3" />}

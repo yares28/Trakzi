@@ -6,7 +6,6 @@ import { ResponsiveBar } from "@nivo/bar"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
   CardAction,
@@ -231,10 +230,6 @@ export const ChartWeekendVsWeekday = memo(function ChartWeekendVsWeekday({
             <ChartFavoriteButton chartId="weekendVsWeekday" chartTitle={chartTitle} size="md" />
             <CardTitle>{chartTitle}</CardTitle>
           </div>
-          <CardDescription>
-            <span className="hidden @[540px]/card:block">{chartDescription}</span>
-            <span className="@[540px]/card:hidden">Weekday vs weekend spending</span>
-          </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
           </CardAction>

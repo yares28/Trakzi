@@ -6,7 +6,6 @@ import { ResponsiveLine } from "@nivo/line"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
   CardAction,
@@ -54,18 +53,45 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
   }, [])
 
   const chartData = useMemo(() => {
-    if (!data || data.length === 0) return { actual: [], ideal: [], remaining: monthlyBudget, daysInMonth: 30, currentDay: 1 }
+    if (!data || data.length === 0) return { actual: [], ideal: [], remaining: monthlyBudget, daysInMonth: 30, currentDay: 1, effectiveBudget: monthlyBudget }
 
     const now = new Date()
     const currentMonth = now.getMonth()
     const currentYear = now.getFullYear()
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
 
-    const currentMonthData = data.filter((tx) => {
-      if (tx.amount >= 0) return false
+    // Compute average past monthly spending as a smart budget default
+    const monthlyTotals = new Map<string, number>()
+    const currentMonthData: typeof data = []
+
+    data.forEach((tx) => {
+      if (tx.amount >= 0) return
       const txDate = new Date(tx.date)
-      return txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear
+      const txMonth = txDate.getMonth()
+      const txYear = txDate.getFullYear()
+
+      if (txMonth === currentMonth && txYear === currentYear) {
+        currentMonthData.push(tx)
+      }
+
+      const key = `${txYear}-${txMonth}`
+      monthlyTotals.set(key, (monthlyTotals.get(key) || 0) + Math.abs(tx.amount))
     })
+
+    // Use past months to derive budget when no explicit budget set
+    const pastMonthValues = Array.from(monthlyTotals.entries())
+      .filter(([key]) => {
+        const [y, m] = key.split("-").map(Number)
+        return !(y === currentYear && m === currentMonth)
+      })
+      .map(([, val]) => val)
+
+    // Use provided budget, or derive from average past spending (rounded up to nearest 100)
+    const effectiveBudget = monthlyBudget !== 3000 ? monthlyBudget : (
+      pastMonthValues.length > 0
+        ? Math.ceil((pastMonthValues.reduce((a, b) => a + b, 0) / pastMonthValues.length) / 100) * 100
+        : monthlyBudget
+    )
 
     const dailySpending = new Map<number, number>()
     currentMonthData.forEach((tx) => {
@@ -73,8 +99,8 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
       dailySpending.set(day, (dailySpending.get(day) || 0) + Math.abs(tx.amount))
     })
 
-    let remaining = monthlyBudget
-    const actualData: Array<{ x: number; y: number }> = [{ x: 0, y: monthlyBudget }]
+    let remaining = effectiveBudget
+    const actualData: Array<{ x: number; y: number }> = [{ x: 0, y: effectiveBudget }]
 
     for (let day = 1; day <= daysInMonth; day++) {
       const spent = dailySpending.get(day) || 0
@@ -85,9 +111,9 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
     }
 
     const idealData: Array<{ x: number; y: number }> = []
-    const dailyBudget = monthlyBudget / daysInMonth
+    const dailyBudget = effectiveBudget / daysInMonth
     for (let day = 0; day <= daysInMonth; day++) {
-      idealData.push({ x: day, y: monthlyBudget - dailyBudget * day })
+      idealData.push({ x: day, y: effectiveBudget - dailyBudget * day })
     }
 
     return {
@@ -96,6 +122,7 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
       remaining,
       daysInMonth,
       currentDay: now.getDate(),
+      effectiveBudget,
     }
   }, [data, monthlyBudget])
 
@@ -119,7 +146,7 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
         title={chartTitle}
         description={chartDescription}
         details={[
-          `Budget: ${formatCurrency(monthlyBudget)}`,
+          `Budget: ${formatCurrency(chartData.effectiveBudget ?? monthlyBudget)}`,
           "Solid line = actual spending",
           "Dashed line = ideal pace",
           "Stay above the ideal for savings",
@@ -129,7 +156,7 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
         chartId="budgetBurndown"
         chartTitle={chartTitle}
         chartDescription={chartDescription}
-        chartData={{ remaining: chartData.remaining, monthlyBudget, paceStatus }}
+        chartData={{ remaining: chartData.remaining, monthlyBudget: chartData.effectiveBudget ?? monthlyBudget, paceStatus }}
         size="sm"
       />
     </div>
@@ -145,7 +172,7 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
       data={combinedData}
       margin={{ top: 20, right: 30, bottom: 50, left: 70 }}
       xScale={{ type: "linear", min: 0, max: chartData.daysInMonth }}
-      yScale={{ type: "linear", min: 0, max: monthlyBudget * 1.1 }}
+      yScale={{ type: "linear", min: 0, max: (chartData.effectiveBudget ?? monthlyBudget) * 1.1 }}
       curve="monotoneX"
       colors={[isDark ? "#4b5563" : "#9ca3af", palette[0] || "#fe8339"]}
       lineWidth={3}
@@ -256,10 +283,6 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
             <ChartFavoriteButton chartId="budgetBurndown" chartTitle={chartTitle} size="md" />
             <CardTitle>{chartTitle}</CardTitle>
           </div>
-          <CardDescription>
-            <span className="hidden @[540px]/card:block">{chartDescription}</span>
-            <span className="@[540px]/card:hidden">Budget remaining over time</span>
-          </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
           </CardAction>

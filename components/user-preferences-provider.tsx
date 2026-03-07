@@ -354,37 +354,47 @@ export function UserPreferencesProvider({
       }
 
       // 2. Fetch from server.
-      try {
-        const res = await fetch("/api/user-preferences")
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const attemptServerSync = async (attempt = 0): Promise<void> => {
+        try {
+          const res = await fetch("/api/user-preferences")
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
-        const data = await res.json()
-        const dbPrefs: UserPreferences = data?.preferences ?? {}
+          const data = await res.json()
+          const dbPrefs: UserPreferences = data?.preferences ?? {}
 
-        if (cancelled) return
+          if (cancelled) return
 
-        const dbHasData = Object.keys(dbPrefs).length > 0
-        const localHasData = Object.keys(localPrefs).length > 0
+          const dbHasData = Object.keys(dbPrefs).length > 0
+          const currentLocal = latestRef.current
+          const localHasData = Object.keys(currentLocal).length > 0
 
-        if (dbHasData) {
-          // DB is source of truth.
-          setPreferences(dbPrefs)
-          latestRef.current = dbPrefs
-          saveAllToLocalStorage(dbPrefs)
-        } else if (localHasData) {
-          // First-time migration: push localStorage → DB.
-          await fetch("/api/user-preferences", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ preferences: localPrefs }),
-          })
-          localStorage.setItem(LS_KEYS.migrated, "true")
+          if (dbHasData) {
+            // DB is source of truth.
+            setPreferences(dbPrefs)
+            latestRef.current = dbPrefs
+            saveAllToLocalStorage(dbPrefs)
+          } else if (localHasData) {
+            // First-time migration: push localStorage → DB.
+            await fetch("/api/user-preferences", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ preferences: currentLocal }),
+            })
+            localStorage.setItem(LS_KEYS.migrated, "true")
+          }
+
+          if (!cancelled) setIsServerSynced(true)
+        } catch {
+          // Retry once after a short delay (handles auth not ready on mount).
+          if (attempt < 1 && !cancelled) {
+            await new Promise((r) => setTimeout(r, 2000))
+            return attemptServerSync(attempt + 1)
+          }
+          // After retries exhausted — localStorage-only mode.
         }
-
-        if (!cancelled) setIsServerSynced(true)
-      } catch {
-        // Not authenticated, or network error — localStorage-only mode.
       }
+
+      await attemptServerSync()
 
       if (!cancelled) {
         setIsLoaded(true)

@@ -13,6 +13,7 @@ export interface FridgeCategorySpending {
 export interface FridgeDailySpending {
     date: string
     total: number
+    count: number
 }
 
 export interface FridgeStoreSpending {
@@ -202,9 +203,10 @@ export async function getFridgeDailySpending(
     endDate?: string
 ): Promise<FridgeDailySpending[]> {
     let query = `
-        SELECT 
+        SELECT
             to_char(receipt_date, 'YYYY-MM-DD') AS date,
-            SUM(total_price) AS total
+            SUM(total_price) AS total,
+            COUNT(*)::text AS count
         FROM receipt_transactions
         WHERE user_id = $1
     `
@@ -224,11 +226,13 @@ export async function getFridgeDailySpending(
     const rows = await neonQuery<{
         date: string
         total: string
+        count: string
     }>(query, params)
 
     return rows.map(row => ({
         date: row.date,
         total: parseFloat(row.total) || 0,
+        count: parseInt(row.count, 10) || 0,
     }))
 }
 

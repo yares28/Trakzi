@@ -336,7 +336,7 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
                                             y={y + barHeight / 2 + 1}
                                             textAnchor="middle"
                                             fontSize="3.5"
-                                            fill="#ffffff"
+                                            fill={isDark ? "#ffffff" : "#1f2937"}
                                             fontWeight="bold"
                                         >
                                             {range.count}

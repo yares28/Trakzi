@@ -5,7 +5,6 @@ import { useTheme } from "next-themes"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
   CardAction,
@@ -312,10 +311,6 @@ export const ChartSpendingScore = memo(function ChartSpendingScore({
             <ChartFavoriteButton chartId="spendingScore" chartTitle={chartTitle} size="md" />
             <CardTitle>{chartTitle}</CardTitle>
           </div>
-          <CardDescription>
-            <span className="hidden @[540px]/card:block">{chartDescription}</span>
-            <span className="@[540px]/card:hidden">Overall spending health</span>
-          </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
           </CardAction>

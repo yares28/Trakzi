@@ -13,7 +13,6 @@ import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
   CardFooter,
@@ -338,8 +337,6 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
             />
             <CardTitle>Spending Category Rankings</CardTitle>
           </div>
-          <CardDescription>
-          </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
           </CardAction>

@@ -9,7 +9,6 @@ import {
   CardHeader,
   CardTitle,
   CardAction,
-  CardDescription,
 } from "@/components/ui/card"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
@@ -137,10 +136,10 @@ export const ChartIncomeExpenseRatio = memo(function ChartIncomeExpenseRatio({
         <ResponsivePie
           data={pieData}
           margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-          innerRadius={0.65}
-          padAngle={2}
-          cornerRadius={6}
-          activeOuterRadiusOffset={6}
+          innerRadius={0.5}
+          padAngle={0.7}
+          cornerRadius={3}
+          activeOuterRadiusOffset={8}
           colors={{ datum: "data.color" }}
           borderWidth={0}
           enableArcLinkLabels={false}
@@ -239,10 +238,6 @@ export const ChartIncomeExpenseRatio = memo(function ChartIncomeExpenseRatio({
             <ChartFavoriteButton chartId="incomeExpenseRatio" chartTitle={chartTitle} size="md" />
             <CardTitle>{chartTitle}</CardTitle>
           </div>
-          <CardDescription>
-            <span className="hidden @[540px]/card:block">{chartDescription}</span>
-            <span className="@[540px]/card:hidden">Income to expense ratio</span>
-          </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
           </CardAction>

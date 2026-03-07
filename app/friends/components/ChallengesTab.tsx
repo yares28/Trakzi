@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Trophy, Globe, Users } from "lucide-react"
+import { Plus, Trophy, Globe, Lock, Users, Search } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
@@ -14,6 +14,10 @@ import { Button } from "@/components/ui/button"
 import { demoFetch } from "@/lib/demo/demo-fetch"
 import type { ChallengeGroupWithMembers, ChallengeMetric } from "@/lib/types/challenges"
 import { CreateChallengeGroupDialog } from "@/components/friends/create-challenge-group-dialog"
+import { DiscoverGroupsDialog } from "@/components/friends/discover-groups-dialog"
+import { AnimatedTooltip } from "@/components/ui/animated-tooltip"
+import { ProfileModal } from "@/components/friends/profile-modal"
+import type { ProfileModalUser } from "@/components/friends/profile-modal"
 
 const METRIC_LABELS: Record<ChallengeMetric, string> = {
     savingsRate: "Savings",
@@ -28,6 +32,8 @@ export default function ChallengesTab() {
     const [groups, setGroups] = useState<ChallengeGroupWithMembers[]>([])
     const [loading, setLoading] = useState(true)
     const [createOpen, setCreateOpen] = useState(false)
+    const [discoverOpen, setDiscoverOpen] = useState(false)
+    const [selectedUser, setSelectedUser] = useState<ProfileModalUser | null>(null)
 
     const palette = getPalette()
 
@@ -49,6 +55,13 @@ export default function ChallengesTab() {
         setGroups(prev => [newGroup, ...prev])
     }
 
+    const refreshGroups = () => {
+        demoFetch("/api/challenge-groups")
+            .then(r => r.json())
+            .then(setGroups)
+            .catch(() => {})
+    }
+
     if (loading) {
         return (
             <div className="w-full h-full flex items-center justify-center p-12">
@@ -67,6 +80,9 @@ export default function ChallengesTab() {
                         : "No active groups"}
                 </p>
                 <div className="flex gap-2 w-full sm:w-auto">
+                    <Button variant="outline" size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={() => setDiscoverOpen(true)}>
+                        <Search className="w-4 h-4" /> <span className="hidden sm:inline">Discover</span>
+                    </Button>
                     <Button variant="outline" size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={() => {
                         const code = prompt("Enter invite code:")
                         if (!code) return
@@ -122,22 +138,24 @@ export default function ChallengesTab() {
                             <Card
                                 key={group.id}
                                 onClick={() => router.push(`/challenges/${group.id}`)}
-                                className="relative h-[180px] sm:h-[220px] rounded-2xl sm:rounded-3xl bg-card/60 backdrop-blur-md shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer overflow-hidden border border-border/50 hover:border-border"
+                                className="relative h-[210px] sm:h-[260px] rounded-2xl sm:rounded-3xl bg-card/60 backdrop-blur-md shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer overflow-hidden border border-border/50 hover:border-border"
                             >
                                 {/* Palette-based accent glow */}
                                 <div
                                     className="absolute -top-12 -right-12 w-24 sm:w-32 h-24 sm:h-32 rounded-full blur-3xl opacity-20"
                                     style={{ backgroundColor: cardColor }}
                                 />
-                                <div
-                                    className="absolute bottom-0 left-0 right-0 h-1 opacity-60"
-                                    style={{ backgroundColor: cardColor }}
-                                />
-
                                 <CardContent className="p-4 sm:p-6 h-full flex flex-col justify-between z-10 relative">
                                     <div className="flex items-start justify-between gap-2">
                                         <div className="space-y-1 max-w-[65%] sm:max-w-[70%]">
-                                            <h3 className="font-semibold text-base sm:text-lg truncate" title={group.name}>{group.name}</h3>
+                                            <div className="flex items-center gap-1.5">
+                                                <h3 className="font-semibold text-base sm:text-lg truncate" title={group.name}>{group.name}</h3>
+                                                {group.is_public ? (
+                                                    <Globe className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground shrink-0" />
+                                                ) : (
+                                                    <Lock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground shrink-0" />
+                                                )}
+                                            </div>
                                             <div className="flex gap-1 flex-wrap">
                                                 {group.metrics.map(m => (
                                                     <Badge key={m} variant="secondary" className="text-[9px] sm:text-[10px] px-1 py-0">
@@ -167,23 +185,65 @@ export default function ChallengesTab() {
                                                 {yourBestRank ? `#${yourBestRank}` : "—"}
                                             </div>
                                         </div>
-                                        <Badge variant="secondary" className="bg-background/50 border-border/50 text-[10px] sm:text-xs shadow-none">
+                                        <Badge variant="secondary" className="bg-background/50 border-border/50 text-[10px] sm:text-xs shadow-none text-muted-foreground">
                                             {group.daysLeftInMonth}d left
                                         </Badge>
                                     </div>
 
                                     <div className="flex items-center justify-between pt-2 sm:pt-4 border-t border-border/40 mt-auto">
-                                        <div className="flex -space-x-1.5 sm:-space-x-2">
-                                            {group.members.slice(0, 4).map((member) => (
-                                                <div key={member.user_id} className="relative z-0">
-                                                    <Avatar className="w-6 h-6 sm:w-8 sm:h-8 border-2 border-background shadow-sm hover:z-20 hover:scale-110 transition-transform">
-                                                        <AvatarFallback className="text-[8px] sm:text-[10px] bg-muted">{member.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                                    </Avatar>
+                                        {/* Mobile: max 2 avatars */}
+                                        <div className="flex z-20 ml-2 sm:hidden">
+                                            <AnimatedTooltip
+                                                items={group.members.slice(0, 2).map((member, mIdx) => {
+                                                    const memberColor = palette[mIdx % palette.length]
+                                                    return {
+                                                        id: member.user_id,
+                                                        name: member.display_name,
+                                                        designation: "Challenger",
+                                                        image: member.avatar_url,
+                                                        color: memberColor,
+                                                        onClick: () => {
+                                                            setSelectedUser({
+                                                                id: member.user_id,
+                                                                name: member.display_name,
+                                                                avatar: member.avatar_url,
+                                                                color: memberColor,
+                                                            })
+                                                        }
+                                                    }
+                                                })}
+                                            />
+                                            {group.members.length > 2 && (
+                                                <div className="w-7 h-7 ml-1 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[9px] font-medium z-10 text-muted-foreground shadow-sm">
+                                                    +{group.members.length - 2}
                                                 </div>
-                                            ))}
-                                            {group.members.length > 4 && (
-                                                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[8px] sm:text-[10px] font-medium z-10 text-muted-foreground shadow-sm">
-                                                    +{group.members.length - 4}
+                                            )}
+                                        </div>
+                                        {/* Desktop: max 3 avatars */}
+                                        <div className="hidden sm:flex z-20 ml-2">
+                                            <AnimatedTooltip
+                                                items={group.members.slice(0, 3).map((member, mIdx) => {
+                                                    const memberColor = palette[mIdx % palette.length]
+                                                    return {
+                                                        id: member.user_id,
+                                                        name: member.display_name,
+                                                        designation: "Challenger",
+                                                        image: member.avatar_url,
+                                                        color: memberColor,
+                                                        onClick: () => {
+                                                            setSelectedUser({
+                                                                id: member.user_id,
+                                                                name: member.display_name,
+                                                                avatar: member.avatar_url,
+                                                                color: memberColor,
+                                                            })
+                                                        }
+                                                    }
+                                                })}
+                                            />
+                                            {group.members.length > 3 && (
+                                                <div className="w-9 h-9 ml-1 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[10px] font-medium z-10 text-muted-foreground shadow-sm">
+                                                    +{group.members.length - 3}
                                                 </div>
                                             )}
                                         </div>
@@ -203,6 +263,12 @@ export default function ChallengesTab() {
                 onOpenChange={setCreateOpen}
                 onCreated={handleCreated}
             />
+            <DiscoverGroupsDialog
+                open={discoverOpen}
+                onOpenChange={setDiscoverOpen}
+                onJoined={refreshGroups}
+            />
+            <ProfileModal open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)} user={selectedUser} />
         </div>
     )
 }
