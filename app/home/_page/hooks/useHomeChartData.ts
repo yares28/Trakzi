@@ -66,7 +66,7 @@ export type HomeChartData = {
   ringCategories: string[]
   setRingCategories: Dispatch<SetStateAction<string[]>>
   allExpenseCategories: string[]
-  getDefaultRingLimit: (filter: string | null) => number
+  getDefaultRingLimit: (filter: string | null, isDemoMode?: boolean) => number
 }
 
 type UseHomeChartDataOptions = {
@@ -110,10 +110,11 @@ export function useHomeChartData({
     }
   }, [])
 
-  const getDefaultRingLimit = useCallback((filter: string | null) => {
+  const getDefaultRingLimit = useCallback((filter: string | null, isDemoMode = false) => {
     const isYearLike =
       !filter || filter === "lastyear" || /^\d{4}$/.test(filter)
-    return isYearLike ? 5000 : 2000
+    const base = isYearLike ? 5000 : 2000
+    return isDemoMode ? base * 3 : base
   }, [])
 
   const activityData: ActivityRingsData = useMemo(() => {

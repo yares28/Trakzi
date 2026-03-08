@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { neonQuery } from '@/lib/neonClient'
 import { getCurrentUserId } from '@/lib/auth'
 import { invalidateUserCachePrefix } from '@/lib/cache/upstash'
+import { getSharingPreferences } from '@/lib/friends/sharing'
 
 export async function POST(request: Request) {
     try {
@@ -35,6 +36,15 @@ export async function POST(request: Request) {
 
         if (!group) {
             return NextResponse.json({ error: group_id ? 'Group not found or is private' : 'Invalid invite code' }, { status: 404 })
+        }
+
+        // Check if user's profile is public enough for challenges
+        const prefs = await getSharingPreferences(userId)
+        if (!prefs.share_publicly && !prefs.share_with_friends) {
+            return NextResponse.json(
+                { error: 'Your profile must be visible to friends or public to join a challenge group. Update your privacy settings first.' },
+                { status: 403 }
+            )
         }
 
         // Check if already a member

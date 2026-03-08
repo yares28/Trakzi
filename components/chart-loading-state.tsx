@@ -200,7 +200,7 @@ export function ChartCardSkeleton({
   skeletonType?: ChartSkeletonType
 }) {
   return (
-    <div className={cn("rounded-xl border bg-card p-6 flex flex-col", height, className)}>
+    <div className={cn("rounded-xl border bg-card p-6 flex flex-col overflow-hidden min-w-0", height, className)}>
       {/* Header skeleton */}
       <div className="flex items-center justify-between mb-4">
         <div className="space-y-2">

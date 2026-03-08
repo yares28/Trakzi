@@ -140,11 +140,13 @@ export const ChartCashFlowIndicator = memo(function ChartCashFlowIndicator({
             style={{
               width: `${cashFlowData.incomePercent}%`,
               minWidth: cashFlowData.income > 0 ? "20px" : "0px",
-              backgroundColor: incomeColor,
+              backgroundColor: cashFlowData.incomePercent < cashFlowData.expensePercent
+                ? (isDark ? "#374151" : "#d1d5db")
+                : incomeColor,
             }}
           >
             {cashFlowData.incomePercent > 25 && (
-              <span className="text-[10px] font-bold text-white px-1 truncate">
+              <span className={`text-[10px] font-bold px-1 truncate ${cashFlowData.incomePercent < cashFlowData.expensePercent ? "text-muted-foreground" : "text-white"}`}>
                 {Math.round(cashFlowData.incomePercent)}%
               </span>
             )}
@@ -154,11 +156,13 @@ export const ChartCashFlowIndicator = memo(function ChartCashFlowIndicator({
             style={{
               width: `${cashFlowData.expensePercent}%`,
               minWidth: cashFlowData.expenses > 0 ? "20px" : "0px",
-              backgroundColor: expenseColor,
+              backgroundColor: cashFlowData.expensePercent <= cashFlowData.incomePercent
+                ? (isDark ? "#374151" : "#d1d5db")
+                : expenseColor,
             }}
           >
             {cashFlowData.expensePercent > 25 && (
-              <span className="text-[10px] font-bold text-white px-1 truncate">
+              <span className={`text-[10px] font-bold px-1 truncate ${cashFlowData.expensePercent <= cashFlowData.incomePercent ? "text-muted-foreground" : "text-white"}`}>
                 {Math.round(cashFlowData.expensePercent)}%
               </span>
             )}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getCurrentUserId } from '@/lib/auth'
+import { neonQuery } from '@/lib/neonClient'
 import { getSharingPreferences, updateSharingPreferences } from '@/lib/friends/sharing'
 
 const PatchSchema = z.object({
@@ -35,6 +36,31 @@ export async function PATCH(req: NextRequest) {
                 { error: parsed.error.issues[0]?.message || 'Invalid input' },
                 { status: 400 }
             )
+        }
+
+        // If trying to go fully private, check for challenge group membership
+        const willBeFullyPrivate =
+            (parsed.data.share_with_friends === false || (parsed.data.share_with_friends === undefined)) &&
+            (parsed.data.share_publicly === false || (parsed.data.share_publicly === undefined))
+
+        if (willBeFullyPrivate) {
+            // Get current prefs to check the final state
+            const current = await getSharingPreferences(userId)
+            const finalShareFriends = parsed.data.share_with_friends ?? current.share_with_friends
+            const finalSharePublic = parsed.data.share_publicly ?? current.share_publicly
+
+            if (!finalShareFriends && !finalSharePublic) {
+                const groups = await neonQuery<{ group_id: string }>(
+                    `SELECT group_id FROM challenge_group_members WHERE user_id = $1 LIMIT 1`,
+                    [userId]
+                )
+                if (groups.length > 0) {
+                    return NextResponse.json(
+                        { error: 'You must leave all challenge groups before making your profile fully private.' },
+                        { status: 409 }
+                    )
+                }
+            }
         }
 
         const updated = await updateSharingPreferences(userId, parsed.data)
