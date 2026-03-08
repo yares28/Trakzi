@@ -38,16 +38,15 @@ export function useRefreshFriendsBundle() {
 
     return useCallback(async () => {
         try {
-            // Fetch fresh data bypassing Redis cache
-            const freshData = await fetchFriendsBundle(true)
-            // Update all matching React Query entries
-            queryClient.setQueriesData(
-                { queryKey: ["friends-bundle"] },
-                () => freshData,
-            )
+            // Tell server to bust its Redis cache and re-warm it with fresh data
+            // This must happen BEFORE invalidating React Query, so the next
+            // refetch gets fresh data instead of the stale Redis entry
+            await fetchFriendsBundle(true)
         } catch {
-            // Fallback: just invalidate so React Query refetches normally
-            queryClient.invalidateQueries({ queryKey: ["friends-bundle"] })
+            // Non-fatal — fall through to invalidate
         }
+        // Invalidate React Query — any mounted query will refetch immediately,
+        // unmounted queries will refetch on next mount
+        queryClient.invalidateQueries({ queryKey: ["friends-bundle"] })
     }, [queryClient])
 }
