@@ -93,10 +93,16 @@ export async function getFriendsBundle(userId: string): Promise<FriendsBundleSum
     const uniqueUserIds = [...new Set(allUserIds)]
 
     // Compute real ranking metrics for all friends (respects privacy)
+    // Each promise has a .catch() fallback so a metrics failure (e.g. missing DB column)
+    // never kills the friends list, rooms, or other bundle data.
     const friendUserIds = friendsList.map(f => f.user_id)
+    const EMPTY_METRICS = {
+        savingsRate: 0, financialHealth: 0, consistencyScore: 0,
+        fridgeScore: 0, wantsPercent: 0, overallScore: 0, isRanked: false,
+    }
     const [metricsMap, myMetrics, imageMap] = await Promise.all([
-        computeFriendRankings(userId, friendUserIds),
-        computeUserMetrics(userId),
+        computeFriendRankings(userId, friendUserIds).catch(() => new Map()),
+        computeUserMetrics(userId).catch(() => EMPTY_METRICS),
         getClerkImageMap(uniqueUserIds),
     ])
 
