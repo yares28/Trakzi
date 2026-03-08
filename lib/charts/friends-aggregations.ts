@@ -3,7 +3,6 @@
 // Combines rankings, friend list, rooms, requests, balances, activity, and challenges
 // into a single payload for the Friends page.
 
-import { clerkClient } from '@clerk/nextjs/server'
 import { neonQuery } from '@/lib/neonClient'
 import { getAggregateBalances } from '@/lib/rooms/balances'
 import { computeFriendRankings, computeUserMetrics } from '@/lib/friends/ranking-metrics'
@@ -183,6 +182,7 @@ export async function getFriendsBundle(userId: string): Promise<FriendsBundleSum
 async function getClerkImageMap(userIds: string[]): Promise<Map<string, string>> {
     if (userIds.length === 0) return new Map()
     try {
+        const { clerkClient } = await import('@clerk/nextjs/server')
         const client = await clerkClient()
         const result = await client.users.getUserList({ userId: userIds, limit: 200 })
         return new Map(result.data.map(u => [u.id, u.imageUrl]))
