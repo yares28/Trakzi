@@ -182,13 +182,13 @@ export default function GroupsTab() {
                                                         id: member.id,
                                                         name: member.name,
                                                         designation: "Member",
-                                                        image: null,
+                                                        image: member.avatar_url || null,
                                                         color: memberColor,
                                                         onClick: () => {
                                                             setSelectedUser({
                                                                 id: member.id,
                                                                 name: member.name,
-                                                                avatar: null,
+                                                                avatar: member.avatar_url || null,
                                                                 color: memberColor,
                                                             })
                                                         }
@@ -210,13 +210,13 @@ export default function GroupsTab() {
                                                         id: member.id,
                                                         name: member.name,
                                                         designation: "Member",
-                                                        image: null,
+                                                        image: member.avatar_url || null,
                                                         color: memberColor,
                                                         onClick: () => {
                                                             setSelectedUser({
                                                                 id: member.id,
                                                                 name: member.name,
-                                                                avatar: null,
+                                                                avatar: member.avatar_url || null,
                                                                 color: memberColor,
                                                             })
                                                         }
