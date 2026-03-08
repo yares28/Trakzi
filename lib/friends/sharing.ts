@@ -14,14 +14,19 @@ export interface SharingPreferences {
  * Returns false/false if columns don't exist yet (migration not run).
  */
 export async function getSharingPreferences(userId: string): Promise<SharingPreferences> {
-    const rows = await neonQuery<SharingPreferences>(
-        `SELECT
-            COALESCE(share_with_friends, false) AS share_with_friends,
-            COALESCE(share_publicly, false) AS share_publicly
-         FROM users WHERE id = $1`,
-        [userId]
-    )
-    return rows[0] ?? { share_with_friends: false, share_publicly: false }
+    try {
+        const rows = await neonQuery<SharingPreferences>(
+            `SELECT
+                COALESCE(share_with_friends, false) AS share_with_friends,
+                COALESCE(share_publicly, false) AS share_publicly
+             FROM users WHERE id = $1`,
+            [userId]
+        )
+        return rows[0] ?? { share_with_friends: false, share_publicly: false }
+    } catch {
+        // Columns may not exist yet (migration pending) — treat as private
+        return { share_with_friends: false, share_publicly: false }
+    }
 }
 
 /**
@@ -72,30 +77,35 @@ export async function updateSharingPreferences(
 export async function canViewMetrics(viewerId: string, targetId: string): Promise<boolean> {
     if (viewerId === targetId) return true
 
-    const rows = await neonQuery<{
-        share_with_friends: boolean
-        share_publicly: boolean
-        is_friend: boolean
-    }>(
-        `SELECT
-            COALESCE(u.share_with_friends, false) AS share_with_friends,
-            COALESCE(u.share_publicly, false) AS share_publicly,
-            EXISTS(
-                SELECT 1 FROM friendships f
-                WHERE f.status = 'accepted'
-                  AND ((f.requester_id = $1 AND f.addressee_id = $2)
-                    OR (f.requester_id = $2 AND f.addressee_id = $1))
-            ) AS is_friend
-         FROM users u WHERE u.id = $2`,
-        [viewerId, targetId]
-    )
+    try {
+        const rows = await neonQuery<{
+            share_with_friends: boolean
+            share_publicly: boolean
+            is_friend: boolean
+        }>(
+            `SELECT
+                COALESCE(u.share_with_friends, false) AS share_with_friends,
+                COALESCE(u.share_publicly, false) AS share_publicly,
+                EXISTS(
+                    SELECT 1 FROM friendships f
+                    WHERE f.status = 'accepted'
+                      AND ((f.requester_id = $1 AND f.addressee_id = $2)
+                        OR (f.requester_id = $2 AND f.addressee_id = $1))
+                ) AS is_friend
+             FROM users u WHERE u.id = $2`,
+            [viewerId, targetId]
+        )
 
-    if (rows.length === 0) return false
+        if (rows.length === 0) return false
 
-    const { share_publicly, share_with_friends, is_friend } = rows[0]
+        const { share_publicly, share_with_friends, is_friend } = rows[0]
 
-    if (share_publicly) return true
-    if (share_with_friends && is_friend) return true
+        if (share_publicly) return true
+        if (share_with_friends && is_friend) return true
 
-    return false
+        return false
+    } catch {
+        // Columns may not exist yet (migration pending) — treat as private
+        return false
+    }
 }
