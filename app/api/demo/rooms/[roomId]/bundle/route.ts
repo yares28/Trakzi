@@ -14,9 +14,9 @@ const MOCK_ROOM_BUNDLES: Record<string, RoomBundleData> = {
             created_at: "2025-09-01T10:00:00Z",
         },
         members: [
-            { user_id: "user_alice", display_name: "Alice C.", role: "admin", joined_at: "2025-09-01T10:00:00Z" },
-            { user_id: "user_bob", display_name: "Bob S.", role: "member", joined_at: "2025-09-02T14:00:00Z" },
-            { user_id: "user_demo", display_name: "You", role: "member", joined_at: "2025-09-01T10:01:00Z" },
+            { user_id: "user_alice", display_name: "Alice C.", role: "admin", joined_at: "2025-09-01T10:00:00Z", avatar_url: null },
+            { user_id: "user_bob", display_name: "Bob S.", role: "member", joined_at: "2025-09-02T14:00:00Z", avatar_url: null },
+            { user_id: "user_demo", display_name: "You", role: "member", joined_at: "2025-09-01T10:01:00Z", avatar_url: null },
         ],
         balances: [
             { user_id: "user_alice", display_name: "Alice C.", net_balance: 85.25, total_paid: 1200, total_owed: 1114.75 },
@@ -41,10 +41,10 @@ const MOCK_ROOM_BUNDLES: Record<string, RoomBundleData> = {
             created_at: "2026-01-15T12:00:00Z",
         },
         members: [
-            { user_id: "user_charlie", display_name: "Charlie D.", role: "admin", joined_at: "2026-01-15T12:00:00Z" },
-            { user_id: "user_diana", display_name: "Diana P.", role: "member", joined_at: "2026-01-15T12:05:00Z" },
-            { user_id: "user_ethan", display_name: "Ethan H.", role: "member", joined_at: "2026-01-15T12:10:00Z" },
-            { user_id: "user_demo", display_name: "You", role: "member", joined_at: "2026-01-15T12:01:00Z" },
+            { user_id: "user_charlie", display_name: "Charlie D.", role: "admin", joined_at: "2026-01-15T12:00:00Z", avatar_url: null },
+            { user_id: "user_diana", display_name: "Diana P.", role: "member", joined_at: "2026-01-15T12:05:00Z", avatar_url: null },
+            { user_id: "user_ethan", display_name: "Ethan H.", role: "member", joined_at: "2026-01-15T12:10:00Z", avatar_url: null },
+            { user_id: "user_demo", display_name: "You", role: "member", joined_at: "2026-01-15T12:01:00Z", avatar_url: null },
         ],
         balances: [
             { user_id: "user_charlie", display_name: "Charlie D.", net_balance: -120, total_paid: 400, total_owed: 520 },
@@ -70,8 +70,8 @@ const MOCK_ROOM_BUNDLES: Record<string, RoomBundleData> = {
             created_at: "2026-01-01T08:00:00Z",
         },
         members: [
-            { user_id: "user_fiona", display_name: "Fiona G.", role: "admin", joined_at: "2026-01-01T08:00:00Z" },
-            { user_id: "user_demo", display_name: "You", role: "member", joined_at: "2026-01-01T08:01:00Z" },
+            { user_id: "user_fiona", display_name: "Fiona G.", role: "admin", joined_at: "2026-01-01T08:00:00Z", avatar_url: null },
+            { user_id: "user_demo", display_name: "You", role: "member", joined_at: "2026-01-01T08:01:00Z", avatar_url: null },
         ],
         balances: [
             { user_id: "user_fiona", display_name: "Fiona G.", net_balance: 0, total_paid: 210.38, total_owed: 210.38 },

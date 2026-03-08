@@ -3,6 +3,7 @@
 // Combines rankings, friend list, rooms, requests, balances, activity, and challenges
 // into a single payload for the Friends page.
 
+import { clerkClient } from '@clerk/nextjs/server'
 import { neonQuery } from '@/lib/neonClient'
 import { getAggregateBalances } from '@/lib/rooms/balances'
 import { computeFriendRankings, computeUserMetrics } from '@/lib/friends/ranking-metrics'
@@ -14,6 +15,7 @@ export type FriendScore = {
     id: string           // friendship_id
     friendUserId: string // the friend's user_id (for metrics lookup)
     name: string
+    avatar_url: string | null
     savingsRate: number
     financialHealth: number
     consistencyScore: number
@@ -29,6 +31,7 @@ export type FriendScore = {
 export type RoomMemberBasic = {
     id: string
     name: string
+    avatar_url: string | null
 }
 
 /** Room card data (used by GroupsTab) */
@@ -80,20 +83,57 @@ export async function getFriendsBundle(userId: string): Promise<FriendsBundleSum
         getAggregateBalances(userId),
     ])
 
+    // Collect all user IDs for batch Clerk image lookup
+    const allUserIds = [
+        userId,
+        ...friendsList.map(f => f.user_id),
+        ...incomingRequests.map(r => r.user_id),
+        ...outgoingRequests.map(r => r.user_id),
+        ...rooms.flatMap(r => r.members.map(m => m.id)),
+    ]
+    const uniqueUserIds = [...new Set(allUserIds)]
+
     // Compute real ranking metrics for all friends (respects privacy)
     const friendUserIds = friendsList.map(f => f.user_id)
-    const [metricsMap, myMetrics] = await Promise.all([
+    const [metricsMap, myMetrics, imageMap] = await Promise.all([
         computeFriendRankings(userId, friendUserIds),
         computeUserMetrics(userId),
+        getClerkImageMap(uniqueUserIds),
     ])
 
+    // Enrich friendsList with avatar URLs
+    const enrichedFriendsList = friendsList.map(f => ({
+        ...f,
+        avatar_url: imageMap.get(f.user_id) ?? null,
+    }))
+
+    // Enrich pending requests with avatar URLs
+    const enrichedIncoming = incomingRequests.map(r => ({
+        ...r,
+        avatar_url: imageMap.get(r.user_id) ?? null,
+    }))
+    const enrichedOutgoing = outgoingRequests.map(r => ({
+        ...r,
+        avatar_url: imageMap.get(r.user_id) ?? null,
+    }))
+
+    // Enrich room members with avatar URLs
+    const enrichedRooms = rooms.map(r => ({
+        ...r,
+        members: r.members.map(m => ({
+            ...m,
+            avatar_url: imageMap.get(m.id) ?? null,
+        })),
+    }))
+
     // Build ranked friend list with real metrics
-    const friends: FriendScore[] = friendsList.map(f => {
+    const friends: FriendScore[] = enrichedFriendsList.map(f => {
         const m = metricsMap.get(f.user_id)
         return {
             id: f.friendship_id,
             friendUserId: f.user_id,
             name: f.display_name ?? 'Unknown',
+            avatar_url: f.avatar_url,
             savingsRate: m?.savingsRate ?? 0,
             financialHealth: m?.financialHealth ?? 0,
             consistencyScore: m?.consistencyScore ?? 0,
@@ -111,6 +151,7 @@ export async function getFriendsBundle(userId: string): Promise<FriendsBundleSum
         id: 'self',
         friendUserId: userId,
         name: 'You',
+        avatar_url: imageMap.get(userId) ?? null,
         savingsRate: myMetrics.savingsRate,
         financialHealth: myMetrics.financialHealth,
         consistencyScore: myMetrics.consistencyScore,
@@ -124,12 +165,29 @@ export async function getFriendsBundle(userId: string): Promise<FriendsBundleSum
 
     return {
         friends,
-        rooms,
-        friendsList,
-        pendingRequests: { incoming: incomingRequests, outgoing: outgoingRequests },
+        rooms: enrichedRooms,
+        friendsList: enrichedFriendsList,
+        pendingRequests: { incoming: enrichedIncoming, outgoing: enrichedOutgoing },
         activityFeed,
         challenges,
         netBalance,
+    }
+}
+
+// ─── Clerk image helper ──────────────────────────────────────────────────────
+
+/**
+ * Batch-fetch Clerk profile image URLs for a list of user IDs.
+ * Best-effort — returns an empty map on failure so the rest of the bundle still works.
+ */
+async function getClerkImageMap(userIds: string[]): Promise<Map<string, string>> {
+    if (userIds.length === 0) return new Map()
+    try {
+        const client = await clerkClient()
+        const result = await client.users.getUserList({ userId: userIds, limit: 200 })
+        return new Map(result.data.map(u => [u.id, u.imageUrl]))
+    } catch {
+        return new Map()
     }
 }
 
@@ -241,7 +299,7 @@ async function getUserRooms(userId: string): Promise<RoomData[]> {
 
         for (const m of memberRows) {
             const list = membersMap.get(m.room_id) ?? []
-            list.push({ id: m.user_id, name: m.display_name })
+            list.push({ id: m.user_id, name: m.display_name, avatar_url: null })
             membersMap.set(m.room_id, list)
         }
     }

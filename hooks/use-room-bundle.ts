@@ -18,6 +18,7 @@ export interface RoomBundleData {
         display_name: string
         role: string
         joined_at: string
+        avatar_url: string | null
     }[]
     balances: {
         user_id: string

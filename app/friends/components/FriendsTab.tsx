@@ -8,7 +8,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardDescription, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { demoFetch } from "@/lib/demo/demo-fetch"
 import { useFriendsBundleData, useRefreshFriendsBundle } from "@/hooks/use-friends-bundle"
@@ -151,11 +151,12 @@ export default function FriendsTab() {
                     <CardContent className="p-0 divide-y divide-border/30">
                         {pending.incoming.map(req => (
                             <div key={req.friendship_id} className="flex items-center justify-between px-3 sm:px-6 py-3 gap-2 hover:bg-muted/10 transition-colors cursor-pointer"
-                                onClick={() => setSelectedUser({ id: req.user_id || req.friendship_id, name: req.display_name, avatar: null, stats: getFriendStats(req.user_id) || undefined, isPrivate: true })}
-                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUser({ id: req.user_id || req.friendship_id, name: req.display_name, avatar: null, stats: getFriendStats(req.user_id) || undefined, isPrivate: true }) } }}
+                                onClick={() => setSelectedUser({ id: req.user_id || req.friendship_id, name: req.display_name, avatar: req.avatar_url, stats: getFriendStats(req.user_id) || undefined, isPrivate: true })}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUser({ id: req.user_id || req.friendship_id, name: req.display_name, avatar: req.avatar_url, stats: getFriendStats(req.user_id) || undefined, isPrivate: true }) } }}
                             >
                                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                                     <Avatar className="w-8 h-8 sm:w-9 sm:h-9 border border-border/50 shrink-0">
+                                        <AvatarImage src={req.avatar_url || undefined} alt={req.display_name} />
                                         <AvatarFallback className="text-[10px] sm:text-xs">{req.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
                                     </Avatar>
                                     <div className="min-w-0">
@@ -175,11 +176,12 @@ export default function FriendsTab() {
                         ))}
                         {pending.outgoing.map(req => (
                             <div key={req.friendship_id} className="flex items-center justify-between px-3 sm:px-6 py-3 opacity-60 hover:bg-muted/10 transition-colors cursor-pointer hover:opacity-100"
-                                onClick={() => setSelectedUser({ id: req.user_id || req.friendship_id, name: req.display_name, avatar: null, stats: getFriendStats(req.user_id) || undefined, isPrivate: true })}
-                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUser({ id: req.user_id || req.friendship_id, name: req.display_name, avatar: null, stats: getFriendStats(req.user_id) || undefined, isPrivate: true }) } }}
+                                onClick={() => setSelectedUser({ id: req.user_id || req.friendship_id, name: req.display_name, avatar: req.avatar_url, stats: getFriendStats(req.user_id) || undefined, isPrivate: true })}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUser({ id: req.user_id || req.friendship_id, name: req.display_name, avatar: req.avatar_url, stats: getFriendStats(req.user_id) || undefined, isPrivate: true }) } }}
                             >
                                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                                     <Avatar className="w-8 h-8 sm:w-9 sm:h-9 border border-border/50 shrink-0">
+                                        <AvatarImage src={req.avatar_url || undefined} alt={req.display_name} />
                                         <AvatarFallback className="text-[10px] sm:text-xs">{req.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
                                     </Avatar>
                                     <div className="min-w-0">
@@ -218,11 +220,12 @@ export default function FriendsTab() {
                             role="button"
                             tabIndex={0}
                             className="flex items-center justify-between px-3 sm:px-6 py-3 hover:bg-muted/10 transition-colors cursor-pointer gap-2"
-                            onClick={() => setSelectedUser({ id: friend.user_id || friend.friendship_id, name: friend.display_name, avatar: null, stats: getFriendStats(friend.user_id), isPrivate: !getFriendStats(friend.user_id) })}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUser({ id: friend.user_id || friend.friendship_id, name: friend.display_name, avatar: null, stats: getFriendStats(friend.user_id), isPrivate: !getFriendStats(friend.user_id) }) } }}
+                            onClick={() => setSelectedUser({ id: friend.user_id || friend.friendship_id, name: friend.display_name, avatar: friend.avatar_url, stats: getFriendStats(friend.user_id), isPrivate: !getFriendStats(friend.user_id) })}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUser({ id: friend.user_id || friend.friendship_id, name: friend.display_name, avatar: friend.avatar_url, stats: getFriendStats(friend.user_id), isPrivate: !getFriendStats(friend.user_id) }) } }}
                         >
                             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                                 <Avatar className="w-9 h-9 sm:w-10 sm:h-10 border border-border/50 shrink-0">
+                                    <AvatarImage src={friend.avatar_url || undefined} alt={friend.display_name} />
                                     <AvatarFallback className="text-xs sm:text-sm">{(friend.display_name ?? 'U').substring(0, 2).toUpperCase()}</AvatarFallback>
                                 </Avatar>
                                 <div className="min-w-0">

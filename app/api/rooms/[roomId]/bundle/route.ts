@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { clerkClient } from '@clerk/nextjs/server'
 import { getCurrentUserId } from '@/lib/auth'
 import { neonQuery } from '@/lib/neonClient'
 import { verifyRoomMember } from '@/lib/rooms/permissions'
@@ -52,9 +53,26 @@ async function getRoomBundle(roomId: string): Promise<RoomBundleSummary> {
         ),
     ])
 
+    // Enrich members with Clerk profile images
+    const memberUserIds = members.map(m => m.user_id)
+    let imageMap = new Map<string, string>()
+    if (memberUserIds.length > 0) {
+        try {
+            const client = await clerkClient()
+            const result = await client.users.getUserList({ userId: memberUserIds, limit: 100 })
+            imageMap = new Map(result.data.map(u => [u.id, u.imageUrl]))
+        } catch {
+            // best-effort — fall back to null avatars
+        }
+    }
+    const enrichedMembers = members.map(m => ({
+        ...m,
+        avatar_url: imageMap.get(m.user_id) ?? null,
+    }))
+
     return {
         room: roomRows[0],
-        members,
+        members: enrichedMembers,
         balances,
         recentTransactions,
         totalSpent: parseFloat(stats[0]?.total_spent ?? '0'),

@@ -2,9 +2,8 @@
 
 import { useState } from "react"
 import { Home } from "lucide-react"
-import { useQueryClient } from "@tanstack/react-query"
-
 import { demoFetch } from "@/lib/demo/demo-fetch"
+import { useRefreshFriendsBundle } from "@/hooks/use-friends-bundle"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -20,7 +19,7 @@ export function CreateRoomDialog({ open, onOpenChange }: CreateRoomDialogProps) 
     const [description, setDescription] = useState("")
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const queryClient = useQueryClient()
+    const refreshFriendsBundle = useRefreshFriendsBundle()
 
     const handleSubmit = async () => {
         if (!name.trim()) return
@@ -38,7 +37,7 @@ export function CreateRoomDialog({ open, onOpenChange }: CreateRoomDialogProps) 
             })
 
             if (res.ok) {
-                queryClient.invalidateQueries({ queryKey: ["friends-bundle"] })
+                refreshFriendsBundle()
                 onOpenChange(false)
                 setName(""); setDescription("")
             } else {

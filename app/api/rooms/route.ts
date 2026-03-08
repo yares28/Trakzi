@@ -6,7 +6,7 @@ import { neonQuery, neonInsert } from "@/lib/neonClient"
 import { generateRoomInviteCode } from "@/lib/friends/codes"
 import { checkRoomLimit } from "@/lib/friends/permissions"
 import type { Room } from "@/lib/types/rooms"
-import { invalidateUserCachePrefix } from '@/lib/cache/upstash'
+import { invalidateUserCachePrefix, invalidateExactKeys, buildCacheKey } from '@/lib/cache/upstash'
 
 const CreateRoomSchema = z.object({
     name: z.string().min(1, "Room name is required").max(100).trim(),
@@ -80,7 +80,10 @@ export async function POST(req: NextRequest) {
             role: "owner",
         })
 
-        await invalidateUserCachePrefix(userId, 'friends')
+        await Promise.all([
+            invalidateExactKeys(buildCacheKey('friends', userId, null, 'bundle')),
+            invalidateUserCachePrefix(userId, 'friends'),
+        ])
 
         return NextResponse.json(
             {

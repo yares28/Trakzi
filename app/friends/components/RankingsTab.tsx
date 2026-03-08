@@ -5,7 +5,7 @@ import { TrendingUp, ChevronDown, ChevronUp, History, UserPlus, Lock, Shield, Tr
 import { useUser } from "@clerk/nextjs"
 
 import { cn } from "@/lib/utils"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -94,6 +94,7 @@ export default function RankingsTab() {
             id: "self",
             friendUserId: user?.id || "you",
             name: user?.firstName || user?.fullName || "You",
+            avatar_url: user?.imageUrl ?? null,
             savingsRate: 0,
             financialHealth: 0,
             consistencyScore: 0,
@@ -183,6 +184,7 @@ export default function RankingsTab() {
                     <Crown rank={rank} className={cn("absolute left-1/2 -translate-x-1/2", rank === 1 ? "-top-5 sm:-top-8 w-5 sm:w-8 h-5 sm:h-8" : rank === 2 ? "-top-3.5 sm:-top-6 w-4 sm:w-6 h-4 sm:h-6" : "-top-3 sm:-top-5 w-4 sm:w-5 h-4 sm:h-5")} />
                     <div className={cn(sizeClasses.outer, "rounded-full", gradient)}>
                         <Avatar className={cn("w-full h-full border-background", sizeClasses.avatar)}>
+                            <AvatarImage src={(friend.name === "You" ? user?.imageUrl : friend.avatar_url) || undefined} alt={friend.name} />
                             <AvatarFallback className="bg-muted text-sm sm:text-lg font-bold">{friend.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
                     </div>
@@ -274,10 +276,11 @@ export default function RankingsTab() {
                                                         className="shrink-0"
                                                         onClick={(e) => {
                                                             e.stopPropagation()
+                                                            const avatarUrl = friend.name === "You" ? (user?.imageUrl ?? null) : (friend.avatar_url ?? null)
                                                             setSelectedUser({
                                                                 id: friend.friendUserId,
                                                                 name: friend.name,
-                                                                avatar: null,
+                                                                avatar: avatarUrl,
                                                                 stats: friend.isPrivate ? undefined : {
                                                                     savingsRate: friend.savingsRate,
                                                                     spendingRate: 100 - friend.savingsRate,
@@ -291,6 +294,7 @@ export default function RankingsTab() {
                                                         }}
                                                     >
                                                         <Avatar className="w-8 h-8 sm:w-10 sm:h-10 border border-border/50 shrink-0">
+                                                            <AvatarImage src={(friend.name === "You" ? user?.imageUrl : friend.avatar_url) || undefined} alt={friend.name} />
                                                             <AvatarFallback className="text-xs sm:text-base">{friend.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                                                         </Avatar>
                                                     </button>
