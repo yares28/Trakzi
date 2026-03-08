@@ -9,6 +9,7 @@ import {
     isBlocked,
     existingFriendship,
 } from "@/lib/friends/permissions"
+import { invalidateUserCachePrefix } from "@/lib/cache/upstash"
 
 const AddByCodeSchema = z.object({
     code: z.string().min(1, "Friend code is required"),
@@ -71,6 +72,10 @@ export async function POST(req: NextRequest) {
         const existing = await existingFriendship(userId, targetUserId)
         if (existing) {
             if (existing.status === "accepted") {
+                await Promise.all([
+                    invalidateUserCachePrefix(userId, 'friends'),
+                    invalidateUserCachePrefix(targetUserId, 'friends'),
+                ])
                 return NextResponse.json(
                     { success: false, error: "You are already friends" },
                     { status: 409 }
@@ -90,6 +95,10 @@ export async function POST(req: NextRequest) {
                      WHERE id = $3`,
                     [userId, targetUserId, existing.id]
                 )
+                await Promise.all([
+                    invalidateUserCachePrefix(userId, 'friends'),
+                    invalidateUserCachePrefix(targetUserId, 'friends'),
+                ])
                 return NextResponse.json({
                     success: true,
                     data: { friendship_id: existing.id, status: "pending" },
@@ -115,6 +124,11 @@ export async function POST(req: NextRequest) {
             addressee_id: targetUserId,
             status: "pending",
         })
+
+        await Promise.all([
+            invalidateUserCachePrefix(userId, 'friends'),
+            invalidateUserCachePrefix(targetUserId, 'friends'),
+        ])
 
         return NextResponse.json(
             {

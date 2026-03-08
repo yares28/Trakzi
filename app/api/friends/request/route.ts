@@ -55,6 +55,11 @@ export async function POST(req: NextRequest) {
         const existing = await existingFriendship(userId, targetUserId)
         if (existing) {
             if (existing.status === "accepted") {
+                // Invalidate cache so client sees the existing friendship
+                await Promise.all([
+                    invalidateUserCachePrefix(userId, 'friends'),
+                    invalidateUserCachePrefix(targetUserId, 'friends'),
+                ])
                 return NextResponse.json(
                     { success: false, error: "You are already friends" },
                     { status: 409 }

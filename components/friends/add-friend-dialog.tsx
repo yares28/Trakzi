@@ -54,6 +54,10 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
             if (reqRes.ok) {
                 setResult({ success: true, message: `Friend request sent to ${target.display_name}!` })
                 queryClient.invalidateQueries({ queryKey: ["friends-bundle"] })
+            } else if (reqRes.status === 409) {
+                // Friendship already exists — invalidate cache so UI reflects it
+                queryClient.invalidateQueries({ queryKey: ["friends-bundle"] })
+                setResult({ success: true, message: reqData.error || 'You are already friends!' })
             } else {
                 setResult({ success: false, message: reqData.error || 'Failed to send request' })
             }
@@ -79,6 +83,9 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
             if (res.ok) {
                 setResult({ success: true, message: 'Friend request sent!' })
                 queryClient.invalidateQueries({ queryKey: ["friends-bundle"] })
+            } else if (res.status === 409) {
+                queryClient.invalidateQueries({ queryKey: ["friends-bundle"] })
+                setResult({ success: true, message: data.error || 'You are already friends!' })
             } else {
                 setResult({ success: false, message: data.error || 'Invalid code' })
             }
