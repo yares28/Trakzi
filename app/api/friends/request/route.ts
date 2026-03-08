@@ -8,7 +8,7 @@ import {
     isBlocked,
     existingFriendship,
 } from "@/lib/friends/permissions"
-import { invalidateUserCachePrefix } from '@/lib/cache/upstash'
+import { invalidateUserCachePrefix, invalidateExactKeys, buildCacheKey } from '@/lib/cache/upstash'
 
 const RequestSchema = z.object({
     targetUserId: z.string().min(1, "Target user ID is required"),
@@ -56,7 +56,12 @@ export async function POST(req: NextRequest) {
         if (existing) {
             if (existing.status === "accepted") {
                 // Invalidate cache so client sees the existing friendship
+                // Use both direct DEL (reliable) and SCAN-based (catches extra keys)
                 await Promise.all([
+                    invalidateExactKeys(
+                        buildCacheKey('friends', userId, null, 'bundle'),
+                        buildCacheKey('friends', targetUserId, null, 'bundle'),
+                    ),
                     invalidateUserCachePrefix(userId, 'friends'),
                     invalidateUserCachePrefix(targetUserId, 'friends'),
                 ])
@@ -94,6 +99,10 @@ export async function POST(req: NextRequest) {
                     [userId, targetUserId, existing.id]
                 )
                 await Promise.all([
+                    invalidateExactKeys(
+                        buildCacheKey('friends', userId, null, 'bundle'),
+                        buildCacheKey('friends', targetUserId, null, 'bundle'),
+                    ),
                     invalidateUserCachePrefix(userId, 'friends'),
                     invalidateUserCachePrefix(targetUserId, 'friends'),
                 ])
@@ -124,6 +133,10 @@ export async function POST(req: NextRequest) {
         })
 
         await Promise.all([
+            invalidateExactKeys(
+                buildCacheKey('friends', userId, null, 'bundle'),
+                buildCacheKey('friends', targetUserId, null, 'bundle'),
+            ),
             invalidateUserCachePrefix(userId, 'friends'),
             invalidateUserCachePrefix(targetUserId, 'friends'),
         ])
