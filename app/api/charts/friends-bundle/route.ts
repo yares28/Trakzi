@@ -1,15 +1,20 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUserId } from '@/lib/auth'
 import { getFriendsBundle, type FriendsBundleSummary } from '@/lib/charts/friends-aggregations'
-import { getCachedOrCompute, buildCacheKey } from '@/lib/cache/upstash'
+import { getCachedOrCompute, buildCacheKey, invalidateExactKeys } from '@/lib/cache/upstash'
 
 const FRIENDS_BUNDLE_TTL = 2 * 60 // 2 minutes
 
-export const GET = async () => {
+export const GET = async (req: NextRequest) => {
     try {
         const userId = await getCurrentUserId()
-
         const cacheKey = buildCacheKey('friends', userId, null, 'bundle')
+
+        // Allow cache bypass via ?fresh=1 (used after friendship changes)
+        const fresh = req.nextUrl.searchParams.get('fresh') === '1'
+        if (fresh) {
+            await invalidateExactKeys(cacheKey)
+        }
 
         const data = await getCachedOrCompute<FriendsBundleSummary>(
             cacheKey,

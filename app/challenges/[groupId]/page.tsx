@@ -76,7 +76,7 @@ export default function ChallengeDetailPage({ params }: { params: Promise<{ grou
                         variant="ghost"
                         size="sm"
                         className="gap-1.5"
-                        onClick={() => router.push('/friends')}
+                        onClick={() => router.push('/friends?tab=challenges')}
                     >
                         <ArrowLeft className="w-4 h-4" /> <span className="hidden sm:inline">Back to Challenges</span>
                     </Button>
@@ -91,7 +91,7 @@ export default function ChallengeDetailPage({ params }: { params: Promise<{ grou
                 {error && (
                     <div className="text-center py-20 text-muted-foreground">
                         <p>Failed to load challenge group. You may not have access.</p>
-                        <Button variant="outline" className="mt-4" onClick={() => router.push('/friends')}>
+                        <Button variant="outline" className="mt-4" onClick={() => router.push('/friends?tab=challenges')}>
                             Go Back
                         </Button>
                     </div>
@@ -112,11 +112,13 @@ export default function ChallengeDetailPage({ params }: { params: Promise<{ grou
                         {/* Leaderboards / About tab switch (desktop only — mobile shows all) */}
                         <div className="hidden sm:block">
                             <Tabs value={activeTab} onValueChange={setActiveTab}>
-                                <TabsList className="grid w-full max-w-md grid-cols-3">
-                                    <TabsTrigger value="leaderboards">Leaderboard</TabsTrigger>
-                                    <TabsTrigger value="allTime">All Time</TabsTrigger>
-                                    <TabsTrigger value="about">About</TabsTrigger>
-                                </TabsList>
+                                <div className="flex justify-center">
+                                    <TabsList className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border w-max min-w-0 h-auto">
+                                        <TabsTrigger value="leaderboards" className="rounded-full px-4 py-2 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm text-sm font-medium transition-all duration-200">Leaderboard</TabsTrigger>
+                                        <TabsTrigger value="allTime" className="rounded-full px-4 py-2 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm text-sm font-medium transition-all duration-200">All Time</TabsTrigger>
+                                        <TabsTrigger value="about" className="rounded-full px-4 py-2 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm text-sm font-medium transition-all duration-200">About</TabsTrigger>
+                                    </TabsList>
+                                </div>
 
                                 <TabsContent value="leaderboards" className="mt-6 space-y-6">
                                     <ChallengeLeaderboards

@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { Users } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
 
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -21,8 +22,20 @@ const TAB_CONFIG: { key: FriendsViewMode; label: string; description: string }[]
     { key: "challenges", label: "Challenges", description: "Compete with friends on spending goals and build better habits." },
 ]
 
-export default function FriendsPage() {
-    const [viewMode, setViewMode] = useState<FriendsViewMode>("rankings")
+function FriendsContent() {
+    const searchParams = useSearchParams()
+    const router = useRouter()
+
+    const tabParam = searchParams.get("tab") as FriendsViewMode | null
+    const isValidTab = tabParam && TAB_CONFIG.some(t => t.key === tabParam)
+    const [viewMode, setViewMode] = useState<FriendsViewMode>(isValidTab ? tabParam : "rankings")
+
+    const handleSetViewMode = (mode: FriendsViewMode) => {
+        setViewMode(mode)
+        const params = new URLSearchParams(searchParams.toString())
+        params.set("tab", mode)
+        router.replace(`?${params.toString()}`, { scroll: false })
+    }
 
     const activeTab = TAB_CONFIG.find(t => t.key === viewMode)!
 
@@ -57,7 +70,7 @@ export default function FriendsPage() {
                                         <button
                                             key={tab.key}
                                             type="button"
-                                            onClick={() => setViewMode(tab.key)}
+                                            onClick={() => handleSetViewMode(tab.key)}
                                             className={cn(
                                                 "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0",
                                                 viewMode === tab.key
@@ -83,5 +96,13 @@ export default function FriendsPage() {
                 </div>
             </div>
         </FriendsLayout>
+    )
+}
+
+export default function FriendsPage() {
+    return (
+        <Suspense fallback={<div className="w-full h-full flex items-center justify-center p-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>}>
+            <FriendsContent />
+        </Suspense>
     )
 }

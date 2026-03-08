@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Search, Copy, Check, Share2, Hash, Mail } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { demoFetch } from "@/lib/demo/demo-fetch"
+import { useRefreshFriendsBundle } from "@/hooks/use-friends-bundle"
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -24,6 +25,7 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
     const [loading, setLoading] = useState(false)
     const [result, setResult] = useState<{ success?: boolean; message?: string } | null>(null)
     const queryClient = useQueryClient()
+    const refreshFriendsBundle = useRefreshFriendsBundle()
 
     const handleEmailSearch = async () => {
         if (!email.trim()) return
@@ -55,9 +57,9 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
                 setResult({ success: true, message: `Friend request sent to ${target.display_name}!` })
                 queryClient.invalidateQueries({ queryKey: ["friends-bundle"] })
             } else if (reqRes.status === 409) {
-                // Friendship already exists — invalidate cache so UI reflects it
-                queryClient.invalidateQueries({ queryKey: ["friends-bundle"] })
+                // Friendship already exists — force fresh fetch bypassing all caches
                 setResult({ success: true, message: reqData.error || 'You are already friends!' })
+                refreshFriendsBundle()
             } else {
                 setResult({ success: false, message: reqData.error || 'Failed to send request' })
             }
@@ -84,8 +86,8 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
                 setResult({ success: true, message: 'Friend request sent!' })
                 queryClient.invalidateQueries({ queryKey: ["friends-bundle"] })
             } else if (res.status === 409) {
-                queryClient.invalidateQueries({ queryKey: ["friends-bundle"] })
                 setResult({ success: true, message: data.error || 'You are already friends!' })
+                refreshFriendsBundle()
             } else {
                 setResult({ success: false, message: data.error || 'Invalid code' })
             }

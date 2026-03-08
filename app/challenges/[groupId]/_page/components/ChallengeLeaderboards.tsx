@@ -5,14 +5,17 @@ import {
     Trophy, PiggyBank, Heart, ShoppingBag, TrendingUp,
     AlertCircle, Crown
 } from "lucide-react"
+import { useUser } from "@clerk/nextjs"
 
 import { cn } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { ChallengeMetric, ChallengeGroupMember } from "@/lib/types/challenges"
 import { ScoreSparkline } from "./ScoreSparkline"
+import { ProfileModal } from "@/components/friends/profile-modal"
+import type { ProfileModalUser } from "@/components/friends/profile-modal"
 
 const METRIC_CONFIG: Record<ChallengeMetric, { label: string; icon: React.ReactNode; unit: string; higherIsBetter: boolean }> = {
     savingsRate: { label: "Savings Rate", icon: <PiggyBank className="w-4 h-4" />, unit: "%", higherIsBetter: true },
@@ -44,6 +47,8 @@ function MetricLeaderboard({
     currentUserId: string
 }) {
     const cfg = METRIC_CONFIG[metric]
+    const { user } = useUser()
+    const [selectedUser, setSelectedUser] = useState<ProfileModalUser | null>(null)
 
     const sorted = [...members]
         .filter(m => m.isRanked && m.currentScores[metric] !== null)
@@ -54,6 +59,13 @@ function MetricLeaderboard({
         })
 
     const unranked = members.filter(m => !m.isRanked || m.currentScores[metric] === null)
+
+    const getAvatarUrl = (member: ChallengeGroupMember) => {
+        if (member.user_id === currentUserId && user?.imageUrl) {
+            return user.imageUrl
+        }
+        return member.avatar_url
+    }
 
     return (
         <div className="space-y-1">
@@ -70,19 +82,38 @@ function MetricLeaderboard({
                         )}
                     >
                         <span className={cn("w-6 text-center font-bold text-sm", rankColor(rank))}>{rank}</span>
-                        <Avatar className="w-8 h-8 border border-border/50">
-                            <AvatarFallback className="text-[10px]">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
+                        <button
+                            onClick={() => setSelectedUser({
+                                id: m.user_id,
+                                name: m.display_name,
+                                avatar: getAvatarUrl(m),
+                            })}
+                            className="shrink-0 hover:opacity-80 transition-opacity"
+                        >
+                            <Avatar className="w-8 h-8 border border-border/50">
+                                <AvatarImage src={getAvatarUrl(m) || undefined} alt={m.display_name} />
+                                <AvatarFallback className="text-[10px]">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                        </button>
                         <span className="flex-1 text-sm font-medium">
                             {m.display_name}
                             {isYou && <span className="ml-1 text-xs text-primary">(You)</span>}
                         </span>
-                        <ScoreSparkline
-                            history={m.scoreHistory?.[metric] ?? []}
-                            currentScore={score}
-                            lowerIsBetter={!cfg.higherIsBetter}
-                            className="hidden sm:flex"
-                        />
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <button className="hidden sm:block cursor-default p-1 hover:bg-muted/20 rounded transition-colors">
+                                    <ScoreSparkline
+                                        history={m.scoreHistory?.[metric] ?? []}
+                                        currentScore={score}
+                                        lowerIsBetter={!cfg.higherIsBetter}
+                                    />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p className="font-semibold">{m.display_name}</p>
+                                <p className="text-xs text-muted-foreground">Score: {score}{cfg.unit}</p>
+                            </TooltipContent>
+                        </Tooltip>
                         <span className="text-sm font-bold tabular-nums">
                             {score}{cfg.unit}
                         </span>
@@ -106,6 +137,7 @@ function MetricLeaderboard({
                         <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl opacity-50 cursor-help">
                             <span className="w-6 text-center font-bold text-sm text-muted-foreground">—</span>
                             <Avatar className="w-8 h-8 border border-border/50">
+                                <AvatarImage src={getAvatarUrl(m) || undefined} alt={m.display_name} />
                                 <AvatarFallback className="text-[10px]">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
                             </Avatar>
                             <span className="flex-1 text-sm font-medium">{m.display_name}</span>
@@ -117,16 +149,28 @@ function MetricLeaderboard({
                     <TooltipContent>Needs more data this month to be ranked</TooltipContent>
                 </Tooltip>
             ))}
+
+            <ProfileModal open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)} user={selectedUser} />
         </div>
     )
 }
 
 function AllTimeLeaderboard({ members, currentUserId }: { members: ChallengeGroupMember[]; currentUserId: string }) {
+    const { user } = useUser()
+    const [selectedUser, setSelectedUser] = useState<ProfileModalUser | null>(null)
+
     const sorted = [...members].sort((a, b) => b.total_points - a.total_points)
     const topThree = sorted.slice(0, 3)
     const rest = sorted.slice(3)
 
     const podiumOrder = [topThree[1], topThree[0], topThree[2]]
+
+    const getAvatarUrl = (member: ChallengeGroupMember) => {
+        if (member.user_id === currentUserId && user?.imageUrl) {
+            return user.imageUrl
+        }
+        return member.avatar_url
+    }
 
     return (
         <div className="space-y-4">
@@ -145,9 +189,19 @@ function AllTimeLeaderboard({ members, currentUserId }: { members: ChallengeGrou
                                 <TooltipTrigger asChild>
                                     <div className="flex flex-col items-center gap-1 cursor-pointer">
                                         <Crown className={cn("w-4 h-4", crownColors[i])} />
-                                        <Avatar className="w-10 h-10 border-2 border-border/50">
-                                            <AvatarFallback className="text-xs font-bold">{member.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                        </Avatar>
+                                        <button
+                                            onClick={() => setSelectedUser({
+                                                id: member.user_id,
+                                                name: member.display_name,
+                                                avatar: getAvatarUrl(member),
+                                            })}
+                                            className="hover:opacity-80 transition-opacity"
+                                        >
+                                            <Avatar className="w-10 h-10 border-2 border-border/50">
+                                                <AvatarImage src={getAvatarUrl(member) || undefined} alt={member.display_name} />
+                                                <AvatarFallback className="text-xs font-bold">{member.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                            </Avatar>
+                                        </button>
                                         <span className="text-xs font-semibold text-center max-w-[60px] truncate">
                                             {isYou ? "You" : member.display_name.split(" ")[0]}
                                         </span>
@@ -174,9 +228,19 @@ function AllTimeLeaderboard({ members, currentUserId }: { members: ChallengeGrou
                         <TooltipTrigger asChild>
                             <div className={cn("flex items-center gap-3 px-4 py-2.5 rounded-xl cursor-pointer", isYou && "bg-primary/5")}>
                                 <span className="w-6 text-center text-sm font-bold text-muted-foreground">{rank}</span>
-                                <Avatar className="w-8 h-8 border border-border/50">
-                                    <AvatarFallback className="text-[10px]">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                </Avatar>
+                                <button
+                                    onClick={() => setSelectedUser({
+                                        id: m.user_id,
+                                        name: m.display_name,
+                                        avatar: getAvatarUrl(m),
+                                    })}
+                                    className="hover:opacity-80 transition-opacity shrink-0"
+                                >
+                                    <Avatar className="w-8 h-8 border border-border/50">
+                                        <AvatarImage src={getAvatarUrl(m) || undefined} alt={m.display_name} />
+                                        <AvatarFallback className="text-[10px]">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                    </Avatar>
+                                </button>
                                 <span className="flex-1 text-sm font-medium">
                                     {m.display_name}
                                     {isYou && <span className="ml-1 text-xs text-primary">(You)</span>}
@@ -197,6 +261,8 @@ function AllTimeLeaderboard({ members, currentUserId }: { members: ChallengeGrou
             {sorted.length === 0 && (
                 <p className="text-center text-sm text-muted-foreground py-4">No points earned yet. Compete this month to earn your first!</p>
             )}
+
+            <ProfileModal open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)} user={selectedUser} />
         </div>
     )
 }

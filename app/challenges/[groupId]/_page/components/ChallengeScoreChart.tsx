@@ -1,13 +1,17 @@
 "use client"
 
-import { memo, useMemo, useState, useEffect } from "react"
+import { memo, useMemo, useState, useEffect, Fragment } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveLine } from "@nivo/line"
 import { PiggyBank, Heart, TrendingUp, ShoppingBag, Trophy } from "lucide-react"
+import { useUser } from "@clerk/nextjs"
 import { cn } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import type { ChallengeMetric, ChallengeGroupMember, MonthlyScore } from "@/lib/types/challenges"
+import { ProfileModal } from "@/components/friends/profile-modal"
+import type { ProfileModalUser } from "@/components/friends/profile-modal"
 
 const MAX_LINES = 7
 
@@ -163,6 +167,8 @@ export const ChallengeScoreChart = memo(function ChallengeScoreChart({
     const { getShuffledPalette } = useColorScheme()
     const [mounted, setMounted] = useState(false)
     const [viewMode, setViewMode] = useState<ViewMode>("overall")
+    const [selectedUser, setSelectedUser] = useState<ProfileModalUser | null>(null)
+    const { user } = useUser()
 
     useEffect(() => { setMounted(true) }, [])
 
@@ -185,6 +191,24 @@ export const ChallengeScoreChart = memo(function ChallengeScoreChart({
 
     const isScoreView = viewMode !== "overall"
 
+    const getMemberByDisplayName = (displayName: string): ChallengeGroupMember | undefined => {
+        const cleanName = displayName.replace(" (You)", "")
+        return members.find(m => m.display_name === cleanName || m.display_name === "You" && displayName.includes("(You)"))
+    }
+
+    const getAvatarUrl = (member: ChallengeGroupMember | undefined) => {
+        if (!member) return null
+        if (member.user_id === currentUserId && user?.imageUrl) {
+            return user.imageUrl
+        }
+        return member.avatar_url
+    }
+
+    const getInitials = (name: string) => {
+        return name.replace(" (You)", "").split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2)
+    }
+
+
     if (!mounted) return null
 
     if (chartData.length === 0) {
@@ -201,114 +225,163 @@ export const ChallengeScoreChart = memo(function ChallengeScoreChart({
     }
 
     return (
-        <Card className="border-border/40 bg-card/60 backdrop-blur-sm rounded-3xl overflow-hidden">
-            <CardContent className="p-4 sm:p-6">
-                <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold">Score Progression</h3>
-                </div>
+        <>
+            <Card className="border-border/40 bg-card/60 backdrop-blur-sm rounded-3xl">
+                <CardContent className="p-4 sm:p-6">
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-semibold">Score Progression</h3>
+                    </div>
 
-                {/* Metric tabs */}
-                <div className="flex items-center gap-1 mb-4 overflow-x-auto pb-1">
-                    <button
-                        type="button"
-                        onClick={() => setViewMode("overall")}
-                        className={cn(
-                            "flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all whitespace-nowrap",
-                            viewMode === "overall"
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-muted/40 text-muted-foreground hover:text-foreground"
-                        )}
-                    >
-                        <Trophy className="w-3 h-3" />
-                        Overall
-                    </button>
-                    {metrics.map(m => (
+                    {/* Metric tabs */}
+                    <div className="flex items-center gap-1 mb-4 overflow-x-auto pb-1">
                         <button
-                            key={m}
                             type="button"
-                            onClick={() => setViewMode(m)}
+                            onClick={() => setViewMode("overall")}
                             className={cn(
                                 "flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all whitespace-nowrap",
-                                viewMode === m
+                                viewMode === "overall"
                                     ? "bg-primary text-primary-foreground"
                                     : "bg-muted/40 text-muted-foreground hover:text-foreground"
                             )}
                         >
-                            {METRIC_LABELS[m].icon}
-                            {METRIC_LABELS[m].label}
+                            <Trophy className="w-3 h-3" />
+                            Overall
                         </button>
-                    ))}
-                </div>
+                        {metrics.map(m => (
+                            <button
+                                key={m}
+                                type="button"
+                                onClick={() => setViewMode(m)}
+                                className={cn(
+                                    "flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all whitespace-nowrap",
+                                    viewMode === m
+                                        ? "bg-primary text-primary-foreground"
+                                        : "bg-muted/40 text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                {METRIC_LABELS[m].icon}
+                                {METRIC_LABELS[m].label}
+                            </button>
+                        ))}
+                    </div>
 
-                <div className="h-[220px] sm:h-[260px]">
-                    <ResponsiveLine
-                        data={chartData}
-                        margin={{ top: 10, right: 20, bottom: 30, left: 40 }}
-                        xScale={{ type: "point" }}
-                        yScale={{ type: "linear", min: 0, max: "auto" }}
-                        curve="monotoneX"
-                        colors={({ color }) => color ?? "#888"}
-                        lineWidth={2.5}
-                        pointSize={6}
-                        pointColor={{ theme: "background" }}
-                        pointBorderWidth={2}
-                        pointBorderColor={{ from: "serieColor" }}
-                        enableArea={false}
-                        enableGridX={false}
-                        enableGridY={true}
-                        gridYValues={4}
-                        axisBottom={{
-                            tickSize: 0,
-                            tickPadding: 8,
-                            format: (v: string) => {
-                                const parts = v.split("-")
-                                if (parts.length === 2) {
-                                    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-                                    const idx = parseInt(parts[1], 10) - 1
-                                    return monthNames[idx] ?? v
-                                }
-                                return v
-                            },
-                        }}
-                        axisLeft={{
-                            tickSize: 0,
-                            tickPadding: 8,
-                            tickValues: 4,
-                            format: (v: number) => `${v}`,
-                        }}
-                        theme={{
-                            text: { fill: textColor, fontSize: 11 },
-                            axis: { ticks: { text: { fill: textColor } } },
-                            grid: { line: { stroke: gridColor, strokeDasharray: "4 4" } },
-                        }}
-                        tooltip={({ point }) => (
-                            <div className="bg-popover text-popover-foreground border border-border rounded-lg px-3 py-2 shadow-md text-xs">
-                                <p className="font-semibold" style={{ color: point.seriesColor }}>
-                                    {point.seriesId}
-                                </p>
-                                <p>{point.data.yFormatted} {isScoreView ? "" : "pts"}</p>
-                            </div>
-                        )}
-                        animate
-                        motionConfig="gentle"
-                    />
-                </div>
+                    <div className="h-[220px] sm:h-[260px]">
+                        <ResponsiveLine
+                            data={chartData}
+                            margin={{ top: 10, right: 20, bottom: 30, left: 40 }}
+                            xScale={{ type: "point" }}
+                            yScale={{ type: "linear", min: 0, max: "auto" }}
+                            curve="monotoneX"
+                            colors={({ color }) => color ?? "#888"}
+                            lineWidth={2.5}
+                            pointSize={8}
+                            pointColor={{ theme: "background" }}
+                            pointBorderWidth={2}
+                            pointBorderColor={{ from: "serieColor" }}
+                            enablePoints={true}
+                            enableArea={false}
+                            enableGridX={false}
+                            enableGridY={true}
+                            gridYValues={4}
+                            axisBottom={{
+                                tickSize: 0,
+                                tickPadding: 8,
+                                format: (v: string) => {
+                                    const parts = v.split("-")
+                                    if (parts.length === 2) {
+                                        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+                                        const idx = parseInt(parts[1], 10) - 1
+                                        return monthNames[idx] ?? v
+                                    }
+                                    return v
+                                },
+                            }}
+                            axisLeft={{
+                                tickSize: 0,
+                                tickPadding: 8,
+                                tickValues: 4,
+                                format: (v: number) => `${v}`,
+                            }}
+                            theme={{
+                                text: { fill: textColor, fontSize: 11 },
+                                axis: { ticks: { text: { fill: textColor } } },
+                                grid: { line: { stroke: gridColor, strokeDasharray: "4 4" } },
+                            }}
+                            tooltip={({ point }) => {
+                                const member = getMemberByDisplayName(point.seriesId as string)
+                                const avatarUrl = getAvatarUrl(member)
+                                return (
+                                    <div className="relative flex items-center justify-center pointer-events-none group">
+                                        {/* Floating Label (AnimatedTooltip style) */}
+                                        <div
+                                            className="absolute -top-[52px] left-1/2 -translate-x-1/2 flex text-xs flex-col items-center justify-center rounded-md bg-foreground z-50 shadow-xl px-4 py-2"
+                                            style={{ whiteSpace: "nowrap" }}
+                                        >
+                                            <div className="absolute inset-x-10 z-30 w-[20%] -bottom-px bg-gradient-to-r from-transparent via-emerald-500 to-transparent h-px" />
+                                            <div className="absolute left-10 w-[40%] z-30 -bottom-px bg-gradient-to-r from-transparent via-sky-500 to-transparent h-px" />
+                                            <div className="font-bold text-background relative z-30 text-base" style={{ color: point.seriesColor }}>
+                                                {point.seriesId}
+                                            </div>
+                                            <div className="text-background/70 text-xs font-semibold mt-0.5 relative z-30">
+                                                {point.data.yFormatted} {isScoreView ? "" : "pts"}
+                                            </div>
+                                        </div>
 
-                {/* Custom HTML legend — dynamic width per name */}
-                <div className="flex items-center justify-center gap-x-4 gap-y-1.5 flex-wrap pt-2 text-xs">
-                    {chartData.map(series => (
-                        <div key={series.id} className="flex items-center gap-1.5">
-                            <span
-                                className="h-2.5 w-2.5 rounded-full shrink-0"
-                                style={{ backgroundColor: series.color }}
-                            />
-                            <span style={{ color: textColor }}>{series.id}</span>
-                        </div>
-                    ))}
-                </div>
-            </CardContent>
-        </Card>
+                                        {/* Avatar Circle */}
+                                        <Avatar className="w-8 h-8 sm:w-10 sm:h-10 border-2 border-background shadow-md relative z-40 transition-transform duration-300">
+                                            <AvatarImage src={avatarUrl || undefined} className="object-cover object-top" />
+                                            <AvatarFallback className="text-[10px] sm:text-xs font-bold" style={{ backgroundColor: point.seriesColor, color: '#fff' }}>
+                                                {getInitials(point.seriesId as string)}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                    </div>
+                                )
+                            }}
+                            useMesh={true}
+                            animate
+                            motionConfig="gentle"
+                            onClick={(node) => {
+                                if (!("seriesId" in node)) return
+                                const member = getMemberByDisplayName(node.seriesId as string)
+                                const avatarUrl = getAvatarUrl(member)
+                                setSelectedUser({
+                                    id: member?.user_id || (node.seriesId as string),
+                                    name: (node.seriesId as string).replace(" (You)", ""),
+                                    avatar: avatarUrl,
+                                })
+                            }}
+                        />
+                    </div>
+
+                    {/* Custom HTML legend — dynamic width per name */}
+                    <div className="flex items-center justify-center gap-x-4 gap-y-1.5 flex-wrap pt-2 text-xs">
+                        {chartData.map(series => {
+                            const member = getMemberByDisplayName(series.id)
+                            const avatarUrl = getAvatarUrl(member)
+                            return (
+                                <button
+                                    key={series.id}
+                                    type="button"
+                                    onClick={() => setSelectedUser({
+                                        id: member?.user_id || series.id,
+                                        name: series.id.replace(" (You)", ""),
+                                        avatar: avatarUrl,
+                                    })}
+                                    className="flex items-center gap-1.5 hover:opacity-80 transition-opacity cursor-pointer"
+                                >
+                                    <span
+                                        className="h-2.5 w-2.5 rounded-full shrink-0"
+                                        style={{ backgroundColor: series.color }}
+                                    />
+                                    <span style={{ color: textColor }}>{series.id}</span>
+                                </button>
+                            )
+                        })}
+                    </div>
+                </CardContent>
+            </Card>
+
+            <ProfileModal open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)} user={selectedUser} />
+        </>
     )
 })
-
-ChallengeScoreChart.displayName = "ChallengeScoreChart"
