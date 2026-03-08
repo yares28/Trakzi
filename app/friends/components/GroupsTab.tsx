@@ -134,10 +134,6 @@ export default function GroupsTab() {
                                     className="absolute -top-12 -right-12 w-24 sm:w-32 h-24 sm:h-32 rounded-full blur-3xl opacity-20"
                                     style={{ backgroundColor: cardColor }}
                                 />
-                                <div
-                                    className="absolute bottom-0 left-0 right-0 h-1 opacity-60"
-                                    style={{ backgroundColor: cardColor }}
-                                />
 
                                 <CardContent className="p-4 sm:p-6 h-full flex flex-col justify-between z-10 relative">
                                     <div className="flex items-start justify-between gap-2">
