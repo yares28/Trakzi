@@ -3,7 +3,7 @@ import { getCurrentUserId } from '@/lib/auth'
 import { getFriendsBundle, type FriendsBundleSummary } from '@/lib/charts/friends-aggregations'
 import { getCachedOrCompute, buildCacheKey, invalidateExactKeys } from '@/lib/cache/upstash'
 
-const FRIENDS_BUNDLE_TTL = 2 * 60 // 2 minutes
+const FRIENDS_BUNDLE_TTL = 30 // 30 seconds — friendship changes need near-immediate consistency
 
 export const GET = async (req: NextRequest) => {
     try {
