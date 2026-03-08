@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { clerkClient } from '@clerk/nextjs/server'
 import { getCurrentUserId } from '@/lib/auth'
 import { neonQuery } from '@/lib/neonClient'
 import { verifyRoomMember } from '@/lib/rooms/permissions'
@@ -58,6 +57,7 @@ async function getRoomBundle(roomId: string): Promise<RoomBundleSummary> {
     let imageMap = new Map<string, string>()
     if (memberUserIds.length > 0) {
         try {
+            const { clerkClient } = await import('@clerk/nextjs/server')
             const client = await clerkClient()
             const result = await client.users.getUserList({ userId: memberUserIds, limit: 100 })
             imageMap = new Map(result.data.map(u => [u.id, u.imageUrl]))
