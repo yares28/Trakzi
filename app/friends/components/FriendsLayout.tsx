@@ -21,7 +21,7 @@ export function FriendsLayout({ children }: FriendsLayoutProps) {
             <AppSidebar variant="inset" />
             <SidebarInset className="h-svh overflow-hidden flex flex-col">
                 <SiteHeader />
-                <main className="flex-1 space-y-2 sm:space-y-4 pt-0 lg:pt-2 overflow-y-auto">
+                <main className="flex-1 space-y-2 sm:space-y-4 pt-0 lg:pt-2 overflow-y-auto overflow-x-hidden">
                     {children}
                 </main>
             </SidebarInset>

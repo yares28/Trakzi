@@ -217,8 +217,21 @@ export const ChartRecurringVsOneTime = memo(function ChartRecurringVsOneTime({
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
-          <div className="h-full w-full min-h-[250px]" key={colorScheme}>
+          <div className="h-full w-full min-h-[200px]" key={colorScheme}>
             {renderChart()}
+          </div>
+          {/* Legend */}
+          <div className="flex items-center justify-center gap-6 pb-2 text-xs">
+            {chartData.map((d) => {
+              const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : "0"
+              return (
+                <div key={d.id} className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                  <span style={{ color: textColor }}>{d.label}</span>
+                  <span className="font-semibold tabular-nums" style={{ color: textColor }}>{pct}%</span>
+                </div>
+              )
+            })}
           </div>
         </CardContent>
       </Card>

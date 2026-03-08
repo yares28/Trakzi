@@ -36,6 +36,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
+import { useDemoMode } from "@/lib/demo/demo-context"
 
 import { DEFAULT_FAVORITE_SIZES } from "../constants"
 import type { FavoriteChartSize } from "../types"
@@ -135,6 +136,7 @@ export const FavoritesGrid = memo(function FavoritesGrid({
   dateFilter,
 }: FavoritesGridProps) {
   const router = useRouter()
+  const { isDemoMode } = useDemoMode()
   const [ringCategoryPopoverIndex, setRingCategoryPopoverIndex] = useState<
     number | null
   >(null)
@@ -453,7 +455,7 @@ export const FavoritesGrid = memo(function FavoritesGrid({
                                   config={activityConfig}
                                   theme={activityTheme}
                                   ringLimits={ringLimits}
-                                  getDefaultLimit={() => getDefaultRingLimit(dateFilter)}
+                                  getDefaultLimit={() => getDefaultRingLimit(dateFilter, isDemoMode)}
                                 />
                               </div>
                               <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">

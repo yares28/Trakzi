@@ -110,7 +110,7 @@ export const ChartPurchaseSizeBreakdown = memo(function ChartPurchaseSizeBreakdo
       data={chartData}
       keys={barKeys}
       indexBy="month"
-      margin={{ top: 20, right: 110, bottom: 50, left: 60 }}
+      margin={{ top: 20, right: 20, bottom: 50, left: 60 }}
       padding={0.3}
       groupMode="stacked"
       colors={[palette[2] || "#3b82f6", palette[1] || "#10b981", palette[0] || "#fe8339"]}
@@ -136,19 +136,6 @@ export const ChartPurchaseSizeBreakdown = memo(function ChartPurchaseSizeBreakdo
       }}
       enableGridY={true}
       gridYValues={5}
-      legends={[
-        {
-          dataFrom: "keys",
-          anchor: "bottom-right",
-          direction: "column",
-          translateX: 105,
-          itemWidth: 100,
-          itemHeight: 22,
-          itemTextColor: textColor,
-          symbolSize: 10,
-          symbolShape: "circle",
-        },
-      ]}
       theme={{
         text: { fill: textColor, fontSize: 11 },
         axis: { ticks: { text: { fill: textColor } } },
@@ -222,8 +209,17 @@ export const ChartPurchaseSizeBreakdown = memo(function ChartPurchaseSizeBreakdo
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
-          <div className="h-full w-full min-h-[250px]" key={colorScheme}>
+          <div className="h-full w-full min-h-[210px]" key={colorScheme}>
             {renderChart()}
+          </div>
+          {/* Legend */}
+          <div className="flex items-center justify-center gap-4 pb-2 text-xs flex-wrap">
+            {barKeys.map((key, i) => (
+              <div key={key} className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: [palette[2] || "#3b82f6", palette[1] || "#10b981", palette[0] || "#fe8339"][i] }} />
+                <span style={{ color: textColor }}>{key}</span>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>

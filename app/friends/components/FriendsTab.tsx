@@ -17,6 +17,7 @@ import { AddFriendDialog } from "@/components/friends/add-friend-dialog"
 import { ProfileModal } from "@/components/friends/profile-modal"
 import type { ProfileModalUser } from "@/components/friends/profile-modal"
 import type { FriendWithBalance, FriendRequest, ActivityItem } from "@/lib/types/friends"
+import type { FriendScore } from "@/lib/charts/friends-aggregations"
 
 const ACTIVITY_ICONS: Record<ActivityItem["type"], ReactNode> = {
     split_created: <ArrowRightLeft className="w-4 h-4 text-muted-foreground" />,
@@ -35,9 +36,24 @@ export default function FriendsTab() {
     const { formatCurrency } = useCurrency()
 
     const friendsList = (bundleData?.friendsList ?? []) as FriendWithBalance[]
+    const friendScores = (bundleData?.friends ?? []) as FriendScore[]
     const pending = bundleData?.pendingRequests ?? { incoming: [] as FriendRequest[], outgoing: [] as FriendRequest[] }
     const activityFeed = (bundleData?.activityFeed ?? []) as ActivityItem[]
     const netBalance = bundleData?.netBalance ?? { totalOwedToYou: 0, totalYouOwe: 0 }
+
+    /** Look up a friend's ranking metrics by user_id */
+    const getFriendStats = (userId: string) => {
+        const score = friendScores.find(f => f.friendUserId === userId)
+        if (!score || score.isPrivate) return undefined
+        return {
+            savingsRate: score.savingsRate,
+            spendingRate: 100 - score.savingsRate,
+            financialHealth: score.financialHealth,
+            fridgeScore: score.fridgeScore,
+            wantsPercent: score.wantsPercent,
+            streak: 0,
+        }
+    }
 
     const netTotal = netBalance.totalOwedToYou - netBalance.totalYouOwe
 
@@ -195,8 +211,8 @@ export default function FriendsTab() {
                             role="button"
                             tabIndex={0}
                             className="flex items-center justify-between px-3 sm:px-6 py-3 hover:bg-muted/10 transition-colors cursor-pointer gap-2"
-                            onClick={() => setSelectedUser({ id: friend.user_id || friend.friendship_id, name: friend.display_name, avatar: null })}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUser({ id: friend.user_id || friend.friendship_id, name: friend.display_name, avatar: null }) } }}
+                            onClick={() => setSelectedUser({ id: friend.user_id || friend.friendship_id, name: friend.display_name, avatar: null, stats: getFriendStats(friend.user_id), isPrivate: !getFriendStats(friend.user_id) })}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUser({ id: friend.user_id || friend.friendship_id, name: friend.display_name, avatar: null, stats: getFriendStats(friend.user_id), isPrivate: !getFriendStats(friend.user_id) }) } }}
                         >
                             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                                 <Avatar className="w-9 h-9 sm:w-10 sm:h-10 border border-border/50 shrink-0">

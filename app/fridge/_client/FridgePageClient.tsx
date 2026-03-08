@@ -263,21 +263,23 @@ export function FridgePageClient() {
 
           {viewMode === "advanced" && (
             <section>
-              <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-1 min-w-0">
-                <Card className="@container/card h-full flex flex-col">
-                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-base font-medium">
-                        Advanced Fridge
-                      </CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1">
-                    <div className="h-[250px] w-full flex items-center justify-center text-sm text-muted-foreground">
-                      This area is ready for advanced fridge analytics.
-                    </div>
-                  </CardContent>
-                </Card>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-12 min-w-0">
+                <div className="md:col-span-6 lg:col-span-4">
+                  <Card className="@container/card h-full flex flex-col">
+                    <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-base font-medium">
+                          Advanced Fridge
+                        </CardTitle>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1">
+                      <div className="h-[250px] w-full flex items-center justify-center text-sm text-muted-foreground">
+                        This area is ready for advanced fridge analytics.
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
             </section>
           )}

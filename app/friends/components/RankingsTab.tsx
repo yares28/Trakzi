@@ -15,6 +15,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useFriendsBundleData } from "@/hooks/use-friends-bundle"
 import type { FriendScore } from "@/lib/charts/friends-aggregations"
 import { AddFriendDialog } from "@/components/friends/add-friend-dialog"
+import { ProfileModal } from "@/components/friends/profile-modal"
+import type { ProfileModalUser } from "@/components/friends/profile-modal"
 
 type RankingMetric = "overall" | "savings" | "health" | "fridge" | "frugality"
 
@@ -34,6 +36,24 @@ const METRICS: MetricConfig[] = [
     { key: "fridge", label: "Healthy Fridge", icon: <TrendingUp className="w-4 h-4" />, field: "fridgeScore", unit: "/100", higherIsBetter: true },
     { key: "frugality", label: "Frugality", icon: <ShoppingBag className="w-4 h-4" />, field: "wantsPercent", unit: "%", higherIsBetter: false },
 ]
+
+// ─── Relative time formatter ─────────────────────────────────────────────────
+
+function formatRelativeTime(dateStr: string): string {
+    if (!dateStr || dateStr === "Just now" || dateStr === "Never") return dateStr
+    const date = new Date(dateStr)
+    if (isNaN(date.getTime())) return dateStr
+    const now = Date.now()
+    const diff = now - date.getTime()
+    const minutes = Math.floor(diff / 60000)
+    if (minutes < 1) return "Just now"
+    if (minutes < 60) return `${minutes}m ago`
+    const hours = Math.floor(minutes / 60)
+    if (hours < 24) return `${hours}h ago`
+    const days = Math.floor(hours / 24)
+    if (days < 7) return `${days}d ago`
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+}
 
 // ─── Crown SVG ───────────────────────────────────────────────────────────────
 
@@ -62,6 +82,7 @@ export default function RankingsTab() {
     const [activeMetric, setActiveMetric] = useState<RankingMetric>("overall")
     const [expandedId, setExpandedId] = useState<string | null>(null)
     const [addFriendOpen, setAddFriendOpen] = useState(false)
+    const [selectedUser, setSelectedUser] = useState<ProfileModalUser | null>(null)
     const { data: bundleData, isLoading } = useFriendsBundleData()
     const { user } = useUser()
 
@@ -249,9 +270,30 @@ export default function RankingsTab() {
                                                     {friend.isPrivate || isNotRanked ? "—" : rank}
                                                 </span>
                                                 <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                                                    <Avatar className="w-8 h-8 sm:w-10 sm:h-10 border border-border/50 shrink-0">
-                                                        <AvatarFallback className="text-xs sm:text-base">{friend.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                                    </Avatar>
+                                                    <button
+                                                        className="shrink-0"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            setSelectedUser({
+                                                                id: friend.friendUserId,
+                                                                name: friend.name,
+                                                                avatar: null,
+                                                                stats: friend.isPrivate ? undefined : {
+                                                                    savingsRate: friend.savingsRate,
+                                                                    spendingRate: 100 - friend.savingsRate,
+                                                                    financialHealth: friend.financialHealth,
+                                                                    fridgeScore: friend.fridgeScore,
+                                                                    wantsPercent: friend.wantsPercent,
+                                                                    streak: 0,
+                                                                },
+                                                                isPrivate: friend.isPrivate,
+                                                            })
+                                                        }}
+                                                    >
+                                                        <Avatar className="w-8 h-8 sm:w-10 sm:h-10 border border-border/50 shrink-0">
+                                                            <AvatarFallback className="text-xs sm:text-base">{friend.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                                        </Avatar>
+                                                    </button>
                                                     <div className="flex flex-col min-w-0">
                                                         <span className="font-semibold flex items-center gap-1.5 truncate">
                                                             {friend.name}
@@ -259,7 +301,7 @@ export default function RankingsTab() {
                                                             {friend.isPrivate && <Lock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
                                                         </span>
                                                         <span className="text-xs text-muted-foreground flex items-center gap-1 truncate">
-                                                            <History className="w-3 h-3 shrink-0" /> {friend.lastActive}
+                                                            <History className="w-3 h-3 shrink-0" /> {formatRelativeTime(friend.lastActive)}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -344,6 +386,7 @@ export default function RankingsTab() {
                     </CardContent>
                 </Card>
 
+                <ProfileModal open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)} user={selectedUser} />
                 <AddFriendDialog open={addFriendOpen} onOpenChange={setAddFriendOpen} />
             </div>
         </TooltipProvider>

@@ -1,9 +1,12 @@
 "use client"
 
+import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import { ProfileModal } from "@/components/friends/profile-modal"
+import type { ProfileModalUser } from "@/components/friends/profile-modal"
 import type { ChallengeGroupMember } from "@/lib/types/challenges"
 
 interface ChallengeMembersProps {
@@ -13,6 +16,7 @@ interface ChallengeMembersProps {
 
 export function ChallengeMembers({ members, currentUserId }: ChallengeMembersProps) {
     const sorted = [...members].sort((a, b) => b.total_points - a.total_points)
+    const [selectedUser, setSelectedUser] = useState<ProfileModalUser | null>(null)
 
     return (
         <div className="space-y-3">
@@ -22,8 +26,15 @@ export function ChallengeMembers({ members, currentUserId }: ChallengeMembersPro
                     {sorted.map(m => {
                         const isYou = m.user_id === currentUserId
                         return (
-                            <div key={m.user_id} className="flex items-center justify-between px-6 py-3.5">
-                                <div className="flex items-center gap-3">
+                            <div
+                                key={m.user_id}
+                                role="button"
+                                tabIndex={0}
+                                className="flex items-center justify-between px-3 sm:px-6 py-3.5 hover:bg-muted/10 transition-colors cursor-pointer"
+                                onClick={() => setSelectedUser({ id: m.user_id, name: m.display_name, avatar: null })}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUser({ id: m.user_id, name: m.display_name, avatar: null }) } }}
+                            >
+                                <div className="flex items-center gap-2 sm:gap-3">
                                     <Avatar className="w-9 h-9 border border-border/50">
                                         <AvatarFallback className="text-[10px]">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
                                     </Avatar>
@@ -42,6 +53,7 @@ export function ChallengeMembers({ members, currentUserId }: ChallengeMembersPro
                     })}
                 </CardContent>
             </Card>
+            <ProfileModal open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)} user={selectedUser} />
         </div>
     )
 }

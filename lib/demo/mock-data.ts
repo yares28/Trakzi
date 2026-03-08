@@ -1312,8 +1312,12 @@ export function buildFilteredAnalyticsBundle(filter: string | null | undefined) 
         if (!monthCatMap[mo]) monthCatMap[mo] = {}
         monthCatMap[mo][t.category] = (monthCatMap[mo][t.category] || 0) + Math.abs(t.amount)
     })
-    const filteredMonthlyCategories = Object.entries(monthCatMap).flatMap(([month, cats]) =>
-        Object.entries(cats).map(([category, total]) => ({ month, category, total: Math.round(total) }))
+    const monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const filteredMonthlyCategories = Object.entries(monthCatMap).flatMap(([monthYear, cats]) =>
+        Object.entries(cats).map(([category, total]) => {
+            const [, monthNum] = monthYear.split('-')
+            return { month: `${monthNamesShort[parseInt(monthNum, 10) - 1]} ${monthYear.slice(0, 4)}`, category, total: Math.round(total) }
+        })
     )
 
     // Day of week
@@ -1973,6 +1977,7 @@ export const MOCK_CHALLENGE_GROUPS = [
     {
         id: "cg-1",
         name: "Savings Warriors",
+        description: "Compete to save more and build better financial habits together!",
         created_by: "user_alice",
         is_public: false,
         invite_code: "SAV-XK9",
@@ -1982,15 +1987,92 @@ export const MOCK_CHALLENGE_GROUPS = [
         daysLeftInMonth: 28,
         yourRanks: { savingsRate: 2, financialHealth: 3 },
         members: [
-            { user_id: "user_alice", display_name: "Alice Chen", avatar_url: null, total_points: 18, joined_at: "2026-01-15T10:00:00Z", currentScores: { savingsRate: 34, financialHealth: 78 }, isRanked: true },
-            { user_id: "user_you", display_name: "You", avatar_url: null, total_points: 12, joined_at: "2026-01-15T10:01:00Z", currentScores: { savingsRate: 25, financialHealth: 66 }, isRanked: true },
-            { user_id: "user_charlie", display_name: "Charlie Davis", avatar_url: null, total_points: 24, joined_at: "2026-01-16T08:00:00Z", currentScores: { savingsRate: 42, financialHealth: 88 }, isRanked: true },
-            { user_id: "user_ethan", display_name: "Ethan Hunt", avatar_url: null, total_points: 6, joined_at: "2026-01-20T14:00:00Z", currentScores: { savingsRate: 22, financialHealth: 58 }, isRanked: true },
+            {
+                user_id: "user_alice", display_name: "Alice Chen", avatar_url: null, total_points: 18,
+                joined_at: "2026-01-15T10:00:00Z", currentScores: { savingsRate: 34, financialHealth: 78 }, isRanked: true,
+                scoreHistory: {
+                    savingsRate: [
+                        { month: "2025-10", score: 28, rank: 2, points: 2 },
+                        { month: "2025-11", score: 30, rank: 1, points: 3 },
+                        { month: "2025-12", score: 29, rank: 2, points: 2 },
+                        { month: "2026-01", score: 32, rank: 2, points: 2 },
+                        { month: "2026-02", score: 35, rank: 1, points: 3 },
+                    ],
+                    financialHealth: [
+                        { month: "2025-10", score: 70, rank: 2, points: 2 },
+                        { month: "2025-11", score: 72, rank: 2, points: 2 },
+                        { month: "2025-12", score: 74, rank: 2, points: 2 },
+                        { month: "2026-01", score: 76, rank: 2, points: 2 },
+                        { month: "2026-02", score: 78, rank: 2, points: 2 },
+                    ],
+                },
+            },
+            {
+                user_id: "user_you", display_name: "You", avatar_url: null, total_points: 12,
+                joined_at: "2026-01-15T10:01:00Z", currentScores: { savingsRate: 25, financialHealth: 66 }, isRanked: true,
+                scoreHistory: {
+                    savingsRate: [
+                        { month: "2025-10", score: 18, rank: 3, points: 1 },
+                        { month: "2025-11", score: 20, rank: 3, points: 1 },
+                        { month: "2025-12", score: 22, rank: 3, points: 1 },
+                        { month: "2026-01", score: 24, rank: 3, points: 1 },
+                        { month: "2026-02", score: 27, rank: 2, points: 2 },
+                    ],
+                    financialHealth: [
+                        { month: "2025-10", score: 55, rank: 3, points: 1 },
+                        { month: "2025-11", score: 58, rank: 3, points: 1 },
+                        { month: "2025-12", score: 60, rank: 3, points: 1 },
+                        { month: "2026-01", score: 63, rank: 3, points: 1 },
+                        { month: "2026-02", score: 66, rank: 3, points: 1 },
+                    ],
+                },
+            },
+            {
+                user_id: "user_charlie", display_name: "Charlie Davis", avatar_url: null, total_points: 24,
+                joined_at: "2026-01-16T08:00:00Z", currentScores: { savingsRate: 42, financialHealth: 88 }, isRanked: true,
+                scoreHistory: {
+                    savingsRate: [
+                        { month: "2025-10", score: 35, rank: 1, points: 3 },
+                        { month: "2025-11", score: 37, rank: 2, points: 2 },
+                        { month: "2025-12", score: 40, rank: 1, points: 3 },
+                        { month: "2026-01", score: 41, rank: 1, points: 3 },
+                        { month: "2026-02", score: 42, rank: 1, points: 3 },
+                    ],
+                    financialHealth: [
+                        { month: "2025-10", score: 80, rank: 1, points: 3 },
+                        { month: "2025-11", score: 82, rank: 1, points: 3 },
+                        { month: "2025-12", score: 84, rank: 1, points: 3 },
+                        { month: "2026-01", score: 86, rank: 1, points: 3 },
+                        { month: "2026-02", score: 88, rank: 1, points: 3 },
+                    ],
+                },
+            },
+            {
+                user_id: "user_ethan", display_name: "Ethan Hunt", avatar_url: null, total_points: 6,
+                joined_at: "2026-01-20T14:00:00Z", currentScores: { savingsRate: 22, financialHealth: 58 }, isRanked: true,
+                scoreHistory: {
+                    savingsRate: [
+                        { month: "2025-10", score: 15, rank: 4, points: 0 },
+                        { month: "2025-11", score: 16, rank: 4, points: 0 },
+                        { month: "2025-12", score: 18, rank: 4, points: 0 },
+                        { month: "2026-01", score: 20, rank: 4, points: 0 },
+                        { month: "2026-02", score: 22, rank: 3, points: 1 },
+                    ],
+                    financialHealth: [
+                        { month: "2025-10", score: 45, rank: 4, points: 0 },
+                        { month: "2025-11", score: 48, rank: 4, points: 0 },
+                        { month: "2025-12", score: 50, rank: 4, points: 0 },
+                        { month: "2026-01", score: 54, rank: 4, points: 0 },
+                        { month: "2026-02", score: 58, rank: 4, points: 0 },
+                    ],
+                },
+            },
         ],
     },
     {
         id: "cg-2",
         name: "Fridge Champions",
+        description: "Track who eats the healthiest and spends the smartest on groceries.",
         created_by: "user_you",
         is_public: true,
         invite_code: "FRG-M3P",
@@ -2000,9 +2082,60 @@ export const MOCK_CHALLENGE_GROUPS = [
         daysLeftInMonth: 28,
         yourRanks: { fridgeScore: 2, wantsPercent: 1 },
         members: [
-            { user_id: "user_you", display_name: "You", avatar_url: null, total_points: 9, joined_at: "2026-02-01T12:00:00Z", currentScores: { fridgeScore: 55, wantsPercent: 32 }, isRanked: true },
-            { user_id: "user_fiona", display_name: "Fiona Gallagher", avatar_url: null, total_points: 15, joined_at: "2026-02-01T12:05:00Z", currentScores: { fridgeScore: 62, wantsPercent: 28 }, isRanked: true },
-            { user_id: "user_bob", display_name: "Bob Smith", avatar_url: null, total_points: 3, joined_at: "2026-02-03T09:00:00Z", currentScores: { fridgeScore: 45, wantsPercent: 38 }, isRanked: true },
+            {
+                user_id: "user_you", display_name: "You", avatar_url: null, total_points: 9,
+                joined_at: "2026-02-01T12:00:00Z", currentScores: { fridgeScore: 55, wantsPercent: 32 }, isRanked: true,
+                scoreHistory: {
+                    fridgeScore: [
+                        { month: "2025-11", score: 40, rank: 2, points: 2 },
+                        { month: "2025-12", score: 45, rank: 2, points: 2 },
+                        { month: "2026-01", score: 50, rank: 2, points: 2 },
+                        { month: "2026-02", score: 55, rank: 2, points: 2 },
+                    ],
+                    wantsPercent: [
+                        { month: "2025-11", score: 40, rank: 2, points: 2 },
+                        { month: "2025-12", score: 38, rank: 1, points: 3 },
+                        { month: "2026-01", score: 35, rank: 1, points: 3 },
+                        { month: "2026-02", score: 32, rank: 1, points: 3 },
+                    ],
+                },
+            },
+            {
+                user_id: "user_fiona", display_name: "Fiona Gallagher", avatar_url: null, total_points: 15,
+                joined_at: "2026-02-01T12:05:00Z", currentScores: { fridgeScore: 62, wantsPercent: 28 }, isRanked: true,
+                scoreHistory: {
+                    fridgeScore: [
+                        { month: "2025-11", score: 48, rank: 1, points: 3 },
+                        { month: "2025-12", score: 52, rank: 1, points: 3 },
+                        { month: "2026-01", score: 58, rank: 1, points: 3 },
+                        { month: "2026-02", score: 62, rank: 1, points: 3 },
+                    ],
+                    wantsPercent: [
+                        { month: "2025-11", score: 35, rank: 1, points: 3 },
+                        { month: "2025-12", score: 33, rank: 2, points: 2 },
+                        { month: "2026-01", score: 30, rank: 2, points: 2 },
+                        { month: "2026-02", score: 28, rank: 2, points: 2 },
+                    ],
+                },
+            },
+            {
+                user_id: "user_bob", display_name: "Bob Smith", avatar_url: null, total_points: 3,
+                joined_at: "2026-02-03T09:00:00Z", currentScores: { fridgeScore: 45, wantsPercent: 38 }, isRanked: true,
+                scoreHistory: {
+                    fridgeScore: [
+                        { month: "2025-11", score: 30, rank: 3, points: 1 },
+                        { month: "2025-12", score: 35, rank: 3, points: 1 },
+                        { month: "2026-01", score: 40, rank: 3, points: 1 },
+                        { month: "2026-02", score: 45, rank: 3, points: 1 },
+                    ],
+                    wantsPercent: [
+                        { month: "2025-11", score: 45, rank: 3, points: 1 },
+                        { month: "2025-12", score: 42, rank: 3, points: 1 },
+                        { month: "2026-01", score: 40, rank: 3, points: 1 },
+                        { month: "2026-02", score: 38, rank: 3, points: 1 },
+                    ],
+                },
+            },
         ],
     },
 ]

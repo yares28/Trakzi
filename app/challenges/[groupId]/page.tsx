@@ -18,6 +18,7 @@ import type { ChallengeMetric } from "@/lib/types/challenges"
 import { ChallengeHeader } from "./_page/components/ChallengeHeader"
 import { ChallengeLeaderboards } from "./_page/components/ChallengeLeaderboards"
 import { ChallengeMembers } from "./_page/components/ChallengeMembers"
+import { ChallengeScoreChart } from "./_page/components/ChallengeScoreChart"
 
 export default function ChallengeDetailPage({ params }: { params: Promise<{ groupId: string }> }) {
     const { groupId } = use(params)
@@ -117,21 +118,31 @@ export default function ChallengeDetailPage({ params }: { params: Promise<{ grou
                                     <TabsTrigger value="about">About</TabsTrigger>
                                 </TabsList>
 
-                                <TabsContent value="leaderboards" className="mt-6">
+                                <TabsContent value="leaderboards" className="mt-6 space-y-6">
                                     <ChallengeLeaderboards
                                         metrics={data.metrics as ChallengeMetric[]}
                                         members={data.members}
                                         currentUserId={user?.id ?? ""}
                                         hideAllTime
                                     />
+                                    <ChallengeScoreChart
+                                        members={data.members}
+                                        metrics={data.metrics as ChallengeMetric[]}
+                                        currentUserId={user?.id ?? ""}
+                                    />
                                 </TabsContent>
 
-                                <TabsContent value="allTime" className="mt-6">
+                                <TabsContent value="allTime" className="mt-6 space-y-6">
                                     <ChallengeLeaderboards
                                         metrics={[]}
                                         members={data.members}
                                         currentUserId={user?.id ?? ""}
                                         allTimeOnly
+                                    />
+                                    <ChallengeScoreChart
+                                        members={data.members}
+                                        metrics={data.metrics as ChallengeMetric[]}
+                                        currentUserId={user?.id ?? ""}
                                     />
                                 </TabsContent>
 
@@ -205,6 +216,11 @@ export default function ChallengeDetailPage({ params }: { params: Promise<{ grou
                                 members={data.members}
                                 currentUserId={user?.id ?? ""}
                                 allTimeOnly
+                            />
+                            <ChallengeScoreChart
+                                members={data.members}
+                                metrics={data.metrics as ChallengeMetric[]}
+                                currentUserId={user?.id ?? ""}
                             />
                             <ChallengeMembers
                                 members={data.members}

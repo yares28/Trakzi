@@ -55,50 +55,60 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return { paceData: [], projectedTotal: 0, currentTotal: 0, daysRemaining: 0, dayOfMonth: 0, daysInMonth: 0, avgMonthlySpend: 0 }
 
-    // Use all passed data (already filtered by date picker)
-    let totalSpending = 0
+    // Group spending by calendar month
     const monthlyTotals = new Map<string, number>()
 
     data.forEach((tx) => {
-      if (tx.amount >= 0) return
-      totalSpending += Math.abs(tx.amount)
+      if (tx.amount >= 0) return // skip income
       const txDate = new Date(tx.date)
-      const monthKey = `${txDate.getFullYear()}-${txDate.getMonth()}`
+      const monthKey = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, "0")}`
       monthlyTotals.set(monthKey, (monthlyTotals.get(monthKey) || 0) + Math.abs(tx.amount))
     })
 
-    const monthCount = monthlyTotals.size
-    const avgMonthlySpend = monthCount > 0 ? totalSpending / monthCount : 0
+    if (monthlyTotals.size === 0) return { paceData: [], projectedTotal: 0, currentTotal: 0, daysRemaining: 0, dayOfMonth: 0, daysInMonth: 0, avgMonthlySpend: 0 }
 
-    // For pace calculation, use current month context
+    // Sort months chronologically
+    const sortedMonths = Array.from(monthlyTotals.entries()).sort((a, b) => a[0].localeCompare(b[0]))
+    const totalSpending = sortedMonths.reduce((sum, [, v]) => sum + v, 0)
+    const monthCount = sortedMonths.length
+
+    // Current month info
     const now = new Date()
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
     const dayOfMonth = now.getDate()
     const daysRemaining = daysInMonth - dayOfMonth
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+    const hasCurrentMonth = monthlyTotals.has(currentMonthKey)
+    const currentMonthSpent = monthlyTotals.get(currentMonthKey) || 0
 
-    // Current month spending (if available in the data)
-    const currentMonthKey = `${now.getFullYear()}-${now.getMonth()}`
-    const currentMonthTotal = monthlyTotals.get(currentMonthKey) || totalSpending
+    // Average of PAST months only (exclude current month for fairer comparison)
+    const pastMonthTotals = sortedMonths.filter(([k]) => k !== currentMonthKey)
+    const avgMonthlySpend = pastMonthTotals.length > 0
+      ? pastMonthTotals.reduce((sum, [, v]) => sum + v, 0) / pastMonthTotals.length
+      : (monthCount > 0 ? totalSpending / monthCount : 0)
 
-    const hasReliableProjection = dayOfMonth >= 2
+    // "Spent" = current month actual spending, or total if only 1 month
+    const displaySpent = hasCurrentMonth ? currentMonthSpent : (monthCount === 1 ? sortedMonths[0][1] : 0)
+
+    // "Expected at this point" = how much you'd typically have spent by this day
     const expectedAtThisPoint = avgMonthlySpend > 0
       ? (avgMonthlySpend / daysInMonth) * dayOfMonth
       : 0
-    const projectedTotal = hasReliableProjection && monthlyTotals.has(currentMonthKey)
-      ? ((monthlyTotals.get(currentMonthKey) || 0) / dayOfMonth) * daysInMonth
-      : 0
 
-    const displaySpent = monthlyTotals.has(currentMonthKey) ? (monthlyTotals.get(currentMonthKey) || 0) : totalSpending
+    // "Projected" = extrapolate current month spending to end of month
+    const projectedTotal = hasCurrentMonth && dayOfMonth >= 2
+      ? (currentMonthSpent / dayOfMonth) * daysInMonth
+      : 0
 
     const paceData = [
       { label: "Spent", value: displaySpent, color: palette[0] || "#fe8339" },
-      ...(avgMonthlySpend > 0 && monthCount > 1
+      ...(avgMonthlySpend > 0 && pastMonthTotals.length > 0
         ? [{ label: "Expected", value: expectedAtThisPoint, color: palette[1] || "#10b981" }]
         : []),
-      ...(hasReliableProjection && projectedTotal > 0
+      ...(projectedTotal > 0
         ? [{ label: "Projected", value: projectedTotal, color: palette[2] || "#3b82f6" }]
         : []),
-      ...(avgMonthlySpend > 0 && monthCount > 1
+      ...(avgMonthlySpend > 0 && pastMonthTotals.length > 0
         ? [{ label: "Avg Month", value: avgMonthlySpend, color: isDark ? "#6b7280" : "#9ca3af" }]
         : []),
     ]

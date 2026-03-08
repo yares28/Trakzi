@@ -41,21 +41,29 @@ export const ChartTooltipWrapper = memo(function ChartTooltipWrapper({
   // Track if we've received a real mouse position to prevent flash at (0,0)
   const [hasPosition, setHasPosition] = useState(false)
 
-  // Track mouse position for tooltip placement
+  // Track mouse/touch position for tooltip placement
   useEffect(() => {
     setMounted(true)
 
     const handleMouseMove = (e: MouseEvent) => {
       setPosition({ x: e.clientX, y: e.clientY })
-      // Mark that we now have a valid position
       if (!hasPosition) setHasPosition(true)
     }
 
-    // Use capture phase to get position before Nivo processes it
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        const touch = e.touches[0]
+        setPosition({ x: touch.clientX, y: touch.clientY })
+        if (!hasPosition) setHasPosition(true)
+      }
+    }
+
     document.addEventListener("mousemove", handleMouseMove, { passive: true })
+    document.addEventListener("touchmove", handleTouchMove, { passive: true })
 
     return () => {
       document.removeEventListener("mousemove", handleMouseMove)
+      document.removeEventListener("touchmove", handleTouchMove)
     }
   }, [hasPosition])
 

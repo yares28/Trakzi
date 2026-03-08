@@ -1,10 +1,13 @@
 "use client"
 
+import { useState } from "react"
 import { Crown, Shield, User } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import { ProfileModal } from "@/components/friends/profile-modal"
+import type { ProfileModalUser } from "@/components/friends/profile-modal"
 
 interface Member {
     user_id: string
@@ -24,23 +27,27 @@ const RoleIcon = ({ role }: { role: string }) => {
 }
 
 export function RoomMembers({ members }: RoomMembersProps) {
+    const [selectedUser, setSelectedUser] = useState<ProfileModalUser | null>(null)
+
     return (
         <div className="space-y-3">
             <h2 className="text-lg font-semibold px-1">Members ({members.length})</h2>
             <Card className="border-border/40 bg-white/5 dark:bg-black/20 backdrop-blur-xl rounded-3xl overflow-hidden">
                 <CardContent className="p-0 divide-y divide-border/30">
                     {members.map(m => (
-                        <div key={m.user_id} className="flex items-center justify-between px-6 py-3.5">
-                            <div className="flex items-center gap-3">
+                        <div
+                            key={m.user_id}
+                            role="button"
+                            tabIndex={0}
+                            className="flex items-center justify-between px-3 sm:px-6 py-3.5 hover:bg-muted/10 transition-colors cursor-pointer"
+                            onClick={() => setSelectedUser({ id: m.user_id, name: m.display_name, avatar: null })}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUser({ id: m.user_id, name: m.display_name, avatar: null }) } }}
+                        >
+                            <div className="flex items-center gap-2 sm:gap-3">
                                 <Avatar className="w-9 h-9 border border-border/50">
                                     <AvatarFallback className="text-[10px]">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
                                 </Avatar>
-                                <div>
-                                    <p className="font-medium text-sm">{m.display_name}</p>
-                                    <p className="text-[10px] text-muted-foreground">
-                                        Joined {new Date(m.joined_at).toLocaleDateString()}
-                                    </p>
-                                </div>
+                                <p className="font-medium text-sm">{m.display_name}</p>
                             </div>
                             <Badge variant="outline" className="gap-1 text-xs capitalize">
                                 <RoleIcon role={m.role} />
@@ -50,6 +57,7 @@ export function RoomMembers({ members }: RoomMembersProps) {
                     ))}
                 </CardContent>
             </Card>
+            <ProfileModal open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)} user={selectedUser} />
         </div>
     )
 }

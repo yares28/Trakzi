@@ -132,7 +132,7 @@ export const ChartIncomeExpenseRatio = memo(function ChartIncomeExpenseRatio({
 
   const renderChart = () => (
     <div className="h-full w-full flex flex-col items-center justify-center">
-      <div className="w-full h-[200px] relative">
+      <div className="w-full h-[280px] relative">
         <ResponsivePie
           data={pieData}
           margin={{ top: 20, right: 20, bottom: 20, left: 20 }}

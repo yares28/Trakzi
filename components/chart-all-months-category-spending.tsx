@@ -844,7 +844,7 @@ export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCatego
     }
   }, [processedData, categories, categoryColors, isDark, textColor, gridColor, axisColor, actualMonthTotals, formatCurrency])
 
-  if (!data || data.length === 0) {
+  if ((!data || data.length === 0) && (!monthlyCategoriesData || monthlyCategoriesData.length === 0) && processedData.length === 0) {
     return (
       <Card className="@container/card">
         <CardHeader>

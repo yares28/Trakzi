@@ -8,7 +8,7 @@ import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
-import { getChartTextColor, DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
+import { getChartTextColor, getContrastTextColor, DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
     Card,
@@ -336,7 +336,7 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
                                             y={y + barHeight / 2 + 1}
                                             textAnchor="middle"
                                             fontSize="3.5"
-                                            fill={isDark ? "#ffffff" : "#1f2937"}
+                                            fill={getContrastTextColor(range.color)}
                                             fontWeight="bold"
                                         >
                                             {range.count}
