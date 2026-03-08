@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { demoFetch } from "@/lib/demo/demo-fetch"
-import { useFriendsBundleData } from "@/hooks/use-friends-bundle"
+import { useFriendsBundleData, useRefreshFriendsBundle } from "@/hooks/use-friends-bundle"
 import { useCurrency } from "@/components/currency-provider"
 import { AddFriendDialog } from "@/components/friends/add-friend-dialog"
 import { ProfileModal } from "@/components/friends/profile-modal"
@@ -34,6 +34,7 @@ export default function FriendsTab() {
     const [selectedUser, setSelectedUser] = useState<ProfileModalUser | null>(null)
     const [actionLoading, setActionLoading] = useState<string | null>(null)
     const { formatCurrency } = useCurrency()
+    const refreshFriendsBundle = useRefreshFriendsBundle()
 
     const friendsList = (bundleData?.friendsList ?? []) as FriendWithBalance[]
     const friendScores = (bundleData?.friends ?? []) as FriendScore[]
@@ -67,7 +68,7 @@ export default function FriendsTab() {
             })
             if (!res.ok) throw new Error('Failed to accept request')
             toast.success('Friend request accepted')
-            queryClient.invalidateQueries({ queryKey: ['friends-bundle'] })
+            refreshFriendsBundle()
         } catch {
             toast.error('Failed to accept friend request')
         } finally {
@@ -149,7 +150,10 @@ export default function FriendsTab() {
                     </div>
                     <CardContent className="p-0 divide-y divide-border/30">
                         {pending.incoming.map(req => (
-                            <div key={req.friendship_id} className="flex items-center justify-between px-3 sm:px-6 py-3 gap-2">
+                            <div key={req.friendship_id} className="flex items-center justify-between px-3 sm:px-6 py-3 gap-2 hover:bg-muted/10 transition-colors cursor-pointer"
+                                onClick={() => setSelectedUser({ id: req.user_id || req.friendship_id, name: req.display_name, avatar: null, stats: getFriendStats(req.user_id) || undefined, isPrivate: true })}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUser({ id: req.user_id || req.friendship_id, name: req.display_name, avatar: null, stats: getFriendStats(req.user_id) || undefined, isPrivate: true }) } }}
+                            >
                                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                                     <Avatar className="w-8 h-8 sm:w-9 sm:h-9 border border-border/50 shrink-0">
                                         <AvatarFallback className="text-[10px] sm:text-xs">{req.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
@@ -170,7 +174,10 @@ export default function FriendsTab() {
                             </div>
                         ))}
                         {pending.outgoing.map(req => (
-                            <div key={req.friendship_id} className="flex items-center justify-between px-3 sm:px-6 py-3 opacity-60">
+                            <div key={req.friendship_id} className="flex items-center justify-between px-3 sm:px-6 py-3 opacity-60 hover:bg-muted/10 transition-colors cursor-pointer hover:opacity-100"
+                                onClick={() => setSelectedUser({ id: req.user_id || req.friendship_id, name: req.display_name, avatar: null, stats: getFriendStats(req.user_id) || undefined, isPrivate: true })}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUser({ id: req.user_id || req.friendship_id, name: req.display_name, avatar: null, stats: getFriendStats(req.user_id) || undefined, isPrivate: true }) } }}
+                            >
                                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                                     <Avatar className="w-8 h-8 sm:w-9 sm:h-9 border border-border/50 shrink-0">
                                         <AvatarFallback className="text-[10px] sm:text-xs">{req.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>

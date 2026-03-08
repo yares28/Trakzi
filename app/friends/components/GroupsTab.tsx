@@ -127,7 +127,7 @@ export default function GroupsTab() {
                             <Card
                                 key={room.id}
                                 onClick={() => router.push(`/rooms/${room.id}`)}
-                                className="relative h-[210px] sm:h-[260px] rounded-2xl sm:rounded-3xl bg-card/60 backdrop-blur-md shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer overflow-hidden border border-border/50 hover:border-border"
+                                className="relative h-[210px] sm:h-[260px] rounded-2xl sm:rounded-3xl bg-card/60 backdrop-blur-md shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer border border-border/50 hover:border-border"
                             >
                                 {/* Palette-based accent glow */}
                                 <div
@@ -155,7 +155,7 @@ export default function GroupsTab() {
                                         </div>
                                     </div>
 
-                                    <div className="flex items-end justify-between mt-2 sm:mt-4 gap-2">
+                                    <div className="flex items-end justify-between mt-auto gap-2">
                                         <div className="space-y-0.5 sm:space-y-1">
                                             <span className="text-[10px] sm:text-xs text-muted-foreground block">Your Balance</span>
                                             <div className={cn(
@@ -169,14 +169,14 @@ export default function GroupsTab() {
                                                         "Settled"}
                                             </div>
                                         </div>
-                                        <Badge variant="secondary" className="bg-background/50 border-border/50 text-[10px] sm:text-xs shadow-none px-1.5 sm:px-2">
+                                        <Badge variant="secondary" className="bg-background/50 border-border/50 text-foreground text-[10px] sm:text-xs shadow-none px-1.5 sm:px-2">
                                             <Activity className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1" />
                                             <span className="hidden sm:inline">{formatCurrency(room.totalShared)} Total</span>
                                             <span className="sm:hidden">{formatCurrency(room.totalShared)}</span>
                                         </Badge>
                                     </div>
 
-                                    <div className="flex items-center justify-between pt-2 sm:pt-4 border-t border-border/40 mt-auto">
+                                    <div className="flex items-center justify-between pt-2 sm:pt-4 border-t border-border/40 mt-2 sm:mt-4">
                                         {/* Mobile: max 2 avatars */}
                                         <div className="flex z-20 ml-2 sm:hidden">
                                             <AnimatedTooltip

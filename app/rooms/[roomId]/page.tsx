@@ -24,7 +24,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
                     variant="ghost"
                     size="sm"
                     className="gap-1.5"
-                    onClick={() => router.push('/friends')}
+                    onClick={() => router.push('/friends?tab=groups')}
                 >
                     <ArrowLeft className="w-4 h-4" /> <span className="hidden sm:inline">Back to Groups</span>
                 </Button>
@@ -38,7 +38,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
                 {error && (
                     <div className="text-center py-20 text-muted-foreground">
                         <p>Failed to load room. You may not have access.</p>
-                        <Button variant="outline" className="mt-4" onClick={() => router.push('/friends')}>
+                        <Button variant="outline" className="mt-4" onClick={() => router.push('/friends?tab=groups')}>
                             Go Back
                         </Button>
                     </div>
