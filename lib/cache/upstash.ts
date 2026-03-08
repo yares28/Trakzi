@@ -235,4 +235,19 @@ export async function invalidateRoomCache(roomId: string): Promise<void> {
     }
 }
 
+/**
+ * Directly delete one or more exact cache keys (no SCAN).
+ * More reliable than invalidateUserCachePrefix for known key patterns.
+ */
+export async function invalidateExactKeys(...keys: string[]): Promise<void> {
+    if (!redis || keys.length === 0) return
+
+    try {
+        await redis.del(...keys)
+        console.log(`[Cache] Direct DEL: ${keys.join(', ')}`)
+    } catch (error) {
+        console.error('[Cache] Direct DEL error:', error)
+    }
+}
+
 export { CACHE_TTL }

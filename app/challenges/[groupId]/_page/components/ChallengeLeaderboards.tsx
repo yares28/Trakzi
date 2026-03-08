@@ -141,18 +141,26 @@ function AllTimeLeaderboard({ members, currentUserId }: { members: ChallengeGrou
                         const crownColors = ["text-slate-400", "text-yellow-500", "text-amber-600"]
 
                         return (
-                            <div key={member.user_id} className="flex flex-col items-center gap-1">
-                                <Crown className={cn("w-4 h-4", crownColors[i])} />
-                                <Avatar className="w-10 h-10 border-2 border-border/50">
-                                    <AvatarFallback className="text-xs font-bold">{member.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                </Avatar>
-                                <span className="text-xs font-semibold text-center max-w-[60px] truncate">
-                                    {isYou ? "You" : member.display_name.split(" ")[0]}
-                                </span>
-                                <div className={cn("w-14 rounded-t-lg flex items-end justify-center pb-1", heights[i], podiumColors[i])}>
-                                    <span className={cn("text-xs font-bold", crownColors[i])}>{member.total_points}pts</span>
-                                </div>
-                            </div>
+                            <Tooltip key={member.user_id}>
+                                <TooltipTrigger asChild>
+                                    <div className="flex flex-col items-center gap-1 cursor-pointer">
+                                        <Crown className={cn("w-4 h-4", crownColors[i])} />
+                                        <Avatar className="w-10 h-10 border-2 border-border/50">
+                                            <AvatarFallback className="text-xs font-bold">{member.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                        </Avatar>
+                                        <span className="text-xs font-semibold text-center max-w-[60px] truncate">
+                                            {isYou ? "You" : member.display_name.split(" ")[0]}
+                                        </span>
+                                        <div className={cn("w-14 rounded-t-lg flex items-end justify-center pb-1", heights[i], podiumColors[i])}>
+                                            <span className={cn("text-xs font-bold", crownColors[i])}>{member.total_points}pts</span>
+                                        </div>
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p className="font-semibold">{member.display_name}</p>
+                                    <p className="text-xs text-muted-foreground">{member.total_points} total points</p>
+                                </TooltipContent>
+                            </Tooltip>
                         )
                     })}
                 </div>
@@ -162,19 +170,27 @@ function AllTimeLeaderboard({ members, currentUserId }: { members: ChallengeGrou
                 const rank = i + 4
                 const isYou = m.user_id === currentUserId
                 return (
-                    <div key={m.user_id} className={cn("flex items-center gap-3 px-4 py-2.5 rounded-xl", isYou && "bg-primary/5")}>
-                        <span className="w-6 text-center text-sm font-bold text-muted-foreground">{rank}</span>
-                        <Avatar className="w-8 h-8 border border-border/50">
-                            <AvatarFallback className="text-[10px]">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <span className="flex-1 text-sm font-medium">
-                            {m.display_name}
-                            {isYou && <span className="ml-1 text-xs text-primary">(You)</span>}
-                        </span>
-                        <span className={cn("text-sm tabular-nums", pointsColor(m.total_points))}>
-                            {m.total_points} pts
-                        </span>
-                    </div>
+                    <Tooltip key={m.user_id}>
+                        <TooltipTrigger asChild>
+                            <div className={cn("flex items-center gap-3 px-4 py-2.5 rounded-xl cursor-pointer", isYou && "bg-primary/5")}>
+                                <span className="w-6 text-center text-sm font-bold text-muted-foreground">{rank}</span>
+                                <Avatar className="w-8 h-8 border border-border/50">
+                                    <AvatarFallback className="text-[10px]">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                                <span className="flex-1 text-sm font-medium">
+                                    {m.display_name}
+                                    {isYou && <span className="ml-1 text-xs text-primary">(You)</span>}
+                                </span>
+                                <span className={cn("text-sm tabular-nums", pointsColor(m.total_points))}>
+                                    {m.total_points} pts
+                                </span>
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p className="font-semibold">{m.display_name}</p>
+                            <p className="text-xs text-muted-foreground">{m.total_points} total points</p>
+                        </TooltipContent>
+                    </Tooltip>
                 )
             })}
 

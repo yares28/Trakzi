@@ -1,9 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Trophy, Globe, Lock, Users, Search } from "lucide-react"
+import { Plus, Trophy, Globe, Lock, Users, Search, PiggyBank, HeartPulse, Apple, ShoppingBag } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { useUser } from "@clerk/nextjs"
 
 import { cn } from "@/lib/utils"
 import { useColorScheme } from "@/components/color-scheme-provider"
@@ -26,6 +27,13 @@ const METRIC_LABELS: Record<ChallengeMetric, string> = {
     wantsPercent: "Frugality",
 }
 
+const METRIC_ICONS: Record<ChallengeMetric, React.ElementType> = {
+    savingsRate: PiggyBank,
+    financialHealth: HeartPulse,
+    fridgeScore: Apple,
+    wantsPercent: ShoppingBag,
+}
+
 export default function ChallengesTab() {
     const { getPalette } = useColorScheme()
     const router = useRouter()
@@ -34,6 +42,7 @@ export default function ChallengesTab() {
     const [createOpen, setCreateOpen] = useState(false)
     const [discoverOpen, setDiscoverOpen] = useState(false)
     const [selectedUser, setSelectedUser] = useState<ProfileModalUser | null>(null)
+    const { user } = useUser()
 
     const palette = getPalette()
 
@@ -156,19 +165,21 @@ export default function ChallengesTab() {
                                                     <Lock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground shrink-0" />
                                                 )}
                                             </div>
-                                            <div className="flex gap-1 flex-wrap">
-                                                {group.metrics.map(m => (
-                                                    <Badge key={m} variant="secondary" className="text-[9px] sm:text-[10px] px-1 py-0">
-                                                        {METRIC_LABELS[m]}
-                                                    </Badge>
-                                                ))}
-                                            </div>
                                         </div>
-                                        <div
-                                            className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl shrink-0"
-                                            style={{ backgroundColor: `${cardColor}20`, color: cardColor }}
-                                        >
-                                            <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                        <div className="flex items-center -space-x-1.5 sm:-space-x-2 shrink-0">
+                                            {group.metrics.map((m, mIdx) => {
+                                                const Icon = METRIC_ICONS[m]
+                                                return (
+                                                    <div
+                                                        key={m}
+                                                        className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border-[1.5px] border-background flex items-center justify-center relative transition-all hover:-translate-y-1 hover:z-20 group"
+                                                        style={{ backgroundColor: `${cardColor}20`, color: cardColor, zIndex: group.metrics.length - mIdx }}
+                                                        title={METRIC_LABELS[m]}
+                                                    >
+                                                        <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                                    </div>
+                                                )
+                                            })}
                                         </div>
                                     </div>
 
@@ -196,17 +207,18 @@ export default function ChallengesTab() {
                                             <AnimatedTooltip
                                                 items={group.members.slice(0, 2).map((member, mIdx) => {
                                                     const memberColor = palette[mIdx % palette.length]
+                                                    const isCurrentUser = member.user_id === user?.id
                                                     return {
                                                         id: member.user_id,
                                                         name: member.display_name,
                                                         designation: "Challenger",
-                                                        image: member.avatar_url,
+                                                        image: isCurrentUser && user?.imageUrl ? user.imageUrl : member.avatar_url,
                                                         color: memberColor,
                                                         onClick: () => {
                                                             setSelectedUser({
                                                                 id: member.user_id,
                                                                 name: member.display_name,
-                                                                avatar: member.avatar_url,
+                                                                avatar: isCurrentUser && user?.imageUrl ? user.imageUrl : member.avatar_url,
                                                                 color: memberColor,
                                                             })
                                                         }
@@ -224,17 +236,18 @@ export default function ChallengesTab() {
                                             <AnimatedTooltip
                                                 items={group.members.slice(0, 3).map((member, mIdx) => {
                                                     const memberColor = palette[mIdx % palette.length]
+                                                    const isCurrentUser = member.user_id === user?.id
                                                     return {
                                                         id: member.user_id,
                                                         name: member.display_name,
                                                         designation: "Challenger",
-                                                        image: member.avatar_url,
+                                                        image: isCurrentUser && user?.imageUrl ? user.imageUrl : member.avatar_url,
                                                         color: memberColor,
                                                         onClick: () => {
                                                             setSelectedUser({
                                                                 id: member.user_id,
                                                                 name: member.display_name,
-                                                                avatar: member.avatar_url,
+                                                                avatar: isCurrentUser && user?.imageUrl ? user.imageUrl : member.avatar_url,
                                                                 color: memberColor,
                                                             })
                                                         }
