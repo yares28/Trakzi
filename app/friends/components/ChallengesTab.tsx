@@ -27,7 +27,7 @@ const METRIC_LABELS: Record<ChallengeMetric, string> = {
     wantsPercent: "Frugality",
 }
 
-const METRIC_ICONS: Record<ChallengeMetric, React.ElementType> = {
+const METRIC_ICONS: Record<ChallengeMetric, React.ComponentType<{ className?: string }>> = {
     savingsRate: PiggyBank,
     financialHealth: HeartPulse,
     fridgeScore: Apple,
