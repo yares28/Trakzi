@@ -298,7 +298,7 @@ async function getUserRooms(userId: string): Promise<RoomData[]> {
             `SELECT rm.room_id, rm.user_id, u.name AS display_name
              FROM room_members rm
              JOIN users u ON u.id = rm.user_id
-             WHERE rm.room_id = ANY($1::uuid[])
+             WHERE rm.room_id = ANY($1::text[])
              ORDER BY rm.joined_at ASC`,
             [roomIds]
         )
