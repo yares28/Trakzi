@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import { AnimatePresence, MotionConfig, motion } from "framer-motion"
-import { X, Lock, UserPlus } from "lucide-react"
+import { X, Lock, UserPlus, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -29,10 +29,7 @@ function getMockStats(name: string) {
     return {
         savingsRate: s(h, 8, 42),
         spendingRate: 100 - s(h, 8, 42),
-        financialHealth: s(h >> 3, 55, 95),
-        fridgeScore: s(h >> 6, 40, 100),
-        wantsPercent: s(h >> 4, 12, 55),
-        streak: s(h >> 9, 1, 30),
+        frugality: s(h >> 4, 30, 85),
     }
 }
 
@@ -60,6 +57,13 @@ interface ProfileModalProps {
     onOpenChange: (open: boolean) => void
     user: ProfileModalUser | null
     onInvite?: (userId: string | number) => void
+}
+
+interface ProfileStats {
+    savingsRate: number
+    spendingRate: number
+    frugality: number
+    hasData: boolean
 }
 
 // ── Avatar content helper ────────────────────────────────────────────────────
@@ -222,11 +226,42 @@ export function ProfileModal({ open, onOpenChange, user, onInvite }: ProfileModa
     const { isDemoMode } = useDemoMode()
     const { getPalette } = useColorScheme()
     const [expand, setExpand] = useState(false)
+    const [fetchedStats, setFetchedStats] = useState<ProfileStats | null>(null)
+    const [statsLoading, setStatsLoading] = useState(false)
+    const [isPrivateProfile, setIsPrivateProfile] = useState(false)
 
     const handleOpenChange = (val: boolean) => {
-        if (!val) setExpand(false)
+        if (!val) {
+            setExpand(false)
+            setFetchedStats(null)
+            setIsPrivateProfile(false)
+        }
         onOpenChange(val)
     }
+
+    // Fetch all-time stats when modal opens
+    useEffect(() => {
+        if (!open || !user || isDemoMode) return
+        const userId = String(user.id)
+        if (!userId || userId === 'self') return
+
+        setStatsLoading(true)
+        setFetchedStats(null)
+        setIsPrivateProfile(false)
+
+        fetch(`/api/users/${userId}/profile-stats`)
+            .then(async (res) => {
+                if (res.status === 403) {
+                    setIsPrivateProfile(true)
+                    return
+                }
+                if (!res.ok) return
+                const data = await res.json()
+                setFetchedStats(data)
+            })
+            .catch(() => { })
+            .finally(() => setStatsLoading(false))
+    }, [open, user?.id, isDemoMode])
 
     // Pick palette accent colors
     const palette = getPalette()
@@ -235,9 +270,8 @@ export function ProfileModal({ open, onOpenChange, user, onInvite }: ProfileModa
         const pick = (frac: number) => p[Math.floor(p.length * frac)] || p[Math.floor(p.length / 2)]
         return {
             c1: pick(0.3),
-            c2: pick(0.5),
-            c3: pick(0.65),
-            c4: pick(0.8),
+            c2: pick(0.55),
+            c3: pick(0.75),
         }
     }, [palette])
 
@@ -248,18 +282,27 @@ export function ProfileModal({ open, onOpenChange, user, onInvite }: ProfileModa
     const initials = getInitials(user.name)
     const username = user.username || `@${user.name.toLowerCase().replace(/\s+/g, "")}`
 
-    const stats = isDemoMode ? getMockStats(user.name) : user.stats
-    const isPrivate = !isDemoMode && user.isPrivate
+    const mockStats = isDemoMode ? getMockStats(user.name) : null
+    const isPrivate = (!isDemoMode && (isPrivateProfile || user.isPrivate)) && !statsLoading
 
-    // Build ring data from stats
-    const ringData: RingDatum[] | null = stats
-        ? [
-            { label: "Savings", value: stats.savingsRate ?? 0, color: colors.c1 },
-            { label: "Health", value: stats.financialHealth ?? 0, color: colors.c2 },
-            { label: "Fridge", value: stats.fridgeScore ?? 0, color: colors.c3 },
-            { label: "Frugality", value: 100 - (stats.wantsPercent ?? 0), color: colors.c4 },
-        ]
-        : null
+    // Build ring data — prefer fetched all-time data, fall back to mock in demo mode
+    const ringData: RingDatum[] | null = (() => {
+        if (isDemoMode && mockStats) {
+            return [
+                { label: "Savings", value: mockStats.savingsRate, color: colors.c1 },
+                { label: "Spending", value: mockStats.spendingRate, color: colors.c2 },
+                { label: "Frugality", value: mockStats.frugality, color: colors.c3 },
+            ]
+        }
+        if (fetchedStats?.hasData) {
+            return [
+                { label: "Savings", value: fetchedStats.savingsRate, color: colors.c1 },
+                { label: "Spending", value: fetchedStats.spendingRate, color: colors.c2 },
+                { label: "Frugality", value: fetchedStats.frugality, color: colors.c3 },
+            ]
+        }
+        return null
+    })()
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -376,7 +419,11 @@ export function ProfileModal({ open, onOpenChange, user, onInvite }: ProfileModa
                                 This user has chosen to keep their financial data private.
                             </p>
                         </div>
-                    ) : stats && ringData ? (
+                    ) : statsLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : ringData ? (
                         <div className="space-y-4">
                             {/* ── Activity Rings (centered) ── */}
                             <div className="flex flex-col items-center gap-3">
@@ -398,9 +445,9 @@ export function ProfileModal({ open, onOpenChange, user, onInvite }: ProfileModa
 
                             {/* ── Dashboard-style stat cards ── */}
                             <div className="grid grid-cols-3 gap-2">
-                                <MiniStatCard label="Savings" value={`${stats.savingsRate ?? 0}%`} color={colors.c1} />
-                                <MiniStatCard label="Spending" value={`${stats.spendingRate ?? 0}%`} color={colors.c2} />
-                                <MiniStatCard label="Streak" value={`${stats.streak ?? 0}d`} color={colors.c3} />
+                                <MiniStatCard label="Savings" value={`${ringData[0].value}%`} color={colors.c1} />
+                                <MiniStatCard label="Spending" value={`${ringData[1].value}%`} color={colors.c2} />
+                                <MiniStatCard label="Frugality" value={`${ringData[2].value}%`} color={colors.c3} />
                             </div>
                         </div>
                     ) : (

@@ -88,6 +88,17 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
     const [activeSection, setActiveSection] = React.useState<SettingsSection>("preferences")
     const isMobile = useIsMobile()
 
+    // Allow external code (e.g. toast action buttons) to open a specific section
+    React.useEffect(() => {
+        const handler = (e: Event) => {
+            const section = (e as CustomEvent<{ section?: SettingsSection }>).detail?.section
+            setActiveSection(section ?? "preferences")
+            setOpen(true)
+        }
+        window.addEventListener("open-settings", handler)
+        return () => window.removeEventListener("open-settings", handler)
+    }, [])
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>

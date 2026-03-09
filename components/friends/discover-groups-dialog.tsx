@@ -59,7 +59,16 @@ export function DiscoverGroupsDialog({ open, onOpenChange, onJoined }: DiscoverG
             })
             const data = await res.json()
             if (!res.ok) {
-                toast.error(data.error || "Failed to join")
+                if (res.status === 403 && data.error?.includes('privacy settings')) {
+                    toast.error(data.error, {
+                        action: {
+                            label: 'Privacy Settings →',
+                            onClick: () => window.dispatchEvent(new CustomEvent('open-settings', { detail: { section: 'privacy' } })),
+                        },
+                    })
+                } else {
+                    toast.error(data.error || "Failed to join")
+                }
                 return
             }
             toast.success("Joined group!")

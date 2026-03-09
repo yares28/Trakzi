@@ -148,7 +148,19 @@ export default function ChallengesTab() {
                         })
                             .then(r => r.json())
                             .then(d => {
-                                if (d.error) { toast.error(d.error); return }
+                                if (d.error) {
+                                    if (d.error?.includes('privacy settings')) {
+                                        toast.error(d.error, {
+                                            action: {
+                                                label: 'Privacy Settings →',
+                                                onClick: () => window.dispatchEvent(new CustomEvent('open-settings', { detail: { section: 'privacy' } })),
+                                            },
+                                        })
+                                    } else {
+                                        toast.error(d.error)
+                                    }
+                                    return
+                                }
                                 toast.success("Joined group!")
                                 demoFetch("/api/challenge-groups")
                                     .then(r => r.json())

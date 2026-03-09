@@ -116,6 +116,20 @@ export async function GET(
             })
         }
 
+        // Batch-fetch Clerk avatar URLs for all members
+        let clerkImageMap = new Map<string, string>()
+        try {
+            const { clerkClient } = await import('@clerk/nextjs/server')
+            const client = await clerkClient()
+            const result = await client.users.getUserList({
+                userId: memberRows.map(m => m.user_id),
+                limit: 200,
+            })
+            clerkImageMap = new Map(result.data.map(u => [u.id, u.imageUrl]))
+        } catch {
+            // Best-effort — fall back to null avatars
+        }
+
         const members = memberRows.map(m => {
             const liveMetrics = metricsMap.get(m.user_id)
             const currentScores: Partial<Record<ChallengeMetric, number | null>> = {}
@@ -127,7 +141,7 @@ export async function GET(
             return {
                 user_id: m.user_id,
                 display_name: m.display_name,
-                avatar_url: null,
+                avatar_url: clerkImageMap.get(m.user_id) ?? null,
                 total_points: parseInt(m.total_points, 10),
                 joined_at: m.joined_at,
                 currentScores,
