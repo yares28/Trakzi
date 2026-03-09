@@ -60,10 +60,12 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
                             description={data.room.description}
                             inviteCode={data.room.invite_code}
                             memberCount={data.members.length}
-                            onAddTransactions={() => setAddDialogOpen(true)}
                         />
                         <RoomBalances
-                            balances={data.balances}
+                            balances={data.balances.map(b => ({
+                                ...b,
+                                avatar_url: data.members.find(m => m.user_id === b.user_id)?.avatar_url ?? null,
+                            }))}
                             unattributedTotal={data.unattributedTotal}
                             unattributedCount={data.unattributedCount}
                             sourceBreakdown={data.sourceBreakdown}

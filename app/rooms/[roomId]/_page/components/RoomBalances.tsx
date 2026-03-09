@@ -3,7 +3,7 @@
 import { ArrowDownToLine, Receipt, FileSpreadsheet, PenLine, MinusCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCurrency } from "@/components/currency-provider"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
@@ -13,6 +13,7 @@ interface Balance {
     net_balance: number
     total_paid: number
     total_owed: number
+    avatar_url?: string | null
 }
 
 interface SourceBreakdown {
@@ -53,6 +54,7 @@ export function RoomBalances({
                 {balances.map(b => (
                     <Card key={b.user_id} className="p-4 flex items-center gap-3">
                         <Avatar className="w-10 h-10 border border-border/50">
+                            {b.avatar_url && <AvatarImage src={b.avatar_url} alt={b.display_name} />}
                             <AvatarFallback className="text-xs">{b.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
