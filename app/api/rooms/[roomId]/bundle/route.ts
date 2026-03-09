@@ -4,7 +4,7 @@ import { neonQuery } from '@/lib/neonClient'
 import { verifyRoomMember } from '@/lib/rooms/permissions'
 import { getRoomBalances } from '@/lib/rooms/balances'
 import { getCachedOrCompute, buildCacheKey } from '@/lib/cache/upstash'
-import type { Room, RoomMemberWithProfile, SharedTransaction, RoomBalance } from '@/lib/types/rooms'
+import type { Room, RoomMemberWithProfile, SharedTransaction, RoomBalance, SourceBreakdown } from '@/lib/types/rooms'
 
 interface RoomBundleSummary {
     room: Room
@@ -13,12 +13,15 @@ interface RoomBundleSummary {
     recentTransactions: (SharedTransaction & { uploader_name: string })[]
     totalSpent: number
     transactionCount: number
+    unattributedTotal: number
+    unattributedCount: number
+    sourceBreakdown: SourceBreakdown
 }
 
 const ROOM_BUNDLE_TTL = 2 * 60 // 2 minutes
 
 async function getRoomBundle(roomId: string): Promise<RoomBundleSummary> {
-    const [roomRows, members, balances, recentTransactions, stats] = await Promise.all([
+    const [roomRows, members, balances, recentTransactions, stats, unattributedRows, sourceRows] = await Promise.all([
         neonQuery<Room>(
             `SELECT * FROM rooms WHERE id = $1`,
             [roomId]
@@ -50,6 +53,27 @@ async function getRoomBundle(roomId: string): Promise<RoomBundleSummary> {
              WHERE room_id = $1`,
             [roomId]
         ),
+        neonQuery<{ total: string; count: string }>(
+            `SELECT
+                COALESCE(SUM(st.total_amount), 0)::text AS total,
+                COUNT(*)::text AS count
+             FROM shared_transactions st
+             WHERE st.room_id = $1
+               AND NOT EXISTS (
+                   SELECT 1 FROM transaction_splits ts WHERE ts.shared_tx_id = st.id
+               )`,
+            [roomId]
+        ),
+        neonQuery<{ source_type: string; total: string; count: string }>(
+            `SELECT
+                COALESCE(metadata->>'source_type', 'manual') AS source_type,
+                COALESCE(SUM(total_amount), 0)::text AS total,
+                COUNT(*)::text AS count
+             FROM shared_transactions
+             WHERE room_id = $1
+             GROUP BY COALESCE(metadata->>'source_type', 'manual')`,
+            [roomId]
+        ),
     ])
 
     // Enrich members with Clerk profile images
@@ -70,6 +94,23 @@ async function getRoomBundle(roomId: string): Promise<RoomBundleSummary> {
         avatar_url: imageMap.get(m.user_id) ?? null,
     }))
 
+    // Build source breakdown from query results
+    const sourceBreakdown: SourceBreakdown = {
+        personal_import: { total: 0, count: 0 },
+        receipt: { total: 0, count: 0 },
+        statement: { total: 0, count: 0 },
+        manual: { total: 0, count: 0 },
+    }
+    for (const row of sourceRows) {
+        const key = row.source_type as keyof SourceBreakdown
+        if (key in sourceBreakdown) {
+            sourceBreakdown[key] = {
+                total: parseFloat(row.total),
+                count: parseInt(row.count, 10),
+            }
+        }
+    }
+
     return {
         room: roomRows[0],
         members: enrichedMembers,
@@ -77,6 +118,9 @@ async function getRoomBundle(roomId: string): Promise<RoomBundleSummary> {
         recentTransactions,
         totalSpent: parseFloat(stats[0]?.total_spent ?? '0'),
         transactionCount: parseInt(stats[0]?.tx_count ?? '0', 10),
+        unattributedTotal: parseFloat(unattributedRows[0]?.total ?? '0'),
+        unattributedCount: parseInt(unattributedRows[0]?.count ?? '0', 10),
+        sourceBreakdown,
     }
 }
 

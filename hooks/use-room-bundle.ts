@@ -36,11 +36,25 @@ export interface RoomBundleData {
         uploader_name: string
         split_type: string
         created_at: string
+        transaction_date: string
+        metadata?: Record<string, unknown>
+        splits?: { user_id: string; amount: number; display_name: string; item_id?: string | null }[]
+        items?: { id: string; name: string; amount: number; quantity: number; category: string | null }[]
+        is_attributed?: boolean
+        source_type?: string
     }[]
     stats: {
         total_transactions: number
         total_volume: number
         pending_splits: number
+    }
+    unattributedTotal?: number
+    unattributedCount?: number
+    sourceBreakdown?: {
+        personal_import: { total: number; count: number }
+        receipt: { total: number; count: number }
+        statement: { total: number; count: number }
+        manual: { total: number; count: number }
     }
 }
 

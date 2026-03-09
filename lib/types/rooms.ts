@@ -2,6 +2,8 @@
 
 export type RoomRole = 'owner' | 'admin' | 'member';
 
+export type SourceType = 'manual' | 'personal_import' | 'receipt' | 'statement';
+
 export type SplitType = 'equal' | 'percentage' | 'custom' | 'item_level';
 
 export type SplitStatus = 'pending' | 'settled';
@@ -91,4 +93,21 @@ export type RoomBalance = {
     net_balance: number;
     total_paid: number;
     total_owed: number;
+};
+
+/** Breakdown of transactions by source type */
+export type SourceBreakdown = {
+    personal_import: { total: number; count: number };
+    receipt: { total: number; count: number };
+    statement: { total: number; count: number };
+    manual: { total: number; count: number };
+};
+
+/** Extended shared transaction with attribution info (for list views) */
+export type SharedTransactionWithAttribution = SharedTransaction & {
+    uploader_name: string;
+    splits: TransactionSplitWithProfile[];
+    items: ReceiptItem[];
+    is_attributed: boolean;
+    source_type: SourceType;
 };

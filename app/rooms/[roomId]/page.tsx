@@ -1,21 +1,30 @@
 "use client"
 
-import { use } from "react"
+import { use, useState } from "react"
 import { ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@clerk/nextjs"
 
 import { Button } from "@/components/ui/button"
 import { FriendsLayout } from "@/app/friends/components/FriendsLayout"
 import { useRoomBundle } from "@/hooks/use-room-bundle"
 import { RoomHeader } from "./_page/components/RoomHeader"
 import { RoomBalances } from "./_page/components/RoomBalances"
-import { RoomTransactions } from "./_page/components/RoomTransactions"
+import { RoomAttributionList } from "./_page/components/RoomAttributionList"
 import { RoomMembers } from "./_page/components/RoomMembers"
+import { RoomTransactionEditSheet } from "./_page/components/RoomTransactionEditSheet"
+import { AddToRoomDialog } from "@/components/rooms/add-to-room-dialog"
 
 export default function RoomDetailPage({ params }: { params: Promise<{ roomId: string }> }) {
     const { roomId } = use(params)
     const { data, isLoading, error } = useRoomBundle(roomId)
     const router = useRouter()
+    const { userId } = useAuth()
+
+    const [addDialogOpen, setAddDialogOpen] = useState(false)
+    const [editTxId, setEditTxId] = useState<string | null>(null)
+
+    const editTx = editTxId ? data?.recentTransactions?.find(tx => tx.id === editTxId) ?? null : null
 
     return (
         <FriendsLayout>
@@ -51,10 +60,52 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
                             description={data.room.description}
                             inviteCode={data.room.invite_code}
                             memberCount={data.members.length}
+                            onAddTransactions={() => setAddDialogOpen(true)}
                         />
-                        <RoomBalances balances={data.balances} />
-                        <RoomTransactions transactions={data.recentTransactions} />
+                        <RoomBalances
+                            balances={data.balances}
+                            unattributedTotal={data.unattributedTotal}
+                            unattributedCount={data.unattributedCount}
+                            sourceBreakdown={data.sourceBreakdown}
+                            onAttributeClick={() => setAddDialogOpen(true)}
+                        />
+                        <RoomAttributionList
+                            transactions={data.recentTransactions}
+                            onEditSplits={(txId) => setEditTxId(txId)}
+                            onAddTransactions={() => setAddDialogOpen(true)}
+                        />
                         <RoomMembers members={data.members} />
+
+                        {/* Add to Room Dialog */}
+                        {userId && (
+                            <AddToRoomDialog
+                                open={addDialogOpen}
+                                onOpenChange={setAddDialogOpen}
+                                roomId={roomId}
+                                members={data.members.map(m => ({
+                                    user_id: m.user_id,
+                                    display_name: m.display_name,
+                                    avatar_url: m.avatar_url,
+                                }))}
+                                currentUserId={userId}
+                            />
+                        )}
+
+                        {/* Edit Attribution Sheet */}
+                        {userId && (
+                            <RoomTransactionEditSheet
+                                open={editTxId !== null}
+                                onOpenChange={(v) => { if (!v) setEditTxId(null) }}
+                                transaction={editTx as any}
+                                members={data.members.map(m => ({
+                                    user_id: m.user_id,
+                                    display_name: m.display_name,
+                                    avatar_url: m.avatar_url,
+                                }))}
+                                currentUserId={userId}
+                                roomId={roomId}
+                            />
+                        )}
                     </div>
                 )}
             </div>

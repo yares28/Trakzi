@@ -311,15 +311,6 @@ CSV/PDF Upload → lib/parsing/ → lib/ai/ (categorization) → Neon DB → lib
 Receipt Image → lib/receipts/ocr/ → lib/receipts/parsers/ → Categorization → Neon DB
 ```
 
-## Test Accounts
-
-Use these accounts when testing or debugging in the browser (Playwright, manual QA):
-
-| Environment | URL | Email | Password |
-|-------------|-----|-------|----------|
-| Production | `trakzi.com` | `yayafaresW9@gmail.com` | `Cabonegro11**` |
-| Staging | `dev.trakzi.com` | `yayafaresW9@gmail.com` | `Cabonegro11**` |
-
 ## When Unsure
 
 1. Check `docs/CORE/` for architecture decisions
