@@ -150,15 +150,17 @@ export default function FriendsTab() {
                     </div>
                     <CardContent className="p-0 divide-y divide-border/30">
                         {pending.incoming.map(req => (
-                            <div key={req.friendship_id} className="flex items-center justify-between px-3 sm:px-6 py-3 gap-2 hover:bg-muted/10 transition-colors cursor-pointer"
-                                onClick={() => setSelectedUser({ id: req.user_id || req.friendship_id, name: req.display_name, avatar: req.avatar_url, stats: getFriendStats(req.user_id) || undefined, isPrivate: true })}
-                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUser({ id: req.user_id || req.friendship_id, name: req.display_name, avatar: req.avatar_url, stats: getFriendStats(req.user_id) || undefined, isPrivate: true }) } }}
-                            >
+                            <div key={req.friendship_id} className="flex items-center justify-between px-3 sm:px-6 py-3 gap-2 hover:bg-muted/10 transition-colors">
                                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                                    <Avatar className="w-8 h-8 sm:w-9 sm:h-9 border border-border/50 shrink-0">
-                                        <AvatarImage src={req.avatar_url || undefined} alt={req.display_name} />
-                                        <AvatarFallback className="text-[10px] sm:text-xs">{req.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                    </Avatar>
+                                    <button
+                                        className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
+                                        onClick={() => setSelectedUser({ id: req.user_id || req.friendship_id, name: req.display_name, avatar: req.avatar_url, stats: getFriendStats(req.user_id) || undefined, isPrivate: true })}
+                                    >
+                                        <Avatar className="w-8 h-8 sm:w-9 sm:h-9 border border-border/50">
+                                            <AvatarImage src={req.avatar_url || undefined} alt={req.display_name} />
+                                            <AvatarFallback className="text-[10px] sm:text-xs">{req.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                        </Avatar>
+                                    </button>
                                     <div className="min-w-0">
                                         <span className="font-semibold text-sm block truncate">{req.display_name}</span>
                                         <span className="text-xs text-muted-foreground block">Wants to be friends</span>
@@ -175,15 +177,17 @@ export default function FriendsTab() {
                             </div>
                         ))}
                         {pending.outgoing.map(req => (
-                            <div key={req.friendship_id} className="flex items-center justify-between px-3 sm:px-6 py-3 opacity-60 hover:bg-muted/10 transition-colors cursor-pointer hover:opacity-100"
-                                onClick={() => setSelectedUser({ id: req.user_id || req.friendship_id, name: req.display_name, avatar: req.avatar_url, stats: getFriendStats(req.user_id) || undefined, isPrivate: true })}
-                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUser({ id: req.user_id || req.friendship_id, name: req.display_name, avatar: req.avatar_url, stats: getFriendStats(req.user_id) || undefined, isPrivate: true }) } }}
-                            >
+                            <div key={req.friendship_id} className="flex items-center justify-between px-3 sm:px-6 py-3 opacity-60 hover:bg-muted/10 transition-colors hover:opacity-100">
                                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                                    <Avatar className="w-8 h-8 sm:w-9 sm:h-9 border border-border/50 shrink-0">
-                                        <AvatarImage src={req.avatar_url || undefined} alt={req.display_name} />
-                                        <AvatarFallback className="text-[10px] sm:text-xs">{req.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                    </Avatar>
+                                    <button
+                                        className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
+                                        onClick={() => setSelectedUser({ id: req.user_id || req.friendship_id, name: req.display_name, avatar: req.avatar_url, stats: getFriendStats(req.user_id) || undefined, isPrivate: true })}
+                                    >
+                                        <Avatar className="w-8 h-8 sm:w-9 sm:h-9 border border-border/50">
+                                            <AvatarImage src={req.avatar_url || undefined} alt={req.display_name} />
+                                            <AvatarFallback className="text-[10px] sm:text-xs">{req.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                        </Avatar>
+                                    </button>
                                     <div className="min-w-0">
                                         <span className="font-semibold text-sm block truncate">{req.display_name}</span>
                                         <span className="text-xs text-muted-foreground block">Request sent</span>
@@ -217,17 +221,18 @@ export default function FriendsTab() {
                     ) : friendsList.map(friend => (
                         <div
                             key={friend.friendship_id}
-                            role="button"
-                            tabIndex={0}
-                            className="flex items-center justify-between px-3 sm:px-6 py-3 hover:bg-muted/10 transition-colors cursor-pointer gap-2"
-                            onClick={() => setSelectedUser({ id: friend.user_id || friend.friendship_id, name: friend.display_name, avatar: friend.avatar_url, stats: getFriendStats(friend.user_id), isPrivate: !getFriendStats(friend.user_id) })}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUser({ id: friend.user_id || friend.friendship_id, name: friend.display_name, avatar: friend.avatar_url, stats: getFriendStats(friend.user_id), isPrivate: !getFriendStats(friend.user_id) }) } }}
+                            className="flex items-center justify-between px-3 sm:px-6 py-3 hover:bg-muted/10 transition-colors gap-2"
                         >
                             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                                <Avatar className="w-9 h-9 sm:w-10 sm:h-10 border border-border/50 shrink-0">
-                                    <AvatarImage src={friend.avatar_url || undefined} alt={friend.display_name} />
-                                    <AvatarFallback className="text-xs sm:text-sm">{(friend.display_name ?? 'U').substring(0, 2).toUpperCase()}</AvatarFallback>
-                                </Avatar>
+                                <button
+                                    className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
+                                    onClick={() => setSelectedUser({ id: friend.user_id || friend.friendship_id, name: friend.display_name, avatar: friend.avatar_url, stats: getFriendStats(friend.user_id), isPrivate: !getFriendStats(friend.user_id) })}
+                                >
+                                    <Avatar className="w-9 h-9 sm:w-10 sm:h-10 border border-border/50">
+                                        <AvatarImage src={friend.avatar_url || undefined} alt={friend.display_name} />
+                                        <AvatarFallback className="text-xs sm:text-sm">{(friend.display_name ?? 'U').substring(0, 2).toUpperCase()}</AvatarFallback>
+                                    </Avatar>
+                                </button>
                                 <div className="min-w-0">
                                     <span className="font-semibold text-sm block truncate">{friend.display_name}</span>
                                     <div className={cn(

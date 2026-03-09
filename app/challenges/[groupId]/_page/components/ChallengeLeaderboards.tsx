@@ -136,10 +136,19 @@ function MetricLeaderboard({
                     <TooltipTrigger asChild>
                         <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl opacity-50 cursor-help">
                             <span className="w-6 text-center font-bold text-sm text-muted-foreground">—</span>
-                            <Avatar className="w-8 h-8 border border-border/50">
-                                <AvatarImage src={getAvatarUrl(m) || undefined} alt={m.display_name} />
-                                <AvatarFallback className="text-[10px]">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                            </Avatar>
+                            <button
+                                onClick={() => setSelectedUser({
+                                    id: m.user_id,
+                                    name: m.display_name,
+                                    avatar: getAvatarUrl(m),
+                                })}
+                                className="shrink-0 hover:opacity-80 transition-opacity"
+                            >
+                                <Avatar className="w-8 h-8 border border-border/50">
+                                    <AvatarImage src={getAvatarUrl(m) || undefined} alt={m.display_name} />
+                                    <AvatarFallback className="text-[10px]">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                            </button>
                             <span className="flex-1 text-sm font-medium">{m.display_name}</span>
                             <Badge variant="outline" className="text-[10px] gap-1">
                                 <AlertCircle className="w-2.5 h-2.5" /> Not Ranked
