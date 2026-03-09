@@ -3,11 +3,12 @@
 import { memo, useMemo, useState, useEffect, Fragment } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveLine } from "@nivo/line"
-import { PiggyBank, Heart, TrendingUp, ShoppingBag, Trophy } from "lucide-react"
+import { PiggyBank, Heart, TrendingUp, ShoppingBag, Trophy, ChevronDown } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
 import { cn } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import type { ChallengeMetric, ChallengeGroupMember, MonthlyScore } from "@/lib/types/challenges"
 import { ProfileModal } from "@/components/friends/profile-modal"
@@ -211,58 +212,68 @@ export const ChallengeScoreChart = memo(function ChallengeScoreChart({
 
     if (!mounted) return null
 
+    const chartOptions: Array<{ key: ViewMode; label: string; icon: React.ReactNode }> = [
+        { key: "overall", label: "Overall", icon: <Trophy className="w-3 h-3" /> },
+        ...metrics.map(m => ({ key: m as ViewMode, label: METRIC_LABELS[m].label, icon: METRIC_LABELS[m].icon })),
+    ]
+    const activeChartOption = chartOptions.find(o => o.key === viewMode)
+
     if (chartData.length === 0) {
         return (
-            <Card className="border-border/40 bg-card/60 backdrop-blur-sm rounded-3xl overflow-hidden">
-                <CardContent className="p-4 sm:p-6">
-                    <h3 className="text-sm font-semibold mb-3">Score Progression</h3>
-                    <div className="flex items-center justify-center h-[120px] text-sm text-muted-foreground">
-                        Score history will appear as members earn points.
-                    </div>
-                </CardContent>
-            </Card>
+            <div className="space-y-3">
+                <h2 className="text-lg font-semibold px-1">Score Progression</h2>
+                <Card className="border-border/40 bg-card/60 backdrop-blur-sm rounded-3xl overflow-hidden">
+                    <CardContent className="p-4 sm:p-6">
+                        <div className="flex items-center justify-center h-[120px] text-sm text-muted-foreground">
+                            Score history will appear as members earn points.
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
         )
     }
 
     return (
         <>
+            <div className="space-y-3">
+            <h2 className="text-lg font-semibold px-1">Score Progression</h2>
             <Card className="border-border/40 bg-card/60 backdrop-blur-sm rounded-3xl">
                 <CardContent className="p-4 sm:p-6">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-semibold">Score Progression</h3>
-                    </div>
 
-                    {/* Metric tabs */}
-                    <div className="flex items-center gap-1 mb-4 overflow-x-auto pb-1">
-                        <button
-                            type="button"
-                            onClick={() => setViewMode("overall")}
-                            className={cn(
-                                "flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all whitespace-nowrap",
-                                viewMode === "overall"
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-muted/40 text-muted-foreground hover:text-foreground"
-                            )}
-                        >
-                            <Trophy className="w-3 h-3" />
-                            Overall
-                        </button>
-                        {metrics.map(m => (
-                            <button
-                                key={m}
-                                type="button"
-                                onClick={() => setViewMode(m)}
-                                className={cn(
-                                    "flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all whitespace-nowrap",
-                                    viewMode === m
-                                        ? "bg-primary text-primary-foreground"
-                                        : "bg-muted/40 text-muted-foreground hover:text-foreground"
-                                )}
-                            >
-                                {METRIC_LABELS[m].icon}
-                                {METRIC_LABELS[m].label}
-                            </button>
-                        ))}
+                    {/* Popover filter */}
+                    <div className="flex items-center mb-4">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <button
+                                    type="button"
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-primary text-primary-foreground transition-all hover:opacity-90"
+                                >
+                                    {activeChartOption?.icon}
+                                    {activeChartOption?.label}
+                                    <ChevronDown className="w-3 h-3 ml-0.5 opacity-70" />
+                                </button>
+                            </PopoverTrigger>
+                            <PopoverContent align="start" className="w-auto p-1.5 rounded-2xl">
+                                <div className="flex flex-col gap-0.5">
+                                    {chartOptions.map(opt => (
+                                        <button
+                                            key={opt.key}
+                                            type="button"
+                                            onClick={() => setViewMode(opt.key)}
+                                            className={cn(
+                                                "flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-colors text-left w-full",
+                                                viewMode === opt.key
+                                                    ? "bg-primary text-primary-foreground"
+                                                    : "hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                                            )}
+                                        >
+                                            {opt.icon}
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </PopoverContent>
+                        </Popover>
                     </div>
 
                     <div className="h-[220px] sm:h-[260px]">
@@ -380,6 +391,7 @@ export const ChallengeScoreChart = memo(function ChallengeScoreChart({
                     </div>
                 </CardContent>
             </Card>
+            </div>
 
             <ProfileModal open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)} user={selectedUser} />
         </>

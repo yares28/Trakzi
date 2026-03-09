@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Plus, Trophy, Globe, Lock, Users, Search, PiggyBank, HeartPulse, Apple, ShoppingBag } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Plus, Trophy, Globe, Lock, Users, Search, PiggyBank, HeartPulse, Apple, ShoppingBag, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useUser } from "@clerk/nextjs"
@@ -10,15 +10,240 @@ import { cn } from "@/lib/utils"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { demoFetch } from "@/lib/demo/demo-fetch"
 import type { ChallengeGroupWithMembers, ChallengeMetric } from "@/lib/types/challenges"
 import { CreateChallengeGroupDialog } from "@/components/friends/create-challenge-group-dialog"
-import { DiscoverGroupsDialog } from "@/components/friends/discover-groups-dialog"
 import { AnimatedTooltip } from "@/components/ui/animated-tooltip"
 import { ProfileModal } from "@/components/friends/profile-modal"
 import type { ProfileModalUser } from "@/components/friends/profile-modal"
+
+
+// ─── Inline Join/Discover Dialog ─────────────────────────────────────────────
+
+interface DiscoverGroup {
+    id: string
+    name: string
+    description: string | null
+    metrics: ChallengeMetric[]
+    memberCount: number
+}
+
+const DISCOVER_METRIC_LABELS: Record<ChallengeMetric, string> = {
+    savingsRate: "Savings",
+    financialHealth: "Health",
+    fridgeScore: "Fridge",
+    wantsPercent: "Frugality",
+}
+
+function JoinChallengesDialog({
+    open,
+    onOpenChange,
+    onJoined,
+}: {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    onJoined: () => void
+}) {
+    const [mode, setMode] = useState<"discover" | "code">("discover")
+    const [groups, setGroups] = useState<DiscoverGroup[]>([])
+    const [loadingGroups, setLoadingGroups] = useState(false)
+    const [joiningId, setJoiningId] = useState<string | null>(null)
+    const [code, setCode] = useState("")
+    const [joiningCode, setJoiningCode] = useState(false)
+
+    useEffect(() => {
+        if (!open || mode !== "discover") return
+        setLoadingGroups(true)
+        demoFetch("/api/challenge-groups/discover")
+            .then(r => r.json())
+            .then(data => { setGroups(data); setLoadingGroups(false) })
+            .catch(() => setLoadingGroups(false))
+    }, [open, mode])
+
+    const handleJoinGroup = async (groupId: string) => {
+        setJoiningId(groupId)
+        try {
+            const res = await demoFetch("/api/challenge-groups/join", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ group_id: groupId }),
+            })
+            const data = await res.json()
+            if (!res.ok) {
+                if (res.status === 403 && data.error?.includes("privacy settings")) {
+                    toast.error(data.error, {
+                        action: {
+                            label: "Privacy Settings →",
+                            onClick: () => window.dispatchEvent(new CustomEvent("open-settings", { detail: { section: "privacy" } })),
+                        },
+                    })
+                } else {
+                    toast.error(data.error || "Failed to join")
+                }
+                return
+            }
+            toast.success("Joined group!")
+            setGroups(prev => prev.filter(g => g.id !== groupId))
+            onJoined()
+        } catch {
+            toast.error("Failed to join group")
+        } finally {
+            setJoiningId(null)
+        }
+    }
+
+    const handleJoinByCode = async () => {
+        if (!code.trim()) return
+        setJoiningCode(true)
+        try {
+            const res = await demoFetch("/api/challenge-groups/join", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ invite_code: code.trim() }),
+            })
+            const d = await res.json()
+            if (d.error) {
+                if (d.error?.includes("privacy settings")) {
+                    toast.error(d.error, {
+                        action: {
+                            label: "Privacy Settings →",
+                            onClick: () => window.dispatchEvent(new CustomEvent("open-settings", { detail: { section: "privacy" } })),
+                        },
+                    })
+                } else {
+                    toast.error(d.error)
+                }
+                return
+            }
+            toast.success("Joined group!")
+            setCode("")
+            onJoined()
+            onOpenChange(false)
+        } catch {
+            toast.error("Failed to join")
+        } finally {
+            setJoiningCode(false)
+        }
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
+                <DialogHeader>
+                    <DialogTitle>Join a Group</DialogTitle>
+                </DialogHeader>
+
+                {/* Mode toggle */}
+                <div className="flex items-center justify-center">
+                    <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border">
+                        <button
+                            type="button"
+                            onClick={() => setMode("discover")}
+                            className={cn(
+                                "flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200",
+                                mode === "discover"
+                                    ? "bg-background text-foreground shadow-sm"
+                                    : "text-muted-foreground hover:text-foreground"
+                            )}
+                        >
+                            <Globe className="w-3.5 h-3.5" /> Discover
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setMode("code")}
+                            className={cn(
+                                "flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200",
+                                mode === "code"
+                                    ? "bg-background text-foreground shadow-sm"
+                                    : "text-muted-foreground hover:text-foreground"
+                            )}
+                        >
+                            <Search className="w-3.5 h-3.5" /> Enter Code
+                        </button>
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto min-h-0">
+                    {mode === "discover" && (
+                        <>
+                            {loadingGroups && (
+                                <div className="flex items-center justify-center py-12">
+                                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                                </div>
+                            )}
+                            {!loadingGroups && groups.length === 0 && (
+                                <div className="text-center py-12 text-muted-foreground">
+                                    <Trophy className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                                    <p className="text-sm">No public groups available right now.</p>
+                                    <p className="text-xs mt-1">Check back later or create your own!</p>
+                                </div>
+                            )}
+                            {!loadingGroups && groups.length > 0 && (
+                                <div className="space-y-3 pt-1">
+                                    {groups.map(group => (
+                                        <Card key={group.id} className="border-border/40 bg-card/60 rounded-2xl overflow-hidden">
+                                            <CardContent className="p-4">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="space-y-1.5 min-w-0 flex-1">
+                                                        <h3 className="font-semibold text-sm truncate">{group.name}</h3>
+                                                        {group.description && (
+                                                            <p className="text-xs text-muted-foreground line-clamp-2">{group.description}</p>
+                                                        )}
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                                                <Users className="w-3 h-3" /> {group.memberCount}
+                                                            </span>
+                                                            {group.metrics.map(m => (
+                                                                <Badge key={m} variant="secondary" className="text-[9px] px-1 py-0">
+                                                                    {DISCOVER_METRIC_LABELS[m]}
+                                                                </Badge>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                    <Button
+                                                        size="sm"
+                                                        className="shrink-0"
+                                                        disabled={joiningId === group.id}
+                                                        onClick={() => handleJoinGroup(group.id)}
+                                                    >
+                                                        {joiningId === group.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Join"}
+                                                    </Button>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {mode === "code" && (
+                        <div className="space-y-4 pt-2">
+                            <p className="text-sm text-muted-foreground">
+                                Enter the invite code shared by the group admin.
+                            </p>
+                            <div className="flex gap-2">
+                                <Input
+                                    placeholder="e.g. ABC-123"
+                                    value={code}
+                                    onChange={e => setCode(e.target.value)}
+                                    onKeyDown={e => e.key === "Enter" && handleJoinByCode()}
+                                    className="font-mono tracking-widest"
+                                />
+                                <Button onClick={handleJoinByCode} disabled={!code.trim() || joiningCode}>
+                                    {joiningCode ? <Loader2 className="w-4 h-4 animate-spin" /> : "Join"}
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 const METRIC_LABELS: Record<ChallengeMetric, string> = {
     savingsRate: "Savings",
@@ -86,7 +311,7 @@ export default function ChallengesTab() {
     const [groups, setGroups] = useState<ChallengeGroupWithMembers[]>([])
     const [loading, setLoading] = useState(true)
     const [createOpen, setCreateOpen] = useState(false)
-    const [discoverOpen, setDiscoverOpen] = useState(false)
+    const [joinOpen, setJoinOpen] = useState(false)
     const [selectedUser, setSelectedUser] = useState<ProfileModalUser | null>(null)
     const { user } = useUser()
 
@@ -135,39 +360,7 @@ export default function ChallengesTab() {
                         : "No active groups"}
                 </p>
                 <div className="flex gap-2 w-full sm:w-auto">
-                    <Button variant="outline" size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={() => setDiscoverOpen(true)}>
-                        <Search className="w-4 h-4" /> <span className="hidden sm:inline">Discover</span>
-                    </Button>
-                    <Button variant="outline" size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={() => {
-                        const code = prompt("Enter invite code:")
-                        if (!code) return
-                        demoFetch("/api/challenge-groups/join", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ invite_code: code }),
-                        })
-                            .then(r => r.json())
-                            .then(d => {
-                                if (d.error) {
-                                    if (d.error?.includes('privacy settings')) {
-                                        toast.error(d.error, {
-                                            action: {
-                                                label: 'Privacy Settings →',
-                                                onClick: () => window.dispatchEvent(new CustomEvent('open-settings', { detail: { section: 'privacy' } })),
-                                            },
-                                        })
-                                    } else {
-                                        toast.error(d.error)
-                                    }
-                                    return
-                                }
-                                toast.success("Joined group!")
-                                demoFetch("/api/challenge-groups")
-                                    .then(r => r.json())
-                                    .then(setGroups)
-                            })
-                            .catch(() => toast.error("Failed to join"))
-                    }}>
+                    <Button variant="outline" size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={() => setJoinOpen(true)}>
                         <Globe className="w-4 h-4" /> <span className="hidden sm:inline">Join</span>
                     </Button>
                     <Button size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={() => setCreateOpen(true)}>
@@ -322,9 +515,9 @@ export default function ChallengesTab() {
                 onOpenChange={setCreateOpen}
                 onCreated={handleCreated}
             />
-            <DiscoverGroupsDialog
-                open={discoverOpen}
-                onOpenChange={setDiscoverOpen}
+            <JoinChallengesDialog
+                open={joinOpen}
+                onOpenChange={setJoinOpen}
                 onJoined={refreshGroups}
             />
             <ProfileModal open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)} user={selectedUser} />

@@ -13,6 +13,18 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { CountryCard } from "./CountryCard"
 import { CountryTransactionsDialog } from "./CountryTransactionsDialog"
 
+const DISMISSED_TRAVEL_KEY = "trakzi-dismissed-travel-mocks"
+
+function loadDismissedTravelMocks(): Set<string> {
+    if (typeof window === "undefined") return new Set()
+    try {
+        const raw = localStorage.getItem(DISMISSED_TRAVEL_KEY)
+        return raw ? new Set(JSON.parse(raw) as string[]) : new Set()
+    } catch {
+        return new Set()
+    }
+}
+
 export interface CountryCardsGridProps {
     countries: CountryData[]
     isLoading?: boolean
@@ -29,7 +41,7 @@ export const CountryCardsGrid = memo(function CountryCardsGrid({
     isMockData = false,
 }: CountryCardsGridProps) {
     const [selectedInstanceId, setSelectedInstanceId] = useState<number | null>(null)
-    const [deletedMockCountries, setDeletedMockCountries] = useState<Set<string>>(new Set())
+    const [deletedMockCountries, setDeletedMockCountries] = useState<Set<string>>(loadDismissedTravelMocks)
 
     // Filter out deleted mock countries
     const visibleCountries = isMockData
@@ -37,9 +49,13 @@ export const CountryCardsGrid = memo(function CountryCardsGrid({
         : countries
 
     const handleDeleteCountry = useCallback(async (instanceId: number, countryName: string) => {
-        // For mock data, just hide the card locally
+        // For mock data, hide the card and persist to localStorage
         if (isMockData) {
-            setDeletedMockCountries(prev => new Set([...prev, countryName]))
+            setDeletedMockCountries(prev => {
+                const next = new Set([...prev, countryName])
+                try { localStorage.setItem(DISMISSED_TRAVEL_KEY, JSON.stringify([...next])) } catch { /* noop */ }
+                return next
+            })
             return
         }
 
