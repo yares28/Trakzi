@@ -46,7 +46,7 @@ type ReceiptTransactionRow = {
 
 interface ChartCategoryFlowFridgeProps {
     receiptTransactions?: ReceiptTransactionRow[]
-    monthlyCategoriesData?: Array<{ month: number; category: string; total: number }>
+    monthlyCategoriesData?: Array<{ month: string | number; category: string; total: number }>
     isLoading?: boolean
     dateFilter?: string | null
 }
@@ -121,13 +121,15 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
         if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
             const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
-            // Group by month
+            // Group by month - handle both number (1-12) and string ("Jan 2024") formats
             const periodTotals = new Map<number, Map<string, number>>()
             monthlyCategoriesData.forEach(d => {
-                if (!periodTotals.has(d.month)) {
-                    periodTotals.set(d.month, new Map())
+                const monthKey = typeof d.month === 'number' ? d.month : parseInt(String(d.month).split(' ')[0].split('-')[0], 10)
+                if (isNaN(monthKey)) return
+                if (!periodTotals.has(monthKey)) {
+                    periodTotals.set(monthKey, new Map())
                 }
-                const catMap = periodTotals.get(d.month)!
+                const catMap = periodTotals.get(monthKey)!
                 catMap.set(d.category, (catMap.get(d.category) || 0) + d.total)
             })
 

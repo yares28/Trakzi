@@ -28,11 +28,14 @@ export const GET = async (request: Request) => {
         const cacheKey = buildCacheKey('analytics', userId, filter, 'bundle')
 
         // Try cache first, otherwise compute
+        const startTime = Date.now()
         const data = await getCachedOrCompute<AnalyticsSummary>(
             cacheKey,
             () => getAnalyticsBundle(userId!, filter),
             CACHE_TTL.analytics
         )
+        const duration = Date.now() - startTime
+        console.log(`[Analytics Bundle API] Completed in ${duration}ms, userId: ${userId}, filter: ${filter}`)
 
         // Check if user has data in other time periods
         // This is used to show a helpful message when current filter has no data
