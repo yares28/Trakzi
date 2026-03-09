@@ -21,7 +21,7 @@ export function validateSplits(
     splits: SplitInput[]
 ): { user_id: string; amount: number }[] {
     if (splits.length === 0) {
-        throw new Error('At least one split is required')
+        return [] // Unattributed — no splits assigned yet
     }
 
     // Verify all split users are valid members

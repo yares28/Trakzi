@@ -1466,15 +1466,6 @@ export function useAnalyticsChartData({
       dailyTransactionActivity: hasArr(bundleData?.dailySpending) ? "has-data" : "empty",
       dayOfWeekCategory: hasArr(rawTransactions) ? "has-data" : "empty",
       financialHealthScore: hasArr(rawTransactions) ? "has-data" : "empty",
-      cashFlowIndicator: hasArr(rawTransactions) ? "has-data" : "empty",
-      incomeExpenseRatio: hasArr(rawTransactions) ? "has-data" : "empty",
-      recurringVsOneTime: hasArr(rawTransactions) ? "has-data" : "empty",
-      weekendVsWeekday: hasArr(rawTransactions) ? "has-data" : "empty",
-      monthlyBudgetPace: hasArr(rawTransactions) ? "has-data" : "empty",
-      budgetBurndown: hasArr(rawTransactions) ? "has-data" : "empty",
-      purchaseSizeBreakdown: hasArr(rawTransactions) ? "has-data" : "empty",
-      spendingScore: hasArr(rawTransactions) ? "has-data" : "empty",
-      spendingPyramid: hasArr(rawTransactions) ? "has-data" : "empty",
     }
   }, [
     incomeExpenseTopChartData,
