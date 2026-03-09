@@ -916,6 +916,7 @@ export async function getTreeMapData(
 /**
  * Get complete analytics bundle - single endpoint for all chart data
  * Note: transactionHistory removed - fetched separately via /api/transactions
+ * Each query runs individually with error handling to prevent one failure from breaking all charts
  */
 export async function getAnalyticsBundle(
     userId: string,
@@ -923,31 +924,34 @@ export async function getAnalyticsBundle(
 ): Promise<AnalyticsSummary> {
     const { startDate, endDate } = getDateRange(filter)
 
-    // Run all aggregations in parallel
-    const [
-        kpis,
-        categorySpending,
-        dailySpending,
-        monthlyCategories,
-        dayOfWeekSpending,
-        dayOfWeekCategory,
-        needsWants,
-        cashFlow,
-        monthlyByCategory,
-        spendingPyramid,
-        treeMapData,
-    ] = await Promise.all([
-        getKPIs(userId, startDate ?? undefined, endDate ?? undefined),
-        getCategorySpending(userId, startDate ?? undefined, endDate ?? undefined),
-        getDailySpending(userId, startDate ?? undefined, endDate ?? undefined),
-        getMonthlyCategories(userId, startDate ?? undefined, endDate ?? undefined),
-        getDayOfWeekSpending(userId, startDate ?? undefined, endDate ?? undefined),
-        getDayOfWeekCategory(userId, startDate ?? undefined, endDate ?? undefined),
-        getNeedsWantsBreakdown(userId, startDate ?? undefined, endDate ?? undefined),
-        getCashFlowData(userId, startDate ?? undefined, endDate ?? undefined),
-        getMonthlyByCategory(userId, startDate ?? undefined, endDate ?? undefined),
-        getSpendingPyramid(userId, startDate ?? undefined, endDate ?? undefined),
-        getTreeMapData(userId, startDate ?? undefined, endDate ?? undefined),
+    // Run each aggregation individually with error handling
+    // This ensures one failing query doesn't break all charts
+    const runQuery = async <T>(name: string, fn: () => Promise<T>): Promise<T> => {
+        try {
+            return await fn()
+        } catch (error) {
+            console.error(`[Analytics Bundle] Error in ${name}:`, error)
+            // Return empty/default based on query type
+            if (name === 'kpis') return { totalIncome: 0, totalExpense: 0, netSavings: 0, transactionCount: 0, avgTransaction: 0 } as T
+            if (name === 'cashFlow') return { nodes: [], links: [] } as T
+            if (name === 'treeMapData') return { name: 'root', children: [] } as T
+            return [] as unknown as T
+        }
+    }
+
+    // Run all aggregations - individual error handling prevents total failure
+    const [kpis, categorySpending, dailySpending, monthlyCategories, dayOfWeekSpending, dayOfWeekCategory, needsWants, cashFlow, monthlyByCategory, spendingPyramid, treeMapData] = await Promise.all([
+        runQuery('kpis', () => getKPIs(userId, startDate ?? undefined, endDate ?? undefined)),
+        runQuery('categorySpending', () => getCategorySpending(userId, startDate ?? undefined, endDate ?? undefined)),
+        runQuery('dailySpending', () => getDailySpending(userId, startDate ?? undefined, endDate ?? undefined)),
+        runQuery('monthlyCategories', () => getMonthlyCategories(userId, startDate ?? undefined, endDate ?? undefined)),
+        runQuery('dayOfWeekSpending', () => getDayOfWeekSpending(userId, startDate ?? undefined, endDate ?? undefined)),
+        runQuery('dayOfWeekCategory', () => getDayOfWeekCategory(userId, startDate ?? undefined, endDate ?? undefined)),
+        runQuery('needsWants', () => getNeedsWantsBreakdown(userId, startDate ?? undefined, endDate ?? undefined)),
+        runQuery('cashFlow', () => getCashFlowData(userId, startDate ?? undefined, endDate ?? undefined)),
+        runQuery('monthlyByCategory', () => getMonthlyByCategory(userId, startDate ?? undefined, endDate ?? undefined)),
+        runQuery('spendingPyramid', () => getSpendingPyramid(userId, startDate ?? undefined, endDate ?? undefined)),
+        runQuery('treeMapData', () => getTreeMapData(userId, startDate ?? undefined, endDate ?? undefined)),
     ])
 
     return {

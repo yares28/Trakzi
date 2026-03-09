@@ -30,7 +30,7 @@ export interface AnalyticsBundleData {
         expense: number
     }>
     monthlyCategories: Array<{
-        month: number
+        month: string
         category: string
         total: number
     }>
