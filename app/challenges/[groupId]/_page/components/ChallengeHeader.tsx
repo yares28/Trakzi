@@ -1,13 +1,15 @@
 "use client"
 
-import { useState } from "react"
-import { Copy, Check, Globe, Lock, Users, PiggyBank, HeartPulse, Apple, ShoppingBag } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Copy, Check, Globe, Lock, Users, PiggyBank, HeartPulse, Apple, ShoppingBag, Eye, EyeOff } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { ChallengeMetric } from "@/lib/types/challenges"
+
+const CODE_VISIBLE_KEY = "trakzi-challenge-code-visible"
 
 const METRIC_LABELS: Record<ChallengeMetric, string> = {
     savingsRate: "Savings Rate",
@@ -81,6 +83,18 @@ interface ChallengeHeaderProps {
 
 export function ChallengeHeader({ name, description, isPublic, inviteCode, memberCount, daysLeft, metrics }: ChallengeHeaderProps) {
     const [copied, setCopied] = useState(false)
+    const [codeVisible, setCodeVisible] = useState(() => {
+        if (typeof window === "undefined") return false
+        try {
+            return localStorage.getItem(CODE_VISIBLE_KEY) === "true"
+        } catch {
+            return false
+        }
+    })
+
+    useEffect(() => {
+        try { localStorage.setItem(CODE_VISIBLE_KEY, String(codeVisible)) } catch { /* noop */ }
+    }, [codeVisible])
 
     const copyCode = () => {
         navigator.clipboard.writeText(inviteCode)
@@ -108,19 +122,21 @@ export function ChallengeHeader({ name, description, isPublic, inviteCode, membe
                             {daysLeft}d left this month
                         </Badge>
                     </div>
-                </div>
-                <div className="flex flex-col items-end gap-3 h-full justify-between">
-                    <div className="flex flex-col shrink-0 justify-end items-end">
-                        {renderMetricCluster(metrics)}
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="bg-muted/50 rounded-lg px-4 py-2 font-mono text-sm tracking-widest font-semibold">
-                            {inviteCode}
+                    {/* Invite code below info */}
+                    <div className="flex items-center gap-2 pt-1">
+                        <div className="bg-muted/50 rounded-lg px-4 py-2 font-mono text-sm tracking-widest font-semibold min-w-[120px]">
+                            {codeVisible ? inviteCode : "••••••"}
                         </div>
-                        <Button variant="outline" size="icon" onClick={copyCode}>
+                        <Button variant="ghost" size="icon" onClick={() => setCodeVisible(v => !v)} aria-label={codeVisible ? "Hide code" : "Show code"}>
+                            {codeVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={copyCode} aria-label="Copy invite code">
                             {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
                         </Button>
                     </div>
+                </div>
+                <div className="flex flex-col shrink-0 justify-start items-end">
+                    {renderMetricCluster(metrics)}
                 </div>
             </div>
         </div>

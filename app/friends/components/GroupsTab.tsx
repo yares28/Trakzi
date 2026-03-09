@@ -230,7 +230,9 @@ export default function GroupsTab() {
                                             )}
                                         </div>
                                         <span className="text-[9px] sm:text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                                            {room.lastActivity}
+                                            {room.lastActivity
+                                                ? new Date(room.lastActivity).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+                                                : ""}
                                         </span>
                                     </div>
                                 </CardContent>

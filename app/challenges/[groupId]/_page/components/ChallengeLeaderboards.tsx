@@ -3,7 +3,7 @@
 import { useState } from "react"
 import {
     Trophy, PiggyBank, Heart, ShoppingBag, TrendingUp,
-    AlertCircle, Crown
+    AlertCircle, Crown, ChevronDown
 } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
 
@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import type { ChallengeMetric, ChallengeGroupMember } from "@/lib/types/challenges"
 import { ScoreSparkline } from "./ScoreSparkline"
 import { ProfileModal } from "@/components/friends/profile-modal"
@@ -302,44 +303,52 @@ export function ChallengeLeaderboards({ metrics, members, currentUserId, hideAll
         )
     }
 
+    const allOptions: Array<{ key: ChallengeMetric | "allTime"; label: string; icon: React.ReactNode }> = [
+        ...metrics.map(m => ({ key: m as ChallengeMetric | "allTime", label: METRIC_CONFIG[m].label, icon: METRIC_CONFIG[m].icon })),
+        ...(!hideAllTime ? [{ key: "allTime" as const, label: "All-Time", icon: <Trophy className="w-3.5 h-3.5" /> }] : []),
+    ]
+
+    const activeOption = allOptions.find(o => o.key === activeTab)
+
     return (
         <TooltipProvider>
             <div className="space-y-3">
                 <h2 className="text-lg font-semibold px-1">Leaderboards</h2>
                 <Card className="border-border/40 bg-card/60 backdrop-blur-sm rounded-3xl overflow-hidden">
-                    {/* Tab Bar */}
-                    <div className="flex items-center gap-1 px-6 pt-4 pb-2 overflow-x-auto">
-                        {metrics.map(m => (
-                            <button
-                                key={m}
-                                type="button"
-                                onClick={() => setActiveTab(m)}
-                                className={cn(
-                                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
-                                    activeTab === m
-                                        ? "bg-primary text-primary-foreground"
-                                        : "bg-muted/40 text-muted-foreground hover:text-foreground"
-                                )}
-                            >
-                                {METRIC_CONFIG[m].icon}
-                                {METRIC_CONFIG[m].label}
-                            </button>
-                        ))}
-                        {!hideAllTime && (
-                            <button
-                                type="button"
-                                onClick={() => setActiveTab("allTime")}
-                                className={cn(
-                                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
-                                    activeTab === "allTime"
-                                        ? "bg-primary text-primary-foreground"
-                                        : "bg-muted/40 text-muted-foreground hover:text-foreground"
-                                )}
-                            >
-                                <Trophy className="w-3.5 h-3.5" />
-                                All-Time
-                            </button>
-                        )}
+                    {/* Popover filter */}
+                    <div className="flex items-center px-6 pt-4 pb-2">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <button
+                                    type="button"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-primary text-primary-foreground transition-all hover:opacity-90"
+                                >
+                                    {activeOption?.icon}
+                                    {activeOption?.label}
+                                    <ChevronDown className="w-3 h-3 ml-0.5 opacity-70" />
+                                </button>
+                            </PopoverTrigger>
+                            <PopoverContent align="start" className="w-auto p-1.5 rounded-2xl">
+                                <div className="flex flex-col gap-0.5">
+                                    {allOptions.map(opt => (
+                                        <button
+                                            key={opt.key}
+                                            type="button"
+                                            onClick={() => setActiveTab(opt.key)}
+                                            className={cn(
+                                                "flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-colors text-left w-full",
+                                                activeTab === opt.key
+                                                    ? "bg-primary text-primary-foreground"
+                                                    : "hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                                            )}
+                                        >
+                                            {opt.icon}
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </PopoverContent>
+                        </Popover>
                     </div>
 
                     {/* Tab Content */}
