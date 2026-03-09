@@ -47,12 +47,14 @@ export function GoalSettingModal({
                         className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
                     />
 
+                    {/* Flex centering wrapper — avoids sub-pixel blurriness from CSS transforms */}
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
                     {/* Modal */}
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-background border rounded-xl shadow-2xl z-50 overflow-hidden"
+                        className="pointer-events-auto w-full max-w-md bg-background border rounded-xl shadow-2xl overflow-hidden"
                     >
                         {/* Header */}
                         <div className="flex items-center justify-between p-6 pb-4 border-b">
@@ -153,6 +155,7 @@ export function GoalSettingModal({
                             </Button>
                         </div>
                     </motion.div>
+                    </div>
                 </>
             )}
         </AnimatePresence>

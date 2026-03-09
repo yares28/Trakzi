@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Copy, Check, Plus } from "lucide-react"
+import { Copy, Check } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,10 +11,9 @@ interface RoomHeaderProps {
     description: string | null
     inviteCode: string
     memberCount: number
-    onAddTransactions?: () => void
 }
 
-export function RoomHeader({ name, description, inviteCode, memberCount, onAddTransactions }: RoomHeaderProps) {
+export function RoomHeader({ name, description, inviteCode, memberCount }: RoomHeaderProps) {
     const [copied, setCopied] = useState(false)
 
     const copyCode = () => {
@@ -35,13 +34,7 @@ export function RoomHeader({ name, description, inviteCode, memberCount, onAddTr
                         <Badge variant="outline">{memberCount} members</Badge>
                     </div>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                    {onAddTransactions && (
-                        <Button onClick={onAddTransactions} className="gap-1.5">
-                            <Plus className="w-4 h-4" />
-                            Add Transactions
-                        </Button>
-                    )}
+                <div className="flex items-center gap-2">
                     <div className="bg-muted/50 rounded-lg px-4 py-2 font-mono text-sm tracking-widest font-semibold">
                         {inviteCode}
                     </div>
