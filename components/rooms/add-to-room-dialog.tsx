@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useState, useCallback } from "react"
-import { ArrowLeft, ClipboardList, ScanLine, FileSpreadsheet, Upload, X, AlertTriangle, PenLine } from "lucide-react"
+import { ArrowLeft, ClipboardList, ScanLine, FileSpreadsheet, Upload, X, AlertTriangle, PenLine, Receipt } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
@@ -24,9 +24,10 @@ import {
     type AttributionMode,
 } from "./attribution-step"
 import { BrowseTransactionsStep } from "./browse-transactions-step"
+import { BrowseReceiptsStep } from "./browse-receipts-step"
 
-type SourceType = "my-txns" | "receipt" | "statement" | "custom"
-type Step = "source" | "browse" | "upload-receipt" | "upload-statement" | "attribute" | "custom-expense"
+type SourceType = "my-txns" | "receipt" | "statement" | "custom" | "my-receipts"
+type Step = "source" | "browse" | "upload-receipt" | "upload-statement" | "attribute" | "custom-expense" | "browse-receipts"
 
 interface AddToRoomDialogProps {
     open: boolean
@@ -714,10 +715,16 @@ export const AddToRoomDialog = memo(function AddToRoomDialog({
             desc: "Browse & select your personal transactions",
         },
         {
+            id: "my-receipts" as SourceType,
+            icon: <Receipt className="w-6 h-6" />,
+            label: "My Receipts",
+            desc: "Browse scanned receipts and pick items to share",
+        },
+        {
             id: "receipt" as SourceType,
             icon: <ScanLine className="w-6 h-6" />,
-            label: "Receipt",
-            desc: "Upload a photo or PDF of a receipt",
+            label: "Upload Receipt",
+            desc: "Scan a new photo or PDF of a receipt",
         },
         {
             id: "statement" as SourceType,
@@ -730,6 +737,7 @@ export const AddToRoomDialog = memo(function AddToRoomDialog({
     const stepTitle: Record<Step, string> = {
         source: "Add to Room",
         browse: "Select Transactions",
+        "browse-receipts": "My Receipts",
         "upload-receipt": "Upload Receipt",
         "upload-statement": "Upload Statement",
         attribute: "Attribute Transactions",
@@ -740,7 +748,7 @@ export const AddToRoomDialog = memo(function AddToRoomDialog({
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className={cn(
                 "max-h-[92vh] overflow-y-auto",
-                step === "browse" ? "sm:max-w-2xl" : "sm:max-w-lg"
+                (step === "browse" || step === "browse-receipts") ? "sm:max-w-2xl" : "sm:max-w-lg"
             )}>
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
@@ -773,6 +781,7 @@ export const AddToRoomDialog = memo(function AddToRoomDialog({
                                     onClick={() => {
                                         setSourceType(src.id)
                                         if (src.id === "my-txns") setStep("browse")
+                                        else if (src.id === "my-receipts") setStep("browse-receipts")
                                         else if (src.id === "receipt") setStep("upload-receipt")
                                         else if (src.id === "statement") setStep("upload-statement")
                                         else if (src.id === "custom") setStep("custom-expense")
@@ -800,6 +809,19 @@ export const AddToRoomDialog = memo(function AddToRoomDialog({
                                 handleOpenChange(false)
                                 queryClient.invalidateQueries({ queryKey: ["room-bundle", roomId] })
                                 toast.success("Room updated")
+                            }}
+                        />
+                    )}
+
+                    {step === "browse-receipts" && (
+                        <BrowseReceiptsStep
+                            roomId={roomId}
+                            members={members}
+                            currentUserId={currentUserId}
+                            onSaved={() => {
+                                handleOpenChange(false)
+                                queryClient.invalidateQueries({ queryKey: ["room-bundle", roomId] })
+                                toast.success("Receipt items added to room")
                             }}
                         />
                     )}
