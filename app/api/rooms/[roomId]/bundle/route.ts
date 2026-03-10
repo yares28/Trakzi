@@ -16,12 +16,24 @@ interface RoomBundleSummary {
     unattributedTotal: number
     unattributedCount: number
     sourceBreakdown: SourceBreakdown
+    activityFeed: ActivityItem[]
 }
+
+type ActivityItem = {
+    id: string;
+    type: 'split_created' | 'split_settled' | 'room_joined' | 'friend_added' | 'receipt_uploaded';
+    actor_name: string;
+    description: string;
+    amount: number | null;
+    currency: string | null;
+    room_name: string | null;
+    created_at: string;
+};
 
 const ROOM_BUNDLE_TTL = 2 * 60 // 2 minutes
 
 async function getRoomBundle(roomId: string): Promise<RoomBundleSummary> {
-    const [roomRows, members, balances, recentTransactions, stats, unattributedRows, sourceRows] = await Promise.all([
+    const [roomRows, members, balances, recentTransactions, stats, unattributedRows, sourceRows, activityFeed] = await Promise.all([
         neonQuery<Room>(
             `SELECT * FROM rooms WHERE id = $1`,
             [roomId]
@@ -72,6 +84,24 @@ async function getRoomBundle(roomId: string): Promise<RoomBundleSummary> {
              FROM shared_transactions
              WHERE room_id = $1
              GROUP BY COALESCE(metadata->>'source_type', 'manual')`,
+            [roomId]
+        ),
+        neonQuery<ActivityItem>(
+            `SELECT
+                st.id,
+                'split_created' AS type,
+                u.name AS actor_name,
+                st.description,
+                st.total_amount AS amount,
+                st.currency,
+                r.name AS room_name,
+                st.created_at
+             FROM shared_transactions st
+             JOIN users u ON u.id = st.uploaded_by
+             LEFT JOIN rooms r ON r.id = st.room_id
+             WHERE st.room_id = $1
+             ORDER BY st.created_at DESC
+             LIMIT 10`,
             [roomId]
         ),
     ])
@@ -155,6 +185,7 @@ async function getRoomBundle(roomId: string): Promise<RoomBundleSummary> {
         unattributedTotal: parseFloat(unattributedRows[0]?.total ?? '0'),
         unattributedCount: parseInt(unattributedRows[0]?.count ?? '0', 10),
         sourceBreakdown,
+        activityFeed,
     }
 }
 

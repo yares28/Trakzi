@@ -1,13 +1,14 @@
 "use client"
 
 import { use, useState } from "react"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Wallet, ArrowRightLeft, Check, Home, UserCheck, Receipt } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@clerk/nextjs"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { FriendsLayout } from "@/app/friends/components/FriendsLayout"
 import { useRoomBundle } from "@/hooks/use-room-bundle"
 import { RoomHeader } from "./_page/components/RoomHeader"
@@ -157,7 +158,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
                             />
                         )}
 
-                        {/* About tab: Members with admin controls + danger zone */}
+                        {/* About tab: Members + Activity Feed + Danger Zone */}
                         {tab === "about" && (
                             <div className="space-y-6">
                                 <RoomMembers
@@ -168,6 +169,46 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
                                     roomId={roomId}
                                     onMemberUpdated={() => queryClient.invalidateQueries({ queryKey: ["room-bundle", roomId] })}
                                 />
+                                
+                                {/* Activity Feed Section for this room */}
+                                {data.activityFeed && data.activityFeed.length > 0 && (
+                                    <Card className="border-border/40 bg-white/5 dark:bg-black/20 backdrop-blur-xl rounded-3xl overflow-hidden">
+                                        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-border/40">
+                                            <h3 className="text-base sm:text-lg font-semibold">Recent Activity</h3>
+                                        </div>
+                                        <CardContent className="p-0 divide-y divide-border/30">
+                                            {data.activityFeed.map(item => (
+                                                <div key={item.id} className="flex items-start gap-2 sm:gap-3 px-3 sm:px-6 py-3">
+                                                    <div className="mt-0.5 shrink-0">
+                                                        {item.type === 'split_created' && <ArrowRightLeft className="w-4 h-4 text-muted-foreground" />}
+                                                        {item.type === 'split_settled' && <Check className="w-4 h-4 text-emerald-500" />}
+                                                        {item.type === 'room_joined' && <Home className="w-4 h-4 text-muted-foreground" />}
+                                                        {item.type === 'friend_added' && <UserCheck className="w-4 h-4 text-muted-foreground" />}
+                                                        {item.type === 'receipt_uploaded' && <Receipt className="w-4 h-4 text-muted-foreground" />}
+                                                        {!item.type && <Wallet className="w-4 h-4 text-muted-foreground" />}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm">
+                                                            <span className="font-semibold truncate block">{item.actor_name}</span>{" "}
+                                                            <span className="text-muted-foreground">{item.description}</span>
+                                                        </p>
+                                                        <div className="flex items-center gap-1.5 sm:gap-2 mt-1 flex-wrap">
+                                                            {(item.amount ?? 0) > 0 && (
+                                                                <span className="text-xs font-medium">
+                                                                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: item.currency || 'USD' }).format(item.amount ?? 0)}
+                                                                </span>
+                                                            )}
+                                                            <span className="text-[10px] text-muted-foreground">
+                                                                {new Date(item.created_at).toLocaleDateString()}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </CardContent>
+                                    </Card>
+                                )}
+
                                 {isOwner && (
                                     <div className="rounded-3xl border border-rose-500/20 bg-rose-500/5 px-6 py-5 space-y-3">
                                         <div>
