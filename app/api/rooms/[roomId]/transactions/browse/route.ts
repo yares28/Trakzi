@@ -61,12 +61,12 @@ export async function GET(
             paramIdx++
         }
         if (from) {
-            conditions.push(`t.date >= $${paramIdx}`)
+            conditions.push(`t.tx_date >= $${paramIdx}`)
             queryParams.push(from)
             paramIdx++
         }
         if (to) {
-            conditions.push(`t.date <= $${paramIdx}`)
+            conditions.push(`t.tx_date <= $${paramIdx}`)
             queryParams.push(to)
             paramIdx++
         }
@@ -99,7 +99,7 @@ export async function GET(
             }>(
                 `SELECT
                     t.id,
-                    t.date,
+                    t.tx_date AS date,
                     t.description,
                     t.amount,
                     c.name AS category_name,
@@ -111,7 +111,7 @@ export async function GET(
                  FROM transactions t
                  LEFT JOIN categories c ON c.id = t.category_id
                  WHERE ${whereClause}
-                 ORDER BY t.date DESC, t.created_at DESC
+                 ORDER BY t.tx_date DESC, t.created_at DESC
                  LIMIT $${paramIdx + 1} OFFSET $${paramIdx + 2}`,
                 [...queryParams, roomId, limit, offset]
             ),

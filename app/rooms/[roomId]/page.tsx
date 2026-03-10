@@ -141,16 +141,11 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
                             </div>
                         )}
 
-                        {/* Insight tab: Members overview */}
+                        {/* Insight tab: placeholder for future content */}
                         {tab === "insight" && (
-                            <RoomMembers
-                                members={data.members}
-                                balances={data.balances}
-                                currentUserId={userId ?? undefined}
-                                currentUserRole={currentUserRole}
-                                roomId={roomId}
-                                onMemberUpdated={() => queryClient.invalidateQueries({ queryKey: ["room-bundle", roomId] })}
-                            />
+                            <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">
+                                Coming soon
+                            </div>
                         )}
 
                         {/* About tab: Members with admin controls + danger zone */}
