@@ -43,11 +43,13 @@ export interface RoomBundleData {
         is_attributed?: boolean
         source_type?: string
     }[]
-    stats: {
+    stats?: {
         total_transactions: number
         total_volume: number
         pending_splits: number
     }
+    totalSpent?: number
+    transactionCount?: number
     unattributedTotal?: number
     unattributedCount?: number
     sourceBreakdown?: {

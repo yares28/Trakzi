@@ -1,16 +1,16 @@
 "use client"
 
-import { memo, useState, useMemo } from "react"
+import { memo, useState, useMemo, useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-    SheetDescription,
-} from "@/components/ui/sheet"
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { demoFetch } from "@/lib/demo/demo-fetch"
 
@@ -43,6 +43,8 @@ interface Transaction {
     total_amount: number
     splits?: Split[]
     items?: ReceiptItem[]
+    uploaded_by?: string
+    uploader_name?: string
 }
 
 interface RoomTransactionEditSheetProps {
@@ -62,7 +64,6 @@ function txToItems(tx: Transaction, currentUserId: string): PendingItem[] {
     const hasItems = (tx.items?.length ?? 0) > 0
 
     if (hasItems) {
-        // Per-item attribution
         return tx.items!.map(item => {
             const itemSplits = (tx.splits ?? []).filter(s => s.item_id === item.id)
             let mode: AttributionMode = "skip"
@@ -75,9 +76,12 @@ function txToItems(tx: Transaction, currentUserId: string): PendingItem[] {
                     mode = "mine"
                     splitMembers = [currentUserId]
                     splitAmounts = { [currentUserId]: itemSplits[0].amount }
+                    assignedTo = currentUserId
                 } else {
                     mode = "other"
                     assignedTo = itemSplits[0].user_id
+                    splitMembers = [itemSplits[0].user_id]
+                    splitAmounts = { [itemSplits[0].user_id]: itemSplits[0].amount }
                 }
             } else if (itemSplits.length > 1) {
                 mode = "split"
@@ -85,21 +89,10 @@ function txToItems(tx: Transaction, currentUserId: string): PendingItem[] {
                 splitAmounts = Object.fromEntries(itemSplits.map(s => [s.user_id, s.amount]))
             }
 
-            return {
-                tempId: item.id,
-                name: item.name,
-                amount: item.amount,
-                quantity: item.quantity,
-                category: item.category,
-                mode,
-                splitMembers,
-                splitAmounts,
-                assignedTo,
-            }
+            return { tempId: item.id, name: item.name, amount: item.amount, quantity: item.quantity, category: item.category, mode, splitMembers, splitAmounts, assignedTo }
         })
     }
 
-    // Top-level attribution — single item representing whole transaction
     const splits = (tx.splits ?? []).filter(s => !s.item_id)
     let mode: AttributionMode = "skip"
     let splitMembers: string[] = []
@@ -111,9 +104,12 @@ function txToItems(tx: Transaction, currentUserId: string): PendingItem[] {
             mode = "mine"
             splitMembers = [currentUserId]
             splitAmounts = { [currentUserId]: splits[0].amount }
+            assignedTo = currentUserId
         } else {
             mode = "other"
             assignedTo = splits[0].user_id
+            splitMembers = [splits[0].user_id]
+            splitAmounts = { [splits[0].user_id]: splits[0].amount }
         }
     } else if (splits.length > 1) {
         mode = "split"
@@ -121,15 +117,7 @@ function txToItems(tx: Transaction, currentUserId: string): PendingItem[] {
         splitAmounts = Object.fromEntries(splits.map(s => [s.user_id, s.amount]))
     }
 
-    return [{
-        tempId: nanoid(),
-        name: tx.description,
-        amount: tx.total_amount,
-        mode,
-        splitMembers,
-        splitAmounts,
-        assignedTo,
-    }]
+    return [{ tempId: nanoid(), name: tx.description, amount: tx.total_amount, mode, splitMembers, splitAmounts, assignedTo }]
 }
 
 export const RoomTransactionEditSheet = memo(function RoomTransactionEditSheet({
@@ -142,17 +130,17 @@ export const RoomTransactionEditSheet = memo(function RoomTransactionEditSheet({
 }: RoomTransactionEditSheetProps) {
     const queryClient = useQueryClient()
     const [isSaving, setIsSaving] = useState(false)
+    const [items, setItems] = useState<PendingItem[]>([])
 
-    const initialItems = useMemo(() =>
-        transaction ? txToItems(transaction, currentUserId) : [],
-        [transaction, currentUserId]
-    )
-    const [items, setItems] = useState<PendingItem[]>(initialItems)
-
-    // Sync when transaction changes
-    useMemo(() => {
+    // Sync items when transaction changes or dialog opens
+    useEffect(() => {
         if (transaction) setItems(txToItems(transaction, currentUserId))
     }, [transaction, currentUserId])
+
+    // The uploader is the "paid by" person
+    const paidByMember = transaction?.uploaded_by
+        ? members.find(m => m.user_id === transaction.uploaded_by) ?? null
+        : null
 
     const handleSave = async () => {
         if (!transaction) return
@@ -161,10 +149,9 @@ export const RoomTransactionEditSheet = memo(function RoomTransactionEditSheet({
             const hasItems = (transaction.items?.length ?? 0) > 0
 
             if (hasItems) {
-                // For receipts: update splits per item
                 for (const item of items) {
                     const splits = buildSplitsForItem(item)
-                    await demoFetch(
+                    const res = await demoFetch(
                         `/api/rooms/${roomId}/transactions/${transaction.id}/splits`,
                         {
                             method: "PUT",
@@ -175,9 +162,13 @@ export const RoomTransactionEditSheet = memo(function RoomTransactionEditSheet({
                             }),
                         }
                     )
+                    if (!res.ok) {
+                        const json = await res.json()
+                        toast.error(json.error ?? "Failed to update attribution")
+                        return
+                    }
                 }
             } else {
-                // Top-level split replacement
                 const singleItem = items[0]
                 const splits = singleItem ? buildSplitsForItem(singleItem) : []
                 const res = await demoFetch(
@@ -210,36 +201,46 @@ export const RoomTransactionEditSheet = memo(function RoomTransactionEditSheet({
         return []
     }
 
-    return (
-        <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent side="bottom" className="h-[85vh] flex flex-col">
-                <SheetHeader>
-                    <SheetTitle>{transaction?.description ?? "Edit Attribution"}</SheetTitle>
-                    <SheetDescription>
-                        Update how this transaction is split between members.
-                    </SheetDescription>
-                </SheetHeader>
+    if (!transaction) return null
 
-                <div className="flex-1 overflow-y-auto mt-4">
+    const hasReceiptItems = (transaction.items?.length ?? 0) > 0
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col overflow-hidden">
+                <DialogHeader className="shrink-0">
+                    <DialogTitle className="text-base font-semibold leading-tight">
+                        {transaction.description}
+                    </DialogTitle>
+                    <DialogDescription className="text-xs">
+                        {hasReceiptItems
+                            ? `Attribute ${transaction.items!.length} receipt items to room members`
+                            : "Update how this transaction is split between members"}
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="flex-1 overflow-y-auto min-h-0 py-2">
                     <AttributionStep
                         items={items}
                         members={members}
                         currentUserId={currentUserId}
+                        paidByMember={paidByMember}
                         onChange={setItems}
                     />
                 </div>
 
-                <div className="border-t pt-4 mt-4">
-                    <Button
-                        className="w-full"
-                        onClick={handleSave}
-                        disabled={isSaving}
-                    >
-                        {isSaving ? "Saving..." : "Save Attribution"}
-                    </Button>
+                <div className="shrink-0 border-t pt-4 mt-2">
+                    <div className="flex gap-2">
+                        <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)} disabled={isSaving}>
+                            Cancel
+                        </Button>
+                        <Button className="flex-1" onClick={handleSave} disabled={isSaving}>
+                            {isSaving ? "Saving…" : "Save Attribution"}
+                        </Button>
+                    </div>
                 </div>
-            </SheetContent>
-        </Sheet>
+            </DialogContent>
+        </Dialog>
     )
 })
 
