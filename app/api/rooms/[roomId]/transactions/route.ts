@@ -18,9 +18,9 @@ export const SplitInputSchema = z.object({
 
 const ReceiptItemInputSchema = z.object({
     name: z.string().min(1).max(300),
-    amount: z.number().positive(),
-    quantity: z.number().int().positive().default(1),
-    category: z.string().max(100).optional(),
+    amount: z.coerce.number().nonnegative(),
+    quantity: z.coerce.number().int().positive().default(1),
+    category: z.string().max(100).optional().nullable().transform(v => v ?? undefined),
     splits: z.array(SplitInputSchema).default([]),
 })
 

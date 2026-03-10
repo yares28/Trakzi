@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Crown, Shield, User, ChevronDown } from "lucide-react"
+import { ShieldCheck, UserRound, ChevronDown } from "lucide-react"
 import { toast } from "sonner"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -37,9 +37,8 @@ interface RoomMembersProps {
 }
 
 const RoleIcon = ({ role }: { role: string }) => {
-    if (role === "owner") return <Crown className="w-3.5 h-3.5 text-yellow-500" />
-    if (role === "admin") return <Shield className="w-3.5 h-3.5 text-blue-500" />
-    return <User className="w-3.5 h-3.5 text-muted-foreground" />
+    if (role === "owner" || role === "admin") return <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
+    return <UserRound className="w-3.5 h-3.5 text-muted-foreground" />
 }
 
 export function RoomMembers({ members, balances = [], currentUserId, currentUserRole, roomId, onMemberUpdated }: RoomMembersProps) {
@@ -51,7 +50,7 @@ export function RoomMembers({ members, balances = [], currentUserId, currentUser
         return acc
     }, {})
 
-    const isOwner = currentUserRole === "owner"
+    const isAdmin = currentUserRole === "owner" || currentUserRole === "admin"
 
     const handleRoleChange = async (targetUserId: string, newRole: "admin" | "member") => {
         if (!roomId) return
@@ -81,7 +80,7 @@ export function RoomMembers({ members, balances = [], currentUserId, currentUser
                     {members.map(m => {
                         const netBalance = balanceMap[m.user_id] ?? 0
                         const isYou = m.user_id === currentUserId
-                        const canManage = isOwner && !isYou && m.role !== "owner"
+                        const canManage = isAdmin && !isYou && m.role !== "owner" && m.role !== "admin"
 
                         return (
                             <div
@@ -118,7 +117,7 @@ export function RoomMembers({ members, balances = [], currentUserId, currentUser
                                 <div className="flex items-center gap-2">
                                     <Badge variant="outline" className="gap-1 text-xs capitalize">
                                         <RoleIcon role={m.role} />
-                                        {m.role}
+                                        {m.role === "owner" ? "admin" : m.role}
                                     </Badge>
 
                                     {canManage && (
@@ -135,12 +134,12 @@ export function RoomMembers({ members, balances = [], currentUserId, currentUser
                                             <DropdownMenuContent align="end" className="w-44">
                                                 {m.role === "member" ? (
                                                     <DropdownMenuItem onClick={() => handleRoleChange(m.user_id, "admin")}>
-                                                        <Shield className="w-3.5 h-3.5 mr-2 text-blue-500" />
+                                                        <ShieldCheck className="w-3.5 h-3.5 mr-2 text-blue-500" />
                                                         Make Admin
                                                     </DropdownMenuItem>
                                                 ) : (
                                                     <DropdownMenuItem onClick={() => handleRoleChange(m.user_id, "member")}>
-                                                        <User className="w-3.5 h-3.5 mr-2" />
+                                                        <UserRound className="w-3.5 h-3.5 mr-2" />
                                                         Remove Admin
                                                     </DropdownMenuItem>
                                                 )}

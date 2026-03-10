@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { Plus, Users, LogIn, Activity } from "lucide-react"
+import { Plus, Users, LogIn, Activity, Clock, User, Receipt, Split } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 import { cn } from "@/lib/utils"
@@ -19,6 +19,22 @@ import { AnimatedTooltip } from "@/components/ui/animated-tooltip"
 import { ProfileModal } from "@/components/friends/profile-modal"
 import type { ProfileModalUser } from "@/components/friends/profile-modal"
 import type { RoomData } from "@/lib/charts/friends-aggregations"
+
+function formatActivityTime(dateStr: string): string {
+    if (!dateStr) return ''
+    const date = new Date(dateStr)
+    if (isNaN(date.getTime())) return ''
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
+    const minutes = Math.floor(diff / 60000)
+    if (minutes < 1) return 'Just now'
+    if (minutes < 60) return `${minutes}m ago`
+    const hours = Math.floor(minutes / 60)
+    if (hours < 24) return `${hours}h ago`
+    const days = Math.floor(hours / 24)
+    if (days < 7) return `${days}d ago`
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
 
 export default function GroupsTab() {
     const { data: bundleData, isLoading } = useFriendsBundleData()
@@ -173,6 +189,19 @@ export default function GroupsTab() {
                                     </div>
 
                                     <div className="flex items-center justify-between pt-2 sm:pt-4 border-t border-border/40 mt-2 sm:mt-4">
+                                        {/* Recent Activity - shows most recent action in room */}
+                                        <div className="flex items-center gap-2 min-w-0 max-w-[60%]">
+                                            {room.recentActivity.length > 0 ? (
+                                                <div className="flex items-center gap-1.5 text-[9px] sm:text-[10px] text-muted-foreground truncate">
+                                                    <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" />
+                                                    <span className="truncate">{room.recentActivity[0].description}</span>
+                                                    <span className="shrink-0">({formatActivityTime(room.recentActivity[0].created_at)})</span>
+                                                </div>
+                                            ) : (
+                                                <span className="text-[9px] sm:text-[10px] text-muted-foreground">No recent activity</span>
+                                            )}
+                                        </div>
+                                        
                                         {/* Mobile: max 2 avatars */}
                                         <div className="flex z-20 ml-2 sm:hidden">
                                             <AnimatedTooltip
@@ -229,11 +258,6 @@ export default function GroupsTab() {
                                                 </div>
                                             )}
                                         </div>
-                                        <span className="text-[9px] sm:text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                                            {room.lastActivity
-                                                ? new Date(room.lastActivity).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
-                                                : ""}
-                                        </span>
                                     </div>
                                 </CardContent>
                             </Card>

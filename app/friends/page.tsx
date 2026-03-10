@@ -9,15 +9,13 @@ import { Badge } from "@/components/ui/badge"
 
 import RankingsTab from "./components/RankingsTab"
 import GroupsTab from "./components/GroupsTab"
-import FriendsTab from "./components/FriendsTab"
 import ChallengesTab from "./components/ChallengesTab"
 import { FriendsLayout } from "./components/FriendsLayout"
 
-export type FriendsViewMode = "rankings" | "friends" | "groups" | "challenges"
+export type FriendsViewMode = "rankings" | "groups" | "challenges"
 
 const TAB_CONFIG: { key: FriendsViewMode; label: string; description: string }[] = [
     { key: "rankings", label: "Rankings", description: "Compare your financial progress with friends and climb the ranks." },
-    { key: "friends", label: "Friends", description: "Manage your friends, pending requests, and view recent activity." },
     { key: "groups", label: "Rooms", description: "Manage your shared rooms, split expenses, and settle up instantly." },
     { key: "challenges", label: "Challenges", description: "Compete with friends on spending goals and build better habits." },
 ]
@@ -89,7 +87,6 @@ function FriendsContent() {
                     {/* Main Content Area */}
                     <div className="flex flex-col gap-4 py-2 pb-10 sm:pb-12 md:gap-6 md:py-4 h-full px-4">
                         {viewMode === "rankings" && <RankingsTab />}
-                        {viewMode === "friends" && <FriendsTab />}
                         {viewMode === "groups" && <GroupsTab />}
                         {viewMode === "challenges" && <ChallengesTab />}
                     </div>

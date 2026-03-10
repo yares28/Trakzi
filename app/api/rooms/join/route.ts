@@ -6,6 +6,7 @@ import { neonQuery } from "@/lib/neonClient"
 import { isValidRoomInviteCode } from "@/lib/friends/codes"
 import { checkRoomLimit } from "@/lib/friends/permissions"
 import { verifyRoomMember } from "@/lib/rooms/permissions"
+import { invalidateUserCachePrefix, invalidateExactKeys, buildCacheKey } from "@/lib/cache/upstash"
 
 const JoinSchema = z.object({
     invite_code: z.string().min(1, "Invite code is required"),
@@ -77,6 +78,12 @@ export async function POST(req: NextRequest) {
              ON CONFLICT (room_id, user_id) DO NOTHING`,
             [room.id, userId]
         )
+
+        // Invalidate friends/rooms cache so the new room appears immediately
+        await Promise.all([
+            invalidateExactKeys(buildCacheKey('friends', userId, null, 'bundle')),
+            invalidateUserCachePrefix(userId, 'friends'),
+        ])
 
         return NextResponse.json(
             {
