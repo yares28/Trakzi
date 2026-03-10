@@ -88,7 +88,6 @@ export default function FriendProfilePage({ params }: { params: Promise<{ friend
                                 </Avatar>
                                 <div className="flex-1">
                                     <h1 className="text-2xl font-semibold">{friendData.score.name}</h1>
-                                    <p className="text-sm text-muted-foreground">Last active: {friendData.score.lastActive}</p>
                                 </div>
                                 {friendData.score.isPrivate ? (
                                     <Badge variant="secondary" className="text-sm">Private</Badge>

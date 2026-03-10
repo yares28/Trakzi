@@ -23,7 +23,6 @@ export type FriendScore = {
     overallScore: number
     isPrivate: boolean
     isRanked: boolean
-    lastActive: string
 }
 
 /** Room member for display */
@@ -45,6 +44,7 @@ export type RoomData = {
     currency: string
     theme: 'blue' | 'emerald' | 'violet' | 'rose' | 'amber'
     lastActivity: string
+    recentActivity: ActivityItem[]
 }
 
 /** Complete friends bundle payload */
@@ -165,7 +165,6 @@ export async function getFriendsBundle(userId: string): Promise<FriendsBundleSum
         overallScore: myMetrics.overallScore,
         isPrivate: false,
         isRanked: myMetrics.isRanked,
-        lastActive: 'Just now',
     })
 
     return {
@@ -310,6 +309,56 @@ async function getUserRooms(userId: string): Promise<RoomData[]> {
         }
     }
 
+    // Fetch recent activity for all rooms
+    let activityMap = new Map<string, ActivityItem[]>()
+    if (roomIds.length > 0) {
+        const activityRows = await neonQuery<{
+            id: string
+            type: string
+            actor_name: string
+            description: string
+            amount: string | null
+            currency: string | null
+            room_id: string
+            room_name: string | null
+            created_at: string
+        }>(
+            `SELECT
+                st.id,
+                'split_created' AS type,
+                u.name AS actor_name,
+                st.description,
+                st.total_amount AS amount,
+                st.currency,
+                st.room_id,
+                r.name AS room_name,
+                st.created_at
+             FROM shared_transactions st
+             JOIN users u ON u.id = st.uploaded_by
+             LEFT JOIN rooms r ON r.id = st.room_id
+             WHERE st.room_id = ANY($1::text[])
+             ORDER BY st.created_at DESC
+             LIMIT 3`,
+            [roomIds]
+        )
+        
+        for (const activity of activityRows) {
+            const roomId = activity.room_id
+            const list = activityMap.get(roomId) ?? []
+            list.push({
+                id: activity.id,
+                type: activity.type as ActivityItem['type'],
+                actor_name: activity.actor_name,
+                description: activity.description,
+                amount: activity.amount ? parseFloat(activity.amount) : null,
+                currency: activity.currency,
+                room_name: activity.room_name,
+                created_at: activity.created_at,
+            })
+            activityMap.set(roomId, list)
+        }
+    }
+
     const themes: Array<'blue' | 'emerald' | 'violet' | 'rose' | 'amber'> = ['blue', 'emerald', 'violet', 'rose', 'amber']
     return rows.map((r, i) => ({
         id: r.id,
@@ -322,6 +371,7 @@ async function getUserRooms(userId: string): Promise<RoomData[]> {
         currency: r.currency,
         theme: themes[i % themes.length],
         lastActivity: r.created_at,
+        recentActivity: activityMap.get(r.id) ?? [],
     }))
 }
 

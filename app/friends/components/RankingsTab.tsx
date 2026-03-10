@@ -1,8 +1,10 @@
 "use client"
 
 import { useState, type ReactNode } from "react"
-import { TrendingUp, ChevronDown, ChevronUp, History, UserPlus, Lock, Shield, Trophy, PiggyBank, Heart, ShoppingBag, AlertCircle } from "lucide-react"
+import { TrendingUp, ChevronDown, ChevronUp, UserPlus, Lock, Shield, Trophy, PiggyBank, Heart, ShoppingBag, AlertCircle, ArrowRightLeft, Check, X, Wallet, Receipt, Home, UserCheck, Clock } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
+import { useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -12,11 +14,14 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { useFriendsBundleData } from "@/hooks/use-friends-bundle"
+import { useFriendsBundleData, useRefreshFriendsBundle } from "@/hooks/use-friends-bundle"
+import { useCurrency } from "@/components/currency-provider"
 import type { FriendScore } from "@/lib/charts/friends-aggregations"
+import type { FriendWithBalance, FriendRequest, ActivityItem } from "@/lib/types/friends"
 import { AddFriendDialog } from "@/components/friends/add-friend-dialog"
 import { ProfileModal } from "@/components/friends/profile-modal"
 import type { ProfileModalUser } from "@/components/friends/profile-modal"
+import { demoFetch } from "@/lib/demo/demo-fetch"
 
 type RankingMetric = "overall" | "savings" | "health" | "fridge" | "frugality"
 
@@ -27,6 +32,14 @@ interface MetricConfig {
     field: keyof FriendScore
     unit: string
     higherIsBetter: boolean
+}
+
+const ACTIVITY_ICONS: Record<ActivityItem["type"], ReactNode> = {
+    split_created: <ArrowRightLeft className="w-4 h-4 text-muted-foreground" />,
+    split_settled: <Check className="w-4 h-4 text-emerald-500" />,
+    room_joined: <Home className="w-4 h-4 text-muted-foreground" />,
+    friend_added: <UserCheck className="w-4 h-4 text-muted-foreground" />,
+    receipt_uploaded: <Receipt className="w-4 h-4 text-muted-foreground" />,
 }
 
 const METRICS: MetricConfig[] = [
@@ -83,8 +96,14 @@ export default function RankingsTab() {
     const [expandedId, setExpandedId] = useState<string | null>(null)
     const [addFriendOpen, setAddFriendOpen] = useState(false)
     const [selectedUser, setSelectedUser] = useState<ProfileModalUser | null>(null)
+    const [actionLoading, setActionLoading] = useState<string | null>(null)
     const { data: bundleData, isLoading } = useFriendsBundleData()
     const { user } = useUser()
+    const { formatCurrency } = useCurrency()
+    const queryClient = useQueryClient()
+    const refreshFriendsBundle = useRefreshFriendsBundle()
+
+    const friendsList = (bundleData?.friendsList ?? []) as FriendWithBalance[]
 
     let friends = (bundleData?.friends || []) as FriendScore[]
 
@@ -103,7 +122,6 @@ export default function RankingsTab() {
             overallScore: 0,
             isPrivate: false,
             isRanked: false,
-            lastActive: "Just now"
         }]
     }
 
@@ -124,6 +142,56 @@ export default function RankingsTab() {
     })
 
     const topThree = sortedFriends.filter(f => !f.isPrivate && f.isRanked).slice(0, 3)
+
+    // Friends list helper functions
+    const getFriendStats = (userId: string) => {
+        const score = friends.find(f => f.friendUserId === userId)
+        if (!score || score.isPrivate) return undefined
+        return {
+            savingsRate: score.savingsRate,
+            spendingRate: 100 - score.savingsRate,
+            financialHealth: score.financialHealth,
+            fridgeScore: score.fridgeScore,
+            wantsPercent: score.wantsPercent,
+            streak: 0,
+        }
+    }
+
+    const handleAccept = async (friendshipId: string) => {
+        setActionLoading(friendshipId)
+        try {
+            const res = await demoFetch(`/api/friends/requests/${friendshipId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'accept' }),
+            })
+            if (!res.ok) throw new Error('Failed to accept request')
+            toast.success('Friend request accepted')
+            refreshFriendsBundle()
+        } catch {
+            toast.error('Failed to accept friend request')
+        } finally {
+            setActionLoading(null)
+        }
+    }
+
+    const handleDecline = async (friendshipId: string) => {
+        setActionLoading(friendshipId)
+        try {
+            const res = await demoFetch(`/api/friends/requests/${friendshipId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'decline' }),
+            })
+            if (!res.ok) throw new Error('Failed to decline request')
+            toast.success('Friend request declined')
+            queryClient.invalidateQueries({ queryKey: ['friends-bundle'] })
+        } catch {
+            toast.error('Failed to decline friend request')
+        } finally {
+            setActionLoading(null)
+        }
+    }
 
     if (isLoading) {
         return (
@@ -216,7 +284,7 @@ export default function RankingsTab() {
                 <Card className="border-border/40 bg-white/5 dark:bg-black/20 backdrop-blur-xl shadow-2xl rounded-3xl overflow-hidden mt-6 sm:mt-8">
                     {/* Metric Selector */}
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-3 sm:px-6 py-3 sm:py-4 bg-muted/10 border-b border-border/40">
-                        <h3 className="text-base sm:text-lg font-semibold">This Month&apos;s Rankings</h3>
+                        <h3 className="text-base sm:text-lg font-semibold">All-Time Rankings</h3>
                         <Select value={activeMetric} onValueChange={(v) => setActiveMetric(v as RankingMetric)}>
                             <SelectTrigger className="w-full sm:w-[190px]">
                                 <SelectValue />
@@ -304,9 +372,6 @@ export default function RankingsTab() {
                                                             {friend.name === "You" && <span className="text-xs text-primary font-normal shrink-0">(You)</span>}
                                                             {friend.isPrivate && <Lock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
                                                         </span>
-                                                        <span className="text-xs text-muted-foreground flex items-center gap-1 truncate">
-                                                            <History className="w-3 h-3 shrink-0" /> {formatRelativeTime(friend.lastActive)}
-                                                        </span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -392,6 +457,158 @@ export default function RankingsTab() {
 
                 <ProfileModal open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)} user={selectedUser} />
                 <AddFriendDialog open={addFriendOpen} onOpenChange={setAddFriendOpen} />
+
+                {/* Friends List Section - At the bottom of Rankings */}
+                <Card className="border-border/40 bg-white/5 dark:bg-black/20 backdrop-blur-xl rounded-3xl overflow-hidden">
+                    <div className="flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4 border-b border-border/40 gap-2">
+                        <h3 className="text-base sm:text-lg font-semibold">Friends ({friendsList.length})</h3>
+                        <Button size="sm" variant="outline" className="gap-1.5 shrink-0" onClick={() => setAddFriendOpen(true)}>
+                            <UserPlus className="w-4 h-4" /> <span className="hidden sm:inline">Add</span>
+                        </Button>
+                    </div>
+                    <CardContent className="p-0 divide-y divide-border/30">
+                        {friendsList.length === 0 ? (
+                            <div className="text-center py-10 sm:py-12 text-muted-foreground px-4">
+                                <UserPlus className="w-8 h-8 mx-auto mb-3 opacity-40" />
+                                <p className="font-medium">No friends yet</p>
+                                <p className="text-sm mt-1">Add friends to split expenses and compare progress.</p>
+                                <Button size="sm" className="mt-4 gap-1.5" onClick={() => setAddFriendOpen(true)}>
+                                    <UserPlus className="w-4 h-4" /> Add your first friend
+                                </Button>
+                            </div>
+                        ) : friendsList.map(friend => (
+                            <div
+                                key={friend.friendship_id}
+                                className="flex items-center justify-between px-3 sm:px-6 py-3 hover:bg-muted/10 transition-colors gap-2"
+                            >
+                                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                                    <button
+                                        className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
+                                        onClick={() => setSelectedUser({ id: friend.user_id || friend.friendship_id, name: friend.display_name, avatar: friend.avatar_url, stats: getFriendStats(friend.user_id), isPrivate: !getFriendStats(friend.user_id) })}
+                                    >
+                                        <Avatar className="w-9 h-9 sm:w-10 sm:h-10 border border-border/50">
+                                            <AvatarImage src={friend.avatar_url || undefined} alt={friend.display_name} />
+                                            <AvatarFallback className="text-xs sm:text-sm">{(friend.display_name ?? 'U').substring(0, 2).toUpperCase()}</AvatarFallback>
+                                        </Avatar>
+                                    </button>
+                                    <div className="min-w-0">
+                                        <span className="font-semibold text-sm block truncate">{friend.display_name}</span>
+                                        <div className={cn(
+                                            "text-xs font-medium truncate",
+                                            friend.net_balance > 0 ? "text-emerald-500" :
+                                                friend.net_balance < 0 ? "text-rose-500" :
+                                                    "text-muted-foreground"
+                                        )}>
+                                            {friend.net_balance > 0 ? `Owes you ${formatCurrency(friend.net_balance)}` :
+                                                friend.net_balance < 0 ? `You owe ${formatCurrency(Math.abs(friend.net_balance))}` :
+                                                    "Settled up"}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
+
+                {/* Pending Requests Section */}
+                {((bundleData?.pendingRequests?.incoming?.length ?? 0) > 0 || (bundleData?.pendingRequests?.outgoing?.length ?? 0) > 0) && (
+                    <Card className="border-border/40 bg-white/5 dark:bg-black/20 backdrop-blur-xl rounded-3xl overflow-hidden">
+                        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-border/40">
+                            <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                                <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
+                                <span className="hidden sm:inline">Pending Requests</span>
+                                <span className="sm:hidden">Requests</span>
+                                <Badge variant="secondary" className="ml-1 sm:ml-2 text-[10px] sm:text-xs">
+                                    {(bundleData?.pendingRequests?.incoming?.length ?? 0) + (bundleData?.pendingRequests?.outgoing?.length ?? 0)}
+                                </Badge>
+                            </h3>
+                        </div>
+                        <CardContent className="p-0 divide-y divide-border/30">
+                            {bundleData?.pendingRequests?.incoming?.map(req => (
+                                <div key={req.friendship_id} className="flex items-center justify-between px-3 sm:px-6 py-3 gap-2 hover:bg-muted/10 transition-colors">
+                                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                                        <button
+                                            className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
+                                            onClick={() => setSelectedUser({ id: req.user_id || req.friendship_id, name: req.display_name, avatar: req.avatar_url, stats: getFriendStats(req.user_id) || undefined, isPrivate: true })}
+                                        >
+                                            <Avatar className="w-8 h-8 sm:w-9 sm:h-9 border border-border/50">
+                                                <AvatarImage src={req.avatar_url || undefined} alt={req.display_name} />
+                                                <AvatarFallback className="text-[10px] sm:text-xs">{req.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                            </Avatar>
+                                        </button>
+                                        <div className="min-w-0">
+                                            <span className="font-semibold text-sm block truncate">{req.display_name}</span>
+                                            <span className="text-xs text-muted-foreground block">Wants to be friends</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                                        <Button size="sm" variant="default" className="h-8 gap-1 px-2 sm:px-3 text-[10px] sm:text-xs" onClick={() => handleAccept(req.friendship_id)} disabled={actionLoading === req.friendship_id}>
+                                            <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> <span className="hidden sm:inline">{actionLoading === req.friendship_id ? "..." : "Accept"}</span>
+                                        </Button>
+                                        <Button size="sm" variant="ghost" className="h-8 gap-1 text-muted-foreground px-1.5 sm:px-2" onClick={() => handleDecline(req.friendship_id)} disabled={actionLoading === req.friendship_id}>
+                                            <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> <span className="hidden sm:inline">Decline</span>
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                            {bundleData?.pendingRequests?.outgoing?.map(req => (
+                                <div key={req.friendship_id} className="flex items-center justify-between px-3 sm:px-6 py-3 opacity-60 hover:bg-muted/10 transition-colors hover:opacity-100">
+                                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                                        <button
+                                            className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
+                                            onClick={() => setSelectedUser({ id: req.user_id || req.friendship_id, name: req.display_name, avatar: req.avatar_url, stats: getFriendStats(req.user_id) || undefined, isPrivate: true })}
+                                        >
+                                            <Avatar className="w-8 h-8 sm:w-9 sm:h-9 border border-border/50">
+                                                <AvatarImage src={req.avatar_url || undefined} alt={req.display_name} />
+                                                <AvatarFallback className="text-[10px] sm:text-xs">{req.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                            </Avatar>
+                                        </button>
+                                        <div className="min-w-0">
+                                            <span className="font-semibold text-sm block truncate">{req.display_name}</span>
+                                            <span className="text-xs text-muted-foreground block">Request sent</span>
+                                        </div>
+                                    </div>
+                                    <Badge variant="outline" className="text-[10px] sm:text-xs shrink-0">Pending</Badge>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Activity Feed Section */}
+                {(bundleData?.activityFeed?.length ?? 0) > 0 && (
+                    <Card className="border-border/40 bg-white/5 dark:bg-black/20 backdrop-blur-xl rounded-3xl overflow-hidden">
+                        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-border/40">
+                            <h3 className="text-base sm:text-lg font-semibold">Recent Activity</h3>
+                        </div>
+                        <CardContent className="p-0 divide-y divide-border/30">
+                            {bundleData?.activityFeed?.map(item => (
+                                <div key={item.id} className="flex items-start gap-2 sm:gap-3 px-3 sm:px-6 py-3">
+                                    <div className="mt-0.5 shrink-0">
+                                        {ACTIVITY_ICONS[item.type] ?? <Wallet className="w-4 h-4 text-muted-foreground" />}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm">
+                                            <span className="font-semibold truncate block">{item.actor_name}</span>{" "}
+                                            <span className="text-muted-foreground">{item.description}</span>
+                                        </p>
+                                        <div className="flex items-center gap-1.5 sm:gap-2 mt-1 flex-wrap">
+                                            {item.room_name && (
+                                                <Badge variant="outline" className="text-[10px] h-5 px-1.5">{item.room_name}</Badge>
+                                            )}
+                                            {(item.amount ?? 0) > 0 && (
+                                                <span className="text-xs font-medium">{formatCurrency(item.amount ?? 0)}</span>
+                                            )}
+                                            <span className="text-[10px] text-muted-foreground">
+                                                {new Date(item.created_at).toLocaleDateString()}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+                )}
             </div>
         </TooltipProvider>
     )

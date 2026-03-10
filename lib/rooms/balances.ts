@@ -16,36 +16,55 @@ import type { RoomBalance } from '@/lib/types/rooms'
  * Returns each member's net position (positive = others owe them).
  */
 export async function getRoomBalances(roomId: string): Promise<RoomBalance[]> {
+    // Balance is calculated purely from splits to avoid inflating balances
+    // with unattributed transactions.
+    //
+    // others_owe_me = sum of non-payer splits on transactions I uploaded
+    //                 (i.e. how much others owe me for expenses I fronted)
+    //
+    // i_owe_others  = sum of my splits on transactions others uploaded
+    //                 (i.e. how much I owe for expenses others fronted)
+    //
+    // net_balance   = others_owe_me - i_owe_others
+    //   positive → others still owe you
+    //   negative → you still owe others
+    //
+    // Payer's own split on their own transaction is excluded from both sides
+    // so that A uploading $100 and splitting $50/$50 with B gives:
+    //   A: net = +50 (B owes A)   B: net = -50 (B owes A)
     const rows = await neonQuery<RoomBalance>(
-        `WITH member_paid AS (
-            -- Total each member paid (uploaded transactions)
+        `WITH others_owe_me AS (
             SELECT
                 st.uploaded_by AS user_id,
-                COALESCE(SUM(st.total_amount), 0) AS total_paid
-            FROM shared_transactions st
-            WHERE st.room_id = $1
-            GROUP BY st.uploaded_by
-        ),
-        member_owes AS (
-            -- Total each member owes across all splits (pending only)
-            SELECT
-                ts.user_id,
-                COALESCE(SUM(ts.amount), 0) AS total_owed
+                COALESCE(SUM(ts.amount), 0) AS amount
             FROM transaction_splits ts
             JOIN shared_transactions st ON st.id = ts.shared_tx_id
-            WHERE st.room_id = $1 AND ts.status = 'pending'
+            WHERE st.room_id = $1
+              AND ts.status = 'pending'
+              AND ts.user_id != st.uploaded_by
+            GROUP BY st.uploaded_by
+        ),
+        i_owe_others AS (
+            SELECT
+                ts.user_id,
+                COALESCE(SUM(ts.amount), 0) AS amount
+            FROM transaction_splits ts
+            JOIN shared_transactions st ON st.id = ts.shared_tx_id
+            WHERE st.room_id = $1
+              AND ts.status = 'pending'
+              AND ts.user_id != st.uploaded_by
             GROUP BY ts.user_id
         )
         SELECT
             rm.user_id,
             u.name AS display_name,
-            COALESCE(mp.total_paid, 0) - COALESCE(mo.total_owed, 0) AS net_balance,
-            COALESCE(mp.total_paid, 0) AS total_paid,
-            COALESCE(mo.total_owed, 0) AS total_owed
+            COALESCE(oom.amount, 0) - COALESCE(ioo.amount, 0) AS net_balance,
+            COALESCE(oom.amount, 0) AS total_paid,
+            COALESCE(ioo.amount, 0) AS total_owed
         FROM room_members rm
         JOIN users u ON u.id = rm.user_id
-        LEFT JOIN member_paid mp ON mp.user_id = rm.user_id
-        LEFT JOIN member_owes mo ON mo.user_id = rm.user_id
+        LEFT JOIN others_owe_me oom ON oom.user_id = rm.user_id
+        LEFT JOIN i_owe_others ioo ON ioo.user_id = rm.user_id
         WHERE rm.room_id = $1
         ORDER BY net_balance DESC`,
         [roomId]

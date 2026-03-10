@@ -219,12 +219,14 @@ export const BrowseReceiptsStep = memo(function BrowseReceiptsStep({
                         source_type: "receipt",
                         paid_by: paidBy,
                         splits,
-                        receipt_items: items.map(i => ({
-                            name: i.description,
-                            amount: i.total_price,
-                            quantity: Math.round(i.quantity) || 1,
-                            category: i.category_name ?? undefined,
-                        })),
+                        receipt_items: items
+                            .filter(i => (i.total_price ?? 0) > 0)
+                            .map(i => ({
+                                name: i.description,
+                                amount: Number(i.total_price),
+                                quantity: Math.round(i.quantity) || 1,
+                                category: i.category_name ?? undefined,
+                            })),
                     }),
                 })
                 if (!res.ok) {
