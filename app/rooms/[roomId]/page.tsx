@@ -16,6 +16,7 @@ import { RoomAttributionList } from "./_page/components/RoomAttributionList"
 import { RoomMembers } from "./_page/components/RoomMembers"
 import { RoomTransactionEditSheet } from "./_page/components/RoomTransactionEditSheet"
 import { AddToRoomDialog } from "@/components/rooms/add-to-room-dialog"
+import { RoomInsights } from "./_page/components/RoomInsights"
 import { demoFetch } from "@/lib/demo/demo-fetch"
 import { cn } from "@/lib/utils"
 
@@ -141,11 +142,19 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
                             </div>
                         )}
 
-                        {/* Insight tab: placeholder for future content */}
+                        {/* Insight tab: Room analytics */}
                         {tab === "insight" && (
-                            <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">
-                                Coming soon
-                            </div>
+                            <RoomInsights
+                                transactions={data.recentTransactions as any}
+                                members={data.members}
+                                balances={data.balances as any}
+                                sourceBreakdown={data.sourceBreakdown ?? { personal_import: { total: 0, count: 0 }, receipt: { total: 0, count: 0 }, statement: { total: 0, count: 0 }, manual: { total: 0, count: 0 } }}
+                                totalSpent={data.totalSpent ?? data.stats?.total_volume ?? 0}
+                                unattributedTotal={data.unattributedTotal ?? 0}
+                                unattributedCount={data.unattributedCount ?? 0}
+                                transactionCount={data.transactionCount ?? data.stats?.total_transactions ?? 0}
+                                currentUserId={userId ?? undefined}
+                            />
                         )}
 
                         {/* About tab: Members with admin controls + danger zone */}

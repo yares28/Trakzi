@@ -1,10 +1,11 @@
 "use client"
 
-import { memo, useMemo, useState } from "react"
-import { Users, User, UserCheck, MinusCircle, ChevronDown, ChevronUp } from "lucide-react"
+import { memo, useMemo } from "react"
+import { Users, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { useCurrency } from "@/components/currency-provider"
 
@@ -17,11 +18,10 @@ export interface PendingItem {
     quantity?: number
     category?: string | null
     date?: string
-    // Attribution state
     mode: AttributionMode
-    splitMembers: string[]     // user_ids for split mode
-    splitAmounts: Record<string, number>  // custom amounts per user_id
-    assignedTo: string         // user_id for "other" mode
+    splitMembers: string[]
+    splitAmounts: Record<string, number>
+    assignedTo: string
 }
 
 export interface RoomMember {
@@ -34,120 +34,33 @@ interface AttributionStepProps {
     items: PendingItem[]
     members: RoomMember[]
     currentUserId: string
+    paidByUserId?: string
+    paidByMember?: RoomMember | null
     onChange: (items: PendingItem[]) => void
 }
 
 function getInitials(name: string) {
+    const parts = name.trim().split(" ")
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
     return name.substring(0, 2).toUpperCase()
 }
 
-function SplitSubUI({
-    item,
-    members,
-    currentUserId,
-    onChange,
-}: {
-    item: PendingItem
-    members: RoomMember[]
-    currentUserId: string
-    onChange: (updated: PendingItem) => void
-}) {
-    const { formatCurrency } = useCurrency()
-    const selected = new Set(item.splitMembers.length > 0 ? item.splitMembers : [currentUserId])
-
-    const toggleMember = (userId: string) => {
-        const next = new Set(selected)
-        if (next.has(userId) && next.size > 1) {
-            next.delete(userId)
-        } else {
-            next.add(userId)
-        }
-        const memberList = Array.from(next)
-        const perPerson = Math.round((item.amount / memberList.length) * 100) / 100
-        const amounts: Record<string, number> = {}
-        memberList.forEach((id, i) => {
-            const remainder = i === 0 ? Math.round((item.amount - perPerson * memberList.length) * 100) / 100 : 0
-            amounts[id] = perPerson + remainder
-        })
-        onChange({ ...item, splitMembers: memberList, splitAmounts: amounts })
+// Compact chip showing the current attribution state of an item
+function StatusBadge({ item, members, currentUserId }: { item: PendingItem; members: RoomMember[]; currentUserId: string }) {
+    if (item.mode === "skip") {
+        return <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full">Skip</span>
     }
-
-    const perPerson = selected.size > 0 ? Math.round((item.amount / selected.size) * 100) / 100 : 0
-
-    return (
-        <div className="mt-2 pl-1 space-y-1.5 border-l-2 border-primary/20">
-            <p className="text-xs text-muted-foreground font-medium pl-2">Split between:</p>
-            {members.map(m => {
-                const isSelected = selected.has(m.user_id)
-                return (
-                    <button
-                        key={m.user_id}
-                        type="button"
-                        onClick={() => toggleMember(m.user_id)}
-                        className={cn(
-                            "flex items-center justify-between w-full pl-2 pr-2 py-1 rounded-md text-xs transition-colors",
-                            isSelected
-                                ? "bg-primary/10 text-primary"
-                                : "text-muted-foreground hover:bg-muted/50"
-                        )}
-                    >
-                        <span className="flex items-center gap-1.5">
-                            <span className={cn(
-                                "w-4 h-4 rounded-full border flex items-center justify-center text-[9px] font-bold",
-                                isSelected ? "bg-primary text-primary-foreground border-primary" : "border-border"
-                            )}>
-                                {isSelected ? "✓" : ""}
-                            </span>
-                            {m.display_name}{m.user_id === currentUserId ? " (You)" : ""}
-                        </span>
-                        {isSelected && (
-                            <span className="tabular-nums">{formatCurrency(perPerson)}</span>
-                        )}
-                    </button>
-                )
-            })}
-        </div>
-    )
-}
-
-function OtherSubUI({
-    item,
-    members,
-    currentUserId,
-    onChange,
-}: {
-    item: PendingItem
-    members: RoomMember[]
-    currentUserId: string
-    onChange: (updated: PendingItem) => void
-}) {
-    const others = members.filter(m => m.user_id !== currentUserId)
-    return (
-        <div className="mt-2 pl-1 space-y-1 border-l-2 border-rose-400/30">
-            <p className="text-xs text-muted-foreground font-medium pl-2">Assign to:</p>
-            {others.map(m => (
-                <button
-                    key={m.user_id}
-                    type="button"
-                    onClick={() => onChange({ ...item, assignedTo: m.user_id })}
-                    className={cn(
-                        "flex items-center gap-1.5 w-full pl-2 pr-2 py-1 rounded-md text-xs transition-colors",
-                        item.assignedTo === m.user_id
-                            ? "bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                            : "text-muted-foreground hover:bg-muted/50"
-                    )}
-                >
-                    <span className={cn(
-                        "w-4 h-4 rounded-full border flex items-center justify-center text-[9px] font-bold",
-                        item.assignedTo === m.user_id ? "bg-rose-500 text-white border-rose-500" : "border-border"
-                    )}>
-                        {item.assignedTo === m.user_id ? "✓" : ""}
-                    </span>
-                    {m.display_name}
-                </button>
-            ))}
-        </div>
-    )
+    if (item.mode === "mine") {
+        return <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Mine</span>
+    }
+    if (item.mode === "split") {
+        return <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">Split ×{item.splitMembers.length}</span>
+    }
+    if (item.mode === "other" && item.assignedTo) {
+        const m = members.find(m => m.user_id === item.assignedTo)
+        return <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-600 dark:text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded-full">→ {m?.display_name.split(" ")[0] ?? "?"}</span>
+    }
+    return <span className="inline-flex items-center text-[10px] font-medium text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full">Unset</span>
 }
 
 function ItemRow({
@@ -162,90 +75,154 @@ function ItemRow({
     onChange: (updated: PendingItem) => void
 }) {
     const { formatCurrency } = useCurrency()
-    const [expanded, setExpanded] = useState(false)
 
-    const modes: { id: AttributionMode; label: string; icon: React.ReactNode }[] = [
-        { id: "mine", label: "Mine", icon: <UserCheck className="w-3 h-3" /> },
-        { id: "split", label: "Split", icon: <Users className="w-3 h-3" /> },
-        { id: "other", label: "Other", icon: <User className="w-3 h-3" /> },
-        { id: "skip", label: "Skip", icon: <MinusCircle className="w-3 h-3" /> },
-    ]
+    const selectedSet = useMemo(() => {
+        if (item.mode === "skip") return new Set<string>()
+        if (item.mode === "mine") return new Set([currentUserId])
+        if (item.mode === "other" && item.assignedTo) return new Set([item.assignedTo])
+        if (item.mode === "split") return new Set(item.splitMembers)
+        return new Set<string>()
+    }, [item, currentUserId])
 
-    const handleModeClick = (mode: AttributionMode) => {
-        let updated: PendingItem = { ...item, mode }
-        if (mode === "mine") {
-            updated = { ...updated, splitMembers: [currentUserId], splitAmounts: { [currentUserId]: item.amount }, assignedTo: "" }
-        } else if (mode === "split") {
-            updated = { ...updated, splitMembers: [currentUserId], splitAmounts: { [currentUserId]: item.amount }, assignedTo: "" }
-            setExpanded(true)
-        } else if (mode === "other") {
-            updated = { ...updated, splitMembers: [], splitAmounts: {}, assignedTo: "" }
-            setExpanded(true)
+    const toggleMember = (userId: string) => {
+        const next = new Set(selectedSet)
+        if (next.has(userId)) {
+            if (next.size > 1) next.delete(userId)
+            // single last member: can't deselect — use skip instead
         } else {
-            updated = { ...updated, splitMembers: [], splitAmounts: {}, assignedTo: "" }
-            setExpanded(false)
+            next.add(userId)
         }
-        onChange(updated)
+        applySelection(next)
     }
 
-    const showSubUI = (item.mode === "split" || item.mode === "other") && expanded
+    const applySelection = (next: Set<string>) => {
+        const memberList = Array.from(next)
+        if (memberList.length === 0) {
+            onChange({ ...item, mode: "skip", splitMembers: [], splitAmounts: {}, assignedTo: "" })
+            return
+        }
+        if (memberList.length === 1) {
+            const uid = memberList[0]
+            const mode: AttributionMode = uid === currentUserId ? "mine" : "other"
+            onChange({ ...item, mode, splitMembers: [uid], splitAmounts: { [uid]: item.amount }, assignedTo: uid })
+        } else {
+            const perPerson = Math.round((item.amount / memberList.length) * 100) / 100
+            const amounts: Record<string, number> = {}
+            memberList.forEach((id, i) => {
+                const rem = i === 0 ? Math.round((item.amount - perPerson * memberList.length) * 100) / 100 : 0
+                amounts[id] = perPerson + rem
+            })
+            onChange({ ...item, mode: "split", splitMembers: memberList, splitAmounts: amounts, assignedTo: "" })
+        }
+    }
+
+    const perPersonAmount = selectedSet.size > 1 ? item.amount / selectedSet.size : 0
+    const isSkipped = item.mode === "skip"
 
     return (
-        <div className="p-3 rounded-xl border border-border/40 bg-muted/10 space-y-2">
-            <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{item.name}</p>
-                    {item.category && (
-                        <Badge variant="outline" className="text-[10px] h-4 mt-0.5">{item.category}</Badge>
-                    )}
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                    <span className="text-sm font-semibold tabular-nums">{formatCurrency(item.amount)}</span>
-                    {(item.mode === "split" || item.mode === "other") && (
-                        <button
-                            type="button"
-                            onClick={() => setExpanded(v => !v)}
-                            className="text-muted-foreground hover:text-foreground"
-                        >
-                            {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                        </button>
-                    )}
-                </div>
-            </div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-                {modes.map(m => (
-                    <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => handleModeClick(m.id)}
-                        className={cn(
-                            "flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border transition-all",
-                            item.mode === m.id
-                                ? "bg-primary text-primary-foreground border-primary"
-                                : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+        <div className={cn(
+            "rounded-2xl border transition-colors",
+            isSkipped
+                ? "border-border/25 bg-muted/5"
+                : "border-border/50 bg-card shadow-sm"
+        )}>
+            {/* ── Header row ── */}
+            <div className="flex items-start justify-between gap-3 px-4 pt-3.5 pb-2">
+                <div className="min-w-0 flex-1 space-y-1">
+                    <p className={cn("text-sm font-semibold truncate leading-tight", isSkipped && "text-muted-foreground/60")}>
+                        {item.name}
+                    </p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                        {item.category && (
+                            <Badge variant="secondary" className="text-[10px] h-4 px-1.5 font-normal">{item.category}</Badge>
                         )}
-                    >
-                        {m.icon}
-                        {m.label}
-                    </button>
-                ))}
+                        {item.date && (
+                            <span className="text-[10px] text-muted-foreground/70">{item.date.slice(0, 10)}</span>
+                        )}
+                        {item.quantity && item.quantity > 1 && (
+                            <span className="text-[10px] text-muted-foreground/70">×{item.quantity}</span>
+                        )}
+                    </div>
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className={cn("text-sm font-bold tabular-nums", isSkipped && "text-muted-foreground/50")}>
+                        {formatCurrency(item.amount)}
+                    </span>
+                    <StatusBadge item={item} members={members} currentUserId={currentUserId} />
+                </div>
             </div>
-            {showSubUI && item.mode === "split" && (
-                <SplitSubUI
-                    item={item}
-                    members={members}
-                    currentUserId={currentUserId}
-                    onChange={onChange}
-                />
-            )}
-            {showSubUI && item.mode === "other" && (
-                <OtherSubUI
-                    item={item}
-                    members={members}
-                    currentUserId={currentUserId}
-                    onChange={onChange}
-                />
-            )}
+
+            {/* ── Divider ── */}
+            <div className="h-px bg-border/30 mx-4" />
+
+            {/* ── Avatar selector row ── */}
+            <div className="px-4 py-3 flex items-center gap-1">
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide mr-1 shrink-0 whitespace-nowrap">
+                    Owes:
+                </span>
+
+                <div className="flex items-start gap-2 flex-wrap flex-1">
+                    {members.map(m => {
+                        const isSelected = selectedSet.has(m.user_id)
+                        const firstName = m.user_id === currentUserId ? "You" : m.display_name.split(" ")[0]
+                        const splitAmount = isSelected && item.splitAmounts[m.user_id]
+                            ? item.splitAmounts[m.user_id]
+                            : (isSelected ? item.amount : null)
+
+                        return (
+                            <button
+                                key={m.user_id}
+                                type="button"
+                                onClick={() => toggleMember(m.user_id)}
+                                className="flex flex-col items-center gap-0.5 transition-all group focus:outline-none"
+                                title={m.display_name + (m.user_id === currentUserId ? " (you)" : "")}
+                            >
+                                <div className={cn(
+                                    "rounded-full transition-all duration-150",
+                                    isSelected
+                                        ? "ring-2 ring-primary ring-offset-1 ring-offset-background scale-105"
+                                        : "opacity-30 hover:opacity-60 group-hover:ring-1 group-hover:ring-border group-hover:ring-offset-1 group-hover:ring-offset-background"
+                                )}>
+                                    <Avatar className="w-9 h-9">
+                                        <AvatarImage src={m.avatar_url || undefined} />
+                                        <AvatarFallback className={cn(
+                                            "text-xs font-bold",
+                                            isSelected ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+                                        )}>
+                                            {getInitials(m.display_name)}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                </div>
+                                <span className={cn(
+                                    "text-[10px] font-medium transition-colors max-w-[40px] truncate text-center",
+                                    isSelected ? "text-foreground" : "text-muted-foreground/50"
+                                )}>
+                                    {firstName}
+                                </span>
+                                {isSelected && splitAmount !== null && (
+                                    <span className="text-[9px] font-semibold tabular-nums text-primary/80">
+                                        {formatCurrency(splitAmount)}
+                                    </span>
+                                )}
+                            </button>
+                        )
+                    })}
+                </div>
+
+                {/* Skip pill — right aligned */}
+                <button
+                    type="button"
+                    onClick={() => onChange({ ...item, mode: "skip", splitMembers: [], splitAmounts: {}, assignedTo: "" })}
+                    className={cn(
+                        "flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all shrink-0 ml-auto",
+                        isSkipped
+                            ? "bg-muted/70 border-border/60 text-muted-foreground"
+                            : "border-border/40 text-muted-foreground/50 hover:text-muted-foreground hover:border-border/70 hover:bg-muted/30"
+                    )}
+                >
+                    <X className="w-3 h-3" /> Skip
+                </button>
+            </div>
         </div>
     )
 }
@@ -254,10 +231,10 @@ export const AttributionStep = memo(function AttributionStep({
     items,
     members,
     currentUserId,
+    paidByMember,
     onChange,
 }: AttributionStepProps) {
     const { formatCurrency } = useCurrency()
-    const [filter, setFilter] = useState<"all" | "unattributed">("all")
 
     const summary = useMemo(() => {
         const memberTotals: Record<string, number> = {}
@@ -279,61 +256,37 @@ export const AttributionStep = memo(function AttributionStep({
         return { memberTotals, unattributedTotal }
     }, [items, currentUserId])
 
-    const filtered = filter === "unattributed"
-        ? items.filter(i => i.mode === "skip" || (i.mode === "other" && !i.assignedTo))
-        : items
-
     const unattributedCount = items.filter(i => i.mode === "skip" || (i.mode === "other" && !i.assignedTo)).length
-
-    const handleItemChange = (updated: PendingItem) => {
+    const handleItemChange = (updated: PendingItem) =>
         onChange(items.map(i => i.tempId === updated.tempId ? updated : i))
-    }
 
     return (
         <div className="space-y-4">
-            {/* Filter tabs */}
-            <div className="flex items-center gap-2">
-                <button
-                    type="button"
-                    onClick={() => setFilter("all")}
-                    className={cn(
-                        "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
-                        filter === "all" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    )}
-                >
-                    All ({items.length})
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setFilter("unattributed")}
-                    className={cn(
-                        "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
-                        filter === "unattributed" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    )}
-                >
-                    Unattributed ({unattributedCount})
-                </button>
+            {/* ── Paid by + bulk actions row ── */}
+            <div className="flex items-center gap-2 flex-wrap">
+                {paidByMember ? (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/30 border border-border/40 flex-1 min-w-0">
+                        <span className="text-xs text-muted-foreground font-medium shrink-0">Paid by</span>
+                        <Avatar className="w-6 h-6 shrink-0">
+                            <AvatarImage src={paidByMember.avatar_url || undefined} />
+                            <AvatarFallback className="text-[9px] font-bold">{getInitials(paidByMember.display_name)}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-semibold truncate">{paidByMember.display_name}</span>
+                        {paidByMember.user_id === currentUserId && (
+                            <span className="text-xs text-muted-foreground shrink-0">(you)</span>
+                        )}
+                    </div>
+                ) : <div className="flex-1" />}
 
-                {/* Bulk actions */}
-                <div className="ml-auto flex gap-1.5">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs"
+                <div className="flex gap-1.5 shrink-0">
+                    <Button variant="outline" size="sm" className="h-8 text-xs"
                         onClick={() => onChange(items.map(i => ({
-                            ...i,
-                            mode: "mine" as AttributionMode,
-                            splitMembers: [currentUserId],
-                            splitAmounts: { [currentUserId]: i.amount },
-                            assignedTo: "",
-                        })))}
-                    >
+                            ...i, mode: "mine" as AttributionMode,
+                            splitMembers: [currentUserId], splitAmounts: { [currentUserId]: i.amount }, assignedTo: currentUserId,
+                        })))}>
                         All Mine
                     </Button>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs"
+                    <Button variant="outline" size="sm" className="h-8 text-xs gap-1"
                         onClick={() => onChange(items.map(i => {
                             const memberIds = members.map(m => m.user_id)
                             const perPerson = Math.round((i.amount / memberIds.length) * 100) / 100
@@ -343,18 +296,17 @@ export const AttributionStep = memo(function AttributionStep({
                                 amounts[id] = perPerson + rem
                             })
                             return { ...i, mode: "split" as AttributionMode, splitMembers: memberIds, splitAmounts: amounts, assignedTo: "" }
-                        }))}
-                    >
-                        Split All
+                        }))}>
+                        <Users className="w-3 h-3" /> Split All
                     </Button>
                 </div>
             </div>
 
-            {/* Item list */}
-            <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
-                {filtered.length === 0 ? (
-                    <p className="text-center text-sm text-muted-foreground py-6">No items to show.</p>
-                ) : filtered.map(item => (
+            {/* ── Item list ── */}
+            <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-0.5">
+                {items.length === 0 ? (
+                    <p className="text-center text-sm text-muted-foreground py-8">No items to attribute.</p>
+                ) : items.map(item => (
                     <ItemRow
                         key={item.tempId}
                         item={item}
@@ -365,30 +317,41 @@ export const AttributionStep = memo(function AttributionStep({
                 ))}
             </div>
 
-            {/* Summary footer */}
-            <div className="border-t pt-3 space-y-1.5">
-                <p className="text-xs font-medium text-muted-foreground">Summary</p>
-                <div className="flex flex-wrap gap-2">
-                    {members
-                        .filter(m => (summary.memberTotals[m.user_id] ?? 0) > 0)
-                        .map(m => (
-                            <div key={m.user_id} className="flex items-center gap-1.5 text-xs">
-                                <span className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-bold">
-                                    {getInitials(m.display_name)}
-                                </span>
-                                <span className="font-medium">{m.user_id === currentUserId ? "You" : m.display_name}:</span>
-                                <span className="tabular-nums">{formatCurrency(summary.memberTotals[m.user_id] ?? 0)}</span>
-                            </div>
-                        ))
-                    }
+            {/* ── Summary footer ── */}
+            {(Object.keys(summary.memberTotals).length > 0 || summary.unattributedTotal > 0) && (
+                <div className="rounded-xl border border-border/40 bg-muted/20 px-4 py-3 space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Summary</p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                        {members
+                            .filter(m => (summary.memberTotals[m.user_id] ?? 0) > 0)
+                            .map(m => (
+                                <div key={m.user_id} className="flex items-center gap-2">
+                                    <Avatar className="w-5 h-5 shrink-0">
+                                        <AvatarImage src={m.avatar_url || undefined} />
+                                        <AvatarFallback className="text-[8px]">{getInitials(m.display_name)}</AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-xs text-muted-foreground truncate">
+                                        {m.user_id === currentUserId ? "You" : m.display_name.split(" ")[0]}
+                                    </span>
+                                    <span className="ml-auto text-xs font-semibold tabular-nums text-foreground">
+                                        {formatCurrency(summary.memberTotals[m.user_id] ?? 0)}
+                                    </span>
+                                </div>
+                            ))
+                        }
+                    </div>
+                    {summary.unattributedTotal > 0 && (
+                        <div className="flex items-center justify-between pt-1 border-t border-border/30">
+                            <span className="text-xs text-amber-600 dark:text-amber-400">
+                                Skipped ({unattributedCount} {unattributedCount === 1 ? "item" : "items"})
+                            </span>
+                            <span className="text-xs font-semibold tabular-nums text-amber-600 dark:text-amber-400">
+                                {formatCurrency(summary.unattributedTotal)}
+                            </span>
+                        </div>
+                    )}
                 </div>
-                {summary.unattributedTotal > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                        Unattributed: <span className="font-medium tabular-nums">{formatCurrency(summary.unattributedTotal)}</span>
-                        {" "}({unattributedCount} {unattributedCount === 1 ? "item" : "items"})
-                    </p>
-                )}
-            </div>
+            )}
         </div>
     )
 })
