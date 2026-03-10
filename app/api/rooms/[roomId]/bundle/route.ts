@@ -37,12 +37,12 @@ async function getRoomBundle(roomId: string): Promise<RoomBundleSummary> {
         ),
         getRoomBalances(roomId),
         neonQuery<SharedTransaction & { uploader_name: string }>(
-            `SELECT st.*, u.name AS uploader_name
+            `SELECT st.*, COALESCE(u.name, 'Unknown') AS uploader_name
              FROM shared_transactions st
-             JOIN users u ON u.id = st.uploaded_by
+             LEFT JOIN users u ON u.id = st.uploaded_by
              WHERE st.room_id = $1
              ORDER BY st.transaction_date DESC, st.created_at DESC
-             LIMIT 20`,
+             LIMIT 50`,
             [roomId]
         ),
         neonQuery<{ total_spent: string; tx_count: string }>(
@@ -75,6 +75,40 @@ async function getRoomBundle(roomId: string): Promise<RoomBundleSummary> {
             [roomId]
         ),
     ])
+
+    // Enrich recent transactions with splits and items
+    const txIds = recentTransactions.map(t => t.id)
+    const [txSplits, txItems] = txIds.length > 0 ? await Promise.all([
+        neonQuery<{ shared_tx_id: string; user_id: string; amount: number; item_id: string | null; display_name: string }>(
+            `SELECT ts.shared_tx_id, ts.user_id, ts.amount, ts.item_id, u.name AS display_name
+             FROM transaction_splits ts
+             LEFT JOIN users u ON u.id = ts.user_id
+             WHERE ts.shared_tx_id = ANY($1::text[])`,
+            [txIds]
+        ),
+        neonQuery<{ id: string; shared_tx_id: string; name: string; amount: number; quantity: number; category: string | null }>(
+            `SELECT id, shared_tx_id, name, amount, quantity, category
+             FROM receipt_items
+             WHERE shared_tx_id = ANY($1::text[])`,
+            [txIds]
+        ),
+    ]) : [[], []]
+
+    const splitsByTx = txSplits.reduce<Record<string, typeof txSplits>>((acc, s) => {
+        ;(acc[s.shared_tx_id] ??= []).push(s)
+        return acc
+    }, {})
+    const itemsByTx = txItems.reduce<Record<string, typeof txItems>>((acc, i) => {
+        ;(acc[i.shared_tx_id] ??= []).push(i)
+        return acc
+    }, {})
+
+    const enrichedTransactions = recentTransactions.map(tx => {
+        const splits = splitsByTx[tx.id] ?? []
+        const items = itemsByTx[tx.id] ?? []
+        const source_type = (tx.metadata as any)?.source_type ?? 'manual'
+        return { ...tx, splits, items, is_attributed: splits.length > 0, source_type }
+    })
 
     // Enrich members with Clerk profile images
     const memberUserIds = members.map(m => m.user_id)
@@ -115,7 +149,7 @@ async function getRoomBundle(roomId: string): Promise<RoomBundleSummary> {
         room: roomRows[0],
         members: enrichedMembers,
         balances,
-        recentTransactions,
+        recentTransactions: enrichedTransactions,
         totalSpent: parseFloat(stats[0]?.total_spent ?? '0'),
         transactionCount: parseInt(stats[0]?.tx_count ?? '0', 10),
         unattributedTotal: parseFloat(unattributedRows[0]?.total ?? '0'),

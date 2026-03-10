@@ -35,6 +35,7 @@ const CreateSharedTxSchema = z.object({
     source_type: z.enum(["manual", "personal_import", "receipt", "statement"]).default("manual"),
     original_tx_id: z.number().optional(),
     receipt_items: z.array(ReceiptItemInputSchema).optional(),
+    paid_by: z.string().optional(), // Override who paid (must be a room member)
 })
 
 // POST /api/rooms/[roomId]/transactions — Create a shared transaction with splits
@@ -84,13 +85,17 @@ export async function POST(
             data.splits as SplitInput[]
         )
 
+        // Validate paid_by is a room member if provided
+        const paidByUserId = data.paid_by && memberIds.includes(data.paid_by) ? data.paid_by : userId
+
         const metadata: Record<string, unknown> = { source_type: data.source_type }
         if (data.original_tx_id) metadata.original_tx_id = data.original_tx_id
+        if (data.paid_by && data.paid_by !== userId) metadata.paid_by = data.paid_by
 
         // Create shared transaction
         const txRows = await neonInsert<Record<string, unknown>>("shared_transactions", {
             room_id: roomId,
-            uploaded_by: userId,
+            uploaded_by: paidByUserId,
             total_amount: data.total_amount,
             currency: data.currency,
             description: data.description,

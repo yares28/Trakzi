@@ -38,6 +38,12 @@ const pointsColor = (pts: number) => {
     return "text-muted-foreground"
 }
 
+function getAvgScore(member: ChallengeGroupMember, metric: ChallengeMetric): number | null {
+    const history = member.scoreHistory?.[metric]
+    if (!history || history.length === 0) return null
+    return history.reduce((sum, h) => sum + h.score, 0) / history.length
+}
+
 function MetricLeaderboard({
     metric,
     members,
@@ -51,15 +57,19 @@ function MetricLeaderboard({
     const { user } = useUser()
     const [selectedUser, setSelectedUser] = useState<ProfileModalUser | null>(null)
 
-    const sorted = [...members]
-        .filter(m => m.isRanked && m.currentScores[metric] !== null)
-        .sort((a, b) => {
-            const aScore = a.currentScores[metric] ?? 0
-            const bScore = b.currentScores[metric] ?? 0
-            return cfg.higherIsBetter ? bScore - aScore : aScore - bScore
-        })
+    // Sort by all-time average score from history (falls back to current score if no history)
+    const withScores = members.map(m => ({
+        member: m,
+        score: getAvgScore(m, metric) ?? (m.currentScores[metric] ?? null),
+    })).filter(({ score }) => score !== null) as { member: ChallengeGroupMember; score: number }[]
 
-    const unranked = members.filter(m => !m.isRanked || m.currentScores[metric] === null)
+    const sorted = withScores.sort((a, b) =>
+        cfg.higherIsBetter ? b.score - a.score : a.score - b.score
+    ).map(({ member, score }) => ({ ...member, allTimeScore: score }))
+
+    const unranked = members.filter(m =>
+        getAvgScore(m, metric) === null && (m.currentScores[metric] === null || m.currentScores[metric] === undefined)
+    )
 
     const getAvatarUrl = (member: ChallengeGroupMember) => {
         if (member.user_id === currentUserId && user?.imageUrl) {
@@ -72,8 +82,8 @@ function MetricLeaderboard({
         <div className="space-y-1">
             {sorted.map((m, i) => {
                 const rank = i + 1
-                const score = m.currentScores[metric] ?? 0
                 const isYou = m.user_id === currentUserId
+                const displayScore = Math.round(m.allTimeScore * 10) / 10
                 return (
                     <div
                         key={m.user_id}
@@ -105,18 +115,18 @@ function MetricLeaderboard({
                                 <button className="hidden sm:block cursor-default p-1 hover:bg-muted/20 rounded transition-colors">
                                     <ScoreSparkline
                                         history={m.scoreHistory?.[metric] ?? []}
-                                        currentScore={score}
+                                        currentScore={displayScore}
                                         lowerIsBetter={!cfg.higherIsBetter}
                                     />
                                 </button>
                             </TooltipTrigger>
                             <TooltipContent>
                                 <p className="font-semibold">{m.display_name}</p>
-                                <p className="text-xs text-muted-foreground">Score: {score}{cfg.unit}</p>
+                                <p className="text-xs text-muted-foreground">All-time avg: {displayScore}{cfg.unit}</p>
                             </TooltipContent>
                         </Tooltip>
                         <span className="text-sm font-bold tabular-nums">
-                            {score}{cfg.unit}
+                            {displayScore}{cfg.unit}
                         </span>
                         {rank <= 3 && (
                             <Badge className={cn(
@@ -125,7 +135,7 @@ function MetricLeaderboard({
                                     rank === 2 ? "bg-slate-400/20 text-slate-500" :
                                         "bg-amber-600/20 text-amber-700"
                             )}>
-                                +{rank === 1 ? 3 : rank === 2 ? 2 : 1}pts
+                                #{rank}
                             </Badge>
                         )}
                     </div>
@@ -152,11 +162,11 @@ function MetricLeaderboard({
                             </button>
                             <span className="flex-1 text-sm font-medium">{m.display_name}</span>
                             <Badge variant="outline" className="text-[10px] gap-1">
-                                <AlertCircle className="w-2.5 h-2.5" /> Not Ranked
+                                <AlertCircle className="w-2.5 h-2.5" /> No Data Yet
                             </Badge>
                         </div>
                     </TooltipTrigger>
-                    <TooltipContent>Needs more data this month to be ranked</TooltipContent>
+                    <TooltipContent>No historical data yet for this metric</TooltipContent>
                 </Tooltip>
             ))}
 
@@ -269,7 +279,7 @@ function AllTimeLeaderboard({ members, currentUserId }: { members: ChallengeGrou
             })}
 
             {sorted.length === 0 && (
-                <p className="text-center text-sm text-muted-foreground py-4">No points earned yet. Compete this month to earn your first!</p>
+                <p className="text-center text-sm text-muted-foreground py-4">No points earned yet. Start competing to appear on the all-time leaderboard!</p>
             )}
 
             <ProfileModal open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)} user={selectedUser} />
@@ -313,10 +323,11 @@ export function ChallengeLeaderboards({ metrics, members, currentUserId, hideAll
     return (
         <TooltipProvider>
             <div className="space-y-3">
-                <h2 className="text-lg font-semibold px-1">Leaderboards</h2>
+                <h2 className="text-lg font-semibold px-1">Rankings</h2>
                 <Card className="border-border/40 bg-card/60 backdrop-blur-sm rounded-3xl overflow-hidden">
                     {/* Popover filter */}
-                    <div className="flex items-center px-6 pt-4 pb-2">
+                    <div className="flex items-center justify-between px-6 pt-4 pb-2">
+                        <div className="flex items-center gap-2">
                         <Popover>
                             <PopoverTrigger asChild>
                                 <button
@@ -349,6 +360,8 @@ export function ChallengeLeaderboards({ metrics, members, currentUserId, hideAll
                                 </div>
                             </PopoverContent>
                         </Popover>
+                        <span className="text-[11px] text-muted-foreground">All-time avg</span>
+                        </div>
                     </div>
 
                     {/* Tab Content */}
