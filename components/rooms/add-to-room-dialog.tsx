@@ -738,7 +738,10 @@ export const AddToRoomDialog = memo(function AddToRoomDialog({
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogContent className={cn(
+                "max-h-[92vh] overflow-y-auto",
+                step === "browse" ? "sm:max-w-2xl" : "sm:max-w-lg"
+            )}>
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         {step !== "source" && (

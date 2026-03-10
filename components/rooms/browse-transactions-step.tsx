@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useState, useEffect, useCallback } from "react"
-import { Search, X, SlidersHorizontal, CalendarRange, ChevronDown } from "lucide-react"
+import { Search, X, SlidersHorizontal, CalendarRange } from "lucide-react"
 import { format } from "date-fns"
 import type { DateRange } from "react-day-picker"
 
@@ -91,11 +91,14 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
     // Filter popover
     const [filtersOpen, setFiltersOpen] = useState(false)
 
-    // List state
+    // All transactions ever fetched — keyed by id so selection survives filter changes
+    const [txCache, setTxCache] = useState<Map<number, PersonalTx>>(new Map())
+    // Current visible list (from latest fetch)
     const [transactions, setTransactions] = useState<PersonalTx[]>([])
     const [total, setTotal] = useState(0)
     const [offset, setOffset] = useState(0)
     const [isLoading, setIsLoading] = useState(false)
+    // Selection is kept by ID — survives filter changes because txCache always has the full objects
     const [selected, setSelected] = useState<Set<number>>(new Set())
 
     const fromStr = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : ""
@@ -104,7 +107,7 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
     const fetchTransactions = useCallback(async (newOffset = 0, append = false) => {
         setIsLoading(true)
         try {
-            const params = new URLSearchParams({ limit: "50", offset: String(newOffset) })
+            const params = new URLSearchParams({ limit: "100", offset: String(newOffset) })
             if (debouncedSearch) params.set("search", debouncedSearch)
             if (fromStr) params.set("from", fromStr)
             if (toStr) params.set("to", toStr)
@@ -113,16 +116,23 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
             }
             if (debouncedMin !== "") params.set("min_amount", debouncedMin)
             if (debouncedMax !== "") params.set("max_amount", debouncedMax)
-            // Fetch available categories on the first page only
             if (newOffset === 0) params.set("include_categories", "1")
 
             const res = await demoFetch(`/api/rooms/${roomId}/transactions/browse?${params}`)
             if (!res.ok) return
             const json = await res.json()
-            setTransactions(prev => append ? [...prev, ...json.data] : json.data)
+            const incoming: PersonalTx[] = json.data
+
+            // Merge into cache so selections are never lost
+            setTxCache(prev => {
+                const next = new Map(prev)
+                incoming.forEach(tx => next.set(tx.id, tx))
+                return next
+            })
+
+            setTransactions(prev => append ? [...prev, ...incoming] : incoming)
             setTotal(json.meta.total)
             setOffset(newOffset)
-            // Populate available categories from first-page response
             if (newOffset === 0 && Array.isArray(json.meta.availableCategories)) {
                 setAvailableCategories(json.meta.availableCategories)
                 setCategoriesLoading(false)
@@ -147,6 +157,27 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
         })
     }
 
+    // Batch selection helpers (operate on visible list)
+    const selectableVisible = transactions.filter(t => !t.already_in_room)
+    const allVisibleSelected = selectableVisible.length > 0 && selectableVisible.every(t => selected.has(t.id))
+    const someVisibleSelected = selectableVisible.some(t => selected.has(t.id))
+
+    const toggleSelectAll = () => {
+        if (allVisibleSelected) {
+            setSelected(prev => {
+                const next = new Set(prev)
+                selectableVisible.forEach(t => next.delete(t.id))
+                return next
+            })
+        } else {
+            setSelected(prev => {
+                const next = new Set(prev)
+                selectableVisible.forEach(t => next.add(t.id))
+                return next
+            })
+        }
+    }
+
     const toggleCategory = (cat: string) => {
         setSelectedCategories(prev => {
             const next = new Set(prev)
@@ -169,7 +200,6 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
     const hasCategoryFilter = selectedCategories.size > 0
     const hasPriceFilter = minAmount !== "" || maxAmount !== ""
 
-    // Count active filter groups for the badge
     const activeFilterCount =
         (hasDateFilter ? 1 : 0) +
         (hasCategoryFilter ? 1 : 0) +
@@ -177,14 +207,15 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
 
     const hasAnyFilter = activeFilterCount > 0
 
-    const selectedTxs = transactions.filter(t => selected.has(t.id))
+    // Resolve selected txs from cache so off-screen selections are never lost
+    const selectedTxs = [...selected].map(id => txCache.get(id)).filter((t): t is PersonalTx => t !== undefined)
     const selectedTotal = selectedTxs.reduce((s, t) => s + Math.abs(t.amount), 0)
 
     return (
         <div className="space-y-3">
             {/* Search + Filters button */}
             <div className="flex gap-2">
-                <div className="relative flex-1">
+                <div className="relative flex-1 min-w-0">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                         placeholder="Search by name..."
@@ -391,8 +422,34 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
                 </div>
             )}
 
-            {/* Transaction list — ordered latest first from API */}
-            <div className="space-y-0 max-h-[320px] overflow-y-auto border rounded-xl divide-y divide-border/30">
+            {/* Transaction list */}
+            <div className="border rounded-xl divide-y divide-border/30 overflow-hidden">
+                {/* Batch select header */}
+                {transactions.length > 0 && (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 border-b border-border/40">
+                        <Checkbox
+                            checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
+                            onCheckedChange={toggleSelectAll}
+                            className="shrink-0"
+                            aria-label="Select all"
+                        />
+                        <span className="text-xs text-muted-foreground flex-1 truncate">
+                            {selected.size > 0
+                                ? `${selected.size} selected · ${formatCurrency(selectedTotal)}`
+                                : `${transactions.length} shown · ${total} total`}
+                        </span>
+                        {selected.size > 0 && (
+                            <button
+                                type="button"
+                                className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline transition-colors shrink-0"
+                                onClick={() => setSelected(new Set())}
+                            >
+                                Clear
+                            </button>
+                        )}
+                    </div>
+                )}
+
                 {isLoading && transactions.length === 0 ? (
                     <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
                         Loading…
@@ -408,7 +465,7 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
                         <div
                             key={tx.id}
                             className={cn(
-                                "flex items-center gap-3 px-4 py-3 transition-colors",
+                                "grid grid-cols-[auto_1fr_auto] items-center gap-2 px-3 py-2 transition-colors overflow-hidden",
                                 disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-muted/30"
                             )}
                             onClick={() => toggleSelect(tx.id, tx.already_in_room)}
@@ -419,20 +476,26 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
                                 onCheckedChange={() => toggleSelect(tx.id, tx.already_in_room)}
                                 className="shrink-0"
                             />
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{tx.description}</p>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                    <span className="text-xs text-muted-foreground tabular-nums">{tx.date}</span>
-                                    {tx.category_name && (
-                                        <Badge variant="outline" className="text-[10px] h-4">{tx.category_name}</Badge>
-                                    )}
-                                    {tx.already_in_room && (
-                                        <Badge variant="secondary" className="text-[10px] h-4">Already added</Badge>
-                                    )}
+                            {/* Name + meta — clips at container boundary */}
+                            <div className="min-w-0 overflow-hidden">
+                                <p
+                                    className="text-xs font-medium truncate leading-snug"
+                                    title={tx.description}
+                                >
+                                    {tx.description}
+                                </p>
+                                <div className="flex items-center gap-1 mt-0.5 overflow-hidden">
+                                    <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{tx.date}</span>
+                                    {tx.already_in_room ? (
+                                        <span className="text-[10px] text-muted-foreground/60 shrink-0">· added</span>
+                                    ) : tx.category_name ? (
+                                        <span className="text-[10px] text-muted-foreground/70 truncate">· {tx.category_name}</span>
+                                    ) : null}
                                 </div>
                             </div>
+                            {/* Amount — right-aligned, never wraps */}
                             <span className={cn(
-                                "text-sm font-semibold tabular-nums shrink-0",
+                                "text-xs font-semibold tabular-nums shrink-0 text-right whitespace-nowrap",
                                 tx.amount < 0 ? "text-rose-500" : "text-emerald-500"
                             )}>
                                 {tx.amount < 0 ? "-" : "+"}{formatCurrency(Math.abs(tx.amount))}
@@ -440,14 +503,15 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
                         </div>
                     )
                 })}
+
                 {transactions.length < total && (
-                    <div className="px-4 py-3">
+                    <div className="px-3 py-2">
                         <Button
                             variant="ghost"
                             size="sm"
                             className="w-full text-xs"
                             disabled={isLoading}
-                            onClick={() => fetchTransactions(offset + 50, true)}
+                            onClick={() => fetchTransactions(offset + 100, true)}
                         >
                             {isLoading ? "Loading…" : `Load more (${total - transactions.length} remaining)`}
                         </Button>
