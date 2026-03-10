@@ -107,6 +107,9 @@ export default function ChallengeDetailPage({ params }: { params: Promise<{ grou
                             memberCount={data.memberCount}
                             daysLeft={data.daysLeftInMonth}
                             metrics={data.metrics as ChallengeMetric[]}
+                            groupId={groupId}
+                            isAdmin={isAdmin}
+                            onDescriptionUpdated={() => refetch()}
                         />
 
                         {/* Leaderboards / About tab switch (desktop only — mobile shows all) */}

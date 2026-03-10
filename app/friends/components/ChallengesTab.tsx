@@ -424,7 +424,7 @@ export default function ChallengesTab() {
 
                                     <div className="flex items-end justify-between mt-auto gap-2">
                                         <div className="space-y-0.5 sm:space-y-1">
-                                            <span className="text-[10px] sm:text-xs text-muted-foreground block">Your Best Rank</span>
+                                            <span className="text-[10px] sm:text-xs text-muted-foreground block">Current Rank</span>
                                             <div className={cn(
                                                 "text-base sm:text-xl font-bold font-sans",
                                                 yourBestRank === 1 ? "text-yellow-500" :

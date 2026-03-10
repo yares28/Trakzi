@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { cn } from "@/lib/utils"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { ProfileModal } from "@/components/friends/profile-modal"
@@ -31,11 +31,12 @@ export function ChallengeMembers({ members, currentUserId }: ChallengeMembersPro
                                 role="button"
                                 tabIndex={0}
                                 className="flex items-center justify-between px-3 sm:px-6 py-3.5 hover:bg-muted/10 transition-colors cursor-pointer"
-                                onClick={() => setSelectedUser({ id: m.user_id, name: m.display_name, avatar: null })}
-                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUser({ id: m.user_id, name: m.display_name, avatar: null }) } }}
+                                onClick={() => setSelectedUser({ id: m.user_id, name: m.display_name, avatar: m.avatar_url })}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUser({ id: m.user_id, name: m.display_name, avatar: m.avatar_url }) } }}
                             >
                                 <div className="flex items-center gap-2 sm:gap-3">
                                     <Avatar className="w-9 h-9 border border-border/50">
+                                        <AvatarImage src={m.avatar_url || undefined} alt={m.display_name} />
                                         <AvatarFallback className="text-[10px]">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
                                     </Avatar>
                                     <div>

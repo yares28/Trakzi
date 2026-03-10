@@ -23,6 +23,7 @@ const BulkCreateSchema = z.object({
     transactions: z.array(BulkTxSchema).min(1).max(100),
     source_type: z.enum(["personal_import", "statement"]),
     metadata: z.record(z.unknown()).optional(),
+    paid_by: z.string().optional(), // Override who paid (applies to all transactions)
 })
 
 // POST /api/rooms/[roomId]/transactions/bulk — Bulk create shared transactions
@@ -68,6 +69,9 @@ export async function POST(
 
         const createdIds: string[] = []
 
+        // Validate paid_by override
+        const paidByOverride = data.paid_by && memberIds.includes(data.paid_by) ? data.paid_by : null
+
         for (const tx of data.transactions) {
             const resolvedSplits = validateSplits(
                 'custom',
@@ -81,10 +85,11 @@ export async function POST(
                 ...data.metadata,
             }
             if (tx.original_tx_id) metadata.original_tx_id = tx.original_tx_id
+            if (paidByOverride && paidByOverride !== userId) metadata.paid_by = paidByOverride
 
             const txRows = await neonInsert<Record<string, unknown>>("shared_transactions", {
                 room_id: roomId,
-                uploaded_by: userId,
+                uploaded_by: paidByOverride ?? userId,
                 total_amount: tx.total_amount,
                 currency: tx.currency,
                 description: tx.description,

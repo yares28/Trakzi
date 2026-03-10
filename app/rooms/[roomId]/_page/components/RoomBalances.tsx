@@ -50,24 +50,22 @@ export function RoomBalances({
     return (
         <div className="space-y-3">
             <h2 className="text-lg font-semibold px-1">Balances</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {balances.map(b => (
-                    <Card key={b.user_id} className="p-4 flex items-center gap-3">
-                        <Avatar className="w-10 h-10 border border-border/50">
+                    <Card key={b.user_id} className="p-4 flex flex-col items-center gap-2 text-center">
+                        <Avatar className="w-11 h-11 border border-border/50">
                             {b.avatar_url && <AvatarImage src={b.avatar_url} alt={b.display_name} />}
                             <AvatarFallback className="text-xs">{b.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
-                        <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{b.display_name}</p>
-                            <p className={cn(
-                                "text-lg font-bold tabular-nums",
-                                b.net_balance > 0 ? "text-emerald-500" :
-                                b.net_balance < 0 ? "text-rose-500" :
-                                "text-muted-foreground"
-                            )}>
-                                {formatCurrency(b.net_balance, { showSign: true })}
-                            </p>
-                        </div>
+                        <p className="font-medium text-sm truncate w-full text-center">{b.display_name}</p>
+                        <p className={cn(
+                            "text-base font-bold tabular-nums",
+                            b.net_balance > 0 ? "text-emerald-500" :
+                            b.net_balance < 0 ? "text-rose-500" :
+                            "text-muted-foreground"
+                        )}>
+                            {formatCurrency(b.net_balance, { showSign: true })}
+                        </p>
                     </Card>
                 ))}
             </div>

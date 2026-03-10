@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useState, useCallback } from "react"
-import { ArrowLeft, ClipboardList, ScanLine, FileSpreadsheet, Upload, X, AlertTriangle } from "lucide-react"
+import { ArrowLeft, ClipboardList, ScanLine, FileSpreadsheet, Upload, X, AlertTriangle, PenLine } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
@@ -9,6 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import { useCurrency } from "@/components/currency-provider"
 import { demoFetch } from "@/lib/demo/demo-fetch"
@@ -21,8 +25,8 @@ import {
 } from "./attribution-step"
 import { BrowseTransactionsStep } from "./browse-transactions-step"
 
-type SourceType = "my-txns" | "receipt" | "statement"
-type Step = "source" | "browse" | "upload-receipt" | "upload-statement" | "attribute"
+type SourceType = "my-txns" | "receipt" | "statement" | "custom"
+type Step = "source" | "browse" | "upload-receipt" | "upload-statement" | "attribute" | "custom-expense"
 
 interface AddToRoomDialogProps {
     open: boolean
@@ -349,6 +353,177 @@ function StatementUploadStep({
     )
 }
 
+// ─── Custom Expense Step ──────────────────────────────────────────────────────
+
+function CustomExpenseStep({
+    members,
+    currentUserId,
+    roomId,
+    onSaved,
+}: {
+    members: RoomMember[]
+    currentUserId: string
+    roomId: string
+    onSaved: () => void
+}) {
+    const [description, setDescription] = useState("")
+    const [amount, setAmount] = useState("")
+    const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+    const [paidBy, setPaidBy] = useState(currentUserId)
+    const [splitWith, setSplitWith] = useState<Set<string>>(new Set(members.map(m => m.user_id)))
+    const [isSaving, setIsSaving] = useState(false)
+
+    const toggleSplit = (uid: string) => {
+        setSplitWith(prev => {
+            const next = new Set(prev)
+            if (next.has(uid) && next.size > 1) next.delete(uid)
+            else next.add(uid)
+            return next
+        })
+    }
+
+    const handleSave = async () => {
+        if (!description.trim()) { toast.error("Description is required"); return }
+        const totalAmount = parseFloat(amount)
+        if (isNaN(totalAmount) || totalAmount <= 0) { toast.error("Enter a valid amount"); return }
+
+        const splitMembers = [...splitWith]
+        const perPerson = totalAmount / splitMembers.length
+        const splits = splitMembers.map(uid => ({ user_id: uid, amount: Math.round(perPerson * 100) / 100 }))
+
+        setIsSaving(true)
+        try {
+            const res = await demoFetch(`/api/rooms/${roomId}/transactions`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    description: description.trim(),
+                    total_amount: totalAmount,
+                    transaction_date: date,
+                    split_type: "custom",
+                    source_type: "manual",
+                    paid_by: paidBy,
+                    splits,
+                }),
+            })
+            if (!res.ok) {
+                const json = await res.json()
+                toast.error(json.error ?? "Failed to save expense")
+                return
+            }
+            toast.success("Expense added to room")
+            onSaved()
+        } finally {
+            setIsSaving(false)
+        }
+    }
+
+    return (
+        <div className="space-y-5">
+            {/* Description */}
+            <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Description</Label>
+                <Input
+                    placeholder="e.g. Dinner, Groceries, Hotel..."
+                    value={description}
+                    onChange={e => setDescription(e.target.value)}
+                    autoFocus
+                />
+            </div>
+
+            {/* Amount + Date row */}
+            <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                    <Label className="text-xs font-medium">Amount</Label>
+                    <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={amount}
+                        onChange={e => setAmount(e.target.value)}
+                    />
+                </div>
+                <div className="space-y-1.5">
+                    <Label className="text-xs font-medium">Date</Label>
+                    <Input
+                        type="date"
+                        value={date}
+                        onChange={e => setDate(e.target.value)}
+                    />
+                </div>
+            </div>
+
+            <Separator />
+
+            {/* Paid by */}
+            <div className="space-y-2">
+                <Label className="text-xs font-medium">Paid by</Label>
+                <div className="flex flex-wrap gap-2">
+                    {members.map(m => (
+                        <button
+                            key={m.user_id}
+                            type="button"
+                            onClick={() => setPaidBy(m.user_id)}
+                            className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
+                                paidBy === m.user_id
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "border-border/60 hover:border-primary/50 hover:bg-muted/60"
+                            )}
+                        >
+                            <Avatar className="w-5 h-5">
+                                <AvatarImage src={m.avatar_url || undefined} />
+                                <AvatarFallback className="text-[9px]">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            {m.display_name.split(" ")[0]}
+                            {m.user_id === currentUserId && <span className="opacity-60">(you)</span>}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Split with */}
+            <div className="space-y-2">
+                <Label className="text-xs font-medium">Split equally with</Label>
+                <div className="flex flex-wrap gap-2">
+                    {members.map(m => {
+                        const checked = splitWith.has(m.user_id)
+                        return (
+                            <button
+                                key={m.user_id}
+                                type="button"
+                                onClick={() => toggleSplit(m.user_id)}
+                                className={cn(
+                                    "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
+                                    checked
+                                        ? "bg-primary/10 text-primary border-primary/40"
+                                        : "border-border/60 text-muted-foreground hover:border-primary/30 hover:bg-muted/50"
+                                )}
+                            >
+                                <Avatar className="w-5 h-5">
+                                    <AvatarImage src={m.avatar_url || undefined} />
+                                    <AvatarFallback className="text-[9px]">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                                {m.display_name.split(" ")[0]}
+                            </button>
+                        )
+                    })}
+                </div>
+                {splitWith.size > 0 && amount && !isNaN(parseFloat(amount)) && (
+                    <p className="text-[11px] text-muted-foreground">
+                        Each person pays: {(parseFloat(amount) / splitWith.size).toFixed(2)}
+                    </p>
+                )}
+            </div>
+
+            <Button className="w-full" onClick={handleSave} disabled={isSaving}>
+                {isSaving ? "Saving…" : "Add Expense"}
+            </Button>
+        </div>
+    )
+}
+
 // ─── Main Dialog ─────────────────────────────────────────────────────────────
 
 export const AddToRoomDialog = memo(function AddToRoomDialog({
@@ -376,23 +551,33 @@ export const AddToRoomDialog = memo(function AddToRoomDialog({
         onOpenChange(v)
     }
 
+    // paid_by override for personal txns
+    const [txnPaidBy, setTxnPaidBy] = useState(currentUserId)
+    const [txnSplitWith, setTxnSplitWith] = useState<string[]>(members.map(m => m.user_id))
+
     // Convert personal transactions to PendingItems
-    const handlePersonalTxsContinue = useCallback((txs: { id: number; date: string; description: string; amount: number; category_name: string | null }[]) => {
+    const handlePersonalTxsContinue = useCallback((
+        txs: { id: number; date: string; description: string; amount: number; category_name: string | null }[],
+        paidBy: string,
+        splitWith: string[],
+    ) => {
+        setTxnPaidBy(paidBy)
+        setTxnSplitWith(splitWith)
         const items: PendingItem[] = txs.map(tx => ({
             tempId: nanoid(),
             name: tx.description,
             amount: Math.abs(tx.amount),
             category: tx.category_name,
             date: tx.date,
-            mode: "skip" as AttributionMode,
-            splitMembers: [],
-            splitAmounts: {},
-            assignedTo: "",
+            mode: splitWith.length > 1 ? "split" as AttributionMode : "mine" as AttributionMode,
+            splitMembers: splitWith,
+            splitAmounts: Object.fromEntries(splitWith.map(uid => [uid, Math.abs(tx.amount) / splitWith.length])),
+            assignedTo: paidBy !== currentUserId ? paidBy : "",
         }))
         setPendingItems(items)
         setSourceType("my-txns")
         setStep("attribute")
-    }, [])
+    }, [currentUserId])
 
     // Convert receipt items to PendingItems
     const handleReceiptContinue = useCallback((parsed: { store_name: string | null; receipt_date: string | null; total_amount: number | null; currency: string | null; items: ParsedReceiptItem[] }) => {
@@ -497,6 +682,7 @@ export const AddToRoomDialog = memo(function AddToRoomDialog({
                     body: JSON.stringify({
                         transactions,
                         source_type: sourceType === "my-txns" ? "personal_import" : "statement",
+                        paid_by: sourceType === "my-txns" && txnPaidBy !== currentUserId ? txnPaidBy : undefined,
                     }),
                 })
                 if (!res.ok) {
@@ -515,6 +701,12 @@ export const AddToRoomDialog = memo(function AddToRoomDialog({
     }
 
     const sourceSources = [
+        {
+            id: "custom" as SourceType,
+            icon: <PenLine className="w-6 h-6" />,
+            label: "Custom Expense",
+            desc: "Manually enter an expense, who paid & split",
+        },
         {
             id: "my-txns" as SourceType,
             icon: <ClipboardList className="w-6 h-6" />,
@@ -536,11 +728,12 @@ export const AddToRoomDialog = memo(function AddToRoomDialog({
     ]
 
     const stepTitle: Record<Step, string> = {
-        source: "Add Transactions",
+        source: "Add to Room",
         browse: "Select Transactions",
         "upload-receipt": "Upload Receipt",
         "upload-statement": "Upload Statement",
         attribute: "Attribute Transactions",
+        "custom-expense": "Custom Expense",
     }
 
     return (
@@ -551,7 +744,13 @@ export const AddToRoomDialog = memo(function AddToRoomDialog({
                         {step !== "source" && (
                             <button
                                 type="button"
-                                onClick={() => setStep(step === "attribute" ? (sourceType === "my-txns" ? "browse" : sourceType === "receipt" ? "upload-receipt" : "upload-statement") : "source")}
+                                onClick={() => {
+                                    if (step === "attribute") {
+                                        setStep(sourceType === "my-txns" ? "browse" : sourceType === "receipt" ? "upload-receipt" : "upload-statement")
+                                    } else {
+                                        setStep("source")
+                                    }
+                                }}
                                 className="text-muted-foreground hover:text-foreground transition-colors"
                             >
                                 <ArrowLeft className="w-4 h-4" />
@@ -570,7 +769,10 @@ export const AddToRoomDialog = memo(function AddToRoomDialog({
                                     type="button"
                                     onClick={() => {
                                         setSourceType(src.id)
-                                        setStep(src.id === "my-txns" ? "browse" : src.id === "receipt" ? "upload-receipt" : "upload-statement")
+                                        if (src.id === "my-txns") setStep("browse")
+                                        else if (src.id === "receipt") setStep("upload-receipt")
+                                        else if (src.id === "statement") setStep("upload-statement")
+                                        else if (src.id === "custom") setStep("custom-expense")
                                     }}
                                     className="flex items-center gap-4 p-4 rounded-2xl border border-border/40 bg-muted/20 hover:bg-muted/50 hover:border-primary/40 transition-all text-left"
                                 >
@@ -586,9 +788,24 @@ export const AddToRoomDialog = memo(function AddToRoomDialog({
                         </div>
                     )}
 
+                    {step === "custom-expense" && (
+                        <CustomExpenseStep
+                            members={members}
+                            currentUserId={currentUserId}
+                            roomId={roomId}
+                            onSaved={() => {
+                                handleOpenChange(false)
+                                queryClient.invalidateQueries({ queryKey: ["room-bundle", roomId] })
+                                toast.success("Room updated")
+                            }}
+                        />
+                    )}
+
                     {step === "browse" && (
                         <BrowseTransactionsStep
                             roomId={roomId}
+                            members={members}
+                            currentUserId={currentUserId}
                             onContinue={handlePersonalTxsContinue}
                         />
                     )}

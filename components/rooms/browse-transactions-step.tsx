@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useState, useEffect, useCallback } from "react"
-import { Search, X, SlidersHorizontal, CalendarRange } from "lucide-react"
+import { Search, X, SlidersHorizontal, CalendarRange, ChevronDown } from "lucide-react"
 import { format } from "date-fns"
 import type { DateRange } from "react-day-picker"
 
@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { useCurrency } from "@/components/currency-provider"
 import { demoFetch } from "@/lib/demo/demo-fetch"
@@ -25,9 +26,17 @@ interface PersonalTx {
     already_in_room: boolean
 }
 
+export interface RoomMemberInfo {
+    user_id: string
+    display_name: string
+    avatar_url: string | null
+}
+
 interface BrowseTransactionsStepProps {
     roomId: string
-    onContinue: (selected: PersonalTx[]) => void
+    members: RoomMemberInfo[]
+    currentUserId: string
+    onContinue: (selected: PersonalTx[], paidBy: string, splitWith: string[]) => void
 }
 
 function useDebounce<T>(value: T, delay: number): T {
@@ -50,9 +59,15 @@ function formatDateRange(range: DateRange | undefined): string {
 
 export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
     roomId,
+    members,
+    currentUserId,
     onContinue,
 }: BrowseTransactionsStepProps) {
     const { formatCurrency } = useCurrency()
+
+    // Payer + split-with state
+    const [paidBy, setPaidBy] = useState(currentUserId)
+    const [splitWith, setSplitWith] = useState<Set<string>>(new Set(members.map(m => m.user_id)))
 
     // Search
     const [search, setSearch] = useState("")
@@ -440,6 +455,72 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
                 )}
             </div>
 
+            {/* Payer + Split-with selection */}
+            {selected.size > 0 && (
+                <div className="border rounded-2xl p-3 space-y-3 bg-muted/20">
+                    {/* Paid by */}
+                    <div className="flex items-center gap-3">
+                        <span className="text-xs font-medium text-muted-foreground w-16 shrink-0">Paid by</span>
+                        <div className="flex flex-wrap gap-1.5">
+                            {members.map(m => (
+                                <button
+                                    key={m.user_id}
+                                    type="button"
+                                    onClick={() => setPaidBy(m.user_id)}
+                                    className={cn(
+                                        "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all",
+                                        paidBy === m.user_id
+                                            ? "bg-primary text-primary-foreground border-primary"
+                                            : "border-border/60 hover:border-primary/40 hover:bg-muted/60"
+                                    )}
+                                >
+                                    <Avatar className="w-4 h-4">
+                                        <AvatarImage src={m.avatar_url || undefined} />
+                                        <AvatarFallback className="text-[8px]">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                    </Avatar>
+                                    {m.display_name.split(" ")[0]}
+                                    {m.user_id === currentUserId && <span className="opacity-60">(you)</span>}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <Separator />
+                    {/* Split with */}
+                    <div className="flex items-start gap-3">
+                        <span className="text-xs font-medium text-muted-foreground w-16 shrink-0 pt-0.5">Split with</span>
+                        <div className="flex flex-wrap gap-1.5">
+                            {members.map(m => {
+                                const checked = splitWith.has(m.user_id)
+                                return (
+                                    <button
+                                        key={m.user_id}
+                                        type="button"
+                                        onClick={() => setSplitWith(prev => {
+                                            const next = new Set(prev)
+                                            if (next.has(m.user_id) && next.size > 1) next.delete(m.user_id)
+                                            else next.add(m.user_id)
+                                            return next
+                                        })}
+                                        className={cn(
+                                            "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all",
+                                            checked
+                                                ? "bg-primary/10 text-primary border-primary/40"
+                                                : "border-border/60 text-muted-foreground hover:border-primary/30 hover:bg-muted/50"
+                                        )}
+                                    >
+                                        <Avatar className="w-4 h-4">
+                                            <AvatarImage src={m.avatar_url || undefined} />
+                                            <AvatarFallback className="text-[8px]">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                        </Avatar>
+                                        {m.display_name.split(" ")[0]}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Footer */}
             <div className="flex items-center justify-between border-t pt-3">
                 <p className="text-sm text-muted-foreground">
@@ -450,7 +531,7 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
                 </p>
                 <Button
                     disabled={selected.size === 0}
-                    onClick={() => onContinue(selectedTxs)}
+                    onClick={() => onContinue(selectedTxs, paidBy, [...splitWith])}
                     size="sm"
                 >
                     Import & Attribute →
