@@ -28,6 +28,11 @@ const MOCK_ROOM_BUNDLES: Record<string, RoomBundleData> = {
             { id: "tx-2", description: "Electricity bill", total_amount: 85.40, currency: "EUR", uploaded_by: "user_demo", uploader_name: "You", split_type: "equal", created_at: "2026-02-15T18:30:00Z", transaction_date: "2026-02-15" },
             { id: "tx-3", description: "Internet - March", total_amount: 45.00, currency: "EUR", uploaded_by: "user_bob", uploader_name: "Bob S.", split_type: "equal", created_at: "2026-03-01T09:00:00Z", transaction_date: "2026-03-01" },
         ],
+        activityFeed: [
+            { id: "act-1", type: "split_created", actor_name: "Alice C.", description: "uploaded February rent", amount: 1500, currency: "EUR", room_name: "Apartment 4B", created_at: "2026-02-01T10:00:00Z" },
+            { id: "act-2", type: "split_created", actor_name: "You", description: "uploaded Electricity bill", amount: 85.40, currency: "EUR", room_name: "Apartment 4B", created_at: "2026-02-15T18:30:00Z" },
+            { id: "act-3", type: "split_created", actor_name: "Bob S.", description: "uploaded Internet - March", amount: 45, currency: "EUR", room_name: "Apartment 4B", created_at: "2026-03-01T09:00:00Z" },
+        ],
         stats: { total_transactions: 12, total_volume: 3200, pending_splits: 1 },
     },
     "room-2": {
@@ -57,6 +62,11 @@ const MOCK_ROOM_BUNDLES: Record<string, RoomBundleData> = {
             { id: "tx-5", description: "Dinner at the beach", total_amount: 120, currency: "EUR", uploaded_by: "user_demo", uploader_name: "You", split_type: "equal", created_at: "2026-02-22T20:00:00Z", transaction_date: "2026-02-22" },
             { id: "tx-6", description: "Taxi to airport", total_amount: 55, currency: "EUR", uploaded_by: "user_diana", uploader_name: "Diana P.", split_type: "equal", created_at: "2026-02-23T06:00:00Z", transaction_date: "2026-02-23" },
         ],
+        activityFeed: [
+            { id: "act-4", type: "split_created", actor_name: "Charlie D.", description: "uploaded Airbnb booking", amount: 800, currency: "EUR", room_name: "Weekend Getaway", created_at: "2026-02-20T10:00:00Z" },
+            { id: "act-5", type: "split_created", actor_name: "You", description: "uploaded Dinner at the beach", amount: 120, currency: "EUR", room_name: "Weekend Getaway", created_at: "2026-02-22T20:00:00Z" },
+            { id: "act-6", type: "split_created", actor_name: "Diana P.", description: "uploaded Taxi to airport", amount: 55, currency: "EUR", room_name: "Weekend Getaway", created_at: "2026-02-23T06:00:00Z" },
+        ],
         stats: { total_transactions: 8, total_volume: 1850, pending_splits: 0 },
     },
     "room-3": {
@@ -80,6 +90,10 @@ const MOCK_ROOM_BUNDLES: Record<string, RoomBundleData> = {
         recentTransactions: [
             { id: "tx-7", description: "Lidl weekly shop", total_amount: 62.30, currency: "EUR", uploaded_by: "user_fiona", uploader_name: "Fiona G.", split_type: "equal", created_at: "2026-02-25T11:00:00Z", transaction_date: "2026-02-25" },
             { id: "tx-8", description: "Aldi run", total_amount: 48.50, currency: "EUR", uploaded_by: "user_demo", uploader_name: "You", split_type: "equal", created_at: "2026-02-28T15:00:00Z", transaction_date: "2026-02-28" },
+        ],
+        activityFeed: [
+            { id: "act-7", type: "split_created", actor_name: "Fiona G.", description: "uploaded Lidl weekly shop", amount: 62.30, currency: "EUR", room_name: "Groceries & Co.", created_at: "2026-02-25T11:00:00Z" },
+            { id: "act-8", type: "split_created", actor_name: "You", description: "uploaded Aldi run", amount: 48.50, currency: "EUR", room_name: "Groceries & Co.", created_at: "2026-02-28T15:00:00Z" },
         ],
         stats: { total_transactions: 6, total_volume: 420.75, pending_splits: 0 },
     },

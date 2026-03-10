@@ -43,6 +43,16 @@ export interface RoomBundleData {
         is_attributed?: boolean
         source_type?: string
     }[]
+    activityFeed: {
+        id: string
+        type: string
+        actor_name: string
+        description: string
+        amount: number | null
+        currency: string | null
+        room_name: string | null
+        created_at: string
+    }[]
     stats?: {
         total_transactions: number
         total_volume: number

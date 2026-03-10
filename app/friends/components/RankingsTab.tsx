@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, type ReactNode } from "react"
-import { TrendingUp, ChevronDown, ChevronUp, UserPlus, Lock, Shield, Trophy, PiggyBank, Heart, ShoppingBag, AlertCircle, ArrowRightLeft, Check, X, Wallet, Receipt, Home, UserCheck, Clock } from "lucide-react"
+import { TrendingUp, ChevronDown, ChevronUp, UserPlus, Lock, Shield, Trophy, PiggyBank, Heart, ShoppingBag, AlertCircle, Check, X, Clock } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -17,7 +17,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useFriendsBundleData, useRefreshFriendsBundle } from "@/hooks/use-friends-bundle"
 import { useCurrency } from "@/components/currency-provider"
 import type { FriendScore } from "@/lib/charts/friends-aggregations"
-import type { FriendWithBalance, FriendRequest, ActivityItem } from "@/lib/types/friends"
+import type { FriendWithBalance, FriendRequest } from "@/lib/types/friends"
 import { AddFriendDialog } from "@/components/friends/add-friend-dialog"
 import { ProfileModal } from "@/components/friends/profile-modal"
 import type { ProfileModalUser } from "@/components/friends/profile-modal"
@@ -34,13 +34,7 @@ interface MetricConfig {
     higherIsBetter: boolean
 }
 
-const ACTIVITY_ICONS: Record<ActivityItem["type"], ReactNode> = {
-    split_created: <ArrowRightLeft className="w-4 h-4 text-muted-foreground" />,
-    split_settled: <Check className="w-4 h-4 text-emerald-500" />,
-    room_joined: <Home className="w-4 h-4 text-muted-foreground" />,
-    friend_added: <UserCheck className="w-4 h-4 text-muted-foreground" />,
-    receipt_uploaded: <Receipt className="w-4 h-4 text-muted-foreground" />,
-}
+
 
 const METRICS: MetricConfig[] = [
     { key: "overall", label: "Overall", icon: <Trophy className="w-4 h-4" />, field: "overallScore", unit: "/100", higherIsBetter: true },
@@ -575,40 +569,6 @@ export default function RankingsTab() {
                     </Card>
                 )}
 
-                {/* Activity Feed Section */}
-                {(bundleData?.activityFeed?.length ?? 0) > 0 && (
-                    <Card className="border-border/40 bg-white/5 dark:bg-black/20 backdrop-blur-xl rounded-3xl overflow-hidden">
-                        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-border/40">
-                            <h3 className="text-base sm:text-lg font-semibold">Recent Activity</h3>
-                        </div>
-                        <CardContent className="p-0 divide-y divide-border/30">
-                            {bundleData?.activityFeed?.map(item => (
-                                <div key={item.id} className="flex items-start gap-2 sm:gap-3 px-3 sm:px-6 py-3">
-                                    <div className="mt-0.5 shrink-0">
-                                        {ACTIVITY_ICONS[item.type] ?? <Wallet className="w-4 h-4 text-muted-foreground" />}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm">
-                                            <span className="font-semibold truncate block">{item.actor_name}</span>{" "}
-                                            <span className="text-muted-foreground">{item.description}</span>
-                                        </p>
-                                        <div className="flex items-center gap-1.5 sm:gap-2 mt-1 flex-wrap">
-                                            {item.room_name && (
-                                                <Badge variant="outline" className="text-[10px] h-5 px-1.5">{item.room_name}</Badge>
-                                            )}
-                                            {(item.amount ?? 0) > 0 && (
-                                                <span className="text-xs font-medium">{formatCurrency(item.amount ?? 0)}</span>
-                                            )}
-                                            <span className="text-[10px] text-muted-foreground">
-                                                {new Date(item.created_at).toLocaleDateString()}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
-                )}
             </div>
         </TooltipProvider>
     )
