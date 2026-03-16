@@ -318,6 +318,7 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
                 {
                     type: "bar",
                     itemStyle: {
+                        borderRadius: [10, 10, 0, 0],
                         color: (params: any) => barColors[params.dataIndex] ?? palette[params.dataIndex % palette.length],
                     },
                 },

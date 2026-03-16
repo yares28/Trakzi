@@ -587,6 +587,7 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
         {
           type: "bar",
           itemStyle: {
+            borderRadius: [10, 10, 0, 0],
             color: (params: any) => {
               const index = params.dataIndex
               return palette[index % palette.length]

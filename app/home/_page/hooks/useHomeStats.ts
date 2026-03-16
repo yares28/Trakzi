@@ -1,5 +1,8 @@
 import { useMemo } from "react"
 
+import { computeSpendingScore } from "@/lib/spending-score"
+import { computeSavingsScore } from "@/lib/savings-score"
+import { computeFridgeScore } from "@/lib/fridge-score"
 import type {
   HomeTransaction,
   StatsSummary,
@@ -19,6 +22,18 @@ export function useHomeStats(transactions: HomeTransaction[]) {
         expensesChange: 0,
         savingsRateChange: 0,
         netWorthChange: 0,
+        spendingScore: 0,
+        spendingGrade: "N/A",
+        spendingScoreTrend: "stable" as const,
+        spendingScoreTrendData: [],
+        savingsScore: 0,
+        savingsGrade: "N/A",
+        savingsScoreTrend: "stable" as const,
+        savingsScoreTrendData: [],
+        fridgeScore: 0,
+        fridgeGrade: "N/A",
+        fridgeScoreTrend: "stable" as const,
+        fridgeScoreTrendData: [],
       }
     }
 
@@ -88,6 +103,63 @@ export function useHomeStats(transactions: HomeTransaction[]) {
     const netWorthChange =
       previousNetWorth > 0 ? ((netWorth - previousNetWorth) / previousNetWorth) * 100 : 0
 
+    const {
+      score: spendingScore,
+      grade: spendingGrade,
+      trendDirection: spendingScoreTrend,
+      scoreTrendData: spendingScoreTrendData,
+    } = computeSpendingScore(transactions)
+
+    const {
+      score: savingsScore,
+      grade: savingsGrade,
+      trendDirection: savingsScoreTrend,
+      scoreTrendData: savingsScoreTrendData,
+    } = computeSavingsScore(transactions)
+
+    // Build fridge receipts format expected by computeFridgeScore
+    const receiptMap = new Map<string, any>()
+    transactions.forEach((tx: any) => {
+      const receiptId = String(tx.receiptId ?? tx.id)
+      if (!receiptId) return
+
+      if (!receiptMap.has(receiptId)) {
+        receiptMap.set(receiptId, {
+          id: receiptId,
+          date: tx.receiptDate || tx.date,
+          totalAmount: Number(tx.receiptTotalAmount) || 0,
+          items: []
+        })
+      }
+
+      const receipt = receiptMap.get(receiptId)
+      if (!receipt) return
+
+      const quantity = Number.isFinite(tx.quantity) && tx.quantity > 0 ? tx.quantity : 1
+      const pricePerUnit = Number(tx.pricePerUnit) || 0
+      const unitPrice = pricePerUnit > 0 ? pricePerUnit : (quantity > 0 && tx.amount > 0 ? tx.amount / quantity : tx.amount)
+
+      receipt.items.push({
+        id: String(tx.id),
+        name: tx.description || "Untitled",
+        category: tx.category || "Other",
+        categoryId: tx.categoryId,
+        price: unitPrice,
+        quantity
+      })
+
+      if (!Number.isFinite(receipt.totalAmount) || receipt.totalAmount <= 0) {
+        receipt.totalAmount = receipt.items.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0)
+      }
+    })
+
+    const {
+      score: fridgeScore,
+      grade: fridgeGrade,
+      trendDirection: fridgeScoreTrend,
+      scoreTrendData: fridgeScoreTrendData,
+    } = computeFridgeScore(Array.from(receiptMap.values()))
+
     return {
       totalIncome: currentIncome,
       totalExpenses: currentExpenses,
@@ -97,6 +169,18 @@ export function useHomeStats(transactions: HomeTransaction[]) {
       expensesChange,
       savingsRateChange,
       netWorthChange,
+      spendingScore,
+      spendingGrade,
+      spendingScoreTrend,
+      spendingScoreTrendData,
+      savingsScore,
+      savingsGrade,
+      savingsScoreTrend,
+      savingsScoreTrendData,
+      fridgeScore,
+      fridgeGrade,
+      fridgeScoreTrend,
+      fridgeScoreTrendData,
     }
   }, [transactions])
 

@@ -114,7 +114,7 @@ export const ChartPurchaseSizeBreakdown = memo(function ChartPurchaseSizeBreakdo
       padding={0.3}
       groupMode="stacked"
       colors={[palette[2] || "#3b82f6", palette[1] || "#10b981", palette[0] || "#fe8339"]}
-      borderRadius={4}
+      borderRadius={10}
       enableLabel={false}
       axisBottom={{
         tickSize: 0,
@@ -213,11 +213,11 @@ export const ChartPurchaseSizeBreakdown = memo(function ChartPurchaseSizeBreakdo
             {renderChart()}
           </div>
           {/* Legend */}
-          <div className="flex items-center justify-center gap-4 pb-2 text-xs flex-wrap">
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2 mb-2">
             {barKeys.map((key, i) => (
               <div key={key} className="flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: [palette[2] || "#3b82f6", palette[1] || "#10b981", palette[0] || "#fe8339"][i] }} />
-                <span style={{ color: textColor }}>{key}</span>
+                <span className="font-medium text-foreground truncate max-w-[120px]" title={key}>{key}</span>
               </div>
             ))}
           </div>

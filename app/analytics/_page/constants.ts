@@ -3,8 +3,6 @@ export const ANALYTICS_CACHE_TTL_MS = 5 * 60 * 1000
 export const DEFAULT_CHART_ORDER = [
   "incomeExpensesTracking1",
   "incomeExpensesTracking2",
-  "spendingScore",
-  "cashFlowIndicator",
   "incomeExpenseRatio",
   "weekendVsWeekday",
   "monthlyBudgetPace",
@@ -33,14 +31,12 @@ export const DEFAULT_CHART_ORDER = [
 export const CHART_ORDER_STORAGE_KEY = "analytics-chart-order"
 export const CHART_SIZES_STORAGE_KEY = "analytics-chart-sizes"
 export const CHART_SIZES_VERSION_KEY = "analytics-chart-sizes-version"
-export const DEFAULT_SIZES_VERSION = "12"
+export const DEFAULT_SIZES_VERSION = "14"
 
 export const DEFAULT_CHART_SIZES: Record<string, { w: number; h: number; x?: number; y?: number }> = {
   "incomeExpensesTracking1": { w: 6, h: 6, x: 0, y: 0 },
   "incomeExpensesTracking2": { w: 6, h: 6, x: 6, y: 0 },
-  "spendingScore": { w: 6, h: 6, x: 0, y: 6 },
-  "cashFlowIndicator": { w: 6, h: 6, x: 6, y: 6 },
-  "incomeExpenseRatio": { w: 6, h: 6, x: 0, y: 12 },
+  "incomeExpenseRatio": { w: 6, h: 13, x: 0, y: 12 },
   "weekendVsWeekday": { w: 6, h: 6, x: 6, y: 12 },
   "monthlyBudgetPace": { w: 6, h: 6, x: 0, y: 18 },
   "budgetBurndown": { w: 6, h: 6, x: 6, y: 18 },

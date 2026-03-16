@@ -89,7 +89,7 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
     const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
     const [mounted, setMounted] = useState(false)
     const hasAnimatedRef = useRef(false)
-    const renderChartRef = useRef<(animate: boolean) => void>(() => {})
+    const renderChartRef = useRef<(animate: boolean) => void>(() => { })
 
     useEffect(() => {
         setMounted(true)
@@ -305,7 +305,7 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
                 }
 
                 rect.setAttribute("fill", barColor)
-                rect.setAttribute("rx", "3")
+                rect.setAttribute("rx", "10")
                 rect.style.cursor = "pointer"
                 rect.style.transition = "fill 0.2s ease"
 

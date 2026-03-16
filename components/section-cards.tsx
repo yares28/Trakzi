@@ -2,6 +2,9 @@
 
 import { useMemo } from "react"
 import { IconTrendingDown, IconTrendingUp } from "@tabler/icons-react"
+import { IconLock, IconSparkles } from "@tabler/icons-react"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 
@@ -47,6 +50,26 @@ interface SectionCardsProps {
   spendingRateTrend?: TrendDataPoint[]
   /** When set and showSpendingAndSavingsRate, shows spent/saved per day under rate cards */
   periodDays?: number
+  /** Spending Score card (shown in analytics page) */
+  spendingScore?: number
+  spendingGrade?: string
+  spendingScoreTrend?: "improving" | "worsening" | "stable"
+  /** Monthly score history for the background wave */
+  spendingScoreTrendData?: TrendDataPoint[]
+  /** When false, the Spending Score card is shown blurred with a lock (feature gate) */
+  spendingScoreEnabled?: boolean
+  /** Savings Score card */
+  savingsScore?: number
+  savingsGrade?: string
+  savingsScoreTrend?: "improving" | "worsening" | "stable"
+  savingsScoreTrendData?: TrendDataPoint[]
+  savingsScoreEnabled?: boolean
+  /** Fridge Score card */
+  fridgeScore?: number
+  fridgeGrade?: string
+  fridgeScoreTrend?: "improving" | "worsening" | "stable"
+  fridgeScoreTrendData?: TrendDataPoint[]
+  fridgeScoreEnabled?: boolean
 }
 
 type CardId = "income" | "expenses" | "netWorth" | "transactions" | "savingsRate" | "spendingRate"
@@ -175,37 +198,213 @@ function CardComponent({ card }: { card: CardData }) {
         : null
 
   return (
-    <Card className="@container/card w-full relative group overflow-hidden h-[7rem] py-4">
+    <Card className="@container/card w-full relative group overflow-hidden min-h-[7rem] h-full py-4 flex flex-col justify-center">
       <TrendLineBackground color={card.trendColor} seed={card.seed} dataPoints={card.trendData} />
-      <CardHeader className="pb-2 pt-[5px] flex-1 min-h-0">
-        <CardDescription className="text-xs mb-1 sm:mb-1.5 truncate">{description}</CardDescription>
-        <div className="flex items-baseline justify-between gap-1.5">
-          <CardTitle className="text-lg font-semibold tabular-nums @[180px]/card:text-xl @[250px]/card:text-2xl @[350px]/card:text-3xl truncate">
-            {card.isCurrency !== false
-              ? formatCurrency(card.value, card.formatOptions)
-              : card.value.toLocaleString(undefined, card.formatOptions) + (card.valueSuffix ?? "")}
-          </CardTitle>
-          {card.showChange !== false && (
-            <Badge variant="outline" className="text-[10px] h-5 px-1 shrink-0">
-              {badgeLabel !== null ? (
-                badgeLabel
-              ) : (
-                <>
-                  {card.change >= 0 ? <IconTrendingUp className="size-2.5" /> : <IconTrendingDown className="size-2.5" />}
-                  {card.change >= 0 ? "+" : ""}
-                  {card.change.toFixed(1)}%
-                </>
-              )}
-            </Badge>
-          )}
-        </div>
+      <CardHeader className="!flex flex-col items-center justify-center p-0 h-full w-full z-10 text-center gap-1">
+        <CardDescription className="text-[11px] sm:text-xs text-balance px-2 leading-tight">{description}</CardDescription>
+        <CardTitle className="text-xl sm:text-2xl font-bold tabular-nums break-words px-2">
+          {card.isCurrency !== false
+            ? formatCurrency(card.value, card.formatOptions)
+            : card.value.toLocaleString(undefined, card.formatOptions) + (card.valueSuffix ?? "")}
+        </CardTitle>
+        {card.showChange !== false && (
+          <Badge variant="outline" className="text-[10px] h-5 px-1.5 shrink-0 flex items-center justify-center">
+            {badgeLabel !== null ? (
+              badgeLabel
+            ) : (
+              <>
+                {card.change >= 0 ? <IconTrendingUp className="size-2.5 mr-0.5" /> : <IconTrendingDown className="size-2.5 mr-0.5" />}
+                {card.change >= 0 ? "+" : ""}
+                {card.change.toFixed(1)}%
+              </>
+            )}
+          </Badge>
+        )}
         {showSpanningUnderNumber && card.footerText && (
-          <p className="text-[10px] text-muted-foreground mt-1 sm:mt-1.5 truncate hidden @[180px]/card:block">{card.footerText}</p>
+          <p className="text-[9px] sm:text-[10px] text-muted-foreground text-balance px-2 leading-tight hidden @[180px]/card:block">
+            {card.footerText}
+          </p>
         )}
         {card.subtextUnderValue && (
-          <p className="text-[10px] text-muted-foreground mt-1 sm:mt-1.5 truncate hidden @[180px]/card:block">{card.subtextUnderValue}</p>
+          <p className="text-[9px] sm:text-[10px] text-muted-foreground text-balance px-2 leading-tight hidden @[180px]/card:block">
+            {card.subtextUnderValue}
+          </p>
         )}
       </CardHeader>
+    </Card>
+  )
+}
+
+// Spending Score card — mirrors CardComponent styling, gate overlay inside Card
+function SpendingScoreCard({
+  score,
+  grade,
+  trend,
+  color,
+  trendData = [],
+  enabled = true,
+}: {
+  score: number
+  grade: string
+  trend: "improving" | "worsening" | "stable"
+  color: string
+  trendData?: { date: string; value: number }[]
+  enabled?: boolean
+}) {
+  const subtextUnderValue =
+    trend === "improving" ? "Trend improving"
+      : trend === "worsening" ? "Trend worsening"
+        : "Trend stable"
+
+  return (
+    <Card className="@container/card w-full relative group overflow-hidden min-h-[7rem] h-full py-4 flex flex-col justify-center">
+      <TrendLineBackground color={color} seed={42} dataPoints={trendData} />
+
+      {/* Card content — blurred when locked */}
+      <CardHeader className={`!flex flex-col items-center justify-center p-0 h-full w-full z-10 text-center gap-1 ${!enabled ? "blur-sm opacity-40 saturate-50 pointer-events-none select-none" : ""}`}>
+        <CardDescription className="text-[11px] sm:text-xs text-balance px-2 leading-tight">Spending Score</CardDescription>
+        <CardTitle className="text-xl sm:text-2xl font-bold tabular-nums break-words px-2">
+          {score}
+        </CardTitle>
+        <Badge variant="outline" className="text-[10px] h-5 px-1.5 shrink-0 flex items-center justify-center">
+          {grade}
+        </Badge>
+        <p className="text-[9px] sm:text-[10px] text-muted-foreground text-balance px-2 leading-tight hidden @[180px]/card:block">
+          {subtextUnderValue}
+        </p>
+      </CardHeader>
+
+      {/* Lock overlay — shown when feature is gated */}
+      {!enabled && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/60 backdrop-blur-[3px] rounded-xl w-full h-full">
+          <div className="flex flex-col items-center justify-center gap-1.5 text-center w-full">
+            <div className="rounded-full bg-primary/10 border border-primary/20 p-2">
+              <IconLock className="h-3.5 w-3.5 text-primary" />
+            </div>
+            <p className="font-semibold text-[11px] text-center w-full">Spending Score</p>
+            <Button size="sm" variant="outline" className="h-6 text-[10px] px-3 w-fit" asChild>
+              <Link href="/settings" className="flex items-center justify-center">
+                <IconSparkles className="h-3 w-3" />
+                <span>Upgrade</span>
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  )
+}
+
+function SavingsScoreCard({
+  score,
+  grade,
+  trend,
+  color,
+  trendData = [],
+  enabled = true,
+}: {
+  score: number
+  grade: string
+  trend: "improving" | "worsening" | "stable"
+  color: string
+  trendData?: { date: string; value: number }[]
+  enabled?: boolean
+}) {
+  const subtextUnderValue =
+    trend === "improving" ? "Trend improving"
+      : trend === "worsening" ? "Trend worsening"
+        : "Trend stable"
+
+  return (
+    <Card className="@container/card w-full relative group overflow-hidden min-h-[7rem] h-full py-4 flex flex-col justify-center">
+      <TrendLineBackground color={color} seed={43} dataPoints={trendData} />
+
+      <CardHeader className={`!flex flex-col items-center justify-center p-0 h-full w-full z-10 text-center gap-1 ${!enabled ? "blur-sm opacity-40 saturate-50 pointer-events-none select-none" : ""}`}>
+        <CardDescription className="text-[11px] sm:text-xs text-balance px-2 leading-tight">Savings Score</CardDescription>
+        <CardTitle className="text-xl sm:text-2xl font-bold tabular-nums break-words px-2">
+          {score}
+        </CardTitle>
+        <Badge variant="outline" className="text-[10px] h-5 px-1.5 shrink-0 flex items-center justify-center">
+          {grade}
+        </Badge>
+        <p className="text-[9px] sm:text-[10px] text-muted-foreground text-balance px-2 leading-tight hidden @[180px]/card:block">
+          {subtextUnderValue}
+        </p>
+      </CardHeader>
+
+      {!enabled && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/60 backdrop-blur-[3px] rounded-xl w-full h-full">
+          <div className="flex flex-col items-center justify-center gap-1.5 text-center w-full">
+            <div className="rounded-full bg-primary/10 border border-primary/20 p-2">
+              <IconLock className="h-3.5 w-3.5 text-primary" />
+            </div>
+            <p className="font-semibold text-[11px] text-center w-full">Savings Score</p>
+            <Button size="sm" variant="outline" className="h-6 text-[10px] px-3 w-fit" asChild>
+              <Link href="/settings" className="flex items-center justify-center">
+                <IconSparkles className="h-3 w-3" />
+                <span>Upgrade</span>
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  )
+}
+
+function FridgeScoreCard({
+  score,
+  grade,
+  trend,
+  color,
+  trendData = [],
+  enabled = true,
+}: {
+  score: number
+  grade: string
+  trend: "improving" | "worsening" | "stable"
+  color: string
+  trendData?: { date: string; value: number }[]
+  enabled?: boolean
+}) {
+  const subtextUnderValue =
+    trend === "improving" ? "Trend improving"
+      : trend === "worsening" ? "Trend worsening"
+        : "Trend stable"
+
+  return (
+    <Card className="@container/card w-full relative group overflow-hidden min-h-[7rem] h-full py-4 flex flex-col justify-center">
+      <TrendLineBackground color={color} seed={44} dataPoints={trendData} />
+
+      <CardHeader className={`!flex flex-col items-center justify-center p-0 h-full w-full z-10 text-center gap-1 ${!enabled ? "blur-sm opacity-40 saturate-50 pointer-events-none select-none" : ""}`}>
+        <CardDescription className="text-[11px] sm:text-xs text-balance px-2 leading-tight">Fridge Score</CardDescription>
+        <CardTitle className="text-xl sm:text-2xl font-bold tabular-nums break-words px-2">
+          {score}
+        </CardTitle>
+        <Badge variant="outline" className="text-[10px] h-5 px-1.5 shrink-0 flex items-center justify-center">
+          {grade}
+        </Badge>
+        <p className="text-[9px] sm:text-[10px] text-muted-foreground text-balance px-2 leading-tight hidden @[180px]/card:block">
+          {subtextUnderValue}
+        </p>
+      </CardHeader>
+
+      {!enabled && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/60 backdrop-blur-[3px] rounded-xl w-full h-full">
+          <div className="flex flex-col items-center justify-center gap-1.5 text-center w-full">
+            <div className="rounded-full bg-primary/10 border border-primary/20 p-2">
+              <IconLock className="h-3.5 w-3.5 text-primary" />
+            </div>
+            <p className="font-semibold text-[11px] text-center w-full">Fridge Score</p>
+            <Button size="sm" variant="outline" className="h-6 text-[10px] px-3 w-fit" asChild>
+              <Link href="/settings" className="flex items-center justify-center">
+                <IconSparkles className="h-3 w-3" />
+                <span>Upgrade</span>
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )}
     </Card>
   )
 }
@@ -236,6 +435,21 @@ export function SectionCards({
   spendingRateChange = 0,
   spendingRateTrend = [],
   periodDays = 0,
+  spendingScore,
+  spendingGrade,
+  spendingScoreTrend = "stable",
+  spendingScoreTrendData = [],
+  spendingScoreEnabled = true,
+  savingsScore,
+  savingsGrade,
+  savingsScoreTrend = "stable",
+  savingsScoreTrendData = [],
+  savingsScoreEnabled = true,
+  fridgeScore,
+  fridgeGrade,
+  fridgeScoreTrend = "stable",
+  fridgeScoreTrendData = [],
+  fridgeScoreEnabled = true,
 }: SectionCardsProps) {
   const { formatCurrency } = useCurrency()
   // Ensure all values are numbers (handle case where API returns strings)
@@ -275,6 +489,9 @@ export function SectionCards({
       palette[2] || "#3b82f6", // Net Worth / Savings Rate
       palette[3] || "#8b5cf6", // Transactions
       palette[2] || "#f59e0b", // Spending Rate
+      palette[4] || "#6366f1", // Spending Score
+      palette[5] || "#10b981", // Savings Score
+      palette[6] || "#f43f5e", // Fridge Score
     ]
   }, [getPalette])
 
@@ -420,11 +637,73 @@ export function SectionCards({
     ? ["transactions", "income", "expenses", "spendingRate", "savingsRate"]
     : ["transactions", "income", "expenses", fourthCard]
 
+  const hasSpendingScore = spendingScore !== undefined && spendingGrade !== undefined
+  const hasSavingsScore = savingsScore !== undefined && savingsGrade !== undefined
+  const hasFridgeScore = fridgeScore !== undefined && fridgeGrade !== undefined
+
+  // Base card count
+  const baseCardCount = cardOrder.length
+  // Total extra cards (spending + savings scores)
+  const extraCardCount = (hasSpendingScore ? 1 : 0) + (hasSavingsScore ? 1 : 0) + (hasFridgeScore ? 1 : 0)
+  const totalCards = baseCardCount + extraCardCount
+
+  // Wave color is palette-based so it looks identical to other cards
+  const spendingScoreWaveColor = trendColors[6]
+  const savingsScoreWaveColor = trendColors[7]
+  const fridgeScoreWaveColor = trendColors[8]
+
+  let colsClass = ""
+  if (totalCards <= 4) {
+    colsClass = "@5xl/main:grid-cols-2 @7xl/main:grid-cols-4"
+  } else if (totalCards === 5) {
+    colsClass = "@5xl/main:grid-cols-3 @7xl/main:grid-cols-5"
+  } else if (totalCards === 6) {
+    // 6 cards (4 basic + 2 scores, or 5 basic + 1 score)
+    colsClass = "@5xl/main:grid-cols-3 @7xl/main:grid-cols-6"
+  } else if (totalCards === 7) {
+    // 7 cards (5 basic + 2 scores)
+    colsClass = "@5xl/main:grid-cols-3 @7xl/main:grid-cols-7"
+  } else {
+    // 8 cards
+    colsClass = "@5xl/main:grid-cols-4 @7xl/main:grid-cols-8"
+  }
+
   return (
-    <div className={`w-full *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-2 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @3xl/main:grid-cols-2 min-w-0 ${showSpendingAndSavingsRate ? "@5xl/main:grid-cols-3 @7xl/main:grid-cols-5" : "@5xl/main:grid-cols-2 @7xl/main:grid-cols-4"}`}>
+    <div className={`w-full *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-2 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @3xl/main:grid-cols-2 min-w-0 ${colsClass}`}>
       {cardOrder.map((cardId) => (
         <CardComponent key={cardId} card={cardData[cardId]} />
       ))}
+      {hasSpendingScore && (
+        <SpendingScoreCard
+          score={spendingScore!}
+          grade={spendingGrade!}
+          trend={spendingScoreTrend}
+          color={spendingScoreWaveColor}
+          trendData={spendingScoreTrendData}
+          enabled={spendingScoreEnabled}
+        />
+      )}
+      {hasSavingsScore && (
+        <SavingsScoreCard
+          score={savingsScore!}
+          grade={savingsGrade!}
+          trend={savingsScoreTrend}
+          color={savingsScoreWaveColor}
+          trendData={savingsScoreTrendData}
+          enabled={savingsScoreEnabled}
+        />
+      )}
+      {hasFridgeScore && (
+        <FridgeScoreCard
+          score={fridgeScore!}
+          grade={fridgeGrade!}
+          trend={fridgeScoreTrend}
+          color={fridgeScoreWaveColor}
+          trendData={fridgeScoreTrendData}
+          enabled={fridgeScoreEnabled}
+        />
+      )}
     </div>
   )
 }
+

@@ -20,7 +20,7 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { NivoChartTooltip } from "@/components/chart-tooltip"
-import { getChartTextColor, getChartAxisLineColor } from "@/lib/chart-colors"
+import { getChartTextColor, getChartAxisLineColor, getContrastTextColor } from "@/lib/chart-colors"
 
 interface ChartMonthlyBudgetPaceProps {
   data: Array<{
@@ -157,7 +157,7 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
       enableLabel={true}
       label={(d) => formatCurrency(d.value as number, { maximumFractionDigits: 0 })}
       labelSkipWidth={60}
-      labelTextColor="#ffffff"
+      labelTextColor={(d) => getContrastTextColor(d.color)}
       axisTop={null}
       axisRight={null}
       axisBottom={{
@@ -252,8 +252,18 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
-          <div className="h-full w-full min-h-[250px]" key={colorScheme}>
+          <div className="flex-1 min-h-[200px]" key={colorScheme}>
             {renderChart()}
+          </div>
+          {/* Legend */}
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2 mb-2">
+            {chartData.paceData.map((d) => (
+              <div key={d.label} className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                <span className="font-medium text-foreground truncate max-w-[80px]" title={d.label}>{d.label}</span>
+                <span className="text-[0.7rem]">{formatCurrency(d.value)}</span>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>

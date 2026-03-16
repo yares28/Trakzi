@@ -20,7 +20,7 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { NivoChartTooltip } from "@/components/chart-tooltip"
-import { getChartTextColor } from "@/lib/chart-colors"
+import { getChartTextColor, getContrastTextColor } from "@/lib/chart-colors"
 
 interface ChartRecurringVsOneTimeProps {
   data: Array<{
@@ -143,6 +143,7 @@ export const ChartRecurringVsOneTime = memo(function ChartRecurringVsOneTime({
       borderWidth={0}
       enableArcLinkLabels={false}
       arcLabelsSkipAngle={15}
+      arcLabelsTextColor={(d: { color: string }) => getContrastTextColor(d.color)}
       valueFormat={(v) => formatCurrency(v)}
       tooltip={({ datum }) => {
         const pct = total > 0 ? (Number(datum.value) / total) * 100 : 0
@@ -221,14 +222,14 @@ export const ChartRecurringVsOneTime = memo(function ChartRecurringVsOneTime({
             {renderChart()}
           </div>
           {/* Legend */}
-          <div className="flex items-center justify-center gap-6 pb-2 text-xs">
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2 mb-2">
             {chartData.map((d) => {
-              const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : "0"
+              const pct = total > 0 ? ((d.value / total) * 100).toFixed(0) : "0"
               return (
                 <div key={d.id} className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
-                  <span style={{ color: textColor }}>{d.label}</span>
-                  <span className="font-semibold tabular-nums" style={{ color: textColor }}>{pct}%</span>
+                  <span className="font-medium text-foreground truncate max-w-[80px]" title={d.label}>{d.label}</span>
+                  <span className="text-[0.7rem]">{pct}%</span>
                 </div>
               )
             })}

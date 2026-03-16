@@ -217,13 +217,15 @@ export const ChartSankey = memo(function ChartSankey({
         colors={chartColors}
         theme={chartTheme}
         nodeOpacity={1}
-        nodeHoverOthersOpacity={0.7}
+        nodeHoverOpacity={0.9}
+        nodeHoverOthersOpacity={0.85}
         nodeThickness={18}
         nodeSpacing={32}
         nodeBorderWidth={0}
         nodeBorderRadius={3}
         linkOpacity={0.85}
-        linkHoverOthersOpacity={0.15}
+        linkHoverOpacity={0.9}
+        linkHoverOthersOpacity={0.7}
         linkContract={1}
         linkBlendMode="normal"
         labelPosition="outside"
@@ -232,7 +234,8 @@ export const ChartSankey = memo(function ChartSankey({
         labelTextColor={resolvedTheme === "dark" ? "#ffffff" : { from: "color", modifiers: [["darker", 1]] }}
         legends={[]}
         enableLinkGradient={true}
-        animate={false}
+        animate={true}
+        motionConfig="gentle"
       />
     </div>
   )
@@ -277,22 +280,24 @@ export const ChartSankey = memo(function ChartSankey({
         colors={chartColors}
         theme={chartTheme}
         nodeOpacity={1}
-        nodeHoverOthersOpacity={0.7}
+        nodeHoverOpacity={0.9}
+        nodeHoverOthersOpacity={0.85}
         nodeThickness={12}
         nodeSpacing={16}
         nodeBorderWidth={0}
         nodeBorderRadius={2}
         linkOpacity={0.85}
-        linkHoverOthersOpacity={0.15}
+        linkHoverOpacity={0.9}
+        linkHoverOthersOpacity={0.7}
         linkContract={0}
-        linkHoverOpacity={0.6}
         labelPosition="outside"
         labelOrientation="vertical"
         labelPadding={8}
         labelTextColor={resolvedTheme === "dark" ? "#ffffff" : { from: "color", modifiers: [["darker", 1]] }}
         legends={[]}
         enableLinkGradient={true}
-        animate={false}
+        animate={true}
+        motionConfig="gentle"
       />
     </div>
   )

@@ -2,6 +2,8 @@ import { memo } from "react"
 
 import { SectionCards } from "@/components/section-cards"
 import { useTotalTransactionCount } from "@/hooks/use-dashboard-data"
+import { usePlanFeatures } from "@/hooks/use-plan-features"
+import { useDemoMode } from "@/lib/demo/demo-context"
 
 import type { StatsSummary, StatsTrends, TransactionSummary } from "../types"
 
@@ -23,6 +25,11 @@ export const StatsCards = memo(function StatsCards({
 }: StatsCardsProps) {
   // Fetch all-time transaction count (ignores date filter)
   const { data: totalCount } = useTotalTransactionCount()
+  const planFeatures = usePlanFeatures()
+  const { isDemoMode } = useDemoMode()
+
+  // Spending Score is enabled on advanced plans or in demo mode
+  const spendingScoreEnabled = (planFeatures?.advancedChartsEnabled ?? false) || isDemoMode
 
   return (
     <SectionCards
@@ -44,6 +51,21 @@ export const StatsCards = memo(function StatsCards({
       totalAllTimeCount={totalCount?.count}
       totalAllTimeTimeSpan={totalCount?.timeSpan}
       totalAllTimeTrend={totalCount?.trend}
+      spendingScore={stats.spendingScore}
+      spendingGrade={stats.spendingGrade}
+      spendingScoreTrend={stats.spendingScoreTrend}
+      spendingScoreTrendData={stats.spendingScoreTrendData}
+      spendingScoreEnabled={spendingScoreEnabled}
+      savingsScore={stats.savingsScore}
+      savingsGrade={stats.savingsGrade}
+      savingsScoreTrend={stats.savingsScoreTrend}
+      savingsScoreTrendData={stats.savingsScoreTrendData}
+      savingsScoreEnabled={spendingScoreEnabled}
+      fridgeScore={stats.fridgeScore}
+      fridgeGrade={stats.fridgeGrade}
+      fridgeScoreTrend={stats.fridgeScoreTrend}
+      fridgeScoreTrendData={stats.fridgeScoreTrendData}
+      fridgeScoreEnabled={spendingScoreEnabled}
     />
   )
 })

@@ -324,7 +324,7 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
                                         width={`${barWidth}%`}
                                         height={barHeight}
                                         fill={range.color}
-                                        rx="1"
+                                        rx="10"
                                         className="cursor-pointer transition-opacity hover:opacity-80"
                                         onMouseMove={(e) => handleBarHover(range, e)}
                                         onMouseLeave={handleBarLeave}

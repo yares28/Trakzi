@@ -281,7 +281,7 @@ export const ChartSpendingPyramid = memo(function ChartSpendingPyramid({
             dataKey="you"
             stackId="pyramid"
             name="you"
-            radius={[4, 0, 0, 4]}
+            radius={[10, 0, 0, 10]}
             maxBarSize={28}
           >
             {rows.map((_, index) => (
@@ -292,7 +292,7 @@ export const ChartSpendingPyramid = memo(function ChartSpendingPyramid({
             dataKey="average"
             stackId="pyramid"
             name="average"
-            radius={[0, 4, 4, 0]}
+            radius={[0, 10, 10, 0]}
             maxBarSize={28}
           >
             {rows.map((_, index) => (

@@ -276,6 +276,7 @@ export const ChartSingleMonthCategoryFridge = React.memo(function ChartSingleMon
                 {
                     type: "bar",
                     itemStyle: {
+                        borderRadius: [10, 10, 0, 0],
                         color: (params: any) => palette[params.dataIndex % palette.length],
                     },
                 },

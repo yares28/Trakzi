@@ -17,16 +17,6 @@ export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
     title: "Income & Expenses Cumulative Tracking",
     description: "Your cumulative cash flow for the last 3 months",
   },
-  spendingScore: {
-    id: "spendingScore",
-    title: "Spending Score",
-    description: "AI-calculated score based on your spending patterns, diversity, and trends",
-  },
-  cashFlowIndicator: {
-    id: "cashFlowIndicator",
-    title: "Cash Flow Indicator",
-    description: "Visualize your income vs expenses this month. Stay in the green zone!",
-  },
   incomeExpenseRatio: {
     id: "incomeExpenseRatio",
     title: "Income to Expense Ratio",
@@ -341,11 +331,6 @@ export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
     id: "testCharts:savingsRateTrend",
     title: "Savings Rate Trend",
     description: "Track your monthly savings rate over time - aim for 20% or more",
-  },
-  "testCharts:spendingScore": {
-    id: "testCharts:spendingScore",
-    title: "Spending Score",
-    description: "An AI-calculated score based on your spending patterns and trends",
   },
   "testCharts:smallVsLargePurchases": {
     id: "testCharts:smallVsLargePurchases",

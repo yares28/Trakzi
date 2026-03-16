@@ -1,6 +1,8 @@
 import { SectionCards } from "@/components/section-cards"
 import { useTotalTransactionCount } from "@/hooks/use-dashboard-data"
 import { getPeriodDaysFromFilter } from "@/lib/date-filter"
+import { useDemoMode } from "@/lib/demo/demo-context"
+import { usePlanFeatures } from "@/hooks/use-plan-features"
 
 import type { AnalyticsStats, AnalyticsStatsTrends, TransactionSummary } from "../types"
 
@@ -16,6 +18,10 @@ export function StatsCards({ stats, statsTrends, transactionSummary, dateFilter 
   // Fetch all-time transaction count (ignores date filter)
   const { data: totalCount } = useTotalTransactionCount()
   const periodDays = dateFilter ? getPeriodDaysFromFilter(dateFilter) : 0
+
+  const { isDemoMode } = useDemoMode()
+  const planFeatures = usePlanFeatures()
+  const spendingScoreEnabled = (planFeatures?.advancedChartsEnabled ?? false) || isDemoMode
 
   return (
     <SectionCards
@@ -42,6 +48,11 @@ export function StatsCards({ stats, statsTrends, transactionSummary, dateFilter 
       spendingRateChange={stats.spendingRateChange}
       spendingRateTrend={statsTrends.spendingRateTrend}
       periodDays={periodDays > 0 ? periodDays : undefined}
+      spendingScore={stats.spendingScore}
+      spendingGrade={stats.spendingGrade}
+      spendingScoreTrend={stats.spendingScoreTrend}
+      spendingScoreTrendData={stats.spendingScoreTrendData}
+      spendingScoreEnabled={spendingScoreEnabled}
     />
   )
 }

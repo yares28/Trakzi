@@ -46,8 +46,6 @@ export type ChartId =
   | "categoryTrend"
   | "cashFlowSankey"
   | "savingsAccumulation"
-  | "spendingScore"
-  | "cashFlowIndicator"
   | "incomeExpenseRatio"
   | "weekendVsWeekday"
   | "monthlyBudgetPace"
@@ -92,7 +90,6 @@ export type ChartId =
   | "testCharts:spendingStreak"
   | "testCharts:paydayImpact"
   | "testCharts:savingsRateTrend"
-  | "testCharts:spendingScore"
   | "testCharts:smallVsLargePurchases"
   | "testCharts:categoryBubbles"
   | "testCharts:weeklyComparison"
@@ -338,31 +335,13 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     mobileH: 8,
   },
 
-  // Spending Score - Gauge/score indicator
-  spendingScore: {
-    minW: 6,
-    maxW: 12,
-    minH: 6,
-    maxH: 10,
-    mobileH: 5,
-  },
-
-  // Cash Flow Indicator - Gauge with income vs expense
-  cashFlowIndicator: {
-    minW: 6,
-    maxW: 12,
-    minH: 6,
-    maxH: 10,
-    mobileH: 5,
-  },
-
-  // Income Expense Ratio - Ratio gauge
+  // Income Expense Ratio - Donut pie chart (same as expenseBreakdown)
   incomeExpenseRatio: {
     minW: 6,
     maxW: 12,
-    minH: 6,
-    maxH: 10,
-    mobileH: 5,
+    minH: 7,
+    maxH: 20,
+    mobileH: 6,
   },
 
   // Weekend vs Weekday - Comparison bar chart
@@ -731,15 +710,6 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 6,
     maxH: 10,
-    mobileH: 5,
-  },
-
-  // Test Charts: Spending Score
-  "testCharts:spendingScore": {
-    minW: 6,
-    maxW: 12,
-    minH: 8,
-    maxH: 12,
     mobileH: 5,
   },
 
