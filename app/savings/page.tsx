@@ -26,6 +26,7 @@ import {
 import { useSavingsBundleData } from "@/hooks/use-dashboard-data"
 import { PageEmptyState, SAVINGS_EMPTY_STATE } from "@/components/page-empty-state"
 import { CollapsedChartCard } from "@/components/collapsed-chart-card"
+import { computeSavingsScore } from "@/lib/savings-score"
 
 type SavingsViewMode = "savings" | "debt" | "calculator"
 
@@ -375,6 +376,14 @@ export default function Page() {
     }))
   }, [savingsBundle?.chartData])
 
+  const { score: savingsScore, grade: savingsGrade, trendDirection: savingsScoreTrend, scoreTrendData: savingsScoreTrendData } = useMemo(() => {
+    return computeSavingsScore(transactions.map(t => ({
+      date: t.date,
+      amount: t.amount,
+      category: t.category
+    })))
+  }, [transactions])
+
   return (
     <SidebarProvider
       style={
@@ -403,6 +412,11 @@ export default function Page() {
                 incomeTrend={statsTrends.incomeTrend}
                 expensesTrend={statsTrends.expensesTrend}
                 netWorthTrend={statsTrends.netWorthTrend}
+                savingsScore={savingsScore}
+                savingsGrade={savingsGrade}
+                savingsScoreTrend={savingsScoreTrend}
+                savingsScoreTrendData={savingsScoreTrendData}
+                savingsScoreEnabled={true}
               />
 
               {/* Savings / Debt / Calculator switch - Horizontal scroll on mobile */}

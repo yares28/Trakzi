@@ -131,66 +131,52 @@ export const ChartIncomeExpenseRatio = memo(function ChartIncomeExpenseRatio({
   )
 
   const renderChart = () => (
-    <div className="h-full w-full flex flex-col items-center justify-center">
-      <div className="w-full h-[280px] relative">
-        <ResponsivePie
-          data={pieData}
-          margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-          innerRadius={0.35}
-          padAngle={0.7}
-          cornerRadius={3}
-          activeOuterRadiusOffset={8}
-          colors={{ datum: "data.color" }}
-          borderWidth={0}
-          enableArcLinkLabels={false}
-          enableArcLabels={false}
-          tooltip={({ datum }) => {
-            const pct = total > 0 ? (Number(datum.value) / total) * 100 : 0
-            return (
-              <NivoChartTooltip
-                title={datum.label as string}
-                titleColor={datum.color as string}
-                value={formatCurrency(Number(datum.value))}
-                subValue={`${pct.toFixed(1)}% of total`}
-              />
-            )
-          }}
-          theme={{ text: { fill: textColor, fontSize: 12 } }}
-          animate={true}
-          motionConfig="gentle"
-        />
-        {/* Center label overlay */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <span className="text-3xl font-bold text-foreground">{ratioData.ratio.toFixed(2)}x</span>
-          <span className="text-sm font-medium" style={{ color: getStatusColor() }}>
-            {getStatusText()}
-          </span>
-        </div>
-      </div>
+    <ResponsivePie
+      data={pieData}
+      margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+      innerRadius={0.5}
+      padAngle={0.7}
+      cornerRadius={3}
+      activeOuterRadiusOffset={8}
+      colors={{ datum: "data.color" }}
+      borderWidth={0}
+      enableArcLinkLabels={false}
+      enableArcLabels={false}
+      tooltip={({ datum }) => {
+        const pct = total > 0 ? (Number(datum.value) / total) * 100 : 0
+        return (
+          <NivoChartTooltip
+            title={datum.label as string}
+            titleColor={datum.color as string}
+            value={formatCurrency(Number(datum.value))}
+            subValue={`${pct.toFixed(1)}% of total`}
+          />
+        )
+      }}
+      theme={{ text: { fill: textColor, fontSize: 12 } }}
+      animate={true}
+      motionConfig="gentle"
+    />
+  )
 
-      {/* Income/Expense breakdown */}
-      <div className="flex gap-8 mt-4 text-sm">
-        <div className="text-center">
-          <div className="flex items-center gap-1.5 justify-center">
-            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: palette[1] || "#10b981" }} />
-            <span style={{ color: textColor }}>Income</span>
-          </div>
-          <div className="font-semibold text-emerald-500 mt-0.5">{formatCurrency(ratioData.income)}</div>
-        </div>
-        <div className="text-center">
-          <div className="flex items-center gap-1.5 justify-center">
-            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: palette[0] || "#fe8339" }} />
-            <span style={{ color: textColor }}>Expenses</span>
-          </div>
-          <div className="font-semibold text-red-500 mt-0.5">{formatCurrency(ratioData.expenses)}</div>
-        </div>
+  const renderLegend = () => (
+    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2">
+      <div className="flex items-center gap-1.5">
+        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: palette[1] || "#10b981" }} />
+        <span className="font-medium text-foreground truncate max-w-[80px]" title="Income">Income</span>
+        <span className="text-[0.7rem]">{formatCurrency(ratioData.income)}</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: palette[0] || "#fe8339" }} />
+        <span className="font-medium text-foreground truncate max-w-[80px]" title="Expenses">Expenses</span>
+        <span className="text-[0.7rem]">{formatCurrency(ratioData.expenses)}</span>
       </div>
     </div>
   )
 
   if (!mounted || isLoading || pieData.length === 0) {
     return (
-      <Card className="@container/card h-full relative">
+      <Card className="@container/card">
         <CardHeader className="flex flex-row items-start justify-between gap-2">
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
@@ -202,8 +188,8 @@ export const ChartIncomeExpenseRatio = memo(function ChartIncomeExpenseRatio({
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
-          <div className="h-full w-full min-h-[250px]">
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
+          <div className="h-full w-full min-h-[180px] md:min-h-[250px]">
             <ChartLoadingState
               isLoading={isLoading || !mounted}
               skeletonType="pie"
@@ -225,12 +211,19 @@ export const ChartIncomeExpenseRatio = memo(function ChartIncomeExpenseRatio({
         description={chartDescription}
         headerActions={renderInfoTrigger(true)}
       >
-        <div className="h-full w-full min-h-[400px]" key={colorScheme}>
+        <div className="h-full w-full min-h-[400px] relative flex flex-col" key={colorScheme}>
           {renderChart()}
+          {/* Center label overlay */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mb-10">
+            <span className="text-3xl font-bold text-foreground">{ratioData.ratio.toFixed(2)}x</span>
+            <span className="text-sm font-medium" style={{ color: getStatusColor() }}>
+              {getStatusText()}
+            </span>
+          </div>
         </div>
       </ChartFullscreenModal>
 
-      <Card className="@container/card h-full relative">
+      <Card className="@container/card">
         <CardHeader className="flex flex-row items-start justify-between gap-2">
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
@@ -242,10 +235,18 @@ export const ChartIncomeExpenseRatio = memo(function ChartIncomeExpenseRatio({
             {renderInfoTrigger()}
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
-          <div className="h-full w-full min-h-[250px]" key={colorScheme}>
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0 flex flex-col">
+          <div className="flex-1 min-h-[140px] md:min-h-[200px] relative" key={colorScheme}>
             {renderChart()}
+            {/* Center label overlay */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-3xl font-bold text-foreground">{ratioData.ratio.toFixed(2)}x</span>
+              <span className="text-sm font-medium" style={{ color: getStatusColor() }}>
+                {getStatusText()}
+              </span>
+            </div>
           </div>
+          {renderLegend()}
         </CardContent>
       </Card>
     </>

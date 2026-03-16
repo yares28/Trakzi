@@ -70,7 +70,7 @@ export function FridgeTrendsTab() {
   return (
     <>
       {isLoading && (
-        <section>
+        <section className="px-4 lg:px-6">
           <div className="flex items-center justify-between">
             <ShimmeringText
               text="Loading trend charts"
@@ -91,7 +91,7 @@ export function FridgeTrendsTab() {
       )}
 
       {error && !isLoading && (
-        <section>
+        <section className="px-4 lg:px-6">
           <div className="flex flex-col items-center justify-center text-center py-16 rounded-3xl border bg-muted/30">
             <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
               <TrendingUp className="h-8 w-8 text-destructive/60" />
@@ -113,7 +113,7 @@ export function FridgeTrendsTab() {
       )}
 
       {!isLoading && !hasCategories && !error && (
-        <section>
+        <section className="px-4 lg:px-6">
           <div className="flex flex-col justify-between gap-6 rounded-3xl border bg-muted/30 px-4 py-6 lg:px-6 lg:py-6 lg:flex-row lg:items-center">
             <div className="flex items-start gap-4">
               <div className="relative shrink-0">
@@ -147,7 +147,7 @@ export function FridgeTrendsTab() {
       )}
 
       {hasCategories && (
-        <section>
+        <section className="px-4 lg:px-6">
           <SortableGridProvider
             chartOrder={categoryOrder}
             onOrderChange={handleCategoryOrderChange}

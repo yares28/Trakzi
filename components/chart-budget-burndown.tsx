@@ -205,18 +205,6 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
         grid: { line: { stroke: gridColor, strokeDasharray: "4 4" } },
         crosshair: { line: { stroke: textColor, strokeWidth: 1, strokeOpacity: 0.35 } },
       }}
-      legends={[
-        {
-          anchor: "top-right",
-          direction: "row",
-          translateY: -20,
-          itemWidth: 80,
-          itemHeight: 20,
-          itemTextColor: textColor,
-          symbolSize: 12,
-          symbolShape: "circle",
-        },
-      ]}
       useMesh={true}
       tooltip={(props) => {
         const point = props.point as unknown as { serieId: string; data: { x: number; y: number }; color: string }
@@ -288,8 +276,19 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
-          <div className="h-full w-full min-h-[250px]" key={colorScheme}>
+          <div className="flex-1 min-h-[200px]" key={colorScheme}>
             {renderChart()}
+          </div>
+          {/* Legend */}
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2 mb-2">
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: [isDark ? "#4b5563" : "#9ca3af", palette[0] || "#fe8339"][0] }} />
+              <span className="font-medium text-foreground truncate max-w-[80px]" title="Ideal">Ideal</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: [isDark ? "#4b5563" : "#9ca3af", palette[0] || "#fe8339"][1] }} />
+              <span className="font-medium text-foreground truncate max-w-[80px]" title="Actual">Actual</span>
+            </div>
           </div>
         </CardContent>
       </Card>

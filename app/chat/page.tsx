@@ -11,7 +11,7 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar"
 import { getUserSubscription } from "@/lib/subscriptions"
-import { isDemoCookie } from "@/lib/demo/demo-context"
+import { isDemoCookie } from "@/lib/demo/demo-server"
 import { Lock, ArrowLeft, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 

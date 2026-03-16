@@ -609,7 +609,7 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
             {chartGroups.length > 0 && (
-              <DropdownMenu open={isGroupSelectorOpen} onOpenChange={setIsGroupSelectorOpen}>
+              <DropdownMenu open={isGroupSelectorOpen} onOpenChange={setIsGroupSelectorOpen} modal={false}>
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"

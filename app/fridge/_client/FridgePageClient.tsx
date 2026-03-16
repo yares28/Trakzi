@@ -189,7 +189,7 @@ export function FridgePageClient() {
     >
       <div className="@container/main flex flex-1 flex-col gap-2 min-w-0">
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 min-w-0 w-full">
-          <MetricsCards metrics={metrics} metricsTrends={metricsTrends} />
+          <MetricsCards metrics={metrics} metricsTrends={metricsTrends} receiptTransactions={receiptTransactions} />
 
           {/* Fridge / Advanced / Trends switch - Horizontal scroll on mobile */}
           <section>
@@ -262,10 +262,10 @@ export function FridgePageClient() {
           )}
 
           {viewMode === "advanced" && (
-            <section>
+            <section className="px-4 lg:px-6">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-12 min-w-0">
-                <div className="md:col-span-6 lg:col-span-4">
-                  <Card className="@container/card h-full flex flex-col">
+                <div className="md:col-span-6">
+                  <Card className="@container/card h-[420px] flex flex-col">
                     <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                       <div className="flex items-center gap-2">
                         <CardTitle className="text-base font-medium">
@@ -274,7 +274,7 @@ export function FridgePageClient() {
                       </div>
                     </CardHeader>
                     <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1">
-                      <div className="h-[250px] w-full flex items-center justify-center text-sm text-muted-foreground">
+                      <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
                         This area is ready for advanced fridge analytics.
                       </div>
                     </CardContent>

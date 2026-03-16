@@ -138,7 +138,7 @@ export const ChartWeekendVsWeekday = memo(function ChartWeekendVsWeekday({
       margin={{ top: 20, right: 30, bottom: 50, left: 80 }}
       padding={0.5}
       colors={({ data: d }) => d.color as string}
-      borderRadius={8}
+      borderRadius={10}
       enableLabel={true}
       label={(d) => formatCurrency(d.value as number, { maximumFractionDigits: 0 })}
       labelSkipWidth={60}
