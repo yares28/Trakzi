@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect, useMemo } from "react"
+import { useState, useCallback, useEffect, useMemo, useRef } from "react"
 // @dnd-kit for drag-and-drop with auto-scroll (for future charts)
 import { SortableGridProvider, SortableGridItem } from "@/components/sortable-grid"
 import { AppSidebar } from "@/components/app-sidebar"
@@ -11,6 +11,7 @@ import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
 import { normalizeTransactions } from "@/lib/utils"
@@ -27,8 +28,12 @@ import { useSavingsBundleData } from "@/hooks/use-dashboard-data"
 import { PageEmptyState, SAVINGS_EMPTY_STATE } from "@/components/page-empty-state"
 import { CollapsedChartCard } from "@/components/collapsed-chart-card"
 import { computeSavingsScore } from "@/lib/savings-score"
+import { GoalWizardCard } from "@/components/chat/goal-wizard-card"
+import { useCurrency } from "@/components/currency-provider"
+import { AnimatePresence, motion } from "framer-motion"
+import { Plus, Trash2 } from "lucide-react"
 
-type SavingsViewMode = "savings" | "debt" | "calculator"
+type SavingsViewMode = "savings" | "debt" | "calculator" | "goals"
 
 // Persistence keys
 const SAVINGS_ORDER_STORAGE_KEY = "savings-chart-order"
@@ -59,7 +64,7 @@ export default function Page() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem(SAVINGS_VIEW_MODE_STORAGE_KEY)
-      if (saved === "savings" || saved === "debt" || saved === "calculator") {
+      if (saved === "savings" || saved === "debt" || saved === "calculator" || saved === "goals") {
         setViewMode(saved)
       }
     } catch (e) {
@@ -114,6 +119,53 @@ export default function Page() {
       console.error("[Savings] Failed to save view mode:", e)
     }
   }, [])
+
+  // Goals state
+  interface SavingsGoal {
+    id: number
+    category: string
+    label: string | null
+    target_amount: string
+    deadline: string
+    monthly_allocation: string
+    status: string
+    created_at: string
+  }
+  const [goals, setGoals] = useState<SavingsGoal[]>([])
+  const [goalsLoading, setGoalsLoading] = useState(false)
+  const [goalWizardOpen, setGoalWizardOpen] = useState(false)
+  const goalsFetchedRef = useRef(false)
+  const { formatCurrency } = useCurrency()
+
+  const fetchGoals = useCallback(async () => {
+    setGoalsLoading(true)
+    try {
+      const res = await fetch("/api/chat/goals")
+      if (res.ok) {
+        const data = await res.json() as { goals: SavingsGoal[] }
+        setGoals(data.goals)
+      }
+    } catch { /* ignore */ }
+    finally { setGoalsLoading(false) }
+  }, [])
+
+  const deleteGoal = useCallback(async (id: number) => {
+    try {
+      await fetch("/api/chat/goals", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      })
+      setGoals((prev) => prev.filter((g) => g.id !== id))
+    } catch { /* ignore */ }
+  }, [])
+
+  useEffect(() => {
+    if (viewMode === "goals" && !goalsFetchedRef.current) {
+      goalsFetchedRef.current = true
+      fetchGoals()
+    }
+  }, [viewMode, fetchGoals])
 
   // Fetch transactions for charts - filter for savings category only
   const fetchTransactions = useCallback(async () => {
@@ -460,6 +512,18 @@ export default function Page() {
                       >
                         Calculator
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => handleViewModeChange("goals")}
+                        className={cn(
+                          "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0",
+                          viewMode === "goals"
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        Goals
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -544,6 +608,103 @@ export default function Page() {
 
               {viewMode === "calculator" && (
                 <MortgageCalculator />
+              )}
+
+              {viewMode === "goals" && (
+                <section className="px-4 lg:px-6">
+                  <div className="max-w-2xl mx-auto">
+                    {/* Header row */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h2 className="text-base font-semibold">Savings Goals</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">Track and manage your financial targets</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => setGoalWizardOpen(true)}
+                        className="gap-1.5"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Add Goal
+                      </Button>
+                    </div>
+
+                    {/* Goals list */}
+                    {goalsLoading ? (
+                      <div className="flex items-center justify-center py-12 text-sm text-muted-foreground gap-2">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        Loading goals…
+                      </div>
+                    ) : goals.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-muted-foreground/20 bg-muted/10 px-6 py-10 text-center">
+                        <p className="text-2xl mb-2">🎯</p>
+                        <p className="text-sm font-medium text-muted-foreground">No goals yet</p>
+                        <p className="text-xs text-muted-foreground/60 mt-1">Click &quot;Add Goal&quot; to set your first savings target</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {goals.map((goal) => {
+                          const target = parseFloat(goal.target_amount)
+                          const monthly = parseFloat(goal.monthly_allocation)
+                          const deadline = new Date(goal.deadline)
+                          const now = new Date()
+                          const monthsLeft = Math.max(0, (deadline.getFullYear() - now.getFullYear()) * 12 + (deadline.getMonth() - now.getMonth()))
+                          const isActive = goal.status === "active"
+                          return (
+                            <div key={goal.id} className="group rounded-2xl border border-border/50 bg-card/60 px-4 py-3.5 flex items-start justify-between gap-3 hover:border-border/80 transition-colors">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className="text-sm font-medium truncate">{goal.label || goal.category}</span>
+                                  {goal.label && (
+                                    <span className="text-[10px] text-muted-foreground/50 bg-muted/50 px-1.5 py-0.5 rounded-full shrink-0">{goal.category}</span>
+                                  )}
+                                  <span className={cn(
+                                    "text-[10px] px-1.5 py-0.5 rounded-full shrink-0",
+                                    isActive ? "bg-green-500/10 text-green-600" : "bg-muted/50 text-muted-foreground"
+                                  )}>
+                                    {goal.status}
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                                  <span>Target: <span className="font-medium text-foreground">{formatCurrency(target)}</span></span>
+                                  <span>Monthly: <span className="font-medium text-foreground">{formatCurrency(monthly)}</span></span>
+                                  <span>Deadline: <span className="font-medium text-foreground">{deadline.toLocaleDateString(undefined, { month: "short", year: "numeric" })}</span></span>
+                                  {monthsLeft > 0 && <span className="text-muted-foreground/60">{monthsLeft}mo left</span>}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => deleteGoal(goal.id)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/8"
+                                title="Delete goal"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* Goal wizard modal */}
+                    <AnimatePresence>
+                      {goalWizardOpen && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30 backdrop-blur-sm"
+                          onClick={(e) => { if (e.target === e.currentTarget) setGoalWizardOpen(false) }}
+                        >
+                          <GoalWizardCard onDismiss={() => {
+                            setGoalWizardOpen(false)
+                            goalsFetchedRef.current = false
+                            fetchGoals()
+                          }} />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </section>
               )}
             </div>
           </div>

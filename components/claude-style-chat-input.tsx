@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react"
 import { ArrowUp, Square } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface ClaudeChatInputProps {
   onSendMessage: (message: string) => void
@@ -9,20 +10,30 @@ interface ClaudeChatInputProps {
   isLoading?: boolean
   disabled?: boolean
   placeholder?: string
+  className?: string
 }
 
 export const ClaudeChatInput = React.forwardRef<HTMLTextAreaElement, ClaudeChatInputProps>(
-  ({ onSendMessage, onStop, isLoading = false, disabled = false, placeholder = "Ask about spending, budgets, categories…" }, ref) => {
+  (
+    {
+      onSendMessage,
+      onStop,
+      isLoading = false,
+      disabled = false,
+      placeholder = "Ask about spending, budgets, categories…",
+      className,
+    },
+    ref
+  ) => {
     const [message, setMessage] = useState("")
     const internalRef = useRef<HTMLTextAreaElement>(null)
     const textareaRef = (ref as React.RefObject<HTMLTextAreaElement>) ?? internalRef
 
-    // Auto-resize textarea
     useEffect(() => {
       const el = textareaRef.current
       if (el) {
         el.style.height = "auto"
-        el.style.height = Math.min(el.scrollHeight, 384) + "px"
+        el.style.height = Math.min(el.scrollHeight, 320) + "px"
       }
     }, [message, textareaRef])
 
@@ -37,71 +48,86 @@ export const ClaudeChatInput = React.forwardRef<HTMLTextAreaElement, ClaudeChatI
     const handleKeyDown = (e: React.KeyboardEvent) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault()
-        if (isLoading) {
-          onStop?.()
-        } else {
-          handleSend()
-        }
+        if (isLoading) onStop?.()
+        else handleSend()
       }
     }
 
     const hasContent = message.trim().length > 0
 
     return (
-      <div className="relative w-full max-w-2xl mx-auto font-sans">
-        <div className={`
-          !box-content flex flex-col mx-2 md:mx-0 items-stretch transition-all duration-200 relative z-10 rounded-2xl cursor-text
-          border border-bg-300 dark:border-transparent
-          shadow-[0_0_15px_rgba(0,0,0,0.08)] hover:shadow-[0_0_20px_rgba(0,0,0,0.12)]
-          focus-within:shadow-[0_0_25px_rgba(0,0,0,0.15)]
-          bg-white dark:bg-[#30302E] antialiased
-        `}>
-          <div className="flex flex-col px-3 pt-3 pb-2 gap-2">
-            {/* Textarea */}
-            <div className="relative mb-1">
-              <div className="max-h-96 w-full overflow-y-auto font-sans break-words transition-opacity duration-200 min-h-[2.5rem] pl-1">
-                <textarea
-                  ref={textareaRef}
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={placeholder}
-                  disabled={disabled}
-                  className="w-full bg-transparent border-0 outline-none text-text-100 text-[16px] placeholder:text-text-400 resize-none overflow-hidden py-0 leading-relaxed block font-normal antialiased disabled:opacity-50"
-                  rows={1}
-                  style={{ minHeight: "1.5em" }}
-                />
-              </div>
-            </div>
+      /* Liquid glass container */
+      <div className={cn("relative isolate w-full", className)}>
+        {/* Glossy shimmer */}
+        <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-b from-white/30 via-white/10 to-transparent dark:from-white/8 dark:to-transparent z-10" />
 
-            {/* Action bar */}
-            <div className="flex justify-end items-center">
-              {isLoading ? (
-                <button
-                  onClick={onStop}
-                  className="inline-flex items-center justify-center relative shrink-0 transition-colors h-8 w-8 rounded-xl active:scale-95 bg-accent text-bg-0 hover:bg-accent-hover shadow-md"
-                  type="button"
-                  aria-label="Stop generating"
-                >
-                  <Square className="w-3.5 h-3.5 fill-current" />
-                </button>
-              ) : (
-                <button
-                  onClick={handleSend}
-                  disabled={!hasContent || disabled}
-                  className={`
-                    inline-flex items-center justify-center relative shrink-0 transition-colors h-8 w-8 rounded-xl active:scale-95
-                    ${hasContent && !disabled
-                      ? "bg-accent text-bg-0 hover:bg-accent-hover shadow-md"
-                      : "bg-accent/30 text-bg-0/60 cursor-default"}
-                  `}
-                  type="button"
-                  aria-label="Send message"
-                >
-                  <ArrowUp className="w-4 h-4" />
-                </button>
-              )}
-            </div>
+        {/* Glass box */}
+        <div
+          className={cn(
+            "relative flex flex-col gap-1.5 px-4 pt-3.5 pb-3",
+            "rounded-2xl",
+            "backdrop-blur-2xl",
+            "bg-white/85 dark:bg-[#1e1e1e]/80",
+            "border border-black/[0.07] dark:border-white/[0.08]",
+            "shadow-[0_4px_30px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.05)]",
+            "dark:shadow-[0_4px_30px_rgba(0,0,0,0.4),0_1px_3px_rgba(0,0,0,0.2)]",
+            "transition-shadow duration-200",
+            "focus-within:shadow-[0_6px_36px_rgba(0,0,0,0.13),0_2px_6px_rgba(0,0,0,0.06)]",
+            "dark:focus-within:shadow-[0_6px_36px_rgba(0,0,0,0.5),0_2px_6px_rgba(0,0,0,0.3)]"
+          )}
+        >
+          {/* Textarea */}
+          <textarea
+            ref={textareaRef}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            disabled={disabled}
+            rows={1}
+            className={cn(
+              "w-full resize-none bg-transparent border-0 outline-none",
+              "text-[15px] leading-relaxed",
+              "text-foreground placeholder:text-muted-foreground/60",
+              "disabled:opacity-50",
+              "max-h-80 overflow-y-auto"
+            )}
+            style={{ minHeight: "1.5em" }}
+          />
+
+          {/* Action row */}
+          <div className="flex items-center justify-end">
+            {isLoading ? (
+              <button
+                onClick={onStop}
+                type="button"
+                aria-label="Stop generating"
+                className={cn(
+                  "flex items-center justify-center h-8 w-8 rounded-xl",
+                  "bg-primary text-white",
+                  "hover:bg-primary/90 active:scale-95",
+                  "transition-all duration-150 shadow-sm"
+                )}
+              >
+                <Square className="h-3.5 w-3.5 fill-current" />
+              </button>
+            ) : (
+              <button
+                onClick={handleSend}
+                disabled={!hasContent || disabled}
+                type="button"
+                aria-label="Send message"
+                className={cn(
+                  "flex items-center justify-center h-8 w-8 rounded-xl",
+                  "transition-all duration-150 active:scale-95",
+                  hasContent && !disabled
+                    ? "bg-primary text-white hover:bg-primary/90 shadow-sm"
+                    : "bg-muted text-muted-foreground/40 cursor-default"
+                )}
+              >
+                <ArrowUp className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>
