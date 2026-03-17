@@ -58,7 +58,7 @@ export const OnboardingTour = memo(function OnboardingTour({ pageId }: Onboardin
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-sm gap-0 p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-md gap-0 p-0 overflow-hidden">
         {/* Step progress bar */}
         <div className="h-0.5 w-full bg-neutral-100 dark:bg-neutral-800">
           <div
@@ -67,7 +67,7 @@ export const OnboardingTour = memo(function OnboardingTour({ pageId }: Onboardin
           />
         </div>
 
-        <div className="p-6 flex flex-col gap-5">
+        <div className="p-8 flex flex-col gap-5">
           {/* Step counter */}
           <span className="text-xs text-muted-foreground font-medium">
             {step + 1} / {totalSteps}
@@ -90,7 +90,7 @@ export const OnboardingTour = memo(function OnboardingTour({ pageId }: Onboardin
 
           {/* Content */}
           <div className="flex flex-col gap-1.5">
-            <h3 className="text-base font-semibold tracking-tight">
+            <h3 className="text-lg font-semibold tracking-tight">
               {currentStep.title}
             </h3>
             <p className="text-sm text-muted-foreground leading-relaxed">

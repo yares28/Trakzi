@@ -11,17 +11,17 @@ export const WelcomeModal = memo(function WelcomeModal() {
 
   return (
     <Dialog open={showWelcome} onOpenChange={(open) => { if (!open) dismissWelcome() }}>
-      <DialogContent className="sm:max-w-sm gap-0 p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-md gap-0 p-0 overflow-hidden">
         {/* Same thin bar as tour panels — empty (0%) to signal start */}
         <div className="h-0.5 w-full bg-neutral-100 dark:bg-neutral-800" />
 
-        <div className="p-6 flex flex-col gap-5">
+        <div className="p-8 flex flex-col gap-5">
           {/* Header */}
           <div className="flex flex-col gap-2">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
               Welcome to Trakzi
             </p>
-            <h2 className="text-base font-semibold tracking-tight">
+            <h2 className="text-lg font-semibold tracking-tight">
               Your financial workspace
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
