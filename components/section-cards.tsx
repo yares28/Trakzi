@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
+import { useCountUp } from "@/hooks/use-count-up"
 import { IconTrendingDown, IconTrendingUp } from "@tabler/icons-react"
 import { IconLock, IconSparkles } from "@tabler/icons-react"
 import Link from "next/link"
@@ -70,6 +71,8 @@ interface SectionCardsProps {
   fridgeScoreTrend?: "improving" | "worsening" | "stable"
   fridgeScoreTrendData?: TrendDataPoint[]
   fridgeScoreEnabled?: boolean
+  /** When true, all number cards animate from 0 (data barrier not yet passed) */
+  isLoading?: boolean
 }
 
 type CardId = "income" | "expenses" | "netWorth" | "transactions" | "savingsRate" | "spendingRate"
@@ -185,10 +188,13 @@ function getSavingsRateLevel(rate: number): "Very Low" | "Low" | "Medium" | "Hig
   return "Very High"
 }
 
-function CardComponent({ card }: { card: CardData }) {
+function CardComponent({ card, isLoading }: { card: CardData; isLoading?: boolean }) {
   const { formatCurrency } = useCurrency()
   const showSpanningUnderNumber = card.footerText?.includes("Spanning")
   const description = card.title
+
+  // Animate from 0 when data loads or changes (barrier-driven count-up)
+  const animatedValue = useCountUp(isLoading ? 0 : card.value)
 
   const badgeLabel =
     card.id === "spendingRate"
@@ -204,8 +210,8 @@ function CardComponent({ card }: { card: CardData }) {
         <CardDescription className="text-[11px] sm:text-xs text-balance px-2 leading-tight">{description}</CardDescription>
         <CardTitle className="text-xl sm:text-2xl font-bold tabular-nums break-words px-2">
           {card.isCurrency !== false
-            ? formatCurrency(card.value, card.formatOptions)
-            : card.value.toLocaleString(undefined, card.formatOptions) + (card.valueSuffix ?? "")}
+            ? formatCurrency(animatedValue, card.formatOptions)
+            : animatedValue.toLocaleString(undefined, card.formatOptions) + (card.valueSuffix ?? "")}
         </CardTitle>
         {card.showChange !== false && (
           <Badge variant="outline" className="text-[10px] h-5 px-1.5 shrink-0 flex items-center justify-center">
@@ -243,6 +249,7 @@ function SpendingScoreCard({
   color,
   trendData = [],
   enabled = true,
+  isLoading = false,
 }: {
   score: number
   grade: string
@@ -250,7 +257,9 @@ function SpendingScoreCard({
   color: string
   trendData?: { date: string; value: number }[]
   enabled?: boolean
+  isLoading?: boolean
 }) {
+  const animatedScore = useCountUp(isLoading ? 0 : score)
   const subtextUnderValue =
     trend === "improving" ? "Trend improving"
       : trend === "worsening" ? "Trend worsening"
@@ -264,7 +273,7 @@ function SpendingScoreCard({
       <CardHeader className={`!flex flex-col items-center justify-center p-0 h-full w-full z-10 text-center gap-1 ${!enabled ? "blur-sm opacity-40 saturate-50 pointer-events-none select-none" : ""}`}>
         <CardDescription className="text-[11px] sm:text-xs text-balance px-2 leading-tight">Spending Score</CardDescription>
         <CardTitle className="text-xl sm:text-2xl font-bold tabular-nums break-words px-2">
-          {score}
+          {Math.round(animatedScore)}
         </CardTitle>
         <Badge variant="outline" className="text-[10px] h-5 px-1.5 shrink-0 flex items-center justify-center">
           {grade}
@@ -302,6 +311,7 @@ function SavingsScoreCard({
   color,
   trendData = [],
   enabled = true,
+  isLoading = false,
 }: {
   score: number
   grade: string
@@ -309,7 +319,9 @@ function SavingsScoreCard({
   color: string
   trendData?: { date: string; value: number }[]
   enabled?: boolean
+  isLoading?: boolean
 }) {
+  const animatedScore = useCountUp(isLoading ? 0 : score)
   const subtextUnderValue =
     trend === "improving" ? "Trend improving"
       : trend === "worsening" ? "Trend worsening"
@@ -322,7 +334,7 @@ function SavingsScoreCard({
       <CardHeader className={`!flex flex-col items-center justify-center p-0 h-full w-full z-10 text-center gap-1 ${!enabled ? "blur-sm opacity-40 saturate-50 pointer-events-none select-none" : ""}`}>
         <CardDescription className="text-[11px] sm:text-xs text-balance px-2 leading-tight">Savings Score</CardDescription>
         <CardTitle className="text-xl sm:text-2xl font-bold tabular-nums break-words px-2">
-          {score}
+          {Math.round(animatedScore)}
         </CardTitle>
         <Badge variant="outline" className="text-[10px] h-5 px-1.5 shrink-0 flex items-center justify-center">
           {grade}
@@ -359,6 +371,7 @@ function FridgeScoreCard({
   color,
   trendData = [],
   enabled = true,
+  isLoading = false,
 }: {
   score: number
   grade: string
@@ -366,7 +379,9 @@ function FridgeScoreCard({
   color: string
   trendData?: { date: string; value: number }[]
   enabled?: boolean
+  isLoading?: boolean
 }) {
+  const animatedScore = useCountUp(isLoading ? 0 : score)
   const subtextUnderValue =
     trend === "improving" ? "Trend improving"
       : trend === "worsening" ? "Trend worsening"
@@ -379,7 +394,7 @@ function FridgeScoreCard({
       <CardHeader className={`!flex flex-col items-center justify-center p-0 h-full w-full z-10 text-center gap-1 ${!enabled ? "blur-sm opacity-40 saturate-50 pointer-events-none select-none" : ""}`}>
         <CardDescription className="text-[11px] sm:text-xs text-balance px-2 leading-tight">Fridge Score</CardDescription>
         <CardTitle className="text-xl sm:text-2xl font-bold tabular-nums break-words px-2">
-          {score}
+          {Math.round(animatedScore)}
         </CardTitle>
         <Badge variant="outline" className="text-[10px] h-5 px-1.5 shrink-0 flex items-center justify-center">
           {grade}
@@ -450,6 +465,7 @@ export function SectionCards({
   fridgeScoreTrend = "stable",
   fridgeScoreTrendData = [],
   fridgeScoreEnabled = true,
+  isLoading = false,
 }: SectionCardsProps) {
   const { formatCurrency } = useCurrency()
   // Ensure all values are numbers (handle case where API returns strings)
@@ -671,7 +687,7 @@ export function SectionCards({
   return (
     <div className={`w-full *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-2 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @3xl/main:grid-cols-2 min-w-0 ${colsClass}`}>
       {cardOrder.map((cardId) => (
-        <CardComponent key={cardId} card={cardData[cardId]} />
+        <CardComponent key={cardId} card={cardData[cardId]} isLoading={isLoading} />
       ))}
       {hasSpendingScore && (
         <SpendingScoreCard
@@ -681,6 +697,7 @@ export function SectionCards({
           color={spendingScoreWaveColor}
           trendData={spendingScoreTrendData}
           enabled={spendingScoreEnabled}
+          isLoading={isLoading}
         />
       )}
       {hasSavingsScore && (
@@ -691,6 +708,7 @@ export function SectionCards({
           color={savingsScoreWaveColor}
           trendData={savingsScoreTrendData}
           enabled={savingsScoreEnabled}
+          isLoading={isLoading}
         />
       )}
       {hasFridgeScore && (
@@ -701,6 +719,7 @@ export function SectionCards({
           color={fridgeScoreWaveColor}
           trendData={fridgeScoreTrendData}
           enabled={fridgeScoreEnabled}
+          isLoading={isLoading}
         />
       )}
     </div>

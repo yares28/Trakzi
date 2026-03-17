@@ -160,33 +160,24 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
                 })
             })
 
-            // Area Bump needs 2 distinct x-points to draw the band
-            if (sortedMonths.length === 1) {
-                const soleMonth = sortedMonths[0]
-                const soleLabel = monthNames[soleMonth - 1]
-                const continuationLabel = soleLabel + "\u200B" // zero-width space = distinct key, same display
-                // Duplicate rankings for continuation (including percentage)
+            // Only use monthly bundle data when there are multiple distinct months.
+            // Single month → fall through to raw transactions for weekly within-month breakdown.
+            if (sortedMonths.length > 1) {
+                // Get top 7 categories by total
+                const categoryTotals: { category: string; total: number }[] = []
                 allCategories.forEach(cat => {
-                    const rankings = categoryRankings.get(cat)!
-                    if (rankings.length > 0) {
-                        rankings.push({ x: continuationLabel, y: rankings[0].y, percentage: rankings[0].percentage })
-                    }
+                    let total = 0
+                    periodTotals.forEach(catMap => total += catMap.get(cat) || 0)
+                    categoryTotals.push({ category: cat, total })
                 })
+                categoryTotals.sort((a, b) => b.total - a.total)
+
+                return categoryTotals.slice(0, 7).map(item => ({
+                    id: item.category,
+                    data: categoryRankings.get(item.category) || []
+                }))
             }
-
-            // Get top 7 categories by total
-            const categoryTotals: { category: string; total: number }[] = []
-            allCategories.forEach(cat => {
-                let total = 0
-                periodTotals.forEach(catMap => total += catMap.get(cat) || 0)
-                categoryTotals.push({ category: cat, total })
-            })
-            categoryTotals.sort((a, b) => b.total - a.total)
-
-            return categoryTotals.slice(0, 7).map(item => ({
-                id: item.category,
-                data: categoryRankings.get(item.category) || []
-            }))
+            // Single month: fall through to raw transactions for weekly breakdown
         }
 
         // Fallback to raw transactions
@@ -252,17 +243,53 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
             })
         })
 
-        // Area Bump needs 2 distinct x-points to draw the band
-        if (sortedPeriods.length === 1) {
-            const sole = sortedPeriods[0]
-            const soleLabel = formatTimeLabel(sole)
-            const continuationLabel = soleLabel + "\u200B" // zero-width space = distinct key, same display
-            // Duplicate rankings for continuation (including percentage)
-            allCategories.forEach(category => {
-                const rankings = categoryRankings.get(category)!
-                if (rankings.length > 0) {
-                    rankings.push({ x: continuationLabel, y: rankings[0].y, percentage: rankings[0].percentage })
+        // Weekly fallback: if only 1 time period, rebuild with week-of-month buckets
+        // so the chart shows how spending shifted within the month.
+        if (sortedPeriods.length === 1 && receiptTransactions.length > 0) {
+            periodCategoryTotals.clear()
+            receiptTransactions.forEach((item) => {
+                if (!item.receiptDate) return
+                const date = new Date(item.receiptDate)
+                const weekStart = new Date(date)
+                weekStart.setDate(date.getDate() - date.getDay())
+                const weekKey = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, "0")}-${String(weekStart.getDate()).padStart(2, "0")}`
+                const category = normalizeCategoryName(item.categoryName)
+                const spend = Number(item.totalPrice) || 0
+                if (!periodCategoryTotals.has(weekKey)) {
+                    periodCategoryTotals.set(weekKey, new Map())
                 }
+                const catMap = periodCategoryTotals.get(weekKey)!
+                catMap.set(category, (catMap.get(category) || 0) + spend)
+            })
+            sortedPeriods = Array.from(periodCategoryTotals.keys()).sort()
+
+            // Rebuild allCategories and categoryRankings with new weekly periods
+            allCategories.clear()
+            periodCategoryTotals.forEach((catMap) => {
+                catMap.forEach((_, category) => allCategories.add(category))
+            })
+            allCategories.forEach((category) => categoryRankings.set(category, []))
+
+            sortedPeriods.forEach((periodKey) => {
+                const catMap = periodCategoryTotals.get(periodKey)!
+                const totals: { category: string; total: number }[] = []
+                let periodTotal = 0
+                allCategories.forEach((category) => {
+                    const catTotal = catMap.get(category) || 0
+                    totals.push({ category, total: catTotal })
+                    periodTotal += catTotal
+                })
+                totals.sort((a, b) => b.total - a.total)
+                const numCats = totals.length
+                totals.forEach((item, index) => {
+                    const percentage = periodTotal > 0 ? (item.total / periodTotal) * 100 : 0
+                    const invertedRank = numCats - index
+                    categoryRankings.get(item.category)!.push({
+                        x: formatTimeLabel(periodKey),
+                        y: invertedRank,
+                        percentage,
+                    })
+                })
             })
         }
 
