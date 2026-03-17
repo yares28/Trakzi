@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useTheme } from "next-themes"
 import { useQueryClient } from "@tanstack/react-query"
 
@@ -86,9 +86,16 @@ export default function AnalyticsPage() {
     ])
   }, [fetchAllAnalyticsData, queryClient])
 
-  const statementImport = useStatementImport({ refreshAnalyticsData })
+  const statementImport = useStatementImport({
+    refreshAnalyticsData,
+    onImportSuccess: () => completeChecklistItem("upload_statement"),
+  })
 
-  const { startTour } = useOnboarding()
+  const { startTour, completeChecklistItem } = useOnboarding()
+
+  useEffect(() => {
+    completeChecklistItem("explore_analytics")
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleViewModeChange = useCallback((mode: AnalyticsViewMode) => {
     setViewMode(mode)

@@ -17,9 +17,10 @@ import { useCategoryPreferences } from "./useCategoryPreferences"
 
 type UseStatementImportOptions = {
   refreshAnalyticsData: () => Promise<void> | void
+  onImportSuccess?: () => void
 }
 
-export function useStatementImport({ refreshAnalyticsData }: UseStatementImportOptions) {
+export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: UseStatementImportOptions) {
   // Statement drop-to-import state
   const [isDragging, setIsDragging] = useState(false)
   const [droppedFile, setDroppedFile] = useState<File | null>(null)
@@ -624,6 +625,7 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
       toast.success("File Imported Successfully", {
         description: `${data.inserted} transactions imported from ${droppedFile.name}`,
       })
+      onImportSuccess?.()
       if (data.skippedInvalidDates) {
         toast.warning("Some rows were skipped", {
           description: `${data.skippedInvalidDates} transaction(s) had missing or invalid dates and were not imported.`,
@@ -678,7 +680,7 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
     } finally {
       setIsImporting(false)
     }
-  }, [droppedFile, parsedCsv, fileId, refreshAnalyticsData, transactionCount])
+  }, [droppedFile, parsedCsv, fileId, refreshAnalyticsData, onImportSuccess, transactionCount])
 
   const handleCancelUpload = useCallback(() => {
     if (csvRegenerationTimerRef.current) {
