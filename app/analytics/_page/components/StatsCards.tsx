@@ -12,9 +12,11 @@ type StatsCardsProps = {
   transactionSummary: TransactionSummary
   /** Current date filter (e.g. last30days) for per-day calculations */
   dateFilter?: string | null
+  /** When true, all numbers animate from 0 (data is not yet ready) */
+  isLoading?: boolean
 }
 
-export function StatsCards({ stats, statsTrends, transactionSummary, dateFilter }: StatsCardsProps) {
+export function StatsCards({ stats, statsTrends, transactionSummary, dateFilter, isLoading }: StatsCardsProps) {
   // Fetch all-time transaction count (ignores date filter)
   const { data: totalCount } = useTotalTransactionCount()
   const periodDays = dateFilter ? getPeriodDaysFromFilter(dateFilter) : 0
@@ -25,6 +27,7 @@ export function StatsCards({ stats, statsTrends, transactionSummary, dateFilter 
 
   return (
     <SectionCards
+      isLoading={isLoading}
       totalIncome={stats.totalIncome}
       totalExpenses={stats.totalExpenses}
       savingsRate={stats.savingsRate}

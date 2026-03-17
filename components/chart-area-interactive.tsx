@@ -66,6 +66,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
   const [useRealData, setUseRealData] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const chartContainerRef = useRef<HTMLDivElement>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
   const mousePositionRef = useRef<{ x: number; y: number } | null>(null)
   const isDark = resolvedTheme === "dark"
   const gridStrokeColor = CHART_GRID_COLOR
@@ -397,9 +398,17 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
             </div>
             {tooltip && tooltipPosition && (
               <div
+                ref={tooltipRef}
                 className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
                 style={{
-                  left: `${(tooltipPosition.x ?? 0) + 16}px`,
+                  left: (() => {
+                    const containerWidth = containerRef.current?.offsetWidth ?? 9999
+                    const tooltipWidth = tooltipRef.current?.offsetWidth ?? 180
+                    const xRight = (tooltipPosition.x ?? 0) + 16
+                    return xRight + tooltipWidth > containerWidth
+                      ? `${(tooltipPosition.x ?? 0) - tooltipWidth - 16}px`
+                      : `${xRight}px`
+                  })(),
                   top: `${(tooltipPosition.y ?? 0) - 16}px`,
                   transform: 'translate(0, -100%)',
                 }}

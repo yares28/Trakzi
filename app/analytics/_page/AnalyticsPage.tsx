@@ -52,6 +52,9 @@ export default function AnalyticsPage() {
     fetchAllAnalyticsData,
   } = useAnalyticsData(dateFilter)
 
+  // Cyclic barrier: all data sources must be ready before revealing numbers
+  const isDataReady = !bundleLoading && !isLoadingTransactions
+
   const chartLayout = useChartLayout()
   const { stats, statsTrends, transactionSummary } = useAnalyticsStats(rawTransactions)
   const chartData = useAnalyticsChartData({
@@ -101,6 +104,7 @@ export default function AnalyticsPage() {
             statsTrends={statsTrends}
             transactionSummary={transactionSummary}
             dateFilter={dateFilter}
+            isLoading={!isDataReady}
           />
 
           {/* Analytics / Advanced / Trends switch - Horizontal scroll on mobile */}

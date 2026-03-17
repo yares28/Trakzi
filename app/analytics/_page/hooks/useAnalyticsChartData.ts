@@ -443,7 +443,8 @@ export function useAnalyticsChartData({
       return a.localeCompare(b)
     }
 
-    // Use bundle data if available for monthly data
+    // Use bundle data if available for monthly data — only when there are multiple months.
+    // With a single month, we fall through to rawTransactions for weekly granularity.
     if (bundleData?.monthlyCategories && bundleData.monthlyCategories.length > 0) {
       const categorySet = new Set<string>(bundleData.monthlyCategories.map(m => m.category))
 
@@ -463,32 +464,37 @@ export function useAnalyticsChartData({
 
       const sortedPeriods = Array.from(allMonths).sort(sortPeriodKeys)
 
-      // Compute percentage-based y values per period (same as Home page)
-      const periodTotals = new Map<string, number>()
-      sortedPeriods.forEach(period => {
-        let total = 0
-        categoryMonthMap.forEach(months => { total += months.get(period) || 0 })
-        periodTotals.set(period, total)
-      })
+      // Only use monthly bundle data when there are multiple distinct periods.
+      // Single period → fall through to rawTransactions for weekly within-month breakdown.
+      if (sortedPeriods.length > 1) {
+        // Compute percentage-based y values per period (same as Home page)
+        const periodTotals = new Map<string, number>()
+        sortedPeriods.forEach(period => {
+          let total = 0
+          categoryMonthMap.forEach(months => { total += months.get(period) || 0 })
+          periodTotals.set(period, total)
+        })
 
-      const data = Array.from(categoryMonthMap.entries())
-        .map(([category, months]) => ({
-          id: category,
-          data: sortedPeriods.map(period => {
-            const value = months.get(period) || 0
-            const total = periodTotals.get(period) || 1
-            const percentage = total > 0 ? (value / total) * 100 : 0
-            return { x: period, y: Math.max(percentage, 0.1) }
-          }),
-        }))
-        .filter(series =>
-          series.data.some(d => {
-            const originalValue = categoryMonthMap.get(series.id)?.get(d.x) || 0
-            return originalValue > 0
-          })
-        )
+        const data = Array.from(categoryMonthMap.entries())
+          .map(([category, months]) => ({
+            id: category,
+            data: sortedPeriods.map(period => {
+              const value = months.get(period) || 0
+              const total = periodTotals.get(period) || 1
+              const percentage = total > 0 ? (value / total) * 100 : 0
+              return { x: period, y: Math.max(percentage, 0.1) }
+            }),
+          }))
+          .filter(series =>
+            series.data.some(d => {
+              const originalValue = categoryMonthMap.get(series.id)?.get(d.x) || 0
+              return originalValue > 0
+            })
+          )
 
-      return { data, categories: Array.from(categorySet) }
+        return { data, categories: Array.from(categorySet) }
+      }
+      // Single month — fall through to rawTransactions for weekly breakdown
     }
 
     // Fallback to rawTransactions
@@ -551,6 +557,33 @@ export function useAnalyticsChartData({
 
     if (!categoryMap.size) {
       return { data: [], categories: Array.from(categorySet) }
+    }
+
+    // Weekly fallback: if only 1 time period was detected (e.g. all data in one month),
+    // rebuild the map using week-of-month buckets so the chart shows within-month trends.
+    if (allTimePeriods.size <= 1) {
+      categoryMap.clear()
+      allTimePeriods.clear()
+
+      rawTransactions.forEach((tx) => {
+        if (tx.amount >= 0) return
+        const rawCategory = (tx.category || "Other").trim()
+        const category = normalizeCategoryName(rawCategory)
+        if (categoryFlowVisibility.hiddenCategorySet.has(category)) return
+
+        const date = new Date(tx.date)
+        if (Number.isNaN(date.getTime())) return
+
+        // Week-of-month bucket: start of week (Sunday)
+        const weekStart = new Date(date)
+        weekStart.setDate(date.getDate() - date.getDay())
+        const weekKey = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, "0")}-${String(weekStart.getDate()).padStart(2, "0")}`
+
+        allTimePeriods.add(weekKey)
+        if (!categoryMap.has(category)) categoryMap.set(category, new Map())
+        const timeMap = categoryMap.get(category)!
+        timeMap.set(weekKey, (timeMap.get(weekKey) || 0) + Math.abs(tx.amount))
+      })
     }
 
     const sortedTimePeriods = Array.from(allTimePeriods).sort(sortPeriodKeys)
