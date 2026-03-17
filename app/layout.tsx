@@ -18,6 +18,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { PostHogUserIdentifier } from "@/components/posthog-user-identifier";
 import { DemoModeProvider } from "@/lib/demo/demo-context";
 import { DemoBanner } from "@/components/demo-banner";
+import { OnboardingProvider } from "@/components/onboarding/onboarding-provider";
+import { OnboardingRoot } from "@/components/onboarding/onboarding-root";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -125,32 +127,35 @@ export default function RootLayout({
           >
             <QueryProvider>
               <UserPreferencesProvider>
-                <ChartResizeProvider>
-                  <ChartVisibilityProvider storageScope="analytics">
-                    <ColorSchemeProvider>
-                      <CurrencyProvider>
-                        <FavoritesProvider>
-                          <DateFilterProvider>
-                            <TransactionDialogProvider>
-                              <DemoModeProvider>
-                                <div className="flex flex-col min-h-screen overflow-x-hidden">
-                                  <PostHogUserIdentifier />
-                                  <DemoBanner />
-                                  <div className="flex-1">
-                                    {children}
+                <OnboardingProvider>
+                  <ChartResizeProvider>
+                    <ChartVisibilityProvider storageScope="analytics">
+                      <ColorSchemeProvider>
+                        <CurrencyProvider>
+                          <FavoritesProvider>
+                            <DateFilterProvider>
+                              <TransactionDialogProvider>
+                                <DemoModeProvider>
+                                  <div className="flex flex-col min-h-screen overflow-x-hidden">
+                                    <PostHogUserIdentifier />
+                                    <DemoBanner />
+                                    <OnboardingRoot />
+                                    <div className="flex-1">
+                                      {children}
+                                    </div>
                                   </div>
-                                </div>
-                              </DemoModeProvider>
-                            </TransactionDialogProvider>
-                          </DateFilterProvider>
-                        </FavoritesProvider>
-                        <Toaster />
-                        <Analytics />
-                        <SpeedInsights />
-                      </CurrencyProvider>
-                    </ColorSchemeProvider>
-                  </ChartVisibilityProvider>
-                </ChartResizeProvider>
+                                </DemoModeProvider>
+                              </TransactionDialogProvider>
+                            </DateFilterProvider>
+                          </FavoritesProvider>
+                          <Toaster />
+                          <Analytics />
+                          <SpeedInsights />
+                        </CurrencyProvider>
+                      </ColorSchemeProvider>
+                    </ChartVisibilityProvider>
+                  </ChartResizeProvider>
+                </OnboardingProvider>
               </UserPreferencesProvider>
             </QueryProvider>
           </ThemeProvider>
