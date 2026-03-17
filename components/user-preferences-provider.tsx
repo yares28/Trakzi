@@ -13,6 +13,7 @@ import {
 import { useTheme } from "next-themes"
 import type {
   HomePreferences,
+  OnboardingPreferences,
   PageLayoutPreferences,
   SettingsPreferences,
   UserPreferences,
@@ -41,6 +42,7 @@ interface UserPreferencesContextValue {
       | Partial<PageLayoutPreferences>
       | Partial<SettingsPreferences>
   ) => void
+  updateOnboarding: (data: Partial<OnboardingPreferences>) => void
 }
 
 const UserPreferencesContext = createContext<UserPreferencesContextValue | null>(
@@ -140,6 +142,12 @@ function loadAllFromLocalStorage(): UserPreferences {
       }
     }
 
+    // ---- Onboarding ----
+    const onboardingRaw = localStorage.getItem("trakzi-onboarding")
+    if (onboardingRaw) {
+      prefs.onboarding = safeJsonParse<OnboardingPreferences>(onboardingRaw, {})
+    }
+
     // ---- Settings ----
     const sColorScheme = localStorage.getItem(LS_KEYS.colorScheme)
     const sTheme = localStorage.getItem(LS_KEYS.theme)
@@ -227,6 +235,11 @@ function saveAllToLocalStorage(prefs: UserPreferences) {
           prefs.fridge.sizes_version
         )
       }
+    }
+
+    // ---- Onboarding ----
+    if (prefs.onboarding) {
+      localStorage.setItem("trakzi-onboarding", JSON.stringify(prefs.onboarding))
     }
 
     // ---- Settings ----
@@ -491,6 +504,24 @@ export function UserPreferencesProvider({
     [isServerSynced, scheduleSave]
   )
 
+  const updateOnboarding = useCallback(
+    (data: Partial<OnboardingPreferences>) => {
+      setPreferences((prev) => {
+        const next: UserPreferences = {
+          ...prev,
+          onboarding: { ...(prev.onboarding ?? {}), ...data },
+        }
+        latestRef.current = next
+        saveAllToLocalStorage(next)
+        if (readyToSaveRef.current && isServerSynced) {
+          scheduleSave()
+        }
+        return next
+      })
+    },
+    [isServerSynced, scheduleSave]
+  )
+
   // ------------------------------------------------------------------
   // Memoised context value
   // ------------------------------------------------------------------
@@ -500,8 +531,9 @@ export function UserPreferencesProvider({
       isLoaded,
       isServerSynced,
       updatePagePreferences,
+      updateOnboarding,
     }),
-    [preferences, isLoaded, isServerSynced, updatePagePreferences]
+    [preferences, isLoaded, isServerSynced, updatePagePreferences, updateOnboarding]
   )
 
   return (
