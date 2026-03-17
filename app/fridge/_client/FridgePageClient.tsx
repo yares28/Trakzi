@@ -81,6 +81,7 @@ export function FridgePageClient() {
     onCommitSuccess: () => {
       setReceiptsRefreshNonce((prev) => prev + 1)
       refetchBundle()
+      completeChecklistItem("upload_receipt")
     },
     onLimitExceeded: handleLimitExceeded,
   })
@@ -178,7 +179,11 @@ export function FridgePageClient() {
 
   const isChartsLoading = bundleLoading || isLoadingReceiptTransactions
 
-  const { startTour } = useOnboarding()
+  const { startTour, completeChecklistItem } = useOnboarding()
+
+  useEffect(() => {
+    completeChecklistItem("explore_fridge")
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [viewMode, setViewMode] = useState<FridgeViewMode>("fridge")
   const handleViewModeChange = useCallback((mode: FridgeViewMode) => {

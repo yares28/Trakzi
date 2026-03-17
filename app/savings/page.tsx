@@ -44,7 +44,11 @@ const SAVINGS_VIEW_MODE_STORAGE_KEY = "savings-view-mode"
 const DEFAULT_SAVINGS_ORDER = ["savingsAccumulation"]
 
 export default function Page() {
-  const { startTour } = useOnboarding()
+  const { startTour, completeChecklistItem } = useOnboarding()
+
+  useEffect(() => {
+    completeChecklistItem("explore_savings")
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [viewMode, setViewMode] = useState<SavingsViewMode>("savings")
   // Transactions state
   const [transactions, setTransactions] = useState<Array<{

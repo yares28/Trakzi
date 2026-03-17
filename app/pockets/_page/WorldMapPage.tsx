@@ -189,7 +189,11 @@ export type PocketViewMode = "travel" | "garage" | "assets" | "other"
 
 export default function WorldMapPage() {
     const { userId, isLoaded: isAuthLoaded } = useAuth()
-    const { startTour } = useOnboarding()
+    const { startTour, completeChecklistItem } = useOnboarding()
+
+    useEffect(() => {
+        completeChecklistItem("explore_pockets")
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Tab state — default to "travel" for SSR, then hydrate from localStorage
     const [pocketViewMode, setPocketViewModeRaw] = useState<PocketViewMode>("travel")
