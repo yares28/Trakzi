@@ -11,28 +11,27 @@ export const WelcomeModal = memo(function WelcomeModal() {
 
   return (
     <Dialog open={showWelcome} onOpenChange={(open) => { if (!open) dismissWelcome() }}>
-      <DialogContent className="sm:max-w-md gap-0 p-0 overflow-hidden">
-        {/* Top accent bar */}
-        <div className="h-1 w-full bg-gradient-to-r from-neutral-300 to-neutral-500 dark:from-neutral-600 dark:to-neutral-400" />
+      <DialogContent className="sm:max-w-sm gap-0 p-0 overflow-hidden">
+        {/* Same thin bar as tour panels — empty (0%) to signal start */}
+        <div className="h-0.5 w-full bg-neutral-100 dark:bg-neutral-800" />
 
-        <div className="p-8 flex flex-col gap-6">
+        <div className="p-6 flex flex-col gap-5">
           {/* Header */}
           <div className="flex flex-col gap-2">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
-              Welcome
+              Welcome to Trakzi
             </p>
-            <h2 className="text-2xl font-semibold tracking-tight">
+            <h2 className="text-base font-semibold tracking-tight">
               Your financial workspace
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Trakzi helps you understand your money — import bank statements,
-              scan receipts, track savings, and visualize spending. Let&apos;s get
-              you set up.
+              Import bank statements, scan receipts, track savings, and
+              visualize spending — all in one place.
             </p>
           </div>
 
           {/* Feature list */}
-          <ul className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-2.5">
             {[
               { icon: "📊", label: "Charts that update as you add data" },
               { icon: "📁", label: "Import bank CSV or scan receipts" },
@@ -47,7 +46,7 @@ export const WelcomeModal = memo(function WelcomeModal() {
           </ul>
 
           {/* Actions */}
-          <div className="flex flex-col gap-2 pt-2">
+          <div className="flex flex-col gap-2 pt-1">
             <Button onClick={dismissWelcome} className="w-full">
               Get started
             </Button>
