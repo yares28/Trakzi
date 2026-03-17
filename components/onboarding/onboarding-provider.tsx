@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 import { useUserPreferences } from "@/components/user-preferences-provider"
 import { OnboardingContext } from "./onboarding-context"
+import { CHECKLIST_ITEMS } from "./tour-content"
 import type { ChecklistItemId } from "./tour-content"
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
@@ -63,7 +64,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const showChecklist =
     isLoaded &&
     !onboarding.checklistDismissed &&
-    (onboarding.completedItems ?? []).length < 6
+    (onboarding.completedItems ?? []).length < CHECKLIST_ITEMS.length
 
   const value = useMemo(
     () => ({

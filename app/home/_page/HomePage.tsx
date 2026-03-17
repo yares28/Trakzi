@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button"
 export default function Page() {
   const { filter: dateFilter } = useDateFilter()
   const queryClient = useQueryClient()
-  const { startTour } = useOnboarding()
+  const { startTour, completeChecklistItem } = useOnboarding()
 
   const {
     transactions,
@@ -59,7 +59,10 @@ export default function Page() {
     ])
   }, [fetchTransactions, queryClient])
 
-  const statementImport = useStatementImport({ refreshAnalyticsData })
+  const statementImport = useStatementImport({
+    refreshAnalyticsData,
+    onImportSuccess: () => completeChecklistItem("upload_statement"),
+  })
 
   return (
     <HomeLayout
