@@ -574,7 +574,7 @@ export function useAnalyticsChartData({
         const date = new Date(tx.date)
         if (Number.isNaN(date.getTime())) return
 
-        // Week-of-month bucket: start of week (Sunday)
+        // Week bucket keyed by Sunday start date (YYYY-MM-DD)
         const weekStart = new Date(date)
         weekStart.setDate(date.getDate() - date.getDay())
         const weekKey = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, "0")}-${String(weekStart.getDate()).padStart(2, "0")}`

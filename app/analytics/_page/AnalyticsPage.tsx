@@ -27,6 +27,10 @@ import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { SortableGridItem, SortableGridProvider } from "@/components/sortable-grid"
 import { ChartSpendingPyramid } from "@/components/chart-spending-pyramid"
 import { DEFAULT_ADVANCED_CHART_ORDER, DEFAULT_ADVANCED_CHART_SIZES } from "./constants"
+import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
+import { useOnboarding } from "@/components/onboarding/onboarding-context"
+import { MapPin } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 type AnalyticsViewMode = "analytics" | "advanced" | "trends"
 
@@ -84,6 +88,8 @@ export default function AnalyticsPage() {
 
   const statementImport = useStatementImport({ refreshAnalyticsData })
 
+  const { startTour } = useOnboarding()
+
   const handleViewModeChange = useCallback((mode: AnalyticsViewMode) => {
     setViewMode(mode)
   }, [])
@@ -98,6 +104,17 @@ export default function AnalyticsPage() {
     >
       <div className="@container/main flex flex-1 flex-col gap-2 min-w-0">
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 min-w-0 w-full">
+          <div className="flex items-center justify-end px-4 lg:px-6">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => startTour("analytics")}
+              className="text-muted-foreground gap-1.5 text-xs h-7"
+            >
+              <MapPin className="size-3.5" />
+              Take a tour
+            </Button>
+          </div>
           {/* Top analytics summary cards (shared across modes) */}
           <StatsCards
             stats={stats}
@@ -228,6 +245,8 @@ export default function AnalyticsPage() {
           {viewMode === "trends" && <AnalyticsTrendsTab />}
         </div>
       </div>
+
+      <OnboardingTour pageId="analytics" />
 
       <AiReparseDialog
         open={statementImport.isAiReparseOpen}
