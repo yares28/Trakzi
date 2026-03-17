@@ -6,6 +6,9 @@ import { useAuth } from "@clerk/nextjs"
 import useSWR from "swr"
 
 import { MapPin, Car, Home, Package } from "lucide-react"
+import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
+import { useOnboarding } from "@/components/onboarding/onboarding-context"
+import { Button } from "@/components/ui/button"
 
 import { cn } from "@/lib/utils"
 import type {
@@ -186,6 +189,7 @@ export type PocketViewMode = "travel" | "garage" | "assets" | "other"
 
 export default function WorldMapPage() {
     const { userId, isLoaded: isAuthLoaded } = useAuth()
+    const { startTour } = useOnboarding()
 
     // Tab state — default to "travel" for SSR, then hydrate from localStorage
     const [pocketViewMode, setPocketViewModeRaw] = useState<PocketViewMode>("travel")
@@ -509,6 +513,15 @@ export default function WorldMapPage() {
                                     <p className="text-muted-foreground max-w-2xl">
                                         {description}
                                     </p>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => startTour("pockets")}
+                                        className="text-muted-foreground gap-1.5 text-xs h-7 pl-0"
+                                    >
+                                        <MapPin className="size-3.5" />
+                                        Take a tour
+                                    </Button>
                                 </div>
                             ))}
                     </div>
@@ -702,6 +715,8 @@ export default function WorldMapPage() {
                     )}
                 </div>
             </div>
+
+            <OnboardingTour pageId="pockets" />
 
             {/* Add Country Dialog */}
             <AddCountryDialog
