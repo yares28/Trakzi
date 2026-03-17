@@ -1,5 +1,6 @@
 // components/onboarding/onboarding-context.ts
 import { createContext, useContext } from "react"
+import type { ChecklistItemId } from "./tour-content"
 
 export interface OnboardingContextValue {
   /** True when welcome modal should show */
@@ -9,7 +10,7 @@ export interface OnboardingContextValue {
   /** Whether the checklist widget is visible */
   showChecklist: boolean
   /** IDs of completed checklist items */
-  completedItems: string[]
+  completedItems: ChecklistItemId[]
   /** Start a tour for a specific page */
   startTour: (pageId: string) => void
   /** Dismiss the welcome modal */
@@ -17,7 +18,7 @@ export interface OnboardingContextValue {
   /** Complete or skip current tour */
   completeTour: (pageId: string) => void
   /** Mark a checklist item complete */
-  completeChecklistItem: (id: string) => void
+  completeChecklistItem: (id: ChecklistItemId) => void
   /** Collapse/dismiss the checklist permanently */
   dismissChecklist: () => void
   /** Whether a page tour has already been completed */

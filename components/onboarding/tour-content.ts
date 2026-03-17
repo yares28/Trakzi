@@ -12,7 +12,7 @@ export interface PageTour {
   steps: TourStep[]
 }
 
-export const PAGE_TOURS: Record<string, PageTour> = {
+export const PAGE_TOURS: Record<string, PageTour | undefined> = {
   home: {
     pageId: "home",
     steps: [

@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 import { useUserPreferences } from "@/components/user-preferences-provider"
 import { OnboardingContext } from "./onboarding-context"
+import type { ChecklistItemId } from "./tour-content"
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
   const { preferences, isLoaded, updateOnboarding } = useUserPreferences()
@@ -18,7 +19,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     if (!onboarding.welcomeSeen) {
       setShowWelcome(true)
     }
-  }, [isLoaded]) // intentionally only on isLoaded change
+  }, [isLoaded, onboarding.welcomeSeen])
 
   const dismissWelcome = useCallback(() => {
     setShowWelcome(false)
@@ -41,7 +42,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   )
 
   const completeChecklistItem = useCallback(
-    (id: string) => {
+    (id: ChecklistItemId) => {
       const current = onboarding.completedItems ?? []
       if (!current.includes(id)) {
         updateOnboarding({ completedItems: [...current, id] })
@@ -69,7 +70,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       showWelcome,
       activeTour,
       showChecklist,
-      completedItems: onboarding.completedItems ?? [],
+      completedItems: (onboarding.completedItems ?? []) as ChecklistItemId[],
       startTour,
       dismissWelcome,
       completeTour,
