@@ -86,12 +86,12 @@ export default function AnalyticsPage() {
     ])
   }, [fetchAllAnalyticsData, queryClient])
 
+  const { startTour, completeChecklistItem } = useOnboarding()
+
   const statementImport = useStatementImport({
     refreshAnalyticsData,
     onImportSuccess: () => completeChecklistItem("upload_statement"),
   })
-
-  const { startTour, completeChecklistItem } = useOnboarding()
 
   useEffect(() => {
     completeChecklistItem("explore_analytics")

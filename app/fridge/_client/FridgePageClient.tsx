@@ -101,15 +101,7 @@ export function FridgePageClient() {
       const pendingFile = (window as any).__pendingUploadFile
       const targetPage = (window as any).__pendingUploadTargetPage
 
-      console.log('[Fridge Upload] Checking for pending upload:', {
-        hasPendingFile: !!pendingFile,
-        targetPage,
-        alreadyProcessed: uploadProcessedRef.current,
-      })
-
       if (pendingFile && targetPage === "fridge" && !uploadProcessedRef.current) {
-        console.log('[Fridge Upload] Processing pending upload:', pendingFile.name)
-
         // Mark as processed to prevent re-running
         uploadProcessedRef.current = true
 
@@ -121,7 +113,6 @@ export function FridgePageClient() {
         upload.handleUploadFilesChange([pendingFile])
         upload.handleUploadDialogOpenChange(true)
 
-        console.log('[Fridge Upload] Dialog state set to open')
         return true
       }
       return false

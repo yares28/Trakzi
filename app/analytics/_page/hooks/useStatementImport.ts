@@ -75,15 +75,7 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
       const pendingFile = (window as any).__pendingUploadFile
       const targetPage = (window as any).__pendingUploadTargetPage
 
-      console.log('[Analytics Statement Upload] Checking for pending upload:', {
-        hasPendingFile: !!pendingFile,
-        targetPage,
-        alreadyProcessed: uploadProcessedRef.current,
-      })
-
       if (pendingFile && targetPage === "analytics" && !uploadProcessedRef.current) {
-        console.log('[Analytics Statement Upload] Processing pending upload:', pendingFile.name)
-
         // Mark as processed to prevent re-running
         uploadProcessedRef.current = true
 
@@ -97,7 +89,6 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
         setProjectName(fileNameWithoutExt)
         setIsUploadDialogOpen(true)
 
-        console.log('[Analytics Statement Upload] Dialog state set to open')
         return true
       }
       return false
