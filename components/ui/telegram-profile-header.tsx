@@ -29,7 +29,6 @@ interface AvatarContentProps {
   name: string;
   bgColor: string;
   initials: string;
-  size?: string;
   textSize?: string;
 }
 
@@ -39,7 +38,6 @@ const AvatarContent = React.memo(function AvatarContent({
   name,
   bgColor,
   initials,
-  size,
   textSize,
 }: AvatarContentProps) {
   return hasImage ? (
@@ -51,10 +49,7 @@ const AvatarContent = React.memo(function AvatarContent({
     />
   ) : (
     <div
-      className={cn(
-        "flex items-center justify-center h-full w-full select-none",
-        size
-      )}
+      className="flex items-center justify-center h-full w-full select-none"
       style={{ backgroundColor: bgColor }}
     >
       <span
