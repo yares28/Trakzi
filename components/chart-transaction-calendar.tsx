@@ -296,6 +296,8 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
 }: ChartTransactionCalendarProps) {
   const { resolvedTheme } = useTheme()
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const handleOpenFullscreen = useCallback(() => setIsFullscreen(true), [])
+  const handleCloseFullscreen = useCallback(() => setIsFullscreen(false), [])
   const isMobile = useIsMobile()
   const { getRawPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -741,7 +743,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
   if (error || !hasData) {
     return (
       <Card className="@container/card">
-        <CalendarCardHeader onOpenFullscreen={() => setIsFullscreen(true)} filteredData={filteredData} totalSpent={totalSpent} />
+        <CalendarCardHeader onOpenFullscreen={handleOpenFullscreen} filteredData={filteredData} totalSpent={totalSpent} />
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
           <div className={`${contentHeight} w-full`}>
             <ChartLoadingState
@@ -760,7 +762,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
     <>
       <ChartFullscreenModal
         isOpen={isFullscreen}
-        onClose={() => setIsFullscreen(false)}
+        onClose={handleCloseFullscreen}
         title={CHART_TITLE}
         description="Spending patterns throughout the year"
         headerActions={<CalendarInfoTrigger filteredData={filteredData} totalSpent={totalSpent} forFullscreen />}
@@ -771,7 +773,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
       </ChartFullscreenModal>
 
       <Card className="@container/card">
-        <CalendarCardHeader onOpenFullscreen={() => setIsFullscreen(true)} filteredData={filteredData} totalSpent={totalSpent} />
+        <CalendarCardHeader onOpenFullscreen={handleOpenFullscreen} filteredData={filteredData} totalSpent={totalSpent} />
         <CardContent className="flex flex-1 flex-col justify-center px-2 pt-4 pb-2 sm:px-6 sm:pt-6 md:pb-6">
           <div ref={contentRef} className="w-full">
             {isDualCalendar && period1 && period2 ? (

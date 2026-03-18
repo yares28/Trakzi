@@ -309,6 +309,8 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
 }: ChartDailyActivityFridgeProps) {
   const { resolvedTheme } = useTheme()
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const handleOpenFullscreen = useCallback(() => setIsFullscreen(true), [])
+  const handleCloseFullscreen = useCallback(() => setIsFullscreen(false), [])
   const isMobile = useIsMobile()
   const { getPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
@@ -653,7 +655,7 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
   if (!hasData) {
     return (
       <Card className="@container/card">
-        <FridgeCalendarCardHeader onOpenFullscreen={() => setIsFullscreen(true)} filteredData={filteredData} totalSpent={totalSpent} />
+        <FridgeCalendarCardHeader onOpenFullscreen={handleOpenFullscreen} filteredData={filteredData} totalSpent={totalSpent} />
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
           <div className={`${contentHeight} w-full`}>
             <ChartLoadingState
@@ -672,7 +674,7 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
     <>
       <ChartFullscreenModal
         isOpen={isFullscreen}
-        onClose={() => setIsFullscreen(false)}
+        onClose={handleCloseFullscreen}
         title={CHART_TITLE}
         description="Grocery spending patterns throughout the year"
         headerActions={<FridgeCalendarInfoTrigger filteredData={filteredData} totalSpent={totalSpent} forFullscreen />}
@@ -683,7 +685,7 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
       </ChartFullscreenModal>
 
       <Card className="@container/card">
-        <FridgeCalendarCardHeader onOpenFullscreen={() => setIsFullscreen(true)} filteredData={filteredData} totalSpent={totalSpent} />
+        <FridgeCalendarCardHeader onOpenFullscreen={handleOpenFullscreen} filteredData={filteredData} totalSpent={totalSpent} />
         <CardContent className="flex flex-1 flex-col justify-center px-2 pt-4 pb-2 sm:px-6 sm:pt-6 md:pb-6">
           <div ref={contentRef} className="w-full">
             {isDualCalendar && period1 && period2 ? (
