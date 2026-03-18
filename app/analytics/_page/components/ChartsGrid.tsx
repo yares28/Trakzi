@@ -9,10 +9,6 @@ import {
 import { getDailyTransactionActivityDisplayMode } from "@/components/chart-transaction-calendar"
 import { SortableGridItem, SortableGridProvider } from "@/components/sortable-grid"
 import dynamic from "next/dynamic"
-const ChartAreaInteractive = dynamic(
-  () => import("@/components/chart-area-interactive").then((m) => ({ default: m.ChartAreaInteractive })),
-  { ssr: false }
-)
 import { ChartCategoryBubble } from "@/components/chart-category-bubble"
 import { ChartCategoryFlow } from "@/components/chart-category-flow"
 import { ChartCirclePacking } from "@/components/chart-circle-packing"
@@ -55,6 +51,11 @@ import { DEFAULT_CHART_SIZES } from "../constants"
 import { getDefaultRingLimit } from "../utils/categories"
 import type { useAnalyticsChartData } from "../hooks/useAnalyticsChartData"
 import { SpendingActivityRings } from "./SpendingActivityRings"
+
+const ChartAreaInteractive = dynamic(
+  () => import("@/components/chart-area-interactive").then((m) => ({ default: m.ChartAreaInteractive })),
+  { ssr: false, loading: () => <div className="h-[300px] w-full animate-pulse rounded-lg bg-muted" /> }
+)
 
 type AnalyticsChartData = ReturnType<typeof useAnalyticsChartData>
 

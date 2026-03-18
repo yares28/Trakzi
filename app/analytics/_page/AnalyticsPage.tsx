@@ -26,11 +26,12 @@ import { cn } from "@/lib/utils"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { SortableGridItem, SortableGridProvider } from "@/components/sortable-grid"
 import dynamic from "next/dynamic"
+import { DEFAULT_ADVANCED_CHART_ORDER, DEFAULT_ADVANCED_CHART_SIZES } from "./constants"
+
 const ChartSpendingPyramid = dynamic(
   () => import("@/components/chart-spending-pyramid").then((m) => ({ default: m.ChartSpendingPyramid })),
-  { ssr: false }
+  { ssr: false, loading: () => <div className="h-[300px] w-full animate-pulse rounded-lg bg-muted" /> }
 )
-import { DEFAULT_ADVANCED_CHART_ORDER, DEFAULT_ADVANCED_CHART_SIZES } from "./constants"
 import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
 import { useOnboarding } from "@/components/onboarding/onboarding-context"
 import { MapPin } from "lucide-react"

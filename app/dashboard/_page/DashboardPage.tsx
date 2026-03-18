@@ -26,14 +26,6 @@ import { DashboardLayout } from "./components/DashboardLayout";
 import { AnimatedScore } from "./components/AnimatedScore";
 import { ComparisonPopover } from "./components/ComparisonPopover";
 
-const ScoreRadialChart = dynamic(
-    () => import("./components/ScoreRadialChart").then((m) => ({ default: m.ScoreRadialChart })),
-    { ssr: false }
-)
-const ScoreSparkline = dynamic(
-    () => import("./components/ScoreSparkline").then((m) => ({ default: m.ScoreSparkline })),
-    { ssr: false }
-)
 import { getAnalyticsInsight, getSavingsInsight, getFridgeInsight } from "./insights";
 import {
     getCardGradient,
@@ -47,6 +39,16 @@ import {
 import { getCardIcon, getIconForTip, IconLightbulb } from "./icons";
 import type { DashboardStats, ScoreInsight } from "./types";
 import { demoFetch } from "@/lib/demo/demo-fetch";
+
+const ScoreRadialChart = dynamic(
+    () => import("./components/ScoreRadialChart").then((m) => ({ default: m.ScoreRadialChart })),
+    { ssr: false, loading: () => <div className="h-[120px] w-[120px] animate-pulse rounded-full bg-muted" /> }
+)
+const ScoreSparkline = dynamic(
+    () => import("./components/ScoreSparkline").then((m) => ({ default: m.ScoreSparkline })),
+    { ssr: false, loading: () => <div className="h-8 w-24 animate-pulse rounded bg-muted" /> }
+)
+
 export default function DashboardPage() {
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [isLoading, setIsLoading] = useState(true);
