@@ -19,6 +19,9 @@ import {
 // Trend data point type
 type TrendDataPoint = { date: string; value: number }
 
+// Module-level empty array constant to prevent new reference creation on every render
+const EMPTY_TREND_DATA: TrendDataPoint[] = []
+
 interface SectionCardsFridgeProps {
     totalSpent?: number;
     shoppingTrips?: number;
@@ -48,7 +51,7 @@ interface SectionCardsFridgeProps {
 function TrendLineBackground({
     color,
     seed = 0,
-    dataPoints = []
+    dataPoints = EMPTY_TREND_DATA
 }: {
     color: string;
     seed?: number;
@@ -124,7 +127,7 @@ function FridgeScoreCard({
     grade,
     trend,
     color,
-    trendData = [],
+    trendData = EMPTY_TREND_DATA,
     enabled = true,
 }: {
     score: number
@@ -189,15 +192,15 @@ export function SectionCardsFridge({
     storesVisitedChange = 0,
     averageReceiptChange = 0,
     tripsFrequencyChange = 0,
-    totalSpentTrend = [],
-    shoppingTripsTrend = [],
-    storesVisitedTrend = [],
-    averageReceiptTrend = [],
-    tripsFrequencyTrend = [],
+    totalSpentTrend = EMPTY_TREND_DATA,
+    shoppingTripsTrend = EMPTY_TREND_DATA,
+    storesVisitedTrend = EMPTY_TREND_DATA,
+    averageReceiptTrend = EMPTY_TREND_DATA,
+    tripsFrequencyTrend = EMPTY_TREND_DATA,
     fridgeScore,
     fridgeGrade,
     fridgeScoreTrend = "stable",
-    fridgeScoreTrendData = [],
+    fridgeScoreTrendData = EMPTY_TREND_DATA,
     fridgeScoreEnabled = true,
 }: SectionCardsFridgeProps) {
     const { getPalette } = useColorScheme()

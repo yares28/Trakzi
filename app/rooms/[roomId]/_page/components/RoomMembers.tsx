@@ -36,12 +36,15 @@ interface RoomMembersProps {
     onMemberUpdated?: () => void
 }
 
+// Module-level empty array constant to prevent new reference creation on every render
+const EMPTY_BALANCES: Balance[] = []
+
 const RoleIcon = ({ role }: { role: string }) => {
     if (role === "owner" || role === "admin") return <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
     return <UserRound className="w-3.5 h-3.5 text-muted-foreground" />
 }
 
-export function RoomMembers({ members, balances = [], currentUserId, currentUserRole, roomId, onMemberUpdated }: RoomMembersProps) {
+export function RoomMembers({ members, balances = EMPTY_BALANCES, currentUserId, currentUserRole, roomId, onMemberUpdated }: RoomMembersProps) {
     const [selectedUser, setSelectedUser] = useState<ProfileModalUser | null>(null)
     const { formatCurrency } = useCurrency()
 
