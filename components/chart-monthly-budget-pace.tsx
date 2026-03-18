@@ -243,7 +243,7 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
 
   if (!mounted || isLoading || chartData.paceData.length === 0) {
     return (
-      <Card className="@container/card h-full relative">
+      <Card className="@container/card h-full relative" suppressHydrationWarning>
         <CardHeader className="flex flex-row items-start justify-between gap-2">
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />

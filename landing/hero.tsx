@@ -1,7 +1,6 @@
 "use client"
 
 import { m } from "framer-motion"
-import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Sparkles, Play } from "lucide-react"
 import { useDemoMode } from "@/lib/demo/demo-context"
@@ -9,20 +8,11 @@ import { useDemoMode } from "@/lib/demo/demo-context"
 import Link from "next/link"
 
 export default function Hero() {
-  const [mounted, setMounted] = useState(false)
   const { enterDemo } = useDemoMode()
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) {
-    return null
-  }
 
   return (
     <>
-      <section className="relative min-h-screen flex flex-col">
+      <section className="relative min-h-screen flex flex-col" suppressHydrationWarning>
         <div className="container mx-auto px-4 py-32 sm:py-48 relative z-10 flex-1 flex flex-col">
           <div className="mx-auto max-w-4xl text-center flex-1 flex flex-col justify-center relative">
             {/* Background Logo with Special Glow */}

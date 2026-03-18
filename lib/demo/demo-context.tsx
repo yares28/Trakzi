@@ -66,6 +66,8 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
   }, [router])
 
   return (
+    // suppressHydrationWarning: isDemoMode is hydrated from cookie on mount,
+    // so server (false) and client may differ until first paint.
     <DemoModeContext.Provider value={{ isDemoMode, enterDemo, exitDemo }}>
       {children}
     </DemoModeContext.Provider>

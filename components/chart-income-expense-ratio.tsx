@@ -224,7 +224,7 @@ export const ChartIncomeExpenseRatio = memo(function ChartIncomeExpenseRatio({
 
   if (!mounted || isLoading || pieData.length === 0) {
     return (
-      <Card className="@container/card">
+      <Card className="@container/card" suppressHydrationWarning>
         <CardHeader className="flex flex-row items-start justify-between gap-2">
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />

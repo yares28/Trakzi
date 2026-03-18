@@ -559,7 +559,7 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
     // Loading or empty state
     if (!mounted || isLoading || data.length === 0) {
         return (
-            <Card className="@container/card">
+            <Card className="@container/card" suppressHydrationWarning>
                 <CardHeader>
                     <div className="flex items-center gap-2">
                         <GridStackCardDragHandle />

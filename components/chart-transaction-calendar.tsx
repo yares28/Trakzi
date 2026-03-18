@@ -715,7 +715,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
 
   if (!mounted || isLoading) {
     return (
-      <Card className="@container/card">
+      <Card className="@container/card" suppressHydrationWarning>
         <CardHeader>
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
