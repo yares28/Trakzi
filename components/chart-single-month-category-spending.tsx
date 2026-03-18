@@ -97,6 +97,31 @@ const aggregateBundleData = (
 const buildMonthlyCategoryUrl = (params: URLSearchParams) =>
   `/api/analytics/monthly-category-duplicate?${params.toString()}`
 
+const SingleMonthInfoTrigger = React.memo(function SingleMonthInfoTrigger({ forFullscreen = false }: { forFullscreen?: boolean }) {
+  return (
+    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
+      <ChartInfoPopover
+        title="Single Month Category Spending"
+        description="Compare spending across categories for a selected month."
+        details={[
+          "Each bar represents total spending in a category for the selected month.",
+          "Use the month selector to switch between different months.",
+          "Only the most spent categories are shown for each month.",
+        ]}
+        ignoredFootnote="Only expense transactions (amount < 0) are included."
+      />
+      <ChartAiInsightButton
+        chartId="singleMonthCategorySpending"
+        chartTitle="Single Month Category Spending"
+        chartDescription="Compare spending across categories for a selected month."
+        size="sm"
+      />
+    </div>
+  )
+})
+
+SingleMonthInfoTrigger.displayName = "SingleMonthInfoTrigger"
+
 export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleMonthCategorySpending({
   dateFilter,
   monthlyCategoriesData,
@@ -478,27 +503,6 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
     }
   }, [tooltip])
 
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
-      <ChartInfoPopover
-        title="Single Month Category Spending"
-        description="Compare spending across categories for a selected month."
-        details={[
-          "Each bar represents total spending in a category for the selected month.",
-          "Use the month selector to switch between different months.",
-          "Only the most spent categories are shown for each month.",
-        ]}
-        ignoredFootnote="Only expense transactions (amount < 0) are included."
-      />
-      <ChartAiInsightButton
-        chartId="singleMonthCategorySpending"
-        chartTitle="Single Month Category Spending"
-        chartDescription="Compare spending across categories for a selected month."
-        size="sm"
-      />
-    </div>
-  )
-
   const option = React.useMemo(() => {
     if (!data.length || selectedMonth === null) return null
 
@@ -648,7 +652,7 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
             <CardTitle>Single Month Category Spending</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <SingleMonthInfoTrigger />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
@@ -677,7 +681,7 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
             <CardTitle>Single Month Category Spending</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <SingleMonthInfoTrigger />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
@@ -706,7 +710,7 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
             <CardTitle>Single Month Category Spending</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <SingleMonthInfoTrigger />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
@@ -727,7 +731,7 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
         onClose={() => setIsFullscreen(false)}
         title="Single Month Category Spending"
         description="Compare spending across categories for a selected month"
-        headerActions={renderInfoTrigger(true)}
+        headerActions={<SingleMonthInfoTrigger forFullscreen />}
       >
         <div className="h-full w-full min-h-[400px] text-center flex items-center justify-center text-muted-foreground">
           Fullscreen view - Select a month to see category breakdown
@@ -766,7 +770,7 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
                 ))}
               </SelectContent>
             </Select>
-            {renderInfoTrigger()}
+            <SingleMonthInfoTrigger />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">

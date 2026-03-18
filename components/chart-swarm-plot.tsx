@@ -80,6 +80,112 @@ const categoriesFetcher = (url: string) =>
     return r.json()
   })
 
+interface SwarmInfoTriggerProps {
+  swarmControls: Parameters<typeof ChartInfoPopover>[0]["categoryControls"]
+  forFullscreen?: boolean
+}
+
+const SwarmInfoTrigger = memo(function SwarmInfoTrigger({ swarmControls, forFullscreen = false }: SwarmInfoTriggerProps) {
+  return (
+    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
+      <ChartInfoPopover
+        title="Transaction History"
+        details={[
+          "Each dot represents an expense; its vertical position is the amount and the group shows which category it belongs to.",
+          "We only pull the most recent 250 expense transactions and ignore any income entries so this view focuses on spending."
+        ]}
+        ignoredFootnote="The dataset comes directly from /api/charts/transaction-history, which filters to recent expenses only."
+        categoryControls={swarmControls}
+      />
+      <ChartAiInsightButton
+        chartId="transactionHistory"
+        chartTitle="Transaction History"
+        size="sm"
+      />
+    </div>
+  )
+})
+
+SwarmInfoTrigger.displayName = "SwarmInfoTrigger"
+
+interface SwarmChartContentProps {
+  containerWidth: number
+  filteredData: EnhancedChartDatum[]
+  chartColors: string[]
+  visibleGroups: string[]
+  chartGroups: string[]
+  dynamicValueScale: { type: "linear"; min: number; max: number; nice: boolean }
+  swarmTheme: object
+  formatCurrency: (value: number) => string
+}
+
+const SwarmChartContent = memo(function SwarmChartContent({
+  containerWidth,
+  filteredData,
+  chartColors,
+  visibleGroups,
+  chartGroups,
+  dynamicValueScale,
+  swarmTheme,
+  formatCurrency,
+}: SwarmChartContentProps) {
+  const isMobileSize = containerWidth < 500
+  const chartMargin = isMobileSize
+    ? { top: 40, right: 40, bottom: 50, left: 50 }
+    : { top: 80, right: 100, bottom: 80, left: 100 }
+
+  return (
+    <ResponsiveSwarmPlot
+      data={filteredData}
+      colors={chartColors}
+      groups={visibleGroups.length ? visibleGroups : chartGroups}
+      value="price"
+      valueScale={dynamicValueScale}
+      size={{ key: "volume", values: [4, 20], sizes: [6, 20] }}
+      forceStrength={4}
+      simulationIterations={100}
+      margin={chartMargin}
+      axisBottom={isMobileSize ? { tickRotation: -45 } : { legend: "category vs. amount", legendOffset: 40 }}
+      axisLeft={isMobileSize ? {} : { legend: "amount ($)", legendOffset: -60 }}
+      theme={swarmTheme}
+      tooltip={(node) => {
+        const datum = node.data as EnhancedChartDatum
+        const category = datum.categoryLabel || datum.group || "Other"
+        const color = (datum.color || node.color || chartColors[0]) as string
+
+        return (
+          <NivoChartTooltip maxWidth={220}>
+            <div className="flex items-center gap-2">
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full border border-border/50"
+                style={{ backgroundColor: color, borderColor: color }}
+              />
+              <span className="font-medium text-foreground whitespace-nowrap">
+                {category}
+              </span>
+            </div>
+            <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
+              {formatCurrency(datum.price || 0)}
+            </div>
+            {datum.date && (
+              <div className="mt-0.5 text-[0.7rem] text-foreground/60">
+                {formatDateForDisplay(datum.date, undefined, {})}
+              </div>
+            )}
+            {datum.description && (
+              <div className="mt-1 text-[0.7rem] text-foreground/60">
+                {datum.description}
+              </div>
+            )}
+          </NivoChartTooltip>
+        )
+      }}
+    />
+  )
+})
+
+SwarmChartContent.displayName = "SwarmChartContent"
+
 export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, emptyDescription }: ChartSwarmPlotProps) {
   const { resolvedTheme } = useTheme()
   const { getShuffledPalette } = useColorScheme()
@@ -380,83 +486,6 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
     "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 w-40"
 
 
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
-      <ChartInfoPopover
-        title="Transaction History"
-        details={[
-          "Each dot represents an expense; its vertical position is the amount and the group shows which category it belongs to.",
-          "We only pull the most recent 250 expense transactions and ignore any income entries so this view focuses on spending."
-        ]}
-        ignoredFootnote="The dataset comes directly from /api/charts/transaction-history, which filters to recent expenses only."
-        categoryControls={swarmControls}
-      />
-      <ChartAiInsightButton
-        chartId="transactionHistory"
-        chartTitle="Transaction History"
-        size="sm"
-      />
-    </div>
-  )
-
-  // Render chart content - reused in card and fullscreen modal
-  const renderChartContent = () => {
-    // Use smaller margins on mobile for more chart space
-    const isMobileSize = containerWidth < 500
-    const chartMargin = isMobileSize
-      ? { top: 40, right: 40, bottom: 50, left: 50 }
-      : { top: 80, right: 100, bottom: 80, left: 100 }
-
-    return (
-      <ResponsiveSwarmPlot
-        data={filteredData}
-        colors={chartColors}
-        groups={visibleGroups.length ? visibleGroups : chartGroups}
-        value="price"
-        valueScale={dynamicValueScale}
-        size={{ key: "volume", values: [4, 20], sizes: [6, 20] }}
-        forceStrength={4}
-        simulationIterations={100}
-        margin={chartMargin}
-        axisBottom={isMobileSize ? { tickRotation: -45 } : { legend: "category vs. amount", legendOffset: 40 }}
-        axisLeft={isMobileSize ? {} : { legend: "amount ($)", legendOffset: -60 }}
-        theme={swarmTheme}
-        tooltip={(node) => {
-          const datum = node.data as EnhancedChartDatum
-          const category = datum.categoryLabel || datum.group || "Other"
-          const color = (datum.color || node.color || chartColors[0]) as string
-
-          return (
-            <NivoChartTooltip maxWidth={220}>
-              <div className="flex items-center gap-2">
-                <span
-                  className="h-2.5 w-2.5 shrink-0 rounded-full border border-border/50"
-                  style={{ backgroundColor: color, borderColor: color }}
-                />
-                <span className="font-medium text-foreground whitespace-nowrap">
-                  {category}
-                </span>
-              </div>
-              <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                {formatCurrency(datum.price || 0)}
-              </div>
-              {datum.date && (
-                <div className="mt-0.5 text-[0.7rem] text-foreground/60">
-                  {formatDateForDisplay(datum.date, undefined, {})}
-                </div>
-              )}
-              {datum.description && (
-                <div className="mt-1 text-[0.7rem] text-foreground/60">
-                  {datum.description}
-                </div>
-              )}
-            </NivoChartTooltip>
-          )
-        }}
-      />
-    )
-  }
-
   if (isLoading && (!filteredData || filteredData.length === 0)) {
     return (
       <Card className="@container/card col-span-full">
@@ -472,7 +501,7 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
             <CardTitle>Transaction History</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <SwarmInfoTrigger swarmControls={swarmControls} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 min-h-[450px] md:min-h-[350px]">
@@ -502,7 +531,7 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
             <CardTitle>Transaction History</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <SwarmInfoTrigger swarmControls={swarmControls} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 min-h-[450px] md:min-h-[350px] flex items-center justify-center text-muted-foreground">
@@ -527,7 +556,7 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
             <CardTitle>Transaction History</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <SwarmInfoTrigger swarmControls={swarmControls} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 min-h-[450px] md:min-h-[350px]">
@@ -549,10 +578,10 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
         onClose={() => setIsFullscreen(false)}
         title="Transaction History"
         description="Recent transactions by category"
-        headerActions={renderInfoTrigger(true)}
+        headerActions={<SwarmInfoTrigger swarmControls={swarmControls} forFullscreen />}
       >
         <div className="h-full w-full min-h-[400px]">
-          {renderChartContent()}
+          <SwarmChartContent containerWidth={containerWidth} filteredData={filteredData} chartColors={chartColors} visibleGroups={visibleGroups} chartGroups={chartGroups} dynamicValueScale={dynamicValueScale} swarmTheme={swarmTheme} formatCurrency={formatCurrency} />
         </div>
       </ChartFullscreenModal>
 
@@ -569,7 +598,7 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
             <CardTitle>Transaction History</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <SwarmInfoTrigger swarmControls={swarmControls} />
             {chartGroups.length > 0 && (
               <DropdownMenu open={isGroupSelectorOpen} onOpenChange={setIsGroupSelectorOpen} modal={false}>
                 <DropdownMenuTrigger asChild>
@@ -638,7 +667,7 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 min-h-[450px] md:min-h-[350px]">
           <div className="h-full w-full">
-            {renderChartContent()}
+            <SwarmChartContent containerWidth={containerWidth} filteredData={filteredData} chartColors={chartColors} visibleGroups={visibleGroups} chartGroups={chartGroups} dynamicValueScale={dynamicValueScale} swarmTheme={swarmTheme} formatCurrency={formatCurrency} />
           </div>
         </CardContent>
       </Card>

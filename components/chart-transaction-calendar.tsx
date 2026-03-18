@@ -125,6 +125,169 @@ export function getDailyTransactionActivityDisplayMode(
   return "single"
 }
 
+interface CalendarContributionGraphProps {
+  activities: Activity[]
+  showFooter: boolean
+  blockSize: number
+  blockMargin: number
+  fontSize: number
+  outlineColor: string
+  filteredData: Array<{ day: string; value: number }>
+  effectiveDateFilter: string
+  totalSpent: number
+  formatCurrency: (value: number) => string
+  getFillForLevel: (level: number) => string
+  onBlockMouseEnter: (e: React.MouseEvent, activity: Activity) => void
+  onBlockMouseMove: (e: React.MouseEvent) => void
+  onBlockMouseLeave: () => void
+}
+
+const CalendarContributionGraph = React.memo(function CalendarContributionGraph({
+  activities,
+  showFooter,
+  blockSize,
+  blockMargin,
+  fontSize,
+  outlineColor,
+  filteredData,
+  effectiveDateFilter,
+  totalSpent,
+  formatCurrency,
+  getFillForLevel,
+  onBlockMouseEnter,
+  onBlockMouseMove,
+  onBlockMouseLeave,
+}: CalendarContributionGraphProps) {
+  const footerText = (() => {
+    if (filteredData.length === 0) return `No transactions in ${new Date().getFullYear()}`
+    if (effectiveDateFilter === "last7days") return `${formatCurrency(totalSpent)} spent in the last 7 days`
+    if (effectiveDateFilter === "last30days") return `${formatCurrency(totalSpent)} spent in the last 30 days`
+    if (effectiveDateFilter === "last3months") return `${formatCurrency(totalSpent)} spent in the last 3 months`
+    if (effectiveDateFilter === "last6months") return `${formatCurrency(totalSpent)} spent in the last 6 months`
+    const year = activities.length > 0 ? new Date(activities[0].date).getFullYear() : new Date().getFullYear()
+    return `${formatCurrency(totalSpent)} spent in ${year}`
+  })()
+
+  return (
+    <ContributionGraph
+      data={activities}
+      blockSize={blockSize}
+      blockMargin={blockMargin}
+      blockRadius={2}
+      maxLevel={MAX_LEVEL}
+      fontSize={fontSize}
+      labels={{
+        totalCount: footerText,
+        legend: { less: "Less", more: "More" },
+      }}
+    >
+      <ContributionGraphCalendar className="w-fit mx-auto">
+        {({ activity, dayIndex, weekIndex }) => (
+          <ContributionGraphBlock
+            activity={activity}
+            dayIndex={dayIndex}
+            weekIndex={weekIndex}
+            className="transition-opacity hover:opacity-80"
+            style={{ fill: getFillForLevel(activity.level), stroke: outlineColor, strokeWidth: 1 }}
+            onMouseEnter={(e) => onBlockMouseEnter(e as unknown as React.MouseEvent, activity)}
+            onMouseMove={(e) => onBlockMouseMove(e as unknown as React.MouseEvent)}
+            onMouseLeave={onBlockMouseLeave}
+          />
+        )}
+      </ContributionGraphCalendar>
+      {showFooter && (
+        <ContributionGraphFooter className="mt-4 px-0 text-xs text-muted-foreground flex flex-col items-center gap-2">
+          <ContributionGraphTotalCount className="text-sm font-medium text-foreground order-1" />
+          <ContributionGraphLegend className="order-2 !ml-0">
+            {({ level }) => (
+              <svg height={12} width={12}>
+                <title>{`Level ${level}`}</title>
+                <rect
+                  height={12}
+                  width={12}
+                  rx={2}
+                  ry={2}
+                  style={{ fill: getFillForLevel(level), stroke: outlineColor, strokeWidth: 1 }}
+                />
+              </svg>
+            )}
+          </ContributionGraphLegend>
+        </ContributionGraphFooter>
+      )}
+    </ContributionGraph>
+  )
+})
+
+CalendarContributionGraph.displayName = "CalendarContributionGraph"
+
+interface CalendarInfoTriggerProps {
+  filteredData: Array<{ day: string; value: number }>
+  totalSpent: number
+  forFullscreen?: boolean
+}
+
+const CalendarInfoTrigger = React.memo(function CalendarInfoTrigger({
+  filteredData,
+  totalSpent,
+  forFullscreen = false,
+}: CalendarInfoTriggerProps) {
+  return (
+    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
+      <ChartInfoPopover
+        title={CHART_TITLE}
+        description="Daily spending by day — darker cells mean higher spending. On desktop the full period is one chart; on mobile, 6-month and last-year views split into two periods."
+        details={[
+          "Each cell represents a day, colored by the total amount you spent.",
+          "On desktop the chart shows the full selected period. On mobile, 6 months shows two 3-month calendars and last year shows two 6-month calendars.",
+          "Expense-only data is shown - income, transfers, and savings moves are excluded.",
+        ]}
+        ignoredFootnote="The API filters to negative transactions only and trims out internal transfers and savings deposits."
+      />
+      <ChartAiInsightButton
+        chartId={CHART_ID}
+        chartTitle={CHART_TITLE}
+        chartDescription="Daily spending by day; on mobile, 6-month and last-year views split into two periods"
+        chartData={{
+          totalDays: filteredData.length,
+          totalSpent,
+          maxDailySpend: Math.max(...filteredData.map((d) => d.value), 0),
+        }}
+        size="sm"
+      />
+    </div>
+  )
+})
+
+CalendarInfoTrigger.displayName = "CalendarInfoTrigger"
+
+interface CalendarCardHeaderProps {
+  onOpenFullscreen: () => void
+  filteredData: Array<{ day: string; value: number }>
+  totalSpent: number
+}
+
+const CalendarCardHeader = React.memo(function CalendarCardHeader({
+  onOpenFullscreen,
+  filteredData,
+  totalSpent,
+}: CalendarCardHeaderProps) {
+  return (
+    <CardHeader>
+      <div className="flex items-center gap-2">
+        <GridStackCardDragHandle />
+        <ChartExpandButton onClick={onOpenFullscreen} />
+        <ChartFavoriteButton chartId={CHART_ID} chartTitle={CHART_TITLE} size="md" />
+        <CardTitle>{CHART_TITLE}</CardTitle>
+      </div>
+      <CardAction className="flex flex-wrap items-center gap-2">
+        <CalendarInfoTrigger filteredData={filteredData} totalSpent={totalSpent} />
+      </CardAction>
+    </CardHeader>
+  )
+})
+
+CalendarCardHeader.displayName = "CalendarCardHeader"
+
 export const ChartTransactionCalendar = React.memo(function ChartTransactionCalendar({
   data: propData,
   dateFilter: propDateFilter,
@@ -546,110 +709,6 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
     setTooltipPosition(null)
   }
 
-  const renderContributionGraph = (activities: Activity[], showFooter: boolean) => {
-    // Dynamic footer text based on period
-    const footerText = (() => {
-      if (filteredData.length === 0) return `No transactions in ${new Date().getFullYear()}`
-      // For short periods, show specific text
-      if (effectiveDateFilter === "last7days") return `${formatCurrency(totalSpent)} spent in the last 7 days`
-      if (effectiveDateFilter === "last30days") return `${formatCurrency(totalSpent)} spent in the last 30 days`
-      if (effectiveDateFilter === "last3months") return `${formatCurrency(totalSpent)} spent in the last 3 months`
-      if (effectiveDateFilter === "last6months") return `${formatCurrency(totalSpent)} spent in the last 6 months`
-      // For year-based
-      const year = activities.length > 0 ? new Date(activities[0].date).getFullYear() : new Date().getFullYear()
-      return `${formatCurrency(totalSpent)} spent in ${year}`
-    })()
-
-    return (
-      <ContributionGraph
-        data={activities}
-        blockSize={blockSize}
-        blockMargin={blockMargin}
-        blockRadius={2}
-        maxLevel={MAX_LEVEL}
-        fontSize={fontSize}
-        labels={{
-          totalCount: footerText,
-          legend: { less: "Less", more: "More" },
-        }}
-      >
-        <ContributionGraphCalendar className="w-fit mx-auto">
-          {({ activity, dayIndex, weekIndex }) => (
-            <ContributionGraphBlock
-              activity={activity}
-              dayIndex={dayIndex}
-              weekIndex={weekIndex}
-              className="transition-opacity hover:opacity-80"
-              style={{ fill: getFillForLevel(activity.level), stroke: outlineColor, strokeWidth: 1 }}
-              onMouseEnter={(e) => handleBlockMouseEnter(e as unknown as React.MouseEvent, activity)}
-              onMouseMove={(e) => handleBlockMouseMove(e as unknown as React.MouseEvent)}
-              onMouseLeave={handleBlockMouseLeave}
-            />
-          )}
-        </ContributionGraphCalendar>
-        {showFooter && (
-          <ContributionGraphFooter className="mt-4 px-0 text-xs text-muted-foreground flex flex-col items-center gap-2">
-            <ContributionGraphTotalCount className="text-sm font-medium text-foreground order-1" />
-            <ContributionGraphLegend className="order-2 !ml-0">
-              {({ level }) => (
-                <svg height={12} width={12}>
-                  <title>{`Level ${level}`}</title>
-                  <rect
-                    height={12}
-                    width={12}
-                    rx={2}
-                    ry={2}
-                    style={{ fill: getFillForLevel(level), stroke: outlineColor, strokeWidth: 1 }}
-                  />
-                </svg>
-              )}
-            </ContributionGraphLegend>
-          </ContributionGraphFooter>
-        )}
-      </ContributionGraph>
-    )
-  }
-
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
-      <ChartInfoPopover
-        title={CHART_TITLE}
-        description="Daily spending by day — darker cells mean higher spending. On desktop the full period is one chart; on mobile, 6-month and last-year views split into two periods."
-        details={[
-          "Each cell represents a day, colored by the total amount you spent.",
-          "On desktop the chart shows the full selected period. On mobile, 6 months shows two 3-month calendars and last year shows two 6-month calendars.",
-          "Expense-only data is shown - income, transfers, and savings moves are excluded.",
-        ]}
-        ignoredFootnote="The API filters to negative transactions only and trims out internal transfers and savings deposits."
-      />
-      <ChartAiInsightButton
-        chartId={CHART_ID}
-        chartTitle={CHART_TITLE}
-        chartDescription="Daily spending by day; on mobile, 6-month and last-year views split into two periods"
-        chartData={{
-          totalDays: filteredData.length,
-          totalSpent,
-          maxDailySpend: Math.max(...filteredData.map((d) => d.value), 0),
-        }}
-        size="sm"
-      />
-    </div>
-  )
-
-  const renderCardHeader = () => (
-    <CardHeader>
-      <div className="flex items-center gap-2">
-        <GridStackCardDragHandle />
-        <ChartExpandButton onClick={() => setIsFullscreen(true)} />
-        <ChartFavoriteButton chartId={CHART_ID} chartTitle={CHART_TITLE} size="md" />
-        <CardTitle>{CHART_TITLE}</CardTitle>
-      </div>
-      <CardAction className="flex flex-wrap items-center gap-2">
-        {renderInfoTrigger()}
-      </CardAction>
-    </CardHeader>
-  )
-
   const contentHeight = isDualDisplayMode ? "h-[400px] md:h-[480px]" : "h-[150px] md:h-[220px]"
 
   if (!mounted || isLoading) {
@@ -662,7 +721,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
             <CardTitle>{CHART_TITLE}</CardTitle>
           </div>
           <CardAction className="flex flex-wrap items-center gap-2">
-            {renderInfoTrigger()}
+            <CalendarInfoTrigger filteredData={filteredData} totalSpent={totalSpent} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
@@ -682,7 +741,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
   if (error || !hasData) {
     return (
       <Card className="@container/card">
-        {renderCardHeader()}
+        <CalendarCardHeader onOpenFullscreen={() => setIsFullscreen(true)} filteredData={filteredData} totalSpent={totalSpent} />
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
           <div className={`${contentHeight} w-full`}>
             <ChartLoadingState
@@ -704,7 +763,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
         onClose={() => setIsFullscreen(false)}
         title={CHART_TITLE}
         description="Spending patterns throughout the year"
-        headerActions={renderInfoTrigger(true)}
+        headerActions={<CalendarInfoTrigger filteredData={filteredData} totalSpent={totalSpent} forFullscreen />}
       >
         <div className="h-full w-full min-h-[400px] text-center flex items-center justify-center text-muted-foreground">
           Fullscreen view - Calendar heatmap shows spending intensity
@@ -712,23 +771,23 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
       </ChartFullscreenModal>
 
       <Card className="@container/card">
-        {renderCardHeader()}
+        <CalendarCardHeader onOpenFullscreen={() => setIsFullscreen(true)} filteredData={filteredData} totalSpent={totalSpent} />
         <CardContent className="flex flex-1 flex-col justify-center px-2 pt-4 pb-2 sm:px-6 sm:pt-6 md:pb-6">
           <div ref={contentRef} className="w-full">
             {isDualCalendar && period1 && period2 ? (
               <div className="flex flex-col gap-4">
                 <div>
                   <p className="mb-1 text-xs font-medium text-muted-foreground">{period1.label}</p>
-                  {renderContributionGraph(period1Activities, false)}
+                  <CalendarContributionGraph activities={period1Activities} showFooter={false} blockSize={blockSize} blockMargin={blockMargin} fontSize={fontSize} outlineColor={outlineColor} filteredData={filteredData} effectiveDateFilter={effectiveDateFilter} totalSpent={totalSpent} formatCurrency={formatCurrency} getFillForLevel={getFillForLevel} onBlockMouseEnter={handleBlockMouseEnter} onBlockMouseMove={handleBlockMouseMove} onBlockMouseLeave={handleBlockMouseLeave} />
                 </div>
                 <div>
                   <p className="mb-1 text-xs font-medium text-muted-foreground">{period2.label}</p>
-                  {renderContributionGraph(period2Activities, true)}
+                  <CalendarContributionGraph activities={period2Activities} showFooter={true} blockSize={blockSize} blockMargin={blockMargin} fontSize={fontSize} outlineColor={outlineColor} filteredData={filteredData} effectiveDateFilter={effectiveDateFilter} totalSpent={totalSpent} formatCurrency={formatCurrency} getFillForLevel={getFillForLevel} onBlockMouseEnter={handleBlockMouseEnter} onBlockMouseMove={handleBlockMouseMove} onBlockMouseLeave={handleBlockMouseLeave} />
                 </div>
               </div>
             ) : (
               <div className="relative w-full">
-                {renderContributionGraph(singleActivities, true)}
+                <CalendarContributionGraph activities={singleActivities} showFooter={true} blockSize={blockSize} blockMargin={blockMargin} fontSize={fontSize} outlineColor={outlineColor} filteredData={filteredData} effectiveDateFilter={effectiveDateFilter} totalSpent={totalSpent} formatCurrency={formatCurrency} getFillForLevel={getFillForLevel} onBlockMouseEnter={handleBlockMouseEnter} onBlockMouseMove={handleBlockMouseMove} onBlockMouseLeave={handleBlockMouseLeave} />
               </div>
             )}
           </div>

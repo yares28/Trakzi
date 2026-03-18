@@ -45,6 +45,57 @@ interface ChartAreaInteractiveProps {
   emptyDescription?: string
 }
 
+interface AreaInfoActionProps {
+  title: string
+  chartId: ChartId
+  categoryControls?: ChartInfoPopoverCategoryControls
+  filteredData: Array<{ date: string; desktop: number; mobile: number }>
+  forFullscreen?: boolean
+}
+
+const AreaInfoAction = memo(function AreaInfoAction({
+  title,
+  chartId,
+  categoryControls,
+  filteredData,
+  forFullscreen = false,
+}: AreaInfoActionProps) {
+  return (
+    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
+      <ChartInfoPopover
+        title={title}
+        description="This chart visualizes your cash flow over time."
+        details={[
+          "The income line shows daily deposits, while the expense line accumulates your negative transactions.",
+          "How it works: expenses stack up as they happen. Incoming cash reduces the cumulative expense line so you can see how quickly income offsets spending.",
+          ...(categoryControls
+            ? ["Use the toggles below to hide categories across every analytics chart."]
+            : []),
+        ]}
+        ignoredFootnote="Positive transactions feed the Income series and negative transactions feed Expenses automatically."
+        categoryControls={categoryControls}
+      />
+      <ChartAiInsightButton
+        chartId={chartId}
+        chartTitle={title}
+        chartDescription="This chart visualizes your cumulative cash flow over time, showing income and expenses."
+        chartData={{
+          totalIncome: filteredData.reduce((sum, d) => sum + (d.desktop || 0), 0),
+          totalExpenses: filteredData.reduce((sum, d) => sum + (d.mobile || 0), 0),
+          dataPoints: filteredData.length,
+          dateRange: filteredData.length > 0 ? {
+            start: filteredData[0].date,
+            end: filteredData[filteredData.length - 1].date
+          } : null
+        }}
+        size="sm"
+      />
+    </div>
+  )
+})
+
+AreaInfoAction.displayName = "AreaInfoAction"
+
 const DEFAULT_CHART_TITLE = "Income & Expenses Cumulative Tracking"
 
 export const ChartAreaInteractive = memo(function ChartAreaInteractive({
@@ -153,39 +204,6 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
     }
   }, [tooltip])
 
-  const renderInfoAction = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
-      <ChartInfoPopover
-        title={title}
-        description="This chart visualizes your cash flow over time."
-        details={[
-          "The income line shows daily deposits, while the expense line accumulates your negative transactions.",
-          "How it works: expenses stack up as they happen. Incoming cash reduces the cumulative expense line so you can see how quickly income offsets spending.",
-          ...(categoryControls
-            ? ["Use the toggles below to hide categories across every analytics chart."]
-            : []),
-        ]}
-        ignoredFootnote="Positive transactions feed the Income series and negative transactions feed Expenses automatically."
-        categoryControls={categoryControls}
-      />
-      <ChartAiInsightButton
-        chartId={chartId}
-        chartTitle={title}
-        chartDescription="This chart visualizes your cumulative cash flow over time, showing income and expenses."
-        chartData={{
-          totalIncome: filteredData.reduce((sum, d) => sum + (d.desktop || 0), 0),
-          totalExpenses: filteredData.reduce((sum, d) => sum + (d.mobile || 0), 0),
-          dataPoints: filteredData.length,
-          dateRange: filteredData.length > 0 ? {
-            start: filteredData[0].date,
-            end: filteredData[filteredData.length - 1].date
-          } : null
-        }}
-        size="sm"
-      />
-    </div>
-  )
-
   // The data to pass to the chart - empty initially, then real data after mount
   // This forces Recharts to see a data change and trigger animation
   const chartData = useRealData ? filteredData : []
@@ -206,7 +224,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
             <CardTitle>{title}</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoAction()}
+            <AreaInfoAction title={title} chartId={chartId} categoryControls={categoryControls} filteredData={filteredData} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
@@ -230,7 +248,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
         onClose={() => setIsFullscreen(false)}
         title={title}
         description="Cumulative cash flow over time"
-        headerActions={renderInfoAction(true)}
+        headerActions={<AreaInfoAction title={title} chartId={chartId} categoryControls={categoryControls} filteredData={filteredData} forFullscreen />}
       >
         <div className="h-full w-full min-h-[400px]">
           <ChartContainer config={chartConfig} className="h-full w-full">
@@ -274,7 +292,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
             <CardTitle>{title}</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoAction()}
+            <AreaInfoAction title={title} chartId={chartId} categoryControls={categoryControls} filteredData={filteredData} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 min-w-0">
