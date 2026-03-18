@@ -68,7 +68,7 @@ const RingPopoverContent = memo(function RingPopoverContent({
   onCancel: () => void
 }) {
   const [localCategory, setLocalCategory] = useState(initialCategory)
-  const [localLimit, setLocalLimit] = useState(initialLimit.toString())
+  const [localLimit, setLocalLimit] = useState(() => initialLimit.toString())
 
   useEffect(() => {
     setLocalCategory(initialCategory)
@@ -118,6 +118,37 @@ const RingPopoverContent = memo(function RingPopoverContent({
     </div>
   )
 })
+
+const RingPopoverWrapper = memo(function RingPopoverWrapper({
+  idx,
+  initialCategory,
+  initialLimit,
+  allCategories,
+  handleRingPopoverSave,
+  handleRingPopoverCancel,
+}: {
+  idx: number
+  initialCategory: string
+  initialLimit: number
+  allCategories: string[]
+  handleRingPopoverSave: (idx: number, category: string, limit: string) => void
+  handleRingPopoverCancel: () => void
+}) {
+  const onSave = useCallback(
+    (category: string, limit: string) => handleRingPopoverSave(idx, category, limit),
+    [handleRingPopoverSave, idx],
+  )
+  return (
+    <RingPopoverContent
+      initialCategory={initialCategory}
+      initialLimit={initialLimit}
+      allCategories={allCategories}
+      onSave={onSave}
+      onCancel={handleRingPopoverCancel}
+    />
+  )
+})
+RingPopoverWrapper.displayName = "RingPopoverWrapper"
 
 /**
  * FavoritesGrid - Memoized grid of favorite charts
@@ -172,6 +203,83 @@ export const FavoritesGrid = memo(function FavoritesGrid({
     allExpenseCategories,
     getDefaultRingLimit,
   } = chartData
+
+  const handleRingPopoverCancel = useCallback(() => {
+    setRingCategoryPopoverIndex(null)
+    setRingCategoryPopoverValue(null)
+    setRingLimitPopoverValue("")
+  }, [])
+
+  const handleRingPopoverSave = useCallback(async (idx: number, savedCategory: string, savedLimit: string) => {
+    if (!savedCategory) {
+      setRingCategoryPopoverIndex(null)
+      setRingCategoryPopoverValue(null)
+      setRingLimitPopoverValue("")
+      return
+    }
+    setRingCategories((prev) => {
+      const base =
+        prev && prev.length
+          ? [...prev]
+          : activityData.map((ringItem) => {
+            const ringCategory =
+              (ringItem as {
+                category?: string
+              }).category ??
+              ringItem.label
+            return ringCategory as string
+          })
+      base[ringCategoryPopoverIndex ?? idx] = savedCategory
+      return base
+    })
+    if (savedLimit) {
+      const limitValue = parseFloat(savedLimit)
+      if (!isNaN(limitValue) && limitValue >= 0) {
+        setRingLimits((prev) => {
+          const updated = {
+            ...prev,
+            [savedCategory]: limitValue,
+          }
+          if (typeof window !== "undefined") {
+            localStorage.setItem(
+              "activityRingLimits",
+              JSON.stringify(updated)
+            )
+          }
+          return updated
+        })
+
+        try {
+          const res = await fetch("/api/budgets", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              categoryName: savedCategory,
+              budget: limitValue,
+              filter: dateFilter,
+            }),
+          })
+
+          if (!res.ok) {
+            console.error(
+              "[Home] Failed to save ring limit:",
+              await res.text()
+            )
+          }
+        } catch (error) {
+          console.error(
+            "[Home] Error saving ring limit:",
+            error
+          )
+        }
+      }
+    }
+    setRingCategoryPopoverIndex(null)
+    setRingCategoryPopoverValue(null)
+    setRingLimitPopoverValue("")
+  }, [activityData, ringCategoryPopoverIndex, dateFilter, setRingCategories, setRingLimits])
 
   if (favorites.size === 0) {
     return (
@@ -344,7 +452,8 @@ export const FavoritesGrid = memo(function FavoritesGrid({
                                         </div>
                                       </PopoverTrigger>
                                       <PopoverContent className="w-56" align="end">
-                                        <RingPopoverContent
+                                        <RingPopoverWrapper
+                                          idx={idx}
                                           initialCategory={
                                             ringCategoryPopoverValue ?? category
                                           }
@@ -355,83 +464,8 @@ export const FavoritesGrid = memo(function FavoritesGrid({
                                               : limit
                                           }
                                           allCategories={allExpenseCategories}
-                                          onSave={async (savedCategory, savedLimit) => {
-                                            if (!savedCategory) {
-                                              setRingCategoryPopoverIndex(null)
-                                              setRingCategoryPopoverValue(null)
-                                              setRingLimitPopoverValue("")
-                                              return
-                                            }
-                                            setRingCategories((prev) => {
-                                              const base =
-                                                prev && prev.length
-                                                  ? [...prev]
-                                                  : activityData.map((ringItem) => {
-                                                    const ringCategory =
-                                                      (ringItem as {
-                                                        category?: string
-                                                      }).category ??
-                                                      ringItem.label
-                                                    return ringCategory as string
-                                                  })
-                                              base[
-                                                ringCategoryPopoverIndex ?? idx
-                                              ] = savedCategory
-                                              return base
-                                            })
-                                            if (savedLimit) {
-                                              const limitValue = parseFloat(savedLimit)
-                                              if (!isNaN(limitValue) && limitValue >= 0) {
-                                                setRingLimits((prev) => {
-                                                  const updated = {
-                                                    ...prev,
-                                                    [savedCategory]: limitValue,
-                                                  }
-                                                  if (typeof window !== "undefined") {
-                                                    localStorage.setItem(
-                                                      "activityRingLimits",
-                                                      JSON.stringify(updated)
-                                                    )
-                                                  }
-                                                  return updated
-                                                })
-
-                                                try {
-                                                  const res = await fetch("/api/budgets", {
-                                                    method: "POST",
-                                                    headers: {
-                                                      "Content-Type": "application/json",
-                                                    },
-                                                    body: JSON.stringify({
-                                                      categoryName: savedCategory,
-                                                      budget: limitValue,
-                                                      filter: dateFilter,
-                                                    }),
-                                                  })
-
-                                                  if (!res.ok) {
-                                                    console.error(
-                                                      "[Home] Failed to save ring limit:",
-                                                      await res.text()
-                                                    )
-                                                  }
-                                                } catch (error) {
-                                                  console.error(
-                                                    "[Home] Error saving ring limit:",
-                                                    error
-                                                  )
-                                                }
-                                              }
-                                            }
-                                            setRingCategoryPopoverIndex(null)
-                                            setRingCategoryPopoverValue(null)
-                                            setRingLimitPopoverValue("")
-                                          }}
-                                          onCancel={() => {
-                                            setRingCategoryPopoverIndex(null)
-                                            setRingCategoryPopoverValue(null)
-                                            setRingLimitPopoverValue("")
-                                          }}
+                                          handleRingPopoverSave={handleRingPopoverSave}
+                                          handleRingPopoverCancel={handleRingPopoverCancel}
                                         />
                                       </PopoverContent>
                                     </Popover>

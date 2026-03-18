@@ -273,9 +273,9 @@ function CustomExpenseStep({ members, currentUserId, roomId, onSaved }: {
 }) {
     const [description, setDescription] = useState("")
     const [amount, setAmount] = useState("")
-    const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
-    const [paidBy, setPaidBy] = useState(currentUserId)
-    const [splitWith, setSplitWith] = useState<Set<string>>(new Set(members.map(m => m.user_id)))
+    const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+    const [paidBy, setPaidBy] = useState(() => currentUserId)
+    const [splitWith, setSplitWith] = useState<Set<string>>(() => new Set(members.map(m => m.user_id)))
     const [isSaving, setIsSaving] = useState(false)
 
     const toggleSplit = (uid: string) => {
@@ -381,8 +381,8 @@ export const AddToRoomDialog = memo(function AddToRoomDialog({
     const [sourceType, setSourceType] = useState<SourceType>("my-txns")
     const [isSaving, setIsSaving] = useState(false)
     const [receiptMeta, setReceiptMeta] = useState<{ store_name?: string | null; receipt_date?: string | null; total_amount?: number | null } | null>(null)
-    const [txnPaidBy, setTxnPaidBy] = useState(currentUserId)
-    const [txnSplitWith, setTxnSplitWith] = useState<string[]>(members.map(m => m.user_id))
+    const [txnPaidBy, setTxnPaidBy] = useState(() => currentUserId)
+    const [txnSplitWith, setTxnSplitWith] = useState<string[]>(() => members.map(m => m.user_id))
 
     const reset = () => {
         setStep("source")
