@@ -112,7 +112,7 @@ export function FAQSection() {
         <div className="mx-auto mt-12 flex max-w-5xl flex-col gap-6">
           {faqs.map((faq, index) => (
             <m.div
-              key={index}
+              key={faq.question}
               className="from-secondary/40 to-secondary/10 rounded-2xl border border-white/10 bg-gradient-to-b p-6 shadow-[0px_2px_0px_0px_rgba(255,255,255,0.1)_inset] transition-all duration-300 hover:border-white/20 cursor-pointer"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
