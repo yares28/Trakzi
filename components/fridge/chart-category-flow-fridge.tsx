@@ -248,6 +248,31 @@ const FridgeCategoryFlowMobileLegend = memo(function FridgeCategoryFlowMobileLeg
 })
 FridgeCategoryFlowMobileLegend.displayName = "FridgeCategoryFlowMobileLegend"
 
+// ─── Module-scope helpers ─────────────────────────────────────────────────────
+
+// Month abbreviation helper - converts various formats to short labels.
+// Defined at module scope so memo-wrapped children receive a stable reference.
+function getMonthAbbreviation(monthStr: string): string {
+    if (monthStr.endsWith("\u200B")) return ""
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const yyyyMmMatch = monthStr.match(/^(\d{4})-(\d{1,2})$/)
+    if (yyyyMmMatch) {
+        const year = yyyyMmMatch[1].slice(-2)
+        const monthIndex = parseInt(yyyyMmMatch[2], 10) - 1
+        if (monthIndex >= 0 && monthIndex < 12) {
+            return `${monthNames[monthIndex]}'${year}`
+        }
+    }
+    const mmMatch = monthStr.match(/^(\d{1,2})$/)
+    if (mmMatch) {
+        const monthIndex = parseInt(mmMatch[1], 10) - 1
+        if (monthIndex >= 0 && monthIndex < 12) {
+            return monthNames[monthIndex]
+        }
+    }
+    return monthStr
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ receiptTransactions = [], monthlyCategoriesData, isLoading = false, dateFilter }: ChartCategoryFlowFridgeProps) {
@@ -530,27 +555,6 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
         colorConfig.push(...orderedPalette.slice(0, numCategories - colorConfig.length))
     }
     colorConfig = colorConfig.slice(0, numCategories)
-
-    const getMonthAbbreviation = (monthStr: string): string => {
-        if (monthStr.endsWith("\u200B")) return ""
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        const yyyyMmMatch = monthStr.match(/^(\d{4})-(\d{1,2})$/)
-        if (yyyyMmMatch) {
-            const year = yyyyMmMatch[1].slice(-2)
-            const monthIndex = parseInt(yyyyMmMatch[2], 10) - 1
-            if (monthIndex >= 0 && monthIndex < 12) {
-                return `${monthNames[monthIndex]}'${year}`
-            }
-        }
-        const mmMatch = monthStr.match(/^(\d{1,2})$/)
-        if (mmMatch) {
-            const monthIndex = parseInt(mmMatch[1], 10) - 1
-            if (monthIndex >= 0 && monthIndex < 12) {
-                return monthNames[monthIndex]
-            }
-        }
-        return monthStr
-    }
 
     // Loading or empty state
     if (!mounted || isLoading || data.length === 0) {
