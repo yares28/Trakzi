@@ -374,7 +374,7 @@ function TopTransactionsChart({ transactions, palette }: { transactions: Transac
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3.5">
             {data.map((d, i) => (
-                <div key={i} className="flex items-center gap-3">
+                <div key={d.name} className="flex items-center gap-3">
                     <span className="text-xs text-muted-foreground font-mono w-4 shrink-0 text-right opacity-60">{i + 1}</span>
                     <div className="flex-1 min-w-0 space-y-1">
                         <div className="flex items-baseline justify-between gap-2">
@@ -431,8 +431,8 @@ export const RoomInsights = memo(function RoomInsights({
                     { label: "Total Spent", value: formatCurrency(n(totalSpent)), accent: false },
                     { label: "Transactions", value: String(transactionCount), accent: false },
                     { label: "Attribution", value: `${attributionPct}%`, accent: attributionPct < 100 && transactionCount > 0 },
-                ].map((kpi, i) => (
-                    <Card key={i} className="rounded-2xl border-border/40 bg-card/60 backdrop-blur-xl">
+                ].map((kpi) => (
+                    <Card key={kpi.label} className="rounded-2xl border-border/40 bg-card/60 backdrop-blur-xl">
                         <CardContent className="px-4 py-3">
                             <p className="text-[11px] text-muted-foreground font-medium">{kpi.label}</p>
                             <p className={cn("text-xl font-bold tabular-nums mt-0.5", kpi.accent && "text-amber-500")}>

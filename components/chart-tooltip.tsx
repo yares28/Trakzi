@@ -302,8 +302,8 @@ export const NivoChartTooltip = memo(function NivoChartTooltip({
       {/* Multiple rows */}
       {rows && rows.length > 0 && (
         <div className={cn("space-y-1.5", title && "mt-2")}>
-          {rows.map((row, index) => (
-            <ChartTooltipRow key={`${row.label}-${index}`} {...row} />
+          {rows.map((row) => (
+            <ChartTooltipRow key={row.label} {...row} />
           ))}
         </div>
       )}

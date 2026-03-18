@@ -234,8 +234,8 @@ const SpendingPyramidBarChart = memo(function SpendingPyramidBarChart({
           radius={[10, 0, 0, 10]}
           maxBarSize={28}
         >
-          {rows.map((_, index) => (
-            <Cell key={`you-${index}`} fill={youColor} />
+          {rows.map((row) => (
+            <Cell key={`you-${row.category}`} fill={youColor} />
           ))}
         </Bar>
         <Bar
@@ -245,8 +245,8 @@ const SpendingPyramidBarChart = memo(function SpendingPyramidBarChart({
           radius={[0, 10, 10, 0]}
           maxBarSize={28}
         >
-          {rows.map((_, index) => (
-            <Cell key={`avg-${index}`} fill={avgColor} />
+          {rows.map((row) => (
+            <Cell key={`avg-${row.category}`} fill={avgColor} />
           ))}
         </Bar>
       </BarChart>

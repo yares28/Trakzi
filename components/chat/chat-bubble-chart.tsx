@@ -70,8 +70,8 @@ export const ChatBubbleChart = memo(function ChatBubbleChart({ spec }: Props) {
             <YAxis tick={{ fontSize: 9 }} tickLine={false} axisLine={false} />
             <Tooltip content={<CustomTooltip unit={unit} />} cursor={{ fill: "transparent" }} />
             <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-              {rechartData.map((entry, i) => (
-                <Cell key={i} fill={entry.color} />
+              {rechartData.map((entry) => (
+                <Cell key={entry.name} fill={entry.color} />
               ))}
             </Bar>
           </BarChart>
@@ -106,8 +106,8 @@ export const ChatBubbleChart = memo(function ChatBubbleChart({ spec }: Props) {
               paddingAngle={2}
               dataKey="value"
             >
-              {rechartData.map((entry, i) => (
-                <Cell key={i} fill={entry.color} />
+              {rechartData.map((entry) => (
+                <Cell key={entry.name} fill={entry.color} />
               ))}
             </Pie>
             <Tooltip
@@ -127,8 +127,8 @@ export const ChatBubbleChart = memo(function ChatBubbleChart({ spec }: Props) {
       {/* Legend for pie charts */}
       {type === "pie" && (
         <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 justify-center">
-          {rechartData.map((d, i) => (
-            <span key={i} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+          {rechartData.map((d) => (
+            <span key={d.name} className="flex items-center gap-1 text-[10px] text-muted-foreground">
               <span
                 className="inline-block h-2 w-2 rounded-full"
                 style={{ backgroundColor: d.color }}
