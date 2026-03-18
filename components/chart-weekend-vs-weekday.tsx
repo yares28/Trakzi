@@ -22,6 +22,109 @@ import { ChartLoadingState } from "@/components/chart-loading-state"
 import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { getChartTextColor, getChartAxisLineColor } from "@/lib/chart-colors"
 
+interface WeekendVsWeekdayInfoTriggerProps {
+  forFullscreen?: boolean
+  chartTitle: string
+  chartDescription: string
+  chartDataForAI: Record<string, number | undefined>
+}
+
+const WeekendVsWeekdayInfoTrigger = memo(function WeekendVsWeekdayInfoTrigger({
+  forFullscreen = false,
+  chartTitle,
+  chartDescription,
+  chartDataForAI,
+}: WeekendVsWeekdayInfoTriggerProps) {
+  return (
+    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
+      <ChartInfoPopover
+        title={chartTitle}
+        description={chartDescription}
+        details={[
+          "Weekdays: Monday through Friday",
+          "Weekends: Saturday and Sunday",
+          "Shows total spending and average per transaction",
+        ]}
+      />
+      <ChartAiInsightButton
+        chartId="weekendVsWeekday"
+        chartTitle={chartTitle}
+        chartDescription={chartDescription}
+        chartData={chartDataForAI}
+        size="sm"
+      />
+    </div>
+  )
+})
+
+WeekendVsWeekdayInfoTrigger.displayName = "WeekendVsWeekdayInfoTrigger"
+
+interface WeekendVsWeekdayChartProps {
+  chartData: Array<{ type: string; total: number; average: number; count: number; color: string }>
+  textColor: string
+  gridColor: string
+  formatCurrency: (value: number, options?: { maximumFractionDigits?: number }) => string
+}
+
+const WeekendVsWeekdayChart = memo(function WeekendVsWeekdayChart({
+  chartData,
+  textColor,
+  gridColor,
+  formatCurrency,
+}: WeekendVsWeekdayChartProps) {
+  return (
+    <ResponsiveBar
+      data={chartData}
+      keys={["total"]}
+      indexBy="type"
+      margin={{ top: 20, right: 30, bottom: 50, left: 80 }}
+      padding={0.5}
+      colors={({ data: d }) => d.color as string}
+      borderRadius={10}
+      enableLabel={true}
+      label={(d) => formatCurrency(d.value as number, { maximumFractionDigits: 0 })}
+      labelSkipWidth={60}
+      labelTextColor="#ffffff"
+      axisTop={null}
+      axisRight={null}
+      axisBottom={{
+        tickSize: 0,
+        tickPadding: 16,
+        tickRotation: 0,
+      }}
+      axisLeft={{
+        tickSize: 0,
+        tickPadding: 8,
+        tickRotation: 0,
+        format: (v: number) => {
+          if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`
+          if (v >= 1000) return `${(v / 1000).toFixed(1)}K`
+          return formatCurrency(v, { maximumFractionDigits: 0 })
+        },
+      }}
+      enableGridY={true}
+      gridYValues={5}
+      theme={{
+        text: { fill: textColor, fontSize: 12 },
+        axis: { ticks: { text: { fill: textColor } } },
+        grid: { line: { stroke: gridColor, strokeWidth: 1, strokeDasharray: "4 4" } },
+      }}
+      tooltip={({ data: d }) => (
+        <NivoChartTooltip
+          title={d.type as string}
+          titleColor={d.color as string}
+          value={formatCurrency(d.total as number)}
+          subValue={`Avg: ${formatCurrency(d.average as number)} (${d.count} txns)`}
+        />
+      )}
+      animate={true}
+      motionConfig="gentle"
+    />
+  )
+})
+
+WeekendVsWeekdayChart.displayName = "WeekendVsWeekdayChart"
+
 interface ChartWeekendVsWeekdayProps {
   data: Array<{
     date: string
@@ -109,77 +212,6 @@ export const ChartWeekendVsWeekday = memo(function ChartWeekendVsWeekday({
     }
   }, [chartData])
 
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
-      <ChartInfoPopover
-        title={chartTitle}
-        description={chartDescription}
-        details={[
-          "Weekdays: Monday through Friday",
-          "Weekends: Saturday and Sunday",
-          "Shows total spending and average per transaction",
-        ]}
-      />
-      <ChartAiInsightButton
-        chartId="weekendVsWeekday"
-        chartTitle={chartTitle}
-        chartDescription={chartDescription}
-        chartData={chartDataForAI}
-        size="sm"
-      />
-    </div>
-  )
-
-  const renderChart = () => (
-    <ResponsiveBar
-      data={chartData}
-      keys={["total"]}
-      indexBy="type"
-      margin={{ top: 20, right: 30, bottom: 50, left: 80 }}
-      padding={0.5}
-      colors={({ data: d }) => d.color as string}
-      borderRadius={10}
-      enableLabel={true}
-      label={(d) => formatCurrency(d.value as number, { maximumFractionDigits: 0 })}
-      labelSkipWidth={60}
-      labelTextColor="#ffffff"
-      axisTop={null}
-      axisRight={null}
-      axisBottom={{
-        tickSize: 0,
-        tickPadding: 16,
-        tickRotation: 0,
-      }}
-      axisLeft={{
-        tickSize: 0,
-        tickPadding: 8,
-        tickRotation: 0,
-        format: (v: number) => {
-          if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`
-          if (v >= 1000) return `${(v / 1000).toFixed(1)}K`
-          return formatCurrency(v, { maximumFractionDigits: 0 })
-        },
-      }}
-      enableGridY={true}
-      gridYValues={5}
-      theme={{
-        text: { fill: textColor, fontSize: 12 },
-        axis: { ticks: { text: { fill: textColor } } },
-        grid: { line: { stroke: gridColor, strokeWidth: 1, strokeDasharray: "4 4" } },
-      }}
-      tooltip={({ data: d }) => (
-        <NivoChartTooltip
-          title={d.type as string}
-          titleColor={d.color as string}
-          value={formatCurrency(d.total as number)}
-          subValue={`Avg: ${formatCurrency(d.average as number)} (${d.count} txns)`}
-        />
-      )}
-      animate={true}
-      motionConfig="gentle"
-    />
-  )
-
   if (!mounted || isLoading || !data || data.length === 0 || chartData.length === 0) {
     return (
       <Card className="@container/card h-full relative">
@@ -191,7 +223,7 @@ export const ChartWeekendVsWeekday = memo(function ChartWeekendVsWeekday({
             <CardTitle>{chartTitle}</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <WeekendVsWeekdayInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartDataForAI={chartDataForAI} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
@@ -215,10 +247,10 @@ export const ChartWeekendVsWeekday = memo(function ChartWeekendVsWeekday({
         onClose={() => setIsFullscreen(false)}
         title={chartTitle}
         description={chartDescription}
-        headerActions={renderInfoTrigger(true)}
+        headerActions={<WeekendVsWeekdayInfoTrigger forFullscreen chartTitle={chartTitle} chartDescription={chartDescription} chartDataForAI={chartDataForAI} />}
       >
         <div className="h-full w-full min-h-[400px]" key={colorScheme}>
-          {renderChart()}
+          <WeekendVsWeekdayChart chartData={chartData} textColor={textColor} gridColor={gridColor} formatCurrency={formatCurrency} />
         </div>
       </ChartFullscreenModal>
 
@@ -231,12 +263,12 @@ export const ChartWeekendVsWeekday = memo(function ChartWeekendVsWeekday({
             <CardTitle>{chartTitle}</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <WeekendVsWeekdayInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartDataForAI={chartDataForAI} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
           <div className="h-full w-full min-h-[250px]" key={colorScheme}>
-            {renderChart()}
+            <WeekendVsWeekdayChart chartData={chartData} textColor={textColor} gridColor={gridColor} formatCurrency={formatCurrency} />
           </div>
         </CardContent>
       </Card>

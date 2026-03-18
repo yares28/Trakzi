@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, type ReactNode } from "react"
+import { memo, useState, type ReactNode } from "react"
 import { TrendingUp, ChevronDown, ChevronUp, UserPlus, Lock, Shield, Trophy, PiggyBank, Heart, ShoppingBag, AlertCircle, Check, X, Clock } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
 import { useQueryClient } from "@tanstack/react-query"
@@ -82,6 +82,77 @@ const Crown = ({ rank, className }: { rank: 1 | 2 | 3, className?: string }) => 
         </svg>
     )
 }
+
+// ─── Podium Slot Component ────────────────────────────────────────────────────
+
+interface PodiumSlotProps {
+    friend: FriendScore | undefined
+    rank: 1 | 2 | 3
+    score: number
+    unitLabel: string
+    userImageUrl?: string
+}
+
+const PodiumSlot = memo(function PodiumSlot({ friend, rank, score, unitLabel, userImageUrl }: PodiumSlotProps) {
+    const sizeClasses = rank === 1
+        ? { outer: "w-20 h-20 sm:w-28 sm:h-28 p-1 sm:p-1.5", avatar: "border-2 sm:border-4", text: "text-xs sm:text-base font-bold mt-2 sm:mt-4", score: "text-xl sm:text-3xl font-black text-yellow-500 drop-shadow-sm", mb: "mb-3 sm:mb-6" }
+        : rank === 2
+            ? { outer: "w-16 h-16 sm:w-20 sm:h-20 p-0.5 sm:p-1", avatar: "border-2", text: "text-[10px] sm:text-sm font-semibold mt-1.5 sm:mt-3", score: "text-base sm:text-xl font-bold text-slate-300", mb: "mb-2 sm:mb-4" }
+            : { outer: "w-12 h-12 sm:w-16 sm:h-16 p-0.5 sm:p-1", avatar: "border", text: "text-[10px] sm:text-xs font-semibold mt-1 sm:mt-2", score: "text-sm sm:text-lg font-bold text-amber-600", mb: "mb-1 sm:mb-2" }
+
+    const gradient = rank === 1
+        ? "bg-gradient-to-tr from-yellow-300 via-yellow-500 to-amber-600 shadow-[0_0_30px_rgba(250,204,21,0.5)]"
+        : rank === 2
+            ? "bg-gradient-to-tr from-slate-300 to-slate-500 shadow-[0_0_20px_rgba(203,213,225,0.4)]"
+            : "bg-gradient-to-tr from-amber-600 to-amber-800 shadow-[0_0_15px_rgba(217,119,6,0.3)]"
+
+    const badgeClass = rank === 1
+        ? "bg-yellow-500 text-yellow-950 text-xs sm:text-base font-black px-2 sm:px-4 shadow-xl"
+        : rank === 2
+            ? "bg-slate-400 text-slate-900 font-bold px-1.5 sm:px-3 shadow-lg text-[10px] sm:text-sm"
+            : "bg-amber-700 text-amber-50 font-bold px-1 sm:px-2 shadow-md text-[10px]"
+
+    const labels = { 1: "1ST", 2: "2ND", 3: "3RD" }
+
+    if (!friend) {
+        return (
+            <div className="flex flex-col items-center opacity-60">
+                <div className={cn("relative", sizeClasses.mb)}>
+                    <div className={cn(sizeClasses.outer, "rounded-full bg-muted/30")}>
+                        <Avatar className={cn("w-full h-full border-dashed border-border/50 bg-transparent flex items-center justify-center", sizeClasses.avatar)}>
+                            <UserPlus className="w-4 h-4 sm:w-6 sm:h-6 text-muted-foreground/40" />
+                        </Avatar>
+                    </div>
+                    <Badge className={cn("absolute -bottom-2 left-1/2 -translate-x-1/2 border-none opacity-50", badgeClass)}>
+                        {labels[rank]}
+                    </Badge>
+                </div>
+                <span className={cn(sizeClasses.text, "text-muted-foreground")}>-</span>
+            </div>
+        )
+    }
+
+    return (
+        <div className={cn("flex flex-col items-center", rank === 1 && "z-10")}>
+            <div className={cn("relative", sizeClasses.mb)}>
+                <Crown rank={rank} className={cn("absolute left-1/2 -translate-x-1/2", rank === 1 ? "-top-5 sm:-top-8 w-5 sm:w-8 h-5 sm:h-8" : rank === 2 ? "-top-3.5 sm:-top-6 w-4 sm:w-6 h-4 sm:h-6" : "-top-3 sm:-top-5 w-4 sm:w-5 h-4 sm:h-5")} />
+                <div className={cn(sizeClasses.outer, "rounded-full", gradient)}>
+                    <Avatar className={cn("w-full h-full border-background", sizeClasses.avatar)}>
+                        <AvatarImage src={(friend.name === "You" ? userImageUrl : friend.avatar_url) || undefined} alt={friend.name} />
+                        <AvatarFallback className="bg-muted text-sm sm:text-lg font-bold">{friend.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                </div>
+                <Badge className={cn("absolute -bottom-2 left-1/2 -translate-x-1/2 border-none", badgeClass)}>
+                    {labels[rank]}
+                </Badge>
+            </div>
+            <span className={cn(sizeClasses.text, "truncate max-w-[60px] sm:max-w-none")}>{friend.name === "You" ? "You" : friend.name.split(" ")[0]}</span>
+            <span className={sizeClasses.score}>{score}{unitLabel}</span>
+        </div>
+    )
+})
+
+PodiumSlot.displayName = "PodiumSlot"
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -195,71 +266,6 @@ export default function RankingsTab() {
         )
     }
 
-    // ─── Podium slot renderer ────────────────────────────────────────────────
-
-    const renderPodiumSlot = (index: number, rank: 1 | 2 | 3) => {
-        const friend = topThree[index]
-        const sizeClasses = rank === 1
-            ? { outer: "w-20 h-20 sm:w-28 sm:h-28 p-1 sm:p-1.5", avatar: "border-2 sm:border-4", text: "text-xs sm:text-base font-bold mt-2 sm:mt-4", score: "text-xl sm:text-3xl font-black text-yellow-500 drop-shadow-sm", mb: "mb-3 sm:mb-6" }
-            : rank === 2
-                ? { outer: "w-16 h-16 sm:w-20 sm:h-20 p-0.5 sm:p-1", avatar: "border-2", text: "text-[10px] sm:text-sm font-semibold mt-1.5 sm:mt-3", score: "text-base sm:text-xl font-bold text-slate-300", mb: "mb-2 sm:mb-4" }
-                : { outer: "w-12 h-12 sm:w-16 sm:h-16 p-0.5 sm:p-1", avatar: "border", text: "text-[10px] sm:text-xs font-semibold mt-1 sm:mt-2", score: "text-sm sm:text-lg font-bold text-amber-600", mb: "mb-1 sm:mb-2" }
-
-        const gradient = rank === 1
-            ? "bg-gradient-to-tr from-yellow-300 via-yellow-500 to-amber-600 shadow-[0_0_30px_rgba(250,204,21,0.5)]"
-            : rank === 2
-                ? "bg-gradient-to-tr from-slate-300 to-slate-500 shadow-[0_0_20px_rgba(203,213,225,0.4)]"
-                : "bg-gradient-to-tr from-amber-600 to-amber-800 shadow-[0_0_15px_rgba(217,119,6,0.3)]"
-
-        const badgeClass = rank === 1
-            ? "bg-yellow-500 text-yellow-950 text-xs sm:text-base font-black px-2 sm:px-4 shadow-xl"
-            : rank === 2
-                ? "bg-slate-400 text-slate-900 font-bold px-1.5 sm:px-3 shadow-lg text-[10px] sm:text-sm"
-                : "bg-amber-700 text-amber-50 font-bold px-1 sm:px-2 shadow-md text-[10px]"
-
-        const labels = { 1: "1ST", 2: "2ND", 3: "3RD" }
-
-        if (!friend) {
-            return (
-                <div className="flex flex-col items-center opacity-60">
-                    <div className={cn("relative", sizeClasses.mb)}>
-                        <div className={cn(sizeClasses.outer, "rounded-full bg-muted/30")}>
-                            <Avatar className={cn("w-full h-full border-dashed border-border/50 bg-transparent flex items-center justify-center", sizeClasses.avatar)}>
-                                <UserPlus className="w-4 h-4 sm:w-6 sm:h-6 text-muted-foreground/40" />
-                            </Avatar>
-                        </div>
-                        <Badge className={cn("absolute -bottom-2 left-1/2 -translate-x-1/2 border-none opacity-50", badgeClass)}>
-                            {labels[rank]}
-                        </Badge>
-                    </div>
-                    <span className={cn(sizeClasses.text, "text-muted-foreground")}>-</span>
-                </div>
-            )
-        }
-
-        const score = getScore(friend)
-        const unitLabel = activeMetricConfig.unit
-
-        return (
-            <div className={cn("flex flex-col items-center", rank === 1 && "z-10")}>
-                <div className={cn("relative", sizeClasses.mb)}>
-                    <Crown rank={rank} className={cn("absolute left-1/2 -translate-x-1/2", rank === 1 ? "-top-5 sm:-top-8 w-5 sm:w-8 h-5 sm:h-8" : rank === 2 ? "-top-3.5 sm:-top-6 w-4 sm:w-6 h-4 sm:h-6" : "-top-3 sm:-top-5 w-4 sm:w-5 h-4 sm:h-5")} />
-                    <div className={cn(sizeClasses.outer, "rounded-full", gradient)}>
-                        <Avatar className={cn("w-full h-full border-background", sizeClasses.avatar)}>
-                            <AvatarImage src={(friend.name === "You" ? user?.imageUrl : friend.avatar_url) || undefined} alt={friend.name} />
-                            <AvatarFallback className="bg-muted text-sm sm:text-lg font-bold">{friend.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                    </div>
-                    <Badge className={cn("absolute -bottom-2 left-1/2 -translate-x-1/2 border-none", badgeClass)}>
-                        {labels[rank]}
-                    </Badge>
-                </div>
-                <span className={cn(sizeClasses.text, "truncate max-w-[60px] sm:max-w-none")}>{friend.name === "You" ? "You" : friend.name.split(" ")[0]}</span>
-                <span className={sizeClasses.score}>{score}</span>
-            </div>
-        )
-    }
-
     // ─── Render ───────────────────────────────────────────────────────────────
 
     return (
@@ -268,9 +274,9 @@ export default function RankingsTab() {
                 {/* Podium - Horizontal scroll on mobile */}
                 <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden -mx-4 px-4 sm:mx-0 sm:px-0">
                     <div className="flex justify-center items-end gap-3 sm:gap-6 mt-6 sm:mt-8 h-[200px] sm:h-[220px] min-w-max px-2">
-                        {renderPodiumSlot(1, 2)}
-                        {renderPodiumSlot(0, 1)}
-                        {renderPodiumSlot(2, 3)}
+                        <PodiumSlot friend={topThree[1]} rank={2} score={topThree[1] ? getScore(topThree[1]) : 0} unitLabel={activeMetricConfig.unit} userImageUrl={user?.imageUrl} />
+                        <PodiumSlot friend={topThree[0]} rank={1} score={topThree[0] ? getScore(topThree[0]) : 0} unitLabel={activeMetricConfig.unit} userImageUrl={user?.imageUrl} />
+                        <PodiumSlot friend={topThree[2]} rank={3} score={topThree[2] ? getScore(topThree[2]) : 0} unitLabel={activeMetricConfig.unit} userImageUrl={user?.imageUrl} />
                     </div>
                 </div>
 

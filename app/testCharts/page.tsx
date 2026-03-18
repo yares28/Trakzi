@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { memo, useState, useEffect, useCallback, useMemo, useRef } from "react"
 // @dnd-kit for drag-and-drop (replaces GridStack)
 import { SortableGridProvider, SortableGridItem } from "@/components/sortable-grid"
 import { AppSidebar } from "@/components/app-sidebar"
@@ -70,6 +70,60 @@ type ReceiptTransaction = {
     category: string
     spend?: number // For ChartAreaInteractiveFridge
 }
+
+interface TestChartProps {
+    chartId: string
+    data: TestChartsTransaction[]
+    isLoading: boolean
+    receiptTransactions: ReceiptTransaction[]
+    fridgeBreakdownData: Array<{ id: string; label: string; value: number }>
+    fridgeSpendTrendData: Array<{ date: string; spend: number }>
+}
+
+const TestChart = memo(function TestChart({
+    chartId,
+    data,
+    isLoading,
+    receiptTransactions,
+    fridgeBreakdownData,
+    fridgeSpendTrendData,
+}: TestChartProps) {
+    const chartProps = { data, isLoading }
+
+    switch (chartId) {
+        case "testCharts:momGrowth": return <ChartMoMGrowth {...chartProps} />
+        case "testCharts:spendingDistribution": return <ChartSpendingDistribution {...chartProps} />
+        case "testCharts:topMerchantsRace": return <ChartTopMerchantsRace {...chartProps} />
+        case "testCharts:largestTransactions": return <ChartLargestTransactions {...chartProps} />
+        case "testCharts:hourlySpending": return <ChartHourlySpending {...chartProps} />
+        case "testCharts:paydayImpact": return <ChartPaydayImpact {...chartProps} />
+        case "testCharts:savingsRateTrend": return <ChartSavingsRateTrend {...chartProps} />
+        case "testCharts:categoryBubbles": return <ChartCategoryBubbles {...chartProps} />
+        case "testCharts:transactionCountTrend": return <ChartTransactionCountTrend {...chartProps} />
+        case "testCharts:seasonalSpending": return <ChartSeasonalSpending {...chartProps} />
+        case "testCharts:categoryRanking": return <ChartCategoryRanking {...chartProps} />
+        case "testCharts:incomeSources": return <ChartIncomeSources {...chartProps} />
+        case "testCharts:spendingByMerchant": return <ChartSpendingByMerchant {...chartProps} />
+        case "testCharts:dailyHighLow": return <ChartDailyHighLow {...chartProps} />
+        case "testCharts:monthlyTrend": return <ChartMonthlyTrend {...chartProps} />
+        case "testCharts:weekdayRadar": return <ChartWeekdayRadar {...chartProps} />
+        case "testCharts:monthCompare": return <ChartMonthCompare {...chartProps} />
+        case "testCharts:budgetMilestone": return <ChartBudgetMilestone {...chartProps} />
+        case "testCharts:yearOverYear": return <ChartYearOverYear {...chartProps} />
+        case "testCharts:netWorthTrend": return <ChartNetWorthTrend {...chartProps} />
+        case "testCharts:dailyAverageByMonth": return <ChartDailyAverageByMonth {...chartProps} />
+        case "testCharts:biggestExpenseCategories": return <ChartBiggestExpenseCategories {...chartProps} />
+        case "testCharts:quarterlyComparison": return <ChartQuarterlyComparison {...chartProps} />
+        case "fridge:spend-trend": return <ChartAreaInteractiveFridge data={fridgeSpendTrendData} />
+        case "fridge:category-flow": return <ChartCategoryFlowFridge receiptTransactions={receiptTransactions.map(tx => ({ ...tx, totalPrice: tx.amount, categoryName: tx.category, receiptDate: tx.date })) as any} isLoading={isLoading} />
+        case "fridge:expense-breakdown": return <ChartExpenseBreakdownFridge data={fridgeBreakdownData} isLoading={isLoading} />
+        case "fridge:macronutrient-breakdown": return <ChartMacronutrientBreakdownFridge receiptTransactions={receiptTransactions.map(tx => ({ ...tx, totalPrice: tx.amount, categoryName: tx.category, receiptDate: tx.date })) as any} isLoading={isLoading} />
+        case "fridge:snack-percentage": return <ChartSnackPercentageFridge receiptTransactions={receiptTransactions.map(tx => ({ ...tx, totalPrice: tx.amount, categoryName: tx.category, receiptDate: tx.date })) as any} isLoading={isLoading} />
+        default: return null
+    }
+})
+
+TestChart.displayName = "TestChart"
 
 export default function TestChartsPage() {
     // @dnd-kit: Chart order state for each section
@@ -301,50 +355,6 @@ export default function TestChartsPage() {
         fetchAllData()
     }, [fetchAllData])
 
-    // Render chart based on chartId
-    const renderChart = (chartId: string) => {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4263eedd-8a99-4193-82ad-974d6be54ab8',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'testCharts/page.tsx:340',message:'renderChart called',data:{chartId,rawTransactionsLength:rawTransactions?.length,isLoading},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'F'})}).catch(()=>{});
-        // #endregion
-        const chartProps = {
-            data: rawTransactions,
-            isLoading: isLoading,
-        }
-
-        switch (chartId) {
-            case "testCharts:momGrowth": return <ChartMoMGrowth {...chartProps} />
-            case "testCharts:spendingDistribution": return <ChartSpendingDistribution {...chartProps} />
-            case "testCharts:topMerchantsRace": return <ChartTopMerchantsRace {...chartProps} />
-            case "testCharts:largestTransactions": return <ChartLargestTransactions {...chartProps} />
-            case "testCharts:hourlySpending": return <ChartHourlySpending {...chartProps} />
-            case "testCharts:paydayImpact": return <ChartPaydayImpact {...chartProps} />
-            case "testCharts:savingsRateTrend": return <ChartSavingsRateTrend {...chartProps} />
-            case "testCharts:categoryBubbles": return <ChartCategoryBubbles {...chartProps} />
-            case "testCharts:transactionCountTrend": return <ChartTransactionCountTrend {...chartProps} />
-            case "testCharts:seasonalSpending": return <ChartSeasonalSpending {...chartProps} />
-            case "testCharts:categoryRanking": return <ChartCategoryRanking {...chartProps} />
-            case "testCharts:incomeSources": return <ChartIncomeSources {...chartProps} />
-            case "testCharts:spendingByMerchant": return <ChartSpendingByMerchant {...chartProps} />
-            case "testCharts:dailyHighLow": return <ChartDailyHighLow {...chartProps} />
-            case "testCharts:monthlyTrend": return <ChartMonthlyTrend {...chartProps} />
-            case "testCharts:weekdayRadar": return <ChartWeekdayRadar {...chartProps} />
-            case "testCharts:monthCompare": return <ChartMonthCompare {...chartProps} />
-            case "testCharts:budgetMilestone": return <ChartBudgetMilestone {...chartProps} />
-            case "testCharts:yearOverYear": return <ChartYearOverYear {...chartProps} />
-            case "testCharts:netWorthTrend": return <ChartNetWorthTrend {...chartProps} />
-            case "testCharts:dailyAverageByMonth": return <ChartDailyAverageByMonth {...chartProps} />
-            case "testCharts:biggestExpenseCategories": return <ChartBiggestExpenseCategories {...chartProps} />
-            case "testCharts:quarterlyComparison": return <ChartQuarterlyComparison {...chartProps} />
-            // Fridge charts
-            case "fridge:spend-trend": return <ChartAreaInteractiveFridge data={fridgeSpendTrendData} />
-            case "fridge:category-flow": return <ChartCategoryFlowFridge receiptTransactions={receiptTransactions.map(tx => ({ ...tx, totalPrice: tx.amount, categoryName: tx.category, receiptDate: tx.date })) as any} isLoading={isLoading} />
-            case "fridge:expense-breakdown": return <ChartExpenseBreakdownFridge data={fridgeBreakdownData} isLoading={isLoading} />
-            case "fridge:macronutrient-breakdown": return <ChartMacronutrientBreakdownFridge receiptTransactions={receiptTransactions.map(tx => ({ ...tx, totalPrice: tx.amount, categoryName: tx.category, receiptDate: tx.date })) as any} isLoading={isLoading} />
-            case "fridge:snack-percentage": return <ChartSnackPercentageFridge receiptTransactions={receiptTransactions.map(tx => ({ ...tx, totalPrice: tx.amount, categoryName: tx.category, receiptDate: tx.date })) as any} isLoading={isLoading} />
-            default: return null
-        }
-    }
-
     return (
         <SidebarProvider
             style={
@@ -419,7 +429,7 @@ export default function TestChartsPage() {
                                             resizable
                                             onResize={handleAnalyticsResize}
                                         >
-                                            {renderChart(chartId)}
+                                            <TestChart chartId={chartId} data={rawTransactions} isLoading={isLoading} receiptTransactions={receiptTransactions} fridgeBreakdownData={fridgeBreakdownData} fridgeSpendTrendData={fridgeSpendTrendData} />
                                         </SortableGridItem>
                                     )
                                 })}
@@ -449,7 +459,7 @@ export default function TestChartsPage() {
                                             resizable
                                             onResize={handleSavingsResize}
                                         >
-                                            {renderChart(chartId)}
+                                            <TestChart chartId={chartId} data={rawTransactions} isLoading={isLoading} receiptTransactions={receiptTransactions} fridgeBreakdownData={fridgeBreakdownData} fridgeSpendTrendData={fridgeSpendTrendData} />
                                         </SortableGridItem>
                                     )
                                 })}
@@ -479,7 +489,7 @@ export default function TestChartsPage() {
                                             resizable
                                             onResize={handleFridgeResize}
                                         >
-                                            {renderChart(chartId)}
+                                            <TestChart chartId={chartId} data={rawTransactions} isLoading={isLoading} receiptTransactions={receiptTransactions} fridgeBreakdownData={fridgeBreakdownData} fridgeSpendTrendData={fridgeSpendTrendData} />
                                         </SortableGridItem>
                                     )
                                 })}

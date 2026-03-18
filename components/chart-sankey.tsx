@@ -64,6 +64,47 @@ const formatNodeId = (id: string) => {
   return value.replace(/\b\w/g, char => char.toUpperCase())
 }
 
+interface SankeyInfoTriggerProps {
+  forFullscreen?: boolean
+  categoryControls?: ChartInfoPopoverCategoryControls
+  sanitizedNodes: Array<{ id: string }>
+  sanitizedLinks: Array<unknown>
+}
+
+const SankeyInfoTrigger = memo(function SankeyInfoTrigger({
+  forFullscreen = false,
+  categoryControls,
+  sanitizedNodes,
+  sanitizedLinks,
+}: SankeyInfoTriggerProps) {
+  return (
+    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
+      <ChartInfoPopover
+        title="Cash Flow Sankey"
+        description="Follow revenue as it moves through the org"
+        details={[
+          "Each link represents cash flowing from income sources through expense categories, eventually reaching savings or surplus.",
+          "We cap the visualization to the most significant inflow sources and expense categories to keep it legible."
+        ]}
+        ignoredFootnote="Smaller categories are aggregated into 'Other' so the diagram stays readable."
+        categoryControls={categoryControls}
+      />
+      <ChartAiInsightButton
+        chartId="cashFlowSankey"
+        chartTitle="Cash Flow Sankey"
+        chartDescription="Follow revenue as it moves through the org"
+        chartData={{
+          nodes: sanitizedNodes.map(n => n.id),
+          links: sanitizedLinks.length
+        }}
+        size="sm"
+      />
+    </div>
+  )
+})
+
+SankeyInfoTrigger.displayName = "SankeyInfoTrigger"
+
 export const ChartSankey = memo(function ChartSankey({
   data = { nodes: [], links: [] },
   categoryControls,
@@ -114,31 +155,6 @@ export const ChartSankey = memo(function ChartSankey({
 
   const getNodeLabel = (id: string) => nodeLabelMap.get(id) ?? formatNodeId(id)
 
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
-      <ChartInfoPopover
-        title="Cash Flow Sankey"
-        description="Follow revenue as it moves through the org"
-        details={[
-          "Each link represents cash flowing from income sources through expense categories, eventually reaching savings or surplus.",
-          "We cap the visualization to the most significant inflow sources and expense categories to keep it legible."
-        ]}
-        ignoredFootnote="Smaller categories are aggregated into 'Other' so the diagram stays readable."
-        categoryControls={categoryControls}
-      />
-      <ChartAiInsightButton
-        chartId="cashFlowSankey"
-        chartTitle="Cash Flow Sankey"
-        chartDescription="Follow revenue as it moves through the org"
-        chartData={{
-          nodes: sanitizedData.nodes.map(n => n.id),
-          links: sanitizedData.links.length
-        }}
-        size="sm"
-      />
-    </div>
-  )
-
   if (!sanitizedData.nodes.length || !sanitizedData.links.length) {
     return (
       <Card className="@container/card">
@@ -154,7 +170,7 @@ export const ChartSankey = memo(function ChartSankey({
             <CardTitle>Cash Flow Sankey</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <SankeyInfoTrigger sanitizedNodes={sanitizedData.nodes} sanitizedLinks={sanitizedData.links} categoryControls={categoryControls} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
@@ -177,8 +193,7 @@ export const ChartSankey = memo(function ChartSankey({
     return label.length > 8 ? label.slice(0, 7) + '…' : label
   }
 
-  // Render chart function for FULLSCREEN (full fidelity)
-  const renderFullChart = () => (
+  const fullChartElement = (
     <div
       key={resolvedTheme}
       className="h-full w-full"
@@ -240,8 +255,7 @@ export const ChartSankey = memo(function ChartSankey({
     </div>
   )
 
-  // Render chart function for MOBILE (optimized: reduced margins, vertical labels, smaller spacing)
-  const renderMobileChart = () => (
+  const mobileChartElement = (
     <div
       key={resolvedTheme}
       className="h-full w-full"
@@ -302,8 +316,7 @@ export const ChartSankey = memo(function ChartSankey({
     </div>
   )
 
-  // Legend component for mobile (shows node labels since they're truncated)
-  const renderMobileLegend = () => (
+  const mobileLegendElement = (
     <div className="flex flex-wrap gap-x-3 gap-y-1.5 px-2 pt-2 pb-1 text-[10px] text-muted-foreground">
       {sanitizedData.nodes.slice(0, 8).map((node, index) => (
         <div key={node.id} className="flex items-center gap-1">
@@ -327,10 +340,10 @@ export const ChartSankey = memo(function ChartSankey({
         onClose={() => setIsFullscreen(false)}
         title="Cash Flow Sankey"
         description=""
-        headerActions={renderInfoTrigger(true)}
+        headerActions={<SankeyInfoTrigger forFullscreen sanitizedNodes={sanitizedData.nodes} sanitizedLinks={sanitizedData.links} categoryControls={categoryControls} />}
       >
         <div className="h-full w-full min-h-[400px]">
-          {renderFullChart()}
+          {fullChartElement}
         </div>
       </ChartFullscreenModal>
 
@@ -349,15 +362,15 @@ export const ChartSankey = memo(function ChartSankey({
           <CardDescription>
           </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <SankeyInfoTrigger sanitizedNodes={sanitizedData.nodes} sanitizedLinks={sanitizedData.links} categoryControls={categoryControls} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
           <div className="h-full w-full min-h-[280px] md:min-h-[250px]">
-            {isMobile ? renderMobileChart() : renderFullChart()}
+            {isMobile ? mobileChartElement : fullChartElement}
           </div>
           {/* Mobile legend below chart */}
-          {isMobile && renderMobileLegend()}
+          {isMobile && mobileLegendElement}
         </CardContent>
       </Card>
     </>

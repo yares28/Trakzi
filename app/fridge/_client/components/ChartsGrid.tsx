@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { SortableGridItem, SortableGridProvider, type GridWidth } from "@/components/sortable-grid"
 import { LazyChart } from "@/components/lazy-chart"
 import { ChartAreaInteractiveFridge } from "@/components/fridge/chart-area-interactive-fridge"
@@ -25,6 +26,152 @@ import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import type { ReceiptTransactionRow, FridgeChartId } from "../types"
 import type { FridgeChartData } from "../hooks/useFridgeChartData"
 import { DEFAULT_CHART_SIZES, FRIDGE_CHART_TO_ANALYTICS_CHART } from "../constants"
+
+interface FridgeChartProps {
+  chartId: FridgeChartId
+  chartData: FridgeChartData
+  receiptTransactions: ReceiptTransactionRow[]
+  dateFilter: string | null
+  isLoading: boolean
+}
+
+const FridgeChart = memo(function FridgeChart({
+  chartId,
+  chartData,
+  receiptTransactions,
+  dateFilter,
+  isLoading,
+}: FridgeChartProps) {
+  switch (chartId) {
+    case "grocerySpendTrend":
+      return <ChartAreaInteractiveFridge data={chartData.spendTrendData} />
+    case "groceryCategoryRankings":
+      return (
+        <ChartCategoryFlowFridge
+          receiptTransactions={receiptTransactions}
+          monthlyCategoriesData={chartData.monthlyCategoriesData}
+          isLoading={isLoading}
+          dateFilter={dateFilter}
+        />
+      )
+    case "groceryExpenseBreakdown":
+      return (
+        <ChartExpenseBreakdownFridge
+          data={chartData.expenseBreakdownData}
+          categorySpendingData={chartData.categorySpendingData}
+          isLoading={isLoading}
+        />
+      )
+    case "groceryMacronutrientBreakdown":
+      return (
+        <ChartMacronutrientBreakdownFridge
+          receiptTransactions={receiptTransactions}
+          macronutrientBreakdown={chartData.macronutrientBreakdown}
+          isLoading={isLoading}
+        />
+      )
+    case "grocerySnackPercentage":
+      return (
+        <ChartSnackPercentageFridge
+          receiptTransactions={receiptTransactions}
+          categorySpendingData={chartData.categorySpendingData}
+          isLoading={isLoading}
+        />
+      )
+    case "groceryDailyActivity":
+      return (
+        <ChartDailyActivityFridge
+          receiptTransactions={receiptTransactions}
+          dailySpendingData={chartData.dailySpendingData}
+          dateFilter={dateFilter}
+          isLoading={isLoading}
+        />
+      )
+    case "groceryDayOfWeekCategory":
+      return (
+        <ChartDayOfWeekCategoryFridge
+          receiptTransactions={receiptTransactions}
+          dayOfWeekCategoryData={chartData.dayOfWeekCategoryData}
+          isLoading={isLoading}
+        />
+      )
+    case "grocerySingleMonthCategory":
+      return (
+        <ChartSingleMonthCategoryFridge
+          receiptTransactions={receiptTransactions}
+          monthlyCategoriesData={chartData.monthlyCategoriesData}
+          isLoading={isLoading}
+        />
+      )
+    case "groceryAllMonthsCategory":
+      return (
+        <ChartAllMonthsCategoryFridge
+          receiptTransactions={receiptTransactions}
+          monthlyCategoriesData={chartData.monthlyCategoriesData}
+          isLoading={isLoading}
+        />
+      )
+    case "groceryDayOfWeekSpending":
+      return (
+        <ChartDayOfWeekSpendingCategoryFridge
+          receiptTransactions={receiptTransactions}
+          isLoading={isLoading}
+        />
+      )
+    case "groceryTimeOfDay":
+      return (
+        <ChartTimeOfDayShoppingFridge
+          receiptTransactions={receiptTransactions}
+          hourlyActivityData={chartData.hourlyActivityData}
+          isLoading={isLoading}
+        />
+      )
+    case "groceryVsRestaurant":
+      return <ChartGroceryVsRestaurantFridge dateFilter={dateFilter} />
+    case "groceryTransactionHistory":
+      return (
+        <ChartTransactionHistoryFridge
+          receiptTransactions={receiptTransactions}
+          isLoading={isLoading}
+        />
+      )
+    case "groceryPurchaseSizeComparison":
+      return (
+        <ChartPurchaseSizeComparisonFridge
+          receiptTransactions={receiptTransactions}
+          isLoading={isLoading}
+        />
+      )
+    case "groceryShoppingHeatmapHoursDays":
+      return (
+        <ChartShoppingHeatmapHoursDaysFridge
+          receiptTransactions={receiptTransactions}
+          hourDayHeatmapData={chartData.hourDayHeatmapData}
+          isLoading={isLoading}
+        />
+      )
+    case "groceryShoppingHeatmapDaysMonths":
+      return (
+        <ChartShoppingHeatmapDaysMonthsFridge
+          receiptTransactions={receiptTransactions}
+          dayMonthHeatmapData={chartData.dayMonthHeatmapData}
+          isLoading={isLoading}
+        />
+      )
+    case "groceryNetWorthAllocation":
+      return (
+        <ChartTreeMapFridge
+          receiptTransactions={receiptTransactions}
+          categorySpendingData={chartData.categorySpendingData}
+          isLoading={isLoading}
+        />
+      )
+    default:
+      return null
+  }
+})
+
+FridgeChart.displayName = "FridgeChart"
 
 type ChartsGridProps = {
   chartOrder: FridgeChartId[]
@@ -85,136 +232,6 @@ export function ChartsGrid({
   const showPageEmptyState = !isLoading && !pageHasAnyData && !isError
   const showErrorState = !isLoading && isError
 
-  const renderChart = (chartId: FridgeChartId) => {
-    switch (chartId) {
-      case "grocerySpendTrend":
-        return <ChartAreaInteractiveFridge data={chartData.spendTrendData} />
-      case "groceryCategoryRankings":
-        return (
-          <ChartCategoryFlowFridge
-            receiptTransactions={receiptTransactions}
-            monthlyCategoriesData={chartData.monthlyCategoriesData}
-            isLoading={isLoading}
-            dateFilter={dateFilter}
-          />
-        )
-      case "groceryExpenseBreakdown":
-        return (
-          <ChartExpenseBreakdownFridge
-            data={chartData.expenseBreakdownData}
-            categorySpendingData={chartData.categorySpendingData}
-            isLoading={isLoading}
-          />
-        )
-      case "groceryMacronutrientBreakdown":
-        return (
-          <ChartMacronutrientBreakdownFridge
-            receiptTransactions={receiptTransactions}
-            macronutrientBreakdown={chartData.macronutrientBreakdown}
-            isLoading={isLoading}
-          />
-        )
-      case "grocerySnackPercentage":
-        return (
-          <ChartSnackPercentageFridge
-            receiptTransactions={receiptTransactions}
-            categorySpendingData={chartData.categorySpendingData}
-            isLoading={isLoading}
-          />
-        )
-      case "groceryDailyActivity":
-        return (
-          <ChartDailyActivityFridge
-            receiptTransactions={receiptTransactions}
-            dailySpendingData={chartData.dailySpendingData}
-            dateFilter={dateFilter}
-            isLoading={isLoading}
-          />
-        )
-      case "groceryDayOfWeekCategory":
-        return (
-          <ChartDayOfWeekCategoryFridge
-            receiptTransactions={receiptTransactions}
-            dayOfWeekCategoryData={chartData.dayOfWeekCategoryData}
-            isLoading={isLoading}
-          />
-        )
-      case "grocerySingleMonthCategory":
-        return (
-          <ChartSingleMonthCategoryFridge
-            receiptTransactions={receiptTransactions}
-            monthlyCategoriesData={chartData.monthlyCategoriesData}
-            isLoading={isLoading}
-          />
-        )
-      case "groceryAllMonthsCategory":
-        return (
-          <ChartAllMonthsCategoryFridge
-            receiptTransactions={receiptTransactions}
-            monthlyCategoriesData={chartData.monthlyCategoriesData}
-            isLoading={isLoading}
-          />
-        )
-      case "groceryDayOfWeekSpending":
-        return (
-          <ChartDayOfWeekSpendingCategoryFridge
-            receiptTransactions={receiptTransactions}
-            isLoading={isLoading}
-          />
-        )
-      case "groceryTimeOfDay":
-        return (
-          <ChartTimeOfDayShoppingFridge
-            receiptTransactions={receiptTransactions}
-            hourlyActivityData={chartData.hourlyActivityData}
-            isLoading={isLoading}
-          />
-        )
-      case "groceryVsRestaurant":
-        return <ChartGroceryVsRestaurantFridge dateFilter={dateFilter} />
-      case "groceryTransactionHistory":
-        return (
-          <ChartTransactionHistoryFridge
-            receiptTransactions={receiptTransactions}
-            isLoading={isLoading}
-          />
-        )
-      case "groceryPurchaseSizeComparison":
-        return (
-          <ChartPurchaseSizeComparisonFridge
-            receiptTransactions={receiptTransactions}
-            isLoading={isLoading}
-          />
-        )
-      case "groceryShoppingHeatmapHoursDays":
-        return (
-          <ChartShoppingHeatmapHoursDaysFridge
-            receiptTransactions={receiptTransactions}
-            hourDayHeatmapData={chartData.hourDayHeatmapData}
-            isLoading={isLoading}
-          />
-        )
-      case "groceryShoppingHeatmapDaysMonths":
-        return (
-          <ChartShoppingHeatmapDaysMonthsFridge
-            receiptTransactions={receiptTransactions}
-            dayMonthHeatmapData={chartData.dayMonthHeatmapData}
-            isLoading={isLoading}
-          />
-        )
-      case "groceryNetWorthAllocation":
-        return (
-          <ChartTreeMapFridge
-            receiptTransactions={receiptTransactions}
-            categorySpendingData={chartData.categorySpendingData}
-            isLoading={isLoading}
-          />
-        )
-      default:
-        return null
-    }
-  }
-
   return (
     <div className="w-full mb-4 px-4 lg:px-6 min-w-0">
       {showPageEmptyState && (
@@ -272,7 +289,7 @@ export function ChartsGrid({
             >
               <LazyChart title={chartTitles[chartId]} height={250} rootMargin={rootMargin}>
                 <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                  {renderChart(chartId)}
+                  <FridgeChart chartId={chartId} chartData={chartData} receiptTransactions={receiptTransactions} dateFilter={dateFilter} isLoading={isLoading} />
                 </div>
               </LazyChart>
             </SortableGridItem>

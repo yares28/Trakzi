@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { memo, useState, useEffect } from "react"
 import { Copy, Check, Globe, Lock, Users, PiggyBank, HeartPulse, Apple, ShoppingBag, Eye, EyeOff, Pencil, X } from "lucide-react"
 import { toast } from "sonner"
 
@@ -28,42 +28,46 @@ const METRIC_ICONS: Record<ChallengeMetric, React.ComponentType<{ className?: st
     wantsPercent: ShoppingBag,
 }
 
-const renderMetricCluster = (metrics: ChallengeMetric[]) => {
-    const getContainerSize = (count: number) => {
-        if (count === 1) return { width: '1em', height: '1em' };
-        if (count === 2) return { width: '2em', height: '1em' };
-        if (count === 3) return { width: '2em', height: '1.866em' };
-        if (count === 4) return { width: '2.732em', height: '2em' };
-        return { width: `${count}em`, height: '1em' };
-    };
+function getHeaderContainerSize(count: number): React.CSSProperties {
+    if (count === 1) return { width: '1em', height: '1em' };
+    if (count === 2) return { width: '2em', height: '1em' };
+    if (count === 3) return { width: '2em', height: '1.866em' };
+    if (count === 4) return { width: '2.732em', height: '2em' };
+    return { width: `${count}em`, height: '1em' };
+}
 
-    const getClusterStyle = (count: number, index: number): React.CSSProperties => {
-        const base = { position: 'absolute' as const };
-        if (count === 1) return { ...base, top: 0, left: 0, zIndex: 10 };
-        if (count === 2) return { ...base, top: 0, left: index === 0 ? 0 : '1em', zIndex: 10 };
-        if (count === 3) {
-            if (index === 0) return { ...base, top: 0, left: '0.5em', zIndex: 20 }; // Top
-            if (index === 1) return { ...base, top: '0.866em', left: 0, zIndex: 10 }; // Bottom Left
-            return { ...base, top: '0.866em', left: '1em', zIndex: 10 }; // Bottom Right
-        }
-        if (count === 4) {
-            if (index === 0) return { ...base, top: '1em', left: '0.866em', zIndex: 30 }; // Middle
-            if (index === 1) return { ...base, top: 0, left: '0.866em', zIndex: 20 }; // Top
-            if (index === 2) return { ...base, top: '0.5em', left: 0, zIndex: 20 }; // Left
-            return { ...base, top: '0.5em', left: '1.732em', zIndex: 20 }; // Right
-        }
-        return { ...base, top: 0, left: `${index}em`, zIndex: 10 };
+function getHeaderClusterStyle(count: number, index: number): React.CSSProperties {
+    const base = { position: 'absolute' as const };
+    if (count === 1) return { ...base, top: 0, left: 0, zIndex: 10 };
+    if (count === 2) return { ...base, top: 0, left: index === 0 ? 0 : '1em', zIndex: 10 };
+    if (count === 3) {
+        if (index === 0) return { ...base, top: 0, left: '0.5em', zIndex: 20 };
+        if (index === 1) return { ...base, top: '0.866em', left: 0, zIndex: 10 };
+        return { ...base, top: '0.866em', left: '1em', zIndex: 10 };
     }
+    if (count === 4) {
+        if (index === 0) return { ...base, top: '1em', left: '0.866em', zIndex: 30 };
+        if (index === 1) return { ...base, top: 0, left: '0.866em', zIndex: 20 };
+        if (index === 2) return { ...base, top: '0.5em', left: 0, zIndex: 20 };
+        return { ...base, top: '0.5em', left: '1.732em', zIndex: 20 };
+    }
+    return { ...base, top: 0, left: `${index}em`, zIndex: 10 };
+}
 
+interface MetricClusterProps {
+    metrics: ChallengeMetric[]
+}
+
+const MetricCluster = memo(function MetricCluster({ metrics }: MetricClusterProps) {
     return (
-        <div className="relative text-[32px] sm:text-[40px] shrink-0 transition-all duration-300" style={getContainerSize(metrics.length)}>
+        <div className="relative text-[32px] sm:text-[40px] shrink-0 transition-all duration-300" style={getHeaderContainerSize(metrics.length)}>
             {metrics.map((m, index) => {
                 const Icon = METRIC_ICONS[m]
                 return (
                     <div
                         key={m}
                         className="absolute w-[1em] h-[1em] rounded-full flex items-center justify-center shadow-sm border border-primary/20 bg-primary/10 text-primary transition-all duration-300 hover:scale-110 hover:shadow-md group backdrop-blur-sm hover:z-50"
-                        style={getClusterStyle(metrics.length, index)}
+                        style={getHeaderClusterStyle(metrics.length, index)}
                         title={METRIC_LABELS[m]}
                     >
                         <Icon className="w-[0.55em] h-[0.55em] transition-transform duration-300 group-hover:scale-110" />
@@ -72,7 +76,9 @@ const renderMetricCluster = (metrics: ChallengeMetric[]) => {
             })}
         </div>
     )
-}
+})
+
+MetricCluster.displayName = "MetricCluster"
 
 interface ChallengeHeaderProps {
     name: string
@@ -214,7 +220,7 @@ export function ChallengeHeader({
                     </div>
                 </div>
                 <div className="flex flex-col shrink-0 justify-start items-end">
-                    {renderMetricCluster(metrics)}
+                    <MetricCluster metrics={metrics} />
                 </div>
             </div>
         </div>

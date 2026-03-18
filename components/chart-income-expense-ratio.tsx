@@ -22,6 +22,120 @@ import { ChartLoadingState } from "@/components/chart-loading-state"
 import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { getChartTextColor } from "@/lib/chart-colors"
 
+interface IncomeExpenseRatioInfoTriggerProps {
+  forFullscreen?: boolean
+  chartTitle: string
+  chartDescription: string
+  ratioData: { ratio: number; income: number; expenses: number; status: string }
+}
+
+const IncomeExpenseRatioInfoTrigger = memo(function IncomeExpenseRatioInfoTrigger({
+  forFullscreen = false,
+  chartTitle,
+  chartDescription,
+  ratioData,
+}: IncomeExpenseRatioInfoTriggerProps) {
+  return (
+    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
+      <ChartInfoPopover
+        title={chartTitle}
+        description={chartDescription}
+        details={[
+          "< 0.8x = Danger zone (overspending)",
+          "0.8-1x = Warning (near break-even)",
+          "1-1.5x = Healthy surplus",
+          "> 1.5x = Excellent savings",
+        ]}
+      />
+      <ChartAiInsightButton
+        chartId="incomeExpenseRatio"
+        chartTitle={chartTitle}
+        chartDescription={chartDescription}
+        chartData={ratioData}
+        size="sm"
+      />
+    </div>
+  )
+})
+
+IncomeExpenseRatioInfoTrigger.displayName = "IncomeExpenseRatioInfoTrigger"
+
+interface IncomeExpenseRatioChartProps {
+  pieData: Array<{ id: string; label: string; value: number; color: string }>
+  total: number
+  textColor: string
+  formatCurrency: (value: number) => string
+}
+
+const IncomeExpenseRatioChart = memo(function IncomeExpenseRatioChart({
+  pieData,
+  total,
+  textColor,
+  formatCurrency,
+}: IncomeExpenseRatioChartProps) {
+  return (
+    <ResponsivePie
+      data={pieData}
+      margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+      innerRadius={0.5}
+      padAngle={0.7}
+      cornerRadius={3}
+      activeOuterRadiusOffset={8}
+      colors={{ datum: "data.color" }}
+      borderWidth={0}
+      enableArcLinkLabels={false}
+      enableArcLabels={false}
+      tooltip={({ datum }) => {
+        const pct = total > 0 ? (Number(datum.value) / total) * 100 : 0
+        return (
+          <NivoChartTooltip
+            title={datum.label as string}
+            titleColor={datum.color as string}
+            value={formatCurrency(Number(datum.value))}
+            subValue={`${pct.toFixed(1)}% of total`}
+          />
+        )
+      }}
+      theme={{ text: { fill: textColor, fontSize: 12 } }}
+      animate={true}
+      motionConfig="gentle"
+    />
+  )
+})
+
+IncomeExpenseRatioChart.displayName = "IncomeExpenseRatioChart"
+
+interface IncomeExpenseRatioLegendProps {
+  palette: string[]
+  income: number
+  expenses: number
+  formatCurrency: (value: number) => string
+}
+
+const IncomeExpenseRatioLegend = memo(function IncomeExpenseRatioLegend({
+  palette,
+  income,
+  expenses,
+  formatCurrency,
+}: IncomeExpenseRatioLegendProps) {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2">
+      <div className="flex items-center gap-1.5">
+        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: palette[1] || "#10b981" }} />
+        <span className="font-medium text-foreground truncate max-w-[80px]" title="Income">Income</span>
+        <span className="text-[0.7rem]">{formatCurrency(income)}</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: palette[0] || "#fe8339" }} />
+        <span className="font-medium text-foreground truncate max-w-[80px]" title="Expenses">Expenses</span>
+        <span className="text-[0.7rem]">{formatCurrency(expenses)}</span>
+      </div>
+    </div>
+  )
+})
+
+IncomeExpenseRatioLegend.displayName = "IncomeExpenseRatioLegend"
+
 interface ChartIncomeExpenseRatioProps {
   data: Array<{
     date: string
@@ -108,72 +222,6 @@ export const ChartIncomeExpenseRatio = memo(function ChartIncomeExpenseRatio({
 
   const total = ratioData.income + ratioData.expenses
 
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
-      <ChartInfoPopover
-        title={chartTitle}
-        description={chartDescription}
-        details={[
-          "< 0.8x = Danger zone (overspending)",
-          "0.8-1x = Warning (near break-even)",
-          "1-1.5x = Healthy surplus",
-          "> 1.5x = Excellent savings",
-        ]}
-      />
-      <ChartAiInsightButton
-        chartId="incomeExpenseRatio"
-        chartTitle={chartTitle}
-        chartDescription={chartDescription}
-        chartData={ratioData}
-        size="sm"
-      />
-    </div>
-  )
-
-  const renderChart = () => (
-    <ResponsivePie
-      data={pieData}
-      margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-      innerRadius={0.5}
-      padAngle={0.7}
-      cornerRadius={3}
-      activeOuterRadiusOffset={8}
-      colors={{ datum: "data.color" }}
-      borderWidth={0}
-      enableArcLinkLabels={false}
-      enableArcLabels={false}
-      tooltip={({ datum }) => {
-        const pct = total > 0 ? (Number(datum.value) / total) * 100 : 0
-        return (
-          <NivoChartTooltip
-            title={datum.label as string}
-            titleColor={datum.color as string}
-            value={formatCurrency(Number(datum.value))}
-            subValue={`${pct.toFixed(1)}% of total`}
-          />
-        )
-      }}
-      theme={{ text: { fill: textColor, fontSize: 12 } }}
-      animate={true}
-      motionConfig="gentle"
-    />
-  )
-
-  const renderLegend = () => (
-    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2">
-      <div className="flex items-center gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: palette[1] || "#10b981" }} />
-        <span className="font-medium text-foreground truncate max-w-[80px]" title="Income">Income</span>
-        <span className="text-[0.7rem]">{formatCurrency(ratioData.income)}</span>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: palette[0] || "#fe8339" }} />
-        <span className="font-medium text-foreground truncate max-w-[80px]" title="Expenses">Expenses</span>
-        <span className="text-[0.7rem]">{formatCurrency(ratioData.expenses)}</span>
-      </div>
-    </div>
-  )
-
   if (!mounted || isLoading || pieData.length === 0) {
     return (
       <Card className="@container/card">
@@ -185,7 +233,7 @@ export const ChartIncomeExpenseRatio = memo(function ChartIncomeExpenseRatio({
             <CardTitle>{chartTitle}</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <IncomeExpenseRatioInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} ratioData={ratioData} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
@@ -209,10 +257,10 @@ export const ChartIncomeExpenseRatio = memo(function ChartIncomeExpenseRatio({
         onClose={() => setIsFullscreen(false)}
         title={chartTitle}
         description={chartDescription}
-        headerActions={renderInfoTrigger(true)}
+        headerActions={<IncomeExpenseRatioInfoTrigger forFullscreen chartTitle={chartTitle} chartDescription={chartDescription} ratioData={ratioData} />}
       >
         <div className="h-full w-full min-h-[400px] relative flex flex-col" key={colorScheme}>
-          {renderChart()}
+          <IncomeExpenseRatioChart pieData={pieData} total={total} textColor={textColor} formatCurrency={formatCurrency} />
           {/* Center label overlay */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mb-10">
             <span className="text-3xl font-bold text-foreground">{ratioData.ratio.toFixed(2)}x</span>
@@ -232,12 +280,12 @@ export const ChartIncomeExpenseRatio = memo(function ChartIncomeExpenseRatio({
             <CardTitle>{chartTitle}</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <IncomeExpenseRatioInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} ratioData={ratioData} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0 flex flex-col">
           <div className="flex-1 min-h-[140px] md:min-h-[200px] relative" key={colorScheme}>
-            {renderChart()}
+            <IncomeExpenseRatioChart pieData={pieData} total={total} textColor={textColor} formatCurrency={formatCurrency} />
             {/* Center label overlay */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <span className="text-3xl font-bold text-foreground">{ratioData.ratio.toFixed(2)}x</span>
@@ -246,7 +294,7 @@ export const ChartIncomeExpenseRatio = memo(function ChartIncomeExpenseRatio({
               </span>
             </div>
           </div>
-          {renderLegend()}
+          <IncomeExpenseRatioLegend palette={palette} income={ratioData.income} expenses={ratioData.expenses} formatCurrency={formatCurrency} />
         </CardContent>
       </Card>
     </>

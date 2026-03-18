@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { memo, useState, useEffect } from "react"
 import { Plus, Trophy, Globe, Lock, Users, Search, PiggyBank, HeartPulse, Apple, ShoppingBag, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -259,42 +259,47 @@ const METRIC_ICONS: Record<ChallengeMetric, React.ComponentType<{ className?: st
     wantsPercent: ShoppingBag,
 }
 
-const renderMetricCluster = (metrics: ChallengeMetric[], cardColor: string) => {
-    const getContainerSize = (count: number) => {
-        if (count === 1) return { width: '1em', minHeight: '2em' };
-        if (count === 2) return { width: '2em', minHeight: '2em' };
-        if (count === 3) return { width: '2em', minHeight: '2em' };
-        if (count === 4) return { width: '2.732em', minHeight: '2em' };
-        return { width: `${count}em`, minHeight: '2em' };
-    };
+function getChallengesContainerSize(count: number): React.CSSProperties {
+    if (count === 1) return { width: '1em', minHeight: '2em' };
+    if (count === 2) return { width: '2em', minHeight: '2em' };
+    if (count === 3) return { width: '2em', minHeight: '2em' };
+    if (count === 4) return { width: '2.732em', minHeight: '2em' };
+    return { width: `${count}em`, minHeight: '2em' };
+}
 
-    const getClusterStyle = (count: number, index: number): React.CSSProperties => {
-        const base = { position: 'absolute' as const };
-        if (count === 1) return { ...base, top: 0, left: 0, zIndex: 10 };
-        if (count === 2) return { ...base, top: 0, left: index === 0 ? 0 : '1em', zIndex: 10 };
-        if (count === 3) {
-            if (index === 0) return { ...base, top: 0, left: '0.5em', zIndex: 20 }; // Top
-            if (index === 1) return { ...base, top: '0.866em', left: 0, zIndex: 10 }; // Bottom Left
-            return { ...base, top: '0.866em', left: '1em', zIndex: 10 }; // Bottom Right
-        }
-        if (count === 4) {
-            if (index === 0) return { ...base, top: '1em', left: '0.866em', zIndex: 30 }; // Middle
-            if (index === 1) return { ...base, top: 0, left: '0.866em', zIndex: 20 }; // Top
-            if (index === 2) return { ...base, top: '0.5em', left: 0, zIndex: 20 }; // Left
-            return { ...base, top: '0.5em', left: '1.732em', zIndex: 20 }; // Right
-        }
-        return { ...base, top: 0, left: `${index}em`, zIndex: 10 };
+function getChallengesClusterStyle(count: number, index: number): React.CSSProperties {
+    const base = { position: 'absolute' as const };
+    if (count === 1) return { ...base, top: 0, left: 0, zIndex: 10 };
+    if (count === 2) return { ...base, top: 0, left: index === 0 ? 0 : '1em', zIndex: 10 };
+    if (count === 3) {
+        if (index === 0) return { ...base, top: 0, left: '0.5em', zIndex: 20 };
+        if (index === 1) return { ...base, top: '0.866em', left: 0, zIndex: 10 };
+        return { ...base, top: '0.866em', left: '1em', zIndex: 10 };
     }
+    if (count === 4) {
+        if (index === 0) return { ...base, top: '1em', left: '0.866em', zIndex: 30 };
+        if (index === 1) return { ...base, top: 0, left: '0.866em', zIndex: 20 };
+        if (index === 2) return { ...base, top: '0.5em', left: 0, zIndex: 20 };
+        return { ...base, top: '0.5em', left: '1.732em', zIndex: 20 };
+    }
+    return { ...base, top: 0, left: `${index}em`, zIndex: 10 };
+}
 
+interface ChallengeMetricClusterProps {
+    metrics: ChallengeMetric[]
+    cardColor: string
+}
+
+const ChallengeMetricCluster = memo(function ChallengeMetricCluster({ metrics, cardColor }: ChallengeMetricClusterProps) {
     return (
-        <div className="relative text-[32px] sm:text-[36px] shrink-0 transition-all duration-300" style={getContainerSize(metrics.length)}>
+        <div className="relative text-[32px] sm:text-[36px] shrink-0 transition-all duration-300" style={getChallengesContainerSize(metrics.length)}>
             {metrics.map((m, index) => {
                 const Icon = METRIC_ICONS[m]
                 return (
                     <div
                         key={m}
                         className="absolute w-[1em] h-[1em] rounded-full flex items-center justify-center shadow-sm border border-foreground/5 backdrop-blur-sm transition-all duration-300 hover:scale-110 hover:shadow-md group hover:z-50"
-                        style={{ ...getClusterStyle(metrics.length, index), backgroundColor: `${cardColor}25`, color: cardColor }}
+                        style={{ ...getChallengesClusterStyle(metrics.length, index), backgroundColor: `${cardColor}25`, color: cardColor }}
                         title={METRIC_LABELS[m]}
                     >
                         <Icon className="w-[0.45em] h-[0.45em] transition-transform duration-300 group-hover:scale-110" />
@@ -303,7 +308,9 @@ const renderMetricCluster = (metrics: ChallengeMetric[], cardColor: string) => {
             })}
         </div>
     )
-}
+})
+
+ChallengeMetricCluster.displayName = "ChallengeMetricCluster"
 
 export default function ChallengesTab() {
     const { getPalette } = useColorScheme()
@@ -418,7 +425,7 @@ export default function ChallengesTab() {
                                             </div>
                                         </div>
                                         <div className="flex flex-col shrink-0 justify-end items-end">
-                                            {renderMetricCluster(group.metrics, cardColor)}
+                                            <ChallengeMetricCluster metrics={group.metrics} cardColor={cardColor} />
                                         </div>
                                     </div>
 
