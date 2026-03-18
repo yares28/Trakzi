@@ -20,6 +20,9 @@ import {
 // Trend data point type
 type TrendDataPoint = { date: string; value: number }
 
+// Module-level empty array constants to prevent new reference creation on every render
+const EMPTY_TREND_DATA: TrendDataPoint[] = []
+
 interface SectionCardsProps {
   totalIncome?: number
   totalExpenses?: number
@@ -100,7 +103,7 @@ interface CardData {
 export function TrendLineBackground({
   color,
   seed = 0,
-  dataPoints = []
+  dataPoints = EMPTY_TREND_DATA
 }: {
   color: string;
   seed?: number;
@@ -247,7 +250,7 @@ function SpendingScoreCard({
   grade,
   trend,
   color,
-  trendData = [],
+  trendData = EMPTY_TREND_DATA,
   enabled = true,
   isLoading = false,
 }: {
@@ -309,7 +312,7 @@ function SavingsScoreCard({
   grade,
   trend,
   color,
-  trendData = [],
+  trendData = EMPTY_TREND_DATA,
   enabled = true,
   isLoading = false,
 }: {
@@ -369,7 +372,7 @@ function FridgeScoreCard({
   grade,
   trend,
   color,
-  trendData = [],
+  trendData = EMPTY_TREND_DATA,
   enabled = true,
   isLoading = false,
 }: {
@@ -433,37 +436,37 @@ export function SectionCards({
   expensesChange = 0,
   savingsRateChange = 0,
   netWorthChange = 0,
-  incomeTrend = [],
-  expensesTrend = [],
-  netWorthTrend = [],
+  incomeTrend = EMPTY_TREND_DATA,
+  expensesTrend = EMPTY_TREND_DATA,
+  netWorthTrend = EMPTY_TREND_DATA,
   transactionCount = 0,
   transactionTimeSpan = "",
-  transactionTrend = [],
+  transactionTrend = EMPTY_TREND_DATA,
   // All-time totals (preferred for transactions card)
   totalAllTimeCount,
   totalAllTimeTimeSpan,
   totalAllTimeTrend,
   transactionsAllTimeOnly = false,
   fourthCard = "netWorth",
-  savingsRateTrend = [],
+  savingsRateTrend = EMPTY_TREND_DATA,
   showSpendingAndSavingsRate = false,
   spendingRateChange = 0,
-  spendingRateTrend = [],
+  spendingRateTrend = EMPTY_TREND_DATA,
   periodDays = 0,
   spendingScore,
   spendingGrade,
   spendingScoreTrend = "stable",
-  spendingScoreTrendData = [],
+  spendingScoreTrendData = EMPTY_TREND_DATA,
   spendingScoreEnabled = true,
   savingsScore,
   savingsGrade,
   savingsScoreTrend = "stable",
-  savingsScoreTrendData = [],
+  savingsScoreTrendData = EMPTY_TREND_DATA,
   savingsScoreEnabled = true,
   fridgeScore,
   fridgeGrade,
   fridgeScoreTrend = "stable",
-  fridgeScoreTrendData = [],
+  fridgeScoreTrendData = EMPTY_TREND_DATA,
   fridgeScoreEnabled = true,
   isLoading = false,
 }: SectionCardsProps) {
