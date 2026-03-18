@@ -1,6 +1,6 @@
 "use client"
 
-import { motion } from "framer-motion"
+import { m } from "framer-motion"
 import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Sparkles, Play } from "lucide-react"
@@ -26,14 +26,14 @@ export default function Hero() {
         <div className="container mx-auto px-4 py-32 sm:py-48 relative z-10 flex-1 flex flex-col">
           <div className="mx-auto max-w-4xl text-center flex-1 flex flex-col justify-center relative">
             {/* Background Logo with Special Glow */}
-            <motion.div
+            <m.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 1.5, ease: "easeOut" }}
               className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 pointer-events-none select-none flex items-center justify-center w-[120%] h-[120%]"
             >
               {/* Animated Outer Glow */}
-              <motion.div
+              <m.div
                 animate={{
                   scale: [1, 1.2, 1],
                   opacity: [0.1, 0.3, 0.1]
@@ -47,7 +47,7 @@ export default function Hero() {
               />
 
               {/* Logo with Liquid Glass Effect */}
-              <motion.div
+              <m.div
                 animate={{
                   scale: [0.95, 1.05, 0.95],
                 }}
@@ -78,11 +78,11 @@ export default function Hero() {
                   alt=""
                   className="absolute w-full h-full object-contain brightness-0 invert opacity-60 mix-blend-overlay"
                 />
-              </motion.div>
-            </motion.div>
+              </m.div>
+            </m.div>
 
             {/* Badge */}
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
@@ -92,10 +92,10 @@ export default function Hero() {
                 <Sparkles className="h-4 w-4" />
                 Latest news
               </Badge>
-            </motion.div>
+            </m.div>
 
             {/* Main Heading */}
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
@@ -105,19 +105,19 @@ export default function Hero() {
                 One <strong>spend.</strong> <span></span> <br />
                 <strong>A dozen </strong> <em className="italic"> ways to see it.</em>
               </h1>
-            </motion.div>
+            </m.div>
 
             {/* Description */}
-            <motion.p
+            <m.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
               className="mx-auto mb-12 max-w-2xl text-lg text-muted-foreground"
             >
               We turn your everyday spending into visual, actionable insight.
-            </motion.p>
+            </m.p>
 
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
@@ -214,11 +214,11 @@ export default function Hero() {
                 </button>
 
               </div>
-            </motion.div>
+            </m.div>
           </div>
 
           {/* Social Proof Section */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
@@ -233,7 +233,7 @@ export default function Hero() {
                 </div>
               </div>
             </div>
-          </motion.div>
+          </m.div>
         </div>
       </section>
     </>

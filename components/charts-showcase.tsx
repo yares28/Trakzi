@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { motion, useInView } from "framer-motion"
+import { m, useInView } from "framer-motion"
 import { useRef, useState, useEffect } from "react"
 import { TrendingUp, BarChart3, PieChart, ScatterChart, AreaChart, Grid3X3 } from "lucide-react"
 import { FollowerPointerCard } from "./following-pointer"
@@ -77,7 +77,7 @@ function LineChartAnimation() {
         <span style={{ color: orangeColors.tertiary }}>$3,890</span>
       </div>
       <svg viewBox="0 0 240 100" className="w-full h-24">
-        <motion.path
+        <m.path
           d={pathD2}
           fill="none"
           stroke={orangeColors.tertiary}
@@ -87,7 +87,7 @@ function LineChartAnimation() {
           animate={animate ? { pathLength: 1 } : { pathLength: 0 }}
           transition={{ duration: 1.5, ease: "easeOut" }}
         />
-        <motion.path
+        <m.path
           d={pathD1}
           fill="none"
           stroke={orangeColors.primary}
@@ -98,7 +98,7 @@ function LineChartAnimation() {
           transition={{ duration: 1.5, ease: "easeOut", delay: 0.2 }}
         />
         {line1Points.map((point, i) => (
-          <motion.circle
+          <m.circle
             key={i}
             cx={point.x}
             cy={point.y}
@@ -170,7 +170,7 @@ function BarChartAnimation() {
         {data.map((item, monthIndex) => (
           <div key={item.month} className="flex flex-col items-center gap-1">
             <div className="flex items-end gap-1">
-              <motion.div
+              <m.div
                 className="w-4 rounded-t"
                 style={{ backgroundColor: orangeColors.primary }}
                 initial={{ height: 0 }}
@@ -184,7 +184,7 @@ function BarChartAnimation() {
                 }
                 transition={{ duration: 0.4, delay: monthIndex * 0.15, ease: "easeOut" }}
               />
-              <motion.div
+              <m.div
                 className="w-4 rounded-t"
                 style={{ backgroundColor: orangeColors.secondary }}
                 initial={{ height: 0 }}
@@ -198,7 +198,7 @@ function BarChartAnimation() {
                 }
                 transition={{ duration: 0.4, delay: monthIndex * 0.15 + 0.1, ease: "easeOut" }}
               />
-              <motion.div
+              <m.div
                 className="w-4 rounded-t"
                 style={{ backgroundColor: orangeColors.tertiary }}
                 initial={{ height: 0 }}
@@ -263,7 +263,7 @@ function PieChartAnimation() {
         ))}
       </div>
       <div className="flex justify-center">
-        <motion.svg
+        <m.svg
           viewBox="0 0 100 100"
           className="w-28 h-28"
           animate={{ rotate: isHovering ? 360 : 0 }}
@@ -275,7 +275,7 @@ function PieChartAnimation() {
             currentOffset += strokeDasharray
 
             return (
-              <motion.circle
+              <m.circle
                 key={item.label}
                 cx="50"
                 cy="50"
@@ -300,7 +300,7 @@ function PieChartAnimation() {
               />
             )
           })}
-        </motion.svg>
+        </m.svg>
       </div>
     </div>
   )
@@ -376,7 +376,7 @@ function ScatterChartAnimation() {
         ))}
         {datasets.map((ds, dsIndex) =>
           ds.points.map((point, i) => (
-            <motion.circle
+            <m.circle
               key={`${ds.label}-${i}`}
               cx={point.x}
               cy={point.y}
@@ -461,7 +461,7 @@ function AreaChartAnimation() {
       </div>
       <svg viewBox="0 0 240 100" className="w-full h-24">
         {areas.map((area, index) => (
-          <motion.polygon
+          <m.polygon
             key={area.label}
             fill={area.color}
             fillOpacity={0.6}
@@ -532,7 +532,7 @@ function HeatMapAnimation() {
         <div className="grid grid-cols-6 gap-1.5 w-full max-w-full">
           {mounted && heatData.length > 0 ? (
             heatData.map((value, index) => (
-              <motion.div
+              <m.div
                 key={index}
                 className="w-full h-4 rounded-sm cursor-pointer"
                 style={{ backgroundColor: getColor(value) }}
@@ -585,7 +585,7 @@ function ChartCard({
   const isInView = useInView(ref, { once: true, margin: "-50px" })
 
   return (
-    <motion.div
+    <m.div
       ref={ref}
       className="bg-card/50 border border-border/50 rounded-2xl overflow-hidden backdrop-blur-sm hover:border-primary/30 transition-all duration-300"
       initial={{ opacity: 0, y: 30 }}
@@ -600,7 +600,7 @@ function ChartCard({
         </div>
         <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
       </div>
-    </motion.div>
+    </m.div>
   )
 }
 
@@ -658,7 +658,7 @@ export function ChartsShowcase() {
     <section ref={ref} className="py-48 px-4 relative">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <motion.div
+        <m.div
           className="text-center mb-16"
           initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
@@ -678,7 +678,7 @@ export function ChartsShowcase() {
             Trakzi brings flexibility to your analysis. From detailed transaction tables to dynamic charts, visualize
             your spending exactly the way you need.
           </p>
-        </motion.div>
+        </m.div>
 
         {/* Charts Grid */}
         <FollowerPointerCard

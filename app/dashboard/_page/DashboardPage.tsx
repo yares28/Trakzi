@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { PolarAngleAxis, RadialBar, RadialBarChart } from "recharts";
 import {
     ChevronDown,
@@ -153,7 +153,7 @@ export default function DashboardPage() {
                                 {displayData.map((item, index) => {
                                     const scoreLabel = getScoreLabel(item.progress);
                                     return (
-                                        <motion.div
+                                        <m.div
                                             key={item.name}
                                             initial={{ opacity: 0, y: 20 }}
                                             animate={{ opacity: 1, y: 0 }}
@@ -293,7 +293,7 @@ export default function DashboardPage() {
 
                                                     {/* AI Insights Section */}
                                                     {!isLoading && (
-                                                        <motion.div
+                                                        <m.div
                                                             initial={{ opacity: 0, y: 10 }}
                                                             animate={{ opacity: 1, y: 0 }}
                                                             transition={{ delay: index * 0.1 + 0.3, duration: 0.3 }}
@@ -337,7 +337,7 @@ export default function DashboardPage() {
                                                                 {/* Animated tips list */}
                                                                 <AnimatePresence>
                                                                     {expandedTips[item.key] && (
-                                                                        <motion.ul
+                                                                        <m.ul
                                                                             initial={{ height: 0, opacity: 0 }}
                                                                             animate={{ height: "auto", opacity: 1 }}
                                                                             exit={{ height: 0, opacity: 0 }}
@@ -345,7 +345,7 @@ export default function DashboardPage() {
                                                                             className="space-y-2 overflow-hidden"
                                                                         >
                                                                             {item.insight.tips.map((tip, tipIndex) => (
-                                                                                <motion.li
+                                                                                <m.li
                                                                                     key={tipIndex}
                                                                                     initial={{ opacity: 0, x: -10 }}
                                                                                     animate={{ opacity: 1, x: 0 }}
@@ -362,13 +362,13 @@ export default function DashboardPage() {
                                                                                             <span className="text-sm text-foreground/80">{tip.text}</span>
                                                                                         </div>
                                                                                     </div>
-                                                                                </motion.li>
+                                                                                </m.li>
                                                                             ))}
-                                                                        </motion.ul>
+                                                                        </m.ul>
                                                                     )}
                                                                 </AnimatePresence>
                                                             </div>
-                                                        </motion.div>
+                                                        </m.div>
                                                     )}
                                                 </CardContent>
 
@@ -392,7 +392,7 @@ export default function DashboardPage() {
                                                     </Link>
                                                 </CardFooter>
                                             </Card>
-                                        </motion.div>
+                                        </m.div>
                                     );
                                 })}
                             </dl>

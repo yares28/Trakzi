@@ -30,7 +30,7 @@ import { CollapsedChartCard } from "@/components/collapsed-chart-card"
 import { computeSavingsScore } from "@/lib/savings-score"
 import { GoalWizardCard } from "@/components/chat/goal-wizard-card"
 import { useCurrency } from "@/components/currency-provider"
-import { AnimatePresence, motion } from "framer-motion"
+import { AnimatePresence, m } from "framer-motion"
 import { Plus, Trash2, MapPin } from "lucide-react"
 import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
 import { useOnboarding } from "@/components/onboarding/onboarding-context"
@@ -706,7 +706,7 @@ export default function Page() {
                     {/* Goal wizard modal */}
                     <AnimatePresence>
                       {goalWizardOpen && (
-                        <motion.div
+                        <m.div
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
@@ -718,7 +718,7 @@ export default function Page() {
                             goalsFetchedRef.current = false
                             fetchGoals()
                           }} />
-                        </motion.div>
+                        </m.div>
                       )}
                     </AnimatePresence>
                   </div>

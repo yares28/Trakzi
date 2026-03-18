@@ -1,5 +1,5 @@
 "use client"
-import { motion, AnimatePresence } from "framer-motion"
+import { m, AnimatePresence } from "framer-motion"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 
@@ -35,7 +35,7 @@ export function StickyFooter() {
   return (
     <AnimatePresence>
       {isAtBottom && (
-        <motion.div
+        <m.div
           className="fixed z-50 bottom-0 left-0 w-full h-80 flex justify-center items-center"
           style={{ backgroundColor: "#e78a53" }}
           initial={{ y: "100%" }}
@@ -47,7 +47,7 @@ export function StickyFooter() {
             className="relative overflow-hidden w-full h-full flex justify-end px-12 text-right items-start py-12"
             style={{ color: "#121113" }}
           >
-            <motion.div
+            <m.div
               className="flex flex-row space-x-12 sm:space-x-16 md:space-x-24 text-sm sm:text-lg md:text-xl"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -140,8 +140,8 @@ export function StickyFooter() {
                   <a href="mailto:help@trakzi.com">Contact</a>
                 </li>
               </ul>
-            </motion.div>
-            <motion.img
+            </m.div>
+            <m.img
               src="/Trakzi/TrakziiconB.png"
               alt="Trakzi"
               className="absolute bottom-0 left-0 translate-y-1/4 sm:h-[180px] h-[100px] w-auto select-none opacity-20"
@@ -150,7 +150,7 @@ export function StickyFooter() {
               transition={{ duration: 0.8, delay: 0.3 }}
             />
           </div>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   )

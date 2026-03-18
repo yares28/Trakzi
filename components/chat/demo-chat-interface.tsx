@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Orb } from "@/components/ui/orb"
 import { cn } from "@/lib/utils"
-import { AnimatePresence, motion, type Variants } from "framer-motion"
+import { AnimatePresence, m, type Variants } from "framer-motion"
 import {
     IconBolt,
     IconLock,
@@ -183,14 +183,14 @@ export function DemoChatInterface() {
             {/* Subtle background */}
             <div className="pointer-events-none absolute inset-0 -z-10">
                 <div className="absolute -top-24 left-1/2 -translate-x-1/2">
-                    <motion.div
+                    <m.div
                         className="h-64 w-[42rem] rounded-full bg-primary/10 blur-3xl"
                         animate={{ y: [0, -12, 0], x: [0, 18, 0] }}
                         transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
                     />
                 </div>
                 <div className="absolute -bottom-24 left-1/3 -translate-x-1/2">
-                    <motion.div
+                    <m.div
                         className="h-64 w-[34rem] rounded-full bg-muted/30 blur-3xl"
                         animate={{ y: [0, 14, 0], x: [0, -16, 0] }}
                         transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
@@ -239,28 +239,28 @@ export function DemoChatInterface() {
                     <ConversationContent className="mx-auto max-w-4xl">
                         <AnimatePresence mode="popLayout" initial={false}>
                             <div className="space-y-2">
-                                {messages.map((m) => (
-                                    <motion.div
-                                        key={m.id}
+                                {messages.map((msg) => (
+                                    <m.div
+                                        key={msg.id}
                                         variants={fadeIn}
                                         initial="hidden"
                                         animate="visible"
                                         layout
                                     >
                                         <ChatMessage
-                                            role={m.role}
-                                            content={m.content}
-                                            timestamp={m.timestamp}
+                                            role={msg.role}
+                                            content={msg.content}
+                                            timestamp={msg.timestamp}
                                             isStreaming={false}
                                             isThinking={false}
                                             showRegenerate={false}
                                         />
-                                    </motion.div>
+                                    </m.div>
                                 ))}
 
                                 {/* Typing indicator while waiting for assistant */}
                                 {isTyping && (
-                                    <motion.div
+                                    <m.div
                                         key="typing"
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
@@ -269,7 +269,7 @@ export function DemoChatInterface() {
                                     >
                                         <div className="flex gap-1">
                                             {[0, 1, 2].map((i) => (
-                                                <motion.div
+                                                <m.div
                                                     key={i}
                                                     className="h-2 w-2 rounded-full bg-primary/40"
                                                     animate={{ y: [0, -6, 0] }}
@@ -278,7 +278,7 @@ export function DemoChatInterface() {
                                             ))}
                                         </div>
                                         <span className="text-xs text-muted-foreground">Trakzi AI is typing…</span>
-                                    </motion.div>
+                                    </m.div>
                                 )}
                             </div>
                         </AnimatePresence>

@@ -1,6 +1,6 @@
 "use client"
 
-import { motion } from "framer-motion"
+import { m } from "framer-motion"
 import { Check, Sparkles, Loader2 } from "lucide-react"
 import { useState } from "react"
 import { geist } from "@/lib/fonts"
@@ -215,14 +215,14 @@ export function PricingSection() {
     <section className="relative py-48 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <motion.div
+          <m.div
             initial={{ opacity: 0, scale: 0.9 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
@@ -231,7 +231,7 @@ export function PricingSection() {
           >
             <Sparkles className="w-4 h-4 text-[#e78a53]" />
             <span className="text-sm font-medium text-white/80">Pricing</span>
-          </motion.div>
+          </m.div>
 
           <h2
             className={cn(
@@ -247,7 +247,7 @@ export function PricingSection() {
           </p>
 
           {/* Monthly/Annual Toggle */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -277,13 +277,13 @@ export function PricingSection() {
                 Save 20%
               </span>
             </button>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
 
         {/* Pricing Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
           {pricingPlans.map((plan, index) => (
-            <motion.div
+            <m.div
               key={plan.name}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -342,7 +342,7 @@ export function PricingSection() {
                 ))}
               </ul>
 
-              <motion.button
+              <m.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 disabled={loadingPlan === plan.name}
@@ -360,13 +360,13 @@ export function PricingSection() {
                 ) : (
                   plan.cta || (isAnnual ? plan.ctaAnnual : plan.ctaMonthly)
                 )}
-              </motion.button>
-            </motion.div>
+              </m.button>
+            </m.div>
           ))}
         </div>
 
         {/* Bottom CTA */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -374,15 +374,15 @@ export function PricingSection() {
           className="text-center mt-16"
         >
           <p className="text-white/60 mb-4">Need a custom solution? We're here to help.</p>
-          <motion.a
+          <m.a
             href="mailto:sales@trakzi.com?subject=Custom Solution Inquiry"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="text-[#e78a53] hover:text-[#e78a53]/80 font-medium transition-colors"
           >
             Contact our sales team →
-          </motion.a>
-        </motion.div>
+          </m.a>
+        </m.div>
       </div>
     </section>
   )

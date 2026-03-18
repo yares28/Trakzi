@@ -6,7 +6,7 @@ import { useTheme } from "next-themes"
 import Earth from "./globe"
 import ScrambleHover from "./scramble"
 import { FollowerPointerCard } from "./following-pointer"
-import { motion, useInView } from "framer-motion"
+import { m, useInView } from "framer-motion"
 import { Suspense, useRef, useState } from "react"
 import { geist } from "@/lib/fonts"
 import { cn } from "@/lib/utils"
@@ -40,7 +40,7 @@ export default function Features() {
     <section id="features" className="text-foreground relative overflow-hidden py-24 sm:py-32 md:py-48">
       <div className="bg-primary absolute -top-10 left-1/2 h-16 w-44 -translate-x-1/2 rounded-full opacity-40 blur-3xl select-none"></div>
       <div className="via-primary/50 absolute top-0 left-1/2 h-px w-3/5 -translate-x-1/2 bg-gradient-to-r from-transparent to-transparent transition-all ease-in-out"></div>
-      <motion.div
+      <m.div
         ref={ref}
         initial={{ opacity: 0, y: 50 }}
         animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
@@ -66,7 +66,7 @@ export default function Features() {
           <div className="cursor-none">
             <div className="grid grid-cols-12 gap-4 justify-center">
               {/* Cli */}
-              <motion.div
+              <m.div
                 className="group border-secondary/40 text-card-foreground relative col-span-12 flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out md:col-span-6 xl:col-span-6 xl:col-start-2"
                 onMouseEnter={() => setIsCliHovering(true)}
                 onMouseLeave={() => setIsCliHovering(false)}
@@ -102,14 +102,14 @@ export default function Features() {
                     </div>
 
                     {/* Animated SVG Connecting Lines */}
-                    <motion.div
+                    <m.div
                       className="absolute inset-0 flex items-center justify-center"
                       initial={{ opacity: 0 }}
                       animate={isCliHovering ? { opacity: 1 } : { opacity: 0 }}
                       transition={{ duration: 0.5 }}
                     >
                       <svg width="100%" height="100%" viewBox="0 0 121 94" className="absolute">
-                        <motion.path
+                        <m.path
                           d="M 60.688 1.59 L 60.688 92.449 M 60.688 92.449 L 119.368 92.449 M 60.688 92.449 L 1.414 92.449"
                           stroke="rgb(255,222,213)"
                           fill="transparent"
@@ -123,7 +123,7 @@ export default function Features() {
                         />
                       </svg>
                       <svg width="100%" height="100%" viewBox="0 0 121 94" className="absolute">
-                        <motion.path
+                        <m.path
                           d="M 60.688 92.449 L 60.688 1.59 M 60.688 1.59 L 119.368 1.59 M 60.688 1.59 L 1.414 1.59"
                           stroke="rgb(255,222,213)"
                           fill="transparent"
@@ -137,10 +137,10 @@ export default function Features() {
                           }}
                         />
                       </svg>
-                    </motion.div>
+                    </m.div>
 
                     {/* Animated Purple Blur Effect */}
-                    <motion.div
+                    <m.div
                       className="absolute top-1/2 left-1/2 w-16 h-16 bg-purple-500 rounded-full blur-[74px] opacity-65 transform -translate-x-1/2 -translate-y-1/2"
                       initial={{ scale: 1 }}
                       animate={isCliHovering ? { scale: [1, 1.342, 1, 1.342] } : { scale: 1 }}
@@ -162,7 +162,7 @@ export default function Features() {
                             { icon: "📄", label: "CSV Support" },
                             { icon: "🛒", label: "Grocery Budget" },
                           ].map((item, index) => (
-                            <motion.div
+                            <m.div
                               key={`left-${index}`}
                               className="bg-white rounded px-3 py-2 flex items-center gap-2 text-black text-sm font-medium shadow-sm"
                               initial={{ opacity: 1, x: 0 }}
@@ -177,12 +177,12 @@ export default function Features() {
                                 <span className="text-xs">{item.icon}</span>
                               </div>
                               {item.label}
-                            </motion.div>
+                            </m.div>
                           ))}
                         </div>
 
                         {/* Center Logo */}
-                        <motion.div
+                        <m.div
                           className="w-20 h-20 bg-black rounded-lg overflow-hidden shadow-lg flex items-center justify-center p-2"
                           initial={{ opacity: 1, scale: 1 }}
                           animate={isCliHovering ? { scale: [1, 1.1, 1] } : { scale: 1 }}
@@ -194,7 +194,7 @@ export default function Features() {
                             alt="Trakzi Logo"
                             className="w-full h-full object-contain"
                           />
-                        </motion.div>
+                        </m.div>
 
                         {/* Right Column */}
                         <div className="flex flex-col gap-3">
@@ -203,7 +203,7 @@ export default function Features() {
                             { icon: "💬", label: "Chat with AI" },
                             { icon: "📊", label: "Any Chart" },
                           ].map((item, index) => (
-                            <motion.div
+                            <m.div
                               key={`right-${index}`}
                               className="bg-white rounded px-3 py-2 flex items-center gap-2 text-black text-sm font-medium shadow-sm"
                               initial={{ opacity: 1, x: 0 }}
@@ -218,21 +218,21 @@ export default function Features() {
                                 <span className="text-xs">{item.icon}</span>
                               </div>
                               {item.label}
-                            </motion.div>
+                            </m.div>
                           ))}
                         </div>
                       </div>
                     </div>
 
                     {/* Animated Circular Border */}
-                    <motion.div
+                    <m.div
                       className="absolute inset-0 flex items-center justify-center"
                       initial={{ opacity: 0 }}
                       animate={isCliHovering ? { opacity: 1 } : { opacity: 0 }}
                       transition={{ duration: 0.5 }}
                     >
                       <svg width="350" height="350" viewBox="0 0 350 350" className="opacity-40">
-                        <motion.path
+                        <m.path
                           d="M 175 1.159 C 271.01 1.159 348.841 78.99 348.841 175 C 348.841 271.01 271.01 348.841 175 348.841 C 78.99 348.841 1.159 271.01 1.159 175 C 1.159 78.99 78.99 1.159 175 1.159 Z"
                           stroke="rgba(255, 255, 255, 0.38)"
                           strokeWidth="1.16"
@@ -250,13 +250,13 @@ export default function Features() {
                           }}
                         />
                       </svg>
-                    </motion.div>
+                    </m.div>
                   </div>
                 </div>
-              </motion.div>
+              </m.div>
 
               {/* Global */}
-              <motion.div
+              <m.div
                 className="group border-secondary/40 text-card-foreground relative col-span-12 flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out md:col-span-6 xl:col-span-6 xl:col-start-8"
                 onMouseEnter={() => setIsHovering(true)}
                 onMouseLeave={() => setIsHovering(false)}
@@ -308,10 +308,10 @@ export default function Features() {
                     <div className="from-primary/30 to-primary/0 absolute left-1/2 h-[128px] w-[40%] -translate-x-1/2 scale-200 rounded-[50%] bg-radial from-10% to-60% opacity-20 sm:h-[256px] dark:opacity-100"></div>
                   </div>
                 </div>
-              </motion.div>
+              </m.div>
 
               {/* Smart Components */}
-              <motion.div
+              <m.div
                 className="group border-secondary/40 text-card-foreground relative col-span-12 flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out md:col-span-6 xl:col-span-6 xl:col-start-2"
                 onMouseEnter={() => setIsFeature3Hovering(true)}
                 onMouseLeave={() => setIsFeature3Hovering(false)}
@@ -403,10 +403,10 @@ export default function Features() {
                     </div>
                   </div>
                 </div>
-              </motion.div>
+              </m.div>
 
               {/* Dynamic Layouts */}
-              <motion.div
+              <m.div
                 className="group border-secondary/40 text-card-foreground relative col-span-12 flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out md:col-span-6 xl:col-span-6 xl:col-start-8"
                 onMouseEnter={() => setIsFeature4Hovering(true)}
                 onMouseLeave={() => setIsFeature4Hovering(false)}
@@ -439,10 +439,10 @@ export default function Features() {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-lg"></div>
                   </div>
                 </div>
-              </motion.div>
+              </m.div>
 
               {/* Advanced Analytics */}
-              <motion.div
+              <m.div
                 className="group border-secondary/40 text-card-foreground relative col-span-12 flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out md:col-span-6 xl:col-span-6 xl:col-start-2"
                 initial={{ opacity: 0, y: 50 }}
                 animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
@@ -465,10 +465,10 @@ export default function Features() {
                 <div className="flex grow items-center justify-center select-none relative min-h-[300px] p-4">
                   <AnimatedCharts />
                 </div>
-              </motion.div>
+              </m.div>
 
               {/* Secure by Default */}
-              <motion.div
+              <m.div
                 className="group border-secondary/40 text-card-foreground relative col-span-12 flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out md:col-span-6 xl:col-span-6 xl:col-start-8"
                 initial={{ opacity: 0, y: 50 }}
                 animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
@@ -491,11 +491,11 @@ export default function Features() {
                 <div className="flex grow items-center justify-center select-none relative min-h-[300px] p-4">
                   <ReceiptFridgeAnimation />
                 </div>
-              </motion.div>
+              </m.div>
             </div>
           </div>
         </FollowerPointerCard>
-      </motion.div>
+      </m.div>
     </section>
   )
 }

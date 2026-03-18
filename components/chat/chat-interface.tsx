@@ -9,7 +9,7 @@ import { useUser } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-import { AnimatePresence, motion, type Variants } from "framer-motion"
+import { AnimatePresence, m, type Variants } from "framer-motion"
 import { IconLoader2, IconTrash } from "@tabler/icons-react"
 import Link from "next/link"
 import { Save, History } from "lucide-react"
@@ -137,7 +137,7 @@ function safeParseMessages(raw: string | null): Message[] {
   if (!raw) return []
   try {
     const parsed = JSON.parse(raw) as Array<Omit<Message, "timestamp"> & { timestamp: string }>
-    return parsed.map((m) => ({ ...m, timestamp: new Date(m.timestamp) }))
+    return parsed.map((msg) => ({ ...msg, timestamp: new Date(msg.timestamp) }))
   } catch {
     return []
   }
@@ -209,7 +209,7 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
     try {
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify(messages.map((m) => ({ ...m, timestamp: m.timestamp.toISOString() })))
+        JSON.stringify(messages.map((msg) => ({ ...msg, timestamp: msg.timestamp.toISOString() })))
       )
     } catch { /* ignore */ }
   }, [messages])
@@ -262,7 +262,7 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
   }, [stopStreaming])
 
   const buildPayload = useCallback(
-    (msgs: Message[]) => msgs.map((m) => ({ role: m.role, content: m.content })),
+    (msgs: Message[]) => msgs.map((msg) => ({ role: msg.role, content: msg.content })),
     []
   )
 
@@ -305,7 +305,7 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
             if (parsed?.content) {
               full += parsed.content
               setMessages((prev) =>
-                prev.map((m) => (m.id === assistantId ? { ...m, content: full } : m))
+                prev.map((msg) => (msg.id === assistantId ? { ...msg, content: full } : msg))
               )
             }
           } catch { /* ignore malformed chunk */ }
@@ -339,7 +339,7 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
         const msg = (err as Error)?.name === "AbortError"
           ? "Generation stopped."
           : (err as Error)?.message || "Sorry, something went wrong. Please try again."
-        setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: msg } : m)))
+        setMessages((prev) => prev.map((item) => (item.id === assistantId ? { ...item, content: msg } : item)))
       } finally {
         abortRef.current = null
         setIsLoading(false)
@@ -408,7 +408,7 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
       const msg = (err as Error)?.name === "AbortError"
         ? "Generation stopped."
         : (err as Error)?.message || "Sorry, something went wrong. Please try again."
-      setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: msg } : m)))
+      setMessages((prev) => prev.map((item) => (item.id === assistantId ? { ...item, content: msg } : item)))
     } finally {
       abortRef.current = null
       setIsLoading(false)
@@ -430,7 +430,7 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
-          messages: current.map((m) => ({ ...m, timestamp: m.timestamp.toISOString() })),
+          messages: current.map((msg) => ({ ...msg, timestamp: msg.timestamp.toISOString() })),
         }),
       })
     } catch { /* ignore */ }
@@ -443,7 +443,7 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
       const res = await fetch(`/api/chat/histories/${id}`)
       if (!res.ok) return
       const data = await res.json() as { history: { messages: Array<Omit<Message, "timestamp"> & { timestamp: string }> } }
-      const loaded = data.history.messages.map((m) => ({ ...m, timestamp: new Date(m.timestamp) }))
+      const loaded = data.history.messages.map((msg) => ({ ...msg, timestamp: new Date(msg.timestamp) }))
       setMessages(loaded)
     } catch { /* ignore */ }
   }, [])
@@ -466,7 +466,7 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
       {/* Subtle ambient blobs */}
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <motion.div
+        <m.div
           className="absolute -top-32 left-1/2 -translate-x-1/2 h-72 w-[50rem] rounded-full bg-primary/6 blur-3xl"
           animate={{ y: [0, -14, 0] }}
           transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
@@ -483,7 +483,7 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
       <AnimatePresence mode="wait" initial={false}>
         {isEmpty ? (
           /* ─── EMPTY STATE ─── */
-          <motion.div
+          <m.div
             key="empty"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -492,7 +492,7 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
             className="flex flex-1 flex-col items-center justify-center px-4 py-8 overflow-y-auto"
           >
             {/* Logo */}
-            <motion.div
+            <m.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 320, damping: 22, delay: 0.05 }}
@@ -506,28 +506,28 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
                 className="rounded-2xl shadow-md"
                 priority
               />
-            </motion.div>
+            </m.div>
 
             {/* Greeting */}
-            <motion.h1
+            <m.h1
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1, duration: 0.28 }}
               className="mb-1 text-[22px] font-semibold tracking-tight text-foreground"
             >
               Hello, {firstName}
-            </motion.h1>
-            <motion.p
+            </m.h1>
+            <m.p
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.14, duration: 0.28 }}
               className="mb-6 text-sm text-muted-foreground"
             >
               Your AI finance advisor — ask anything about your money
-            </motion.p>
+            </m.p>
 
             {/* Financial context panel */}
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.18, duration: 0.28 }}
@@ -560,18 +560,18 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
                   </p>
                 </div>
               )}
-            </motion.div>
+            </m.div>
 
             {/* Suggestion chips — hidden for free users */}
             {!isFree && (
-              <motion.div
+              <m.div
                 variants={suggestionList}
                 initial="hidden"
                 animate="show"
                 className="mb-7 flex flex-wrap justify-center gap-1.5 max-w-lg"
               >
                 {anomalyChips.map((chip) => (
-                  <motion.button
+                  <m.button
                     key={chip.label}
                     variants={suggestionItem}
                     onClick={() => {
@@ -593,11 +593,11 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
                   >
                     {chip.type === "warning" ? "⚠️ " : chip.type === "success" ? "✅ " : "ℹ️ "}
                     {chip.label}
-                  </motion.button>
+                  </m.button>
                 ))}
 
                 {SUGGESTED_QUESTIONS.slice(0, anomalyChips.length > 0 ? 3 : 6).map((q) => (
-                  <motion.button
+                  <m.button
                     key={q}
                     variants={suggestionItem}
                     onClick={() => {
@@ -613,9 +613,9 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
                     )}
                   >
                     {q}
-                  </motion.button>
+                  </m.button>
                 ))}
-              </motion.div>
+              </m.div>
             )}
 
             {/* Centered input */}
@@ -647,10 +647,10 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
                 </>
               )}
             </div>
-          </motion.div>
+          </m.div>
         ) : (
           /* ─── CONVERSATION STATE ─── */
-          <motion.div
+          <m.div
             key="conversation"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -716,16 +716,16 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
                 className="absolute inset-0 overflow-y-auto overflow-x-hidden"
               >
                 <div className="mx-auto max-w-3xl px-4 pt-5 pb-36 space-y-3">
-                  {messages.map((m) => {
-                    const isLastAssistant = m.role === "assistant" && m.id === lastAssistantId
+                  {messages.map((msg) => {
+                    const isLastAssistant = msg.role === "assistant" && msg.id === lastAssistantId
                     return (
                       <ChatMessage
-                        key={m.id}
-                        role={m.role}
-                        content={m.content}
-                        timestamp={m.timestamp}
-                        isStreaming={isStreaming && m.role === "assistant" && m.id === lastAssistantId}
-                        isThinking={isLoading && m.role === "assistant" && m.id === lastAssistantId && !m.content}
+                        key={msg.id}
+                        role={msg.role}
+                        content={msg.content}
+                        timestamp={msg.timestamp}
+                        isStreaming={isStreaming && msg.role === "assistant" && msg.id === lastAssistantId}
+                        isThinking={isLoading && msg.role === "assistant" && msg.id === lastAssistantId && !msg.content}
                         showRegenerate={isLastAssistant && !isLoading && messages.length > 1}
                         onRegenerate={regenerateLast}
                       />
@@ -762,7 +762,7 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
                 </div>
               </div>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

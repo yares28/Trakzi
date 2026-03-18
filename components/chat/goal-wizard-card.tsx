@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useCallback } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { m, AnimatePresence } from "framer-motion"
 import { Check, ChevronRight, Target, Loader2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -85,7 +85,7 @@ export function GoalWizardCard({ onDismiss, onSaved }: GoalWizardCardProps) {
   const stepIdx = STEPS.indexOf(step === "done" ? "confirm" : step)
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
@@ -124,7 +124,7 @@ export function GoalWizardCard({ onDismiss, onSaved }: GoalWizardCardProps) {
       <div className="px-4 py-4 min-h-[160px]">
         <AnimatePresence mode="wait" initial={false}>
           {step === "category" && (
-            <motion.div
+            <m.div
               key="category"
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
@@ -166,11 +166,11 @@ export function GoalWizardCard({ onDismiss, onSaved }: GoalWizardCardProps) {
               >
                 Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
               </Button>
-            </motion.div>
+            </m.div>
           )}
 
           {step === "amount" && (
-            <motion.div
+            <m.div
               key="amount"
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
@@ -205,11 +205,11 @@ export function GoalWizardCard({ onDismiss, onSaved }: GoalWizardCardProps) {
                   Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
                 </Button>
               </div>
-            </motion.div>
+            </m.div>
           )}
 
           {step === "deadline" && (
-            <motion.div
+            <m.div
               key="deadline"
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
@@ -244,11 +244,11 @@ export function GoalWizardCard({ onDismiss, onSaved }: GoalWizardCardProps) {
                   Review <ChevronRight className="h-3.5 w-3.5 ml-1" />
                 </Button>
               </div>
-            </motion.div>
+            </m.div>
           )}
 
           {step === "confirm" && (
-            <motion.div
+            <m.div
               key="confirm"
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
@@ -283,11 +283,11 @@ export function GoalWizardCard({ onDismiss, onSaved }: GoalWizardCardProps) {
                   )}
                 </Button>
               </div>
-            </motion.div>
+            </m.div>
           )}
 
           {step === "done" && (
-            <motion.div
+            <m.div
               key="done"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -305,11 +305,11 @@ export function GoalWizardCard({ onDismiss, onSaved }: GoalWizardCardProps) {
               <Button size="sm" variant="outline" onClick={onDismiss} className="mt-1">
                 Done
               </Button>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>
-    </motion.div>
+    </m.div>
   )
 }
 
