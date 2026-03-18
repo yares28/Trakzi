@@ -1,5 +1,9 @@
 import { LazyChart } from "@/components/lazy-chart"
-import { ChartAreaInteractive } from "@/components/chart-area-interactive"
+import dynamic from "next/dynamic"
+const ChartAreaInteractive = dynamic(
+  () => import("@/components/chart-area-interactive").then((m) => ({ default: m.ChartAreaInteractive })),
+  { ssr: false }
+)
 import { ChartCategoryFlow } from "@/components/chart-category-flow"
 import { ChartSpendingFunnel } from "@/components/chart-spending-funnel"
 import { ChartExpensesPie } from "@/components/chart-expenses-pie"
