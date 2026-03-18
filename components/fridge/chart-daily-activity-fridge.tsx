@@ -138,6 +138,169 @@ export function getDailyGroceryActivityDisplayMode(
   return "single"
 }
 
+interface FridgeContributionGraphProps {
+  activities: Activity[]
+  showFooter: boolean
+  blockSize: number
+  blockMargin: number
+  fontSize: number
+  outlineColor: string
+  filteredData: Array<{ day: string; value: number }>
+  effectiveDateFilter: string
+  totalSpent: number
+  formatCurrency: (value: number) => string
+  getFillForLevel: (level: number) => string
+  onBlockMouseEnter: (e: React.MouseEvent, activity: Activity) => void
+  onBlockMouseMove: (e: React.MouseEvent) => void
+  onBlockMouseLeave: () => void
+}
+
+const FridgeContributionGraph = React.memo(function FridgeContributionGraph({
+  activities,
+  showFooter,
+  blockSize,
+  blockMargin,
+  fontSize,
+  outlineColor,
+  filteredData,
+  effectiveDateFilter,
+  totalSpent,
+  formatCurrency,
+  getFillForLevel,
+  onBlockMouseEnter,
+  onBlockMouseMove,
+  onBlockMouseLeave,
+}: FridgeContributionGraphProps) {
+  const footerText = (() => {
+    if (filteredData.length === 0) return `No grocery transactions in ${new Date().getFullYear()}`
+    if (effectiveDateFilter === "last7days") return `${formatCurrency(totalSpent)} spent on groceries in the last 7 days`
+    if (effectiveDateFilter === "last30days") return `${formatCurrency(totalSpent)} spent on groceries in the last 30 days`
+    if (effectiveDateFilter === "last3months") return `${formatCurrency(totalSpent)} spent on groceries in the last 3 months`
+    if (effectiveDateFilter === "last6months") return `${formatCurrency(totalSpent)} spent on groceries in the last 6 months`
+    const year = activities.length > 0 ? new Date(activities[0].date).getFullYear() : new Date().getFullYear()
+    return `${formatCurrency(totalSpent)} spent on groceries in ${year}`
+  })()
+
+  return (
+    <ContributionGraph
+      data={activities}
+      blockSize={blockSize}
+      blockMargin={blockMargin}
+      blockRadius={2}
+      maxLevel={MAX_LEVEL}
+      fontSize={fontSize}
+      labels={{
+        totalCount: footerText,
+        legend: { less: "Less", more: "More" },
+      }}
+    >
+      <ContributionGraphCalendar className="w-fit mx-auto">
+        {({ activity, dayIndex, weekIndex }) => (
+          <ContributionGraphBlock
+            activity={activity}
+            dayIndex={dayIndex}
+            weekIndex={weekIndex}
+            className="transition-opacity hover:opacity-80"
+            style={{ fill: getFillForLevel(activity.level), stroke: outlineColor, strokeWidth: 1 }}
+            onMouseEnter={(e) => onBlockMouseEnter(e as unknown as React.MouseEvent, activity)}
+            onMouseMove={(e) => onBlockMouseMove(e as unknown as React.MouseEvent)}
+            onMouseLeave={onBlockMouseLeave}
+          />
+        )}
+      </ContributionGraphCalendar>
+      {showFooter && (
+        <ContributionGraphFooter className="mt-4 px-0 text-xs text-muted-foreground flex flex-col items-center gap-2">
+          <ContributionGraphTotalCount className="text-sm font-medium text-foreground order-1" />
+          <ContributionGraphLegend className="order-2 !ml-0">
+            {({ level }) => (
+              <svg height={12} width={12}>
+                <title>{`Level ${level}`}</title>
+                <rect
+                  height={12}
+                  width={12}
+                  rx={2}
+                  ry={2}
+                  style={{ fill: getFillForLevel(level), stroke: outlineColor, strokeWidth: 1 }}
+                />
+              </svg>
+            )}
+          </ContributionGraphLegend>
+        </ContributionGraphFooter>
+      )}
+    </ContributionGraph>
+  )
+})
+
+FridgeContributionGraph.displayName = "FridgeContributionGraph"
+
+interface FridgeCalendarInfoTriggerProps {
+  filteredData: Array<{ day: string; value: number }>
+  totalSpent: number
+  forFullscreen?: boolean
+}
+
+const FridgeCalendarInfoTrigger = React.memo(function FridgeCalendarInfoTrigger({
+  filteredData,
+  totalSpent,
+  forFullscreen = false,
+}: FridgeCalendarInfoTriggerProps) {
+  return (
+    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
+      <ChartInfoPopover
+        title={CHART_TITLE}
+        description="Your grocery spending patterns throughout the year - darker means more spending. Uses the global time period filter."
+        details={[
+          "Each cell represents a day, colored by the total grocery amount you spent.",
+          "On desktop the chart shows the full selected period. On mobile, yearly views split into two periods.",
+          "Data is aggregated from your uploaded receipts.",
+        ]}
+        ignoredFootnote="Only days with receipt transactions are shown."
+      />
+      <ChartAiInsightButton
+        chartId={CHART_ID}
+        chartTitle={CHART_TITLE}
+        chartDescription="Your grocery spending patterns throughout the year (contribution graph)"
+        chartData={{
+          totalDays: filteredData.length,
+          totalSpent,
+          maxDailySpend: Math.max(...filteredData.map((d) => d.value), 0),
+        }}
+        size="sm"
+      />
+    </div>
+  )
+})
+
+FridgeCalendarInfoTrigger.displayName = "FridgeCalendarInfoTrigger"
+
+interface FridgeCalendarCardHeaderProps {
+  onOpenFullscreen: () => void
+  filteredData: Array<{ day: string; value: number }>
+  totalSpent: number
+}
+
+const FridgeCalendarCardHeader = React.memo(function FridgeCalendarCardHeader({
+  onOpenFullscreen,
+  filteredData,
+  totalSpent,
+}: FridgeCalendarCardHeaderProps) {
+  return (
+    <CardHeader>
+      <div className="flex items-center gap-2">
+        <GridStackCardDragHandle />
+        <ChartExpandButton onClick={onOpenFullscreen} />
+        <ChartFavoriteButton chartId={CHART_ID} chartTitle={CHART_TITLE} size="md" />
+        <CardTitle>{CHART_TITLE}</CardTitle>
+      </div>
+      <CardAction className="flex flex-wrap items-center gap-2">
+        <FridgeCalendarInfoTrigger filteredData={filteredData} totalSpent={totalSpent} />
+      </CardAction>
+    </CardHeader>
+  )
+})
+
+FridgeCalendarCardHeader.displayName = "FridgeCalendarCardHeader"
+
 export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFridge({
   receiptTransactions = [],
   dailySpendingData,
@@ -463,107 +626,6 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
     setTooltipPosition(null)
   }
 
-  const renderContributionGraph = (activities: Activity[], showFooter: boolean) => {
-    const footerText = (() => {
-      if (filteredData.length === 0) return `No grocery transactions in ${new Date().getFullYear()}`
-      if (effectiveDateFilter === "last7days") return `${formatCurrency(totalSpent)} spent on groceries in the last 7 days`
-      if (effectiveDateFilter === "last30days") return `${formatCurrency(totalSpent)} spent on groceries in the last 30 days`
-      if (effectiveDateFilter === "last3months") return `${formatCurrency(totalSpent)} spent on groceries in the last 3 months`
-      if (effectiveDateFilter === "last6months") return `${formatCurrency(totalSpent)} spent on groceries in the last 6 months`
-      const year = activities.length > 0 ? new Date(activities[0].date).getFullYear() : new Date().getFullYear()
-      return `${formatCurrency(totalSpent)} spent on groceries in ${year}`
-    })()
-
-    return (
-      <ContributionGraph
-        data={activities}
-        blockSize={blockSize}
-        blockMargin={blockMargin}
-        blockRadius={2}
-        maxLevel={MAX_LEVEL}
-        fontSize={fontSize}
-        labels={{
-          totalCount: footerText,
-          legend: { less: "Less", more: "More" },
-        }}
-      >
-        <ContributionGraphCalendar className="w-fit mx-auto">
-          {({ activity, dayIndex, weekIndex }) => (
-            <ContributionGraphBlock
-              activity={activity}
-              dayIndex={dayIndex}
-              weekIndex={weekIndex}
-              className="transition-opacity hover:opacity-80"
-              style={{ fill: getFillForLevel(activity.level), stroke: outlineColor, strokeWidth: 1 }}
-              onMouseEnter={(e) => handleBlockMouseEnter(e as unknown as React.MouseEvent, activity)}
-              onMouseMove={(e) => handleBlockMouseMove(e as unknown as React.MouseEvent)}
-              onMouseLeave={handleBlockMouseLeave}
-            />
-          )}
-        </ContributionGraphCalendar>
-        {showFooter && (
-          <ContributionGraphFooter className="mt-4 px-0 text-xs text-muted-foreground flex flex-col items-center gap-2">
-            <ContributionGraphTotalCount className="text-sm font-medium text-foreground order-1" />
-            <ContributionGraphLegend className="order-2 !ml-0">
-              {({ level }) => (
-                <svg height={12} width={12}>
-                  <title>{`Level ${level}`}</title>
-                  <rect
-                    height={12}
-                    width={12}
-                    rx={2}
-                    ry={2}
-                    style={{ fill: getFillForLevel(level), stroke: outlineColor, strokeWidth: 1 }}
-                  />
-                </svg>
-              )}
-            </ContributionGraphLegend>
-          </ContributionGraphFooter>
-        )}
-      </ContributionGraph>
-    )
-  }
-
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
-      <ChartInfoPopover
-        title={CHART_TITLE}
-        description="Your grocery spending patterns throughout the year - darker means more spending. Uses the global time period filter."
-        details={[
-          "Each cell represents a day, colored by the total grocery amount you spent.",
-          "On desktop the chart shows the full selected period. On mobile, yearly views split into two periods.",
-          "Data is aggregated from your uploaded receipts.",
-        ]}
-        ignoredFootnote="Only days with receipt transactions are shown."
-      />
-      <ChartAiInsightButton
-        chartId={CHART_ID}
-        chartTitle={CHART_TITLE}
-        chartDescription="Your grocery spending patterns throughout the year (contribution graph)"
-        chartData={{
-          totalDays: filteredData.length,
-          totalSpent,
-          maxDailySpend: Math.max(...filteredData.map((d) => d.value), 0),
-        }}
-        size="sm"
-      />
-    </div>
-  )
-
-  const renderCardHeader = () => (
-    <CardHeader>
-      <div className="flex items-center gap-2">
-        <GridStackCardDragHandle />
-        <ChartExpandButton onClick={() => setIsFullscreen(true)} />
-        <ChartFavoriteButton chartId={CHART_ID} chartTitle={CHART_TITLE} size="md" />
-        <CardTitle>{CHART_TITLE}</CardTitle>
-      </div>
-      <CardAction className="flex flex-wrap items-center gap-2">
-        {renderInfoTrigger()}
-      </CardAction>
-    </CardHeader>
-  )
-
   const contentHeight = isDualDisplayMode ? "h-[400px] md:h-[480px]" : "h-[150px] md:h-[220px]"
 
   if (!mounted || isLoading) {
@@ -576,7 +638,7 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
             <CardTitle>{CHART_TITLE}</CardTitle>
           </div>
           <CardAction className="flex flex-wrap items-center gap-2">
-            {renderInfoTrigger()}
+            <FridgeCalendarInfoTrigger filteredData={filteredData} totalSpent={totalSpent} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
@@ -591,7 +653,7 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
   if (!hasData) {
     return (
       <Card className="@container/card">
-        {renderCardHeader()}
+        <FridgeCalendarCardHeader onOpenFullscreen={() => setIsFullscreen(true)} filteredData={filteredData} totalSpent={totalSpent} />
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
           <div className={`${contentHeight} w-full`}>
             <ChartLoadingState
@@ -613,7 +675,7 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
         onClose={() => setIsFullscreen(false)}
         title={CHART_TITLE}
         description="Grocery spending patterns throughout the year"
-        headerActions={renderInfoTrigger(true)}
+        headerActions={<FridgeCalendarInfoTrigger filteredData={filteredData} totalSpent={totalSpent} forFullscreen />}
       >
         <div className="h-full w-full min-h-[400px] text-center flex items-center justify-center text-muted-foreground">
           Fullscreen view - Calendar heatmap shows grocery spending intensity
@@ -621,23 +683,23 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
       </ChartFullscreenModal>
 
       <Card className="@container/card">
-        {renderCardHeader()}
+        <FridgeCalendarCardHeader onOpenFullscreen={() => setIsFullscreen(true)} filteredData={filteredData} totalSpent={totalSpent} />
         <CardContent className="flex flex-1 flex-col justify-center px-2 pt-4 pb-2 sm:px-6 sm:pt-6 md:pb-6">
           <div ref={contentRef} className="w-full">
             {isDualCalendar && period1 && period2 ? (
               <div className="flex flex-col gap-4">
                 <div>
                   <p className="mb-1 text-xs font-medium text-muted-foreground">{period1.label}</p>
-                  {renderContributionGraph(period1Activities, false)}
+                  <FridgeContributionGraph activities={period1Activities} showFooter={false} blockSize={blockSize} blockMargin={blockMargin} fontSize={fontSize} outlineColor={outlineColor} filteredData={filteredData} effectiveDateFilter={effectiveDateFilter} totalSpent={totalSpent} formatCurrency={formatCurrency} getFillForLevel={getFillForLevel} onBlockMouseEnter={handleBlockMouseEnter} onBlockMouseMove={handleBlockMouseMove} onBlockMouseLeave={handleBlockMouseLeave} />
                 </div>
                 <div>
                   <p className="mb-1 text-xs font-medium text-muted-foreground">{period2.label}</p>
-                  {renderContributionGraph(period2Activities, true)}
+                  <FridgeContributionGraph activities={period2Activities} showFooter={true} blockSize={blockSize} blockMargin={blockMargin} fontSize={fontSize} outlineColor={outlineColor} filteredData={filteredData} effectiveDateFilter={effectiveDateFilter} totalSpent={totalSpent} formatCurrency={formatCurrency} getFillForLevel={getFillForLevel} onBlockMouseEnter={handleBlockMouseEnter} onBlockMouseMove={handleBlockMouseMove} onBlockMouseLeave={handleBlockMouseLeave} />
                 </div>
               </div>
             ) : (
               <div className="relative w-full">
-                {renderContributionGraph(singleActivities, true)}
+                <FridgeContributionGraph activities={singleActivities} showFooter={true} blockSize={blockSize} blockMargin={blockMargin} fontSize={fontSize} outlineColor={outlineColor} filteredData={filteredData} effectiveDateFilter={effectiveDateFilter} totalSpent={totalSpent} formatCurrency={formatCurrency} getFillForLevel={getFillForLevel} onBlockMouseEnter={handleBlockMouseEnter} onBlockMouseMove={handleBlockMouseMove} onBlockMouseLeave={handleBlockMouseLeave} />
               </div>
             )}
           </div>

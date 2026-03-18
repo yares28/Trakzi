@@ -70,6 +70,46 @@ function normalizeCategoryName(value: string | null | undefined) {
     return trimmed || "Other"
 }
 
+interface FridgeSingleMonthInfoTriggerProps {
+    selectedMonth: number | null
+    totalSpent: number
+    topCategories: Array<{ category: string; amount: number }>
+}
+
+const FridgeSingleMonthInfoTrigger = React.memo(function FridgeSingleMonthInfoTrigger({
+    selectedMonth,
+    totalSpent,
+    topCategories,
+}: FridgeSingleMonthInfoTriggerProps) {
+    return (
+        <div className="flex flex-col items-center gap-2">
+            <ChartInfoPopover
+                title="Single Month Category Spending"
+                description="Compare grocery spending across categories for a selected month."
+                details={[
+                    "Each bar represents total spending in a category for the selected month.",
+                    "Data is aggregated from your uploaded receipts.",
+                    "Use the month selector to switch between different months.",
+                ]}
+                ignoredFootnote="Only receipt transactions with assigned categories are included."
+            />
+            <ChartAiInsightButton
+                chartId="fridge:singleMonthCategory"
+                chartTitle="Single Month Category Spending"
+                chartDescription="Compare grocery spending across categories for a selected month."
+                chartData={{
+                    selectedMonth: selectedMonth !== null ? MONTH_NAMES[selectedMonth - 1] : null,
+                    totalSpent,
+                    topCategories,
+                }}
+                size="sm"
+            />
+        </div>
+    )
+})
+
+FridgeSingleMonthInfoTrigger.displayName = "FridgeSingleMonthInfoTrigger"
+
 export const ChartSingleMonthCategoryFridge = React.memo(function ChartSingleMonthCategoryFridge({ receiptTransactions = [], monthlyCategoriesData, isLoading = false }: ChartSingleMonthCategoryFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { getShuffledPalette } = useColorScheme()
@@ -213,31 +253,8 @@ export const ChartSingleMonthCategoryFridge = React.memo(function ChartSingleMon
         }
     }, [tooltip])
 
-    const renderInfoTrigger = () => (
-        <div className="flex flex-col items-center gap-2">
-            <ChartInfoPopover
-                title="Single Month Category Spending"
-                description="Compare grocery spending across categories for a selected month."
-                details={[
-                    "Each bar represents total spending in a category for the selected month.",
-                    "Data is aggregated from your uploaded receipts.",
-                    "Use the month selector to switch between different months.",
-                ]}
-                ignoredFootnote="Only receipt transactions with assigned categories are included."
-            />
-            <ChartAiInsightButton
-                chartId="fridge:singleMonthCategory"
-                chartTitle="Single Month Category Spending"
-                chartDescription="Compare grocery spending across categories for a selected month."
-                chartData={{
-                    selectedMonth: selectedMonth !== null ? MONTH_NAMES[selectedMonth - 1] : null,
-                    totalSpent: data.reduce((sum, item) => sum + item.total, 0),
-                    topCategories: data.slice(0, 5).map(d => ({ category: d.category, amount: d.total })),
-                }}
-                size="sm"
-            />
-        </div>
-    )
+    const totalSpent = data.reduce((sum, item) => sum + item.total, 0)
+    const topCategories = data.slice(0, 5).map(d => ({ category: d.category, amount: d.total }))
 
     const option = React.useMemo(() => {
         if (!data.length || selectedMonth === null) return null
@@ -294,7 +311,7 @@ export const ChartSingleMonthCategoryFridge = React.memo(function ChartSingleMon
                         <CardTitle>Single Month Category Spending</CardTitle>
                     </div>
                     <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                        {renderInfoTrigger()}
+                        <FridgeSingleMonthInfoTrigger selectedMonth={selectedMonth} totalSpent={totalSpent} topCategories={topCategories} />
                     </CardAction>
                 </CardHeader>
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
@@ -314,7 +331,7 @@ export const ChartSingleMonthCategoryFridge = React.memo(function ChartSingleMon
                         <CardTitle>Single Month Category Spending</CardTitle>
                     </div>
                     <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                        {renderInfoTrigger()}
+                        <FridgeSingleMonthInfoTrigger selectedMonth={selectedMonth} totalSpent={totalSpent} topCategories={topCategories} />
                     </CardAction>
                 </CardHeader>
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
@@ -333,7 +350,7 @@ export const ChartSingleMonthCategoryFridge = React.memo(function ChartSingleMon
                     <CardTitle>Single Month Category Spending</CardTitle>
                 </div>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                    {renderInfoTrigger()}
+                    <FridgeSingleMonthInfoTrigger selectedMonth={selectedMonth} totalSpent={totalSpent} topCategories={topCategories} />
                     <Select
                         value={selectedMonth !== null ? selectedMonth.toString() : ""}
                         onValueChange={(value) => setSelectedMonth(parseInt(value, 10))}
