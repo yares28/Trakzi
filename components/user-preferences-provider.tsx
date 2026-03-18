@@ -267,6 +267,20 @@ function saveAllToLocalStorage(prefs: UserPreferences) {
 }
 
 // ---------------------------------------------------------------------------
+// Fire-and-forget migration helper (module scope — no hook dependencies)
+// ---------------------------------------------------------------------------
+
+async function migrateLocalPreferencesToServer(
+  preferences: UserPreferences
+): Promise<void> {
+  await fetch("/api/user-preferences", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ preferences }),
+  })
+}
+
+// ---------------------------------------------------------------------------
 // ThemeSyncBridge — syncs next-themes ↔ DB settings.theme
 // ---------------------------------------------------------------------------
 
@@ -398,11 +412,7 @@ export function UserPreferencesProvider({
         saveAllToLocalStorage(dbPrefs)
       } else if (localHasData) {
         // First-time migration: push localStorage → DB.
-        fetch("/api/user-preferences", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ preferences: currentLocal }),
-        }).catch(() => {/* ignore migration errors */})
+        void migrateLocalPreferencesToServer(currentLocal).catch(() => {/* ignore migration errors */})
         localStorage.setItem(LS_KEYS.migrated, "true")
       }
 

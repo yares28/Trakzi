@@ -56,6 +56,61 @@ const HOUR_LABELS = [
     "6PM", "7PM", "8PM", "9PM", "10PM", "11PM"
 ]
 
+interface TimeOfDayInfoTriggerProps {
+    processedData: Array<{ hour: number; trips: number; spending: number }>
+    missingTimeReceiptCount: number
+    totalUniqueReceipts: number
+}
+
+const TimeOfDayInfoTrigger = React.memo(function TimeOfDayInfoTrigger({
+    processedData,
+    missingTimeReceiptCount,
+    totalUniqueReceipts,
+}: TimeOfDayInfoTriggerProps) {
+    const baseDetails = [
+        "This chart shows your shopping trip frequency by hour of day.",
+        "Taller bars indicate more frequent shopping times.",
+        "Hover to see trip count and total spending for each hour.",
+        "Only receipts with time data are included in the distribution.",
+    ]
+
+    if (totalUniqueReceipts > 0) {
+        if (missingTimeReceiptCount > 0) {
+            baseDetails.push(
+                `${missingTimeReceiptCount} of ${totalUniqueReceipts} receipts in this date range are missing time information and are excluded from this chart.`
+            )
+        } else {
+            baseDetails.push(
+                `All ${totalUniqueReceipts} receipts in this date range include time information and are counted in this chart.`
+            )
+        }
+    }
+
+    return (
+        <div className="flex flex-col items-center gap-2">
+            <ChartInfoPopover
+                title="Time of Day Shopping"
+                description="See when you typically go grocery shopping throughout the day."
+                details={baseDetails}
+                ignoredFootnote="Receipt times are extracted from your uploads."
+            />
+            <ChartAiInsightButton
+                chartId="fridge:time-of-day-spending"
+                chartTitle="Time of Day Shopping"
+                chartDescription="Shopping patterns by hour of day."
+                chartData={{
+                    peakHour: processedData.reduce((max, d) => d.trips > max.trips ? d : max, processedData[0]),
+                    totalTrips: processedData.reduce((sum, d) => sum + d.trips, 0),
+                    totalSpending: processedData.reduce((sum, d) => sum + d.spending, 0),
+                }}
+                size="sm"
+            />
+        </div>
+    )
+})
+
+TimeOfDayInfoTrigger.displayName = "TimeOfDayInfoTrigger"
+
 function parseReceiptHour(value?: string | null) {
     if (!value) return null
     const normalized = value.trim().toLowerCase()
@@ -197,49 +252,6 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
             totalUniqueReceipts: receiptTimePresence.size,
         }
     }, [receiptTransactions])
-
-    const renderInfoTrigger = () => {
-        const baseDetails = [
-            "This chart shows your shopping trip frequency by hour of day.",
-            "Taller bars indicate more frequent shopping times.",
-            "Hover to see trip count and total spending for each hour.",
-            "Only receipts with time data are included in the distribution.",
-        ]
-
-        if (totalUniqueReceipts > 0) {
-            if (missingTimeReceiptCount > 0) {
-                baseDetails.push(
-                    `${missingTimeReceiptCount} of ${totalUniqueReceipts} receipts in this date range are missing time information and are excluded from this chart.`
-                )
-            } else {
-                baseDetails.push(
-                    `All ${totalUniqueReceipts} receipts in this date range include time information and are counted in this chart.`
-                )
-            }
-        }
-
-        return (
-            <div className="flex flex-col items-center gap-2">
-                <ChartInfoPopover
-                    title="Time of Day Shopping"
-                    description="See when you typically go grocery shopping throughout the day."
-                    details={baseDetails}
-                    ignoredFootnote="Receipt times are extracted from your uploads."
-                />
-                <ChartAiInsightButton
-                    chartId="fridge:time-of-day-spending"
-                    chartTitle="Time of Day Shopping"
-                    chartDescription="Shopping patterns by hour of day."
-                    chartData={{
-                        peakHour: processedData.reduce((max, d) => d.trips > max.trips ? d : max, processedData[0]),
-                        totalTrips: processedData.reduce((sum, d) => sum + d.trips, 0),
-                        totalSpending: processedData.reduce((sum, d) => sum + d.spending, 0),
-                    }}
-                    size="sm"
-                />
-            </div>
-        )
-    }
 
     const isDark = resolvedTheme === "dark"
     const textColor = getChartTextColor(isDark)
@@ -501,7 +513,7 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
                         <CardTitle>Time of Day Shopping</CardTitle>
                     </div>
                     <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                        {renderInfoTrigger()}
+                        <TimeOfDayInfoTrigger processedData={processedData} missingTimeReceiptCount={missingTimeReceiptCount} totalUniqueReceipts={totalUniqueReceipts} />
                     </CardAction>
                 </CardHeader>
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
@@ -523,7 +535,7 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
                         <CardTitle>Time of Day Shopping</CardTitle>
                     </div>
                     <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                        {renderInfoTrigger()}
+                        <TimeOfDayInfoTrigger processedData={processedData} missingTimeReceiptCount={missingTimeReceiptCount} totalUniqueReceipts={totalUniqueReceipts} />
                     </CardAction>
                 </CardHeader>
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
@@ -544,7 +556,7 @@ export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDaySh
                     <CardTitle>Time of Day Shopping</CardTitle>
                 </div>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                    {renderInfoTrigger()}
+                    <TimeOfDayInfoTrigger processedData={processedData} missingTimeReceiptCount={missingTimeReceiptCount} totalUniqueReceipts={totalUniqueReceipts} />
                 </CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
