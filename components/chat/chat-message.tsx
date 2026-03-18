@@ -8,7 +8,11 @@ import { m, AnimatePresence } from "framer-motion"
 import { useUser } from "@clerk/nextjs"
 import { Check, Copy, RefreshCw } from "lucide-react"
 import { parseChartContent, hasChartMarkers } from "@/lib/chat/parse-chart-spec"
-import { ChatBubbleChart } from "@/components/chat/chat-bubble-chart"
+import dynamic from "next/dynamic"
+const ChatBubbleChart = dynamic(
+  () => import("@/components/chat/chat-bubble-chart").then((m) => ({ default: m.ChatBubbleChart })),
+  { ssr: false }
+)
 
 /** Renders streaming text token-by-token with a smooth blur-to-clear fade-in. */
 function StreamingText({ content }: { content: string }) {

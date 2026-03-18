@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { m, AnimatePresence } from "framer-motion";
-import { PolarAngleAxis, RadialBar, RadialBarChart } from "recharts";
 import {
     ChevronDown,
     ChevronUp,
@@ -16,17 +16,24 @@ import {
 
 import { safeCapture } from "@/lib/posthog-safe";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { ChartContainer } from "@/components/ui/chart";
 import { Separator } from "@/components/ui/separator";
 import { GoalSettingModal } from "@/components/dashboard/goal-setting-modal";
 import { TransactionProgressBar } from "@/components/dashboard/transaction-progress-bar";
 import { SubscriptionCard } from "@/components/dashboard/subscription-card";
 
-import { pagesConfig, chartConfig } from "./constants";
+import { pagesConfig } from "./constants";
 import { DashboardLayout } from "./components/DashboardLayout";
 import { AnimatedScore } from "./components/AnimatedScore";
-import { ScoreSparkline } from "./components/ScoreSparkline";
 import { ComparisonPopover } from "./components/ComparisonPopover";
+
+const ScoreRadialChart = dynamic(
+    () => import("./components/ScoreRadialChart").then((m) => ({ default: m.ScoreRadialChart })),
+    { ssr: false }
+)
+const ScoreSparkline = dynamic(
+    () => import("./components/ScoreSparkline").then((m) => ({ default: m.ScoreSparkline })),
+    { ssr: false }
+)
 import { getAnalyticsInsight, getSavingsInsight, getFridgeInsight } from "./insights";
 import {
     getCardGradient,
@@ -207,35 +214,10 @@ export default function DashboardPage() {
                                                     <div className="flex items-start gap-6">
                                                         {/* Phase 1: Radial Chart with Glow Effect */}
                                                         <div className={`relative flex items-center justify-center shrink-0 rounded-full ${!isLoading ? getScoreGlow(item.progress) : ''}`}>
-                                                            <ChartContainer
-                                                                config={chartConfig}
-                                                                className="h-[120px] w-[120px]"
-                                                            >
-                                                                <RadialBarChart
-                                                                    data={[item]}
-                                                                    innerRadius={42}
-                                                                    outerRadius={55}
-                                                                    barSize={10}
-                                                                    startAngle={90}
-                                                                    endAngle={-270}
-                                                                >
-                                                                    <PolarAngleAxis
-                                                                        type="number"
-                                                                        domain={[0, 100]}
-                                                                        angleAxisId={0}
-                                                                        tick={false}
-                                                                        axisLine={false}
-                                                                    />
-                                                                    <RadialBar
-                                                                        dataKey="progress"
-                                                                        background
-                                                                        cornerRadius={10}
-                                                                        fill={item.fill}
-                                                                        angleAxisId={0}
-                                                                        animationDuration={1500}
-                                                                    />
-                                                                </RadialBarChart>
-                                                            </ChartContainer>
+                                                            <ScoreRadialChart
+                                                                progress={item.progress}
+                                                                fill={item.fill}
+                                                            />
                                                             <div className="absolute inset-0 flex flex-col items-center justify-center">
                                                                 {isLoading ? (
                                                                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />

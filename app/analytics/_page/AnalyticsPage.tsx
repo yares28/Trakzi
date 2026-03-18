@@ -25,7 +25,11 @@ import { useStatementImport } from "./hooks/useStatementImport"
 import { cn } from "@/lib/utils"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { SortableGridItem, SortableGridProvider } from "@/components/sortable-grid"
-import { ChartSpendingPyramid } from "@/components/chart-spending-pyramid"
+import dynamic from "next/dynamic"
+const ChartSpendingPyramid = dynamic(
+  () => import("@/components/chart-spending-pyramid").then((m) => ({ default: m.ChartSpendingPyramid })),
+  { ssr: false }
+)
 import { DEFAULT_ADVANCED_CHART_ORDER, DEFAULT_ADVANCED_CHART_SIZES } from "./constants"
 import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
 import { useOnboarding } from "@/components/onboarding/onboarding-context"

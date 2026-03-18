@@ -8,7 +8,11 @@ import {
 } from "@/lib/date-filter"
 import { getDailyTransactionActivityDisplayMode } from "@/components/chart-transaction-calendar"
 import { SortableGridItem, SortableGridProvider } from "@/components/sortable-grid"
-import { ChartAreaInteractive } from "@/components/chart-area-interactive"
+import dynamic from "next/dynamic"
+const ChartAreaInteractive = dynamic(
+  () => import("@/components/chart-area-interactive").then((m) => ({ default: m.ChartAreaInteractive })),
+  { ssr: false }
+)
 import { ChartCategoryBubble } from "@/components/chart-category-bubble"
 import { ChartCategoryFlow } from "@/components/chart-category-flow"
 import { ChartCirclePacking } from "@/components/chart-circle-packing"
