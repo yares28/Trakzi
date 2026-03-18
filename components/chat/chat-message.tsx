@@ -9,9 +9,10 @@ import { useUser } from "@clerk/nextjs"
 import { Check, Copy, RefreshCw } from "lucide-react"
 import { parseChartContent, hasChartMarkers } from "@/lib/chat/parse-chart-spec"
 import dynamic from "next/dynamic"
+
 const ChatBubbleChart = dynamic(
   () => import("@/components/chat/chat-bubble-chart").then((m) => ({ default: m.ChatBubbleChart })),
-  { ssr: false }
+  { ssr: false, loading: () => <div className="h-[200px] w-full animate-pulse rounded-lg bg-muted" /> }
 )
 
 /** Renders streaming text token-by-token with a smooth blur-to-clear fade-in. */
