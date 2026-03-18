@@ -235,7 +235,7 @@ export const ChallengeScoreChart = memo(function ChallengeScoreChart({
 
     return (
         <>
-            <div className="space-y-3">
+            <div className="space-y-3" suppressHydrationWarning>
             <h2 className="text-lg font-semibold px-1">Score Progression</h2>
             <Card className="border-border/40 bg-card/60 backdrop-blur-sm rounded-3xl">
                 <CardContent className="p-4 sm:p-6">
