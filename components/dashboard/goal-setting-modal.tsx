@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { X, Target, Percent, Calendar, Save, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -39,7 +39,7 @@ export function GoalSettingModal({
             {isOpen && (
                 <>
                     {/* Backdrop */}
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -50,7 +50,7 @@ export function GoalSettingModal({
                     {/* Flex centering wrapper — avoids sub-pixel blurriness from CSS transforms */}
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
                     {/* Modal */}
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -154,7 +154,7 @@ export function GoalSettingModal({
                                 Save Goal
                             </Button>
                         </div>
-                    </motion.div>
+                    </m.div>
                     </div>
                 </>
             )}

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AnimatePresence, MotionConfig, motion } from "framer-motion";
+import { AnimatePresence, MotionConfig, m } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 /** Generate a stable pleasant color from a name string */
@@ -99,7 +99,7 @@ export function TelegramHeader({
         bounce: 0.2,
       }}
     >
-      <motion.button
+      <m.button
         className={cn(
           "text-blue-500 absolute z-30 rounded-full px-2 cursor-pointer",
           expand ? "top-[64px]" : ""
@@ -115,9 +115,9 @@ export function TelegramHeader({
         onClick={actionButton.onClick}
       >
         {actionButton.text}
-      </motion.button>
+      </m.button>
 
-      <motion.header
+      <m.header
         layout
         style={{ aspectRatio: expand ? "1/1" : "" }}
         className={cn(
@@ -127,7 +127,7 @@ export function TelegramHeader({
             : "mt-4 items-center justify-center"
         )}
       >
-        <motion.button
+        <m.button
           layoutId="user-avatar"
           className="relative flex aspect-square w-16 items-start justify-center overflow-hidden"
           onClick={() => setExpand(!expand)}
@@ -136,12 +136,12 @@ export function TelegramHeader({
           }}
         >
           <AvatarContent hasImage={hasImage} avatar={avatar} name={name} bgColor={bgColor} initials={initials} textSize="text-2xl" />
-        </motion.button>
+        </m.button>
 
-        <motion.div
+        <m.div
           className={`relative z-20 flex flex-col ${expand ? "items-start" : "items-center"}`}
         >
-          <motion.h2
+          <m.h2
             layout
             className="inline-block text-xl font-medium"
             animate={{
@@ -149,8 +149,8 @@ export function TelegramHeader({
             }}
           >
             {name}
-          </motion.h2>
-          <motion.div
+          </m.h2>
+          <m.div
             layout
             className="flex gap-1 text-xs"
             animate={{
@@ -162,23 +162,23 @@ export function TelegramHeader({
             {phone && <p className="tracking-tight">{phone}</p>}
             {phone && <>•</>}
             <p>{username}</p>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
 
         <AnimatePresence>
           {expand && (
-            <motion.button
+            <m.button
               layoutId="user-avatar"
               className="absolute inset-0 -z-10 aspect-square overflow-hidden"
               style={{ borderRadius: 0 }}
               onClick={() => setExpand(!expand)}
             >
               <AvatarContent hasImage={hasImage} avatar={avatar} name={name} bgColor={bgColor} initials={initials} textSize="text-6xl" />
-              <motion.div className="absolute bottom-0 left-0 h-24 w-full bg-gradient-to-t from-black/50 to-transparent" />
-            </motion.button>
+              <m.div className="absolute bottom-0 left-0 h-24 w-full bg-gradient-to-t from-black/50 to-transparent" />
+            </m.button>
           )}
         </AnimatePresence>
-      </motion.header>
+      </m.header>
     </MotionConfig>
   );
 }

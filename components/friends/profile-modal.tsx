@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import useSWR from "swr"
-import { AnimatePresence, MotionConfig, motion } from "framer-motion"
+import { AnimatePresence, MotionConfig, m } from "framer-motion"
 import { X, Lock, UserPlus, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
@@ -323,7 +323,7 @@ export function ProfileModal({ open, onOpenChange, user, onInvite }: ProfileModa
                     }}
                 >
                     {/* ── Header with expandable avatar ── */}
-                    <motion.div
+                    <m.div
                         layout
                         style={{ aspectRatio: expand ? "1/1" : undefined }}
                         className={cn(
@@ -333,7 +333,7 @@ export function ProfileModal({ open, onOpenChange, user, onInvite }: ProfileModa
                                 : "mt-0 items-center justify-center pt-8 pb-4 px-6"
                         )}
                     >
-                        <motion.button
+                        <m.button
                             layoutId="profile-avatar"
                             className="relative flex aspect-square w-20 items-center justify-center overflow-hidden cursor-pointer mb-3"
                             onClick={() => setExpand(!expand)}
@@ -347,30 +347,30 @@ export function ProfileModal({ open, onOpenChange, user, onInvite }: ProfileModa
                                 initials={initials}
                                 textSize="text-2xl"
                             />
-                        </motion.button>
+                        </m.button>
 
-                        <motion.div
+                        <m.div
                             layout
                             className={cn(
                                 "relative z-20 flex flex-col",
                                 expand ? "items-start" : "items-center"
                             )}
                         >
-                            <motion.h3
+                            <m.h3
                                 layout
                                 className="text-lg font-semibold"
                                 animate={{ color: expand ? "#ffffff" : "var(--foreground)" }}
                             >
                                 {user.name}
-                            </motion.h3>
-                            <motion.p
+                            </m.h3>
+                            <m.p
                                 layout
                                 className="text-sm"
                                 animate={{ color: expand ? "rgba(255,255,255,0.7)" : "var(--muted-foreground)" }}
                             >
                                 {username}
-                            </motion.p>
-                        </motion.div>
+                            </m.p>
+                        </m.div>
 
                         {!expand && (
                             <div className="mt-3 w-12 h-0.5 rounded-full" style={{ backgroundColor: bgColor }} />
@@ -378,7 +378,7 @@ export function ProfileModal({ open, onOpenChange, user, onInvite }: ProfileModa
 
                         <AnimatePresence>
                             {expand && (
-                                <motion.button
+                                <m.button
                                     layoutId="profile-avatar"
                                     className="absolute inset-0 -z-10 aspect-square overflow-hidden cursor-pointer"
                                     style={{ borderRadius: 0 }}
@@ -392,11 +392,11 @@ export function ProfileModal({ open, onOpenChange, user, onInvite }: ProfileModa
                                         initials={initials}
                                         textSize="text-6xl"
                                     />
-                                    <motion.div className="absolute bottom-0 left-0 h-24 w-full bg-gradient-to-t from-black/50 to-transparent" />
-                                </motion.button>
+                                    <m.div className="absolute bottom-0 left-0 h-24 w-full bg-gradient-to-t from-black/50 to-transparent" />
+                                </m.button>
                             )}
                         </AnimatePresence>
-                    </motion.div>
+                    </m.div>
                 </MotionConfig>
 
                 {/* ── Stats area ── */}

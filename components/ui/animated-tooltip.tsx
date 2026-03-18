@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import {
-  motion,
+  m,
   useTransform,
   AnimatePresence,
   useMotionValue,
@@ -67,7 +67,7 @@ export const AnimatedTooltip = ({
           >
             <AnimatePresence mode="popLayout">
               {hoveredIndex === item.id && (
-                <motion.div
+                <m.div
                   initial={{ opacity: 0, y: 20, scale: 0.6 }}
                   animate={{
                     opacity: 1,
@@ -95,7 +95,7 @@ export const AnimatedTooltip = ({
                   <div className="text-muted-foreground text-xs">
                     {item.designation}
                   </div>
-                </motion.div>
+                </m.div>
               )}
             </AnimatePresence>
 

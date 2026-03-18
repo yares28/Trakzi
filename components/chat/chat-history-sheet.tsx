@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { Trash2, MessageSquare, Clock, Loader2 } from "lucide-react"
-import { motion, AnimatePresence } from "framer-motion"
+import { m, AnimatePresence } from "framer-motion"
 import {
   Sheet,
   SheetContent,
@@ -91,7 +91,7 @@ export function ChatHistorySheet({ open, onClose, onLoad }: ChatHistorySheetProp
               </p>
             </div>
           ) : (
-            <motion.ul
+            <m.ul
               initial="hidden"
               animate="show"
               variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04 } } }}
@@ -99,7 +99,7 @@ export function ChatHistorySheet({ open, onClose, onLoad }: ChatHistorySheetProp
             >
               <AnimatePresence initial={false}>
                 {histories.map((h) => (
-                  <motion.li
+                  <m.li
                     key={h.id}
                     variants={{ hidden: { opacity: 0, x: 10 }, show: { opacity: 1, x: 0 } }}
                     exit={{ opacity: 0, x: 20, transition: { duration: 0.18 } }}
@@ -135,10 +135,10 @@ export function ChatHistorySheet({ open, onClose, onLoad }: ChatHistorySheetProp
                         )}
                       </button>
                     </button>
-                  </motion.li>
+                  </m.li>
                 ))}
               </AnimatePresence>
-            </motion.ul>
+            </m.ul>
           )}
         </div>
 

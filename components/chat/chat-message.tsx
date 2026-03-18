@@ -4,7 +4,7 @@ import React, { memo, useMemo, useState } from "react"
 import Image from "next/image"
 import { Response } from "@/components/ui/response"
 import { cn } from "@/lib/utils"
-import { motion, AnimatePresence } from "framer-motion"
+import { m, AnimatePresence } from "framer-motion"
 import { useUser } from "@clerk/nextjs"
 import { Check, Copy, RefreshCw } from "lucide-react"
 import { parseChartContent, hasChartMarkers } from "@/lib/chat/parse-chart-spec"
@@ -17,14 +17,14 @@ function StreamingText({ content }: { content: string }) {
     // overflow-x:hidden clips the blur bleed that causes horizontal scrollbars
     <span className="whitespace-pre-wrap break-words block overflow-x-hidden">
       {tokens.map((token, i) => (
-        <motion.span
+        <m.span
           key={i}
           initial={{ opacity: 0, filter: "blur(6px)" }}
           animate={{ opacity: 1, filter: "blur(0px)" }}
           transition={{ duration: 0.3, ease: "easeOut" }}
         >
           {token}
-        </motion.span>
+        </m.span>
       ))}
     </span>
   )
@@ -110,7 +110,7 @@ export const ChatMessage = memo(function ChatMessage({
   }
 
   return (
-    <motion.div
+    <m.div
       layout="position"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -171,21 +171,21 @@ export const ChatMessage = memo(function ChatMessage({
           ) : (
             <AnimatePresence mode="wait" initial={false}>
               {isStreaming && content ? (
-                <motion.div
+                <m.div
                   key="streaming"
                   exit={{ opacity: 0, transition: { duration: 0.12 } }}
                 >
                   <StreamingText content={content} />
-                </motion.div>
+                </m.div>
               ) : (
-                <motion.div
+                <m.div
                   key="settled"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.2, ease: "easeOut" }}
                 >
                   <RenderedContent content={content} />
-                </motion.div>
+                </m.div>
               )}
             </AnimatePresence>
           )}
@@ -214,13 +214,13 @@ export const ChatMessage = memo(function ChatMessage({
               >
                 <AnimatePresence mode="wait" initial={false}>
                   {copied ? (
-                    <motion.span key="check" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                    <m.span key="check" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
                       <Check className="h-3 w-3 text-green-500" />
-                    </motion.span>
+                    </m.span>
                   ) : (
-                    <motion.span key="copy" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                    <m.span key="copy" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
                       <Copy className="h-3 w-3" />
-                    </motion.span>
+                    </m.span>
                   )}
                 </AnimatePresence>
               </button>
@@ -238,7 +238,7 @@ export const ChatMessage = memo(function ChatMessage({
           )}
         </div>
       </div>
-    </motion.div>
+    </m.div>
   )
 })
 
