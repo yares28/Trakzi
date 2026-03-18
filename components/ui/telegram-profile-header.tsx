@@ -23,6 +23,51 @@ function getInitials(name: string) {
     .slice(0, 2);
 }
 
+interface AvatarContentProps {
+  hasImage: boolean;
+  avatar: string | null | undefined;
+  name: string;
+  bgColor: string;
+  initials: string;
+  size?: string;
+  textSize?: string;
+}
+
+const AvatarContent = React.memo(function AvatarContent({
+  hasImage,
+  avatar,
+  name,
+  bgColor,
+  initials,
+  size,
+  textSize,
+}: AvatarContentProps) {
+  return hasImage ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={avatar!}
+      alt={name}
+      className="pointer-events-none h-full w-full object-cover"
+    />
+  ) : (
+    <div
+      className={cn(
+        "flex items-center justify-center h-full w-full select-none",
+        size
+      )}
+      style={{ backgroundColor: bgColor }}
+    >
+      <span
+        className={cn("text-white font-bold", textSize || "text-2xl")}
+      >
+        {initials}
+      </span>
+    </div>
+  );
+});
+
+AvatarContent.displayName = "AvatarContent";
+
 export interface TelegramHeaderProps {
   avatar?: string | null;
   name: string;
@@ -47,39 +92,9 @@ export function TelegramHeader({
   },
 }: TelegramHeaderProps) {
   const [expand, setExpand] = React.useState(false);
-  const hasImage = avatar && avatar.length > 0;
+  const hasImage = !!(avatar && avatar.length > 0);
   const bgColor = getColorFromName(name);
   const initials = getInitials(name);
-
-  const AvatarContent = ({
-    size,
-    textSize,
-  }: {
-    size?: string;
-    textSize?: string;
-  }) =>
-    hasImage ? (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={avatar!}
-        alt={name}
-        className="pointer-events-none h-full w-full object-cover"
-      />
-    ) : (
-      <div
-        className={cn(
-          "flex items-center justify-center h-full w-full select-none",
-          size
-        )}
-        style={{ backgroundColor: bgColor }}
-      >
-        <span
-          className={cn("text-white font-bold", textSize || "text-2xl")}
-        >
-          {initials}
-        </span>
-      </div>
-    );
 
   return (
     <MotionConfig
@@ -125,7 +140,7 @@ export function TelegramHeader({
             borderRadius: 34,
           }}
         >
-          <AvatarContent textSize="text-2xl" />
+          <AvatarContent hasImage={hasImage} avatar={avatar} name={name} bgColor={bgColor} initials={initials} textSize="text-2xl" />
         </motion.button>
 
         <motion.div
@@ -163,7 +178,7 @@ export function TelegramHeader({
               style={{ borderRadius: 0 }}
               onClick={() => setExpand(!expand)}
             >
-              <AvatarContent textSize="text-6xl" />
+              <AvatarContent hasImage={hasImage} avatar={avatar} name={name} bgColor={bgColor} initials={initials} textSize="text-6xl" />
               <motion.div className="absolute bottom-0 left-0 h-24 w-full bg-gradient-to-t from-black/50 to-transparent" />
             </motion.button>
           )}
