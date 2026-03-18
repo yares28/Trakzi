@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react"
+import useSWR from "swr"
 import { useTheme } from "next-themes"
 import type {
   HomePreferences,
@@ -353,77 +354,69 @@ export function UserPreferencesProvider({
   const readyToSaveRef = useRef(false)
 
   // ------------------------------------------------------------------
-  // Mount: load localStorage → fetch API → reconcile
+  // Mount: load localStorage immediately, then sync with server via SWR
   // ------------------------------------------------------------------
+
+  // Step 1: load localStorage on mount (synchronous side-effect).
   useEffect(() => {
-    let cancelled = false
-
-    async function init() {
-      // 1. Read localStorage immediately.
-      const localPrefs = loadAllFromLocalStorage()
-      if (!cancelled) {
-        setPreferences(localPrefs)
-        latestRef.current = localPrefs
-      }
-
-      // 2. Fetch from server.
-      const attemptServerSync = async (attempt = 0): Promise<void> => {
-        try {
-          const res = await fetch("/api/user-preferences")
-          if (!res.ok) throw new Error(`HTTP ${res.status}`)
-
-          const data = await res.json()
-          const dbPrefs: UserPreferences = data?.preferences ?? {}
-
-          if (cancelled) return
-
-          const dbHasData = Object.keys(dbPrefs).length > 0
-          const currentLocal = latestRef.current
-          const localHasData = Object.keys(currentLocal).length > 0
-
-          if (dbHasData) {
-            // DB is source of truth.
-            setPreferences(dbPrefs)
-            latestRef.current = dbPrefs
-            saveAllToLocalStorage(dbPrefs)
-          } else if (localHasData) {
-            // First-time migration: push localStorage → DB.
-            await fetch("/api/user-preferences", {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ preferences: currentLocal }),
-            })
-            localStorage.setItem(LS_KEYS.migrated, "true")
-          }
-
-          if (!cancelled) setIsServerSynced(true)
-        } catch {
-          // Retry once after a short delay (handles auth not ready on mount).
-          if (attempt < 1 && !cancelled) {
-            await new Promise((r) => setTimeout(r, 2000))
-            return attemptServerSync(attempt + 1)
-          }
-          // After retries exhausted — localStorage-only mode.
-        }
-      }
-
-      await attemptServerSync()
-
-      if (!cancelled) {
-        setIsLoaded(true)
-        // Allow save writes on the NEXT tick so the state from the API
-        // response has settled and won't trigger a redundant save.
-        requestAnimationFrame(() => {
-          readyToSaveRef.current = true
-        })
-      }
-    }
-
-    init()
-    return () => {
-      cancelled = true
-    }
+    const localPrefs = loadAllFromLocalStorage()
+    setPreferences(localPrefs)
+    latestRef.current = localPrefs
   }, [])
+
+  // Step 2: fetch server preferences via SWR (once, no revalidation to avoid
+  // overwriting preferences mid-session).
+  const { data: serverData, error: serverError } = useSWR<{ preferences: UserPreferences }>(
+    "/api/user-preferences",
+    (url: string) => fetch(url).then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      return r.json()
+    }),
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      shouldRetryOnError: true,
+      errorRetryCount: 1,
+      errorRetryInterval: 2000,
+    }
+  )
+
+  // Step 3: reconcile server data with local state once server responds.
+  useEffect(() => {
+    if (serverData === undefined && serverError === undefined) return // still loading
+
+    if (serverData) {
+      const dbPrefs: UserPreferences = serverData.preferences ?? {}
+      const dbHasData = Object.keys(dbPrefs).length > 0
+      const currentLocal = latestRef.current
+      const localHasData = Object.keys(currentLocal).length > 0
+
+      if (dbHasData) {
+        // DB is source of truth.
+        setPreferences(dbPrefs)
+        latestRef.current = dbPrefs
+        saveAllToLocalStorage(dbPrefs)
+      } else if (localHasData) {
+        // First-time migration: push localStorage → DB.
+        fetch("/api/user-preferences", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ preferences: currentLocal }),
+        }).catch(() => {/* ignore migration errors */})
+        localStorage.setItem(LS_KEYS.migrated, "true")
+      }
+
+      setIsServerSynced(true)
+    }
+    // serverError case: localStorage-only mode — just mark loaded.
+
+    setIsLoaded(true)
+    // Allow save writes on the NEXT tick so the state from the API
+    // response has settled and won't trigger a redundant save.
+    requestAnimationFrame(() => {
+      readyToSaveRef.current = true
+    })
+  }, [serverData, serverError])
 
   // ------------------------------------------------------------------
   // Debounced save to server

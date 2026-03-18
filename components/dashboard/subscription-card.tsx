@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import useSWR from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -260,10 +261,44 @@ function PlanCard({
     );
 }
 
+const subscriptionFetcher = (url: string): Promise<SubscriptionStatus> =>
+    fetch(url).then(r => {
+        if (!r.ok) throw new Error("Failed to fetch");
+        return r.json();
+    }).then(data => ({
+        plan: data.plan,
+        status: data.status,
+        limits: {
+            maxTotalTransactions: data.limits?.max_total_transactions ?? 400,
+            aiChatEnabled: data.limits?.ai_chat_enabled ?? true,
+            aiChatMessages: data.limits?.ai_chat_messages ?? 10,
+            aiChatPeriod: data.limits?.ai_chat_period ?? 'week',
+            aiInsightsEnabled: data.limits?.ai_insights_enabled ?? false,
+            customTransactionCategoriesLimit: 10,
+            customFridgeCategoriesLimit: 10,
+        },
+        usage: {
+            bankTransactions: data.usage?.bank_transactions || 0,
+            fridgeItems: data.usage?.receipt_trips || 0,
+            totalTransactions: data.used_total || 0,
+            transactionLimit: data.cap === -1 ? Infinity : (data.cap || 300),
+            percentUsed: data.cap > 0 && data.cap !== -1
+                ? Math.round((data.used_total / data.cap) * 100)
+                : 0,
+        },
+        subscription: {
+            currentPeriodEnd: data.current_period_end,
+            cancelAtPeriodEnd: data.cancel_at_period_end,
+            pendingPlan: data.pending_plan,
+        },
+    }));
+
 export function SubscriptionCard() {
-    const [status, setStatus] = useState<SubscriptionStatus | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { data: status, isLoading, error: swrError, mutate } = useSWR<SubscriptionStatus>(
+        "/api/subscription/me",
+        subscriptionFetcher
+    );
+    const error = swrError ? "Unable to load subscription info" : null;
     const [isManaging, setIsManaging] = useState(false);
 
     // Confirmation dialog states
@@ -279,51 +314,6 @@ export function SubscriptionCard() {
         transactionsToDelete: number;
         willExceed: boolean;
     } | null>(null);
-
-    useEffect(() => {
-        async function fetchStatus() {
-            try {
-                // Use /api/subscription/me which returns pendingPlan and usage data
-                const response = await fetch("/api/subscription/me");
-                if (!response.ok) throw new Error("Failed to fetch");
-                const data = await response.json();
-
-                // Transform response to expected format
-                setStatus({
-                    plan: data.plan,
-                    status: data.status,
-                    limits: {
-                        maxTotalTransactions: data.limits?.max_total_transactions ?? 400,
-                        aiChatEnabled: data.limits?.ai_chat_enabled ?? true,
-                        aiChatMessages: data.limits?.ai_chat_messages ?? 10,
-                        aiChatPeriod: data.limits?.ai_chat_period ?? 'week',
-                        aiInsightsEnabled: data.limits?.ai_insights_enabled ?? false,
-                        customTransactionCategoriesLimit: 10,
-                        customFridgeCategoriesLimit: 10,
-                    },
-                    usage: {
-                        bankTransactions: data.usage?.bank_transactions || 0,
-                        fridgeItems: data.usage?.receipt_trips || 0,
-                        totalTransactions: data.used_total || 0,
-                        transactionLimit: data.cap === -1 ? Infinity : (data.cap || 300),
-                        percentUsed: data.cap > 0 && data.cap !== -1
-                            ? Math.round((data.used_total / data.cap) * 100)
-                            : 0,
-                    },
-                    subscription: {
-                        currentPeriodEnd: data.current_period_end,
-                        cancelAtPeriodEnd: data.cancel_at_period_end,
-                        pendingPlan: data.pending_plan,
-                    },
-                });
-            } catch (err) {
-                setError("Unable to load subscription info");
-            } finally {
-                setIsLoading(false);
-            }
-        }
-        fetchStatus();
-    }, []);
 
     // Fetch cancel preview (how many transactions will be deleted)
     const fetchCancelPreview = async () => {
@@ -440,40 +430,7 @@ export function SubscriptionCard() {
 
     // Helper to refresh subscription status
     const refreshStatus = async () => {
-        try {
-            const response = await fetch("/api/subscription/me");
-            if (!response.ok) return;
-            const data = await response.json();
-            setStatus({
-                plan: data.plan,
-                status: data.status,
-                limits: {
-                    maxTotalTransactions: data.limits?.max_total_transactions ?? 400,
-                    aiChatEnabled: data.limits?.ai_chat_enabled ?? true,
-                    aiChatMessages: data.limits?.ai_chat_messages ?? 10,
-                    aiChatPeriod: data.limits?.ai_chat_period ?? 'week',
-                    aiInsightsEnabled: data.limits?.ai_insights_enabled ?? false,
-                    customTransactionCategoriesLimit: 10,
-                    customFridgeCategoriesLimit: 10,
-                },
-                usage: {
-                    bankTransactions: data.usage?.bank_transactions || 0,
-                    fridgeItems: data.usage?.receipt_trips || 0,
-                    totalTransactions: data.used_total || 0,
-                    transactionLimit: data.cap === -1 ? Infinity : (data.cap || 300),
-                    percentUsed: data.cap > 0 && data.cap !== -1
-                        ? Math.round((data.used_total / data.cap) * 100)
-                        : 0,
-                },
-                subscription: {
-                    currentPeriodEnd: data.current_period_end,
-                    cancelAtPeriodEnd: data.cancel_at_period_end,
-                    pendingPlan: data.pending_plan,
-                },
-            });
-        } catch (err) {
-            console.error("Failed to refresh status:", err);
-        }
+        await mutate();
     };
 
     const getPriceIdForPlan = (plan: PlanType): string | null => {
@@ -511,11 +468,7 @@ export function SubscriptionCard() {
                 window.location.href = data.url;
             } else if (data.success) {
                 toast.success(data.message || `Upgraded to ${targetPlan.toUpperCase()}!`);
-                const statusResponse = await fetch("/api/subscription/status");
-                if (statusResponse.ok) {
-                    const newStatus = await statusResponse.json();
-                    setStatus(newStatus);
-                }
+                await mutate();
             } else if (data.error) {
                 toast.error(data.error);
             } else {
@@ -552,11 +505,7 @@ export function SubscriptionCard() {
 
             if (data.success) {
                 toast.success(data.message || `Plan will change to ${targetPlan.toUpperCase()}`);
-                const statusResponse = await fetch("/api/subscription/status");
-                if (statusResponse.ok) {
-                    const newStatus = await statusResponse.json();
-                    setStatus(newStatus);
-                }
+                await mutate();
             } else if (data.error) {
                 toast.error(data.error);
             } else {
@@ -580,11 +529,7 @@ export function SubscriptionCard() {
 
             if (data.success) {
                 toast.success(data.message || "Subscription reactivated!");
-                const statusResponse = await fetch("/api/subscription/status");
-                if (statusResponse.ok) {
-                    const newStatus = await statusResponse.json();
-                    setStatus(newStatus);
-                }
+                await mutate();
             } else if (data.error) {
                 toast.error(data.error);
             } else {
