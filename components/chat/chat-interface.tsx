@@ -1,6 +1,7 @@
 "use client"
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import useSWR from "swr"
 import Image from "next/image"
 import { safeCapture } from "@/lib/posthog-safe"
 import { useSearchParams } from "next/navigation"
@@ -154,9 +155,13 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
 
   const [isLoading, setIsLoading] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [isLoadingStats, setIsLoadingStats] = useState(true)
-  const [chatUsage, setChatUsage] = useState<{ used: number; limit: number | null; resetsAt: string | null } | null>(null)
+
+  const chatFetcher = (url: string) => fetch(url).then(r => { if (!r.ok) throw new Error("Failed"); return r.json() })
+  const { data: stats, isLoading: isLoadingStats } = useSWR<DashboardStats>("/api/dashboard-stats", chatFetcher)
+  const { data: chatUsage, mutate: mutateChatUsage } = useSWR<{ used: number; limit: number | null; resetsAt: string | null }>(
+    "/api/ai/chat-usage",
+    chatFetcher
+  )
 
   // Feature 5: Chat History
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -207,21 +212,6 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
     } catch { /* ignore */ }
   }, [messages])
 
-  // Load dashboard stats + chat usage
-  useEffect(() => {
-    async function loadStats() {
-      try {
-        const [statsRes, usageRes] = await Promise.all([
-          fetch("/api/dashboard-stats"),
-          fetch("/api/ai/chat-usage"),
-        ])
-        if (statsRes.ok) setStats(await statsRes.json())
-        if (usageRes.ok) setChatUsage(await usageRes.json())
-      } catch { /* ignore */ }
-      finally { setIsLoadingStats(false) }
-    }
-    loadStats()
-  }, [])
 
   // Scroll direction detection on the conversation container
   const handleScroll = useCallback(() => {
@@ -252,11 +242,8 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
   }, [messages.length])
 
   const refreshChatUsage = useCallback(async () => {
-    try {
-      const res = await fetch("/api/ai/chat-usage")
-      if (res.ok) setChatUsage(await res.json())
-    } catch { /* ignore */ }
-  }, [])
+    await mutateChatUsage()
+  }, [mutateChatUsage])
 
   const stopStreaming = useCallback(() => {
     abortRef.current?.abort()

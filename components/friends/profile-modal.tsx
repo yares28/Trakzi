@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useRef } from "react"
+import useSWR from "swr"
 import { AnimatePresence, MotionConfig, motion } from "framer-motion"
 import { X, Lock, UserPlus, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -222,46 +223,37 @@ function MiniActivityRings({ rings }: { rings: RingDatum[] }) {
 
 // ── component ────────────────────────────────────────────────────────────────
 
+class ProfileFetchError extends Error {
+    status: number
+    constructor(status: number) {
+        super(`HTTP ${status}`)
+        this.status = status
+    }
+}
+
+const profileStatsFetcher = (url: string): Promise<ProfileStats> =>
+    fetch(url).then(async (res) => {
+        if (!res.ok) throw new ProfileFetchError(res.status)
+        return res.json()
+    })
+
 export function ProfileModal({ open, onOpenChange, user, onInvite }: ProfileModalProps) {
     const { isDemoMode } = useDemoMode()
     const { getPalette } = useColorScheme()
     const [expand, setExpand] = useState(false)
-    const [fetchedStats, setFetchedStats] = useState<ProfileStats | null>(null)
-    const [statsLoading, setStatsLoading] = useState(false)
-    const [isPrivateProfile, setIsPrivateProfile] = useState(false)
+
+    const userId = user ? String(user.id) : null
+    const shouldFetch = open && userId && userId !== 'self' && !isDemoMode
+    const { data: fetchedStats, isLoading: statsLoading, error: statsError } = useSWR<ProfileStats>(
+        shouldFetch ? `/api/users/${userId}/profile-stats` : null,
+        profileStatsFetcher
+    )
+    const isPrivateProfile = statsError instanceof ProfileFetchError && statsError.status === 403
 
     const handleOpenChange = (val: boolean) => {
-        if (!val) {
-            setExpand(false)
-            setFetchedStats(null)
-            setIsPrivateProfile(false)
-        }
+        if (!val) setExpand(false)
         onOpenChange(val)
     }
-
-    // Fetch all-time stats when modal opens
-    useEffect(() => {
-        if (!open || !user || isDemoMode) return
-        const userId = String(user.id)
-        if (!userId || userId === 'self') return
-
-        setStatsLoading(true)
-        setFetchedStats(null)
-        setIsPrivateProfile(false)
-
-        fetch(`/api/users/${userId}/profile-stats`)
-            .then(async (res) => {
-                if (res.status === 403) {
-                    setIsPrivateProfile(true)
-                    return
-                }
-                if (!res.ok) return
-                const data = await res.json()
-                setFetchedStats(data)
-            })
-            .catch(() => { })
-            .finally(() => setStatsLoading(false))
-    }, [open, user?.id, isDemoMode])
 
     // Pick palette accent colors
     const palette = getPalette()

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState, useRef, memo } from "react"
+import useSWR from "swr"
 import { ChevronDownIcon } from "lucide-react"
 import { ResponsiveSwarmPlot } from "@nivo/swarmplot"
 import { useTheme } from "next-themes"
@@ -30,7 +31,6 @@ import {
 import { formatDateForDisplay } from "@/lib/date"
 import { toNumericValue } from "@/lib/utils"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
-import { deduplicatedFetch } from "@/lib/request-deduplication"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
@@ -68,16 +68,51 @@ const getMaxCategoriesForWidth = (width: number): number => {
   return Infinity             // Large desktop: show all
 }
 
+const swarmFetcher = (url: string): Promise<ChartSwarmPlotDatum[]> =>
+  fetch(url).then(r => {
+    if (!r.ok) throw new Error("Failed to fetch")
+    return r.json()
+  })
+
+const categoriesFetcher = (url: string) =>
+  fetch(url).then(r => {
+    if (!r.ok) throw new Error("Failed to fetch categories")
+    return r.json()
+  })
+
 export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, emptyDescription }: ChartSwarmPlotProps) {
   const { resolvedTheme } = useTheme()
   const { getShuffledPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
-  const [remoteData, setRemoteData] = useState<ChartSwarmPlotDatum[]>([])
-  // Initialize loading to true only if data prop is not provided (undefined) - means we need to fetch
-  // If data prop is provided (even if empty array), parent is handling data, so don't show loading
-  const [isLoading, setIsLoading] = useState(data === undefined)
-  const [error, setError] = useState<string | null>(null)
-  const [categoryOptions, setCategoryOptions] = useState<string[]>([])
+
+  // Only fetch transaction history when no data prop is provided
+  const { data: swrData, isLoading: swrLoading, error: swrError } = useSWR<ChartSwarmPlotDatum[]>(
+    data === undefined ? "/api/charts/transaction-history" : null,
+    swarmFetcher
+  )
+  const remoteData: ChartSwarmPlotDatum[] = (data === undefined && Array.isArray(swrData)) ? swrData : []
+  const isLoading = data === undefined ? swrLoading : false
+  const error: string | null = swrError ? (swrError?.message || "Failed to load transactions") : null
+
+  // Fetch categories for filter options
+  const { data: categoriesRaw } = useSWR<{ name?: string; totalSpend?: number | string }[]>(
+    "/api/categories",
+    categoriesFetcher
+  )
+  const categoryOptions: string[] = useMemo(() => {
+    if (!Array.isArray(categoriesRaw)) return []
+    return categoriesRaw
+      .map((item) => ({
+        name: item.name,
+        totalSpend:
+          typeof item.totalSpend === "string"
+            ? parseFloat(item.totalSpend)
+            : Number(item.totalSpend ?? 0),
+      }))
+      .filter((item) => typeof item.name === "string" && item.name.trim().length > 0)
+      .sort((a, b) => b.totalSpend - a.totalSpend)
+      .map((item) => item.name!.trim())
+  }, [categoriesRaw])
   const [visibleGroups, setVisibleGroups] = useState<string[]>([])
   const [isGroupSelectorOpen, setIsGroupSelectorOpen] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -143,79 +178,6 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
     return trimmed || "Other"
   }
 
-  useEffect(() => {
-    // If data prop is provided (even if empty), parent is handling data fetching
-    // Only fetch if data prop is undefined
-    if (data !== undefined) {
-      setRemoteData([])
-      setError(null)
-      setIsLoading(false)
-      return
-    }
-
-    let cancelled = false
-
-    const loadData = async () => {
-      setIsLoading(true)
-      try {
-        const payload = await deduplicatedFetch<ChartSwarmPlotDatum[]>(
-          "/api/charts/transaction-history"
-        )
-        if (!cancelled && Array.isArray(payload)) {
-          setRemoteData(payload)
-          setError(null)
-        }
-      } catch (fetchError: any) {
-        if (!cancelled) {
-          setRemoteData([])
-          setError(fetchError?.message || "Failed to load transactions")
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false)
-        }
-      }
-    }
-
-    loadData()
-    return () => {
-      cancelled = true
-    }
-  }, [data])
-
-  useEffect(() => {
-    let cancelled = false
-    const fetchCategories = async () => {
-      try {
-        const response = await fetch("/api/categories")
-        if (!response.ok) {
-          return
-        }
-        const payload = await response.json()
-        if (!cancelled && Array.isArray(payload)) {
-          const sorted = payload
-            .map((item: { name?: string; totalSpend?: number | string }) => ({
-              name: item.name,
-              totalSpend:
-                typeof item.totalSpend === "string"
-                  ? parseFloat(item.totalSpend)
-                  : Number(item.totalSpend ?? 0),
-            }))
-            .filter((item) => typeof item.name === "string" && item.name.trim().length > 0)
-            .sort((a, b) => b.totalSpend - a.totalSpend)
-            .map((item) => item.name!.trim())
-          setCategoryOptions(sorted)
-        }
-      } catch (fetchError) {
-        console.error("[ChartSwarmPlot] Failed to load categories:", fetchError)
-      }
-    }
-
-    fetchCategories()
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   const sourceData = data && data.length > 0 ? data : remoteData
 

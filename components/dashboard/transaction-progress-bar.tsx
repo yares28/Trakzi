@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import useSWR, { mutate as globalMutate } from "swr";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -64,15 +65,23 @@ function getPlanBadgeStyle(plan: string) {
     }
 }
 
+const noStoreFetcher = (url: string) =>
+    fetch(url, { cache: "no-store" }).then(r => {
+        if (!r.ok) throw new Error("Failed to fetch");
+        return r.json();
+    });
+
 export function TransactionProgressBar({
     spendingTransactions: propSpending,
     groceryTransactions: propGrocery,
     maxTransactions: propMax,
     className,
 }: TransactionProgressBarProps) {
-    const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
-    const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
-    const [categoryData, setCategoryData] = useState<{
+    const { data: subscriptionData, isLoading: subLoading } = useSWR<SubscriptionData>(
+        "/api/subscription/status",
+        noStoreFetcher
+    );
+    const { data: categoryData, isLoading: catLoading } = useSWR<{
         transactions: number;
         receipts: number;
         total: number;
@@ -83,54 +92,31 @@ export function TransactionProgressBar({
             receiptRemaining: number;
         };
         plan: string;
-    } | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    }>("/api/categories/count", noStoreFetcher);
+    const { data: walletRaw, isLoading: walletLoading } = useSWR<{
+        monthlyBonusEarned?: number;
+        monthlyAvailable?: number;
+        monthlyUsed?: number;
+    }>("/api/transactions/wallet", noStoreFetcher);
 
-    // Fetch subscription and category data on mount
-    useEffect(() => {
-        async function fetchData() {
-            try {
-                setIsLoading(true);
-
-                // Fetch all three in parallel — no-store so prod never uses cached counts
-                const [subResponse, catResponse, walletResponse] = await Promise.all([
-                    fetch("/api/subscription/status", { cache: "no-store" }),
-                    fetch("/api/categories/count", { cache: "no-store" }),
-                    fetch("/api/transactions/wallet", { cache: "no-store" }),
-                ]);
-
-                if (subResponse.ok) {
-                    const subData = await subResponse.json();
-                    setSubscriptionData(subData);
-                }
-
-                if (catResponse.ok) {
-                    const catData = await catResponse.json();
-                    setCategoryData(catData);
-                }
-
-                if (walletResponse.ok) {
-                    const walletData = await walletResponse.json();
-                    setWalletInfo({
-                        monthlyBonusEarned: walletData.monthlyBonusEarned ?? 0,
-                        monthlyAvailable: walletData.monthlyAvailable ?? 0,
-                        monthlyUsed: walletData.monthlyUsed ?? 0,
-                    });
-                }
-            } catch (error) {
-                console.error("Failed to fetch data:", error);
-            } finally {
-                setIsLoading(false);
-            }
+    const walletInfo: WalletInfo | null = walletRaw
+        ? {
+            monthlyBonusEarned: walletRaw.monthlyBonusEarned ?? 0,
+            monthlyAvailable: walletRaw.monthlyAvailable ?? 0,
+            monthlyUsed: walletRaw.monthlyUsed ?? 0,
         }
-        fetchData();
+        : null;
 
-        // Listen for subscription change events
+    const isLoading = subLoading || catLoading || walletLoading;
+
+    // Listen for subscription change events and revalidate
+    useEffect(() => {
         const handleSubscriptionChange = () => {
-            fetchData();
+            globalMutate("/api/subscription/status");
+            globalMutate("/api/categories/count");
+            globalMutate("/api/transactions/wallet");
         };
         window.addEventListener('subscription-changed', handleSubscriptionChange);
-
         return () => {
             window.removeEventListener('subscription-changed', handleSubscriptionChange);
         };
