@@ -36,6 +36,43 @@ interface MonthlyData {
     [key: string]: string | number
 }
 
+interface GroceryVsRestaurantInfoTriggerProps {
+    totals: { homeFood: number; outsideFood: number }
+    dataLength: number
+}
+
+const GroceryVsRestaurantInfoTrigger = React.memo(function GroceryVsRestaurantInfoTrigger({
+    totals,
+    dataLength,
+}: GroceryVsRestaurantInfoTriggerProps) {
+    return (
+        <div className="flex flex-col items-center gap-2">
+            <ChartInfoPopover
+                title="Home Food vs Outside Food"
+                details={[
+                    "This chart shows spending from your transaction categories, not receipt items.",
+                    "Home Food: Grocery/Groceries/Supermarket categories.",
+                    "Outside Food: Restaurant/Dining/Food/Eating Out/Delivery/Takeout categories.",
+                    "Each bar shows a month, with home and outside food stacked for comparison.",
+                ]}
+                ignoredFootnote="Only expense transactions (amount < 0) are included."
+            />
+            <ChartAiInsightButton
+                chartId="fridge:groceryVsRestaurant"
+                chartTitle="Home Food vs Outside Food"
+                chartData={{
+                    totalHomeFood: totals.homeFood,
+                    totalOutsideFood: totals.outsideFood,
+                    months: dataLength,
+                }}
+                size="sm"
+            />
+        </div>
+    )
+})
+
+GroceryVsRestaurantInfoTrigger.displayName = "GroceryVsRestaurantInfoTrigger"
+
 export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVsRestaurantFridge({ dateFilter, groceryVsRestaurantData }: ChartGroceryVsRestaurantFridgeProps) {
     const { resolvedTheme } = useTheme()
     const { getShuffledPalette } = useColorScheme()
@@ -110,31 +147,6 @@ export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVs
         return { homeFood, outsideFood }
     }, [data])
 
-    const renderInfoTrigger = () => (
-        <div className="flex flex-col items-center gap-2">
-            <ChartInfoPopover
-                title="Home Food vs Outside Food"
-                details={[
-                    "This chart shows spending from your transaction categories, not receipt items.",
-                    "Home Food: Grocery/Groceries/Supermarket categories.",
-                    "Outside Food: Restaurant/Dining/Food/Eating Out/Delivery/Takeout categories.",
-                    "Each bar shows a month, with home and outside food stacked for comparison.",
-                ]}
-                ignoredFootnote="Only expense transactions (amount < 0) are included."
-            />
-            <ChartAiInsightButton
-                chartId="fridge:groceryVsRestaurant"
-                chartTitle="Home Food vs Outside Food"
-                chartData={{
-                    totalHomeFood: totals.homeFood,
-                    totalOutsideFood: totals.outsideFood,
-                    months: data.length,
-                }}
-                size="sm"
-            />
-        </div>
-    )
-
     if (!mounted || isLoading) {
         return (
             <Card className="@container/card">
@@ -149,7 +161,7 @@ export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVs
                         <CardTitle>Home Food vs Outside Food</CardTitle>
                     </div>
                     <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                        {renderInfoTrigger()}
+                        <GroceryVsRestaurantInfoTrigger totals={totals} dataLength={data.length} />
                     </CardAction>
                 </CardHeader>
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
@@ -178,7 +190,7 @@ export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVs
                 <CardDescription>
                 </CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                    {renderInfoTrigger()}
+                    <GroceryVsRestaurantInfoTrigger totals={totals} dataLength={data.length} />
                 </CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">

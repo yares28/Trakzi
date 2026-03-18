@@ -56,6 +56,28 @@ const HOUR_LABELS = [
     "6PM", "7PM", "8PM", "9PM", "10PM", "11PM"
 ]
 
+function parseReceiptHour(value?: string | null) {
+    if (!value) return null
+    const normalized = value.trim().toLowerCase()
+    if (!normalized) return null
+
+    const match = normalized.match(/(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?\s*(am|pm)?/)
+    if (!match) return null
+
+    let hour = parseInt(match[1], 10)
+    if (Number.isNaN(hour)) return null
+
+    const meridiem = match[4]
+    if (meridiem) {
+        if (meridiem === "pm" && hour < 12) hour += 12
+        if (meridiem === "am" && hour === 12) hour = 0
+    }
+
+    if (hour === 24) hour = 0
+    if (hour < 0 || hour > 23) return null
+    return hour
+}
+
 interface TimeOfDayInfoTriggerProps {
     processedData: Array<{ hour: number; trips: number; spending: number }>
     missingTimeReceiptCount: number
@@ -110,28 +132,6 @@ const TimeOfDayInfoTrigger = React.memo(function TimeOfDayInfoTrigger({
 })
 
 TimeOfDayInfoTrigger.displayName = "TimeOfDayInfoTrigger"
-
-function parseReceiptHour(value?: string | null) {
-    if (!value) return null
-    const normalized = value.trim().toLowerCase()
-    if (!normalized) return null
-
-    const match = normalized.match(/(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?\s*(am|pm)?/)
-    if (!match) return null
-
-    let hour = parseInt(match[1], 10)
-    if (Number.isNaN(hour)) return null
-
-    const meridiem = match[4]
-    if (meridiem) {
-        if (meridiem === "pm" && hour < 12) hour += 12
-        if (meridiem === "am" && hour === 12) hour = 0
-    }
-
-    if (hour === 24) hour = 0
-    if (hour < 0 || hour > 23) return null
-    return hour
-}
 
 export const ChartTimeOfDayShoppingFridge = React.memo(function ChartTimeOfDayShoppingFridge({ receiptTransactions = [], hourlyActivityData, isLoading = false }: ChartTimeOfDayShoppingFridgeProps) {
     const { resolvedTheme } = useTheme()
