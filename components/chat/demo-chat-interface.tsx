@@ -160,7 +160,7 @@ export function DemoChatInterface() {
         timeoutsRef.current = []
 
         MESSAGE_DELAYS.forEach((delay, i) => {
-            const t = setTimeout(() => setVisibleCount(i + 1), delay)
+            const t = setTimeout(() => setVisibleCount(() => i + 1), delay)
             timeoutsRef.current.push(t)
         })
 

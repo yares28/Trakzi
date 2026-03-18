@@ -79,7 +79,7 @@ export default function Features() {
                   borderColor: "rgba(231, 138, 83, 0.6)",
                   boxShadow: "0 0 30px rgba(231, 138, 83, 0.2)",
                 }}
-                style={{ transition: "all 0s ease-in-out" }}
+                style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4">
                   <h3 className="text-2xl leading-none font-semibold tracking-tight">{"All-in-1 budgeting app"}</h3>
@@ -163,7 +163,7 @@ export default function Features() {
                             { icon: "🛒", label: "Grocery Budget" },
                           ].map((item, index) => (
                             <m.div
-                              key={`left-${index}`}
+                              key={`left-${item.label}`}
                               className="bg-white rounded px-3 py-2 flex items-center gap-2 text-black text-sm font-medium shadow-sm"
                               initial={{ opacity: 1, x: 0 }}
                               animate={isCliHovering ? { x: [-20, 0] } : { x: 0 }}
@@ -204,7 +204,7 @@ export default function Features() {
                             { icon: "📊", label: "Any Chart" },
                           ].map((item, index) => (
                             <m.div
-                              key={`right-${index}`}
+                              key={`right-${item.label}`}
                               className="bg-white rounded px-3 py-2 flex items-center gap-2 text-black text-sm font-medium shadow-sm"
                               initial={{ opacity: 1, x: 0 }}
                               animate={isCliHovering ? { x: [20, 0] } : { x: 0 }}
@@ -269,7 +269,7 @@ export default function Features() {
                   borderColor: "rgba(231, 138, 83, 0.6)",
                   boxShadow: "0 0 30px rgba(231, 138, 83, 0.2)",
                 }}
-                style={{ transition: "all 0s ease-in-out" }}
+                style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4">
                   <h3 className="text-2xl leading-none font-semibold tracking-tight">Globally Usable</h3>
@@ -323,7 +323,7 @@ export default function Features() {
                   borderColor: "rgba(231, 138, 83, 0.5)",
                   boxShadow: "0 0 30px rgba(231, 138, 83, 0.2)",
                 }}
-                style={{ transition: "all 0s ease-in-out" }}
+                style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4">
                   <h3 className="text-2xl leading-none font-semibold tracking-tight">{"AI integrated"}</h3>
@@ -419,7 +419,7 @@ export default function Features() {
                   boxShadow: "0 20px 40px rgba(231, 138, 83, 0.3)",
                   borderColor: "rgba(231, 138, 83, 0.6)",
                 }}
-                style={{ transition: "all 0s ease-in-out" }}
+                style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4">
                   <h3 className="text-2xl leading-none font-semibold tracking-tight">Dynamic Layouts</h3>
@@ -452,7 +452,7 @@ export default function Features() {
                   borderColor: "rgba(231, 138, 83, 0.6)",
                   boxShadow: "0 0 30px rgba(231, 138, 83, 0.2)",
                 }}
-                style={{ transition: "all 0s ease-in-out" }}
+                style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4">
                   <h3 className="text-2xl leading-none font-semibold tracking-tight">Advanced Analytics</h3>
@@ -478,7 +478,7 @@ export default function Features() {
                   borderColor: "rgba(231, 138, 83, 0.6)",
                   boxShadow: "0 0 30px rgba(231, 138, 83, 0.2)",
                 }}
-                style={{ transition: "all 0s ease-in-out" }}
+                style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4">
                   <h3 className="text-2xl leading-none font-semibold tracking-tight">More features to discover</h3>

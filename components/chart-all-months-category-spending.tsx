@@ -419,10 +419,8 @@ export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCatego
       .sort()
   }, [processedData])
 
-  const categoryControls = useMemo(() => {
-    // Use propCategoryControls if provided
-    return propCategoryControls
-  }, [propCategoryControls])
+  // Use propCategoryControls if provided
+  const categoryControls = propCategoryControls
 
   const categoryColors = useMemo(() => {
     const colorMap = new Map<string, string>()
@@ -938,8 +936,8 @@ export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCatego
                     <div className="border-t border-border/60 pt-1.5 mb-1.5">
                       {tooltip.breakdown
                         .sort((a, b) => b.amount - a.amount)
-                        .map((item, idx) => (
-                          <div key={idx} className="flex justify-between gap-3 mb-1">
+                        .map((item) => (
+                          <div key={item.category} className="flex justify-between gap-3 mb-1">
                             <span className="text-foreground/80">{item.category}:</span>
                             <span className="font-semibold text-foreground">
                               {formatCurrency(item.amount)}

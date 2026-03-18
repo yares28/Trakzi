@@ -337,9 +337,7 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
       .map(([name]) => name)
   }, [sanitizedData])
 
-  const combinedCategoryOptions = useMemo(() => {
-    return categoryOptions.length > 0 ? categoryOptions : fallbackCategoryOptions
-  }, [categoryOptions, fallbackCategoryOptions])
+  const combinedCategoryOptions = categoryOptions.length > 0 ? categoryOptions : fallbackCategoryOptions
 
   const chartGroups = useMemo(() => {
     // Get categories that actually have transactions in sanitizedData

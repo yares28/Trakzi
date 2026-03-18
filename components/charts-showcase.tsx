@@ -103,15 +103,16 @@ function LineChartAnimation() {
             cx={point.x}
             cy={point.y}
             fill={orangeColors.primary}
-            initial={{ scale: 0, r: 3 }}
+            initial={{ scale: 0.95, opacity: 0, r: 3 }}
             animate={
               animate
                 ? {
                   scale: 1,
+                  opacity: 1,
                   r: isHovering ? 5 : 3,
                   y: isHovering ? point.y - 3 : point.y,
                 }
-                : { scale: 0 }
+                : { scale: 0.95, opacity: 0 }
             }
             transition={{ delay: isHovering ? i * 0.05 : 0.3 + i * 0.1, duration: 0.3 }}
           />
@@ -381,7 +382,7 @@ function ScatterChartAnimation() {
               cx={point.x}
               cy={point.y}
               fill={ds.color}
-              initial={{ scale: 0, opacity: 0, r: 4 }}
+              initial={{ scale: 0.95, opacity: 0, r: 4 }}
               animate={
                 animate
                   ? {
@@ -389,7 +390,7 @@ function ScatterChartAnimation() {
                     opacity: 0.85,
                     r: isHovering ? [4, 6, 4] : 4,
                   }
-                  : { scale: 0, opacity: 0 }
+                  : { scale: 0.95, opacity: 0 }
               }
               transition={{
                 delay: dsIndex * 0.2 + i * 0.08,
@@ -536,8 +537,8 @@ function HeatMapAnimation() {
                 key={index}
                 className="w-full h-4 rounded-sm cursor-pointer"
                 style={{ backgroundColor: getColor(value) }}
-                initial={{ scale: 0, opacity: 0 }}
-                animate={animate ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={animate ? { scale: 1, opacity: 1 } : { scale: 0.95, opacity: 0 }}
                 whileHover={{ scale: 1.3 }}
                 transition={{
                   delay: index * 0.02,

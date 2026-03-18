@@ -288,9 +288,7 @@ export const ChartRadar = memo(function ChartRadar({
   }, [sanitizedData])
 
   // All capabilities are filterable (Income, Expenses, and spending categories)
-  const filterableCapabilities = useMemo(() => {
-    return capabilities
-  }, [capabilities])
+  const filterableCapabilities = capabilities
 
   // Calculate top 7 spending categories by total expense across all years
   const topSpendingCategories = useMemo(() => {

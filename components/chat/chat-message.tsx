@@ -219,11 +219,11 @@ export const ChatMessage = memo(function ChatMessage({
               >
                 <AnimatePresence mode="wait" initial={false}>
                   {copied ? (
-                    <m.span key="check" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                    <m.span key="check" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}>
                       <Check className="h-3 w-3 text-green-500" />
                     </m.span>
                   ) : (
-                    <m.span key="copy" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                    <m.span key="copy" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}>
                       <Copy className="h-3 w-3" />
                     </m.span>
                   )}
