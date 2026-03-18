@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useRef, memo } from "react"
 import useSWR from "swr"
 import { ChevronDownIcon } from "lucide-react"
 import { ResponsiveSwarmPlot } from "@nivo/swarmplot"
+import type { PartialTheme } from "@nivo/theming"
 import { useTheme } from "next-themes"
 import { getChartTextColor } from "@/lib/chart-colors"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
@@ -115,7 +116,7 @@ interface SwarmChartContentProps {
   visibleGroups: string[]
   chartGroups: string[]
   dynamicValueScale: { type: "linear"; min: number; max: number; nice: boolean }
-  swarmTheme: object
+  swarmTheme: PartialTheme
   formatCurrency: (value: number) => string
 }
 
