@@ -147,7 +147,7 @@ const PodiumSlot = memo(function PodiumSlot({ friend, rank, score, unitLabel, us
                 </Badge>
             </div>
             <span className={cn(sizeClasses.text, "truncate max-w-[60px] sm:max-w-none")}>{friend.name === "You" ? "You" : friend.name.split(" ")[0]}</span>
-            <span className={sizeClasses.score}>{score}{unitLabel}</span>
+            <span className={sizeClasses.score}>{score}</span>
         </div>
     )
 })
