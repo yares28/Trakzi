@@ -12,7 +12,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardFooter,
 } from "@/components/ui/card"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
@@ -54,6 +53,129 @@ interface ChartRadarProps {
   emptyTitle?: string
   emptyDescription?: string
 }
+
+// ─── Extracted sub-components ────────────────────────────────────────────────
+
+interface RadarInfoTriggerProps {
+  forFullscreen?: boolean
+  categoryControls?: ChartInfoPopoverCategoryControls
+  yearSummaries: FinancialHealthYearSummary[]
+  effectiveVisibleCapabilities: string[]
+}
+
+const RadarInfoTrigger = memo(function RadarInfoTrigger({
+  forFullscreen = false,
+  categoryControls,
+  yearSummaries,
+  effectiveVisibleCapabilities,
+}: RadarInfoTriggerProps) {
+  return (
+    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
+      <ChartInfoPopover
+        title="Financial Health Score"
+        description="Assessment of your financial wellness"
+        details={[
+          "The radar compares income, expenses, and your top spending categories year over year.",
+          "By default, Income, Expenses, and the top 7 spending categories are shown. You can toggle any category using the filter."
+        ]}
+        ignoredFootnote="We surface at most three years of history."
+        categoryControls={categoryControls}
+      />
+      <ChartAiInsightButton
+        chartId="financialHealthScore"
+        chartTitle="Financial Health Score"
+        chartDescription="Radar chart showing financial health metrics including income, expenses, and spending categories across years."
+        chartData={{
+          years: yearSummaries.map(s => s.year),
+          yearSummaries: yearSummaries,
+          categories: effectiveVisibleCapabilities,
+          categoriesCount: effectiveVisibleCapabilities.length
+        }}
+        size="sm"
+      />
+    </div>
+  )
+})
+RadarInfoTrigger.displayName = "RadarInfoTrigger"
+
+interface RadarLegendEntry {
+  id: string
+  label: string
+  color: string
+}
+
+interface RadarMobileLegendProps {
+  legendEntries: RadarLegendEntry[]
+}
+
+const RadarMobileLegend = memo(function RadarMobileLegend({ legendEntries }: RadarMobileLegendProps) {
+  return (
+    <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground mt-1">
+      {legendEntries.map((entry) => (
+        <div key={entry.id} className="flex items-center gap-1.5">
+          <span
+            className="h-2.5 w-2.5 rounded-full shrink-0"
+            style={{ backgroundColor: entry.color }}
+          />
+          <span className="font-medium text-foreground">{entry.label}</span>
+        </div>
+      ))}
+    </div>
+  )
+})
+RadarMobileLegend.displayName = "RadarMobileLegend"
+
+interface RadarStatusCardProps {
+  categoryControls?: ChartInfoPopoverCategoryControls
+  yearSummaries: FinancialHealthYearSummary[]
+  effectiveVisibleCapabilities: string[]
+  emptyTitle?: string
+  emptyDescription?: string
+  isLoading?: boolean
+}
+
+const RadarStatusCard = memo(function RadarStatusCard({
+  categoryControls,
+  yearSummaries,
+  effectiveVisibleCapabilities,
+  emptyTitle,
+  emptyDescription,
+  isLoading = false,
+}: RadarStatusCardProps) {
+  return (
+    <Card className="@container/card h-full relative" data-slot="card">
+      <CardHeader className="flex flex-row items-start justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <GridStackCardDragHandle />
+          <ChartFavoriteButton
+            chartId="financialHealthScore"
+            chartTitle="Financial Health Score"
+            size="md"
+          />
+          <CardTitle>Financial Health Score</CardTitle>
+        </div>
+        <CardAction className="flex flex-row items-center gap-2">
+          <RadarInfoTrigger
+            categoryControls={categoryControls}
+            yearSummaries={yearSummaries}
+            effectiveVisibleCapabilities={effectiveVisibleCapabilities}
+          />
+        </CardAction>
+      </CardHeader>
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[180px] md:h-[250px]">
+        <ChartLoadingState
+          isLoading={isLoading}
+          skeletonType="pie"
+          emptyTitle={emptyTitle || "No financial data yet"}
+          emptyDescription={emptyDescription || "Import your bank statements to see your financial health score"}
+        />
+      </CardContent>
+    </Card>
+  )
+})
+RadarStatusCard.displayName = "RadarStatusCard"
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export const ChartRadar = memo(function ChartRadar({
   categoryControls,
@@ -102,7 +224,6 @@ export const ChartRadar = memo(function ChartRadar({
         return
       }
 
-      console.log("[ChartRadar] Starting data fetch...", url)
       setIsLoading(true)
       setError(null)
       try {
@@ -121,18 +242,9 @@ export const ChartRadar = memo(function ChartRadar({
         if (isMounted) {
           setChartData(payload.data as RadarDatum[])
           setYearSummaries(payload.years as FinancialHealthYearSummary[])
-
-          // If API explicitly returns empty data/years, ensure we show appropriate message
-          if (payload.data.length === 0 || payload.years.length === 0) {
-            console.warn("[ChartRadar] API returned empty data or years", {
-              dataLength: payload.data.length,
-              yearsLength: payload.years.length
-            })
-          }
         }
       } catch (err) {
         if (isMounted) {
-          console.error("[ChartRadar] Failed to load Neon data:", err)
           setError(err instanceof Error ? err.message : "Failed to load data")
           setChartData([])
           setYearSummaries([])
@@ -172,14 +284,6 @@ export const ChartRadar = memo(function ChartRadar({
       }
     })
     const result = Array.from(uniqueCapabilities).sort()
-    // Log warning if we have data but no valid capabilities found
-    if (sanitizedData.length > 0 && result.length === 0) {
-      console.warn("[ChartRadar] Data exists but no valid capabilities found", {
-        dataLength: sanitizedData.length,
-        sampleEntry: sanitizedData[0],
-        allKeys: sanitizedData.length > 0 ? Object.keys(sanitizedData[0]) : []
-      })
-    }
     return result
   }, [sanitizedData])
 
@@ -428,168 +532,85 @@ export const ChartRadar = memo(function ChartRadar({
   const triggerClassName =
     "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 w-40"
 
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
-      <ChartInfoPopover
-        title="Financial Health Score"
-        description="Assessment of your financial wellness"
-        details={[
-          "The radar compares income, expenses, and your top spending categories year over year.",
-          "By default, Income, Expenses, and the top 7 spending categories are shown. You can toggle any category using the filter."
-        ]}
-        ignoredFootnote="We surface at most three years of history."
-        categoryControls={categoryControls}
-      />
-      <ChartAiInsightButton
-        chartId="financialHealthScore"
-        chartTitle="Financial Health Score"
-        chartDescription="Radar chart showing financial health metrics including income, expenses, and spending categories across years."
-        chartData={{
-          years: yearSummaries.map(s => s.year),
-          yearSummaries: yearSummaries,
-          categories: effectiveVisibleCapabilities,
-          categoriesCount: effectiveVisibleCapabilities.length
-        }}
-        size="sm"
-      />
-    </div>
-  )
-
-  // Mobile legend (year indicators)
-  const renderMobileLegend = () => (
-    <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground mt-1">
-      {legendEntries.map((entry) => (
-        <div key={entry.id} className="flex items-center gap-1.5">
-          <span
-            className="h-2.5 w-2.5 rounded-full shrink-0"
-            style={{ backgroundColor: entry.color }}
-          />
-          <span className="font-medium text-foreground">{entry.label}</span>
-        </div>
-      ))}
-    </div>
-  )
-
-  const renderStatusCard = (message: string, isLoading?: boolean) => (
-    <Card className="@container/card h-full relative" data-slot="card">
-      <CardHeader className="flex flex-row items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <GridStackCardDragHandle />
-          <ChartFavoriteButton
-            chartId="financialHealthScore"
-            chartTitle="Financial Health Score"
-            size="md"
-          />
-          <CardTitle>Financial Health Score</CardTitle>
-        </div>
-        <CardAction className="flex flex-row items-center gap-2">
-          {renderInfoTrigger()}
-        </CardAction>
-      </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[180px] md:h-[250px]">
-        <ChartLoadingState
-          isLoading={isLoading}
-          skeletonType="pie"
-          emptyTitle={emptyTitle || "No financial data yet"}
-          emptyDescription={emptyDescription || "Import your bank statements to see your financial health score"}
-        />
-      </CardContent>
-    </Card>
-  )
-
-  // Debug logging to understand the state (must be before any conditional returns)
-  useEffect(() => {
-    console.log("[ChartRadar] State update:", {
-      isLoading,
-      error,
-      sanitizedDataLength: sanitizedData?.length || 0,
-      keysLength: keys.length,
-      filterableCapabilitiesLength: filterableCapabilities.length,
-      effectiveVisibleCapabilitiesLength: effectiveVisibleCapabilities.length,
-      filteredDataLength: filteredData.length,
-      hasUserInteracted,
-      defaultVisibleCapabilitiesLength: defaultVisibleCapabilities.length,
-      chartDataLength: chartData?.length || 0,
-      yearSummariesLength: yearSummaries?.length || 0
-    })
-  }, [isLoading, error, sanitizedData, keys, filterableCapabilities, effectiveVisibleCapabilities, filteredData, hasUserInteracted, defaultVisibleCapabilities, chartData, yearSummaries])
-
   if (isLoading) {
-    return renderStatusCard("", true)
+    return (
+      <RadarStatusCard
+        categoryControls={categoryControls}
+        yearSummaries={yearSummaries}
+        effectiveVisibleCapabilities={effectiveVisibleCapabilities}
+        emptyTitle={emptyTitle}
+        emptyDescription={emptyDescription}
+        isLoading
+      />
+    )
   }
 
   if (error) {
-    return renderStatusCard(error)
+    return (
+      <RadarStatusCard
+        categoryControls={categoryControls}
+        yearSummaries={yearSummaries}
+        effectiveVisibleCapabilities={effectiveVisibleCapabilities}
+        emptyTitle={emptyTitle}
+        emptyDescription={emptyDescription}
+      />
+    )
   }
 
   // Check if we have raw data and years - if not, truly no data available
   if (!sanitizedData || sanitizedData.length === 0 || keys.length === 0) {
-    // Only show "No data available" if we're not loading and there's no error
-    // (error case is handled above)
-    if (!isLoading && !error) {
-      console.log("[ChartRadar] Showing 'No data available' - no sanitized data or keys", {
-        sanitizedDataLength: sanitizedData?.length || 0,
-        keysLength: keys.length,
-        chartDataLength: chartData?.length || 0,
-        yearSummariesLength: yearSummaries?.length || 0
-      })
-    }
-    return renderStatusCard("No data available")
+    return (
+      <RadarStatusCard
+        categoryControls={categoryControls}
+        yearSummaries={yearSummaries}
+        effectiveVisibleCapabilities={effectiveVisibleCapabilities}
+        emptyTitle={emptyTitle}
+        emptyDescription={emptyDescription}
+      />
+    )
   }
 
   // If we have data but filteredData is empty, check if it's because capabilities haven't been initialized yet
   // This can happen during the brief moment between data loading and capability initialization
   if (filteredData.length === 0) {
     // Edge case 1: We have data and capabilities, but defaults haven't been computed yet
-    // This happens when sanitizedData exists but capabilities extraction hasn't completed
     if (sanitizedData.length > 0 && filterableCapabilities.length > 0 && defaultVisibleCapabilities.length === 0) {
-      // Capabilities exist but defaults not computed yet - this is a timing issue
-      // Wait for next render cycle when defaults will be available
-      console.log("[ChartRadar] Waiting for default capabilities to compute - showing loading", {
-        filterableCapabilitiesLength: filterableCapabilities.length,
-        sanitizedDataLength: sanitizedData.length
-      })
-      return renderStatusCard("", true)
+      return (
+        <RadarStatusCard
+          categoryControls={categoryControls}
+          yearSummaries={yearSummaries}
+          effectiveVisibleCapabilities={effectiveVisibleCapabilities}
+          emptyTitle={emptyTitle}
+          emptyDescription={emptyDescription}
+          isLoading
+        />
+      )
     }
 
     // Edge case 2: We have defaults but effectiveVisibleCapabilities is still empty
-    // This shouldn't happen with the fixed effectiveVisibleCapabilities logic, but guard against it
     if (sanitizedData.length > 0 && defaultVisibleCapabilities.length > 0 && effectiveVisibleCapabilities.length === 0 && !hasUserInteracted) {
-      console.log("[ChartRadar] Defaults exist but not effective yet - showing loading", {
-        defaultVisibleCapabilitiesLength: defaultVisibleCapabilities.length,
-        effectiveVisibleCapabilitiesLength: effectiveVisibleCapabilities.length
-      })
-      return renderStatusCard("", true)
+      return (
+        <RadarStatusCard
+          categoryControls={categoryControls}
+          yearSummaries={yearSummaries}
+          effectiveVisibleCapabilities={effectiveVisibleCapabilities}
+          emptyTitle={emptyTitle}
+          emptyDescription={emptyDescription}
+          isLoading
+        />
+      )
     }
 
-    // Edge case 3: User has interacted and deselected everything, or no valid capabilities exist
-    // Only show "No data available" if we're sure this is the final state
-    if (hasUserInteracted && effectiveVisibleCapabilities.length === 0) {
-      // User explicitly deselected everything
-      console.log("[ChartRadar] User has deselected all capabilities")
-      return renderStatusCard("No data available")
-    }
-
-    // Edge case 4: No capabilities exist at all (data structure issue)
-    if (filterableCapabilities.length === 0 && sanitizedData.length > 0) {
-      console.warn("[ChartRadar] Data exists but no valid capabilities found", {
-        sanitizedDataLength: sanitizedData.length,
-        sampleData: sanitizedData[0],
-        allKeys: sanitizedData.length > 0 ? Object.keys(sanitizedData[0]) : []
-      })
-      return renderStatusCard("No data available")
-    }
-
-    // Default case: Show no data if we've exhausted all initialization checks
-    // This should rarely happen with the fixes above
-    console.log("[ChartRadar] Showing 'No data available' - filteredData is empty after all checks", {
-      filterableCapabilitiesLength: filterableCapabilities.length,
-      effectiveVisibleCapabilitiesLength: effectiveVisibleCapabilities.length,
-      defaultVisibleCapabilitiesLength: defaultVisibleCapabilities.length,
-      hasUserInteracted,
-      sanitizedDataLength: sanitizedData.length
-    })
-    return renderStatusCard("No data available")
+    // Edge case 3 & 4: No data available
+    return (
+      <RadarStatusCard
+        categoryControls={categoryControls}
+        yearSummaries={yearSummaries}
+        effectiveVisibleCapabilities={effectiveVisibleCapabilities}
+        emptyTitle={emptyTitle}
+        emptyDescription={emptyDescription}
+      />
+    )
   }
 
   return (
@@ -664,7 +685,11 @@ export const ChartRadar = memo(function ChartRadar({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {renderInfoTrigger()}
+          <RadarInfoTrigger
+            categoryControls={categoryControls}
+            yearSummaries={yearSummaries}
+            effectiveVisibleCapabilities={effectiveVisibleCapabilities}
+          />
         </CardAction>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col">
@@ -693,9 +718,9 @@ export const ChartRadar = memo(function ChartRadar({
 
               // Show all data points at this position (all overlapping years)
               // index is the capability string (e.g., "G" on mobile, "Groceries" on desktop)
-              const chartData = isMobile ? mobileFilteredData : filteredData
+              const currentChartData = isMobile ? mobileFilteredData : filteredData
               // Find the data item by matching the capability (index is the label)
-              const dataItem = chartData.find(item => String(item.capability) === String(index))
+              const dataItem = currentChartData.find(item => String(item.capability) === String(index))
               const categoryName = dataItem
                 ? String((dataItem as any)._originalCapability || dataItem.capability || 'Category')
                 : String(index) || 'Category'
@@ -728,7 +753,7 @@ export const ChartRadar = memo(function ChartRadar({
             ] : []}
           />
         </div>
-        {isMobile && renderMobileLegend()}
+        {isMobile && <RadarMobileLegend legendEntries={legendEntries} />}
       </CardContent>
     </Card>
   )

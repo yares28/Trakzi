@@ -126,6 +126,137 @@ function computeVisibleCategories(containerHeight: number): number {
   return Math.max(MIN_CATEGORIES, Math.min(MAX_CATEGORIES, count))
 }
 
+// ─── Extracted sub-components ────────────────────────────────────────────────
+
+interface SpendingPyramidInfoTriggerProps {
+  forFullscreen?: boolean
+}
+
+const SpendingPyramidInfoTrigger = memo(function SpendingPyramidInfoTrigger({
+  forFullscreen = false,
+}: SpendingPyramidInfoTriggerProps) {
+  return (
+    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
+      <ChartInfoPopover
+        title="Spending Pyramid"
+        description="Compare your spending distribution against the average across all users."
+        details={[
+          "Left bars (You) show what percentage of your total spending goes to each category.",
+          "Right bars (Avg User) show the platform-wide average percentage for that category.",
+          "Categories are sorted by your highest spending first.",
+          "Resize the chart to reveal more or fewer categories.",
+        ]}
+      />
+      <ChartAiInsightButton
+        chartId="spendingPyramid"
+        chartTitle="Spending Pyramid"
+        chartDescription="Compares user spending distribution vs platform average by category"
+        size="sm"
+      />
+    </div>
+  )
+})
+SpendingPyramidInfoTrigger.displayName = "SpendingPyramidInfoTrigger"
+
+interface SpendingPyramidBarChartProps {
+  rows: PyramidRow[]
+  height: string
+  chartConfig: ChartConfig
+  youColor: string
+  avgColor: string
+  maxPercent: number
+  formatCurrency: (v: number, opts?: object) => string
+}
+
+const SpendingPyramidBarChart = memo(function SpendingPyramidBarChart({
+  rows,
+  height,
+  chartConfig,
+  youColor,
+  avgColor,
+  maxPercent,
+  formatCurrency,
+}: SpendingPyramidBarChartProps) {
+  return (
+    <ChartContainer config={chartConfig} className={`w-full ${height}`}>
+      <BarChart
+        data={rows}
+        layout="vertical"
+        stackOffset="sign"
+        barCategoryGap={4}
+        margin={{ top: 5, right: 30, bottom: 5, left: 10 }}
+      >
+        <XAxis
+          type="number"
+          domain={[-maxPercent, maxPercent]}
+          tickFormatter={(val: number) => `${Math.abs(val).toFixed(0)}%`}
+          stroke={CHART_GRID_COLOR}
+          fontSize={11}
+          tickLine={false}
+          axisLine={false}
+        />
+        <YAxis
+          type="category"
+          dataKey="category"
+          width={100}
+          tick={{ fontSize: 11 }}
+          tickLine={false}
+          axisLine={false}
+          stroke={CHART_GRID_COLOR}
+        />
+        <ReferenceLine x={0} stroke={CHART_GRID_COLOR} strokeWidth={1} />
+        <Tooltip
+          content={({ active, payload }) => (
+            <CustomTooltip
+              active={active}
+              payload={payload as unknown as RechartsTooltipEntry[]}
+              formatCurrencyFn={formatCurrency}
+            />
+          )}
+          cursor={{ fill: "transparent" }}
+        />
+        <Legend
+          verticalAlign="top"
+          align="center"
+          wrapperStyle={{ paddingBottom: 8 }}
+          payload={[
+            { value: "You", type: "square", color: youColor },
+            { value: "Avg User", type: "square", color: avgColor },
+          ]}
+          formatter={(value: string) => (
+            <span className="text-xs text-muted-foreground">{value}</span>
+          )}
+        />
+        <Bar
+          dataKey="you"
+          stackId="pyramid"
+          name="you"
+          radius={[10, 0, 0, 10]}
+          maxBarSize={28}
+        >
+          {rows.map((_, index) => (
+            <Cell key={`you-${index}`} fill={youColor} />
+          ))}
+        </Bar>
+        <Bar
+          dataKey="average"
+          stackId="pyramid"
+          name="average"
+          radius={[0, 10, 10, 0]}
+          maxBarSize={28}
+        >
+          {rows.map((_, index) => (
+            <Cell key={`avg-${index}`} fill={avgColor} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ChartContainer>
+  )
+})
+SpendingPyramidBarChart.displayName = "SpendingPyramidBarChart"
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export const ChartSpendingPyramid = memo(function ChartSpendingPyramid({
   data = [],
   isLoading = false,
@@ -194,7 +325,7 @@ export const ChartSpendingPyramid = memo(function ChartSpendingPyramid({
     [allPyramidData, visibleCount]
   )
 
-  // Compute max percent from whichever dataset is passed to renderChart
+  // Compute max percent from whichever dataset is passed
   const getMaxPercent = useCallback((rows: PyramidRow[]) => {
     if (rows.length === 0) return 10
     let max = 0
@@ -203,106 +334,6 @@ export const ChartSpendingPyramid = memo(function ChartSpendingPyramid({
     })
     return Math.ceil(max * 1.1)
   }, [])
-
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
-      <ChartInfoPopover
-        title="Spending Pyramid"
-        description="Compare your spending distribution against the average across all users."
-        details={[
-          "Left bars (You) show what percentage of your total spending goes to each category.",
-          "Right bars (Avg User) show the platform-wide average percentage for that category.",
-          "Categories are sorted by your highest spending first.",
-          "Resize the chart to reveal more or fewer categories.",
-        ]}
-      />
-      <ChartAiInsightButton
-        chartId="spendingPyramid"
-        chartTitle="Spending Pyramid"
-        chartDescription="Compares user spending distribution vs platform average by category"
-        size="sm"
-      />
-    </div>
-  )
-
-  const renderChart = (height: string, rows: PyramidRow[] = pyramidData) => {
-    const maxPct = getMaxPercent(rows)
-    return (
-      <ChartContainer config={chartConfig} className={`w-full ${height}`}>
-        <BarChart
-          data={rows}
-          layout="vertical"
-          stackOffset="sign"
-          barCategoryGap={4}
-          margin={{ top: 5, right: 30, bottom: 5, left: 10 }}
-        >
-          <XAxis
-            type="number"
-            domain={[-maxPct, maxPct]}
-            tickFormatter={(val: number) => `${Math.abs(val).toFixed(0)}%`}
-            stroke={CHART_GRID_COLOR}
-            fontSize={11}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis
-            type="category"
-            dataKey="category"
-            width={100}
-            tick={{ fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-            stroke={CHART_GRID_COLOR}
-          />
-          <ReferenceLine x={0} stroke={CHART_GRID_COLOR} strokeWidth={1} />
-          <Tooltip
-            content={({ active, payload }) => (
-              <CustomTooltip
-                active={active}
-                payload={payload as unknown as RechartsTooltipEntry[]}
-                formatCurrencyFn={formatCurrency}
-              />
-            )}
-            cursor={{ fill: "transparent" }}
-          />
-          <Legend
-            verticalAlign="top"
-            align="center"
-            wrapperStyle={{ paddingBottom: 8 }}
-            payload={[
-              { value: "You", type: "square", color: youColor },
-              { value: "Avg User", type: "square", color: avgColor },
-            ]}
-            formatter={(value: string) => (
-              <span className="text-xs text-muted-foreground">{value}</span>
-            )}
-          />
-          <Bar
-            dataKey="you"
-            stackId="pyramid"
-            name="you"
-            radius={[10, 0, 0, 10]}
-            maxBarSize={28}
-          >
-            {rows.map((_, index) => (
-              <Cell key={`you-${index}`} fill={youColor} />
-            ))}
-          </Bar>
-          <Bar
-            dataKey="average"
-            stackId="pyramid"
-            name="average"
-            radius={[0, 10, 10, 0]}
-            maxBarSize={28}
-          >
-            {rows.map((_, index) => (
-              <Cell key={`avg-${index}`} fill={avgColor} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ChartContainer>
-    )
-  }
 
   if (!data || data.length === 0) {
     return (
@@ -319,7 +350,7 @@ export const ChartSpendingPyramid = memo(function ChartSpendingPyramid({
             <CardTitle className="text-base font-medium">Spending Pyramid</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <SpendingPyramidInfoTrigger />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1">
@@ -341,9 +372,17 @@ export const ChartSpendingPyramid = memo(function ChartSpendingPyramid({
         onClose={() => setIsFullscreen(false)}
         title="Spending Pyramid"
         description="Your spending vs the average user"
-        headerActions={renderInfoTrigger(true)}
+        headerActions={<SpendingPyramidInfoTrigger forFullscreen />}
       >
-        {renderChart("min-h-[500px]", allPyramidData)}
+        <SpendingPyramidBarChart
+          rows={allPyramidData}
+          height="min-h-[500px]"
+          chartConfig={chartConfig}
+          youColor={youColor}
+          avgColor={avgColor}
+          maxPercent={getMaxPercent(allPyramidData)}
+          formatCurrency={formatCurrency}
+        />
       </ChartFullscreenModal>
 
       <Card ref={cardRef} className="@container/card h-full flex flex-col">
@@ -359,11 +398,19 @@ export const ChartSpendingPyramid = memo(function ChartSpendingPyramid({
             <CardTitle className="text-base font-medium">Spending Pyramid</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <SpendingPyramidInfoTrigger />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
-          {renderChart("h-full")}
+          <SpendingPyramidBarChart
+            rows={pyramidData}
+            height="h-full"
+            chartConfig={chartConfig}
+            youColor={youColor}
+            avgColor={avgColor}
+            maxPercent={getMaxPercent(pyramidData)}
+            formatCurrency={formatCurrency}
+          />
         </CardContent>
       </Card>
     </>
