@@ -7,11 +7,13 @@ import Earth from "./globe"
 import ScrambleHover from "./scramble"
 import { FollowerPointerCard } from "./following-pointer"
 import { motion, useInView } from "framer-motion"
-import { Suspense, useEffect, useRef, useState } from "react"
+import { Suspense, useRef, useState } from "react"
 import { geist } from "@/lib/fonts"
 import { cn } from "@/lib/utils"
 import { AnimatedCharts } from "./animated-charts"
 import { ReceiptFridgeAnimation } from "./receipt-fridge-animation"
+
+const BASE_COLOR: [number, number, number] = [0.906, 0.541, 0.325] // #e78a53 — RGB normalized
 
 export default function Features() {
   const ref = useRef(null)
@@ -23,16 +25,9 @@ export default function Features() {
   const [isFeature4Hovering, setIsFeature4Hovering] = useState(false)
   const [inputValue, setInputValue] = useState("")
 
-  const [baseColor, setBaseColor] = useState<[number, number, number]>([0.906, 0.541, 0.325]) // #e78a53 in RGB normalized
-  const [glowColor, setGlowColor] = useState<[number, number, number]>([0.906, 0.541, 0.325]) // #e78a53 in RGB normalized
-
-  const [dark, setDark] = useState<number>(theme === "dark" ? 1 : 0)
-
-  useEffect(() => {
-    setBaseColor([0.906, 0.541, 0.325]) // #e78a53
-    setGlowColor([0.906, 0.541, 0.325]) // #e78a53
-    setDark(theme === "dark" ? 1 : 0)
-  }, [theme])
+  const baseColor = BASE_COLOR
+  const glowColor = BASE_COLOR
+  const dark = theme === "dark" ? 1 : 0
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter") {
