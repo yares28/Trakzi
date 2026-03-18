@@ -806,8 +806,8 @@ export function SubscriptionDialog({ children, open: openProp, onOpenChange }: {
                                         <div>
                                             <p className="text-sm font-medium">Immediate access to:</p>
                                             <ul className="text-sm text-muted-foreground list-disc list-inside mt-1">
-                                                {showUpgradeConfirm && PLAN_INFO[showUpgradeConfirm].features.slice(0, 3).map((f, i) => (
-                                                    <li key={i}>{f}</li>
+                                                {showUpgradeConfirm && PLAN_INFO[showUpgradeConfirm].features.slice(0, 3).map((f) => (
+                                                    <li key={f}>{f}</li>
                                                 ))}
                                             </ul>
                                         </div>

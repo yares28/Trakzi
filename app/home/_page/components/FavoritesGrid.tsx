@@ -290,7 +290,7 @@ export const FavoritesGrid = memo(function FavoritesGrid({
                                       : null
                                   return (
                                     <Popover
-                                      key={`${category}-${idx}`}
+                                      key={category}
                                       open={ringCategoryPopoverIndex === idx}
                                       onOpenChange={(open) => {
                                         if (
