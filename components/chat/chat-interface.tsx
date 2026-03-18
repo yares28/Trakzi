@@ -70,6 +70,8 @@ interface DashboardStats {
 
 const STORAGE_KEY = "trakzi.chat.v1"
 
+const chatFetcher = (url: string) => fetch(url).then(r => { if (!r.ok) throw new Error("Failed"); return r.json() })
+
 const SUGGESTED_QUESTIONS = [
   "What are my top spending categories?",
   "How can I reduce my expenses?",
@@ -156,11 +158,11 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
   const [isLoading, setIsLoading] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
 
-  const chatFetcher = (url: string) => fetch(url).then(r => { if (!r.ok) throw new Error("Failed"); return r.json() })
-  const { data: stats, isLoading: isLoadingStats } = useSWR<DashboardStats>("/api/dashboard-stats", chatFetcher)
+  const { data: stats, isLoading: isLoadingStats } = useSWR<DashboardStats>("/api/dashboard-stats", chatFetcher, { revalidateOnFocus: false, revalidateOnReconnect: false })
   const { data: chatUsage, mutate: mutateChatUsage } = useSWR<{ used: number; limit: number | null; resetsAt: string | null }>(
     "/api/ai/chat-usage",
-    chatFetcher
+    chatFetcher,
+    { revalidateOnFocus: false, revalidateOnReconnect: false }
   )
 
   // Feature 5: Chat History

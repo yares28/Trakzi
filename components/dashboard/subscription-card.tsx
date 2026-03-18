@@ -296,7 +296,8 @@ const subscriptionFetcher = (url: string): Promise<SubscriptionStatus> =>
 export function SubscriptionCard() {
     const { data: status, isLoading, error: swrError, mutate } = useSWR<SubscriptionStatus>(
         "/api/subscription/me",
-        subscriptionFetcher
+        subscriptionFetcher,
+        { revalidateOnFocus: false, revalidateOnReconnect: false }
     );
     const error = swrError ? "Unable to load subscription info" : null;
     const [isManaging, setIsManaging] = useState(false);

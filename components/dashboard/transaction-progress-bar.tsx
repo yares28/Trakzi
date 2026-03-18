@@ -79,7 +79,8 @@ export function TransactionProgressBar({
 }: TransactionProgressBarProps) {
     const { data: subscriptionData, isLoading: subLoading } = useSWR<SubscriptionData>(
         "/api/subscription/status",
-        noStoreFetcher
+        noStoreFetcher,
+        { revalidateOnFocus: false, revalidateOnReconnect: false }
     );
     const { data: categoryData, isLoading: catLoading } = useSWR<{
         transactions: number;
@@ -92,12 +93,12 @@ export function TransactionProgressBar({
             receiptRemaining: number;
         };
         plan: string;
-    }>("/api/categories/count", noStoreFetcher);
+    }>("/api/categories/count", noStoreFetcher, { revalidateOnFocus: false, revalidateOnReconnect: false });
     const { data: walletRaw, isLoading: walletLoading } = useSWR<{
         monthlyBonusEarned?: number;
         monthlyAvailable?: number;
         monthlyUsed?: number;
-    }>("/api/transactions/wallet", noStoreFetcher);
+    }>("/api/transactions/wallet", noStoreFetcher, { revalidateOnFocus: false, revalidateOnReconnect: false });
 
     const walletInfo: WalletInfo | null = walletRaw
         ? {
