@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Image from "next/image"
 import { safeCapture } from "@/lib/posthog-safe"
 import { useSearchParams } from "next/navigation"
@@ -147,7 +147,7 @@ function generateChatTitle(messages: Message[]): string {
   return text.length < firstUser.content.length ? text + "..." : text
 }
 
-export function ChatInterface({ isFree = false }: { isFree?: boolean }) {
+function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
   const [messages, setMessages] = useState<Message[]>([])
   const messagesRef = useRef<Message[]>([])
   useEffect(() => { messagesRef.current = messages }, [messages])
@@ -777,5 +777,13 @@ export function ChatInterface({ isFree = false }: { isFree?: boolean }) {
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+export function ChatInterface({ isFree = false }: { isFree?: boolean }) {
+  return (
+    <Suspense fallback={null}>
+      <ChatInterfaceInner isFree={isFree} />
+    </Suspense>
   )
 }
