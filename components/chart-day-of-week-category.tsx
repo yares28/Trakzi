@@ -51,6 +51,37 @@ type DayOfWeekData = {
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
+interface DayOfWeekCategoryInfoTriggerProps {
+  forFullscreen?: boolean
+}
+
+const DayOfWeekCategoryInfoTrigger = React.memo(function DayOfWeekCategoryInfoTrigger({
+  forFullscreen = false,
+}: DayOfWeekCategoryInfoTriggerProps) {
+  return (
+    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
+      <ChartInfoPopover
+        title="Day of Week Category Spending"
+        description="Compare spending across categories for a selected day of the week."
+        details={[
+          "Each bar represents total spending in a category for the selected day of the week.",
+          "Only the most spent categories are shown for each day.",
+          "Use the day selector to switch between different days of the week.",
+        ]}
+        ignoredFootnote="Only expense transactions (amount < 0) are included."
+      />
+      <ChartAiInsightButton
+        chartId="dayOfWeekCategory"
+        chartTitle="Day of Week Category Spending"
+        chartDescription="Compare spending across categories for a selected day of the week."
+        size="sm"
+      />
+    </div>
+  )
+})
+
+DayOfWeekCategoryInfoTrigger.displayName = "DayOfWeekCategoryInfoTrigger"
+
 const buildDayOfWeekUrl = (params: URLSearchParams) =>
   `/api/analytics/day-of-week-category?${params.toString()}`
 
@@ -419,27 +450,6 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
     }
   }, [tooltip])
 
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
-      <ChartInfoPopover
-        title="Day of Week Category Spending"
-        description="Compare spending across categories for a selected day of the week."
-        details={[
-          "Each bar represents total spending in a category for the selected day of the week.",
-          "Only the most spent categories are shown for each day.",
-          "Use the day selector to switch between different days of the week.",
-        ]}
-        ignoredFootnote="Only expense transactions (amount < 0) are included."
-      />
-      <ChartAiInsightButton
-        chartId="dayOfWeekCategory"
-        chartTitle="Day of Week Category Spending"
-        chartDescription="Compare spending across categories for a selected day of the week."
-        size="sm"
-      />
-    </div>
-  )
-
   const option = React.useMemo(() => {
     if (!data.length || selectedDay === null) return null
 
@@ -593,7 +603,7 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
             <CardTitle>Day of Week Category Spending</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <DayOfWeekCategoryInfoTrigger />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
@@ -622,7 +632,7 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
             <CardTitle>Day of Week Category Spending</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <DayOfWeekCategoryInfoTrigger />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
@@ -651,7 +661,7 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
             <CardTitle>Day of Week Category Spending</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <DayOfWeekCategoryInfoTrigger />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
@@ -672,7 +682,7 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
         onClose={() => setIsFullscreen(false)}
         title="Day of Week Category Spending"
         description="Compare spending across categories by day"
-        headerActions={renderInfoTrigger(true)}
+        headerActions={<DayOfWeekCategoryInfoTrigger forFullscreen />}
       >
         <div className="h-full w-full min-h-[400px] text-center flex items-center justify-center text-muted-foreground">
           Fullscreen view - Select a day to see category spending
@@ -711,7 +721,7 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
                 ))}
               </SelectContent>
             </Select>
-            {renderInfoTrigger()}
+            <DayOfWeekCategoryInfoTrigger />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">

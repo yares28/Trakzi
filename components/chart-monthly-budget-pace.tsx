@@ -32,6 +32,125 @@ interface ChartMonthlyBudgetPaceProps {
   emptyDescription?: string
 }
 
+interface MonthlyBudgetPaceInfoTriggerProps {
+  forFullscreen?: boolean
+  chartTitle: string
+  chartDescription: string
+  chartData: {
+    paceData: Array<{ label: string; value: number; color: string }>
+    projectedTotal: number
+    currentTotal: number
+    daysRemaining: number
+    dayOfMonth: number
+    daysInMonth: number
+    avgMonthlySpend: number
+  }
+}
+
+const MonthlyBudgetPaceInfoTrigger = memo(function MonthlyBudgetPaceInfoTrigger({
+  forFullscreen = false,
+  chartTitle,
+  chartDescription,
+  chartData,
+}: MonthlyBudgetPaceInfoTriggerProps) {
+  return (
+    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
+      <ChartInfoPopover
+        title={chartTitle}
+        description={chartDescription}
+        details={[
+          "Spent: your actual spending so far",
+          "Expected: where you should be based on avg",
+          "Projected: estimated end-of-month total",
+          "Avg: your typical monthly spending",
+        ]}
+      />
+      <ChartAiInsightButton
+        chartId="monthlyBudgetPace"
+        chartTitle={chartTitle}
+        chartDescription={chartDescription}
+        chartData={chartData}
+        size="sm"
+      />
+    </div>
+  )
+})
+
+MonthlyBudgetPaceInfoTrigger.displayName = "MonthlyBudgetPaceInfoTrigger"
+
+interface MonthlyBudgetPaceChartProps {
+  paceData: Array<{ label: string; value: number; color: string }>
+  dayOfMonth: number
+  daysInMonth: number
+  textColor: string
+  gridColor: string
+  formatCurrency: (value: number, options?: { maximumFractionDigits?: number }) => string
+}
+
+const MonthlyBudgetPaceChart = memo(function MonthlyBudgetPaceChart({
+  paceData,
+  dayOfMonth,
+  daysInMonth,
+  textColor,
+  gridColor,
+  formatCurrency,
+}: MonthlyBudgetPaceChartProps) {
+  return (
+    <ResponsiveBar
+      data={paceData}
+      keys={["value"]}
+      indexBy="label"
+      layout="horizontal"
+      margin={{ top: 10, right: 30, bottom: 40, left: 80 }}
+      padding={0.35}
+      colors={({ data: d }) => d.color as string}
+      borderRadius={6}
+      enableLabel={true}
+      label={(d) => formatCurrency(d.value as number, { maximumFractionDigits: 0 })}
+      labelSkipWidth={60}
+      labelTextColor={(d) => getContrastTextColor(d.color)}
+      axisTop={null}
+      axisRight={null}
+      axisBottom={{
+        tickSize: 0,
+        tickPadding: 8,
+        format: (v: number) => {
+          if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`
+          if (v >= 1000) return `${(v / 1000).toFixed(0)}K`
+          return formatCurrency(v, { maximumFractionDigits: 0 })
+        },
+      }}
+      axisLeft={{
+        tickSize: 0,
+        tickPadding: 8,
+      }}
+      enableGridX={true}
+      enableGridY={false}
+      gridXValues={4}
+      theme={{
+        text: { fill: textColor, fontSize: 11 },
+        axis: { ticks: { text: { fill: textColor } } },
+        grid: { line: { stroke: gridColor, strokeDasharray: "4 4" } },
+      }}
+      tooltip={({ data: d }) => {
+        const dayInfo = dayOfMonth > 0 ? `Day ${dayOfMonth}/${daysInMonth}` : ""
+        return (
+          <NivoChartTooltip
+            title={d.label as string}
+            titleColor={d.color as string}
+            value={formatCurrency(d.value as number)}
+            subValue={dayInfo}
+          />
+        )
+      }}
+      animate={true}
+      motionConfig="gentle"
+    />
+  )
+})
+
+MonthlyBudgetPaceChart.displayName = "MonthlyBudgetPaceChart"
+
 export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
   data,
   isLoading = false,
@@ -122,81 +241,6 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
   const chartTitle = "Monthly Budget Pace"
   const chartDescription = "Are you on track this month? Compare your spending pace against your typical month."
 
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
-      <ChartInfoPopover
-        title={chartTitle}
-        description={chartDescription}
-        details={[
-          "Spent: your actual spending so far",
-          "Expected: where you should be based on avg",
-          "Projected: estimated end-of-month total",
-          "Avg: your typical monthly spending",
-        ]}
-      />
-      <ChartAiInsightButton
-        chartId="monthlyBudgetPace"
-        chartTitle={chartTitle}
-        chartDescription={chartDescription}
-        chartData={chartData}
-        size="sm"
-      />
-    </div>
-  )
-
-  const renderChart = () => (
-    <ResponsiveBar
-      data={chartData.paceData}
-      keys={["value"]}
-      indexBy="label"
-      layout="horizontal"
-      margin={{ top: 10, right: 30, bottom: 40, left: 80 }}
-      padding={0.35}
-      colors={({ data: d }) => d.color as string}
-      borderRadius={6}
-      enableLabel={true}
-      label={(d) => formatCurrency(d.value as number, { maximumFractionDigits: 0 })}
-      labelSkipWidth={60}
-      labelTextColor={(d) => getContrastTextColor(d.color)}
-      axisTop={null}
-      axisRight={null}
-      axisBottom={{
-        tickSize: 0,
-        tickPadding: 8,
-        format: (v: number) => {
-          if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`
-          if (v >= 1000) return `${(v / 1000).toFixed(0)}K`
-          return formatCurrency(v, { maximumFractionDigits: 0 })
-        },
-      }}
-      axisLeft={{
-        tickSize: 0,
-        tickPadding: 8,
-      }}
-      enableGridX={true}
-      enableGridY={false}
-      gridXValues={4}
-      theme={{
-        text: { fill: textColor, fontSize: 11 },
-        axis: { ticks: { text: { fill: textColor } } },
-        grid: { line: { stroke: gridColor, strokeDasharray: "4 4" } },
-      }}
-      tooltip={({ data: d }) => {
-        const dayInfo = chartData.dayOfMonth > 0 ? `Day ${chartData.dayOfMonth}/${chartData.daysInMonth}` : ""
-        return (
-          <NivoChartTooltip
-            title={d.label as string}
-            titleColor={d.color as string}
-            value={formatCurrency(d.value as number)}
-            subValue={dayInfo}
-          />
-        )
-      }}
-      animate={true}
-      motionConfig="gentle"
-    />
-  )
-
   if (!mounted || isLoading || chartData.paceData.length === 0) {
     return (
       <Card className="@container/card h-full relative">
@@ -208,7 +252,7 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
             <CardTitle>{chartTitle}</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <MonthlyBudgetPaceInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartData={chartData} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
@@ -232,10 +276,10 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
         onClose={() => setIsFullscreen(false)}
         title={chartTitle}
         description={chartDescription}
-        headerActions={renderInfoTrigger(true)}
+        headerActions={<MonthlyBudgetPaceInfoTrigger forFullscreen chartTitle={chartTitle} chartDescription={chartDescription} chartData={chartData} />}
       >
         <div className="h-full w-full min-h-[400px]" key={colorScheme}>
-          {renderChart()}
+          <MonthlyBudgetPaceChart paceData={chartData.paceData} dayOfMonth={chartData.dayOfMonth} daysInMonth={chartData.daysInMonth} textColor={textColor} gridColor={gridColor} formatCurrency={formatCurrency} />
         </div>
       </ChartFullscreenModal>
 
@@ -248,12 +292,12 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
             <CardTitle>{chartTitle}</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <MonthlyBudgetPaceInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartData={chartData} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
           <div className="flex-1 min-h-[200px]" key={colorScheme}>
-            {renderChart()}
+            <MonthlyBudgetPaceChart paceData={chartData.paceData} dayOfMonth={chartData.dayOfMonth} daysInMonth={chartData.daysInMonth} textColor={textColor} gridColor={gridColor} formatCurrency={formatCurrency} />
           </div>
           {/* Legend */}
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2 mb-2">

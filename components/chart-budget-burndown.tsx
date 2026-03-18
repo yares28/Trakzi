@@ -33,6 +33,132 @@ interface ChartBudgetBurndownProps {
   emptyDescription?: string
 }
 
+interface BudgetBurndownInfoTriggerProps {
+  forFullscreen?: boolean
+  chartTitle: string
+  chartDescription: string
+  effectiveBudget: number
+  monthlyBudget: number
+  remaining: number
+  paceStatus: string
+  formatCurrency: (value: number) => string
+}
+
+const BudgetBurndownInfoTrigger = memo(function BudgetBurndownInfoTrigger({
+  forFullscreen = false,
+  chartTitle,
+  chartDescription,
+  effectiveBudget,
+  monthlyBudget,
+  remaining,
+  paceStatus,
+  formatCurrency,
+}: BudgetBurndownInfoTriggerProps) {
+  return (
+    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
+      <ChartInfoPopover
+        title={chartTitle}
+        description={chartDescription}
+        details={[
+          `Budget: ${formatCurrency(effectiveBudget ?? monthlyBudget)}`,
+          "Solid line = actual spending",
+          "Dashed line = ideal pace",
+          "Stay above the ideal for savings",
+        ]}
+      />
+      <ChartAiInsightButton
+        chartId="budgetBurndown"
+        chartTitle={chartTitle}
+        chartDescription={chartDescription}
+        chartData={{ remaining, monthlyBudget: effectiveBudget ?? monthlyBudget, paceStatus }}
+        size="sm"
+      />
+    </div>
+  )
+})
+
+BudgetBurndownInfoTrigger.displayName = "BudgetBurndownInfoTrigger"
+
+interface BudgetBurndownChartProps {
+  combinedData: Array<{ id: string; data: Array<{ x: number; y: number }> }>
+  daysInMonth: number
+  effectiveBudget: number
+  monthlyBudget: number
+  isDark: boolean
+  palette: string[]
+  textColor: string
+  gridColor: string
+  formatCurrency: (value: number, options?: { maximumFractionDigits?: number }) => string
+}
+
+const BudgetBurndownChart = memo(function BudgetBurndownChart({
+  combinedData,
+  daysInMonth,
+  effectiveBudget,
+  monthlyBudget,
+  isDark,
+  palette,
+  textColor,
+  gridColor,
+  formatCurrency,
+}: BudgetBurndownChartProps) {
+  return (
+    <ResponsiveLine
+      data={combinedData}
+      margin={{ top: 20, right: 30, bottom: 50, left: 70 }}
+      xScale={{ type: "linear", min: 0, max: daysInMonth }}
+      yScale={{ type: "linear", min: 0, max: (effectiveBudget ?? monthlyBudget) * 1.1 }}
+      curve="monotoneX"
+      colors={[isDark ? "#4b5563" : "#9ca3af", palette[0] || "#fe8339"]}
+      lineWidth={3}
+      enablePoints={false}
+      enableGridX={false}
+      enableArea={true}
+      areaOpacity={0.06}
+      axisBottom={{
+        tickSize: 0,
+        tickPadding: 12,
+        legend: "Day of Month",
+        legendOffset: 36,
+        legendPosition: "middle",
+      }}
+      axisLeft={{
+        tickSize: 0,
+        tickPadding: 8,
+        format: (v: number) => {
+          if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`
+          if (v >= 1000) return `${(v / 1000).toFixed(0)}K`
+          return formatCurrency(v, { maximumFractionDigits: 0 })
+        },
+      }}
+      theme={{
+        text: { fill: textColor, fontSize: 11 },
+        axis: {
+          ticks: { text: { fill: textColor } },
+          legend: { text: { fill: textColor, fontSize: 11 } },
+        },
+        grid: { line: { stroke: gridColor, strokeDasharray: "4 4" } },
+        crosshair: { line: { stroke: textColor, strokeWidth: 1, strokeOpacity: 0.35 } },
+      }}
+      useMesh={true}
+      tooltip={(props) => {
+        const point = props.point as unknown as { serieId: string; data: { x: number; y: number }; color: string }
+        return (
+          <NivoChartTooltip
+            title={`Day ${point.data.x}`}
+            titleColor={point.color}
+            value={`${point.serieId}: ${formatCurrency(point.data.y)}`}
+          />
+        )
+      }}
+      animate={true}
+      motionConfig="gentle"
+    />
+  )
+})
+
+BudgetBurndownChart.displayName = "BudgetBurndownChart"
+
 export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
   data,
   isLoading = false,
@@ -140,85 +266,9 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
     return lastActual > idealAtDay ? "under" : "over"
   }, [chartData])
 
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
-      <ChartInfoPopover
-        title={chartTitle}
-        description={chartDescription}
-        details={[
-          `Budget: ${formatCurrency(chartData.effectiveBudget ?? monthlyBudget)}`,
-          "Solid line = actual spending",
-          "Dashed line = ideal pace",
-          "Stay above the ideal for savings",
-        ]}
-      />
-      <ChartAiInsightButton
-        chartId="budgetBurndown"
-        chartTitle={chartTitle}
-        chartDescription={chartDescription}
-        chartData={{ remaining: chartData.remaining, monthlyBudget: chartData.effectiveBudget ?? monthlyBudget, paceStatus }}
-        size="sm"
-      />
-    </div>
-  )
-
   const combinedData = useMemo(
     () => [...(chartData.ideal || []), ...(chartData.actual || [])],
     [chartData.ideal, chartData.actual],
-  )
-
-  const renderChart = () => (
-    <ResponsiveLine
-      data={combinedData}
-      margin={{ top: 20, right: 30, bottom: 50, left: 70 }}
-      xScale={{ type: "linear", min: 0, max: chartData.daysInMonth }}
-      yScale={{ type: "linear", min: 0, max: (chartData.effectiveBudget ?? monthlyBudget) * 1.1 }}
-      curve="monotoneX"
-      colors={[isDark ? "#4b5563" : "#9ca3af", palette[0] || "#fe8339"]}
-      lineWidth={3}
-      enablePoints={false}
-      enableGridX={false}
-      enableArea={true}
-      areaOpacity={0.06}
-      axisBottom={{
-        tickSize: 0,
-        tickPadding: 12,
-        legend: "Day of Month",
-        legendOffset: 36,
-        legendPosition: "middle",
-      }}
-      axisLeft={{
-        tickSize: 0,
-        tickPadding: 8,
-        format: (v: number) => {
-          if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`
-          if (v >= 1000) return `${(v / 1000).toFixed(0)}K`
-          return formatCurrency(v, { maximumFractionDigits: 0 })
-        },
-      }}
-      theme={{
-        text: { fill: textColor, fontSize: 11 },
-        axis: {
-          ticks: { text: { fill: textColor } },
-          legend: { text: { fill: textColor, fontSize: 11 } },
-        },
-        grid: { line: { stroke: gridColor, strokeDasharray: "4 4" } },
-        crosshair: { line: { stroke: textColor, strokeWidth: 1, strokeOpacity: 0.35 } },
-      }}
-      useMesh={true}
-      tooltip={(props) => {
-        const point = props.point as unknown as { serieId: string; data: { x: number; y: number }; color: string }
-        return (
-          <NivoChartTooltip
-            title={`Day ${point.data.x}`}
-            titleColor={point.color}
-            value={`${point.serieId}: ${formatCurrency(point.data.y)}`}
-          />
-        )
-      }}
-      animate={true}
-      motionConfig="gentle"
-    />
   )
 
   if (!mounted || isLoading || !chartData.actual?.length) {
@@ -232,7 +282,7 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
             <CardTitle>{chartTitle}</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <BudgetBurndownInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} effectiveBudget={chartData.effectiveBudget} monthlyBudget={monthlyBudget} remaining={chartData.remaining} paceStatus={paceStatus} formatCurrency={formatCurrency} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
@@ -256,10 +306,10 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
         onClose={() => setIsFullscreen(false)}
         title={chartTitle}
         description={chartDescription}
-        headerActions={renderInfoTrigger(true)}
+        headerActions={<BudgetBurndownInfoTrigger forFullscreen chartTitle={chartTitle} chartDescription={chartDescription} effectiveBudget={chartData.effectiveBudget} monthlyBudget={monthlyBudget} remaining={chartData.remaining} paceStatus={paceStatus} formatCurrency={formatCurrency} />}
       >
         <div className="h-full w-full min-h-[400px]" key={colorScheme}>
-          {renderChart()}
+          <BudgetBurndownChart combinedData={combinedData} daysInMonth={chartData.daysInMonth} effectiveBudget={chartData.effectiveBudget} monthlyBudget={monthlyBudget} isDark={isDark} palette={palette} textColor={textColor} gridColor={gridColor} formatCurrency={formatCurrency} />
         </div>
       </ChartFullscreenModal>
 
@@ -272,12 +322,12 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
             <CardTitle>{chartTitle}</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <BudgetBurndownInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} effectiveBudget={chartData.effectiveBudget} monthlyBudget={monthlyBudget} remaining={chartData.remaining} paceStatus={paceStatus} formatCurrency={formatCurrency} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
           <div className="flex-1 min-h-[200px]" key={colorScheme}>
-            {renderChart()}
+            <BudgetBurndownChart combinedData={combinedData} daysInMonth={chartData.daysInMonth} effectiveBudget={chartData.effectiveBudget} monthlyBudget={monthlyBudget} isDark={isDark} palette={palette} textColor={textColor} gridColor={gridColor} formatCurrency={formatCurrency} />
           </div>
           {/* Legend */}
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2 mb-2">

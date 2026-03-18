@@ -82,6 +82,41 @@ const buildMonthTotals = (
   return totals
 }
 
+interface AllMonthsCategoryInfoTriggerProps {
+  forFullscreen?: boolean
+  categoryControls?: ChartInfoPopoverCategoryControls
+}
+
+const AllMonthsCategoryInfoTrigger = memo(function AllMonthsCategoryInfoTrigger({
+  forFullscreen = false,
+  categoryControls,
+}: AllMonthsCategoryInfoTriggerProps) {
+  return (
+    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
+      <ChartInfoPopover
+        title="All Months Category Spending"
+        description="See which categories you spend the most on each month of the year (all 12 months shown)."
+        details={[
+          "This chart shows your spending broken down by category for each month of the year.",
+          "All 12 months (January through December) are displayed side-by-side.",
+          "Each month has multiple bars, one for each spending category.",
+          "Only expense transactions (negative amounts) are included.",
+          "The chart respects your selected time period filter.",
+        ]}
+        categoryControls={categoryControls}
+      />
+      <ChartAiInsightButton
+        chartId="allMonthsCategorySpending"
+        chartTitle="All Months Category Spending"
+        chartDescription="See which categories you spend the most on each month of the year (all 12 months shown)."
+        size="sm"
+      />
+    </div>
+  )
+})
+
+AllMonthsCategoryInfoTrigger.displayName = "AllMonthsCategoryInfoTrigger"
+
 export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCategorySpending({
   data = [],
   monthlyCategoriesData,
@@ -397,29 +432,6 @@ export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCatego
     })
     return colorMap
   }, [categories, palette])
-
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
-      <ChartInfoPopover
-        title="All Months Category Spending"
-        description="See which categories you spend the most on each month of the year (all 12 months shown)."
-        details={[
-          "This chart shows your spending broken down by category for each month of the year.",
-          "All 12 months (January through December) are displayed side-by-side.",
-          "Each month has multiple bars, one for each spending category.",
-          "Only expense transactions (negative amounts) are included.",
-          "The chart respects your selected time period filter.",
-        ]}
-        categoryControls={categoryControls}
-      />
-      <ChartAiInsightButton
-        chartId="allMonthsCategorySpending"
-        chartTitle="All Months Category Spending"
-        chartDescription="See which categories you spend the most on each month of the year (all 12 months shown)."
-        size="sm"
-      />
-    </div>
-  )
 
   const isDark = resolvedTheme === "dark"
   const textColor = getChartTextColor(isDark)
@@ -858,7 +870,7 @@ export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCatego
             <CardTitle>All Months Category Spending</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <AllMonthsCategoryInfoTrigger categoryControls={categoryControls} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
@@ -880,7 +892,7 @@ export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCatego
         onClose={() => setIsFullscreen(false)}
         title="All Months Category Spending"
         description="Monthly spending by category across all 12 months"
-        headerActions={renderInfoTrigger(true)}
+        headerActions={<AllMonthsCategoryInfoTrigger forFullscreen categoryControls={categoryControls} />}
       >
         <div className="h-full w-full min-h-[400px] text-center flex items-center justify-center text-muted-foreground">
           Fullscreen view - Shows spending across all months
@@ -900,7 +912,7 @@ export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCatego
             <CardTitle>All Months Category Spending</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <AllMonthsCategoryInfoTrigger categoryControls={categoryControls} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex flex-col">
