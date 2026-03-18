@@ -32,6 +32,115 @@ interface ChartPurchaseSizeBreakdownProps {
   emptyDescription?: string
 }
 
+type BarChartDatum = {
+  month: string
+  "Small (<25)": number
+  "Medium (25-100)": number
+  "Large (100+)": number
+}
+
+// ─── Extracted sub-components ────────────────────────────────────────────────
+
+const CHART_TITLE = "Purchase Size Breakdown"
+const CHART_DESCRIPTION = "See how your spending is distributed between small, medium, and large purchases each month."
+const BAR_KEYS = ["Small (<25)", "Medium (25-100)", "Large (100+)"] as const
+
+interface PurchaseSizeInfoTriggerProps {
+  forFullscreen?: boolean
+  chartData: BarChartDatum[]
+}
+
+const PurchaseSizeInfoTrigger = memo(function PurchaseSizeInfoTrigger({
+  forFullscreen = false,
+  chartData,
+}: PurchaseSizeInfoTriggerProps) {
+  return (
+    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
+      <ChartInfoPopover
+        title={CHART_TITLE}
+        description={CHART_DESCRIPTION}
+        details={["Small: under $25", "Medium: $25 - $100", "Large: over $100", "Stacked by month"]}
+      />
+      <ChartAiInsightButton
+        chartId="purchaseSizeBreakdown"
+        chartTitle={CHART_TITLE}
+        chartDescription={CHART_DESCRIPTION}
+        chartData={{ months: chartData }}
+        size="sm"
+      />
+    </div>
+  )
+})
+PurchaseSizeInfoTrigger.displayName = "PurchaseSizeInfoTrigger"
+
+interface PurchaseSizeBarChartProps {
+  chartData: BarChartDatum[]
+  palette: string[]
+  textColor: string
+  gridColor: string
+  formatCurrency: (v: number, opts?: object) => string
+}
+
+const PurchaseSizeBarChart = memo(function PurchaseSizeBarChart({
+  chartData,
+  palette,
+  textColor,
+  gridColor,
+  formatCurrency,
+}: PurchaseSizeBarChartProps) {
+  return (
+    <ResponsiveBar
+      data={chartData}
+      keys={BAR_KEYS as unknown as string[]}
+      indexBy="month"
+      margin={{ top: 20, right: 20, bottom: 50, left: 60 }}
+      padding={0.3}
+      groupMode="stacked"
+      colors={[palette[2] || "#3b82f6", palette[1] || "#10b981", palette[0] || "#fe8339"]}
+      borderRadius={10}
+      enableLabel={false}
+      axisBottom={{
+        tickSize: 0,
+        tickPadding: 8,
+        format: (v: string) => {
+          const [, month] = v.split("-")
+          const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+          return months[parseInt(month) - 1]
+        },
+      }}
+      axisLeft={{
+        tickSize: 0,
+        tickPadding: 8,
+        format: (v: number) => {
+          if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`
+          if (v >= 1000) return `${(v / 1000).toFixed(0)}K`
+          return formatCurrency(v, { maximumFractionDigits: 0 })
+        },
+      }}
+      enableGridY={true}
+      gridYValues={5}
+      theme={{
+        text: { fill: textColor, fontSize: 11 },
+        axis: { ticks: { text: { fill: textColor } } },
+        grid: { line: { stroke: gridColor, strokeDasharray: "4 4" } },
+      }}
+      tooltip={({ id, value, indexValue, color }) => (
+        <NivoChartTooltip
+          title={String(id)}
+          titleColor={color}
+          value={formatCurrency(value as number)}
+          subValue={indexValue as string}
+        />
+      )}
+      animate={true}
+      motionConfig="gentle"
+    />
+  )
+})
+PurchaseSizeBarChart.displayName = "PurchaseSizeBarChart"
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export const ChartPurchaseSizeBreakdown = memo(function ChartPurchaseSizeBreakdown({
   data,
   isLoading = false,
@@ -83,77 +192,6 @@ export const ChartPurchaseSizeBreakdown = memo(function ChartPurchaseSizeBreakdo
   const textColor = getChartTextColor(isDark)
   const gridColor = getChartAxisLineColor(isDark)
 
-  const chartTitle = "Purchase Size Breakdown"
-  const chartDescription = "See how your spending is distributed between small, medium, and large purchases each month."
-
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
-      <ChartInfoPopover
-        title={chartTitle}
-        description={chartDescription}
-        details={["Small: under $25", "Medium: $25 - $100", "Large: over $100", "Stacked by month"]}
-      />
-      <ChartAiInsightButton
-        chartId="purchaseSizeBreakdown"
-        chartTitle={chartTitle}
-        chartDescription={chartDescription}
-        chartData={{ months: chartData }}
-        size="sm"
-      />
-    </div>
-  )
-
-  const barKeys = ["Small (<25)", "Medium (25-100)", "Large (100+)"]
-
-  const renderChart = () => (
-    <ResponsiveBar
-      data={chartData}
-      keys={barKeys}
-      indexBy="month"
-      margin={{ top: 20, right: 20, bottom: 50, left: 60 }}
-      padding={0.3}
-      groupMode="stacked"
-      colors={[palette[2] || "#3b82f6", palette[1] || "#10b981", palette[0] || "#fe8339"]}
-      borderRadius={10}
-      enableLabel={false}
-      axisBottom={{
-        tickSize: 0,
-        tickPadding: 8,
-        format: (v: string) => {
-          const [, month] = v.split("-")
-          const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-          return months[parseInt(month) - 1]
-        },
-      }}
-      axisLeft={{
-        tickSize: 0,
-        tickPadding: 8,
-        format: (v: number) => {
-          if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`
-          if (v >= 1000) return `${(v / 1000).toFixed(0)}K`
-          return formatCurrency(v, { maximumFractionDigits: 0 })
-        },
-      }}
-      enableGridY={true}
-      gridYValues={5}
-      theme={{
-        text: { fill: textColor, fontSize: 11 },
-        axis: { ticks: { text: { fill: textColor } } },
-        grid: { line: { stroke: gridColor, strokeDasharray: "4 4" } },
-      }}
-      tooltip={({ id, value, indexValue, color }) => (
-        <NivoChartTooltip
-          title={String(id)}
-          titleColor={color}
-          value={formatCurrency(value as number)}
-          subValue={indexValue as string}
-        />
-      )}
-      animate={true}
-      motionConfig="gentle"
-    />
-  )
-
   if (!mounted || isLoading || chartData.length === 0) {
     return (
       <Card className="@container/card h-full relative">
@@ -161,11 +199,11 @@ export const ChartPurchaseSizeBreakdown = memo(function ChartPurchaseSizeBreakdo
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
             <ChartExpandButton onClick={() => setIsFullscreen(true)} />
-            <ChartFavoriteButton chartId="purchaseSizeBreakdown" chartTitle={chartTitle} size="md" />
-            <CardTitle>{chartTitle}</CardTitle>
+            <ChartFavoriteButton chartId="purchaseSizeBreakdown" chartTitle={CHART_TITLE} size="md" />
+            <CardTitle>{CHART_TITLE}</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <PurchaseSizeInfoTrigger chartData={chartData} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
@@ -187,12 +225,18 @@ export const ChartPurchaseSizeBreakdown = memo(function ChartPurchaseSizeBreakdo
       <ChartFullscreenModal
         isOpen={isFullscreen}
         onClose={() => setIsFullscreen(false)}
-        title={chartTitle}
-        description={chartDescription}
-        headerActions={renderInfoTrigger(true)}
+        title={CHART_TITLE}
+        description={CHART_DESCRIPTION}
+        headerActions={<PurchaseSizeInfoTrigger forFullscreen chartData={chartData} />}
       >
         <div className="h-full w-full min-h-[400px]" key={colorScheme}>
-          {renderChart()}
+          <PurchaseSizeBarChart
+            chartData={chartData}
+            palette={palette}
+            textColor={textColor}
+            gridColor={gridColor}
+            formatCurrency={formatCurrency}
+          />
         </div>
       </ChartFullscreenModal>
 
@@ -201,20 +245,26 @@ export const ChartPurchaseSizeBreakdown = memo(function ChartPurchaseSizeBreakdo
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
             <ChartExpandButton onClick={() => setIsFullscreen(true)} />
-            <ChartFavoriteButton chartId="purchaseSizeBreakdown" chartTitle={chartTitle} size="md" />
-            <CardTitle>{chartTitle}</CardTitle>
+            <ChartFavoriteButton chartId="purchaseSizeBreakdown" chartTitle={CHART_TITLE} size="md" />
+            <CardTitle>{CHART_TITLE}</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
+            <PurchaseSizeInfoTrigger chartData={chartData} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
           <div className="h-full w-full min-h-[210px]" key={colorScheme}>
-            {renderChart()}
+            <PurchaseSizeBarChart
+              chartData={chartData}
+              palette={palette}
+              textColor={textColor}
+              gridColor={gridColor}
+              formatCurrency={formatCurrency}
+            />
           </div>
           {/* Legend */}
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2 mb-2">
-            {barKeys.map((key, i) => (
+            {BAR_KEYS.map((key, i) => (
               <div key={key} className="flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: [palette[2] || "#3b82f6", palette[1] || "#10b981", palette[0] || "#fe8339"][i] }} />
                 <span className="font-medium text-foreground truncate max-w-[120px]" title={key}>{key}</span>

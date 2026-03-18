@@ -2,7 +2,7 @@
 
 // Purchase Size Comparison Chart - Shows distribution of receipt totals by size range
 import * as React from "react"
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState, useEffect, memo } from "react"
 import { createPortal } from "react-dom"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
@@ -55,6 +55,46 @@ const SIZE_RANGES = [
     { label: "$150-200", min: 150, max: 200 },
     { label: "$200+", min: 200, max: Infinity },
 ]
+
+// ─── Extracted sub-components ────────────────────────────────────────────────
+
+interface FridgePurchaseSizeInfoTriggerProps {
+    sizeData: SizeRange[]
+    totalReceipts: number
+}
+
+const FridgePurchaseSizeInfoTrigger = memo(function FridgePurchaseSizeInfoTrigger({
+    sizeData,
+    totalReceipts,
+}: FridgePurchaseSizeInfoTriggerProps) {
+    return (
+        <div className="flex flex-col items-center gap-2">
+            <ChartInfoPopover
+                title="Purchase Size Comparison"
+                description="Distribution of grocery trips by receipt total"
+                details={[
+                    "Each bar represents a price range for receipt totals.",
+                    "Height shows how many shopping trips fell into that range.",
+                    "Ranges with no receipts are automatically hidden.",
+                ]}
+                ignoredFootnote="Based on unique receipt totals from scanned receipts."
+            />
+            <ChartAiInsightButton
+                chartId="fridge:purchaseSizeComparison"
+                chartTitle="Purchase Size Comparison"
+                chartDescription="Distribution of grocery trips by receipt total"
+                chartData={{
+                    ranges: sizeData.map((d) => ({ label: d.label, count: d.count })),
+                    totalReceipts,
+                }}
+                size="sm"
+            />
+        </div>
+    )
+})
+FridgePurchaseSizeInfoTrigger.displayName = "FridgePurchaseSizeInfoTrigger"
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurchaseSizeComparisonFridge({
     receiptTransactions = [],
@@ -171,31 +211,6 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
         setTooltip(null)
     }
 
-    const renderInfoTrigger = () => (
-        <div className="flex flex-col items-center gap-2">
-            <ChartInfoPopover
-                title="Purchase Size Comparison"
-                description="Distribution of grocery trips by receipt total"
-                details={[
-                    "Each bar represents a price range for receipt totals.",
-                    "Height shows how many shopping trips fell into that range.",
-                    "Ranges with no receipts are automatically hidden.",
-                ]}
-                ignoredFootnote="Based on unique receipt totals from scanned receipts."
-            />
-            <ChartAiInsightButton
-                chartId="fridge:purchaseSizeComparison"
-                chartTitle="Purchase Size Comparison"
-                chartDescription="Distribution of grocery trips by receipt total"
-                chartData={{
-                    ranges: sizeData.map((d) => ({ label: d.label, count: d.count })),
-                    totalReceipts,
-                }}
-                size="sm"
-            />
-        </div>
-    )
-
     const isDark = resolvedTheme === "dark"
     const textColor = getChartTextColor(isDark)
     const gridColor = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"
@@ -214,7 +229,7 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
                         <CardTitle>Purchase Size Comparison</CardTitle>
                     </div>
                     <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                        {renderInfoTrigger()}
+                        <FridgePurchaseSizeInfoTrigger sizeData={sizeData} totalReceipts={totalReceipts} />
                     </CardAction>
                 </CardHeader>
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
@@ -240,7 +255,7 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
                         <CardTitle>Purchase Size Comparison</CardTitle>
                     </div>
                     <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                        {renderInfoTrigger()}
+                        <FridgePurchaseSizeInfoTrigger sizeData={sizeData} totalReceipts={totalReceipts} />
                     </CardAction>
                 </CardHeader>
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
@@ -271,7 +286,7 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
                     <span className="hidden @[540px]/card:block"></span>
                 </CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                    {renderInfoTrigger()}
+                    <FridgePurchaseSizeInfoTrigger sizeData={sizeData} totalReceipts={totalReceipts} />
                 </CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
