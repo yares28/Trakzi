@@ -1,13 +1,13 @@
 "use client"
 
 import * as React from "react"
-import ReactECharts from "echarts-for-react"
+import ReactDOM from "react-dom"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
-import { DEFAULT_FALLBACK_PALETTE, getChartTextColor, getEChartsBackground, getEChartsSplitLineColor } from "@/lib/chart-colors"
+import { DEFAULT_FALLBACK_PALETTE, getChartTextColor, CHART_GRID_COLOR } from "@/lib/chart-colors"
 import { deduplicatedFetch, getCachedResponse } from "@/lib/request-deduplication"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
@@ -18,7 +18,6 @@ import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -123,8 +122,6 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
     }>(buildDayOfWeekUrl(buildDayParams(initialSelectedDay)))
     : undefined
   const [mounted, setMounted] = React.useState(false)
-  // Track if initial animation has completed to prevent replay on theme hydration
-  const hasAnimatedRef = React.useRef(false)
   const [data, setData] = React.useState<DayOfWeekData[]>(
     () => cachedSelected?.data ?? [],
   )
@@ -137,29 +134,23 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
   const [loading, setLoading] = React.useState(
     () => initialAvailableDays.length > 0 && cachedSelected === undefined,
   )
-  const chartRef = React.useRef<any>(null)
+  const svgRef = React.useRef<SVGSVGElement>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
-  const [tooltip, setTooltip] = React.useState<{ label: string; value: number; color: string } | null>(null)
-  const [tooltipPosition, setTooltipPosition] = React.useState<{ x: number; y: number } | null>(null)
-  const mousePositionRef = React.useRef<{ x: number; y: number } | null>(null)
+  const [tooltip, setTooltip] = React.useState<{ label: string; value: number; color: string; tooltipKey: number } | null>(null)
+  const [tooltipPos, setTooltipPos] = React.useState<{ x: number; y: number } | null>(null)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
 
   React.useEffect(() => {
-    // Mark as mounted to avoid rendering chart on server
     setMounted(true)
   }, [])
 
   // Fetch available days first (without selected day) when dateFilter changes
   React.useEffect(() => {
-    // If parent provides bundleLoading prop, it's using the bundle system
-    // Skip individual API calls and wait for bundleData
     if (bundleLoading !== undefined) {
-      // Still loading - wait
       if (bundleLoading) {
         setLoading(true)
         return
       }
-      // Not loading - use bundleData if available
       if (bundleData && bundleData.length > 0) {
         const days = [...new Set(bundleData.map(d => d.dayOfWeek))].sort((a, b) => a - b)
         setAvailableDays(days)
@@ -176,15 +167,11 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
         setLoading(false)
         return
       }
-      // bundleLoading is false but no bundleData - bundle returned empty
-      // This is valid (no data), set empty state
       setAvailableDays([])
       setSelectedDay(null)
       setLoading(false)
       return
     }
-
-    // Fallback: parent doesn't use bundle system - fetch from individual API
 
     const fetchAvailableDays = async () => {
       try {
@@ -215,22 +202,18 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
         const days = result.availableDays || []
         setAvailableDays(days)
 
-        // Reset selected day to first available when date filter changes
         if (days.length > 0) {
           setSelectedDay((prev) => {
-            // Only update if current selection is not in the new list
             if (prev === null || !days.includes(prev)) {
               return days[0]
             }
             return prev
           })
         } else {
-          // No days available - set loading to false so we show empty state
           setSelectedDay(null)
           setLoading(false)
         }
       } catch (error) {
-        console.error("Error fetching available days:", error)
         setAvailableDays([])
         setSelectedDay(null)
         setLoading(false)
@@ -245,13 +228,10 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
 
   // Fetch data when selectedDay changes
   React.useEffect(() => {
-    // If parent provides bundleLoading prop, it's using the bundle system
     if (bundleLoading !== undefined) {
-      // Still loading - wait
       if (bundleLoading) {
         return
       }
-      // Use bundleData if available
       if (bundleData && bundleData.length > 0) {
         if (selectedDay === null) {
           setData([])
@@ -262,13 +242,10 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
         setLoading(false)
         return
       }
-      // Bundle returned empty - set empty state
       setData([])
       setLoading(false)
       return
     }
-
-    // Fallback: parent doesn't use bundle system
 
     const fetchData = async () => {
       if (selectedDay === null) {
@@ -294,10 +271,7 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
         )
         const fetchedData = result.data || []
 
-        // If data is empty and there are other available days, try to find one with data
         if (fetchedData.length === 0 && availableDays.length > 1) {
-          const currentIndex = availableDays.indexOf(selectedDay)
-          // Try other days in order (starting from the first)
           for (const day of availableDays) {
             if (day === selectedDay) continue
 
@@ -327,7 +301,6 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
 
         setData(fetchedData)
       } catch (error) {
-        console.error("Error fetching day of week category data:", error)
         setData([])
       } finally {
         setLoading(false)
@@ -339,255 +312,268 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
     }
   }, [selectedDay, dateFilter, mounted, availableDays, buildDayParams, bundleData, bundleLoading])
 
-  // getPalette() already filters neutral #c3c3c3 and trims by theme
   const palette = React.useMemo(() => {
     const p = getPalette()
     return p.length ? p : DEFAULT_FALLBACK_PALETTE
   }, [getPalette])
 
+  const isDark = resolvedTheme === "dark"
+  const textColor = getChartTextColor(isDark)
+  const gridColor = CHART_GRID_COLOR
 
+  // Top 10 categories sorted by total descending (data is already sorted by API)
+  const topCategories = React.useMemo(() => data.slice(0, 10), [data])
 
-  // ECharts event handlers for custom tooltip
-  const handleChartMouseOver = React.useCallback(
-    (params: any) => {
-      if (!containerRef.current) return
+  // SVG bar chart rendering + ResizeObserver
+  React.useEffect(() => {
+    if (!svgRef.current || topCategories.length === 0) return
 
-      const rect = containerRef.current.getBoundingClientRect()
-      let mouseX = 0
-      let mouseY = 0
-      const ecEvent = (params && (params.event?.event || params.event)) as
-        | (MouseEvent & { offsetX?: number; offsetY?: number })
-        | undefined
+    const svg = svgRef.current
 
-      if (ecEvent) {
-        if (
-          typeof ecEvent.clientX === "number" &&
-          typeof ecEvent.clientY === "number"
-        ) {
-          mouseX = ecEvent.clientX - rect.left
-          mouseY = ecEvent.clientY - rect.top
-        } else if (
-          typeof ecEvent.offsetX === "number" &&
-          typeof ecEvent.offsetY === "number"
-        ) {
-          mouseX = ecEvent.offsetX
-          mouseY = ecEvent.offsetY
-        }
+    const handleSvgMouseLeave = () => {
+      setTooltip(null)
+      setTooltipPos(null)
+    }
+    svg.addEventListener("mouseleave", handleSvgMouseLeave)
+
+    let lastWidth: number | null = null
+    let lastHeight: number | null = null
+    let tooltipKeyCounter = 0
+
+    const computeTooltipPos = (event: MouseEvent) => {
+      const TOOLTIP_W = 200
+      const TOOLTIP_H = 70
+      const OFFSET = 16
+      const MARGIN = 8
+
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      const cx = event.clientX
+      const cy = event.clientY
+
+      let x = cx + OFFSET
+      let y = cy - OFFSET
+
+      if (x + TOOLTIP_W + MARGIN > vw) x = cx - TOOLTIP_W - OFFSET
+      if (x < MARGIN) x = MARGIN
+      if (y + TOOLTIP_H + MARGIN > vh) y = cy - TOOLTIP_H - OFFSET
+      if (y < MARGIN) y = MARGIN
+
+      return { x, y }
+    }
+
+    const renderChart = (forcedWidth?: number, forcedHeight?: number) => {
+      svg.innerHTML = ""
+
+      const marginTop = 16
+      const marginRight = 16
+      const marginBottom = 72  // room for rotated category labels
+      const marginLeft = 70
+
+      const container = svg.parentElement
+      const containerRect = container?.getBoundingClientRect()
+      const width = forcedWidth ?? containerRect?.width ?? 800
+      const height = forcedHeight ?? containerRect?.height ?? 250
+
+      svg.setAttribute("width", width.toString())
+      svg.setAttribute("height", height.toString())
+
+      const chartWidth = Math.max(0, width - marginLeft - marginRight)
+      const chartHeight = Math.max(0, height - marginTop - marginBottom)
+
+      const n = topCategories.length
+      const barStep = n > 0 ? chartWidth / n : chartWidth
+      const barPadding = barStep * 0.15
+      const barBandwidth = Math.max(1, barStep - barPadding * 2)
+
+      const maxAmount = n > 0 ? Math.max(...topCategories.map(d => d.total)) : 0
+
+      const xPos = (index: number) => marginLeft + index * barStep + barPadding
+      const yPos = (amount: number) => {
+        if (maxAmount === 0) return chartHeight + marginTop
+        return marginTop + chartHeight - (amount / maxAmount) * chartHeight
+      }
+      const barH = (amount: number) => {
+        if (maxAmount === 0) return 0
+        return (amount / maxAmount) * chartHeight
       }
 
-      const position = { x: mouseX, y: mouseY }
-      mousePositionRef.current = position
-      setTooltipPosition(position)
+      // Grid lines
+      const numTicks = 5
+      const gridGroup = document.createElementNS("http://www.w3.org/2000/svg", "g")
+      gridGroup.setAttribute("stroke", gridColor)
+      gridGroup.setAttribute("stroke-width", "0.5")
+      gridGroup.setAttribute("stroke-dasharray", "3,3")
+      gridGroup.setAttribute("opacity", "0.5")
 
-      if (params && params.name) {
-        const category = params.name || ""
-        let value = 0
-        if (Array.isArray(params.value)) {
-          value = params.value[1] || params.value[0] || 0
-        } else if (params.data && Array.isArray(params.data)) {
-          value = params.data[1] || 0
-        } else {
-          value = params.value || 0
-        }
-        const index = params.dataIndex || 0
+      for (let i = 0; i <= numTicks; i++) {
+        const gy = marginTop + chartHeight - (i / numTicks) * chartHeight
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line")
+        line.setAttribute("x1", marginLeft.toString())
+        line.setAttribute("y1", gy.toString())
+        line.setAttribute("x2", (marginLeft + chartWidth).toString())
+        line.setAttribute("y2", gy.toString())
+        gridGroup.appendChild(line)
+      }
+      svg.appendChild(gridGroup)
+
+      // Bars
+      topCategories.forEach((item, index) => {
         const color = palette[index % palette.length]
+        const bx = xPos(index)
+        const finalY = yPos(item.total)
+        const bh = barH(item.total)
 
-        setTooltip({
-          label: category,
-          value,
-          color,
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect")
+        rect.setAttribute("x", bx.toString())
+        rect.setAttribute("y", (marginTop + chartHeight).toString())
+        rect.setAttribute("width", barBandwidth.toString())
+        rect.setAttribute("height", "0")
+        rect.setAttribute("fill", color)
+        rect.setAttribute("rx", "4")
+        rect.setAttribute("ry", "4")
+        rect.style.cursor = "pointer"
+        rect.style.transition = `height 0.5s ease-out, y 0.5s ease-out`
+        rect.style.transitionDelay = `${index * 0.04}s`
+
+        svg.appendChild(rect)
+
+        // Animate in
+        setTimeout(() => {
+          rect.setAttribute("height", bh.toString())
+          rect.setAttribute("y", finalY.toString())
+        }, 30 + index * 30)
+
+        rect.addEventListener("mouseenter", (e) => {
+          const pos = computeTooltipPos(e as MouseEvent)
+          setTooltipPos(pos)
+          setTooltip((prev) => {
+            const newKey =
+              prev && prev.label === item.category ? prev.tooltipKey : ++tooltipKeyCounter
+            return { label: item.category, value: item.total, color, tooltipKey: newKey }
+          })
         })
+        rect.addEventListener("mousemove", (e) => {
+          setTooltipPos(computeTooltipPos(e as MouseEvent))
+        })
+        rect.addEventListener("mouseleave", () => {
+          setTooltip(null)
+          setTooltipPos(null)
+        })
+      })
+
+      // X axis line
+      const xAxisGroup = document.createElementNS("http://www.w3.org/2000/svg", "g")
+      xAxisGroup.setAttribute("transform", `translate(0,${marginTop + chartHeight})`)
+
+      const xDomainLine = document.createElementNS("http://www.w3.org/2000/svg", "line")
+      xDomainLine.setAttribute("x1", marginLeft.toString())
+      xDomainLine.setAttribute("y1", "0")
+      xDomainLine.setAttribute("x2", (marginLeft + chartWidth).toString())
+      xDomainLine.setAttribute("y2", "0")
+      xDomainLine.setAttribute("stroke", gridColor)
+      xDomainLine.setAttribute("stroke-width", "1")
+      xAxisGroup.appendChild(xDomainLine)
+
+      // X axis category labels (rotated -45°)
+      topCategories.forEach((item, index) => {
+        const lx = xPos(index) + barBandwidth / 2
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text")
+        text.setAttribute("x", lx.toString())
+        text.setAttribute("y", "12")
+        text.setAttribute("text-anchor", "end")
+        text.setAttribute("fill", textColor)
+        text.setAttribute("font-size", "11")
+        text.setAttribute(
+          "font-family",
+          'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
+        )
+        text.setAttribute("transform", `rotate(-40, ${lx}, 12)`)
+        // Truncate long labels
+        const label = item.category.length > 14 ? item.category.slice(0, 13) + "…" : item.category
+        text.textContent = label
+        xAxisGroup.appendChild(text)
+      })
+      svg.appendChild(xAxisGroup)
+
+      // Y axis
+      const yAxisGroup = document.createElementNS("http://www.w3.org/2000/svg", "g")
+      yAxisGroup.setAttribute("transform", `translate(${marginLeft},${marginTop})`)
+
+      const yDomainLine = document.createElementNS("http://www.w3.org/2000/svg", "line")
+      yDomainLine.setAttribute("x1", "0")
+      yDomainLine.setAttribute("y1", "0")
+      yDomainLine.setAttribute("x2", "0")
+      yDomainLine.setAttribute("y2", chartHeight.toString())
+      yDomainLine.setAttribute("stroke", gridColor)
+      yDomainLine.setAttribute("stroke-width", "1")
+      yAxisGroup.appendChild(yDomainLine)
+
+      for (let i = 0; i <= numTicks; i++) {
+        const value = (maxAmount / numTicks) * i
+        const gy = chartHeight - (i / numTicks) * chartHeight
+
+        const tickLine = document.createElementNS("http://www.w3.org/2000/svg", "line")
+        tickLine.setAttribute("x1", "0")
+        tickLine.setAttribute("y1", gy.toString())
+        tickLine.setAttribute("x2", "-5")
+        tickLine.setAttribute("y2", gy.toString())
+        tickLine.setAttribute("stroke", gridColor)
+        tickLine.setAttribute("stroke-width", "1")
+        yAxisGroup.appendChild(tickLine)
+
+        const tickText = document.createElementNS("http://www.w3.org/2000/svg", "text")
+        tickText.setAttribute("x", "-10")
+        tickText.setAttribute("y", gy.toString())
+        tickText.setAttribute("text-anchor", "end")
+        tickText.setAttribute("alignment-baseline", "middle")
+        tickText.setAttribute("fill", textColor)
+        tickText.setAttribute("font-size", "11")
+        tickText.setAttribute(
+          "font-family",
+          'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
+        )
+        tickText.textContent = formatCurrency(value, { maximumFractionDigits: 0 })
+        yAxisGroup.appendChild(tickText)
       }
-    },
-    [palette],
-  )
-
-  const handleChartMouseOut = React.useCallback(() => {
-    setTooltip(null)
-    setTooltipPosition(null)
-    mousePositionRef.current = null
-  }, [])
-
-  const chartEvents = React.useMemo(
-    () => ({
-      mouseover: handleChartMouseOver,
-      mouseout: handleChartMouseOut,
-      // Ensure tooltip clears even if the cursor leaves the chart entirely
-      globalout: handleChartMouseOut,
-    }),
-    [handleChartMouseOver, handleChartMouseOut],
-  )
-
-  // Track mouse movement continuously for tooltip positioning
-  React.useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const rect = container.getBoundingClientRect()
-      const position = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      }
-      mousePositionRef.current = position
-      if (tooltip) {
-        setTooltipPosition(position)
-      }
+      svg.appendChild(yAxisGroup)
     }
 
-    const handleMouseLeave = () => {
-      setTooltip(null)
-      setTooltipPosition(null)
-      mousePositionRef.current = null
+    // Initial render
+    const initialContainer = svg.parentElement
+    const initialRect = initialContainer?.getBoundingClientRect()
+    if (typeof initialRect?.width === "number" && typeof initialRect?.height === "number") {
+      lastWidth = initialRect.width
+      lastHeight = initialRect.height
+      renderChart(initialRect.width, initialRect.height)
+    } else {
+      renderChart()
     }
 
-    container.addEventListener('mousemove', handleMouseMove)
-    container.addEventListener('mouseleave', handleMouseLeave)
+    // ResizeObserver for responsiveness
+    const container = svg.parentElement
+    let resizeObserver: ResizeObserver | null = null
+
+    if (container && typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver((entries) => {
+        const entry = entries[0]
+        if (!entry) return
+        const { width, height } = entry.contentRect
+        if (lastWidth === width && lastHeight === height) return
+        lastWidth = width
+        lastHeight = height
+        renderChart(width, height)
+      })
+      resizeObserver.observe(container)
+    }
 
     return () => {
-      container.removeEventListener('mousemove', handleMouseMove)
-      container.removeEventListener('mouseleave', handleMouseLeave)
+      if (resizeObserver && container) {
+        resizeObserver.unobserve(container)
+      }
+      svg.removeEventListener("mouseleave", handleSvgMouseLeave)
     }
-  }, [tooltip])
-
-  const option = React.useMemo(() => {
-    if (!data.length || selectedDay === null) return null
-
-    // Data is already filtered to selected day and sorted by total descending
-    // Get top categories (already sorted by API)
-    const topCategories = data.slice(0, 10) // Show top 10 categories
-
-    if (!topCategories.length) return null
-
-    // Precompute a stable color for each category index so we don't
-    // recalculate it inside render paths.
-    const barColors = topCategories.map((_, index) => palette[index % palette.length])
-
-    // Build dataset source
-    const datasetSource: any[] = [["category", "Amount"]]
-    topCategories.forEach((item) => {
-      datasetSource.push([item.category, item.total])
-    })
-
-    const isDark = resolvedTheme === "dark"
-    const backgroundColor = getEChartsBackground(isDark)
-
-    // Use muted-foreground color for axis labels
-    const textColor = getChartTextColor(isDark)
-
-    // Disable animation after first render to prevent replay on theme hydration
-    // Set ref synchronously to prevent race condition with theme changes
-    const shouldAnimate = !hasAnimatedRef.current
-    if (shouldAnimate) {
-      hasAnimatedRef.current = true
-    }
-
-    return {
-      backgroundColor,
-      animation: shouldAnimate,
-      animationDuration: shouldAnimate ? 1000 : 0,
-      textStyle: {
-        color: textColor,
-      },
-      legend: {
-        show: false,
-      },
-      tooltip: {
-        show: false, // Disable default ECharts tooltip
-      },
-      dataset: {
-        source: datasetSource,
-      },
-      xAxis: {
-        type: "category",
-        axisLabel: {
-          rotate: 45,
-          interval: 0,
-          color: textColor,
-        },
-        axisTick: {
-          lineStyle: {
-            color: textColor,
-          },
-        },
-        axisLine: {
-          lineStyle: {
-            color: textColor,
-          },
-        },
-      },
-      yAxis: {
-        type: "value",
-        axisLabel: {
-          formatter: (value: number) => formatCurrency(value, { maximumFractionDigits: 0 }),
-          color: textColor,
-        },
-        axisTick: {
-          lineStyle: {
-            color: textColor,
-          },
-        },
-        axisLine: {
-          lineStyle: {
-            color: textColor,
-          },
-        },
-        splitLine: {
-          lineStyle: {
-            color: getEChartsSplitLineColor(isDark),
-          },
-        },
-      },
-      series: [
-        {
-          type: "bar",
-          itemStyle: {
-            borderRadius: [10, 10, 0, 0],
-            color: (params: any) => {
-              const index = params.dataIndex
-              return barColors[index] ?? palette[index % palette.length]
-            },
-          },
-        },
-      ],
-    }
-  }, [data, selectedDay, palette, resolvedTheme])
-
-  // Ensure tooltip clears when leaving the chart canvas entirely
-  React.useEffect(() => {
-    if (!chartRef.current) return
-    const instance = chartRef.current.getEchartsInstance?.()
-    if (!instance || !instance.getZr) return
-
-    const zr = instance.getZr()
-    const handleGlobalOut = () => {
-      setTooltip(null)
-      setTooltipPosition(null)
-      mousePositionRef.current = null
-    }
-
-    zr.on("globalout", handleGlobalOut)
-    return () => {
-      zr.off("globalout", handleGlobalOut)
-    }
-  }, [])
-
-
-  // Memoize the heavy chart element so tooltip state changes
-  // do not cause the ECharts instance to be recreated.
-  const chartElement = React.useMemo(() => {
-    if (!option) return null
-    return (
-      <ReactECharts
-        ref={chartRef}
-        option={option}
-        style={{ height: "100%", width: "100%" }}
-        opts={{ renderer: "svg" }}
-        notMerge={true}
-        onEvents={chartEvents}
-      />
-    )
-  }, [option, chartEvents])
+  }, [topCategories, palette, isDark, textColor, gridColor, formatCurrency])
 
   if (!mounted) {
     return (
@@ -724,35 +710,16 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
             <DayOfWeekCategoryInfoTrigger />
           </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-          {option && data.length > 0 ? (
-            <div className="h-full w-full flex flex-col">
-              <div className="mb-2 text-sm font-medium text-foreground text-center">
-                Total: {formatCurrency(data.reduce((sum, item) => sum + item.total, 0))}
-              </div>
-              <div ref={containerRef} className="relative flex-1 min-h-0" style={{ minHeight: 0, minWidth: 0 }}>
-                {chartElement}
-                {tooltip && tooltipPosition && (
-                  <div
-                    className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
-                    style={{
-                      left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
-                      top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
-                    }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="h-2.5 w-2.5 rounded-full border border-border/50"
-                        style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
-                      />
-                      <span className="font-medium text-foreground whitespace-nowrap">{tooltip.label}</span>
-                    </div>
-                    <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                      {formatCurrency(tooltip.value)}
-                    </div>
-                  </div>
-                )}
-              </div>
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex flex-col">
+          {topCategories.length > 0 ? (
+            <div ref={containerRef} className="relative w-full flex-1 min-h-0">
+              <svg
+                ref={svgRef}
+                width="100%"
+                height="100%"
+                preserveAspectRatio="none"
+                style={{ display: "block" }}
+              />
             </div>
           ) : (
             <ChartLoadingState
@@ -760,6 +727,25 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
               emptyTitle={emptyTitle || "No spending data"}
               emptyDescription={emptyDescription || "No transactions recorded for this day yet"}
             />
+          )}
+          {typeof document !== "undefined" && tooltip && tooltipPos && ReactDOM.createPortal(
+            <div
+              key={tooltip.tooltipKey}
+              className="pointer-events-none fixed z-[9999] rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+              style={{ left: tooltipPos.x, top: tooltipPos.y }}
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: tooltip.color }}
+                />
+                <span className="font-medium text-foreground whitespace-nowrap">{tooltip.label}</span>
+              </div>
+              <div className="mt-1 font-mono text-[0.7rem] text-foreground/80 pl-4">
+                {formatCurrency(tooltip.value)}
+              </div>
+            </div>,
+            document.body
           )}
         </CardContent>
       </Card>

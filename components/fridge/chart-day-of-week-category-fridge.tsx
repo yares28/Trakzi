@@ -431,7 +431,6 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
                     <CardTitle>Day of Week Category Spending</CardTitle>
                 </div>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                    <DayOfWeekInfoTrigger selectedDay={selectedDay} data={data} />
                     <Select
                         value={selectedDay !== null ? selectedDay.toString() : ""}
                         onValueChange={(value) => setSelectedDay(parseInt(value, 10))}
@@ -451,6 +450,7 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
                             ))}
                         </SelectContent>
                     </Select>
+                    <DayOfWeekInfoTrigger selectedDay={selectedDay} data={data} />
                 </CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">

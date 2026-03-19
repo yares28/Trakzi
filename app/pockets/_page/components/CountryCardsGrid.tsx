@@ -56,6 +56,8 @@ export const CountryCardsGrid = memo(function CountryCardsGrid({
                 try { localStorage.setItem(DISMISSED_TRAVEL_KEY, JSON.stringify([...next])) } catch { /* noop */ }
                 return next
             })
+            // Notify parent so it re-syncs map data from localStorage
+            onCountryDeleted?.()
             return
         }
 

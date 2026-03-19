@@ -1,6 +1,7 @@
 // lib/ai/categoriseTransactions.ts
 import { TxRow } from "../types/transactions";
 import { DEFAULT_CATEGORIES as MAIN_DEFAULT_CATEGORIES } from '@/lib/categories';
+import { sanitizeForAI } from "@/lib/security/input-sanitizer";
 import { normalizeTransactionDescriptionKey } from "@/lib/transactions/transaction-category-preferences";
 import { detectLanguage, detectLanguageFromSamples, SupportedLocale, type LanguageDetection } from "@/lib/language/language-detection";
 import { logAiCategoryFeedbackBatch } from "@/lib/ai/ai-category-feedback";
@@ -1109,7 +1110,7 @@ export async function categoriseTransactions(
     const sanitizedCustomCategories = Array.isArray(customCategories)
         ? customCategories
             .filter((category): category is string => typeof category === "string")
-            .map((category) => category.trim())
+            .map((category) => sanitizeForAI(category.trim(), 50))
             .filter((category) => category.length > 0)
         : [];
 

@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useMemo } from "react"
+import { useCountUp } from "@/hooks/use-count-up"
 import { IconTrendingDown, IconTrendingUp, IconLock, IconSparkles } from "@tabler/icons-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -45,6 +46,7 @@ interface SectionCardsFridgeProps {
     fridgeScoreTrend?: "improving" | "worsening" | "stable";
     fridgeScoreTrendData?: TrendDataPoint[];
     fridgeScoreEnabled?: boolean;
+    isLoading?: boolean;
 }
 
 // Blurred trend line background component with real data support
@@ -129,6 +131,7 @@ function FridgeScoreCard({
     color,
     trendData = EMPTY_TREND_DATA,
     enabled = true,
+    isLoading = false,
 }: {
     score: number
     grade: string
@@ -136,7 +139,9 @@ function FridgeScoreCard({
     color: string
     trendData?: TrendDataPoint[]
     enabled?: boolean
+    isLoading?: boolean
 }) {
+    const animatedScore = useCountUp(isLoading ? 0 : score)
     const subtextUnderValue =
         trend === "improving" ? "Trend improving"
             : trend === "worsening" ? "Trend worsening"
@@ -150,7 +155,7 @@ function FridgeScoreCard({
             <CardHeader className={`!flex flex-col items-center justify-center p-0 h-full w-full z-10 text-center gap-1 ${!enabled ? "blur-sm opacity-40 saturate-50 pointer-events-none select-none" : ""}`}>
                 <CardDescription className="text-[11px] sm:text-xs text-balance px-2 leading-tight">Fridge Score</CardDescription>
                 <CardTitle className="text-xl sm:text-2xl font-bold tabular-nums break-words px-2">
-                    {score}
+                    {Math.round(animatedScore)}
                 </CardTitle>
                 <Badge variant="outline" className="text-[10px] h-5 px-1.5 shrink-0 flex items-center justify-center">
                     {grade}
@@ -202,9 +207,16 @@ export function SectionCardsFridge({
     fridgeScoreTrend = "stable",
     fridgeScoreTrendData = EMPTY_TREND_DATA,
     fridgeScoreEnabled = true,
+    isLoading = false,
 }: SectionCardsFridgeProps) {
     const { getPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
+
+    const animatedTotalSpent = useCountUp(isLoading ? 0 : totalSpent)
+    const animatedShoppingTrips = useCountUp(isLoading ? 0 : shoppingTrips)
+    const animatedStoresVisited = useCountUp(isLoading ? 0 : storesVisited)
+    const animatedAverageReceipt = useCountUp(isLoading ? 0 : averageReceipt)
+    const animatedTripsFrequency = useCountUp(isLoading ? 0 : tripsFrequency)
 
     // Get distinct colors from palette for each card
     const trendColors = useMemo(() => {
@@ -232,7 +244,7 @@ export function SectionCardsFridge({
                 <CardHeader className="!flex flex-col items-center justify-center p-0 h-full w-full z-10 text-center gap-1">
                     <CardDescription className="text-[11px] sm:text-xs text-balance px-2 leading-tight">Total Spent</CardDescription>
                     <CardTitle className="text-xl sm:text-2xl font-bold tabular-nums break-words px-2">
-                        {formatCurrency(totalSpent)}
+                        {formatCurrency(animatedTotalSpent)}
                     </CardTitle>
                     <Badge variant="outline" className="text-[10px] h-5 px-1.5 shrink-0 flex items-center justify-center">
                         {totalSpentChange >= 0 ? <IconTrendingUp className="size-2.5 mr-0.5" /> : <IconTrendingDown className="size-2.5 mr-0.5" />}
@@ -246,7 +258,7 @@ export function SectionCardsFridge({
                 <CardHeader className="!flex flex-col items-center justify-center p-0 h-full w-full z-10 text-center gap-1">
                     <CardDescription className="text-[11px] sm:text-xs text-balance px-2 leading-tight">Shopping Trips</CardDescription>
                     <CardTitle className="text-xl sm:text-2xl font-bold tabular-nums break-words px-2">
-                        {shoppingTrips}
+                        {Math.round(animatedShoppingTrips)}
                     </CardTitle>
                     <Badge variant="outline" className="text-[10px] h-5 px-1.5 shrink-0 flex items-center justify-center">
                         {shoppingTripsChange >= 0 ? <IconTrendingUp className="size-2.5 mr-0.5" /> : <IconTrendingDown className="size-2.5 mr-0.5" />}
@@ -260,7 +272,7 @@ export function SectionCardsFridge({
                 <CardHeader className="!flex flex-col items-center justify-center p-0 h-full w-full z-10 text-center gap-1">
                     <CardDescription className="text-[11px] sm:text-xs text-balance px-2 leading-tight">Stores Visited</CardDescription>
                     <CardTitle className="text-xl sm:text-2xl font-bold tabular-nums break-words px-2">
-                        {storesVisited}
+                        {Math.round(animatedStoresVisited)}
                     </CardTitle>
                     <Badge variant="outline" className="text-[10px] h-5 px-1.5 shrink-0 flex items-center justify-center">
                         {storesVisitedChange >= 0 ? <IconTrendingUp className="size-2.5 mr-0.5" /> : <IconTrendingDown className="size-2.5 mr-0.5" />}
@@ -274,7 +286,7 @@ export function SectionCardsFridge({
                 <CardHeader className="!flex flex-col items-center justify-center p-0 h-full w-full z-10 text-center gap-1">
                     <CardDescription className="text-[11px] sm:text-xs text-balance px-2 leading-tight">Average Receipt</CardDescription>
                     <CardTitle className="text-xl sm:text-2xl font-bold tabular-nums break-words px-2">
-                        {formatCurrency(averageReceipt)}
+                        {formatCurrency(animatedAverageReceipt)}
                     </CardTitle>
                     <Badge variant="outline" className="text-[10px] h-5 px-1.5 shrink-0 flex items-center justify-center">
                         {averageReceiptChange >= 0 ? <IconTrendingUp className="size-2.5 mr-0.5" /> : <IconTrendingDown className="size-2.5 mr-0.5" />}
@@ -288,7 +300,7 @@ export function SectionCardsFridge({
                 <CardHeader className="!flex flex-col items-center justify-center p-0 h-full w-full z-10 text-center gap-1">
                     <CardDescription className="text-[11px] sm:text-xs text-balance px-2 leading-tight">Trips Frequency</CardDescription>
                     <CardTitle className="text-xl sm:text-2xl font-bold tabular-nums break-words px-2">
-                        {tripsFrequency.toFixed(1)} days
+                        {animatedTripsFrequency.toFixed(1)} days
                     </CardTitle>
                     <Badge variant="outline" className="text-[10px] h-5 px-1.5 shrink-0 flex items-center justify-center">
                         {tripsFrequencyChange >= 0 ? <IconTrendingUp className="size-2.5 mr-0.5" /> : <IconTrendingDown className="size-2.5 mr-0.5" />}
@@ -305,6 +317,7 @@ export function SectionCardsFridge({
                     color={trendColors[5]}
                     trendData={fridgeScoreTrendData}
                     enabled={fridgeScoreEnabled}
+                    isLoading={isLoading}
                 />
             )}
         </div >

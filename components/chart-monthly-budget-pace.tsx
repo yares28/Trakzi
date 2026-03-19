@@ -144,7 +144,7 @@ const MonthlyBudgetPaceChart = memo(function MonthlyBudgetPaceChart({
         )
       }}
       animate={true}
-      motionConfig="gentle"
+      motionConfig="stiff"
     />
   )
 })

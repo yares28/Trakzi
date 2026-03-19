@@ -18,6 +18,7 @@ import { parseReceiptFile } from "@/lib/receipts/ingestion"
 import type { ReceiptParseWarning, ReceiptParseMeta } from "@/lib/receipts/parsers/types"
 import { getSiteUrl, getSiteName } from "@/lib/env"
 import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limiter"
+import { checkReceiptScanLimit } from "@/lib/feature-access"
 
 function isSupportedReceiptImage(file: File): boolean {
   const mime = (file.type || "").toLowerCase()
@@ -612,6 +613,15 @@ export const POST = async (req: NextRequest) => {
     const rateLimitResult = await checkRateLimit(userId, 'upload')
     if (rateLimitResult.limited) {
       return createRateLimitResponse(rateLimitResult.resetIn)
+    }
+
+    // Plan limit check - enforce monthly receipt scan quota
+    const scanAccess = await checkReceiptScanLimit(userId)
+    if (!scanAccess.allowed) {
+      return NextResponse.json(
+        { error: scanAccess.reason ?? 'Monthly receipt scan limit reached. Upgrade to scan more.' },
+        { status: 403 }
+      )
     }
 
     const formData = await req.formData()

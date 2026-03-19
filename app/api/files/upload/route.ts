@@ -1,8 +1,11 @@
 // app/api/files/upload/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUserId } from "@/lib/auth";
 import { saveFileToNeon } from "@/lib/files/saveFileToNeon";
 
 export const POST = async (req: NextRequest) => {
+    await getCurrentUserId(); // Throws 401 before parsing body if unauthenticated
+
     const formData = await req.formData();
     const file = formData.get("file");
 

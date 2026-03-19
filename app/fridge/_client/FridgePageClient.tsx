@@ -202,7 +202,7 @@ export function FridgePageClient() {
               Take a tour
             </Button>
           </div>
-          <MetricsCards metrics={metrics} metricsTrends={metricsTrends} receiptTransactions={receiptTransactions} />
+          <MetricsCards metrics={metrics} metricsTrends={metricsTrends} receiptTransactions={receiptTransactions} isLoading={isChartsLoading} />
 
           {/* Fridge / Advanced / Trends switch - Horizontal scroll on mobile */}
           <section>

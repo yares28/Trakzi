@@ -238,7 +238,7 @@ USER DATA STATUS: No transaction data available yet. Encourage the user to impor
     const topCategories = context.categoryBreakdown.slice(0, 5).map(c => {
         const pct = safeExpensesTotal > 0 ? (c.total / safeExpensesTotal) * 100 : 0;
         const pctText = safeExpensesTotal > 0 ? ` (~${pct.toFixed(0)}%)` : "";
-        return `- ${c.name}: ${formatCurrency(c.total, currency)}${pctText}`;
+        return `- ${sanitizeForAI(c.name, 50)}: ${formatCurrency(c.total, currency)}${pctText}`;
     }).join('\n');
 
     return basePrompt + `
@@ -256,7 +256,7 @@ MONTHLY TRENDS (Last 6 months):
 ${context.monthlyTrends.map(m => `- ${m.month}: Income ${formatCurrency(m.income, currency)}, Expenses ${formatCurrency(m.expenses, currency)}`).join('\n')}
 
 RECENT TRANSACTIONS (Last 20):
-${context.recentTransactions.slice(0, 10).map(t => `- ${t.date}: ${t.description.substring(0, 40)} | ${formatCurrency(t.amount, currency)} | ${t.category}`).join('\n')}
+${context.recentTransactions.slice(0, 10).map(t => `- ${t.date}: ${sanitizeForAI(t.description, 40)} | ${formatCurrency(t.amount, currency)} | ${sanitizeForAI(t.category, 50)}`).join('\n')}
 
 Use this data to provide personalized, specific insights when the user asks about their finances.
 `;

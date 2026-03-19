@@ -67,27 +67,38 @@ export async function isEventProcessed(eventId: string): Promise<boolean> {
 }
 
 /**
- * Mark an event as processing (prevents concurrent processing)
+ * Atomically claim a webhook event for processing.
+ * Uses INSERT ... ON CONFLICT DO NOTHING so only ONE concurrent caller
+ * gets a returned row — the other(s) get an empty result and must skip.
+ *
+ * Returns true if THIS caller successfully claimed the event (should process).
+ * Returns false if another process already claimed it (must skip).
+ */
+export async function claimWebhookEvent(
+    eventId: string,
+    eventType: string,
+    metadata?: { subscriptionId?: string; customerId?: string }
+): Promise<boolean> {
+    const rows = await neonQuery<{ event_id: string }>(
+        `INSERT INTO webhook_events (event_id, event_type, status, subscription_id, customer_id)
+         VALUES ($1, $2, 'processing', $3, $4)
+         ON CONFLICT (event_id) DO NOTHING
+         RETURNING event_id`,
+        [eventId, eventType, metadata?.subscriptionId ?? null, metadata?.customerId ?? null]
+    );
+    // Non-empty means we inserted (claimed). Empty means conflict — already claimed.
+    return rows.length > 0;
+}
+
+/**
+ * @deprecated Use claimWebhookEvent() instead — it's atomic and race-safe.
  */
 export async function markEventAsProcessing(
     eventId: string,
     eventType: string,
     metadata?: { subscriptionId?: string; customerId?: string }
 ): Promise<void> {
-    // Use INSERT ... ON CONFLICT to handle race conditions
-    await neonQuery(
-        `INSERT INTO webhook_events (event_id, event_type, status, subscription_id, customer_id)
-         VALUES ($1, $2, 'processing', $3, $4)
-         ON CONFLICT (event_id) DO UPDATE SET
-             status = CASE 
-                 WHEN webhook_events.status = 'completed' THEN 'completed' -- Don't overwrite completed
-                 ELSE 'processing'
-             END,
-             event_type = COALESCE(EXCLUDED.event_type, webhook_events.event_type),
-             subscription_id = COALESCE(EXCLUDED.subscription_id, webhook_events.subscription_id),
-             customer_id = COALESCE(EXCLUDED.customer_id, webhook_events.customer_id)`,
-        [eventId, eventType, metadata?.subscriptionId ?? null, metadata?.customerId ?? null]
-    );
+    await claimWebhookEvent(eventId, eventType, metadata);
 }
 
 /**

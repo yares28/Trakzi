@@ -216,9 +216,9 @@ const SpendingPyramidBarChart = memo(function SpendingPyramidBarChart({
           cursor={{ fill: "transparent" }}
         />
         <Legend
-          verticalAlign="top"
+          verticalAlign="bottom"
           align="center"
-          wrapperStyle={{ paddingBottom: 8 }}
+          wrapperStyle={{ paddingTop: 8, marginLeft: 40 }}
           payload={[
             { value: "You", type: "square", color: youColor },
             { value: "Avg User", type: "square", color: avgColor },
@@ -231,7 +231,7 @@ const SpendingPyramidBarChart = memo(function SpendingPyramidBarChart({
           dataKey="you"
           stackId="pyramid"
           name="you"
-          radius={[10, 0, 0, 10]}
+          radius={[0, 10, 10, 0]}
           maxBarSize={28}
         >
           {rows.map((row) => (

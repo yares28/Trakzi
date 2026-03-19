@@ -230,44 +230,57 @@ export default function WorldMapPage() {
     // Effective loading: covers SSR hydration, auth loading, and data fetching
     const isLoading = !hasMounted || !isAuthLoaded || isFetching
 
+    // ─── Dismissed travel mocks (synced with CountryCardsGrid's localStorage key) ─
+    const [travelDismissedMocks, setTravelDismissedMocks] = useState<Set<string>>(() => {
+        if (typeof window === 'undefined') return new Set()
+        try {
+            const raw = localStorage.getItem('trakzi-dismissed-travel-mocks')
+            return raw ? new Set(JSON.parse(raw) as string[]) : new Set()
+        } catch { return new Set() }
+    })
+
     // ─── Travel data ─────────────────────────────────────────
     const stats = useMemo(() => {
         if (isLoading) {
             return {
                 countriesCount: 0, topCountrySpend: 0, topCountryName: "—",
-                totalSpendAbroad: 0, domesticSpend: 0,
+                totalSpendAbroad: 0, avgPerCountry: 0, avgDailySpend: 0,
             }
         }
         const countries = data?.countries ?? []
         const useMock = countries.length === 0
-        const activeCountries = useMock ? MOCK_COUNTRIES : countries
+        const activeCountries = useMock
+            ? MOCK_COUNTRIES.filter(c => !travelDismissedMocks.has(c.id))
+            : countries
 
         const sortedByValue = [...activeCountries].sort((a, b) => b.value - a.value)
         const topCountry = sortedByValue[0]
-        const domesticName = "USA"
-        const domesticSpend = activeCountries.find(c => c.id === domesticName)?.value ?? 0
-        const totalAbroad = activeCountries
-            .filter(c => c.id !== domesticName)
-            .reduce((sum, c) => sum + c.value, 0)
+        const totalAbroad = activeCountries.reduce((sum, c) => sum + c.value, 0)
+        const countriesCount = useMock ? activeCountries.length : (data?.stats?.travel?.totalCountries ?? 0)
+        const avgPerCountry = countriesCount > 0 ? totalAbroad / countriesCount : 0
+        const avgDailySpend = data?.stats?.travel?.avgDailySpend ?? 0
 
         return {
-            countriesCount: useMock ? MOCK_COUNTRIES.length : (data?.stats?.travel?.totalCountries ?? 0),
+            countriesCount,
             topCountrySpend: topCountry?.value ?? 0,
             topCountryName: topCountry?.id ?? "—",
             totalSpendAbroad: totalAbroad,
-            domesticSpend,
+            avgPerCountry,
+            avgDailySpend,
         }
-    }, [data, isLoading])
+    }, [data, isLoading, travelDismissedMocks])
 
     const { chartData, isMockData } = useMemo(() => {
         if (isLoading) return { chartData: [], isMockData: false }
         const realData = data?.countries ?? []
         const useMock = realData.length === 0
         return {
-            chartData: useMock ? MOCK_COUNTRIES : realData,
+            chartData: useMock
+                ? MOCK_COUNTRIES.filter(c => !travelDismissedMocks.has(c.id))
+                : realData,
             isMockData: useMock,
         }
-    }, [data, isLoading])
+    }, [data, isLoading, travelDismissedMocks])
 
     // ─── Vehicle data (from bundle, with mock fallback) ──────
     const { vehicles, isVehicleMock } = useMemo(() => {
@@ -417,7 +430,14 @@ export default function WorldMapPage() {
     const existingCountries: string[] = []
 
     const handleAddSuccess = useCallback(() => { mutate() }, [mutate])
-    const handleCountryDeleted = useCallback(() => { mutate() }, [mutate])
+    const handleCountryDeleted = useCallback(() => {
+        mutate()
+        // Re-sync dismissed travel mocks from localStorage (for mock card deletions)
+        try {
+            const raw = localStorage.getItem('trakzi-dismissed-travel-mocks')
+            if (raw) setTravelDismissedMocks(new Set(JSON.parse(raw) as string[]))
+        } catch { /* noop */ }
+    }, [mutate])
 
     // Generic pocket remove — mock cards dismiss via localStorage, real cards delete via API
     const handlePocketRemove = useCallback(async (id: string) => {
@@ -595,7 +615,8 @@ export default function WorldMapPage() {
                             topCountrySpend={stats.topCountrySpend}
                             topCountryName={stats.topCountryName}
                             totalSpendAbroad={stats.totalSpendAbroad}
-                            domesticSpend={stats.domesticSpend}
+                            avgPerCountry={stats.avgPerCountry}
+                            avgDailySpend={stats.avgDailySpend}
                             isLoading={isLoading}
                         />
                     )}

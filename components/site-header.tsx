@@ -36,7 +36,7 @@ export function SiteHeader() {
       {/* Mobile: Floating glass island header */}
       <header 
         className="
-        sticky top-0 z-40 w-full
+        sticky top-0 z-40
         mx-2 mt-2 mb-1
         rounded-2xl
         bg-background/80

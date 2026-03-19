@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useEffect, useRef, useCallback, useState, memo } from "react"
+import ReactDOM from "react-dom"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
@@ -139,8 +140,8 @@ export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCatego
   const [actualMonthTotals, setActualMonthTotals] = useState<Map<number, number>>(
     () => buildMonthTotals(cachedTotals),
   )
-  const [tooltip, setTooltip] = useState<{ month: string; category: string; amount: number; isTotal: boolean; breakdown?: Array<{ category: string; amount: number }>; color?: string } | null>(null)
-  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
+  const [tooltip, setTooltip] = useState<{ month: string; category: string; amount: number; isTotal: boolean; breakdown?: Array<{ category: string; amount: number }>; color?: string; tooltipKey: number } | null>(null)
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   // Small card size: always full width within its grid column
   const cardWidthClass = "w-full"
@@ -443,7 +444,7 @@ export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCatego
     const svg = svgRef.current
     const handleSvgMouseLeave = () => {
       setTooltip(null)
-      setTooltipPosition(null)
+      setTooltipPos(null)
     }
     svg.addEventListener("mouseleave", handleSvgMouseLeave)
 
@@ -721,6 +722,43 @@ export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCatego
       }
       svg.insertBefore(gridGroup, svg.firstChild)
 
+      // Compute four-sided clamped tooltip position using fixed viewport coords.
+      const computeTooltipPos = (event: MouseEvent) => {
+        const TOOLTIP_W = 220
+        const TOOLTIP_H = 280
+        const OFFSET = 16
+        const MARGIN = 8
+
+        const vw = window.innerWidth
+        const vh = window.innerHeight
+        const cx = event.clientX
+        const cy = event.clientY
+
+        let x = cx + OFFSET
+        let y = cy - OFFSET
+
+        // Right edge overflow → shift left of cursor
+        if (x + TOOLTIP_W + MARGIN > vw) {
+          x = cx - TOOLTIP_W - OFFSET
+        }
+        // Left edge overflow → clamp to margin
+        if (x < MARGIN) {
+          x = MARGIN
+        }
+        // Bottom edge overflow → flip above cursor
+        if (y + TOOLTIP_H + MARGIN > vh) {
+          y = cy - TOOLTIP_H - OFFSET
+        }
+        // Top edge overflow → clamp to margin
+        if (y < MARGIN) {
+          y = MARGIN
+        }
+
+        return { x, y }
+      }
+
+      let tooltipKeyCounter = 0
+
       const showTooltip = (
         event: MouseEvent,
         month: string,
@@ -730,25 +768,36 @@ export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCatego
         breakdown?: Array<{ category: string; amount: number }>,
         color?: string,
       ) => {
-        if (!containerRef.current) return
-        const rect = containerRef.current.getBoundingClientRect()
-        setTooltipPosition({
-          x: event.clientX - rect.left,
-          y: event.clientY - rect.top,
-        })
-        setTooltip({
-          month,
-          category,
-          amount,
-          isTotal,
-          breakdown,
-          color,
+        const pos = computeTooltipPos(event)
+        setTooltipPos(pos)
+        setTooltip((prev) => {
+          // Increment key when hovering a new bar so the animation replays.
+          const newKey =
+            prev && prev.month === month && prev.category === category && prev.isTotal === isTotal
+              ? prev.tooltipKey
+              : ++tooltipKeyCounter
+          if (
+            prev &&
+            prev.month === month &&
+            prev.category === category &&
+            prev.amount === amount &&
+            prev.isTotal === isTotal &&
+            prev.color === color &&
+            prev.tooltipKey === newKey
+          ) {
+            return prev
+          }
+          return { month, category, amount, isTotal, breakdown, color, tooltipKey: newKey }
         })
       }
 
       const hideTooltip = () => {
         setTooltip(null)
-        setTooltipPosition(null)
+        setTooltipPos(null)
+      }
+
+      const updatePosition = (event: MouseEvent) => {
+        setTooltipPos(computeTooltipPos(event))
       }
 
       // Add event listeners to bars
@@ -768,16 +817,6 @@ export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCatego
             } catch (e) {
               // Ignore parse errors
             }
-            // Debug logging
-            if (month === "Jan") {
-              console.log(`[All Months Category Spending] Tooltip for January:`, {
-                month,
-                totalAmount,
-                dataAttribute: target.getAttribute("data-total-amount"),
-                breakdownTotal: breakdown.reduce((sum, item) => sum + item.amount, 0).toFixed(2),
-                breakdownCount: breakdown.length
-              })
-            }
             showTooltip(e as unknown as MouseEvent, month, "", totalAmount, true, breakdown)
           } else {
             const category = target.getAttribute("data-category") || ""
@@ -785,28 +824,8 @@ export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCatego
             showTooltip(e as unknown as MouseEvent, month, category, amount, false)
           }
         })
-        bar.addEventListener("mouseleave", hideTooltip)
         bar.addEventListener("mousemove", (e) => {
-          const target = e.target as SVGElement
-          const month = target.getAttribute("data-month") || ""
-          const isTotal = target.getAttribute("data-is-total") === "true"
-
-          if (isTotal) {
-            const totalAmount = parseFloat(target.getAttribute("data-total-amount") || "0")
-            const breakdownStr = target.getAttribute("data-breakdown") || "[]"
-            let breakdown: Array<{ category: string; amount: number }> = []
-            try {
-              breakdown = JSON.parse(breakdownStr)
-            } catch (e) {
-              // Ignore parse errors
-            }
-            showTooltip(e as unknown as MouseEvent, month, "", totalAmount, true, breakdown)
-          } else {
-            const category = target.getAttribute("data-category") || ""
-            const amount = parseFloat(target.getAttribute("data-amount") || "0")
-            const color = target.getAttribute("fill") || undefined
-            showTooltip(e as unknown as MouseEvent, month, category, amount, false, undefined, color)
-          }
+          updatePosition(e as unknown as MouseEvent)
         })
       })
     } // End of renderChart function
@@ -922,12 +941,22 @@ export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCatego
               preserveAspectRatio="none"
               style={{ display: "block" }}
             />
-            {tooltip && tooltipPosition && (
+          </div>
+          {typeof document !== "undefined" && tooltip && tooltipPos && ReactDOM.createPortal(
+            <>
+              <style>{`
+                @keyframes tooltipSlideUp {
+                  from { opacity: 0; transform: translateY(8px); }
+                  to   { opacity: 1; transform: translateY(0); }
+                }
+              `}</style>
               <div
-                className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+                key={tooltip.tooltipKey}
+                className="pointer-events-none fixed z-[9999] rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
                 style={{
-                  left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
-                  top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
+                  left: tooltipPos.x,
+                  top: tooltipPos.y,
+                  animation: "tooltipSlideUp 150ms ease-out forwards",
                 }}
               >
                 {tooltip.isTotal && tooltip.breakdown ? (
@@ -970,8 +999,9 @@ export const ChartAllMonthsCategorySpending = memo(function ChartAllMonthsCatego
                   </div>
                 )}
               </div>
-            )}
-          </div>
+            </>,
+            document.body
+          )}
           {
             categories.length > 0 && (
               <div className="px-4 pb-4 pt-2 flex flex-wrap items-center justify-center gap-3 text-xs">

@@ -2,18 +2,27 @@
 import Papa from "papaparse";
 import { TxRow } from "../types/transactions";
 
+/**
+ * Prevent CSV formula injection (Excel/Sheets executes cells starting with =, +, -, @).
+ * Prefix those cells with a tab so spreadsheet apps treat them as plain text.
+ */
+function escapeCsvFormula(value: string | null | undefined): string {
+    const str = String(value ?? "");
+    return /^[=+\-@\t\r]/.test(str) ? `\t${str}` : str;
+}
+
 export function rowsToCanonicalCsv(rows: TxRow[]): string {
     // Ensure category and summary are always included, even if undefined
     const rowsWithCategories = rows.map(r => ({
         date: r.date,
         time: r.time ?? "",
-        description: r.description,
+        description: escapeCsvFormula(r.description),
         amount: r.amount,
         balance: r.balance,
-        category: r.category || "", // Use empty string instead of undefined
-        summary: r.summary || "",   // Clean merchant name
+        category: escapeCsvFormula(r.category || ""),
+        summary: escapeCsvFormula(r.summary || ""),
         needs_review: r.needsReview ? "true" : "",
-        review_reason: r.reviewReason || ""
+        review_reason: escapeCsvFormula(r.reviewReason || "")
     }));
 
     const csv = Papa.unparse(rowsWithCategories, {

@@ -330,20 +330,33 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
                             const barHeight = (range.count / maxCount) * 45
                             const x = 12 + barGap + index * (barWidth + barGap)
                             const y = 55 - barHeight
+                            const cornerRadius = 3
 
                             return (
                                 <g key={range.label}>
+                                    {/* Full bar with rounded corners on all sides */}
                                     <rect
                                         x={`${x}%`}
                                         y={y}
                                         width={`${barWidth}%`}
                                         height={barHeight}
                                         fill={range.color}
-                                        rx="10"
+                                        rx={cornerRadius}
                                         className="cursor-pointer transition-opacity hover:opacity-80"
                                         onMouseMove={(e) => handleBarHover(range, e)}
                                         onMouseLeave={handleBarLeave}
                                     />
+                                    {/* Overlay at bottom to square off the bottom corners */}
+                                    {barHeight > cornerRadius && (
+                                        <rect
+                                            x={`${x}%`}
+                                            y={55 - cornerRadius}
+                                            width={`${barWidth}%`}
+                                            height={cornerRadius}
+                                            fill={range.color}
+                                            className="pointer-events-none"
+                                        />
+                                    )}
                                     {/* Bar label (count) */}
                                     {barHeight > 5 && (
                                         <text

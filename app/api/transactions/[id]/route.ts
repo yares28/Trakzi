@@ -37,6 +37,7 @@ export const DELETE = async (
             invalidateUserCachePrefix(userId, 'trends'),
             invalidateUserCachePrefix(userId, 'savings'),
             invalidateUserCachePrefix(userId, 'pockets'),
+            invalidateUserCachePrefix(userId, 'financial-health'),
         ]);
 
         // Revalidate pages
@@ -129,6 +130,9 @@ export const PATCH = async (
         });
         invalidateUserCachePrefix(userId, 'pockets').catch((err) => {
             console.error('[Update Transaction] Pockets cache invalidation error:', err);
+        });
+        invalidateUserCachePrefix(userId, 'financial-health').catch((err) => {
+            console.error('[Update Transaction] Financial health cache invalidation error:', err);
         });
 
         return NextResponse.json({ 
