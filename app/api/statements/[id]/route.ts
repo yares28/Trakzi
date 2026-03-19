@@ -73,6 +73,7 @@ export const DELETE = async (
             invalidateUserCachePrefix(userId, 'trends'),
             invalidateUserCachePrefix(userId, 'savings'),
             invalidateUserCachePrefix(userId, 'pockets'),
+            invalidateUserCachePrefix(userId, 'financial-health'),
         ]);
 
         // Revalidate all affected pages to clear Vercel's edge cache

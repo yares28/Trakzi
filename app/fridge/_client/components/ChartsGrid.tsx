@@ -44,7 +44,7 @@ const FridgeChart = memo(function FridgeChart({
 }: FridgeChartProps) {
   switch (chartId) {
     case "grocerySpendTrend":
-      return <ChartAreaInteractiveFridge data={chartData.spendTrendData} />
+      return <ChartAreaInteractiveFridge data={chartData.spendTrendData} isLoading={isLoading} />
     case "groceryCategoryRankings":
       return (
         <ChartCategoryFlowFridge

@@ -10,6 +10,7 @@ type MetricsCardsProps = {
   metrics: FridgeMetrics
   metricsTrends: FridgeMetricTrends
   receiptTransactions: ReceiptTransactionRow[]
+  isLoading?: boolean
 }
 
 type ReceiptItem = {
@@ -28,7 +29,7 @@ type Receipt = {
   items: ReceiptItem[]
 }
 
-export function MetricsCards({ metrics, metricsTrends, receiptTransactions }: MetricsCardsProps) {
+export function MetricsCards({ metrics, metricsTrends, receiptTransactions, isLoading = false }: MetricsCardsProps) {
   const { score: fridgeScore, grade: fridgeGrade, trendDirection: fridgeScoreTrend, scoreTrendData: fridgeScoreTrendData } = useMemo(() => {
     // Build receipts exactly like useFridgeData does
     const receiptMap = new Map<string, Receipt>()
@@ -86,6 +87,7 @@ export function MetricsCards({ metrics, metricsTrends, receiptTransactions }: Me
       fridgeScoreTrend={fridgeScoreTrend}
       fridgeScoreTrendData={fridgeScoreTrendData}
       fridgeScoreEnabled={true}
+      isLoading={isLoading}
     />
   )
 }

@@ -6,6 +6,7 @@ import { auth, clerkClient } from '@clerk/nextjs/server';
 import { getStripe, getAppUrl, STRIPE_PRICES } from '@/lib/stripe';
 import { getUserSubscription, upsertSubscription } from '@/lib/subscriptions';
 import { ensureUserExists } from '@/lib/user-sync';
+import { checkRateLimit, createRateLimitResponse } from '@/lib/security/rate-limiter';
 
 export async function POST(request: NextRequest) {
     try {
@@ -17,6 +18,11 @@ export async function POST(request: NextRequest) {
                 { error: 'Unauthorized - Please sign in to continue' },
                 { status: 401 }
             );
+        }
+
+        const rateLimitResult = await checkRateLimit(userId, 'mutation');
+        if (rateLimitResult.limited) {
+            return createRateLimitResponse(rateLimitResult.resetIn);
         }
 
         // Parse request body
@@ -113,6 +119,18 @@ export async function POST(request: NextRequest) {
             console.log(`[Checkout] Created Stripe customer ${customerId} for user ${userId}`);
         }
 
+        // Validate redirect URLs against the app's own origin to prevent open redirect attacks.
+        // Stripe trusts whatever URLs we pass, so WE must validate them.
+        function isSameOrigin(url: string): boolean {
+            try { return new URL(url).origin === new URL(appUrl).origin; } catch { return false; }
+        }
+        const safeSuccessUrl = successUrl && isSameOrigin(successUrl)
+            ? successUrl
+            : `${appUrl}/home?checkout=success`;
+        const safeCancelUrl = cancelUrl && isSameOrigin(cancelUrl)
+            ? cancelUrl
+            : `${appUrl}/?checkout=canceled`;
+
         // Create Checkout Session
         // ALWAYS pass customer ID (never let Stripe create it automatically)
         const session = await stripe.checkout.sessions.create({
@@ -124,8 +142,8 @@ export async function POST(request: NextRequest) {
                     quantity: 1,
                 },
             ],
-            success_url: successUrl || `${appUrl}/home?checkout=success`,
-            cancel_url: cancelUrl || `${appUrl}/?checkout=canceled`,
+            success_url: safeSuccessUrl,
+            cancel_url: safeCancelUrl,
             customer: customerId, // Always provided - never undefined
             metadata: {
                 userId: userId,

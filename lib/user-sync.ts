@@ -230,6 +230,10 @@ export async function ensureUserExists(): Promise<string> {
     const insertQuery = `
         INSERT INTO users (id, email, name, created_at, updated_at)
         VALUES ($1::text, $2::text, $3::text, NOW(), NOW())
+        ON CONFLICT (id) DO UPDATE SET
+            email = EXCLUDED.email,
+            name = EXCLUDED.name,
+            updated_at = NOW()
         RETURNING id
     `
 

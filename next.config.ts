@@ -22,6 +22,24 @@ const nextConfig: NextConfig = {
   },
 
   async headers() {
+    // CSP: Allow Clerk, Stripe, PostHog, and Google Fonts — block everything else.
+    // 'unsafe-inline' for styles is required by Tailwind/shadcn SSR.
+    // 'unsafe-eval' removed — no eval needed in production.
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' https://clerk.trakzi.com https://dev.clerk.trakzi.com https://js.stripe.com https://eu.i.posthog.com https://eu-assets.i.posthog.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com",
+      "img-src 'self' data: blob: https://img.clerk.com https://images.clerk.dev",
+      "connect-src 'self' https://*.clerk.accounts.dev https://clerk.trakzi.com https://dev.clerk.trakzi.com https://api.stripe.com https://eu.i.posthog.com https://eu-assets.i.posthog.com wss://*.clerk.accounts.dev",
+      "frame-src https://js.stripe.com https://hooks.stripe.com",
+      "worker-src blob: 'self'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "upgrade-insecure-requests",
+    ].join('; ');
+
     return [
       {
         source: '/:path*',
@@ -31,6 +49,7 @@ const nextConfig: NextConfig = {
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
           { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+          { key: 'Content-Security-Policy', value: csp },
         ],
       },
     ]

@@ -350,7 +350,6 @@ export const ChartSingleMonthCategoryFridge = React.memo(function ChartSingleMon
                     <CardTitle>Single Month Category Spending</CardTitle>
                 </div>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                    <FridgeSingleMonthInfoTrigger selectedMonth={selectedMonth} totalSpent={totalSpent} topCategories={topCategories} />
                     <Select
                         value={selectedMonth !== null ? selectedMonth.toString() : ""}
                         onValueChange={(value) => setSelectedMonth(parseInt(value, 10))}
@@ -366,6 +365,7 @@ export const ChartSingleMonthCategoryFridge = React.memo(function ChartSingleMon
                             ))}
                         </SelectContent>
                     </Select>
+                    <FridgeSingleMonthInfoTrigger selectedMonth={selectedMonth} totalSpent={totalSpent} topCategories={topCategories} />
                 </CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">

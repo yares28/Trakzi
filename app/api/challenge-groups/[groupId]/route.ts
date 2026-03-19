@@ -183,7 +183,8 @@ export async function GET(
         return NextResponse.json(result)
     } catch (error: any) {
         console.error('[Challenge Group GET]', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        console.error("[challenge-groups]", error)
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 })
     }
 }
 
@@ -224,7 +225,8 @@ export async function PATCH(
         return NextResponse.json({ success: true })
     } catch (error: any) {
         console.error('[Challenge Group PATCH]', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        console.error("[challenge-groups]", error)
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 })
     }
 }
 
@@ -244,6 +246,7 @@ export async function DELETE(
         return NextResponse.json({ success: true })
     } catch (error: any) {
         console.error('[Challenge Group Leave]', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        console.error("[challenge-groups]", error)
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 })
     }
 }

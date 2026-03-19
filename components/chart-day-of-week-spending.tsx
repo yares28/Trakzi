@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useEffect, useRef, useCallback, useState, memo } from "react"
+import ReactDOM from "react-dom"
 import { useTheme } from "next-themes"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
@@ -52,11 +53,11 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
   const { resolvedTheme } = useTheme()
   const { getShuffledPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
-  const palette = getShuffledPalette()
+  const palette = useMemo(() => getShuffledPalette(), [getShuffledPalette])
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const [tooltip, setTooltip] = useState<{ day: string; category: string; amount: number; isTotal: boolean; breakdown?: Array<{ category: string; amount: number }>; color?: string } | null>(null)
-  const tooltipElementRef = useRef<HTMLDivElement | null>(null)
+  const [tooltip, setTooltip] = useState<{ day: string; category: string; amount: number; isTotal: boolean; breakdown?: Array<{ category: string; amount: number }>; color?: string; tooltipKey: number } | null>(null)
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
   const hasAnimatedRef = useRef(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   // Small card size: always full width within its grid column
@@ -224,6 +225,39 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
     if (!svgRef.current || processedData.length === 0) return
 
     const svg = svgRef.current
+
+    // Compute four-sided clamped tooltip position using fixed viewport coords.
+    const computeTooltipPos = (event: MouseEvent) => {
+      const TOOLTIP_W = 200
+      const TOOLTIP_H = 260
+      const OFFSET = 16
+      const MARGIN = 8
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      const cx = event.clientX
+      const cy = event.clientY
+      let x = cx + OFFSET
+      let y = cy - OFFSET
+      if (x + TOOLTIP_W + MARGIN > vw) x = cx - TOOLTIP_W - OFFSET
+      if (x < MARGIN) x = MARGIN
+      if (y + TOOLTIP_H + MARGIN > vh) y = cy - TOOLTIP_H - OFFSET
+      if (y < MARGIN) y = MARGIN
+      return { x, y }
+    }
+
+    const handleSvgMouseLeave = () => {
+      setTooltip(null)
+      setTooltipPos(null)
+    }
+    svg.addEventListener("mouseleave", handleSvgMouseLeave)
+
+    const handleDocumentTouch = (e: TouchEvent) => {
+      if (!svg.contains(e.target as Node)) {
+        setTooltip(null)
+        setTooltipPos(null)
+      }
+    }
+    document.addEventListener("touchstart", handleDocumentTouch, { passive: true })
 
     const renderChart = (animate: boolean = false) => {
       // Clear previous content
@@ -527,28 +561,11 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
       }
       svg.insertBefore(gridGroup, svg.firstChild)
 
-      // Tooltip helpers: keep content updates and position updates separate and
-      // move the tooltip DOM directly for very cheap mouse-move handling.
-      const updateTooltipPosition = (event: MouseEvent) => {
-        if (!containerRef.current || !tooltipElementRef.current) return
 
-        const container = containerRef.current
-        const rect = container.getBoundingClientRect()
-        const rawX = event.clientX - rect.left
-        const rawY = event.clientY - rect.top
-
-        const maxWidth = container.clientWidth || 800
-        const maxHeight = container.clientHeight || 250
-
-        const x = Math.min(Math.max(rawX + 16, 8), maxWidth - 8)
-        const y = Math.min(Math.max(rawY - 16, 8), maxHeight - 8)
-
-        const el = tooltipElementRef.current
-        el.style.left = `${x}px`
-        el.style.top = `${y}px`
-      }
+      let tooltipKeyCounter = 0
 
       const showTooltip = (
+        event: MouseEvent,
         day: string,
         category: string,
         amount: number,
@@ -556,15 +573,21 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
         breakdown?: Array<{ category: string; amount: number }>,
         color?: string,
       ) => {
+        const pos = computeTooltipPos(event)
+        setTooltipPos(pos)
         setTooltip((prev) => {
-          // Avoid re-setting identical tooltip content to prevent unnecessary renders.
+          // Change key when hovering a new bar so the animation replays.
+          const newKey = (prev && prev.day === day && prev.category === category && prev.isTotal === isTotal)
+            ? (prev.tooltipKey)
+            : ++tooltipKeyCounter
           if (
             prev &&
             prev.day === day &&
             prev.category === category &&
             prev.amount === amount &&
             prev.isTotal === isTotal &&
-            prev.color === color
+            prev.color === color &&
+            prev.tooltipKey === newKey
           ) {
             return prev
           }
@@ -575,12 +598,18 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
             isTotal,
             breakdown,
             color,
+            tooltipKey: newKey,
           }
         })
       }
 
       const hideTooltip = () => {
         setTooltip(null)
+        setTooltipPos(null)
+      }
+
+      const updatePosition = (event: MouseEvent) => {
+        setTooltipPos(computeTooltipPos(event))
       }
 
       // Add event listeners to bars
@@ -591,9 +620,6 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
           const day = target.getAttribute("data-day") || ""
           const isTotal = target.getAttribute("data-is-total") === "true"
 
-          // On initial hover, set both content and position.
-          updateTooltipPosition(e as unknown as MouseEvent)
-
           if (isTotal) {
             const totalAmount = parseFloat(target.getAttribute("data-total-amount") || "0")
             const breakdownStr = target.getAttribute("data-breakdown") || "[]"
@@ -603,22 +629,19 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
             } catch (e) {
               // Ignore parse errors
             }
-            showTooltip(day, "", totalAmount, true, breakdown)
+            showTooltip(e as unknown as MouseEvent, day, "", totalAmount, true, breakdown)
           } else {
             const category = target.getAttribute("data-category") || ""
             const amount = parseFloat(target.getAttribute("data-amount") || "0")
             const color = target.getAttribute("fill") || undefined
-            showTooltip(day, category, amount, false, undefined, color)
+            showTooltip(e as unknown as MouseEvent, day, category, amount, false, undefined, color)
           }
         })
-        bar.addEventListener("mouseleave", hideTooltip)
         bar.addEventListener("mousemove", (e) => {
-          const target = e.target as SVGElement
-          const isTotal = target.getAttribute("data-is-total") === "true"
-
-          // On mouse move, only update the tooltip position to keep it responsive
-          // without re-running all the content work.
-          updateTooltipPosition(e as unknown as MouseEvent)
+          updatePosition(e as unknown as MouseEvent)
+        })
+        bar.addEventListener("mouseleave", () => {
+          hideTooltip()
         })
       })
     } // End of renderChart function
@@ -634,9 +657,17 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
     // Set up ResizeObserver to handle container size changes
     const container = svg.parentElement
     let resizeObserver: ResizeObserver | null = null
+    let lastWidth: number | null = null
+    let lastHeight: number | null = null
 
     if (container && typeof ResizeObserver !== "undefined") {
-      resizeObserver = new ResizeObserver(() => {
+      resizeObserver = new ResizeObserver((entries) => {
+        const entry = entries[0]
+        if (!entry) return
+        const { width, height } = entry.contentRect
+        if (lastWidth === width && lastHeight === height) return
+        lastWidth = width
+        lastHeight = height
         renderChart(false)
       })
       resizeObserver.observe(container)
@@ -646,6 +677,8 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
       if (resizeObserver && container) {
         resizeObserver.unobserve(container)
       }
+      svg.removeEventListener("mouseleave", handleSvgMouseLeave)
+      document.removeEventListener("touchstart", handleDocumentTouch)
     }
   }, [processedData, categories, categoryColors, isDark, textColor, gridColor, axisColor, hiddenCategories, formatCurrency])
 
@@ -718,10 +751,23 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
               preserveAspectRatio="none"
               style={{ display: "block" }}
             />
-            {tooltip && (
+          </div>
+          {typeof document !== "undefined" && tooltip && tooltipPos && ReactDOM.createPortal(
+            <>
+              <style>{`
+                @keyframes tooltipSlideUp {
+                  from { opacity: 0; transform: translateY(8px); }
+                  to   { opacity: 1; transform: translateY(0); }
+                }
+              `}</style>
               <div
-                ref={tooltipElementRef}
-                className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+                key={tooltip.tooltipKey}
+                className="pointer-events-none fixed z-[9999] rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+                style={{
+                  left: tooltipPos.x,
+                  top: tooltipPos.y,
+                  animation: "tooltipSlideUp 150ms ease-out forwards",
+                }}
               >
                 {tooltip.isTotal && tooltip.breakdown ? (
                   <>
@@ -729,8 +775,8 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
                     <div className="border-t border-border/60 pt-1.5 mb-1.5">
                       {tooltip.breakdown
                         .sort((a, b) => b.amount - a.amount)
-                        .map((item, idx) => (
-                          <div key={idx} className="flex justify-between gap-3 mb-1">
+                        .map((item) => (
+                          <div key={item.category} className="flex justify-between gap-3 mb-1">
                             <span className="text-foreground/80">{item.category}:</span>
                             <span className="font-semibold text-foreground">
                               {formatCurrency(item.amount)}
@@ -763,8 +809,9 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
                   </>
                 )}
               </div>
-            )}
-          </div>
+            </>,
+            document.body
+          )}
           {categories.length > 0 && (
             <div className="px-4 pb-4 pt-2 flex flex-wrap items-center justify-center gap-3 text-xs">
               {categories.slice(0, 10).map((category) => (

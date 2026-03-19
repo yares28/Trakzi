@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, memo, useMemo } from "react"
+import ReactDOM from "react-dom"
 import { Area, AreaChart, CartesianGrid, XAxis, Tooltip, TooltipProps } from "recharts"
 import { useTheme } from "next-themes"
 
@@ -172,21 +173,20 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
     format: (value: number) => formatCurrency(value)
   }
 
-  // Track mouse movement so the tooltip position animates smoothly with the cursor
+  // Track mouse movement so the tooltip position animates smoothly with the cursor.
+  // We store viewport-relative coordinates (clientX/Y) so the portal tooltip can
+  // use `position: fixed` and escape any overflow-hidden ancestor.
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
     const handleMouseMove = (e: MouseEvent) => {
-      const rect = container.getBoundingClientRect()
       const position = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
+        x: e.clientX,
+        y: e.clientY,
       }
       mousePositionRef.current = position
-      if (tooltip) {
-        setTooltipPosition(position)
-      }
+      setTooltipPosition(position)
     }
 
     const handleMouseLeave = () => {
@@ -195,14 +195,24 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
       mousePositionRef.current = null
     }
 
+    const handleDocumentTouch = (e: TouchEvent) => {
+      if (!container.contains(e.target as Node)) {
+        setTooltip(null)
+        setTooltipPosition(null)
+        mousePositionRef.current = null
+      }
+    }
+
     container.addEventListener("mousemove", handleMouseMove)
     container.addEventListener("mouseleave", handleMouseLeave)
+    document.addEventListener("touchstart", handleDocumentTouch, { passive: true })
 
     return () => {
       container.removeEventListener("mousemove", handleMouseMove)
       container.removeEventListener("mouseleave", handleMouseLeave)
+      document.removeEventListener("touchstart", handleDocumentTouch)
     }
-  }, [tooltip])
+  }, [])
 
   // The data to pass to the chart - empty initially, then real data after mount
   // This forces Recharts to see a data change and trigger animation
@@ -370,9 +380,13 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                       const expenses = data.mobile || 0
 
                       if (containerRef.current && coordinate) {
+                        // Prefer the live mouse position (viewport-relative).
+                        // Fall back to converting Recharts' container-relative coordinate
+                        // to viewport-relative via the container's bounding rect.
+                        const rect = containerRef.current.getBoundingClientRect()
                         const basePosition = mousePositionRef.current ?? {
-                          x: coordinate.x,
-                          y: coordinate.y,
+                          x: rect.left + (coordinate.x ?? 0),
+                          y: rect.top + (coordinate.y ?? 0),
                         }
 
                         // Defer state updates to avoid violating React's render rules.
@@ -414,22 +428,33 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                 </AreaChart>
               </ChartContainer>
             </div>
-            {tooltip && tooltipPosition && (
+            {tooltip && tooltipPosition && typeof document !== "undefined" && ReactDOM.createPortal(
               <div
                 ref={tooltipRef}
-                className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
-                style={{
-                  left: (() => {
-                    const containerWidth = containerRef.current?.offsetWidth ?? 9999
-                    const tooltipWidth = tooltipRef.current?.offsetWidth ?? 180
-                    const xRight = (tooltipPosition.x ?? 0) + 16
-                    return xRight + tooltipWidth > containerWidth
-                      ? `${(tooltipPosition.x ?? 0) - tooltipWidth - 16}px`
-                      : `${xRight}px`
-                  })(),
-                  top: `${(tooltipPosition.y ?? 0) - 16}px`,
-                  transform: 'translate(0, -100%)',
-                }}
+                className="pointer-events-none fixed z-[9999] rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
+                style={(() => {
+                  const cursorX = tooltipPosition.x ?? 0
+                  const cursorY = tooltipPosition.y ?? 0
+                  const tooltipWidth = tooltipRef.current?.offsetWidth ?? 180
+                  const tooltipHeight = tooltipRef.current?.offsetHeight ?? 80
+                  const gap = 16
+                  const vw = typeof window !== "undefined" ? window.innerWidth : 9999
+                  const vh = typeof window !== "undefined" ? window.innerHeight : 9999
+
+                  // Horizontal: prefer right of cursor, flip left if it would overflow
+                  const xRight = cursorX + gap
+                  const left = xRight + tooltipWidth > vw
+                    ? cursorX - tooltipWidth - gap
+                    : xRight
+
+                  // Vertical: prefer above cursor (mimics original behaviour), flip below if it would overflow above
+                  const yAbove = cursorY - gap - tooltipHeight
+                  const top = yAbove < 0
+                    ? cursorY + gap
+                    : yAbove
+
+                  return { left, top }
+                })()}
               >
                 <div className="font-medium text-foreground mb-2 whitespace-nowrap">
                   {formatDateForDisplay(tooltip.date, "en-US", {
@@ -458,7 +483,8 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                     {valueFormatter.format(tooltip.expenses)}
                   </span>
                 </div>
-              </div>
+              </div>,
+              document.body
             )}
           </div>
         </CardContent>

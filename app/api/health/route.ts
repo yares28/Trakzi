@@ -14,19 +14,9 @@ export async function GET() {
 
         console.log(`[Health] Database ping: ${duration}ms`)
 
-        return NextResponse.json({
-            status: 'healthy',
-            database: 'connected',
-            pingMs: duration,
-            timestamp: new Date().toISOString(),
-        })
+        return NextResponse.json({ status: 'ok' })
     } catch (error: any) {
         console.error('[Health] Database error:', error)
-        return NextResponse.json({
-            status: 'unhealthy',
-            database: 'disconnected',
-            error: error.message,
-            timestamp: new Date().toISOString(),
-        }, { status: 503 })
+        return NextResponse.json({ status: 'error' }, { status: 503 })
     }
 }

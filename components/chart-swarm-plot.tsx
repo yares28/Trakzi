@@ -597,7 +597,6 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
             <CardTitle>Transaction History</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <SwarmInfoTrigger swarmControls={swarmControls} />
             {chartGroups.length > 0 && (
               <DropdownMenu open={isGroupSelectorOpen} onOpenChange={setIsGroupSelectorOpen} modal={false}>
                 <DropdownMenuTrigger asChild>
@@ -662,6 +661,7 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({ data, emptyTitle, e
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
+            <SwarmInfoTrigger swarmControls={swarmControls} />
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 min-h-[450px] md:min-h-[350px]">

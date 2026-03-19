@@ -211,7 +211,7 @@ export function ChartCardSkeleton({
       </div>
 
       {/* Chart area skeleton - use appropriate type */}
-      <div className="flex-1 flex items-center justify-center pt-4">
+      <div className="flex-1 min-h-0 flex items-center justify-center pt-4">
         <ChartSkeleton type={skeletonType} />
       </div>
     </div>

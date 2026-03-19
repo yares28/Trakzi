@@ -41,6 +41,7 @@ export async function GET() {
         })))
     } catch (error: any) {
         console.error('[Challenge Groups Discover]', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        console.error("[challenge-groups]", error)
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 })
     }
 }

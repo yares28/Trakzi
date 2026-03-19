@@ -29,6 +29,7 @@ export default function Page() {
 
   const {
     transactions,
+    isLoading: isTransactionsLoading,
     fetchTransactions,
     isTransactionDialogOpen,
     setIsTransactionDialogOpen,
@@ -89,6 +90,7 @@ export default function Page() {
             stats={stats}
             trends={statsTrends}
             transactionSummary={transactionSummary}
+            isLoading={isTransactionsLoading}
           />
 
           <FavoritesGrid

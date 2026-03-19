@@ -10,8 +10,7 @@ import { upsertSubscription, getSubscriptionByStripeCustomerId, mapStripeStatus 
 import { getTransactionPackByPriceId } from '@/lib/plan-limits';
 import { syncWalletForPlan, addPurchasedCapacity } from '@/lib/limits/transaction-wallet';
 import {
-    isEventProcessed,
-    markEventAsProcessing,
+    claimWebhookEvent,
     markEventAsCompleted,
     markEventAsFailed,
 } from '@/lib/webhook-events';
@@ -117,23 +116,22 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ received: true });
     }
 
-    // CRITICAL: Check idempotency using event ID (Stripe best practice)
+    // CRITICAL: Atomically claim the event — only one concurrent delivery processes it.
+    // claimWebhookEvent uses INSERT ... ON CONFLICT DO NOTHING, so the first caller
+    // gets true (claimed), all others get false (already claimed → skip).
     const eventId = event.id;
-    const alreadyProcessed = await isEventProcessed(eventId);
-
-    if (alreadyProcessed) {
-        console.log(`[Webhook] Event ${eventId} already processed, skipping (idempotency)`);
-        return NextResponse.json({ received: true });
-    }
-
-    // Mark as processing to prevent concurrent processing
     const customerId = (event.data.object as any).customer;
     const subscriptionId = (event.data.object as any).id;
 
-    await markEventAsProcessing(eventId, event.type, {
+    const claimed = await claimWebhookEvent(eventId, event.type, {
         customerId: typeof customerId === 'string' ? customerId : customerId?.id,
         subscriptionId: event.type.includes('subscription') ? subscriptionId : undefined,
     });
+
+    if (!claimed) {
+        console.log(`[Webhook] Event ${eventId} already claimed by another process, skipping`);
+        return NextResponse.json({ received: true });
+    }
 
     console.log(`[Webhook] Processing event: ${event.type} (ID: ${eventId})`);
 

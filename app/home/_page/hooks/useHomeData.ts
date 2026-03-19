@@ -17,6 +17,7 @@ export function useHomeData({ dateFilter }: UseHomeDataOptions) {
   const router = useRouter()
   const { setRefreshCallback } = useTransactionDialog()
   const [transactions, setTransactions] = useState<HomeTransaction[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false)
 
   const fetchTransactions = useCallback(
@@ -37,6 +38,7 @@ export function useHomeData({ dateFilter }: UseHomeDataOptions) {
             setTransactions(
               normalizeTransactions(txArray) as HomeTransaction[]
             )
+            setIsLoading(false)
           } else if (data?.error) {
             toast.error("API Error", {
               description: data.error,
@@ -61,6 +63,8 @@ export function useHomeData({ dateFilter }: UseHomeDataOptions) {
             "Failed to fetch transactions. Check your database connection.",
           duration: 8000,
         })
+      } finally {
+        setIsLoading(false)
       }
     },
     [dateFilter]
@@ -105,6 +109,7 @@ export function useHomeData({ dateFilter }: UseHomeDataOptions) {
 
   return {
     transactions,
+    isLoading,
     fetchTransactions,
     isTransactionDialogOpen,
     setIsTransactionDialogOpen,

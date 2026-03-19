@@ -31,11 +31,11 @@ export async function GET() {
             userInDatabase: users[0] || null,
         });
     } catch (error: any) {
+        console.error('[debug/sync-user]', error);
         return NextResponse.json({
             success: false,
             clerkUserId: userId,
-            error: error.message,
-            stack: error.stack,
+            error: 'Sync failed',
         }, { status: 500 });
     }
 }

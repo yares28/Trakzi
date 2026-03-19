@@ -674,20 +674,23 @@ export function ChartsGrid({
                             size="md"
                           />
                           <CardTitle className="mb-0">Spending Activity Rings</CardTitle>
-                          <ChartInfoPopover
-                            title="Spending Activity Rings"
-                            description="Top spending categories from your Neon transactions"
-                            details={[
-                              "Each ring shows how much a category has consumed relative to its budget.",
-                              "Budgets come from your saved limits or a default amount for the selected date filter.",
-                            ]}
-                          />
                         </div>
+                      </div>
+                      {/* Info button pinned to top-right corner of the card */}
+                      <div className="absolute top-2 right-2 z-20">
+                        <ChartInfoPopover
+                          title="Spending Activity Rings"
+                          description="Top spending categories from your Neon transactions"
+                          details={[
+                            "Each ring shows how much a category has consumed relative to its budget.",
+                            "Budgets come from your saved limits or a default amount for the selected date filter.",
+                          ]}
+                        />
                       </div>
                       <div className="flex items-center gap-2 z-10">
                         {activityData.length > 0 && (
                           <div className="flex flex-col gap-1 z-10 w-[140px]">
-                            <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground text-right">
+                            <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground text-center">
                               Limits
                             </span>
                             <div className="flex flex-col gap-1">

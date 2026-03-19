@@ -54,6 +54,16 @@ export const ChartSpendingFunnel = memo(function ChartSpendingFunnel({
     value: toNumericValue(item.value)
   })), [data])
 
+  // Square-root normalised data for visual sizing only.
+  // Large outliers (e.g. huge Savings values) would crush middle bands in a
+  // linear funnel; sqrt compression keeps every band visible while preserving
+  // relative ordering.  The original values are kept in sanitizedData and are
+  // used for tooltips / labels.
+  const displayData = useMemo(() => sanitizedData.map(item => ({
+    ...item,
+    value: Math.max(1, Math.sqrt(item.value))
+  })), [sanitizedData])
+
   useEffect(() => {
     setMounted(true)
   }, [])
@@ -114,7 +124,7 @@ export const ChartSpendingFunnel = memo(function ChartSpendingFunnel({
   // Render chart function for reuse
   const renderChart = () => (
     <ResponsiveFunnel
-      data={sanitizedData}
+      data={displayData}
       margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
       valueFormat=">-$,.0f"
       colors={colorConfig}
@@ -127,13 +137,19 @@ export const ChartSpendingFunnel = memo(function ChartSpendingFunnel({
       currentPartSizeExtension={10}
       currentBorderWidth={40}
       theme={{ text: { fill: textColor, fontSize: 12 } }}
-      tooltip={({ part }) => (
-        <NivoChartTooltip
-          title={(part.data.label || part.data.id) as string}
-          titleColor={part.color}
-          value={formatCurrency(Number(part.data.value))}
-        />
-      )}
+      tooltip={({ part }) => {
+        // Look up the original (non-normalised) value by id so the tooltip
+        // always shows the real monetary amount, not the sqrt display value.
+        const original = sanitizedData.find(d => d.id === part.data.id)
+        const rawValue = original !== undefined ? original.value : Number(part.data.value)
+        return (
+          <NivoChartTooltip
+            title={(part.data.label || part.data.id) as string}
+            titleColor={part.color}
+            value={formatCurrency(rawValue)}
+          />
+        )
+      }}
     />
   )
 

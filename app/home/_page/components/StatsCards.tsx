@@ -11,6 +11,7 @@ type StatsCardsProps = {
   stats: StatsSummary
   trends: StatsTrends
   transactionSummary: TransactionSummary
+  isLoading?: boolean
 }
 
 /**
@@ -22,6 +23,7 @@ export const StatsCards = memo(function StatsCards({
   stats,
   trends,
   transactionSummary,
+  isLoading = false,
 }: StatsCardsProps) {
   // Fetch all-time transaction count (ignores date filter)
   const { data: totalCount } = useTotalTransactionCount()
@@ -66,6 +68,7 @@ export const StatsCards = memo(function StatsCards({
       fridgeScoreTrend={stats.fridgeScoreTrend}
       fridgeScoreTrendData={stats.fridgeScoreTrendData}
       fridgeScoreEnabled={spendingScoreEnabled}
+      isLoading={isLoading}
     />
   )
 })

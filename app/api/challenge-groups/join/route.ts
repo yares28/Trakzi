@@ -67,6 +67,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true, group_id: group.id })
     } catch (error: any) {
         console.error('[Challenge Groups Join]', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        console.error("[challenge-groups]", error)
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 })
     }
 }

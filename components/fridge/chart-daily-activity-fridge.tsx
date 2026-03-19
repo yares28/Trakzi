@@ -686,8 +686,8 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
 
       <Card className="@container/card">
         <FridgeCalendarCardHeader onOpenFullscreen={handleOpenFullscreen} filteredData={filteredData} totalSpent={totalSpent} />
-        <CardContent className="flex flex-1 flex-col justify-center px-2 pt-4 pb-2 sm:px-6 sm:pt-6 md:pb-6">
-          <div ref={contentRef} className="w-full">
+        <CardContent className="flex flex-1 flex-col justify-center px-2 pt-4 pb-2 sm:px-6 sm:pt-6 md:pb-6 overflow-x-hidden">
+          <div ref={contentRef} className="w-full min-w-0">
             {isDualCalendar && period1 && period2 ? (
               <div className="flex flex-col gap-4">
                 <div>

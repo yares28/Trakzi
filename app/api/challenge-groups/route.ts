@@ -9,7 +9,10 @@ import { computeUserMetrics } from '@/lib/friends/ranking-metrics'
 import type { ChallengeMetric, ChallengeGroupWithMembers } from '@/lib/types/challenges'
 
 function generateInviteCode(): string {
-    return Math.random().toString(36).substring(2, 10).toUpperCase()
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const array = new Uint8Array(8);
+    crypto.getRandomValues(array);
+    return Array.from(array, b => chars[b % chars.length]).join('');
 }
 
 export async function GET() {
@@ -154,7 +157,8 @@ export async function GET() {
         return NextResponse.json(groups)
     } catch (error: any) {
         console.error('[Challenge Groups GET]', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        console.error("[challenge-groups]", error)
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 })
     }
 }
 
@@ -195,6 +199,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ id: groupRow.id, invite_code: inviteCode }, { status: 201 })
     } catch (error: any) {
         console.error('[Challenge Groups POST]', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        console.error("[challenge-groups]", error)
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 })
     }
 }

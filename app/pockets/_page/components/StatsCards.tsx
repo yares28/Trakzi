@@ -10,18 +10,19 @@ interface WorldMapStatsCardsProps {
   topCountrySpend?: number
   topCountryName?: string
   totalSpendAbroad?: number
-  domesticSpend?: number
+  avgPerCountry?: number
+  avgDailySpend?: number
   isLoading?: boolean
 }
 
-type CardId = "countries" | "topCountry" | "abroad" | "domestic"
+type CardId = "countries" | "topCountry" | "abroad" | "avgPerCountry" | "dailyRate"
 
 interface CardData {
   id: CardId
   title: string
   value: number | string
   isCurrency?: boolean
-  /** Total spent/value for "top" card (shown below name) */
+  /** Sub-value shown below main value */
   totalSpent?: number
 }
 
@@ -30,7 +31,9 @@ function StatCard({ card }: { card: CardData }) {
 
   const displayValue =
     card.isCurrency && typeof card.value === "number"
-      ? formatCurrency(card.value, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+      ? card.value > 0
+        ? formatCurrency(card.value, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+        : "—"
       : String(card.value)
 
   return (
@@ -55,7 +58,8 @@ export function WorldMapStatsCards({
   topCountrySpend = 0,
   topCountryName = "—",
   totalSpendAbroad = 0,
-  domesticSpend = 0,
+  avgPerCountry = 0,
+  avgDailySpend = 0,
 }: WorldMapStatsCardsProps) {
   const cardData = useMemo<Record<CardId, CardData>>(
     () => ({
@@ -78,20 +82,26 @@ export function WorldMapStatsCards({
         value: totalSpendAbroad,
         isCurrency: true,
       },
-      domestic: {
-        id: "domestic",
-        title: "Domestic",
-        value: domesticSpend,
+      avgPerCountry: {
+        id: "avgPerCountry",
+        title: "Avg / country",
+        value: avgPerCountry,
+        isCurrency: true,
+      },
+      dailyRate: {
+        id: "dailyRate",
+        title: "Daily rate",
+        value: avgDailySpend,
         isCurrency: true,
       },
     }),
-    [countriesCount, topCountryName, topCountrySpend, totalSpendAbroad, domesticSpend]
+    [countriesCount, topCountryName, topCountrySpend, totalSpendAbroad, avgPerCountry, avgDailySpend]
   )
 
-  const cardOrder: CardId[] = ["countries", "topCountry", "abroad", "domestic"]
+  const cardOrder: CardId[] = ["countries", "topCountry", "abroad", "avgPerCountry", "dailyRate"]
 
   return (
-    <div className="grid grid-cols-2 gap-4 px-4 lg:px-6 @5xl/main:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4 px-4 lg:px-6 @3xl/main:grid-cols-3 @5xl/main:grid-cols-5">
       {cardOrder.map((cardId) => (
         <StatCard key={cardId} card={cardData[cardId]} />
       ))}

@@ -102,6 +102,27 @@ export const PAGE_TOURS: Record<string, PageTour | undefined> = {
       },
     ],
   },
+  friends: {
+    pageId: "friends",
+    steps: [
+      {
+        title: "Your social finance hub",
+        description: "The Friends section lets you compare spending, share rooms, and challenge friends to build better financial habits together.",
+      },
+      {
+        title: "Rankings",
+        description: "See how your spending score stacks up against friends. Rankings update automatically as everyone logs transactions.",
+      },
+      {
+        title: "Rooms",
+        description: "Create a shared room with roommates or travel companions. Add expenses, split costs, and settle up — all in one place.",
+      },
+      {
+        title: "Challenges",
+        description: "Start a spending challenge with friends — like 'spend under $200 on food this month'. Track everyone's progress in real time.",
+      },
+    ],
+  },
   "data-library": {
     pageId: "data-library",
     steps: [

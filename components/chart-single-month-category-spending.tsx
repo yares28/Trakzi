@@ -483,9 +483,7 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
         y: e.clientY - rect.top,
       }
       mousePositionRef.current = position
-      if (tooltip) {
-        setTooltipPosition(position)
-      }
+      setTooltipPosition(position)
     }
 
     const handleMouseLeave = () => {
@@ -494,14 +492,24 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
       mousePositionRef.current = null
     }
 
+    const handleDocumentTouch = (e: TouchEvent) => {
+      if (!container.contains(e.target as Node)) {
+        setTooltip(null)
+        setTooltipPosition(null)
+        mousePositionRef.current = null
+      }
+    }
+
     container.addEventListener('mousemove', handleMouseMove)
     container.addEventListener('mouseleave', handleMouseLeave)
+    document.addEventListener('touchstart', handleDocumentTouch, { passive: true })
 
     return () => {
       container.removeEventListener('mousemove', handleMouseMove)
       container.removeEventListener('mouseleave', handleMouseLeave)
+      document.removeEventListener('touchstart', handleDocumentTouch)
     }
-  }, [tooltip])
+  }, [])
 
   const option = React.useMemo(() => {
     if (!data.length || selectedMonth === null) return null
@@ -543,6 +551,9 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
       },
       tooltip: {
         show: false, // Disable default ECharts tooltip
+        trigger: "axis",
+        axisPointer: { type: "shadow" },
+        transitionDuration: 0,
       },
       dataset: {
         source: datasetSource,

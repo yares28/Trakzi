@@ -58,17 +58,34 @@ export async function getCountrySpending(userId: string): Promise<CountryData[]>
 }
 
 /**
+ * Get count of distinct transaction dates linked to any country instance for this user.
+ */
+async function getDistinctTravelDays(userId: string): Promise<number> {
+    const rows = await neonQuery<{ days: string }>(
+        `SELECT COUNT(DISTINCT DATE(t.date::timestamp))::text AS days
+         FROM transactions t
+         JOIN country_instances ci ON t.country_instance_id = ci.id
+         WHERE ci.user_id = $1
+           AND t.user_id = $1
+           AND t.amount < 0`,
+        [userId]
+    )
+    return parseInt(rows[0]?.days ?? '0', 10)
+}
+
+/**
  * Compute travel stats from country spending data
  */
-function computeTravelStats(countries: CountryData[]): TravelStats {
+function computeTravelStats(countries: CountryData[], distinctDays = 0): TravelStats {
     const totalCountries = countries.length
     const totalSpentAbroad = countries.reduce((sum, c) => sum + c.value, 0)
+    const avgDailySpend = distinctDays > 0 ? totalSpentAbroad / distinctDays : 0
 
     const topCountry = countries.length > 0
         ? { name: countries[0].id, value: countries[0].value }
         : null
 
-    return { totalCountries, totalSpentAbroad, topCountry }
+    return { totalCountries, totalSpentAbroad, topCountry, avgDailySpend }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -237,12 +254,13 @@ function computeOtherStats(otherPockets: PocketItemWithTotals[]): OtherStats {
 export async function getPocketsBundle(userId: string): Promise<PocketsBundleResponse> {
     // Run travel + pockets queries in parallel.
     // Travel is isolated with catch so a failure never crashes vehicle/property/other.
-    const [countries, allPockets] = await Promise.all([
+    const [countries, allPockets, distinctTravelDays] = await Promise.all([
         getCountrySpending(userId).catch((err) => {
             console.error('[Pockets Bundle] getCountrySpending failed, returning empty:', err)
             return [] as CountryData[]
         }),
         getPocketsWithTotals(userId),
+        getDistinctTravelDays(userId).catch(() => 0),
     ])
 
     // Partition pockets by type
@@ -252,7 +270,7 @@ export async function getPocketsBundle(userId: string): Promise<PocketsBundleRes
 
     // Compute stats (always from DB, never mock)
     const stats = {
-        travel: computeTravelStats(countries),
+        travel: computeTravelStats(countries, distinctTravelDays),
         garage: computeGarageStats(vehicles),
         property: computePropertyStats(properties),
         other: computeOtherStats(otherPockets),

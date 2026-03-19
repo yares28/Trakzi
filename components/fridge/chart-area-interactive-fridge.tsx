@@ -29,7 +29,7 @@ import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 
 export const description = "An interactive area chart"
 
-export const ChartAreaInteractiveFridge = React.memo(function ChartAreaInteractiveFridge({ data }: { data: { date: string; spend: number }[] }) {
+export const ChartAreaInteractiveFridge = React.memo(function ChartAreaInteractiveFridge({ data, isLoading = false }: { data: { date: string; spend: number }[]; isLoading?: boolean }) {
     const { getMiddleShuffledPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
     const { resolvedTheme } = useTheme()
@@ -164,7 +164,7 @@ export const ChartAreaInteractiveFridge = React.memo(function ChartAreaInteracti
                     {data.length === 0 ? (
                         <div className="h-[250px] w-full flex items-center justify-center">
                             <ChartLoadingState
-                                isLoading={false}
+                                isLoading={isLoading}
                                 skeletonType="area"
                                 emptyTitle="No data yet"
                                 emptyDescription="Import your bank statements or receipts to see insights here"
