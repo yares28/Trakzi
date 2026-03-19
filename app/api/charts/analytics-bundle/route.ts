@@ -30,22 +30,20 @@ export const GET = async (request: Request) => {
         // This ensures users who exceed limits (e.g., after downgrade) are brought back within limits
         await autoEnforceTransactionCap(userId, true)
 
-        // Get filter from query params
+        // Get filter + effective cost mode from query params
         const { searchParams } = new URL(request.url)
         const filter = searchParams.get('filter')
+        const useEffectiveCost = searchParams.get('effective_cost') !== '0'
 
-        // Build cache key
-        const cacheKey = buildCacheKey('analytics', userId, filter, 'bundle')
+        // Build cache key (include ec flag to avoid stale cross-mode cache hits)
+        const cacheKey = buildCacheKey('analytics', userId, filter, useEffectiveCost ? 'bundle-ec1' : 'bundle-ec0')
 
         // Try cache first, otherwise compute
-        const startTime = Date.now()
         const data = await getCachedOrCompute<AnalyticsSummary>(
             cacheKey,
-            () => getAnalyticsBundle(userId!, filter),
+            () => getAnalyticsBundle(userId!, filter, useEffectiveCost),
             CACHE_TTL.analytics
         )
-        const duration = Date.now() - startTime
-        console.log(`[Analytics Bundle API] Completed in ${duration}ms, userId: ${userId}, filter: ${filter}`)
 
         // Check if user has data in other time periods
         // This is used to show a helpful message when current filter has no data

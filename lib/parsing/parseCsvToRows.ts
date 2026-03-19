@@ -70,6 +70,9 @@ const DEBIT_REGEX = /\b(debit|debito|debe|cargo|dr)\b/i;
 const CREDIT_REGEX = /\b(credit|credito|haber|abono|cr)\b/i;
 const TYPE_REGEX = /\b(type|movement|movimiento|transaction type|debit\/credit|dr\/cr|dc)\b/i;
 
+// Keywords that strongly suggest an internal account transfer (not a real expense/income)
+const TRANSFER_REGEX = /\b(transfer|trf|trnsfer|virement|virements|überweisung|ueberweisung|traslado|traspaso|own\s+transfer|internal\s+transfer|between\s+accounts|from\s+savings|to\s+savings|savings\s+account|account\s+transfer|cuenta\s+propia|compte\s+propre)\b/i;
+
 function normalizeHeaderText(value: string): string {
     return value
         .toLowerCase()
@@ -1050,6 +1053,17 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
     }
     if (diagnostics.duplicatesDetected > 0) {
         diagnostics.warnings.push(`${diagnostics.duplicatesDetected} potential duplicate transaction(s) detected.`);
+    }
+
+    // Detect likely internal account transfers and flag them for user review
+    for (const row of validRows) {
+        if (TRANSFER_REGEX.test(row.description)) {
+            row.tx_type = 'transfer'
+            row.needsReview = true
+            row.reviewReason = row.reviewReason
+                ? `${row.reviewReason}; Possible transfer`
+                : 'Possible transfer — delete if this is an internal account move'
+        }
     }
 
     diagnostics.rowsAfterFiltering = validRows.length;

@@ -80,6 +80,12 @@ export interface SpendingPyramidItem {
     avgPercent: number
 }
 
+export interface SharedExpenseSummary {
+    totalFronted: number
+    totalPendingOwedToYou: number
+    totalYouOwe: number
+}
+
 export interface AnalyticsSummary {
     kpis: {
         totalIncome: number
@@ -100,6 +106,9 @@ export interface AnalyticsSummary {
     monthlyByCategory: MonthlyByCategory[]
     spendingPyramid: SpendingPyramidItem[]
     treeMapData: TreeMapNode
+    // Phase 4: effective cost mode + shared expense summary
+    effectiveCostMode: boolean
+    sharedExpenseSummary: SharedExpenseSummary
 }
 
 // Category classification for needs/wants
@@ -119,24 +128,57 @@ const NEEDS_CATEGORIES: Record<string, 'Essentials' | 'Mandatory' | 'Wants' | 'O
 }
 
 /**
- * Get spending by category with optimized SQL aggregation
+ * Get spending by category with optimized SQL aggregation.
+ * When useEffectiveCost=true, substitutes each transaction's amount with the
+ * user's split share (via LATERAL join) for shared transactions.
  */
 export async function getCategorySpending(
     userId: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    useEffectiveCost?: boolean
 ): Promise<CategorySpending[]> {
-    let query = `
-        SELECT 
-            COALESCE(c.name, 'Uncategorized') AS category,
-            ABS(SUM(t.amount)) AS total,
-            COUNT(*)::int AS count,
-            c.color
-        FROM transactions t
-        LEFT JOIN categories c ON t.category_id = c.id
-        WHERE t.user_id = $1 AND t.amount < 0
-    `
     const params: (string | number)[] = [userId]
+
+    let query: string
+    if (useEffectiveCost) {
+        query = `
+            SELECT
+                COALESCE(c.name, 'Uncategorized') AS category,
+                ABS(SUM(
+                    CASE
+                        WHEN share_info.split_amount IS NOT NULL
+                            THEN -share_info.split_amount
+                        ELSE t.amount
+                    END
+                )) AS total,
+                COUNT(*)::int AS count,
+                c.color
+            FROM transactions t
+            LEFT JOIN categories c ON t.category_id = c.id
+            LEFT JOIN LATERAL (
+                SELECT ts.amount AS split_amount
+                FROM shared_transactions st
+                LEFT JOIN transaction_splits ts ON ts.shared_tx_id = st.id AND ts.user_id = $1
+                WHERE st.original_tx_id = t.id::text
+                LIMIT 1
+            ) share_info ON true
+            WHERE t.user_id = $1 AND t.amount < 0
+              AND (t.tx_type IS NULL OR t.tx_type = 'expense')
+        `
+    } else {
+        query = `
+            SELECT
+                COALESCE(c.name, 'Uncategorized') AS category,
+                ABS(SUM(t.amount)) AS total,
+                COUNT(*)::int AS count,
+                c.color
+            FROM transactions t
+            LEFT JOIN categories c ON t.category_id = c.id
+            WHERE t.user_id = $1 AND t.amount < 0
+              AND (t.tx_type IS NULL OR t.tx_type = 'expense')
+        `
+    }
 
     if (startDate) {
         params.push(startDate)
@@ -180,6 +222,7 @@ export async function getDailySpending(
             ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)) AS expense
         FROM transactions
         WHERE user_id = $1
+          AND (tx_type IS NULL OR tx_type IN ('expense', 'income'))
     `
     const params: (string | number)[] = [userId]
 
@@ -225,6 +268,7 @@ export async function getMonthlyCategories(
         FROM transactions t
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE t.user_id = $1 AND t.amount < 0
+          AND (t.tx_type IS NULL OR t.tx_type = 'expense')
     `
     const params: (string | number)[] = [userId]
 
@@ -267,6 +311,7 @@ export async function getDayOfWeekSpending(
             COUNT(*)::int AS count
         FROM transactions
         WHERE user_id = $1 AND amount < 0
+          AND (tx_type IS NULL OR tx_type = 'expense')
     `
     const params: (string | number)[] = [userId]
 
@@ -310,6 +355,7 @@ export async function getDayOfWeekCategory(
         FROM transactions t
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE t.user_id = $1 AND t.amount < 0
+          AND (t.tx_type IS NULL OR t.tx_type = 'expense')
     `
     const params: (string | number)[] = [userId]
 
@@ -357,6 +403,7 @@ export async function getTransactionHistory(
         FROM transactions t
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE t.user_id = $1 AND t.amount < 0
+          AND (t.tx_type IS NULL OR t.tx_type = 'expense')
     `
     const params: (string | number)[] = [userId]
 
@@ -409,6 +456,7 @@ export async function getNeedsWantsBreakdown(
         FROM transactions t
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE t.user_id = $1 AND t.amount < 0
+          AND (t.tx_type IS NULL OR t.tx_type = 'expense')
     `
     const params: (string | number)[] = [userId]
 
@@ -484,6 +532,7 @@ export async function getCashFlowData(
         FROM transactions t
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE t.user_id = $1 AND t.amount > 0
+          AND (t.tx_type IS NULL OR t.tx_type = 'income')
     `
     const incomeParams: (string | number)[] = [userId]
 
@@ -505,6 +554,7 @@ export async function getCashFlowData(
        FROM transactions t
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE t.user_id = $1 AND t.amount < 0
+          AND (t.tx_type IS NULL OR t.tx_type = 'expense')
     `
     const expenseParams: (string | number)[] = [userId]
 
@@ -595,6 +645,7 @@ export async function getMonthlyByCategory(
         FROM transactions t
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE t.user_id = $1 AND t.amount < 0
+          AND (t.tx_type IS NULL OR t.tx_type = 'expense')
     `
     const params: (string | number)[] = [userId]
 
@@ -647,6 +698,7 @@ async function getPlatformCategoryAverages(
                     FROM transactions t
                     LEFT JOIN categories c ON t.category_id = c.id
                     WHERE t.amount < 0
+                      AND (t.tx_type IS NULL OR t.tx_type = 'expense')
             `
             const avgParams: (string | number)[] = []
 
@@ -696,6 +748,7 @@ export async function getSpendingPyramid(
         FROM transactions t
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE t.user_id = $1 AND t.amount < 0
+          AND (t.tx_type IS NULL OR t.tx_type = 'expense')
     `
     const userParams: (string | number)[] = [userId]
 
@@ -758,27 +811,72 @@ export async function getSpendingPyramid(
 export async function getKPIs(
     userId: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    useEffectiveCost?: boolean
 ): Promise<AnalyticsSummary['kpis']> {
-    let query = `
-        SELECT 
-            SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) AS total_income,
-            ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)) AS total_expense,
-            SUM(amount) AS net_savings,
-            COUNT(*)::int AS transaction_count,
-            AVG(ABS(amount)) AS avg_transaction
-        FROM transactions
-        WHERE user_id = $1
-    `
     const params: (string | number)[] = [userId]
+    let query: string
 
-    if (startDate) {
-        params.push(startDate)
-        query += ` AND tx_date >= $${params.length}::date`
-    }
-    if (endDate) {
-        params.push(endDate)
-        query += ` AND tx_date <= $${params.length}::date`
+    if (useEffectiveCost) {
+        // Build date conditions for the inner subquery first (positional params 2, 3)
+        let dateConditions = ''
+        if (startDate) {
+            params.push(startDate)
+            dateConditions += ` AND t.tx_date >= $${params.length}::date`
+        }
+        if (endDate) {
+            params.push(endDate)
+            dateConditions += ` AND t.tx_date <= $${params.length}::date`
+        }
+
+        query = `
+            SELECT
+                SUM(CASE WHEN ea > 0 THEN ea ELSE 0 END) AS total_income,
+                ABS(SUM(CASE WHEN ea < 0 THEN ea ELSE 0 END)) AS total_expense,
+                SUM(ea) AS net_savings,
+                COUNT(*)::int AS transaction_count,
+                AVG(ABS(ea)) AS avg_transaction
+            FROM (
+                SELECT
+                    CASE
+                        WHEN t.amount < 0 AND share_info.split_amount IS NOT NULL
+                            THEN -share_info.split_amount
+                        ELSE t.amount
+                    END AS ea
+                FROM transactions t
+                LEFT JOIN LATERAL (
+                    SELECT ts.amount AS split_amount
+                    FROM shared_transactions st
+                    LEFT JOIN transaction_splits ts ON ts.shared_tx_id = st.id AND ts.user_id = $1
+                    WHERE st.original_tx_id = t.id::text
+                    LIMIT 1
+                ) share_info ON true
+                WHERE t.user_id = $1
+                  AND (t.tx_type IS NULL OR t.tx_type IN ('expense', 'income'))
+                  ${dateConditions}
+            ) _kpis
+        `
+    } else {
+        query = `
+            SELECT
+                SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) AS total_income,
+                ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)) AS total_expense,
+                SUM(amount) AS net_savings,
+                COUNT(*)::int AS transaction_count,
+                AVG(ABS(amount)) AS avg_transaction
+            FROM transactions
+            WHERE user_id = $1
+              AND (tx_type IS NULL OR tx_type IN ('expense', 'income'))
+        `
+
+        if (startDate) {
+            params.push(startDate)
+            query += ` AND tx_date >= $${params.length}::date`
+        }
+        if (endDate) {
+            params.push(endDate)
+            query += ` AND tx_date <= $${params.length}::date`
+        }
     }
 
     const rows = await neonQuery<{
@@ -824,6 +922,7 @@ export async function getTreeMapData(
         FROM transactions t
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE t.user_id = $1 AND t.amount < 0
+          AND (t.tx_type IS NULL OR t.tx_type = 'expense')
     `
     const params: (string | number)[] = [userId]
 
@@ -914,15 +1013,61 @@ export async function getTreeMapData(
 }
 
 /**
+ * Get shared expense summary: how much user has fronted and what's pending.
+ * Only includes shared transactions where the user is a room member.
+ */
+export async function getSharedExpenseSummary(
+    userId: string,
+    startDate?: string,
+    endDate?: string
+): Promise<SharedExpenseSummary> {
+    const params: (string | number)[] = [userId]
+
+    let query = `
+        SELECT
+            COALESCE(SUM(CASE WHEN st.uploaded_by = $1 THEN st.total_amount ELSE 0 END), 0) AS total_fronted,
+            COALESCE(SUM(CASE WHEN ts.status = 'pending' AND st.uploaded_by = $1 AND ts.user_id != $1 THEN ts.amount ELSE 0 END), 0) AS total_pending_owed_to_you,
+            COALESCE(SUM(CASE WHEN ts.status = 'pending' AND ts.user_id = $1 AND st.uploaded_by != $1 THEN ts.amount ELSE 0 END), 0) AS total_you_owe
+        FROM shared_transactions st
+        JOIN transaction_splits ts ON ts.shared_tx_id = st.id
+        WHERE st.room_id IN (SELECT room_id FROM room_members WHERE user_id = $1)
+    `
+
+    if (startDate) {
+        params.push(startDate)
+        query += ` AND st.transaction_date >= $${params.length}::date`
+    }
+    if (endDate) {
+        params.push(endDate)
+        query += ` AND st.transaction_date <= $${params.length}::date`
+    }
+
+    const rows = await neonQuery<{
+        total_fronted: string
+        total_pending_owed_to_you: string
+        total_you_owe: string
+    }>(query, params)
+
+    const row = rows[0] || {}
+    return {
+        totalFronted: parseFloat(row.total_fronted || '0') || 0,
+        totalPendingOwedToYou: parseFloat(row.total_pending_owed_to_you || '0') || 0,
+        totalYouOwe: parseFloat(row.total_you_owe || '0') || 0,
+    }
+}
+
+/**
  * Get complete analytics bundle - single endpoint for all chart data
  * Note: transactionHistory removed - fetched separately via /api/transactions
  * Each query runs individually with error handling to prevent one failure from breaking all charts
  */
 export async function getAnalyticsBundle(
     userId: string,
-    filter: string | null
+    filter: string | null,
+    useEffectiveCost?: boolean
 ): Promise<AnalyticsSummary> {
     const { startDate, endDate } = getDateRange(filter)
+    const eff = useEffectiveCost ?? true
 
     // Run each aggregation individually with error handling
     // This ensures one failing query doesn't break all charts
@@ -935,14 +1080,15 @@ export async function getAnalyticsBundle(
             if (name === 'kpis') return { totalIncome: 0, totalExpense: 0, netSavings: 0, transactionCount: 0, avgTransaction: 0 } as T
             if (name === 'cashFlow') return { nodes: [], links: [] } as T
             if (name === 'treeMapData') return { name: 'root', children: [] } as T
+            if (name === 'sharedExpenseSummary') return { totalFronted: 0, totalPendingOwedToYou: 0, totalYouOwe: 0 } as T
             return [] as unknown as T
         }
     }
 
     // Run all aggregations - individual error handling prevents total failure
-    const [kpis, categorySpending, dailySpending, monthlyCategories, dayOfWeekSpending, dayOfWeekCategory, needsWants, cashFlow, monthlyByCategory, spendingPyramid, treeMapData] = await Promise.all([
-        runQuery('kpis', () => getKPIs(userId, startDate ?? undefined, endDate ?? undefined)),
-        runQuery('categorySpending', () => getCategorySpending(userId, startDate ?? undefined, endDate ?? undefined)),
+    const [kpis, categorySpending, dailySpending, monthlyCategories, dayOfWeekSpending, dayOfWeekCategory, needsWants, cashFlow, monthlyByCategory, spendingPyramid, treeMapData, sharedExpenseSummary] = await Promise.all([
+        runQuery('kpis', () => getKPIs(userId, startDate ?? undefined, endDate ?? undefined, eff)),
+        runQuery('categorySpending', () => getCategorySpending(userId, startDate ?? undefined, endDate ?? undefined, eff)),
         runQuery('dailySpending', () => getDailySpending(userId, startDate ?? undefined, endDate ?? undefined)),
         runQuery('monthlyCategories', () => getMonthlyCategories(userId, startDate ?? undefined, endDate ?? undefined)),
         runQuery('dayOfWeekSpending', () => getDayOfWeekSpending(userId, startDate ?? undefined, endDate ?? undefined)),
@@ -952,6 +1098,7 @@ export async function getAnalyticsBundle(
         runQuery('monthlyByCategory', () => getMonthlyByCategory(userId, startDate ?? undefined, endDate ?? undefined)),
         runQuery('spendingPyramid', () => getSpendingPyramid(userId, startDate ?? undefined, endDate ?? undefined)),
         runQuery('treeMapData', () => getTreeMapData(userId, startDate ?? undefined, endDate ?? undefined)),
+        runQuery('sharedExpenseSummary', () => getSharedExpenseSummary(userId, startDate ?? undefined, endDate ?? undefined)),
     ])
 
     return {
@@ -966,6 +1113,8 @@ export async function getAnalyticsBundle(
         monthlyByCategory,
         spendingPyramid,
         treeMapData,
+        effectiveCostMode: eff,
+        sharedExpenseSummary: sharedExpenseSummary as SharedExpenseSummary,
     }
 }
 

@@ -6,7 +6,7 @@ import { neonQuery, neonInsert } from "@/lib/neonClient"
 import { verifyRoomMember } from "@/lib/rooms/permissions"
 import { validateSplits, type SplitInput } from "@/lib/rooms/split-validation"
 import { checkSharedTxLimit } from "@/lib/friends/limits"
-import { invalidateRoomCache } from "@/lib/cache/upstash"
+import { invalidateRoomCache, invalidateUserCachePrefix } from "@/lib/cache/upstash"
 import type { SplitType, SharedTransaction } from "@/lib/types/rooms"
 
 export const SplitInputSchema = z.object({
@@ -36,6 +36,7 @@ const CreateSharedTxSchema = z.object({
     original_tx_id: z.number().optional(),
     receipt_items: z.array(ReceiptItemInputSchema).optional(),
     paid_by: z.string().optional(), // Override who paid (must be a room member)
+    also_track_personal: z.boolean().default(false), // Create personal tx linked via original_tx_id (payer only)
 })
 
 // POST /api/rooms/[roomId]/transactions — Create a shared transaction with splits
@@ -88,11 +89,23 @@ export async function POST(
         // Validate paid_by is a room member if provided
         const paidByUserId = data.paid_by && memberIds.includes(data.paid_by) ? data.paid_by : userId
 
+        // Phase 3: pre-flight capacity check BEFORE any writes (personal tx only for the caller)
+        const willTrackPersonal = data.also_track_personal && paidByUserId === userId
+        if (willTrackPersonal) {
+            const { assertCapacityOrExplain } = await import("@/lib/limits/transactions-cap")
+            const capacityCheck = await assertCapacityOrExplain({ userId, incomingCount: 1 })
+            if (!capacityCheck.ok) {
+                return NextResponse.json(capacityCheck.limitExceeded, { status: 403 })
+            }
+        }
+
         const metadata: Record<string, unknown> = { source_type: data.source_type }
-        if (data.original_tx_id) metadata.original_tx_id = data.original_tx_id
+        // Existing original_tx_id from client (e.g. personal import); Phase 3 sets it after shared insert
+        const passedOriginalTxId = data.original_tx_id ?? null
+        if (passedOriginalTxId) metadata.original_tx_id = String(passedOriginalTxId)
         if (data.paid_by && data.paid_by !== userId) metadata.paid_by = data.paid_by
 
-        // Create shared transaction
+        // Create shared transaction (original_tx_id initially null when also_track_personal; set below)
         const txRows = await neonInsert<Record<string, unknown>>("shared_transactions", {
             room_id: roomId,
             uploaded_by: paidByUserId,
@@ -102,7 +115,7 @@ export async function POST(
             category: data.category ?? null,
             transaction_date: data.transaction_date,
             split_type: data.split_type,
-            original_tx_id: data.original_tx_id ?? null,
+            original_tx_id: willTrackPersonal ? null : (passedOriginalTxId ? String(passedOriginalTxId) : null),
             metadata,
         })
 
@@ -120,8 +133,8 @@ export async function POST(
                 shared_tx_id: txId,
                 user_id: split.user_id,
                 amount: split.amount,
-                status: split.user_id === userId ? "settled" : "pending",
-                settled_at: split.user_id === userId ? new Date().toISOString() : null,
+                status: split.user_id === paidByUserId ? "settled" : "pending",
+                settled_at: split.user_id === paidByUserId ? new Date().toISOString() : null,
             })
         }
 
@@ -152,16 +165,63 @@ export async function POST(
                             item_id: itemId,
                             user_id: split.user_id,
                             amount: split.amount,
-                            status: split.user_id === userId ? "settled" : "pending",
-                            settled_at: split.user_id === userId ? new Date().toISOString() : null,
+                            status: split.user_id === paidByUserId ? "settled" : "pending",
+                            settled_at: split.user_id === paidByUserId ? new Date().toISOString() : null,
                         })
                     }
                 }
             }
         }
 
-        // Invalidate room bundle cache after mutation
+        // Phase 3: Create personal transaction AFTER shared tx + splits are committed
+        // If this fails, the room expense still exists — graceful degradation, no orphan
+        let linkedPersonalTxId: number | null = null
+        if (willTrackPersonal) {
+            let categoryId: number | null = null
+            if (data.category) {
+                const catRows = await neonQuery<{ id: number }>(
+                    `SELECT id FROM categories WHERE user_id = $1 AND LOWER(name) = LOWER($2) ORDER BY name ASC LIMIT 1`,
+                    [userId, data.category]
+                )
+                categoryId = catRows[0]?.id ?? null
+            }
+
+            const ptRows = await neonInsert<Record<string, unknown>>("transactions", {
+                user_id: userId,
+                tx_date: data.transaction_date,
+                description: data.description,
+                amount: -data.total_amount, // negative = expense convention
+                category_id: categoryId,
+                currency: data.currency,
+            })
+            linkedPersonalTxId = (ptRows[0] as any)?.id ?? null
+
+            if (linkedPersonalTxId) {
+                // Link the personal tx back to the shared transaction via original_tx_id
+                await neonQuery(
+                    `UPDATE shared_transactions SET original_tx_id = $1 WHERE id = $2`,
+                    [String(linkedPersonalTxId), txId]
+                )
+            }
+        }
+
+        // Invalidate room bundle cache and personal analytics for all directly affected users
         await invalidateRoomCache(roomId)
+        await invalidateUserCachePrefix(paidByUserId, 'analytics')
+        await invalidateUserCachePrefix(paidByUserId, 'home')
+        // Also invalidate the API caller's cache when they differ from the payer
+        // (caller gets a pending split so their analytics are affected too)
+        if (userId !== paidByUserId) {
+            await invalidateUserCachePrefix(userId, 'analytics')
+            await invalidateUserCachePrefix(userId, 'home')
+        }
+        // If a personal transaction was created, also invalidate personal-data caches
+        if (linkedPersonalTxId) {
+            await invalidateUserCachePrefix(userId, 'data-library')
+            await invalidateUserCachePrefix(userId, 'fridge')
+            await invalidateUserCachePrefix(userId, 'savings')
+            await invalidateUserCachePrefix(userId, 'trends')
+        }
 
         return NextResponse.json(
             {

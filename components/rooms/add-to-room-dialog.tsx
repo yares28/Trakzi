@@ -276,7 +276,13 @@ function CustomExpenseStep({ members, currentUserId, roomId, onSaved }: {
     const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
     const [paidBy, setPaidBy] = useState(() => currentUserId)
     const [splitWith, setSplitWith] = useState<Set<string>>(() => new Set(members.map(m => m.user_id)))
+    const [alsoTrackPersonal, setAlsoTrackPersonal] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
+
+    const handlePaidByChange = (uid: string) => {
+        setPaidBy(uid)
+        if (uid !== currentUserId) setAlsoTrackPersonal(false)
+    }
 
     const toggleSplit = (uid: string) => {
         setSplitWith(prev => { const next = new Set(prev); if (next.has(uid) && next.size > 1) next.delete(uid); else next.add(uid); return next })
@@ -288,15 +294,30 @@ function CustomExpenseStep({ members, currentUserId, roomId, onSaved }: {
         if (isNaN(totalAmount) || totalAmount <= 0) { toast.error("Enter a valid amount"); return }
 
         const splitMembers = [...splitWith]
-        const perPerson = totalAmount / splitMembers.length
-        const splits = splitMembers.map(uid => ({ user_id: uid, amount: Math.round(perPerson * 100) / 100 }))
+        const perPerson = Math.round((totalAmount / splitMembers.length) * 100) / 100
+        // Assign remainder to last member to ensure splits sum exactly to totalAmount
+        const splits = splitMembers.map((uid, i) => ({
+            user_id: uid,
+            amount: i === splitMembers.length - 1
+                ? Math.round((totalAmount - perPerson * (splitMembers.length - 1)) * 100) / 100
+                : perPerson,
+        }))
 
         setIsSaving(true)
         try {
             const res = await demoFetch(`/api/rooms/${roomId}/transactions`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ description: description.trim(), total_amount: totalAmount, transaction_date: date, split_type: "custom", source_type: "manual", paid_by: paidBy, splits }),
+                body: JSON.stringify({
+                    description: description.trim(),
+                    total_amount: totalAmount,
+                    transaction_date: date,
+                    split_type: "custom",
+                    source_type: "manual",
+                    paid_by: paidBy,
+                    splits,
+                    also_track_personal: alsoTrackPersonal && paidBy === currentUserId,
+                }),
             })
             if (!res.ok) { const json = await res.json(); toast.error(json.error ?? "Failed to save expense"); return }
             toast.success("Expense added to room")
@@ -325,7 +346,7 @@ function CustomExpenseStep({ members, currentUserId, roomId, onSaved }: {
                 <Label className="text-xs font-medium">Paid by</Label>
                 <div className="flex flex-wrap gap-2">
                     {members.map(m => (
-                        <button key={m.user_id} type="button" onClick={() => setPaidBy(m.user_id)}
+                        <button key={m.user_id} type="button" onClick={() => handlePaidByChange(m.user_id)}
                             className={cn("flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
                                 paidBy === m.user_id ? "bg-primary text-primary-foreground border-primary" : "border-border/60 hover:border-primary/50 hover:bg-muted/60")}>
                             <Avatar className="w-5 h-5">
@@ -360,6 +381,24 @@ function CustomExpenseStep({ members, currentUserId, roomId, onSaved }: {
                     <p className="text-[11px] text-muted-foreground">Each person pays: {(parseFloat(amount) / splitWith.size).toFixed(2)}</p>
                 )}
             </div>
+            {paidBy === currentUserId && (
+                <div className="flex items-start gap-3 px-3 py-3 rounded-xl border border-border/40 bg-muted/20">
+                    <Checkbox
+                        id="also-track-personal"
+                        checked={alsoTrackPersonal}
+                        onCheckedChange={(checked) => setAlsoTrackPersonal(checked === true)}
+                        className="mt-0.5"
+                    />
+                    <div className="space-y-0.5">
+                        <Label htmlFor="also-track-personal" className="text-sm font-medium cursor-pointer">
+                            Also add to my personal transactions
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                            Turn on if you won't import this from your bank
+                        </p>
+                    </div>
+                </div>
+            )}
             <Button className="w-full" onClick={handleSave} disabled={isSaving}>{isSaving ? "Saving…" : "Add Expense"}</Button>
         </div>
     )
@@ -408,6 +447,7 @@ export const AddToRoomDialog = memo(function AddToRoomDialog({
             amount: Math.abs(tx.amount),
             category: tx.category_name,
             date: tx.date,
+            original_tx_id: tx.id,
             mode: splitWith.length > 1 ? "split" as AttributionMode : "mine" as AttributionMode,
             splitMembers: splitWith,
             splitAmounts: Object.fromEntries(splitWith.map(uid => [uid, Math.abs(tx.amount) / splitWith.length])),
@@ -495,6 +535,7 @@ export const AddToRoomDialog = memo(function AddToRoomDialog({
                     category: item.category,
                     transaction_date: (item.date ?? new Date().toISOString()).slice(0, 10),
                     splits: buildSplits(item),
+                    ...(item.original_tx_id !== undefined && { original_tx_id: item.original_tx_id }),
                 }))
 
                 const res = await demoFetch(`/api/rooms/${roomId}/transactions/bulk`, {

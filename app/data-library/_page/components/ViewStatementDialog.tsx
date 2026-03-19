@@ -76,6 +76,7 @@ type PendingChange = {
   isReceipt: boolean
   originalCategory: string
   newCategory: string
+  newTxType?: string   // only set when the user explicitly changed the type
 }
 
 export function ViewStatementDialog({
@@ -193,6 +194,39 @@ export function ViewStatementDialog({
     })
   }
 
+  // Handle tx_type change (local + pending)
+  const handleTxTypeChange = (tx: Transaction, newTxType: string) => {
+    setLocalTransactions((prev) =>
+      prev.map((item) =>
+        item.id === tx.id ? { ...item, tx_type: newTxType } : item
+      )
+    )
+    setPendingChanges((prev) => {
+      const next = new Map(prev)
+      const existing = next.get(tx.id)
+      const originalTxType = tx.tx_type ?? 'expense'
+      const originalCategory = existing?.originalCategory ?? tx.category ?? ''
+      const newCategory = existing?.newCategory ?? tx.category ?? ''
+      const categoryChanged = newCategory !== originalCategory
+      const typeReverted = newTxType === originalTxType
+
+      if (typeReverted && !categoryChanged) {
+        // Both fields back to original — clear the pending entry
+        next.delete(tx.id)
+      } else {
+        next.set(tx.id, {
+          id: tx.id,
+          receiptTransactionId: existing?.receiptTransactionId ?? tx.receiptTransactionId,
+          isReceipt: existing?.isReceipt ?? Boolean(tx.isReceipt && tx.receiptTransactionId),
+          originalCategory,
+          newCategory,
+          newTxType: typeReverted ? undefined : newTxType,
+        })
+      }
+      return next
+    })
+  }
+
   // Mark transaction for deletion
   const handleMarkForDelete = (tx: Transaction) => {
     setTransactionToDelete(tx)
@@ -259,13 +293,16 @@ export function ViewStatementDialog({
               errors.push(`Failed to update category for receipt transaction`)
             }
           } else {
+            const patchBody: Record<string, unknown> = {}
+            if (change.newCategory !== change.originalCategory) patchBody.category = change.newCategory
+            if (change.newTxType) patchBody.tx_type = change.newTxType
             const response = await fetch(`/api/transactions/${change.id}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ category: change.newCategory }),
+              body: JSON.stringify(patchBody),
             })
             if (!response.ok) {
-              errors.push(`Failed to update category for transaction`)
+              errors.push(`Failed to update transaction`)
             }
           }
         } catch (err) {
@@ -308,7 +345,13 @@ export function ViewStatementDialog({
         let updated = prev.filter((tx) => !pendingDeletes.has(tx.id))
         pendingChanges.forEach((change) => {
           updated = updated.map((tx) =>
-            tx.id === change.id ? { ...tx, category: change.newCategory } : tx
+            tx.id === change.id
+              ? {
+                  ...tx,
+                  category: change.newCategory,
+                  ...(change.newTxType && { tx_type: change.newTxType }),
+                }
+              : tx
           )
         })
         return updated
@@ -415,6 +458,7 @@ export function ViewStatementDialog({
                     </TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Category</TableHead>
+                    <TableHead className="w-28">Type</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead className="w-12 text-right">Actions</TableHead>
                   </TableRow>
@@ -494,6 +538,27 @@ export function ViewStatementDialog({
                               value={tx.category}
                               onValueChange={(value) => handleCategoryChange(tx, value)}
                             />
+                          )}
+                        </TableCell>
+                        <TableCell className="w-28">
+                          {tx.tx_type === 'settlement_sent' || tx.tx_type === 'settlement_received' ? (
+                            <span className="text-xs text-muted-foreground italic">
+                              {tx.tx_type === 'settlement_sent' ? 'Settlement ↑' : 'Settlement ↓'}
+                            </span>
+                          ) : (
+                            <Select
+                              value={tx.tx_type ?? 'expense'}
+                              onValueChange={(value) => handleTxTypeChange(tx, value)}
+                            >
+                              <SelectTrigger className="h-8 w-full text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="expense">Expense</SelectItem>
+                                <SelectItem value="income">Income</SelectItem>
+                                <SelectItem value="transfer">Transfer</SelectItem>
+                              </SelectContent>
+                            </Select>
                           )}
                         </TableCell>
                         <TableCell className="text-right">

@@ -18,6 +18,7 @@ export interface PendingItem {
     quantity?: number
     category?: string | null
     date?: string
+    original_tx_id?: number  // set when sourced from a personal transaction
     mode: AttributionMode
     splitMembers: string[]
     splitAmounts: Record<string, number>

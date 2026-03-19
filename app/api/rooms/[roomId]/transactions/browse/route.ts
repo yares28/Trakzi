@@ -105,15 +105,14 @@ export async function GET(
                     c.name AS category_name,
                     EXISTS (
                         SELECT 1 FROM shared_transactions st
-                        WHERE st.room_id = $${paramIdx}
-                          AND st.original_tx_id = t.id
+                        WHERE st.original_tx_id = t.id
                     ) AS already_in_room
                  FROM transactions t
                  LEFT JOIN categories c ON c.id = t.category_id
                  WHERE ${whereClause}
                  ORDER BY t.tx_date DESC, t.created_at DESC
-                 LIMIT $${paramIdx + 1} OFFSET $${paramIdx + 2}`,
-                [...queryParams, roomId, limit, offset]
+                 LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+                [...queryParams, limit, offset]
             ),
             neonQuery<{ count: string }>(
                 `SELECT COUNT(*)::text AS count

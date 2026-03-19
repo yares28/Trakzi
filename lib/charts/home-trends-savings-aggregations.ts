@@ -85,6 +85,7 @@ export async function getHomeKPIs(
             AVG(ABS(amount)) AS avg_transaction
         FROM transactions
         WHERE user_id = $1
+          AND (tx_type IS NULL OR tx_type IN ('expense', 'income'))
     `
     const params: (string | number)[] = [userId]
 
@@ -129,6 +130,7 @@ export async function getTopCategories(
             SELECT ABS(SUM(amount)) AS grand_total
             FROM transactions
             WHERE user_id = $1 AND amount < 0
+              AND (tx_type IS NULL OR tx_type = 'expense')
     `
     const params: (string | number)[] = [userId]
 
@@ -152,6 +154,7 @@ export async function getTopCategories(
         FROM transactions t
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE t.user_id = $1 AND t.amount < 0
+          AND (t.tx_type IS NULL OR t.tx_type = 'expense')
     `
 
     if (startDate) {
@@ -194,6 +197,7 @@ export async function getHomeDailySpending(
             ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)) AS total
         FROM transactions
         WHERE user_id = $1
+          AND (tx_type IS NULL OR tx_type = 'expense')
     `
     const params: (string | number)[] = [userId]
 
@@ -267,6 +271,7 @@ export async function getCategoryTrends(
         FROM transactions t
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE t.user_id = $1 AND t.amount < 0
+          AND (t.tx_type IS NULL OR t.tx_type = 'expense')
     `
     const params: (string | number)[] = [userId]
 
@@ -338,6 +343,7 @@ export async function getSavingsKPIs(
         FROM transactions t
         JOIN categories c ON t.category_id = c.id
         WHERE t.user_id = $1 AND LOWER(c.name) = 'savings'
+          AND (t.tx_type IS NULL OR t.tx_type IN ('expense', 'income'))
     `
     const params: (string | number)[] = [userId]
 
@@ -365,6 +371,7 @@ export async function getSavingsKPIs(
         SELECT SUM(amount) AS total_income
         FROM transactions
         WHERE user_id = $1 AND amount > 0
+          AND (tx_type IS NULL OR tx_type = 'income')
     `
     const incomeParams: (string | number)[] = [userId]
 
@@ -404,6 +411,7 @@ export async function getSavingsChartData(
         FROM transactions t
         JOIN categories c ON t.category_id = c.id
         WHERE t.user_id = $1 AND LOWER(c.name) = 'savings'
+          AND (t.tx_type IS NULL OR t.tx_type IN ('expense', 'income'))
     `
     const params: (string | number)[] = [userId]
 

@@ -5,7 +5,7 @@ import { getCurrentUserId } from "@/lib/auth"
 import { neonQuery, neonInsert } from "@/lib/neonClient"
 import { verifyRoomMember, verifyRoomAdmin } from "@/lib/rooms/permissions"
 import { validateSplits, type SplitInput } from "@/lib/rooms/split-validation"
-import { invalidateRoomCache } from "@/lib/cache/upstash"
+import { invalidateRoomCache, invalidateUserCachePrefix } from "@/lib/cache/upstash"
 import type { SplitType, SharedTransaction } from "@/lib/types/rooms"
 
 const UpdateSplitsSchema = z.object({
@@ -75,9 +75,10 @@ export async function PUT(
         )
 
         let splitCount = 0
+        let resolvedSplits: { user_id: string; amount: number }[] = []
         if (data.splits.length > 0) {
             // Validate and insert new splits
-            const resolvedSplits = validateSplits(
+            resolvedSplits = validateSplits(
                 data.split_type as SplitType,
                 tx.total_amount,
                 memberIds,
@@ -98,6 +99,18 @@ export async function PUT(
         // If splits is empty, the transaction is now unattributed (no rows)
 
         await invalidateRoomCache(roomId)
+        // Invalidate analytics for parties whose sharedExpenseSummary is affected:
+        // the uploader (fronted/pending_owed_to_you) and the caller (may differ)
+        await invalidateUserCachePrefix(tx.uploaded_by, 'analytics')
+        if (userId !== tx.uploaded_by) {
+            await invalidateUserCachePrefix(userId, 'analytics')
+        }
+        // Also invalidate analytics for anyone newly in the splits (their you_owe changes)
+        for (const split of resolvedSplits) {
+            if (split.user_id !== tx.uploaded_by && split.user_id !== userId) {
+                await invalidateUserCachePrefix(split.user_id, 'analytics')
+            }
+        }
 
         return NextResponse.json({
             success: true,

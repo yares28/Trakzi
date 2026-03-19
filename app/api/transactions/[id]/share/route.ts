@@ -7,6 +7,7 @@ import { verifyFriendship } from "@/lib/friends/permissions"
 import { checkSharedTxLimit } from "@/lib/friends/limits"
 import { verifyRoomMember } from "@/lib/rooms/permissions"
 import { validateSplits, type SplitInput } from "@/lib/rooms/split-validation"
+import { invalidateRoomCache, invalidateUserCachePrefix } from "@/lib/cache/upstash"
 import type { SplitType } from "@/lib/types/rooms"
 
 const SplitInputSchema = z.object({
@@ -35,6 +36,14 @@ export async function POST(
         const userId = await getCurrentUserId()
         const { id: txId } = await params
 
+        const txIdInt = parseInt(txId, 10)
+        if (isNaN(txIdInt)) {
+            return NextResponse.json(
+                { success: false, error: "Transaction not found" },
+                { status: 404 }
+            )
+        }
+
         // Verify the personal transaction exists and belongs to the user
         const txRows = await neonQuery<{
             id: number
@@ -45,7 +54,7 @@ export async function POST(
             `SELECT id, amount, description, tx_date
              FROM transactions
              WHERE id = $1 AND user_id = $2`,
-            [parseInt(txId, 10), userId]
+            [txIdInt, userId]
         )
 
         if (txRows.length === 0) {
@@ -55,14 +64,21 @@ export async function POST(
             )
         }
 
-        // Check if already shared
-        const alreadyShared = await neonQuery(
-            `SELECT 1 FROM shared_transactions WHERE original_tx_id = $1`,
+        // Check if already shared — include the room name so the error is actionable
+        const alreadyShared = await neonQuery<{ room_name: string | null; friendship_id: string | null }>(
+            `SELECT r.name AS room_name, st.friendship_id
+             FROM shared_transactions st
+             LEFT JOIN rooms r ON r.id = st.room_id
+             WHERE st.original_tx_id = $1
+             LIMIT 1`,
             [txRows[0].id]
         )
         if (alreadyShared.length > 0) {
+            const where = alreadyShared[0].room_name
+                ? `"${alreadyShared[0].room_name}"`
+                : "a friend split"
             return NextResponse.json(
-                { success: false, error: "This transaction has already been shared" },
+                { success: false, error: `Already shared in ${where}. Remove it there first to share elsewhere.` },
                 { status: 409 }
             )
         }
@@ -86,9 +102,10 @@ export async function POST(
         let roomId: string | null = null
         let friendshipId: string | null = null
         let memberIds: string[] = []
+        let currency = "EUR"
 
         if (data.room_id) {
-            // Sharing to a room
+            // Sharing to a room — fetch members and room currency together
             const isMember = await verifyRoomMember(data.room_id, userId)
             if (!isMember) {
                 return NextResponse.json(
@@ -98,11 +115,18 @@ export async function POST(
             }
             roomId = data.room_id
 
-            const members = await neonQuery<{ user_id: string }>(
-                `SELECT user_id FROM room_members WHERE room_id = $1`,
-                [data.room_id]
-            )
+            const [members, roomRows] = await Promise.all([
+                neonQuery<{ user_id: string }>(
+                    `SELECT user_id FROM room_members WHERE room_id = $1`,
+                    [data.room_id]
+                ),
+                neonQuery<{ currency: string }>(
+                    `SELECT currency FROM rooms WHERE id = $1`,
+                    [data.room_id]
+                ),
+            ])
             memberIds = members.map(m => m.user_id)
+            currency = roomRows[0]?.currency ?? "EUR"
         } else if (data.friend_user_id) {
             // Sharing with a friend (quick split)
             const fId = await verifyFriendship(userId, data.friend_user_id)
@@ -131,7 +155,7 @@ export async function POST(
             uploaded_by: userId,
             original_tx_id: txRows[0].id,
             total_amount: totalAmount,
-            currency: "EUR",
+            currency,
             description: txRows[0].description,
             transaction_date: txRows[0].tx_date,
             split_type: data.split_type,
@@ -149,6 +173,11 @@ export async function POST(
                 settled_at: split.user_id === userId ? new Date().toISOString() : null,
             })
         }
+
+        // Invalidate caches for the sharer's analytics and the room
+        await invalidateUserCachePrefix(userId, 'analytics')
+        await invalidateUserCachePrefix(userId, 'home')
+        if (roomId) await invalidateRoomCache(roomId)
 
         return NextResponse.json(
             {

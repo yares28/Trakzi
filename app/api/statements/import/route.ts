@@ -275,6 +275,7 @@ export const POST = async (req: NextRequest) => {
         }
 
         // 6) Build transactions rows for Neon with proper category_id
+        const VALID_IMPORT_TX_TYPES = new Set(['expense', 'income', 'transfer'])
         const timestamp = new Date().toISOString();
         const txRows = rowsToInsert.map((r) => ({
             user_id: userId,
@@ -285,6 +286,7 @@ export const POST = async (req: NextRequest) => {
             amount: r.amount,
             balance: r.balance,
             currency: "EUR",
+            tx_type: r.tx_type && VALID_IMPORT_TX_TYPES.has(r.tx_type) ? r.tx_type : 'expense',
             category_id: r.category && categoryNameToId.has(r.category)
                 ? categoryNameToId.get(r.category)!
                 : null,
