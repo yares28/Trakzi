@@ -90,6 +90,13 @@ export interface AnalyticsBundleData {
             }>
         }>
     }
+    // Phase 4: effective cost mode
+    effectiveCostMode?: boolean
+    sharedExpenseSummary?: {
+        totalFronted: number
+        totalPendingOwedToYou: number
+        totalYouOwe: number
+    }
 }
 
 // Home Bundle Types
@@ -235,10 +242,12 @@ export interface Category {
 // BUNDLE API FETCHERS (with Redis caching)
 // ============================================
 
-async function fetchAnalyticsBundle(filter: string | null): Promise<AnalyticsBundleData> {
-    const url = filter
-        ? `/api/charts/analytics-bundle?filter=${encodeURIComponent(filter)}`
-        : `/api/charts/analytics-bundle`
+async function fetchAnalyticsBundle(filter: string | null, effectiveCost = true): Promise<AnalyticsBundleData> {
+    const params = new URLSearchParams()
+    if (filter) params.set('filter', filter)
+    if (!effectiveCost) params.set('effective_cost', '0')
+    const qs = params.toString()
+    const url = qs ? `/api/charts/analytics-bundle?${qs}` : `/api/charts/analytics-bundle`
 
     const response = await demoFetch(url)
     if (!response.ok) {
@@ -366,16 +375,17 @@ export function useTotalTransactionCount() {
 // ============================================
 
 /**
- * Analytics page bundle - pre-aggregated data with Redis caching
+ * Analytics page bundle - pre-aggregated data with Redis caching.
+ * Pass showEffectiveCosts=false to get raw transaction amounts (no split substitution).
  */
-export function useAnalyticsBundleData() {
+export function useAnalyticsBundleData(showEffectiveCosts = true) {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
     const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["analytics-bundle", isDemoMode ? "demo" : (userId ?? ""), filter],
-        queryFn: () => fetchAnalyticsBundle(filter),
+        queryKey: ["analytics-bundle", isDemoMode ? "demo" : (userId ?? ""), filter, showEffectiveCosts],
+        queryFn: () => fetchAnalyticsBundle(filter, showEffectiveCosts),
         enabled: (isDemoMode || !!userId) && isReady,
     })
 }

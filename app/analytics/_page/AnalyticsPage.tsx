@@ -29,8 +29,10 @@ import dynamic from "next/dynamic"
 import { DEFAULT_ADVANCED_CHART_ORDER, DEFAULT_ADVANCED_CHART_SIZES } from "./constants"
 import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
 import { useOnboarding } from "@/components/onboarding/onboarding-context"
-import { MapPin } from "lucide-react"
+import { MapPin, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
 
 const ChartSpendingPyramid = dynamic(
   () => import("@/components/chart-spending-pyramid").then((m) => ({ default: m.ChartSpendingPyramid })),
@@ -48,8 +50,20 @@ export default function AnalyticsPage() {
   const planFeatures = usePlanFeatures()
   const { isDemoMode } = useDemoMode()
 
+  // Effective cost toggle — default ON, persisted to localStorage
+  const [showEffectiveCosts, setShowEffectiveCosts] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true
+    const stored = localStorage.getItem('analytics:showEffectiveCosts')
+    return stored === null ? true : stored !== 'false'
+  })
+
+  const handleEffectiveCostsToggle = useCallback((checked: boolean) => {
+    setShowEffectiveCosts(checked)
+    localStorage.setItem('analytics:showEffectiveCosts', String(checked))
+  }, [])
+
   // Bundle API data - pre-aggregated with Redis caching (single request)
-  const { data: bundleData, isLoading: bundleLoading, isError: bundleError } = useAnalyticsBundleData()
+  const { data: bundleData, isLoading: bundleLoading, isError: bundleError } = useAnalyticsBundleData(showEffectiveCosts)
   const palette = getPalette()
 
   const queryClient = useQueryClient()
@@ -116,7 +130,19 @@ export default function AnalyticsPage() {
     >
       <div className="@container/main flex flex-1 flex-col gap-2 min-w-0">
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 min-w-0 w-full">
-          <div className="flex items-center justify-end px-4 lg:px-6">
+          <div className="flex items-center justify-between px-4 lg:px-6">
+            {/* Effective cost toggle */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="effective-costs-toggle"
+                checked={showEffectiveCosts}
+                onCheckedChange={(checked) => handleEffectiveCostsToggle(checked === true)}
+              />
+              <Label htmlFor="effective-costs-toggle" className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                <Users className="size-3.5" />
+                Show my share
+              </Label>
+            </div>
             <Button
               variant="ghost"
               size="sm"

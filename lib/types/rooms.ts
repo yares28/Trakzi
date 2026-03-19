@@ -44,7 +44,7 @@ export type SharedTransaction = {
     room_id: string | null;
     friendship_id: string | null;
     uploaded_by: string;
-    original_tx_id: number | null;
+    original_tx_id: string | null; // stored as TEXT in DB (personal transaction id serialized as string)
     total_amount: number;
     currency: string;
     description: string;

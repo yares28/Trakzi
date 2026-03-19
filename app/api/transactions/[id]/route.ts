@@ -72,73 +72,95 @@ export const PATCH = async (
         }
 
         const body = await request.json();
-        const { category } = body;
+        const { category, tx_type } = body;
 
-        if (!category || typeof category !== 'string') {
+        // Validate tx_type when provided — block settlement types from user edits
+        const EDITABLE_TX_TYPES = new Set(['expense', 'income', 'transfer'])
+        if (tx_type !== undefined && !EDITABLE_TX_TYPES.has(tx_type)) {
             return NextResponse.json(
-                { error: "Category is required" },
+                { error: "Invalid tx_type. Must be expense, income, or transfer." },
                 { status: 400 }
             );
         }
 
-        // Optimized: Single query with explicit type casts to avoid parameter inference issues
-        // This reduces from 3 queries to 1 query
-        const updateQuery = `
-            WITH category_upsert AS (
-                INSERT INTO categories (user_id, name)
-                VALUES ($1::uuid, $2::text)
-                ON CONFLICT (user_id, name) DO NOTHING
-                RETURNING id
-            ),
-            category_id AS (
-                SELECT id::integer FROM category_upsert
-                UNION ALL
-                SELECT id::integer FROM categories 
-                WHERE user_id = $1::uuid AND name = $2::text 
-                AND NOT EXISTS (SELECT 1 FROM category_upsert)
-                LIMIT 1
+        if (!category && tx_type === undefined) {
+            return NextResponse.json(
+                { error: "At least one of category or tx_type is required" },
+                { status: 400 }
+            );
+        }
+
+        let result: { id: number; category_id: number | null }[]
+
+        if (category) {
+            // Category update (possibly alongside tx_type)
+            const txTypeClause = tx_type !== undefined ? `, tx_type = $4::text` : ''
+            const updateQuery = `
+                WITH category_upsert AS (
+                    INSERT INTO categories (user_id, name)
+                    VALUES ($1::uuid, $2::text)
+                    ON CONFLICT (user_id, name) DO NOTHING
+                    RETURNING id
+                ),
+                category_id AS (
+                    SELECT id::integer FROM category_upsert
+                    UNION ALL
+                    SELECT id::integer FROM categories
+                    WHERE user_id = $1::uuid AND name = $2::text
+                    AND NOT EXISTS (SELECT 1 FROM category_upsert)
+                    LIMIT 1
+                )
+                UPDATE transactions
+                SET
+                    category_id = (SELECT id FROM category_id LIMIT 1),
+                    raw_csv_row = COALESCE(
+                        NULLIF(raw_csv_row, ''),
+                        '{}'
+                    )::jsonb || jsonb_build_object('category', $2::text)
+                    ${txTypeClause}
+                WHERE id = $3::integer AND user_id = $1::uuid
+                RETURNING id, (SELECT id FROM category_id LIMIT 1) as category_id
+            `;
+            const params = tx_type !== undefined
+                ? [userId, category, transactionId, tx_type]
+                : [userId, category, transactionId]
+            result = await neonQuery<{ id: number; category_id: number | null }>(updateQuery, params)
+        } else {
+            // tx_type only update
+            const updateQuery = `
+                UPDATE transactions SET tx_type = $1::text
+                WHERE id = $2::integer AND user_id = $3::uuid
+                  AND tx_type NOT IN ('settlement_sent', 'settlement_received')
+                RETURNING id, category_id
+            `
+            result = await neonQuery<{ id: number; category_id: number | null }>(
+                updateQuery,
+                [tx_type, transactionId, userId]
             )
-            UPDATE transactions 
-            SET 
-                category_id = (SELECT id FROM category_id LIMIT 1),
-                raw_csv_row = COALESCE(
-                    NULLIF(raw_csv_row, ''),
-                    '{}'
-                )::jsonb || jsonb_build_object('category', $2::text)
-            WHERE id = $3::integer AND user_id = $1::uuid
-            RETURNING id, (SELECT id FROM category_id LIMIT 1) as category_id
-        `;
-        
-        const result = await neonQuery<{ id: number; category_id: number }>(
-            updateQuery,
-            [userId, category, transactionId]
-        );
+        }
 
         if (result.length === 0) {
             return NextResponse.json(
-                { error: "Transaction not found" },
+                { error: "Transaction not found or cannot be modified" },
                 { status: 404 }
             );
         }
 
-        // Invalidate caches after category update (affects analytics breakdown and pockets)
-        invalidateUserCachePrefix(userId, 'analytics').catch((err) => {
-            console.error('[Update Transaction] Analytics cache invalidation error:', err);
-        });
-        invalidateUserCachePrefix(userId, 'data-library').catch((err) => {
-            console.error('[Update Transaction] Data library cache invalidation error:', err);
-        });
-        invalidateUserCachePrefix(userId, 'pockets').catch((err) => {
-            console.error('[Update Transaction] Pockets cache invalidation error:', err);
-        });
-        invalidateUserCachePrefix(userId, 'financial-health').catch((err) => {
-            console.error('[Update Transaction] Financial health cache invalidation error:', err);
-        });
+        // Invalidate caches — tx_type changes affect analytics, home, trends, and savings
+        await Promise.all([
+            invalidateUserCachePrefix(userId, 'analytics'),
+            invalidateUserCachePrefix(userId, 'data-library'),
+            invalidateUserCachePrefix(userId, 'home'),
+            invalidateUserCachePrefix(userId, 'trends'),
+            invalidateUserCachePrefix(userId, 'savings'),
+            invalidateUserCachePrefix(userId, 'pockets'),
+            invalidateUserCachePrefix(userId, 'financial-health'),
+        ]);
 
-        return NextResponse.json({ 
-            success: true, 
-            category, 
-            categoryId: result[0].category_id 
+        return NextResponse.json({
+            success: true,
+            ...(category && { category, categoryId: result[0].category_id }),
+            ...(tx_type !== undefined && { tx_type }),
         });
     } catch (error: any) {
         console.error("[Update Transaction Category API] Error:", error);

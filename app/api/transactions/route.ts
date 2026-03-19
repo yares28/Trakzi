@@ -115,17 +115,34 @@ export const GET = async (request: Request) => {
         // Optimized query using covering index for better performance
         // The covering index includes user_id, tx_date DESC, amount, balance, category_id, description
         // This allows the query to use index-only scans
-        let query = `SELECT 
-                        t.id, 
-                        t.tx_date, 
-                        t.description, 
-                        t.amount, 
-                        t.balance, 
-                        t.category_id, 
+        let query = `SELECT
+                        t.id,
+                        t.tx_date,
+                        t.description,
+                        t.amount,
+                        t.balance,
+                        t.category_id,
                         t.raw_csv_row,
-                        c.name as category_name
+                        t.tx_type,
+                        t.pending_import_match,
+                        t.settlement_for_split_id,
+                        c.name as category_name,
+                        share_info.shared_tx_id,
+                        share_info.shared_room_name,
+                        share_info.effective_cost
                      FROM transactions t
                      LEFT JOIN categories c ON t.category_id = c.id
+                     LEFT JOIN LATERAL (
+                         SELECT st.id AS shared_tx_id,
+                                r.name AS shared_room_name,
+                                (-ts.amount) AS effective_cost
+                         FROM shared_transactions st
+                         LEFT JOIN transaction_splits ts
+                             ON ts.shared_tx_id = st.id AND ts.user_id = $1
+                         LEFT JOIN rooms r ON r.id = st.room_id
+                         WHERE st.original_tx_id = t.id::text
+                         LIMIT 1
+                     ) share_info ON true
                      WHERE t.user_id = $1`;
         const params: any[] = [userId];
 
@@ -156,7 +173,13 @@ export const GET = async (request: Request) => {
             balance: number | null;
             category_id: number | null;
             raw_csv_row: string | null;
+            tx_type: string | null;
+            pending_import_match: boolean | null;
+            settlement_for_split_id: string | null;
             category_name: string | null;
+            shared_tx_id: string | null;
+            shared_room_name: string | null;
+            effective_cost: number | null;
         }>;
 
         // Declare totalCount for pagination
@@ -182,11 +205,14 @@ export const GET = async (request: Request) => {
                 balance: number | null;
                 category_id: number | null;
                 raw_csv_row: string | null;
+                tx_type: string | null;
+                pending_import_match: boolean | null;
+                settlement_for_split_id: string | null;
                 category_name: string | null;
+                shared_tx_id: string | null;
+                shared_room_name: string | null;
+                effective_cost: number | null;
             }>(query, params);
-            if (transactions.length > 0) {
-                console.log(`[Transactions API] First transaction:`, transactions[0]);
-            }
         } catch (queryError: any) {
             console.error("[Transactions API] Query error:", queryError.message);
             console.error("[Transactions API] Query was:", query);
@@ -267,7 +293,15 @@ export const GET = async (request: Request) => {
                 description: tx.description,
                 amount: Number(tx.amount),
                 balance: tx.balance ? Number(tx.balance) : null,
-                category: category
+                category: category,
+                tx_type: tx.tx_type ?? 'expense',
+                pending_import_match: tx.pending_import_match ?? false,
+                settlement_for_split_id: tx.settlement_for_split_id ?? null,
+                shared_tx_id: tx.shared_tx_id ?? null,
+                shared_room_name: tx.shared_room_name ?? null,
+                effective_cost: tx.effective_cost !== null && tx.effective_cost !== undefined
+                    ? Number(tx.effective_cost)
+                    : null,
             };
         });
 

@@ -9,4 +9,5 @@ export type TxRow = {
     summary?: string;       // Clean merchant/description name (e.g., "Amazon" instead of "COMPRA WWW.AMAZON.* CW4WE8Q35")
     needsReview?: boolean;
     reviewReason?: string | null;
+    tx_type?: string;      // 'expense' | 'income' | 'transfer' — set by heuristics during import
 };

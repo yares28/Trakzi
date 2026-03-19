@@ -6,7 +6,7 @@ import { neonQuery, neonInsert } from "@/lib/neonClient"
 import { verifyRoomMember } from "@/lib/rooms/permissions"
 import { validateSplits, type SplitInput } from "@/lib/rooms/split-validation"
 import { checkSharedTxLimit } from "@/lib/friends/limits"
-import { invalidateRoomCache } from "@/lib/cache/upstash"
+import { invalidateRoomCache, invalidateUserCachePrefix } from "@/lib/cache/upstash"
 import { SplitInputSchema } from "@/app/api/rooms/[roomId]/transactions/route"
 
 const BulkTxSchema = z.object({
@@ -72,6 +72,20 @@ export async function POST(
         // Validate paid_by override
         const paidByOverride = data.paid_by && memberIds.includes(data.paid_by) ? data.paid_by : null
 
+        // Verify ownership of all original_tx_ids in one query to prevent forged links
+        const requestedOriginalIds = data.transactions
+            .map(tx => tx.original_tx_id)
+            .filter((id): id is number => id !== undefined)
+
+        const verifiedOriginalIds = new Set<number>()
+        if (requestedOriginalIds.length > 0) {
+            const owned = await neonQuery<{ id: number }>(
+                `SELECT id FROM transactions WHERE id = ANY($1::int[]) AND user_id = $2`,
+                [requestedOriginalIds, userId]
+            )
+            owned.forEach(row => verifiedOriginalIds.add(row.id))
+        }
+
         for (const tx of data.transactions) {
             const resolvedSplits = validateSplits(
                 'custom',
@@ -84,7 +98,11 @@ export async function POST(
                 source_type: data.source_type,
                 ...data.metadata,
             }
-            if (tx.original_tx_id) metadata.original_tx_id = tx.original_tx_id
+            // Only use original_tx_id if ownership was verified above
+            const verifiedOriginalTxId = tx.original_tx_id && verifiedOriginalIds.has(tx.original_tx_id)
+                ? tx.original_tx_id
+                : null
+            if (verifiedOriginalTxId) metadata.original_tx_id = verifiedOriginalTxId
             if (paidByOverride && paidByOverride !== userId) metadata.paid_by = paidByOverride
 
             const txRows = await neonInsert<Record<string, unknown>>("shared_transactions", {
@@ -96,7 +114,7 @@ export async function POST(
                 category: tx.category ?? null,
                 transaction_date: tx.transaction_date,
                 split_type: resolvedSplits.length > 0 ? 'custom' : 'equal',
-                original_tx_id: tx.original_tx_id ?? null,
+                original_tx_id: verifiedOriginalTxId,
                 metadata,
             })
 
@@ -105,18 +123,21 @@ export async function POST(
 
             createdIds.push(txId)
 
+            const effectivePayer = paidByOverride ?? userId
             for (const split of resolvedSplits) {
                 await neonInsert("transaction_splits", {
                     shared_tx_id: txId,
                     user_id: split.user_id,
                     amount: split.amount,
-                    status: split.user_id === userId ? "settled" : "pending",
-                    settled_at: split.user_id === userId ? new Date().toISOString() : null,
+                    status: split.user_id === effectivePayer ? "settled" : "pending",
+                    settled_at: split.user_id === effectivePayer ? new Date().toISOString() : null,
                 })
             }
         }
 
         await invalidateRoomCache(roomId)
+        await invalidateUserCachePrefix(paidByOverride ?? userId, 'analytics')
+        await invalidateUserCachePrefix(paidByOverride ?? userId, 'home')
 
         return NextResponse.json(
             {
