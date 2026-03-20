@@ -29,10 +29,11 @@ import dynamic from "next/dynamic"
 import { DEFAULT_ADVANCED_CHART_ORDER, DEFAULT_ADVANCED_CHART_SIZES } from "./constants"
 import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
 import { useOnboarding } from "@/components/onboarding/onboarding-context"
-import { MapPin, Users } from "lucide-react"
+import { MapPin, Users, SlidersHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 const ChartSpendingPyramid = dynamic(
   () => import("@/components/chart-spending-pyramid").then((m) => ({ default: m.ChartSpendingPyramid })),
@@ -130,28 +131,37 @@ export default function AnalyticsPage() {
     >
       <div className="@container/main flex flex-1 flex-col gap-2 min-w-0">
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 min-w-0 w-full">
-          <div className="flex items-center justify-between px-4 lg:px-6">
-            {/* Effective cost toggle */}
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="effective-costs-toggle"
-                checked={showEffectiveCosts}
-                onCheckedChange={(checked) => handleEffectiveCostsToggle(checked === true)}
-              />
-              <Label htmlFor="effective-costs-toggle" className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
-                <Users className="size-3.5" />
-                Show my share
-              </Label>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => startTour("analytics")}
-              className="text-muted-foreground gap-1.5 text-xs h-7"
-            >
-              <MapPin className="size-3.5" />
-              Take a tour
-            </Button>
+          <div className="flex items-center justify-end px-4 lg:px-6">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5 text-xs h-7">
+                  <SlidersHorizontal className="size-3.5" />
+                  Settings
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-52 p-3 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="effective-costs-toggle"
+                    checked={showEffectiveCosts}
+                    onCheckedChange={(checked) => handleEffectiveCostsToggle(checked === true)}
+                  />
+                  <Label htmlFor="effective-costs-toggle" className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                    <Users className="size-3.5" />
+                    Show my share
+                  </Label>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => startTour("analytics")}
+                  className="w-full justify-start text-muted-foreground gap-1.5 text-xs h-7 px-2"
+                >
+                  <MapPin className="size-3.5" />
+                  Take a tour
+                </Button>
+              </PopoverContent>
+            </Popover>
           </div>
           {/* Top analytics summary cards (shared across modes) */}
           <StatsCards

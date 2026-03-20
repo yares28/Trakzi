@@ -901,11 +901,15 @@ export function ChartsGrid({
 
 
           if (chartId === "dailyTransactionActivity") {
-            // Transform dailySpending from bundle format to calendar format
-            const calendarData = bundleData?.dailySpending?.map((d: { date: string; expense: number }) => ({
-              day: d.date,
-              value: Math.abs(d.expense)
-            }))
+            // Transform dailySpending from bundle format to calendar format.
+            // Only pass data when it has entries — empty array is truthy in JS and would
+            // prevent the component from falling back to its own standalone fetch.
+            const calendarData = bundleData?.dailySpending?.length
+              ? bundleData.dailySpending.map((d: { date: string; expense: number }) => ({
+                  day: d.date,
+                  value: Math.abs(d.expense)
+                }))
+              : undefined
             // Use saved height when set so resize sticks; preferred height as initial. Allow minH 5 so user can resize down to single-chart size.
             const dailyActivityH = savedSizes[chartId]?.h ?? dailyActivityPreferredH
             const dailyActivityMobileH = savedSizes[chartId]?.h ?? dailyActivityPreferredMobileH

@@ -27,7 +27,7 @@ const nextConfig: NextConfig = {
     // 'unsafe-eval' removed — no eval needed in production.
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://clerk.trakzi.com https://dev.clerk.trakzi.com https://js.stripe.com https://eu.i.posthog.com https://eu-assets.i.posthog.com",
+      "script-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev https://clerk.trakzi.com https://dev.clerk.trakzi.com https://js.stripe.com https://eu.i.posthog.com https://eu-assets.i.posthog.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https://img.clerk.com https://images.clerk.dev",

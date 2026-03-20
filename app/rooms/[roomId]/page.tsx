@@ -17,6 +17,7 @@ import { RoomAttributionList } from "./_page/components/RoomAttributionList"
 import { RoomMembers } from "./_page/components/RoomMembers"
 import { RoomTransactionEditSheet } from "./_page/components/RoomTransactionEditSheet"
 import { AddToRoomDialog } from "@/components/rooms/add-to-room-dialog"
+import { SettleUpDialog } from "@/components/rooms/settle-up-dialog"
 import { RoomInsights } from "./_page/components/RoomInsights"
 import { demoFetch } from "@/lib/demo/demo-fetch"
 import { cn } from "@/lib/utils"
@@ -33,6 +34,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
     const [tab, setTab] = useState<RoomTab>("expenses")
     const [addDialogOpen, setAddDialogOpen] = useState(false)
     const [editTxId, setEditTxId] = useState<string | null>(null)
+    const [settleDialogOpen, setSettleDialogOpen] = useState(false)
 
     const editTx = editTxId ? data?.recentTransactions?.find(tx => tx.id === editTxId) ?? null : null
 
@@ -125,6 +127,25 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
                         {/* Expenses tab: Balances + full transaction list */}
                         {tab === "expenses" && (
                             <div className="space-y-6">
+                                {/* Settle Up banner — only shown when the user has pending splits */}
+                                {(data.myPendingSplits?.length ?? 0) > 0 && (
+                                    <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-amber-500/10 border border-amber-500/30">
+                                        <div className="flex items-center gap-2">
+                                            <Wallet className="w-4 h-4 text-amber-500 shrink-0" />
+                                            <p className="text-sm font-medium">
+                                                {data.myPendingSplits!.length} pending settlement{data.myPendingSplits!.length !== 1 ? "s" : ""}
+                                            </p>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            className="h-8 gap-1.5 text-xs"
+                                            onClick={() => setSettleDialogOpen(true)}
+                                        >
+                                            <Wallet className="w-3.5 h-3.5" />
+                                            Settle Up
+                                        </Button>
+                                    </div>
+                                )}
                                 <RoomBalances
                                     balances={data.balances.map(b => ({
                                         ...b,
@@ -228,6 +249,16 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
                                     </div>
                                 )}
                             </div>
+                        )}
+
+                        {/* Settle Up Dialog */}
+                        {(data.myPendingSplits?.length ?? 0) > 0 && (
+                            <SettleUpDialog
+                                open={settleDialogOpen}
+                                onOpenChange={setSettleDialogOpen}
+                                splits={data.myPendingSplits!}
+                                roomId={roomId}
+                            />
                         )}
 
                         {/* Add to Room Dialog */}

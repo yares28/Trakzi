@@ -207,13 +207,42 @@ export async function GET(
 
         const cacheKey = buildCacheKey('room', roomId, 'all', 'bundle')
 
-        const data = await getCachedOrCompute<RoomBundleSummary>(
-            cacheKey,
-            () => getRoomBundle(roomId),
-            ROOM_BUNDLE_TTL
-        )
+        const [data, myPendingSplits] = await Promise.all([
+            getCachedOrCompute<RoomBundleSummary>(
+                cacheKey,
+                () => getRoomBundle(roomId),
+                ROOM_BUNDLE_TTL
+            ),
+            // User-specific pending splits — always fresh, never cached (user-scoped)
+            neonQuery<{
+                id: string
+                description: string
+                amount: number
+                currency: string
+                from_name: string
+                uploaded_by: string
+                is_payer: boolean
+            }>(
+                `SELECT
+                    ts.id,
+                    st.description,
+                    ts.amount,
+                    st.currency,
+                    COALESCE(u.name, 'Unknown') AS from_name,
+                    st.uploaded_by,
+                    (st.uploaded_by = $2) AS is_payer
+                 FROM transaction_splits ts
+                 JOIN shared_transactions st ON st.id = ts.shared_tx_id
+                 JOIN users u ON u.id = st.uploaded_by
+                 WHERE st.room_id = $1
+                   AND ts.status = 'pending'
+                   AND (ts.user_id = $2 OR st.uploaded_by = $2)
+                   AND ts.user_id != st.uploaded_by`,
+                [roomId, userId]
+            ),
+        ])
 
-        return NextResponse.json(data, {
+        return NextResponse.json({ ...data, myPendingSplits }, {
             headers: {
                 'Content-Type': 'application/json',
                 'Cache-Control': 'private, no-store',

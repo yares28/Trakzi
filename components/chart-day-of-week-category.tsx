@@ -167,10 +167,6 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
         setLoading(false)
         return
       }
-      setAvailableDays([])
-      setSelectedDay(null)
-      setLoading(false)
-      return
     }
 
     const fetchAvailableDays = async () => {
@@ -242,9 +238,6 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
         setLoading(false)
         return
       }
-      setData([])
-      setLoading(false)
-      return
     }
 
     const fetchData = async () => {
