@@ -3,20 +3,9 @@ import { getCurrentUserId } from '@/lib/auth'
 import { getPocketsBundle } from '@/lib/charts/pockets-aggregations'
 import { getCachedOrCompute, buildCacheKey, CACHE_TTL } from '@/lib/cache/upstash'
 import type { PocketsBundleResponse } from '@/lib/types/pockets'
-import { getUserPlan } from '@/lib/subscriptions'
-
 export const GET = async () => {
     try {
         const userId = await getCurrentUserId()
-
-        // Plan gate - advanced charts require pro or max
-        const plan = await getUserPlan(userId)
-        if (plan === 'free') {
-            return NextResponse.json(
-                { error: 'Upgrade to Pro or Max to access pockets analytics', upgradeRequired: true },
-                { status: 403 }
-            )
-        }
 
         // Build cache key (no filter for pockets, it's all-time data)
         const cacheKey = buildCacheKey('pockets', userId, null, 'bundle')

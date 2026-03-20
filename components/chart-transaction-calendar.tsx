@@ -365,12 +365,17 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
       setIsLoading(false)
       return
     }
+
+    let cancelled = false
+
     const fetchDailyTransactions = async () => {
       const cached = getCachedResponse<Array<{ day: string; value: number }>>(dailyUrl)
       if (cached !== undefined) {
-        setAllData(cached)
-        setError(null)
-        setIsLoading(false)
+        if (!cancelled) {
+          setAllData(cached)
+          setError(null)
+          setIsLoading(false)
+        }
         return
       }
 
@@ -378,6 +383,7 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
         setIsLoading(true)
         setError(null)
         const data = await deduplicatedFetch<Array<{ day: string; value: number }>>(dailyUrl)
+        if (cancelled) return
         if (Array.isArray(data)) {
           setAllData(data)
           if (data.length === 0) {
@@ -388,14 +394,16 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
           setError("Invalid data format received from server")
         }
       } catch (err: any) {
+        if (cancelled) return
         setAllData([])
         setError(err?.message || "Failed to load transaction data")
       } finally {
-        setIsLoading(false)
+        if (!cancelled) setIsLoading(false)
       }
     }
 
     fetchDailyTransactions()
+    return () => { cancelled = true }
   }, [propData, dateFilter, dailyUrl, refreshNonce])
 
   useEffect(() => {

@@ -62,6 +62,15 @@ export interface RoomBundleData {
     transactionCount?: number
     unattributedTotal?: number
     unattributedCount?: number
+    myPendingSplits?: {
+        id: string
+        description: string
+        amount: number
+        currency: string
+        from_name: string
+        uploaded_by: string
+        is_payer: boolean
+    }[]
     sourceBreakdown?: {
         personal_import: { total: number; count: number }
         receipt: { total: number; count: number }

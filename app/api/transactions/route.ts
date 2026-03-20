@@ -140,7 +140,7 @@ export const GET = async (request: Request) => {
                          LEFT JOIN transaction_splits ts
                              ON ts.shared_tx_id = st.id AND ts.user_id = $1
                          LEFT JOIN rooms r ON r.id = st.room_id
-                         WHERE st.original_tx_id = t.id::text
+                         WHERE st.original_tx_id = t.id
                          LIMIT 1
                      ) share_info ON true
                      WHERE t.user_id = $1`;

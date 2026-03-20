@@ -5,7 +5,6 @@ import { getCachedOrCompute, buildCacheKey, CACHE_TTL } from '@/lib/cache/upstas
 import { autoEnforceTransactionCap } from '@/lib/limits/auto-enforce-cap'
 import { neonQuery } from '@/lib/neonClient'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/security/rate-limiter'
-import { getUserPlan } from '@/lib/subscriptions'
 
 export const GET = async (request: Request) => {
     try {
@@ -15,15 +14,6 @@ export const GET = async (request: Request) => {
         const rateLimitResult = await checkRateLimit(userId, 'bundle')
         if (rateLimitResult.limited) {
             return createRateLimitResponse(rateLimitResult.resetIn)
-        }
-
-        // Plan gate - advanced charts require pro or max
-        const plan = await getUserPlan(userId)
-        if (plan === 'free') {
-            return NextResponse.json(
-                { error: 'Upgrade to Pro or Max to access advanced analytics', upgradeRequired: true },
-                { status: 403 }
-            )
         }
 
         // Automatically enforce transaction cap on page load
