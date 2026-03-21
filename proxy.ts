@@ -7,6 +7,16 @@ const isPublicRoute = createRouteMatcher([
   '/sign-up(.*)',
   '/sso-callback(.*)',
   '/', // Landing page is public
+  '/features(.*)',
+  '/receipt-scanner(.*)',
+  '/split-expenses(.*)',
+  '/grocery-tracker(.*)',
+  '/csv-import(.*)',
+  '/blog(.*)',
+  '/docs(.*)',
+  '/compare(.*)',
+  '/pricing(.*)',
+  '/es(.*)', // Spanish pages are public
   '/privacy(.*)',
   '/cookies(.*)',
   '/legal(.*)',
@@ -38,8 +48,55 @@ const isProtectedRoute = createRouteMatcher([
   '/testCharts(.*)',
 ])
 
+// --- Language auto-detection ---
+
+const LANDING_ROUTES = ['/', '/features', '/receipt-scanner', '/split-expenses', '/grocery-tracker', '/csv-import']
+
+const EN_TO_ES: Record<string, string> = {
+  '/': '/es',
+  '/features': '/es/features',
+  '/receipt-scanner': '/es/escaner-tickets',
+  '/split-expenses': '/es/dividir-gastos',
+  '/grocery-tracker': '/es/gastos-supermercado',
+  '/csv-import': '/es/importar-csv',
+}
+
+const ES_TO_EN: Record<string, string> = {
+  '/es': '/',
+  '/es/features': '/features',
+  '/es/escaner-tickets': '/receipt-scanner',
+  '/es/dividir-gastos': '/split-expenses',
+  '/es/gastos-supermercado': '/grocery-tracker',
+  '/es/importar-csv': '/csv-import',
+}
+
+function isSpanishBrowser(acceptLanguage: string | null): boolean {
+  if (!acceptLanguage) return false
+  const langs = acceptLanguage.toLowerCase().split(',').map(l => l.trim().split(';')[0])
+  return langs.some(l => l.startsWith('es'))
+}
+
 export default clerkMiddleware(async (auth, req) => {
   const path = req.nextUrl.pathname
+
+  // Language auto-detection for landing pages
+  // Skips if user has manually chosen a language (trakzi-lang cookie)
+  const langCookie = req.cookies.get('trakzi-lang')?.value
+  const acceptLanguage = req.headers.get('accept-language')
+
+  if (!langCookie) {
+    // English landing pages → redirect to Spanish if browser prefers Spanish
+    if (LANDING_ROUTES.includes(path) && isSpanishBrowser(acceptLanguage)) {
+      const esPath = EN_TO_ES[path] || '/es'
+      return NextResponse.redirect(new URL(esPath, req.url))
+    }
+
+    // Spanish pages → redirect to English if browser does NOT prefer Spanish
+    if (path.startsWith('/es') && !isSpanishBrowser(acceptLanguage)) {
+      const enPath = ES_TO_EN[path] || '/'
+      return NextResponse.redirect(new URL(enPath, req.url))
+    }
+  }
 
   // API routes: enforce auth at middleware level as defense-in-depth
   // Individual routes still call getCurrentUserId() for their own auth logic
@@ -84,9 +141,15 @@ export default clerkMiddleware(async (auth, req) => {
 })
 
 export const config = {
-  // Proxy must run on routes that need Clerk auth() to work
-  // Clerk's auth() returns null if proxy doesn't run on the route
   matcher: [
+    // Landing pages for language detection
+    "/",
+    "/features",
+    "/receipt-scanner",
+    "/split-expenses",
+    "/grocery-tracker",
+    "/csv-import",
+    "/es/:path*",
     // Protected page routes that need auth redirect logic
     "/home/:path*",
     "/analytics/:path*",

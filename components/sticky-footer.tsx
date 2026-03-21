@@ -9,24 +9,73 @@ export function StickyFooter() {
   useEffect(() => {
     let ticking = false
 
+    const checkBottom = () => {
+      // Check window scroll
+      const windowAtBottom =
+        window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 200
+
+      // Check all scrollable ancestors (handles SidebarInset overflow-y-auto)
+      let ancestorAtBottom = false
+      const allElements = document.querySelectorAll('*')
+      for (const el of allElements) {
+        const style = getComputedStyle(el)
+        if (
+          (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
+          el.scrollHeight > el.clientHeight + 10
+        ) {
+          if (el.scrollTop + el.clientHeight >= el.scrollHeight - 200) {
+            ancestorAtBottom = true
+            break
+          }
+        }
+      }
+
+      setIsAtBottom(windowAtBottom || ancestorAtBottom)
+    }
+
     const handleScroll = () => {
       if (!ticking) {
         requestAnimationFrame(() => {
-          const scrollTop = window.scrollY
-          const windowHeight = window.innerHeight
-          const documentHeight = document.documentElement.scrollHeight
-          const isNearBottom = scrollTop + windowHeight >= documentHeight - 200
-
-          setIsAtBottom(isNearBottom)
+          checkBottom()
           ticking = false
         })
         ticking = true
       }
     }
 
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    handleScroll() // Check initial state
-    return () => window.removeEventListener("scroll", handleScroll)
+    // Listen on window
+    window.addEventListener('scroll', handleScroll, { passive: true })
+
+    // Also listen on all scrollable containers (SidebarInset, ScrollArea, etc.)
+    const scrollContainers: Element[] = []
+    const findScrollContainers = () => {
+      scrollContainers.forEach(el => el.removeEventListener('scroll', handleScroll))
+      scrollContainers.length = 0
+
+      const allElements = document.querySelectorAll('*')
+      for (const el of allElements) {
+        const style = getComputedStyle(el)
+        if (
+          (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
+          el.scrollHeight > el.clientHeight + 10
+        ) {
+          el.addEventListener('scroll', handleScroll, { passive: true })
+          scrollContainers.push(el)
+        }
+      }
+    }
+
+    // Find containers after mount and on resize
+    const timer = setTimeout(() => {
+      findScrollContainers()
+      checkBottom()
+    }, 500)
+
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('scroll', handleScroll)
+      scrollContainers.forEach(el => el.removeEventListener('scroll', handleScroll))
+    }
   }, [])
 
   const linkStyle = { color: "#121113" }
@@ -71,12 +120,7 @@ export function StickyFooter() {
                   onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
                   onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
                 >
-                  <button onClick={() => {
-                    const el = document.getElementById("features")
-                    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
-                  }}>
-                    Features
-                  </button>
+                  <Link href="/features">Features</Link>
                 </li>
                 <li
                   className="hover:underline cursor-pointer transition-colors"
@@ -84,12 +128,7 @@ export function StickyFooter() {
                   onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
                   onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
                 >
-                  <button onClick={() => {
-                    const el = document.getElementById("pricing")
-                    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
-                  }}>
-                    Pricing
-                  </button>
+                  <Link href="/pricing">Pricing</Link>
                 </li>
               </ul>
 
@@ -155,8 +194,3 @@ export function StickyFooter() {
     </AnimatePresence>
   )
 }
-
-
-
-
-
