@@ -13,6 +13,7 @@ import { UserPreferencesProvider } from "@/components/user-preferences-provider"
 import { FavoritesProvider } from "@/components/favorites-provider";
 import { DateFilterProvider } from "@/components/date-filter-provider";
 import { QueryProvider } from "@/components/query-provider";
+import { LangSetter } from "@/components/lang-setter";
 import { ChartResizeProvider } from "@/lib/chart-resize-context";
 import { ChartVisibilityProvider } from "@/components/chart-visibility-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -112,17 +113,57 @@ export default function RootLayout({
   // Build-time fallback so prerender succeeds when .env.local is missing (e.g. CI). Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY in .env.local for real auth.
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "pk_test_placeholder";
 
+  const websiteJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Trakzi",
+    url: "https://trakzi.com",
+    potentialAction: {
+      "@type": "SearchAction",
+      target: "https://trakzi.com/?q={search_term_string}",
+      "query-input": "required name=search_term_string",
+    },
+  }
+
+  const organizationJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Trakzi",
+    url: "https://trakzi.com",
+    logo: "https://trakzi.com/Trakzi/TrakzilogoB.png",
+    contactPoint: {
+      "@type": "ContactPoint",
+      email: "help@trakzi.com",
+      contactType: "customer support",
+    },
+  }
+
   return (
     <ClerkProvider publishableKey={publishableKey} afterSignOutUrl="/" signInFallbackRedirectUrl="/home" signUpFallbackRedirectUrl="/home">
-      <html lang="en" suppressHydrationWarning className="overflow-x-hidden">
+      <html lang="en" suppressHydrationWarning className="dark overflow-x-hidden">
+        <head>
+          <script dangerouslySetInnerHTML={{ __html: `document.documentElement.classList.add('dark')` }} />
+          <link rel="alternate" hrefLang="en" href="https://trakzi.com/" />
+          <link rel="alternate" hrefLang="es" href="https://trakzi.com/es/" />
+          <link rel="alternate" hrefLang="x-default" href="https://trakzi.com/" />
+        </head>
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
           suppressHydrationWarning
         >
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+          />
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+          />
+          <LangSetter />
           <LazyMotion features={domAnimation}>
           <ThemeProvider
             attribute="class"
-            defaultTheme="light"
+            forcedTheme="dark"
             enableSystem={false}
             disableTransitionOnChange
             storageKey="trakzi-theme"
