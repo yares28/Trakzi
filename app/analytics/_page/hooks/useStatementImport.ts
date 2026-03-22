@@ -41,6 +41,8 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
   const [selectedParsedRowIds, setSelectedParsedRowIds] = useState<Set<number>>(new Set())
   const [transactionCount, setTransactionCount] = useState<number>(0)
   const [projectName, setProjectName] = useState<string>("")
+  const [fileQueue, setFileQueue] = useState<File[]>([])
+  const [queueTotal, setQueueTotal] = useState<number>(0)
   const dragCounterRef = useRef(0)
   const csvRegenerationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const latestParsedRowsRef = useRef<ParsedRow[]>([])
@@ -508,13 +510,13 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
 
     const files = Array.from(e.dataTransfer.files)
     if (files && files.length > 0) {
-      const file = files[0]
-      setDroppedFile(file)
+      const [first, ...rest] = files
+      setQueueTotal(files.length)
+      setFileQueue(rest)
+      setDroppedFile(first)
       setIsUploadDialogOpen(true)
-      // Auto-fill project name with filename (without extension)
-      const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, "")
+      const fileNameWithoutExt = first.name.replace(/\.[^/.]+$/, "")
       setProjectName(fileNameWithoutExt)
-      // Don't parse yet - user will click "Parse file" button
     }
   }, [])
 
@@ -535,6 +537,24 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
       setIsAiReparsing(false)
     }
   }, [aiReparseContext, droppedFile, parseFile])
+
+  const advanceQueue = useCallback((next: File, rest: File[]) => {
+    setFileQueue(rest)
+    setDroppedFile(next)
+    setParsedCsv(null)
+    setParseQuality(null)
+    setFileId(null)
+    setTransactionCount(0)
+    setParseError(null)
+    setImportProgress(0)
+    setParsingProgress(0)
+    const fileNameWithoutExt = next.name.replace(/\.[^/.]+$/, "")
+    setProjectName(fileNameWithoutExt)
+    setIsReviewDialogOpen(false)
+    setIsUploadDialogOpen(true)
+    // Auto-parse subsequent files so user only has to click "Import"
+    parseFile(next, { parseMode: "auto" })
+  }, [parseFile])
 
   const handleConfirm = useCallback(async () => {
     if (!droppedFile || !parsedCsv || !fileId) {
@@ -631,14 +651,21 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
         transaction_count: data.inserted,
       })
 
-      setIsReviewDialogOpen(false)
-      setDroppedFile(null)
-      setParsedCsv(null)
-      setParseQuality(null)
-      setFileId(null)
-      setTransactionCount(0)
-      setParseError(null)
-      setImportProgress(0)
+      // Advance to next queued file, or fully reset if no more
+      if (fileQueue.length > 0) {
+        const [next, ...rest] = fileQueue
+        advanceQueue(next, rest)
+      } else {
+        setQueueTotal(0)
+        setDroppedFile(null)
+        setIsReviewDialogOpen(false)
+        setParsedCsv(null)
+        setParseQuality(null)
+        setFileId(null)
+        setTransactionCount(0)
+        setParseError(null)
+        setImportProgress(0)
+      }
 
       // Clear all caches and notify charts that data has changed
       clearResponseCache()
@@ -671,7 +698,7 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
     } finally {
       setIsImporting(false)
     }
-  }, [droppedFile, parsedCsv, fileId, refreshAnalyticsData, onImportSuccess, transactionCount])
+  }, [droppedFile, parsedCsv, fileId, fileQueue, advanceQueue, refreshAnalyticsData, onImportSuccess, transactionCount])
 
   const handleCancelUpload = useCallback(() => {
     if (csvRegenerationTimerRef.current) {
@@ -681,13 +708,19 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
     // Reset the upload processed ref to allow re-uploading
     uploadProcessedRef.current = false
     setIsUploadDialogOpen(false)
-    setDroppedFile(null)
-    setParsedCsv(null)
-    setParseQuality(null)
-    setFileId(null)
-    setTransactionCount(0)
-    setParseError(null)
-  }, [])
+    if (fileQueue.length > 0) {
+      const [next, ...rest] = fileQueue
+      advanceQueue(next, rest)
+    } else {
+      setDroppedFile(null)
+      setParsedCsv(null)
+      setParseQuality(null)
+      setFileId(null)
+      setTransactionCount(0)
+      setParseError(null)
+      setQueueTotal(0)
+    }
+  }, [fileQueue, advanceQueue])
 
   const handleCancelReview = useCallback(() => {
     if (csvRegenerationTimerRef.current) {
@@ -695,20 +728,27 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
       csvRegenerationTimerRef.current = null
     }
     setIsReviewDialogOpen(false)
-    setDroppedFile(null)
-    setParsedCsv(null)
-    setParseQuality(null)
-    setFileId(null)
-    setTransactionCount(0)
-    setParseError(null)
-  }, [])
+    if (fileQueue.length > 0) {
+      const [next, ...rest] = fileQueue
+      advanceQueue(next, rest)
+    } else {
+      setDroppedFile(null)
+      setParsedCsv(null)
+      setParseQuality(null)
+      setFileId(null)
+      setTransactionCount(0)
+      setParseError(null)
+      setQueueTotal(0)
+    }
+  }, [fileQueue, advanceQueue])
 
   const handleFilesChange = useCallback((files: File[]) => {
     if (files.length > 0) {
-      const file = files[0]
-      setDroppedFile(file)
-      // Auto-fill project name with filename (without extension)
-      const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, "")
+      const [first, ...rest] = files
+      setQueueTotal(files.length)
+      setFileQueue(rest)
+      setDroppedFile(first)
+      const fileNameWithoutExt = first.name.replace(/\.[^/.]+$/, "")
       setProjectName(fileNameWithoutExt)
     }
   }, [])
@@ -766,5 +806,6 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
     setIsUploadDialogOpen,
     setProjectName,
     transactionCount,
+    pendingFiles: droppedFile ? [droppedFile, ...fileQueue] : [],
   }
 }

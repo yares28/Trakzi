@@ -128,7 +128,7 @@ export default function Page() {
       <StatementUploadDialog
         open={statementImport.isUploadDialogOpen}
         onOpenChange={statementImport.setIsUploadDialogOpen}
-        droppedFile={statementImport.droppedFile}
+        pendingFiles={statementImport.pendingFiles}
         isParsing={statementImport.isParsing}
         parsingProgress={statementImport.parsingProgress}
         parseError={statementImport.parseError}

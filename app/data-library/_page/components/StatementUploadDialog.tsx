@@ -7,7 +7,7 @@ import { FileUploadStatement, type FileUploadStatementLead } from "@/components/
 type StatementUploadDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  droppedFile: File | null
+  pendingFiles: File[]
   isParsing: boolean
   parsingProgress: number
   parseError: string | null
@@ -21,7 +21,7 @@ type StatementUploadDialogProps = {
 export function StatementUploadDialog({
   open,
   onOpenChange,
-  droppedFile,
+  pendingFiles,
   isParsing,
   parsingProgress,
   parseError,
@@ -33,8 +33,10 @@ export function StatementUploadDialog({
 }: StatementUploadDialogProps) {
   const { user, isLoaded: isUserLoaded } = useUser()
 
-  const files = droppedFile ? [droppedFile] : []
-  const fileProgresses = droppedFile ? { [`${droppedFile.name}::${droppedFile.size}::${droppedFile.lastModified}`]: parsingProgress } : {}
+  const currentFile = pendingFiles[0] ?? null
+  const fileProgresses = currentFile
+    ? { [`${currentFile.name}::${currentFile.size}::${currentFile.lastModified}`]: parsingProgress }
+    : {}
 
   const parsingStatus = isParsing ? `Parsing file... ${Math.round(parsingProgress)}%` : null
   const accept =
@@ -53,7 +55,7 @@ export function StatementUploadDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="p-0 border-0 bg-transparent shadow-none sm:max-w-[95vw] md:max-w-[720px]">
         <FileUploadStatement
-          files={files}
+          files={pendingFiles}
           fileProgresses={fileProgresses}
           isBusy={isParsing}
           error={parseError}
@@ -65,7 +67,7 @@ export function StatementUploadDialog({
           onFilesChange={onFilesChange}
           onCancel={onCancel}
           onContinue={onContinue}
-          continueLabel={isParsing ? "Parsing..." : "Parse file"}
+          continueLabel={isParsing ? "Parsing..." : pendingFiles.length > 1 ? `Parse ${pendingFiles.length} files` : "Parse file"}
         />
       </DialogContent>
     </Dialog>

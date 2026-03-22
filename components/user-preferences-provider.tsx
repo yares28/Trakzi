@@ -516,13 +516,16 @@ export function UserPreferencesProvider({
         }
         latestRef.current = next
         saveAllToLocalStorage(next)
-        if (readyToSaveRef.current && isServerSynced) {
-          scheduleSave()
+        // Onboarding events are infrequent but critical — save immediately
+        // rather than debouncing, and always attempt the save regardless of
+        // isServerSynced so state survives API failures during deployments.
+        if (readyToSaveRef.current) {
+          flushToServer()
         }
         return next
       })
     },
-    [isServerSynced, scheduleSave]
+    [flushToServer]
   )
 
   // ------------------------------------------------------------------

@@ -202,7 +202,7 @@ export function FileUploadStatement({
                             ref={fileInputRef}
                             className="hidden"
                             accept={accept}
-                            multiple={false}
+                            multiple
                             onChange={(e) => handleFileSelect(e.target.files)}
                         />
                     </div>
