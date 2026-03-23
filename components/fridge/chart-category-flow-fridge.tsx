@@ -294,9 +294,6 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
         }
 
         switch (dateFilter) {
-            case "last7days":
-                // Daily grouping for 7 days
-                return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
             case "last30days":
                 // Weekly grouping for 30 days
                 const weekStart = new Date(date)
@@ -320,13 +317,7 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
             // Daily or weekly format (YYYY-MM-DD)
             const month = monthNames[parseInt(parts[1], 10) - 1]
             const day = parseInt(parts[2], 10)
-            if (dateFilter === "last7days") {
-                // Show "Mon DD" format for daily
-                return `${month} ${day}`
-            } else {
-                // Show "Week of Mon DD" format for weekly
-                return `${month} ${day}`
-            }
+            return `${month} ${day}`
         } else if (parts.length === 2) {
             // Monthly format (YYYY-MM)
             return monthNames[parseInt(parts[1], 10) - 1]

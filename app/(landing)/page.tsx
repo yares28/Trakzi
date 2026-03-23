@@ -8,6 +8,7 @@ import { FAQSection } from "@/components/faq-section"
 import { StickyFooter } from "@/components/sticky-footer"
 import { ChartsShowcase } from "@/components/charts-showcase"
 import Link from "next/link"
+import Image from "next/image"
 import { LanguagePicker } from "@/components/language-picker"
 
 export default function Home() {
@@ -80,14 +81,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen w-full relative bg-black">
-      {/* Pearl Mist Background with Top Glow */}
-      <div
-        className="absolute inset-0 z-0"
-        style={{
-          background: "radial-gradient(ellipse 50% 35% at 50% 0%, rgba(226, 232, 240, 0.12), transparent 60%), #000000",
-        }}
-      />
+    <div className="min-h-screen w-full relative bg-background">
 
       {/* Desktop Header */}
       <header
@@ -105,7 +99,7 @@ export default function Home() {
             }`}
           href="/"
         >
-          <img src="/Trakzi/TrakzilogoB.png" alt="Trakzi" className="h-8 w-auto" draggable={false} />
+          <Image src="/Trakzi/TrakzilogoB.png" alt="Trakzi" width={120} height={32} className="h-8 w-auto" draggable={false} />
         </Link>
 
         <div className="absolute inset-0 hidden flex-1 flex-row items-center justify-center space-x-2 text-sm font-medium text-muted-foreground transition duration-200 hover:text-foreground pointer-events-none md:flex md:space-x-2">
@@ -127,10 +121,10 @@ export default function Home() {
           >
             <span className="relative z-20">Pricing</span>
           </Link>
-          <a
+          <button
+            type="button"
             className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer pointer-events-auto"
-            onClick={(e) => {
-              e.preventDefault()
+            onClick={() => {
               const element = document.getElementById("faq")
               if (element) {
                 const headerOffset = 120 // Account for sticky header height + margin
@@ -145,7 +139,7 @@ export default function Home() {
             }}
           >
             <span className="relative z-20">FAQ</span>
-          </a>
+          </button>
         </div>
 
         <div className="flex items-center gap-3">
@@ -159,7 +153,7 @@ export default function Home() {
 
           <Link
             href="/sign-up"
-            className="rounded-md font-bold relative cursor-pointer hover:-translate-y-0.5 transition duration-200 inline-block text-center bg-gradient-to-b from-[#fe985b] to-[#fe985b]/80 text-white shadow-[0px_2px_0px_0px_rgba(255,255,255,0.3)_inset] px-4 py-2 text-sm"
+            className="rounded-md font-bold relative cursor-pointer hover:-translate-y-0.5 transition duration-200 inline-block text-center bg-gradient-to-b from-primary to-primary/80 text-primary-foreground shadow-[0px_2px_0px_0px_rgba(255,255,255,0.3)_inset] px-4 py-2 text-sm"
           >
             Sign Up
           </Link>
@@ -169,7 +163,7 @@ export default function Home() {
       {/* Mobile Header */}
       <header className="sticky top-4 z-50 mx-4 flex w-auto flex-row items-center justify-between rounded-full bg-background border border-border/50 shadow-lg md:hidden px-4 py-3">
         <Link className="flex items-center justify-center gap-2" href="/">
-          <img src="/Trakzi/TrakzilogoB.png" alt="Trakzi" className="h-7 w-auto" draggable={false} />
+          <Image src="/Trakzi/TrakzilogoB.png" alt="Trakzi" width={120} height={28} className="h-7 w-auto" draggable={false} />
         </Link>
 
         <div className="flex items-center gap-1">
@@ -228,7 +222,7 @@ export default function Home() {
                 </Link>
                 <Link
                   href="/sign-up"
-                  className="px-4 py-3 text-lg font-bold text-center bg-gradient-to-b from-[#fe985b] to-[#fe985b]/80 text-white rounded-lg shadow-lg hover:-translate-y-0.5 transition-all duration-200"
+                  className="px-4 py-3 text-lg font-bold text-center bg-gradient-to-b from-primary to-primary/80 text-primary-foreground rounded-lg shadow-lg hover:-translate-y-0.5 transition-all duration-200"
                 >
                   Sign Up
                 </Link>

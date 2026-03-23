@@ -100,6 +100,7 @@ export default function Page() {
             onResize={handleFavoritesResize}
             chartData={chartData}
             dateFilter={dateFilter}
+            isLoading={isTransactionsLoading}
           />
 
           <DataTable

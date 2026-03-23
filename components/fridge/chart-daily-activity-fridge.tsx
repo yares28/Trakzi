@@ -74,11 +74,6 @@ const getRangeForFilter = (filter: string) => {
   const formatDate = (date: Date) => date.toISOString().split("T")[0]
 
   switch (filter) {
-    case "last7days": {
-      const start = new Date(today)
-      start.setDate(start.getDate() - 7)
-      return { fromDate: formatDate(start), toDate: formatDate(today) }
-    }
     case "last30days": {
       const start = new Date(today)
       start.setDate(start.getDate() - 30)
@@ -104,6 +99,10 @@ const getRangeForFilter = (filter: string) => {
       return { fromDate: formatDate(start), toDate: formatDate(today) }
     }
     default: {
+      if (filter.startsWith("custom:")) {
+        const parts = filter.split(":")
+        if (parts.length === 3) return { fromDate: parts[1], toDate: parts[2] }
+      }
       if (/^\d{4}$/.test(filter)) {
         return {
           fromDate: `${filter}-01-01`,
@@ -131,7 +130,8 @@ export function getDailyGroceryActivityDisplayMode(
   isMobile: boolean,
 ): "single" | "dual" {
   if (!isMobile) return "single"
-  if (["last7days", "last30days", "last3months"].includes(effectiveDateFilter)) return "single"
+  if (["last30days", "last3months"].includes(effectiveDateFilter)) return "single"
+  if (effectiveDateFilter.startsWith("custom:")) return "single"
   if (effectiveDateFilter === "last6months") return "dual"
   if (effectiveDateFilter === "lastyear" || effectiveDateFilter === "ytd") return "dual"
   if (/^\d{4}$/.test(effectiveDateFilter)) return "dual"
@@ -173,7 +173,6 @@ const FridgeContributionGraph = React.memo(function FridgeContributionGraph({
 }: FridgeContributionGraphProps) {
   const footerText = (() => {
     if (filteredData.length === 0) return `No grocery transactions in ${new Date().getFullYear()}`
-    if (effectiveDateFilter === "last7days") return `${formatCurrency(totalSpent)} spent on groceries in the last 7 days`
     if (effectiveDateFilter === "last30days") return `${formatCurrency(totalSpent)} spent on groceries in the last 30 days`
     if (effectiveDateFilter === "last3months") return `${formatCurrency(totalSpent)} spent on groceries in the last 3 months`
     if (effectiveDateFilter === "last6months") return `${formatCurrency(totalSpent)} spent on groceries in the last 6 months`
@@ -372,7 +371,7 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
       return { fromDate: fmtDate(start), toDate: fmtDate(today) }
     }
 
-    if (["last7days", "last30days", "last3months"].includes(filter)) {
+    if (["last30days", "last3months"].includes(filter) || filter.startsWith("custom:")) {
       return { period1: null, period2: null, singlePeriod: getLast3MonthsRange() }
     }
 
@@ -464,9 +463,9 @@ export const ChartDailyActivityFridge = React.memo(function ChartDailyActivityFr
   const isShortPeriod = useMemo(() => {
     if (isMobile) {
       if (effectiveDateFilter === "last6months") return true
-      return ["last7days", "last30days", "last3months"].includes(effectiveDateFilter)
+      return ["last30days", "last3months"].includes(effectiveDateFilter) || effectiveDateFilter.startsWith("custom:")
     }
-    return ["last7days", "last30days", "last3months", "last6months"].includes(effectiveDateFilter)
+    return ["last30days", "last3months", "last6months"].includes(effectiveDateFilter) || effectiveDateFilter.startsWith("custom:")
   }, [effectiveDateFilter, isMobile])
 
   const fromDate = isDualCalendar ? period1!.fromDate : singlePeriod?.fromDate || ""

@@ -514,9 +514,6 @@ export function useAnalyticsChartData({
       }
 
       switch (dateFilter) {
-        case "last7days":
-          // Daily grouping for 7 days
-          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
         case "last30days":
           // Weekly grouping for 30 days
           const weekStart = new Date(date)
@@ -978,9 +975,6 @@ export function useAnalyticsChartData({
       }
 
       switch (dateFilter) {
-        case "last7days":
-          // Daily grouping for 7 days
-          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
         case "last30days":
           // Weekly grouping for 30 days
           const weekStart = new Date(date)
@@ -1091,9 +1085,6 @@ export function useAnalyticsChartData({
       }
 
       switch (dateFilter) {
-        case "last7days":
-          // Daily grouping for 7 days
-          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
         case "last30days": {
           // Weekly grouping for 30 days
           const weekStart = new Date(date)
@@ -1115,7 +1106,7 @@ export function useAnalyticsChartData({
     }
 
     // Check if we need finer granularity (bypass bundle for short timeframes)
-    const needsFinerGranularity = dateFilter === "last7days" || dateFilter === "last30days"
+    const needsFinerGranularity = dateFilter === "last30days"
 
     // Use bundle data if available for monthly category data (pre-aggregated by SQL)
     // Skip bundle for short timeframes that need daily/weekly granularity
@@ -1499,6 +1490,12 @@ export function useAnalyticsChartData({
       dailyTransactionActivity: hasArr(bundleData?.dailySpending) ? "has-data" : "empty",
       dayOfWeekCategory: hasArr(rawTransactions) ? "has-data" : "empty",
       financialHealthScore: hasArr(rawTransactions) ? "has-data" : "empty",
+      incomeExpenseRatio: hasArr(rawTransactions) ? "has-data" : "empty",
+      weekendVsWeekday: hasArr(rawTransactions) ? "has-data" : "empty",
+      monthlyBudgetPace: hasArr(rawTransactions) ? "has-data" : "empty",
+      budgetBurndown: hasArr(rawTransactions) ? "has-data" : "empty",
+      purchaseSizeBreakdown: hasArr(rawTransactions) ? "has-data" : "empty",
+      recurringVsOneTime: hasArr(rawTransactions) ? "has-data" : "empty",
     }
   }, [
     incomeExpenseTopChartData,

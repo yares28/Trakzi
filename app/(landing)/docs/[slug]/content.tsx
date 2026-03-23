@@ -38,7 +38,7 @@ export function DocPostContent({ post, relatedPosts, locale = "en" }: DocPostCon
         {/* Tags */}
         <div className="flex flex-wrap gap-2 mb-6">
           {post.tags.map((tag) => (
-            <span key={tag} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[#e78a53] text-xs font-medium">
+            <span key={tag} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-foreground/5 border border-foreground/10 text-primary text-xs font-medium">
               {tag}
             </span>
           ))}
@@ -63,7 +63,7 @@ export function DocPostContent({ post, relatedPosts, locale = "en" }: DocPostCon
         </div>
 
         {/* Description */}
-        <p className="text-xl text-white/80 leading-relaxed mb-10">
+        <p className="text-xl text-foreground/80 leading-relaxed mb-10">
           {post.description}
         </p>
 
@@ -77,10 +77,10 @@ export function DocPostContent({ post, relatedPosts, locale = "en" }: DocPostCon
         </div>
 
         {/* CTA */}
-        <div className="mt-16 p-8 rounded-2xl border border-[#e78a53]/20 bg-[#e78a53]/5 text-center">
-          <h3 className={cn("text-xl font-semibold text-white mb-3", geist.className)}>{ctaTitle}</h3>
+        <div className="mt-16 p-8 rounded-2xl border border-primary/20 bg-primary/5 text-center">
+          <h3 className={cn("text-xl font-semibold text-foreground mb-3", geist.className)}>{ctaTitle}</h3>
           <p className="text-sm text-muted-foreground mb-6">{ctaText}</p>
-          <Link href="/sign-up" className="inline-block rounded-full font-bold text-sm bg-gradient-to-b from-[#fe985b] to-[#fe985b]/80 text-white shadow-[0px_2px_0px_0px_rgba(255,255,255,0.3)_inset] px-8 py-3 transition-all hover:-translate-y-0.5">
+          <Link href="/sign-up" className="inline-block rounded-full font-bold text-sm bg-primary text-primary-foreground shadow-[0px_2px_0px_0px_rgba(255,255,255,0.3)_inset] px-8 py-3 transition-all hover:-translate-y-0.5">
             {ctaButton}
           </Link>
         </div>
@@ -95,13 +95,13 @@ export function DocPostContent({ post, relatedPosts, locale = "en" }: DocPostCon
               <Link
                 key={rp.slug}
                 href={`${docsHref}/${rp.slug}`}
-                className="group block p-5 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm hover:border-[#e78a53]/60 hover:shadow-[0_0_20px_rgba(231,138,83,0.15)] transition-all"
+                className="group block p-5 rounded-2xl border border-foreground/10 bg-foreground/5 hover:border-primary/60 transition-all"
               >
-                <h3 className="text-sm font-semibold text-white mb-1 group-hover:text-[#e78a53] transition-colors">
+                <h3 className="text-sm font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">
                   {rp.title}
                 </h3>
                 <p className="text-[10px] text-muted-foreground">{rp.readingTime}</p>
-                <div className="mt-2 flex items-center gap-1 text-[#e78a53] text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="mt-2 flex items-center gap-1 text-primary text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">
                   Read <ArrowRight className="h-2.5 w-2.5" />
                 </div>
               </Link>

@@ -1567,7 +1567,6 @@ export default function AnalyticsPage() {
       }
 
       switch (dateFilter) {
-        case "last7days":
         case "last30days":
           // For short periods, use weeks
           const weekStart = new Date(date)
@@ -1944,9 +1943,6 @@ export default function AnalyticsPage() {
       }
 
       switch (dateFilter) {
-        case "last7days":
-          // Daily grouping for 7 days
-          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
         case "last30days":
           // Weekly grouping for 30 days
           const weekStart = new Date(date)

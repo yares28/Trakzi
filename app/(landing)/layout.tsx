@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Trakzi — The All-in-One Budgeting Workspace",
   description:
     "Import bank CSVs, scan receipts, track expenses, visualize spending with AI-powered charts, and manage shared costs with friends. Free budgeting app.",
+  alternates: {
+    canonical: "https://trakzi.com",
+  },
   openGraph: {
     title: "Trakzi — The All-in-One Budgeting Workspace",
     description:

@@ -17,11 +17,6 @@ function getDateRange(filter: string | null): { startDate: string | null; endDat
   }
 
   switch (filter) {
-    case "last7days": {
-      const startDate = new Date(today)
-      startDate.setUTCDate(startDate.getUTCDate() - 7)
-      return { startDate: formatDate(startDate), endDate: formatDate(today) }
-    }
     case "last30days": {
       const startDate = new Date(today)
       startDate.setUTCDate(startDate.getUTCDate() - 30)
@@ -48,6 +43,10 @@ function getDateRange(filter: string | null): { startDate: string | null; endDat
       return { startDate: formatDate(startDate), endDate: formatDate(today) }
     }
     default: {
+      if (filter.startsWith("custom:")) {
+        const parts = filter.split(":")
+        if (parts.length === 3) return { startDate: parts[1], endDate: parts[2] }
+      }
       const year = parseInt(filter)
       if (!Number.isNaN(year)) {
         return { startDate: `${year}-01-01`, endDate: `${year}-12-31` }

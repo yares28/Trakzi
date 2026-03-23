@@ -1211,9 +1211,6 @@ export function getPeriodCutoff(filter: string | null | undefined): Date {
     }
     const f = filter.trim().toLowerCase()
     switch (f) {
-        case 'last7days': {
-            const d = new Date(now); d.setDate(d.getDate() - 7); return d
-        }
         case 'last30days': {
             const d = new Date(now); d.setDate(d.getDate() - 30); return d
         }
@@ -1230,6 +1227,11 @@ export function getPeriodCutoff(filter: string | null | undefined): Date {
             return new Date(now.getFullYear(), 0, 1)
         }
         default: {
+            // Custom date range: custom:YYYY-MM-DD:YYYY-MM-DD
+            if (f.startsWith('custom:')) {
+                const parts = f.split(':')
+                if (parts.length === 3) return new Date(parts[1])
+            }
             // Year filter (e.g. "2025")
             if (/^\d{4}$/.test(f)) {
                 return new Date(parseInt(f), 0, 1)

@@ -1,6 +1,7 @@
 "use client"
 
 import { m } from "framer-motion"
+import Image from "next/image"
 import Link from "next/link"
 import { ChevronRight, Check, ArrowRight, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -29,7 +30,7 @@ const features = [
     visual: (
       <div className="relative w-full h-[500px] rounded-xl">
         <div className="absolute inset-0 overflow-hidden rounded-xl">
-          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover opacity-30" />
+          <Image src="/orangeBackground.png" alt="" fill className="object-cover opacity-30" />
         </div>
         <div className="relative z-10 h-full flex items-center justify-center">
           <ReceiptFridgeAnimation />
@@ -48,7 +49,7 @@ const features = [
     visual: (
       <div className="relative w-full h-[500px] rounded-xl">
         <div className="absolute inset-0 overflow-hidden rounded-xl">
-          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover opacity-30" />
+          <Image src="/orangeBackground.png" alt="" fill className="object-cover opacity-30" />
         </div>
         <div className="relative z-10 h-full flex items-center justify-center">
           <CsvUploadAnimation />
@@ -67,7 +68,7 @@ const features = [
     visual: (
       <div className="relative w-full h-[500px] rounded-xl">
         <div className="absolute inset-0 overflow-hidden rounded-xl">
-          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover opacity-30" />
+          <Image src="/orangeBackground.png" alt="" fill className="object-cover opacity-30" />
         </div>
         <div className="relative z-10 h-full flex items-center justify-center">
           <RoomSplitAnimation />
@@ -86,7 +87,7 @@ const features = [
     visual: (
       <div className="relative w-full h-[500px] rounded-xl">
         <div className="absolute inset-0 overflow-hidden rounded-xl">
-          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover opacity-30" />
+          <Image src="/orangeBackground.png" alt="" fill className="object-cover opacity-30" />
         </div>
         <div className="relative z-10 h-full flex items-center justify-center">
           <GroceryTrackAnimation />
@@ -105,7 +106,7 @@ const features = [
     visual: (
       <div className="relative w-full h-[500px] rounded-xl">
         <div className="absolute inset-0 overflow-hidden rounded-xl">
-          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover opacity-30" />
+          <Image src="/orangeBackground.png" alt="" fill className="object-cover opacity-30" />
         </div>
         <div className="relative z-10 h-full flex items-center justify-center">
           <AiChatDemo />
@@ -124,7 +125,7 @@ const features = [
     visual: (
       <div className="relative w-full rounded-xl">
         <div className="absolute inset-0 overflow-hidden rounded-xl">
-          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover opacity-30" />
+          <Image src="/orangeBackground.png" alt="" fill className="object-cover opacity-30" />
         </div>
         <div className="relative z-10 p-6">
           <ChartCardsGrid />
@@ -143,7 +144,7 @@ const features = [
     visual: (
       <div className="relative w-full h-[500px] rounded-xl">
         <div className="absolute inset-0 overflow-hidden rounded-xl">
-          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover opacity-30" />
+          <Image src="/orangeBackground.png" alt="" fill className="object-cover opacity-30" />
         </div>
         <div className="relative z-10 flex items-center justify-center">
           <Earth className="w-full h-full" baseColor={[0.9, 0.6, 0.4]} glowColor={[0.91, 0.54, 0.33]} markerColor={[0.91, 0.54, 0.33]} />
@@ -155,9 +156,7 @@ const features = [
 
 export default function FeaturesPage() {
   return (
-    <div className="min-h-screen w-full relative bg-black text-foreground">
-
-      <div className="absolute inset-0 z-0" style={{ background: "radial-gradient(ellipse 50% 35% at 50% 0%, rgba(226, 232, 240, 0.12), transparent 60%), #000000" }} />
+    <div className="min-h-screen w-full relative bg-background text-foreground">
 
       <PageHeader />
 
@@ -210,7 +209,7 @@ export default function FeaturesPage() {
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.6 }}
-                    className={cn("group border-secondary/40 text-card-foreground relative rounded-xl border-2 shadow-xl transition-all ease-in-out shrink-0", isEven ? "md:basis-[65%] md:-ml-16" : "md:basis-[65%] md:-mr-16")}
+                    className={cn("group border-secondary/40 text-card-foreground relative rounded-xl border-2 shadow-xl transition-all ease-in-out shrink-0", isEven ? "md:basis-[65%] lg:-ml-16" : "md:basis-[65%] lg:-mr-16")}
                     whileHover={{
                       scale: 1.02,
                       borderColor: "rgba(231, 138, 83, 0.6)",
@@ -241,7 +240,7 @@ export default function FeaturesPage() {
                     <ul className="space-y-2.5 mb-8">
                       {feature.benefits.map((b) => (
                         <li key={b} className="flex items-center gap-2.5 text-sm text-muted-foreground">
-                          <Check className="h-4 w-4 text-[#e78a53] flex-shrink-0" />
+                          <Check className="h-4 w-4 text-primary flex-shrink-0" />
                           {b}
                         </li>
                       ))}
@@ -249,7 +248,7 @@ export default function FeaturesPage() {
                     {feature.detailHref ? (
                       <Link
                         href={feature.detailHref}
-                        className="inline-flex items-center gap-2 rounded-full font-bold text-sm bg-gradient-to-b from-[#fe985b] to-[#fe985b]/80 text-white shadow-[0px_2px_0px_0px_rgba(255,255,255,0.3)_inset] px-6 py-2.5 transition-all hover:-translate-y-0.5"
+                        className="inline-flex items-center gap-2 rounded-full font-bold text-sm bg-primary text-primary-foreground shadow-[0px_2px_0px_0px_rgba(255,255,255,0.3)_inset] px-6 py-2.5 transition-all hover:-translate-y-0.5"
                       >
                         {feature.detailLabel}
                         <ArrowRight className="h-4 w-4" />
@@ -276,7 +275,7 @@ export default function FeaturesPage() {
       {/* CTA */}
       <section className="py-48 px-4 relative z-10">
         <div className="container mx-auto max-w-2xl text-center">
-          <h2 className="via-foreground mb-8 bg-gradient-to-b from-zinc-800 to-zinc-700 bg-clip-text text-5xl font-semibold tracking-tighter text-transparent md:text-[72px] md:leading-[80px]">
+          <h2 className="mb-8 text-5xl font-semibold tracking-tighter text-foreground md:text-[72px] md:leading-[80px]">
             Ready to take control?
           </h2>
           <p className="mx-auto mb-12 max-w-2xl text-lg text-muted-foreground">

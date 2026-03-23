@@ -2,6 +2,7 @@
 
 import { m } from "framer-motion"
 import Link from "next/link"
+import Image from "next/image"
 import { Check, X, Sparkles } from "lucide-react"
 import { useState } from "react"
 import { geist } from "@/lib/fonts"
@@ -12,6 +13,11 @@ import { StickyFooter } from "@/components/sticky-footer"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@clerk/nextjs"
 import { toast } from "sonner"
+
+const fadeInUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } }
+const heroFade = { initial: { opacity: 0, y: 30 }, animate: { opacity: 1, y: 0 } }
+const viewportOnce = { once: true }
+const cardHover = { y: -5 }
 
 const plans = [
   {
@@ -131,9 +137,7 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="min-h-screen w-full relative bg-black text-white">
-
-      <div className="fixed inset-0 z-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 50% 35% at 50% 0%, rgba(226, 232, 240, 0.12), transparent 60%), #000000" }} />
+    <div className="min-h-screen w-full relative bg-background text-foreground">
 
       {/* Header */}
       <PageHeader />
@@ -141,10 +145,10 @@ export default function PricingPage() {
       {/* Hero */}
       <section className="relative py-48 px-4">
         <div className="max-w-4xl mx-auto relative z-10 text-center">
-          <m.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm mb-6">
-              <Sparkles className="h-4 w-4 text-[#e78a53]" />
-              <span className="text-[#e78a53] font-medium text-sm">Pricing</span>
+          <m.div {...heroFade} transition={{ duration: 0.6 }}>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-foreground/5 border border-foreground/10 mb-6">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="text-primary font-medium text-sm">Pricing</span>
             </div>
             <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-7xl lg:text-9xl mb-8">
               Simple, Transparent Pricing
@@ -159,16 +163,18 @@ export default function PricingPage() {
       {/* Toggle */}
       <section className="pb-12 px-4 relative z-10">
         <div className="flex items-center justify-center">
-          <div className="rounded-full bg-white/5 border border-white/10 p-1 flex items-center">
+          <div className="rounded-full bg-foreground/5 border border-foreground/10 p-1 flex items-center">
             <button
               onClick={() => setIsAnnual(false)}
-              className={cn("px-6 py-2 rounded-full text-sm font-medium transition-all", !isAnnual ? "bg-[#e78a53] text-white shadow-lg" : "text-white/60 hover:text-white/80")}
+              aria-pressed={!isAnnual}
+              className={cn("px-6 py-2 rounded-full text-sm font-medium transition-all", !isAnnual ? "bg-primary text-primary-foreground shadow-lg" : "text-foreground/60 hover:text-foreground/80")}
             >
               Monthly
             </button>
             <button
               onClick={() => setIsAnnual(true)}
-              className={cn("px-6 py-2 rounded-full text-sm font-medium transition-all relative", isAnnual ? "bg-[#e78a53] text-white shadow-lg" : "text-white/60 hover:text-white/80")}
+              aria-pressed={isAnnual}
+              className={cn("px-6 py-2 rounded-full text-sm font-medium transition-all relative", isAnnual ? "bg-primary text-primary-foreground shadow-lg" : "text-foreground/60 hover:text-foreground/80")}
             >
               Annual
               <span className="absolute -top-2 -right-6 bg-emerald-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">-20%</span>
@@ -179,39 +185,39 @@ export default function PricingPage() {
 
       {/* Plan Cards */}
       <section className="pb-24 px-4 relative z-10">
-        <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-6">
+        <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-6 px-4 sm:px-0">
           {plans.map((plan, i) => (
             <m.div
               key={plan.name}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
+              {...fadeInUp}
+              whileInView={fadeInUp.animate}
+              viewport={viewportOnce}
               transition={{ duration: 0.4, delay: i * 0.1 }}
-              whileHover={{ y: -5 }}
+              whileHover={cardHover}
               className={cn(
-                "relative rounded-2xl p-8 backdrop-blur-sm border transition-all flex flex-col h-full",
+                "relative rounded-2xl p-8 border transition-all flex flex-col h-full",
                 plan.popular
-                  ? "bg-gradient-to-b from-[#e78a53]/10 to-transparent border-[#e78a53]/30 shadow-lg shadow-[#e78a53]/10"
-                  : "bg-white/5 border-white/10 hover:border-white/20"
+                  ? "bg-gradient-to-b from-primary/10 to-transparent border-primary/30 shadow-lg shadow-primary/10"
+                  : "bg-foreground/5 border-foreground/10 hover:border-foreground/20"
               )}
             >
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="bg-gradient-to-r from-[#e78a53] to-[#e78a53]/80 text-white text-xs font-medium px-4 py-1.5 rounded-full">Most Popular</span>
+                  <span className="bg-primary text-primary-foreground text-xs font-medium px-4 py-1.5 rounded-full">Most Popular</span>
                 </div>
               )}
 
-              <img src={plan.icon} alt={plan.name} className="h-12 w-12 mb-4 object-contain" draggable={false} />
+              <Image src={plan.icon} alt={plan.name} width={48} height={48} className="mb-4 object-contain" draggable={false} />
 
-              <h3 className="text-lg font-semibold text-white">{plan.name}</h3>
+              <h3 className="text-lg font-semibold text-foreground">{plan.name}</h3>
               <p className="text-sm text-muted-foreground mb-4">{plan.description}</p>
 
               <div className="mb-6">
                 {plan.monthlyPrice === 0 ? (
-                  <p className="text-4xl font-bold text-white">Free</p>
+                  <p className="text-4xl font-bold text-foreground">Free</p>
                 ) : (
                   <>
-                    <p className="text-4xl font-bold text-white">
+                    <p className="text-4xl font-bold text-foreground">
                       €{isAnnual ? (plan.annualPrice! / 12).toFixed(2) : plan.monthlyPrice.toFixed(2)}
                       <span className="text-base font-normal text-muted-foreground">/mo</span>
                     </p>
@@ -226,11 +232,11 @@ export default function PricingPage() {
                 {plan.features.map((f) => (
                   <li key={f.text} className="flex items-start gap-2.5 text-sm">
                     {f.included ? (
-                      <Check className="h-4 w-4 text-[#e78a53] flex-shrink-0 mt-0.5" />
+                      <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
                     ) : (
-                      <X className="h-4 w-4 text-white/20 flex-shrink-0 mt-0.5" />
+                      <X className="h-4 w-4 text-foreground/20 flex-shrink-0 mt-0.5" />
                     )}
-                    <span className={f.included ? "text-white/80" : "text-white/30"}>{f.text}</span>
+                    <span className={f.included ? "text-foreground/80" : "text-foreground/30"}>{f.text}</span>
                   </li>
                 ))}
               </ul>
@@ -243,8 +249,8 @@ export default function PricingPage() {
                 className={cn(
                   "w-full py-3 px-6 rounded-full font-medium text-sm transition-all",
                   plan.popular
-                    ? "bg-gradient-to-r from-[#e78a53] to-[#e78a53]/80 text-white shadow-lg shadow-[#e78a53]/25"
-                    : "bg-white/10 text-white border border-white/20 hover:bg-white/20"
+                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
+                    : "bg-foreground/10 text-foreground border border-foreground/20 hover:bg-foreground/20"
                 )}
               >
                 {loadingPlan === plan.name ? "Loading..." : plan.cta}
@@ -257,16 +263,16 @@ export default function PricingPage() {
       {/* Comparison Table */}
       <section className="py-24 px-4 relative z-10">
         <div className="max-w-4xl mx-auto">
-          <h2 className={cn("text-3xl sm:text-4xl font-semibold tracking-tighter text-center mb-12 bg-gradient-to-b from-zinc-800 to-zinc-700 bg-clip-text text-transparent", geist.className)}>
+          <h2 className={cn("text-3xl sm:text-4xl font-semibold tracking-tighter text-center mb-12 text-foreground", geist.className)}>
             Compare All Features
           </h2>
-          <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm overflow-hidden">
+          <div className="rounded-2xl border border-foreground/10 bg-foreground/5 overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/10">
+                <tr className="border-b border-foreground/10">
                   <th className="text-left py-4 px-6 text-muted-foreground font-medium">Feature</th>
                   <th className="text-center py-4 px-4 text-muted-foreground">Starter</th>
-                  <th className="text-center py-4 px-4 text-[#e78a53] font-bold">PRO</th>
+                  <th className="text-center py-4 px-4 text-primary font-bold">PRO</th>
                   <th className="text-center py-4 px-4 text-muted-foreground">MAX</th>
                 </tr>
               </thead>
@@ -283,11 +289,11 @@ export default function PricingPage() {
                   ["Friends", "5", "50", "Unlimited"],
                   ["Shared tx/month", "50", "200", "Unlimited"],
                 ].map(([feature, starter, pro, max]) => (
-                  <tr key={feature} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                    <td className="py-3 px-6 text-white/80">{feature}</td>
-                    <td className="py-3 px-4 text-center text-white/60">{starter}</td>
-                    <td className="py-3 px-4 text-center text-[#e78a53] font-medium">{pro}</td>
-                    <td className="py-3 px-4 text-center text-white/60">{max}</td>
+                  <tr key={feature} className="border-b border-foreground/5 hover:bg-foreground/5 transition-colors">
+                    <td className="py-3 px-6 text-foreground/80">{feature}</td>
+                    <td className="py-3 px-4 text-center text-foreground/60">{starter}</td>
+                    <td className="py-3 px-4 text-center text-primary font-medium">{pro}</td>
+                    <td className="py-3 px-4 text-center text-foreground/60">{max}</td>
                   </tr>
                 ))}
               </tbody>
@@ -299,7 +305,7 @@ export default function PricingPage() {
       {/* Transaction Packs */}
       <section className="py-24 px-4 relative z-10">
         <div className="max-w-4xl mx-auto">
-          <h2 className={cn("text-3xl sm:text-4xl font-semibold tracking-tighter text-center mb-4 bg-gradient-to-b from-zinc-800 to-zinc-700 bg-clip-text text-transparent", geist.className)}>
+          <h2 className={cn("text-3xl sm:text-4xl font-semibold tracking-tighter text-center mb-4 text-foreground", geist.className)}>
             Transaction Packs
           </h2>
           <p className="text-center text-muted-foreground mb-12">Need more transactions? Buy a one-time pack. No subscription required.</p>
@@ -312,14 +318,14 @@ export default function PricingPage() {
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
                 whileHover={{ y: -5 }}
-                className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-6 text-center"
+                className="rounded-2xl border border-foreground/10 bg-foreground/5 p-6 text-center"
               >
-                <p className="text-3xl font-bold text-white mb-1">{pack.tx.toLocaleString()}</p>
+                <p className="text-3xl font-bold text-foreground mb-1">{pack.tx.toLocaleString()}</p>
                 <p className="text-sm text-muted-foreground mb-4">transactions</p>
-                <p className="text-2xl font-bold text-[#e78a53] mb-6">€{pack.price}</p>
+                <p className="text-2xl font-bold text-primary mb-6">€{pack.price}</p>
                 <Link
                   href="/sign-up"
-                  className="inline-block w-full rounded-full font-medium text-sm border border-white/20 bg-white/10 text-white py-2.5 transition-all hover:-translate-y-0.5 hover:bg-white/20"
+                  className="inline-block w-full rounded-full font-medium text-sm border border-foreground/20 bg-foreground/10 text-foreground py-2.5 transition-all hover:-translate-y-0.5 hover:bg-foreground/20"
                 >
                   Buy Pack
                 </Link>
@@ -332,7 +338,7 @@ export default function PricingPage() {
       {/* FAQ */}
       <section className="py-24 px-4 relative z-10">
         <div className="max-w-3xl mx-auto">
-          <h2 className={cn("text-3xl sm:text-4xl font-semibold tracking-tighter text-center mb-12 bg-gradient-to-b from-zinc-800 to-zinc-700 bg-clip-text text-transparent", geist.className)}>
+          <h2 className={cn("text-3xl sm:text-4xl font-semibold tracking-tighter text-center mb-12 text-foreground", geist.className)}>
             Billing FAQ
           </h2>
           {[
@@ -342,8 +348,8 @@ export default function PricingPage() {
             { q: "How do transaction packs work?", a: "Transaction packs are one-time purchases that add capacity to your account. They don't expire and stack with your plan." },
             { q: "Can I switch plans?", a: "Yes. Upgrades take effect immediately with prorated billing. Downgrades take effect at the end of your billing period." },
           ].map((faq, i) => (
-            <div key={i} className="p-6 rounded-2xl border border-white/10 bg-white/5 mb-4">
-              <h3 className="text-base font-semibold text-white mb-2">{faq.q}</h3>
+            <div key={i} className="p-6 rounded-2xl border border-foreground/10 bg-foreground/5 mb-4">
+              <h3 className="text-base font-semibold text-foreground mb-2">{faq.q}</h3>
               <p className="text-sm text-muted-foreground">{faq.a}</p>
             </div>
           ))}
@@ -353,7 +359,7 @@ export default function PricingPage() {
       {/* CTA */}
       <section className="py-48 px-4 relative z-10">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className={cn("via-foreground bg-gradient-to-b from-zinc-800 to-zinc-700 bg-clip-text text-5xl font-semibold tracking-tighter text-transparent md:text-[72px] md:leading-[80px] mb-8", geist.className)}>Start Free Today</h2>
+          <h2 className={cn("text-5xl font-semibold tracking-tighter text-foreground md:text-[72px] md:leading-[80px] mb-8", geist.className)}>Start Free Today</h2>
           <p className="mx-auto mb-12 max-w-2xl text-lg text-muted-foreground">300 transactions. No credit card required.</p>
           <CtaButtons />
         </div>

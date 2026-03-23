@@ -42,9 +42,11 @@ export const UpdateTransactionSchema = CreateTransactionSchema.partial().extend(
 
 export const TransactionFilterSchema = z.object({
     filter: z.enum([
-        'last7days', 'last30days', 'last3months',
-        'last6months', 'lastyear'
-    ]).or(z.string().regex(/^\d{4}$/)).optional().nullable(),
+        'last30days', 'last3months',
+        'last6months', 'lastyear', 'ytd'
+    ]).or(z.string().regex(/^\d{4}$/))
+      .or(z.string().regex(/^custom:\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/))
+      .optional().nullable(),
     category: z.string().max(100).optional().nullable(),
     // Pagination
     page: z.coerce.number().int().positive().default(1),

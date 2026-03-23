@@ -22,6 +22,7 @@ import { DemoModeProvider } from "@/lib/demo/demo-context";
 import { DemoBanner } from "@/components/demo-banner";
 import { OnboardingProvider } from "@/components/onboarding/onboarding-provider";
 import { OnboardingRoot } from "@/components/onboarding/onboarding-root";
+import { OfflineIndicator } from "@/components/offline-indicator";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -103,6 +104,9 @@ export const metadata: Metadata = {
     },
   },
   category: "finance",
+  verification: {
+    google: "PSPqzlfW_g-VeDgdFsMHMFqieCe6F9GKKhfOrt8YokU",
+  },
 };
 
 export default function RootLayout({
@@ -183,6 +187,7 @@ export default function RootLayout({
                                     <PostHogUserIdentifier />
                                     <DemoBanner />
                                     <OnboardingRoot />
+                                    <OfflineIndicator />
                                     <div className="flex-1">
                                       {children}
                                     </div>

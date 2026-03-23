@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { useColorScheme, colorPalettes } from "@/components/color-scheme-provider"
@@ -43,6 +44,8 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import type { PlanType, SubscriptionStatus } from "@/components/subscription-dialog/types"
 import { AnimatedThemeSwitcher } from "@/components/animated-theme-switcher"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useOnboarding } from "@/components/onboarding/onboarding-context"
+import { MapPin, Users } from "lucide-react"
 
 type SettingsSection = "preferences" | "subscription" | "privacy" | "bug-report"
 
@@ -75,7 +78,6 @@ const paletteInfo: { id: string; label: string; enabled: boolean }[] = [
 
 // Date filter options
 const timeFilterOptions = [
-    { value: "last7days", label: "Last 7 Days", mobileVisible: true },
     { value: "last30days", label: "Last 30 Days", mobileVisible: true },
     { value: "last3months", label: "Last 3 Months", mobileVisible: true },
     { value: "last6months", label: "Last 6 Months", mobileVisible: true },
@@ -220,7 +222,64 @@ function PreferencesContent() {
             <FontsSection />
             <CurrencySection />
             <TimePeriodSection />
+            <AnalyticsPreferencesSection />
             <LayoutSection />
+        </div>
+    )
+}
+
+function AnalyticsPreferencesSection() {
+    const { startTour } = useOnboarding()
+
+    const [showEffectiveCosts, setShowEffectiveCosts] = React.useState<boolean>(() => {
+        if (typeof window === "undefined") return true
+        const stored = localStorage.getItem("analytics:showEffectiveCosts")
+        return stored === null ? true : stored !== "false"
+    })
+
+    const handleSetShowEffectiveCosts = (checked: boolean) => {
+        setShowEffectiveCosts(checked)
+        localStorage.setItem("analytics:showEffectiveCosts", String(checked))
+        window.dispatchEvent(
+            new CustomEvent("analytics:showEffectiveCostsChanged", {
+                detail: { showEffectiveCosts: checked },
+            }),
+        )
+    }
+
+    return (
+        <div className="space-y-4">
+            <div>
+                <h3 className="text-base font-semibold mb-1">Analytics Preferences</h3>
+                <p className="text-[11px] text-muted-foreground/70">
+                    Control whether analytics uses shared-cost math, and replay onboarding tours.
+                </p>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-xl border border-border/40 bg-muted/10 px-4 py-3.5">
+                <Checkbox
+                    id="effective-costs-toggle"
+                    checked={showEffectiveCosts}
+                    onCheckedChange={(checked) => handleSetShowEffectiveCosts(checked === true)}
+                />
+                <Label
+                    htmlFor="effective-costs-toggle"
+                    className="flex items-center gap-1.5 text-xs cursor-pointer select-none mt-0.5"
+                >
+                    <Users className="size-3.5" />
+                    Show my share
+                </Label>
+            </div>
+
+            <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => startTour("analytics")}
+                className="w-full justify-start text-muted-foreground gap-1.5 text-xs h-7 px-2"
+            >
+                <MapPin className="size-3.5" />
+                Take a tour
+            </Button>
         </div>
     )
 }

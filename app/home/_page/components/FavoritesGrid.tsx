@@ -37,12 +37,35 @@ import {
 } from "@/components/ui/popover"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { useDemoMode } from "@/lib/demo/demo-context"
+import { CollapsedChartCard } from "@/components/collapsed-chart-card"
 
 import { DEFAULT_FAVORITE_SIZES } from "../constants"
 import type { FavoriteChartSize } from "../types"
 import { normalizeCategoryName } from "../utils/categories"
 import type { HomeChartData } from "../hooks/useHomeChartData"
 import { SpendingActivityRings } from "./SpendingActivityRings"
+
+const FAVORITE_CHART_TITLES: Record<string, string> = {
+  incomeExpensesTracking1: "Income & Expenses",
+  incomeExpensesTracking2: "Income & Expenses (Alt)",
+  spendingCategoryRankings: "Category Flow",
+  moneyFlow: "Spending Funnel",
+  cashFlowSankey: "Cash Flow Sankey",
+  expenseBreakdown: "Expense Breakdown",
+  netWorthAllocation: "Net Worth Allocation",
+  needsWantsBreakdown: "Needs vs Wants",
+  categoryBubbleMap: "Category Bubble Map",
+  householdSpendMix: "Household Spend Mix",
+  spendingStreamgraph: "Spending Streamgraph",
+  transactionHistory: "Transaction History",
+  dailyTransactionActivity: "Transaction Calendar",
+  dayOfWeekSpending: "Day of Week Spending",
+  allMonthsCategorySpending: "All Months Category Spending",
+  singleMonthCategorySpending: "Single Month Category Spending",
+  dayOfWeekCategory: "Day of Week Category",
+  spendingActivityRings: "Spending Activity Rings",
+  financialHealthScore: "Financial Health Score",
+}
 
 type FavoritesGridProps = {
   favorites: Set<string>
@@ -52,6 +75,7 @@ type FavoritesGridProps = {
   onResize: (chartId: string, w: number, h: number) => void
   chartData: HomeChartData
   dateFilter: string | null
+  isLoading?: boolean
 }
 
 const RingPopoverContent = memo(function RingPopoverContent({
@@ -231,7 +255,8 @@ function renderFavoriteChart(
     case "householdSpendMix":
       return (
         <ChartPolarBar
-          data={polarBarChartData}
+          data={polarBarChartData.data}
+          keys={polarBarChartData.keys}
           categoryControls={expensesPieControls}
         />
       )
@@ -297,6 +322,7 @@ export const FavoritesGrid = memo(function FavoritesGrid({
   onResize,
   chartData,
   dateFilter,
+  isLoading = false,
 }: FavoritesGridProps) {
   const router = useRouter()
   const { isDemoMode } = useDemoMode()
@@ -461,6 +487,19 @@ export const FavoritesGrid = memo(function FavoritesGrid({
               DEFAULT_FAVORITE_SIZES[chartId] || { w: 12, h: 6, x: 0, y: 0 }
             const initialW = savedSize?.w ?? defaultSize.w
             const initialH = savedSize?.h ?? defaultSize.h
+
+            const hasNoData = !isLoading && chartTransactions.length === 0
+
+            if (hasNoData) {
+              return (
+                <SortableGridItem key={chartId} id={chartId} w={6} h={1}>
+                  <CollapsedChartCard
+                    chartId={chartId}
+                    chartTitle={FAVORITE_CHART_TITLES[chartId] || chartId}
+                  />
+                </SortableGridItem>
+              )
+            }
 
             return (
               <SortableGridItem

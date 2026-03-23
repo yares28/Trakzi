@@ -57,11 +57,6 @@ const getRangeForFilter = (filter: string) => {
   const formatDate = (date: Date) => date.toISOString().split("T")[0]
 
   switch (filter) {
-    case "last7days": {
-      const start = new Date(today)
-      start.setDate(start.getDate() - 7)
-      return { fromDate: formatDate(start), toDate: formatDate(today) }
-    }
     case "last30days": {
       const start = new Date(today)
       start.setDate(start.getDate() - 30)
@@ -87,6 +82,10 @@ const getRangeForFilter = (filter: string) => {
       return { fromDate: formatDate(start), toDate: formatDate(today) }
     }
     default: {
+      if (filter.startsWith("custom:")) {
+        const parts = filter.split(":")
+        if (parts.length === 3) return { fromDate: parts[1], toDate: parts[2] }
+      }
       if (/^\d{4}$/.test(filter)) {
         return {
           fromDate: `${filter}-01-01`,
@@ -115,8 +114,10 @@ export function getDailyTransactionActivityDisplayMode(
   isMobile: boolean,
 ): "single" | "dual" {
   if (!isMobile) return "single"
-  // 7 days, 30 days, 3 months -> single 3-month chart
-  if (["last7days", "last30days", "last3months"].includes(effectiveDateFilter)) return "single"
+  // 30 days, 3 months -> single 3-month chart
+  if (["last30days", "last3months"].includes(effectiveDateFilter)) return "single"
+  // Custom range -> single chart
+  if (effectiveDateFilter.startsWith("custom:")) return "single"
   // 6 months -> dual 3-month charts
   if (effectiveDateFilter === "last6months") return "dual"
   // YTD, Last Year, Specific Year -> dual 6-month charts
@@ -160,7 +161,6 @@ const CalendarContributionGraph = React.memo(function CalendarContributionGraph(
 }: CalendarContributionGraphProps) {
   const footerText = (() => {
     if (filteredData.length === 0) return `No transactions in ${new Date().getFullYear()}`
-    if (effectiveDateFilter === "last7days") return `${formatCurrency(totalSpent)} spent in the last 7 days`
     if (effectiveDateFilter === "last30days") return `${formatCurrency(totalSpent)} spent in the last 30 days`
     if (effectiveDateFilter === "last3months") return `${formatCurrency(totalSpent)} spent in the last 3 months`
     if (effectiveDateFilter === "last6months") return `${formatCurrency(totalSpent)} spent in the last 6 months`
@@ -438,9 +438,9 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
       return { fromDate: fmtDate(start), toDate: fmtDate(today) }
     }
 
-    // 1. Short periods (7d, 30d, 3m) -> Always show 3 months
+    // 1. Short periods (30d, 3m) -> Always show 3 months
     // Both Desktop and Mobile show single 3-month chart
-    if (["last7days", "last30days", "last3months"].includes(filter)) {
+    if (["last30days", "last3months"].includes(filter) || filter.startsWith("custom:")) {
       return { period1: null, period2: null, singlePeriod: getLast3MonthsRange() }
     }
 
@@ -543,10 +543,10 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
     // Mobile dual view splits YTD/Year into 6m chunks -> Long
     if (isMobile) {
       if (effectiveDateFilter === "last6months") return true // split into 3m
-      return ["last7days", "last30days", "last3months"].includes(effectiveDateFilter)
+      return ["last30days", "last3months"].includes(effectiveDateFilter) || effectiveDateFilter.startsWith("custom:")
     }
     // Desktop
-    return ["last7days", "last30days", "last3months", "last6months"].includes(effectiveDateFilter)
+    return ["last30days", "last3months", "last6months"].includes(effectiveDateFilter) || effectiveDateFilter.startsWith("custom:")
   }, [effectiveDateFilter, isMobile])
 
 
