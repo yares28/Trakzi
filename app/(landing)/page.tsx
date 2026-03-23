@@ -91,7 +91,7 @@ export default function Home() {
 
       {/* Desktop Header */}
       <header
-        className={`sticky top-4 z-[9999] mx-auto hidden w-full flex-row items-center justify-between self-start rounded-full bg-background/80 md:flex backdrop-blur-sm border border-border/50 shadow-lg transition-all duration-300 ${isScrolled ? "max-w-3xl px-2" : "max-w-5xl px-4"
+        className={`sticky top-4 z-50 mx-auto hidden w-full flex-row items-center justify-between self-start rounded-full bg-background md:flex border border-border/50 shadow-lg transition-all duration-300 ${isScrolled ? "max-w-3xl px-2" : "max-w-5xl px-4"
           } py-2`}
         style={{
           willChange: "transform",
@@ -108,27 +108,27 @@ export default function Home() {
           <img src="/Trakzi/TrakzilogoB.png" alt="Trakzi" className="h-8 w-auto" draggable={false} />
         </Link>
 
-        <div className="absolute inset-0 hidden flex-1 flex-row items-center justify-center space-x-2 text-sm font-medium text-muted-foreground transition duration-200 hover:text-foreground md:flex md:space-x-2">
+        <div className="absolute inset-0 hidden flex-1 flex-row items-center justify-center space-x-2 text-sm font-medium text-muted-foreground transition duration-200 hover:text-foreground pointer-events-none md:flex md:space-x-2">
           <Link
             href="/features"
-            className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
+            className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors pointer-events-auto"
           >
             <span className="relative z-20">Features</span>
           </Link>
           <Link
             href="/docs"
-            className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
+            className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors pointer-events-auto"
           >
             <span className="relative z-20">Docs</span>
           </Link>
           <Link
             href="/pricing"
-            className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
+            className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors pointer-events-auto"
           >
             <span className="relative z-20">Pricing</span>
           </Link>
           <a
-            className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer pointer-events-auto"
             onClick={(e) => {
               e.preventDefault()
               const element = document.getElementById("faq")
@@ -167,7 +167,7 @@ export default function Home() {
       </header>
 
       {/* Mobile Header */}
-      <header className="sticky top-4 z-[9999] mx-4 flex w-auto flex-row items-center justify-between rounded-full bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg md:hidden px-4 py-3">
+      <header className="sticky top-4 z-50 mx-4 flex w-auto flex-row items-center justify-between rounded-full bg-background border border-border/50 shadow-lg md:hidden px-4 py-3">
         <Link className="flex items-center justify-center gap-2" href="/">
           <img src="/Trakzi/TrakzilogoB.png" alt="Trakzi" className="h-7 w-auto" draggable={false} />
         </Link>
@@ -196,7 +196,7 @@ export default function Home() {
 
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm md:hidden">
+        <div className="fixed inset-0 z-50 bg-black/50 md:hidden">
           <div className="absolute top-20 left-4 right-4 bg-background/95 backdrop-blur-md border border-border/50 rounded-2xl shadow-2xl p-6">
             <nav className="flex flex-col space-y-4">
               <Link

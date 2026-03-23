@@ -14,7 +14,7 @@ import { CsvUploadAnimation } from "@/components/csv-upload-animation"
 import { RoomSplitAnimation } from "@/components/room-split-animation"
 import { GroceryTrackAnimation } from "@/components/grocery-track-animation"
 import { AiChatDemo } from "@/components/ai-chat-demo"
-import { AnimatedCharts } from "@/components/animated-charts"
+import { ChartCardsGrid } from "@/components/chart-cards-grid"
 import Earth from "@/components/globe"
 
 const features = [
@@ -27,9 +27,9 @@ const features = [
     detailHref: "/receipt-scanner",
     detailLabel: "See how receipt scanning works",
     visual: (
-      <div className="relative w-full h-[500px] rounded-xl overflow-hidden">
-        <div className="absolute inset-0">
-          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover rounded-xl opacity-30" />
+      <div className="relative w-full h-[500px] rounded-xl">
+        <div className="absolute inset-0 overflow-hidden rounded-xl">
+          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover opacity-30" />
         </div>
         <div className="relative z-10 h-full flex items-center justify-center">
           <ReceiptFridgeAnimation />
@@ -46,9 +46,9 @@ const features = [
     detailHref: "/csv-import",
     detailLabel: "See how CSV import works",
     visual: (
-      <div className="relative w-full h-[500px] rounded-xl overflow-hidden">
-        <div className="absolute inset-0">
-          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover rounded-xl opacity-30" />
+      <div className="relative w-full h-[500px] rounded-xl">
+        <div className="absolute inset-0 overflow-hidden rounded-xl">
+          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover opacity-30" />
         </div>
         <div className="relative z-10 h-full flex items-center justify-center">
           <CsvUploadAnimation />
@@ -65,9 +65,9 @@ const features = [
     detailHref: "/split-expenses",
     detailLabel: "See how shared expenses work",
     visual: (
-      <div className="relative w-full h-[500px] rounded-xl overflow-hidden">
-        <div className="absolute inset-0">
-          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover rounded-xl opacity-30" />
+      <div className="relative w-full h-[500px] rounded-xl">
+        <div className="absolute inset-0 overflow-hidden rounded-xl">
+          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover opacity-30" />
         </div>
         <div className="relative z-10 h-full flex items-center justify-center">
           <RoomSplitAnimation />
@@ -84,9 +84,9 @@ const features = [
     detailHref: "/grocery-tracker",
     detailLabel: "See how grocery tracking works",
     visual: (
-      <div className="relative w-full h-[500px] rounded-xl overflow-hidden">
-        <div className="absolute inset-0">
-          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover rounded-xl opacity-30" />
+      <div className="relative w-full h-[500px] rounded-xl">
+        <div className="absolute inset-0 overflow-hidden rounded-xl">
+          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover opacity-30" />
         </div>
         <div className="relative z-10 h-full flex items-center justify-center">
           <GroceryTrackAnimation />
@@ -103,9 +103,9 @@ const features = [
     detailHref: undefined,
     detailLabel: "Start chatting with AI",
     visual: (
-      <div className="relative w-full h-[500px] rounded-xl overflow-hidden">
-        <div className="absolute inset-0">
-          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover rounded-xl opacity-30" />
+      <div className="relative w-full h-[500px] rounded-xl">
+        <div className="absolute inset-0 overflow-hidden rounded-xl">
+          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover opacity-30" />
         </div>
         <div className="relative z-10 h-full flex items-center justify-center">
           <AiChatDemo />
@@ -122,12 +122,12 @@ const features = [
     detailHref: undefined,
     detailLabel: "Explore all chart types",
     visual: (
-      <div className="relative w-full h-[500px] rounded-xl overflow-hidden">
-        <div className="absolute inset-0">
-          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover rounded-xl opacity-30" />
+      <div className="relative w-full rounded-xl">
+        <div className="absolute inset-0 overflow-hidden rounded-xl">
+          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover opacity-30" />
         </div>
-        <div className="relative z-10 h-full flex items-center justify-center">
-          <AnimatedCharts />
+        <div className="relative z-10 p-6">
+          <ChartCardsGrid />
         </div>
       </div>
     ),
@@ -141,9 +141,9 @@ const features = [
     detailHref: "/csv-import",
     detailLabel: "See how CSV import works",
     visual: (
-      <div className="relative w-full h-[500px] rounded-xl overflow-hidden">
-        <div className="absolute inset-0">
-          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover rounded-xl opacity-30" />
+      <div className="relative w-full h-[500px] rounded-xl">
+        <div className="absolute inset-0 overflow-hidden rounded-xl">
+          <img src="/orangeBackground.png" alt="" className="w-full h-full object-cover opacity-30" />
         </div>
         <div className="relative z-10 flex items-center justify-center">
           <Earth className="w-full h-full" baseColor={[0.9, 0.6, 0.4]} glowColor={[0.91, 0.54, 0.33]} markerColor={[0.91, 0.54, 0.33]} />
@@ -203,17 +203,14 @@ export default function FeaturesPage() {
             <SectionSeparator />
             <section className="py-48 px-4 relative z-10">
               <div className="container mx-auto max-w-6xl">
-                <div className="grid md:grid-cols-2 gap-12 items-center">
+                <div className={cn("flex flex-col md:flex-row gap-12 items-center", !isEven && "md:flex-row-reverse")}>
                   {/* Visual */}
                   <m.div
                     initial={{ opacity: 0, x: isEven ? -30 : 30 }}
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.6 }}
-                    className={cn(
-                      "group border-secondary/40 text-card-foreground relative overflow-hidden rounded-xl border-2 shadow-xl transition-all ease-in-out",
-                      isEven ? "" : "md:order-2"
-                    )}
+                    className={cn("group border-secondary/40 text-card-foreground relative rounded-xl border-2 shadow-xl transition-all ease-in-out shrink-0", isEven ? "md:basis-[65%] md:-ml-16" : "md:basis-[65%] md:-mr-16")}
                     whileHover={{
                       scale: 1.02,
                       borderColor: "rgba(231, 138, 83, 0.6)",
@@ -229,7 +226,7 @@ export default function FeaturesPage() {
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.6, delay: 0.1 }}
-                    className={cn(!isEven && "md:order-1")}
+                    className="md:basis-[45%]"
                   >
                     <Badge variant="secondary" className="inline-flex items-center gap-2 px-3 py-1 text-xs mb-4">
                       {feature.badge}

@@ -13,14 +13,14 @@ export function PageHeader({ locale = "en" }: { locale?: "en" | "es" }) {
         <img src="/Trakzi/TrakzilogoB.png" alt="Trakzi" className="h-8 w-auto" draggable={false} />
       </Link>
 
-      <div className="absolute inset-0 hidden flex-1 flex-row items-center justify-center space-x-2 text-sm font-medium text-muted-foreground md:flex">
-        <Link href="/features" className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors">
+      <div className="absolute inset-0 hidden flex-1 flex-row items-center justify-center space-x-2 text-sm font-medium text-muted-foreground pointer-events-none md:flex">
+        <Link href="/features" className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors pointer-events-auto">
           <span>Features</span>
         </Link>
-        <Link href="/docs" className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors">
+        <Link href="/docs" className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors pointer-events-auto">
           <span>Docs</span>
         </Link>
-        <Link href="/pricing" className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors">
+        <Link href="/pricing" className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors pointer-events-auto">
           <span>Pricing</span>
         </Link>
       </div>

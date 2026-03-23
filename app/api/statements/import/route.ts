@@ -328,6 +328,8 @@ export const POST = async (req: NextRequest) => {
         revalidatePath('/analytics');
         revalidatePath('/fridge');
         revalidatePath('/trends');
+        revalidatePath('/savings');
+        revalidatePath('/pockets');
 
         return NextResponse.json(response, { status: 201 });
     } catch (error: any) {

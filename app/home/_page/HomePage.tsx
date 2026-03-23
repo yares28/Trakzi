@@ -6,7 +6,6 @@ import { DataTable } from "@/components/data-table"
 import { useDateFilter } from "@/components/date-filter-provider"
 
 import { AiReparseDialog } from "./components/AiReparseDialog"
-import { ChartsGrid } from "./components/ChartsGrid"
 import { StatementUploadDialog } from "./components/StatementUploadDialog"
 import { HomeStatementReviewDialog } from "./components/HomeStatementReviewDialog"
 import { FavoritesGrid } from "./components/FavoritesGrid"
@@ -102,8 +101,6 @@ export default function Page() {
             chartData={chartData}
             dateFilter={dateFilter}
           />
-
-          {false && <ChartsGrid chartData={chartData} dateFilter={dateFilter} />}
 
           <DataTable
             data={[]}

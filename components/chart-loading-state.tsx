@@ -37,7 +37,7 @@ export function ChartLoadingState({
   const [showContent, setShowContent] = useState(!isLoading)
   const prevLoadingRef = useRef(isLoading)
 
-  // Timeout protection - transition to empty state if loading takes too long
+  // Track slow loading — keep skeleton visible, just change the label
   useEffect(() => {
     if (!isLoading) {
       setTimedOut(false)
@@ -54,24 +54,12 @@ export function ChartLoadingState({
   // Handle transition from loading to content
   useEffect(() => {
     if (prevLoadingRef.current && !isLoading) {
-      // Was loading, now stopped - trigger content enter animation
       setShowContent(true)
     }
     prevLoadingRef.current = isLoading
   }, [isLoading])
 
-  // If timed out, silently transition to empty state
-  if (timedOut) {
-    return <EmptyState
-      emptyTitle={emptyTitle}
-      emptyDescription={emptyDescription}
-      emptyIcon={emptyIcon}
-      height={height}
-      className={className}
-    />
-  }
-
-  // Loading state with appropriate skeleton — min-h-0 so it fits the card (doesn't overflow)
+  // Keep showing skeleton while loading — never switch to empty during an active fetch
   if (isLoading) {
     return (
       <div className={cn("flex min-h-0 flex-col w-full", height, className)}>
@@ -80,7 +68,7 @@ export function ChartLoadingState({
             <ChartSkeleton type={skeletonType} />
           </div>
           <ShimmeringText
-            text="Loading .."
+            text={timedOut ? "Still loading..." : "Loading .."}
             className="text-muted-foreground font-medium text-sm text-center mt-1.5 shrink-0"
             duration={1.8}
             repeatDelay={0.3}

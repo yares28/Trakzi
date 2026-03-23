@@ -8,6 +8,7 @@ import ScrambleHover from "./scramble"
 import { FollowerPointerCard } from "./following-pointer"
 import { m, useInView } from "framer-motion"
 import { Suspense, useRef, useState } from "react"
+import { Sparkles, FileSpreadsheet, ShoppingCart, LayoutGrid, MessageSquare, BarChart3 } from "lucide-react"
 import { geist } from "@/lib/fonts"
 import { cn } from "@/lib/utils"
 import { AnimatedCharts } from "./animated-charts"
@@ -49,7 +50,7 @@ export default function Features() {
       >
         <h2
           className={cn(
-            "via-foreground mb-12 bg-gradient-to-b from-zinc-800 to-zinc-700 bg-clip-text text-center text-5xl font-semibold tracking-tighter text-transparent md:text-[72px] md:leading-[80px]",
+            "mb-12 text-center text-5xl font-semibold tracking-tighter text-foreground md:text-[72px] md:leading-[80px]",
             geist.className,
           )}
         >
@@ -76,10 +77,9 @@ export default function Features() {
                 transition={{ duration: 0.5, delay: 0.5 }}
                 whileHover={{
                   scale: 1.02,
-                  borderColor: "rgba(231, 138, 83, 0.6)",
-                  boxShadow: "0 0 30px rgba(231, 138, 83, 0.2)",
+                  borderColor: "rgba(231, 138, 83, 0.4)",
                 }}
-                style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease" }}
+                style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4">
                   <h3 className="text-2xl leading-none font-semibold tracking-tight">{"All-in-1 budgeting app"}</h3>
@@ -157,10 +157,10 @@ export default function Features() {
                       <div className="flex items-center gap-8">
                         {/* Left Column */}
                         <div className="flex flex-col gap-3">
-                          {[
-                            { icon: "🤖", label: "Budget with AI" },
-                            { icon: "📄", label: "CSV Support" },
-                            { icon: "🛒", label: "Grocery Budget" },
+                            {[
+                            { icon: Sparkles, label: "Budget with AI" },
+                            { icon: FileSpreadsheet, label: "CSV Support" },
+                            { icon: ShoppingCart, label: "Grocery Budget" },
                           ].map((item, index) => (
                             <m.div
                               key={`left-${item.label}`}
@@ -174,7 +174,7 @@ export default function Features() {
                               whileHover={{ scale: 1.05 }}
                             >
                               <div className="w-4 h-4 flex items-center justify-center">
-                                <span className="text-xs">{item.icon}</span>
+                                <item.icon className="w-3 h-3" />
                               </div>
                               {item.label}
                             </m.div>
@@ -198,10 +198,10 @@ export default function Features() {
 
                         {/* Right Column */}
                         <div className="flex flex-col gap-3">
-                          {[
-                            { icon: "📐", label: "Any Layout" },
-                            { icon: "💬", label: "Chat with AI" },
-                            { icon: "📊", label: "Any Chart" },
+                            {[
+                            { icon: LayoutGrid, label: "Any Layout" },
+                            { icon: MessageSquare, label: "Chat with AI" },
+                            { icon: BarChart3, label: "Any Chart" },
                           ].map((item, index) => (
                             <m.div
                               key={`right-${item.label}`}
@@ -215,7 +215,7 @@ export default function Features() {
                               whileHover={{ scale: 1.05 }}
                             >
                               <div className="w-4 h-4 flex items-center justify-center">
-                                <span className="text-xs">{item.icon}</span>
+                                <item.icon className="w-3 h-3" />
                               </div>
                               {item.label}
                             </m.div>
@@ -265,11 +265,10 @@ export default function Features() {
                 animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
                 transition={{ duration: 0.5, delay: 0.5 }}
                 whileHover={{
-                  scale: 1.02,
-                  borderColor: "rgba(231, 138, 83, 0.6)",
-                  boxShadow: "0 0 30px rgba(231, 138, 83, 0.2)",
+                  y: -4,
+                  borderColor: "rgba(231, 138, 83, 0.4)",
                 }}
-                style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease" }}
+                style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4">
                   <h3 className="text-2xl leading-none font-semibold tracking-tight">Globally Usable</h3>
@@ -319,11 +318,10 @@ export default function Features() {
                 animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
                 transition={{ duration: 0.5, delay: 1.0 }}
                 whileHover={{
-                  scale: 1.02,
-                  borderColor: "rgba(231, 138, 83, 0.5)",
-                  boxShadow: "0 0 30px rgba(231, 138, 83, 0.2)",
+                  scale: 1.01,
+                  borderColor: "rgba(231, 138, 83, 0.3)",
                 }}
-                style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease" }}
+                style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4">
                   <h3 className="text-2xl leading-none font-semibold tracking-tight">{"AI integrated"}</h3>
@@ -416,10 +414,8 @@ export default function Features() {
                 whileHover={{
                   rotateY: 5,
                   rotateX: 2,
-                  boxShadow: "0 20px 40px rgba(231, 138, 83, 0.3)",
-                  borderColor: "rgba(231, 138, 83, 0.6)",
                 }}
-                style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease" }}
+                style={{ transition: "opacity 0.3s ease, transform 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4">
                   <h3 className="text-2xl leading-none font-semibold tracking-tight">Dynamic Layouts</h3>
@@ -449,10 +445,10 @@ export default function Features() {
                 transition={{ duration: 0.5, delay: 1.2 }}
                 whileHover={{
                   scale: 1.02,
-                  borderColor: "rgba(231, 138, 83, 0.6)",
-                  boxShadow: "0 0 30px rgba(231, 138, 83, 0.2)",
+                  y: -2,
+                  borderColor: "rgba(231, 138, 83, 0.4)",
                 }}
-                style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease" }}
+                style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4">
                   <h3 className="text-2xl leading-none font-semibold tracking-tight">Advanced Analytics</h3>
@@ -474,11 +470,10 @@ export default function Features() {
                 animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
                 transition={{ duration: 0.5, delay: 1.2 }}
                 whileHover={{
-                  scale: 1.02,
-                  borderColor: "rgba(231, 138, 83, 0.6)",
-                  boxShadow: "0 0 30px rgba(231, 138, 83, 0.2)",
+                  scale: 1.01,
+                  borderColor: "rgba(231, 138, 83, 0.5)",
                 }}
-                style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease" }}
+                style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4">
                   <h3 className="text-2xl leading-none font-semibold tracking-tight">More features to discover</h3>

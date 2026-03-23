@@ -57,7 +57,7 @@ you didn't even know existed.</h2>
                           strokeWidth="2"
                           strokeLinecap="round"
                           strokeLinejoin="round"
-                          className="lucide lucide-globe animate-spin"
+                          className="lucide lucide-globe"
                           aria-hidden="true"
                         >
                           <circle cx="12" cy="12" r="10"></circle>
@@ -90,22 +90,22 @@ you didn't even know existed.</h2>
               </div>
             </div>
 
-            {/* Stroked text wordmark */}
+            {/* Decorative wordmark */}
             <h1
-              className="absolute inset-x-0 mt-[120px] text-center text-[100px] font-semibold text-transparent sm:mt-[30px] sm:text-[190px] pointer-events-none"
+              className="absolute inset-x-0 mt-[120px] text-center text-[100px] font-semibold text-transparent sm:mt-[30px] sm:text-[190px] pointer-events-none select-none"
               style={{
                 WebkitTextStroke: "1px currentColor",
                 color: "transparent",
               }}
               aria-hidden="true"
             >
-              skiper/ui
+              trakzi
             </h1>
             <h1
-              className="absolute inset-x-0 mt-[120px] text-center text-[100px] font-semibold text-primary sm:mt-[30px] sm:text-[190px] pointer-events-none"
+              className="absolute inset-x-0 mt-[120px] text-center text-[100px] font-semibold text-primary sm:mt-[30px] sm:text-[190px] pointer-events-none select-none"
               aria-hidden="true"
             >
-              skiper/ui
+              trakzi
             </h1>
           </div>
         </div>

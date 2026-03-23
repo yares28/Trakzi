@@ -13,7 +13,7 @@ import { CsvUploadAnimation } from "@/components/csv-upload-animation"
 import { RoomSplitAnimation } from "@/components/room-split-animation"
 import { GroceryTrackAnimation } from "@/components/grocery-track-animation"
 import { AiChatDemo } from "@/components/ai-chat-demo"
-import { AnimatedCharts } from "@/components/animated-charts"
+import { ChartCardsGrid } from "@/components/chart-cards-grid"
 
 const features = [
   {
@@ -68,7 +68,7 @@ const features = [
     benefits: ["Líneas, barras, tarta, dispersión, áreas", "Mapas de calor y treemaps", "Exportar y compartir"],
     href: undefined,
     label: "Explora todos los tipos de gráficos",
-    visual: <AnimatedCharts />,
+    visual: <ChartCardsGrid />,
   },
 ]
 
@@ -101,13 +101,13 @@ export default function EsFeaturesPage() {
         return (
           <section key={f.badge} className="py-48 px-4 relative z-10">
             <div className="max-w-6xl mx-auto">
-              <div className={cn("grid md:grid-cols-2 gap-12 items-center")}>
+              <div className={cn("flex flex-col md:flex-row gap-12 items-center", !isEven && "md:flex-row-reverse")}>
                 <m.div
                   initial={{ opacity: 0, x: isEven ? -30 : 30 }}
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.6 }}
-                  className={cn("rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm overflow-hidden min-h-[300px]", !isEven && "md:order-2")}
+                  className={cn("rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm min-h-[300px] shrink-0", isEven ? "md:basis-[65%] md:-ml-16" : "md:basis-[65%] md:-mr-16")}
                 >
                   {f.visual}
                 </m.div>
@@ -116,7 +116,7 @@ export default function EsFeaturesPage() {
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.6, delay: 0.1 }}
-                  className={cn(!isEven && "md:order-1")}
+                  className="md:basis-[45%]"
                 >
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[#e78a53] text-xs font-medium mb-4">{f.badge}</div>
                   <h2 className={cn("text-3xl sm:text-4xl font-semibold tracking-tighter mb-4 text-white", geist.className)}>{f.title}</h2>

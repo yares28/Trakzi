@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState } from "react"
+import { memo, useCallback, useEffect, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 
 import { IconCircleCheck } from "@tabler/icons-react"
@@ -149,6 +149,138 @@ const RingPopoverWrapper = memo(function RingPopoverWrapper({
   )
 })
 RingPopoverWrapper.displayName = "RingPopoverWrapper"
+
+function renderFavoriteChart(
+  chartId: string,
+  chartData: HomeChartData,
+  dateFilter: string | null,
+): ReactNode {
+  const {
+    chartTransactions,
+    incomeExpenseControls,
+    categoryFlowControls,
+    spendingFunnelControls,
+    expensesPieControls,
+    treeMapControls,
+    streamgraphControls,
+    sankeyControls,
+    incomeExpensesChartData,
+    categoryFlowChartData,
+    spendingFunnelChartData,
+    expensesPieChartData,
+    polarBarChartData,
+    spendingStreamData,
+    sankeyData,
+    treeMapChartData,
+  } = chartData
+
+  switch (chartId) {
+    case "incomeExpensesTracking1":
+    case "incomeExpensesTracking2":
+      return (
+        <ChartAreaInteractive
+          chartId={chartId}
+          categoryControls={incomeExpenseControls}
+          data={incomeExpensesChartData}
+        />
+      )
+    case "spendingCategoryRankings":
+      return (
+        <ChartCategoryFlow
+          categoryControls={categoryFlowControls}
+          data={categoryFlowChartData}
+        />
+      )
+    case "moneyFlow":
+      return (
+        <ChartSpendingFunnel
+          categoryControls={spendingFunnelControls}
+          data={spendingFunnelChartData}
+        />
+      )
+    case "cashFlowSankey":
+      return (
+        <ChartSankey
+          data={sankeyData.graph}
+          categoryControls={sankeyControls}
+        />
+      )
+    case "expenseBreakdown":
+      return (
+        <ChartExpensesPie
+          categoryControls={expensesPieControls}
+          data={expensesPieChartData}
+        />
+      )
+    case "netWorthAllocation":
+      return (
+        <ChartTreeMap
+          categoryControls={treeMapControls}
+          data={treeMapChartData}
+        />
+      )
+    case "needsWantsBreakdown":
+      return (
+        <ChartNeedsWantsPie
+          data={expensesPieChartData}
+          categoryControls={expensesPieControls}
+        />
+      )
+    case "categoryBubbleMap":
+      return <ChartCategoryBubble data={chartTransactions} />
+    case "householdSpendMix":
+      return (
+        <ChartPolarBar
+          data={polarBarChartData}
+          categoryControls={expensesPieControls}
+        />
+      )
+    case "spendingStreamgraph":
+      return (
+        <ChartSpendingStreamgraph
+          data={spendingStreamData.data}
+          keys={spendingStreamData.keys}
+          categoryControls={streamgraphControls}
+        />
+      )
+    case "transactionHistory":
+      return (
+        <ChartSwarmPlot
+          data={chartTransactions
+            .map((tx, idx) => ({
+              id: `tx-${tx.id || idx}`,
+              group: normalizeCategoryName(tx.category),
+              price: Math.abs(tx.amount),
+              volume: Math.min(Math.max(Math.abs(tx.amount) / 50, 4), 20),
+              category: normalizeCategoryName(tx.category),
+            }))
+            .filter((item) => item.price > 0)}
+        />
+      )
+    case "dailyTransactionActivity":
+      return <ChartTransactionCalendar />
+    case "dayOfWeekSpending":
+      return (
+        <ChartDayOfWeekSpending
+          data={chartTransactions}
+          categoryControls={expensesPieControls}
+        />
+      )
+    case "allMonthsCategorySpending":
+      return (
+        <ChartAllMonthsCategorySpending
+          data={chartTransactions}
+          categoryControls={expensesPieControls}
+        />
+      )
+    case "singleMonthCategorySpending":
+      return <ChartSingleMonthCategorySpending dateFilter={dateFilter} />
+    case "dayOfWeekCategory":
+      return <ChartDayOfWeekCategory dateFilter={dateFilter} />
+    default:
+      return null
+  }
+}
 
 /**
  * FavoritesGrid - Memoized grid of favorite charts
@@ -522,132 +654,7 @@ export const FavoritesGrid = memo(function FavoritesGrid({
                   </div>
                 ) : (
                   <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                    {(() => {
-                      if (
-                        chartId === "incomeExpensesTracking1" ||
-                        chartId === "incomeExpensesTracking2"
-                      ) {
-                        return (
-                          <ChartAreaInteractive
-                            chartId={chartId}
-                            categoryControls={incomeExpenseControls}
-                            data={incomeExpensesChartData}
-                          />
-                        )
-                      }
-                      if (chartId === "spendingCategoryRankings") {
-                        return (
-                          <ChartCategoryFlow
-                            categoryControls={categoryFlowControls}
-                            data={categoryFlowChartData}
-                          />
-                        )
-                      }
-                      if (chartId === "moneyFlow") {
-                        return (
-                          <ChartSpendingFunnel
-                            categoryControls={spendingFunnelControls}
-                            data={spendingFunnelChartData}
-                          />
-                        )
-                      }
-                      if (chartId === "cashFlowSankey") {
-                        return (
-                          <ChartSankey
-                            data={sankeyData.graph}
-                            categoryControls={sankeyControls}
-                          />
-                        )
-                      }
-                      if (chartId === "expenseBreakdown") {
-                        return (
-                          <ChartExpensesPie
-                            categoryControls={expensesPieControls}
-                            data={expensesPieChartData}
-                          />
-                        )
-                      }
-                      if (chartId === "netWorthAllocation") {
-                        return (
-                          <ChartTreeMap
-                            categoryControls={treeMapControls}
-                            data={treeMapChartData}
-                          />
-                        )
-                      }
-                      if (chartId === "needsWantsBreakdown") {
-                        return (
-                          <ChartNeedsWantsPie
-                            data={expensesPieChartData}
-                            categoryControls={expensesPieControls}
-                          />
-                        )
-                      }
-                      if (chartId === "categoryBubbleMap") {
-                        return <ChartCategoryBubble data={chartTransactions} />
-                      }
-                      if (chartId === "householdSpendMix") {
-                        return (
-                          <ChartPolarBar
-                            data={polarBarChartData}
-                            categoryControls={expensesPieControls}
-                          />
-                        )
-                      }
-                      if (chartId === "spendingStreamgraph") {
-                        return (
-                          <ChartSpendingStreamgraph
-                            data={spendingStreamData.data}
-                            keys={spendingStreamData.keys}
-                            categoryControls={streamgraphControls}
-                          />
-                        )
-                      }
-                      if (chartId === "transactionHistory") {
-                        return (
-                          <ChartSwarmPlot
-                            data={chartTransactions
-                              .map((tx, idx) => ({
-                                id: `tx-${tx.id || idx}`,
-                                group: normalizeCategoryName(tx.category),
-                                price: Math.abs(tx.amount),
-                                volume: Math.min(
-                                  Math.max(Math.abs(tx.amount) / 50, 4),
-                                  20
-                                ),
-                                category: normalizeCategoryName(tx.category),
-                              }))
-                              .filter((item) => item.price > 0)}
-                          />
-                        )
-                      }
-                      if (chartId === "dailyTransactionActivity") {
-                        return <ChartTransactionCalendar />
-                      }
-                      if (chartId === "dayOfWeekSpending") {
-                        return (
-                          <ChartDayOfWeekSpending
-                            data={chartTransactions}
-                            categoryControls={expensesPieControls}
-                          />
-                        )
-                      }
-                      if (chartId === "allMonthsCategorySpending") {
-                        return (
-                          <ChartAllMonthsCategorySpending
-                            data={chartTransactions}
-                            categoryControls={expensesPieControls}
-                          />
-                        )
-                      }
-                      if (chartId === "singleMonthCategorySpending") {
-                        return <ChartSingleMonthCategorySpending dateFilter={dateFilter} />
-                      }
-                      if (chartId === "dayOfWeekCategory") {
-                        return <ChartDayOfWeekCategory dateFilter={dateFilter} />
-                      }
-                      return null
-                    })()}
+                    {renderFavoriteChart(chartId, chartData, dateFilter)}
                   </div>
                 )}
               </SortableGridItem>
