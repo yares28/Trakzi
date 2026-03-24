@@ -70,6 +70,10 @@ export interface RoomBundleData {
         from_name: string
         uploaded_by: string
         is_payer: boolean
+        item_id: string | null
+        item_name: string | null
+        item_category: string | null
+        shared_tx_id: string
     }[]
     sourceBreakdown?: {
         personal_import: { total: number; count: number }

@@ -222,18 +222,30 @@ export async function GET(
                 from_name: string
                 uploaded_by: string
                 is_payer: boolean
+                item_id: string | null
+                item_name: string | null
+                item_category: string | null
+                shared_tx_id: string
             }>(
                 `SELECT
                     ts.id,
-                    st.description,
+                    CASE
+                        WHEN ts.item_id IS NOT NULL THEN COALESCE(ri.name, st.description)
+                        ELSE st.description
+                    END AS description,
                     ts.amount,
                     st.currency,
                     COALESCE(u.name, 'Unknown') AS from_name,
                     st.uploaded_by,
-                    (st.uploaded_by = $2) AS is_payer
+                    (st.uploaded_by = $2) AS is_payer,
+                    ts.item_id,
+                    ri.name AS item_name,
+                    COALESCE(ri.category, st.category) AS item_category,
+                    st.id AS shared_tx_id
                  FROM transaction_splits ts
                  JOIN shared_transactions st ON st.id = ts.shared_tx_id
                  JOIN users u ON u.id = st.uploaded_by
+                 LEFT JOIN receipt_items ri ON ri.id = ts.item_id
                  WHERE st.room_id = $1
                    AND ts.status = 'pending'
                    AND (ts.user_id = $2 OR st.uploaded_by = $2)

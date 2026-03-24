@@ -68,17 +68,6 @@ export async function DELETE(
                 { status: 403 }
             )
         }
-        // Admins can't remove other admins (only owners can)
-        if (targetMembership.role === "admin") {
-            const isOwner = await verifyRoomOwner(roomId, currentUserId)
-            if (!isOwner) {
-                return NextResponse.json(
-                    { success: false, error: "Only the room owner can remove admins" },
-                    { status: 403 }
-                )
-            }
-        }
-
         await neonQuery(
             `DELETE FROM room_members WHERE room_id = $1 AND user_id = $2`,
             [roomId, targetUserId]

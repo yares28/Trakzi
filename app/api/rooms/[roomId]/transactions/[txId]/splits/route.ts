@@ -6,6 +6,8 @@ import { neonQuery, neonInsert } from "@/lib/neonClient"
 import { verifyRoomMember, verifyRoomAdmin } from "@/lib/rooms/permissions"
 import { validateSplits, type SplitInput } from "@/lib/rooms/split-validation"
 import { invalidateRoomCache, invalidateUserCachePrefix } from "@/lib/cache/upstash"
+import { wouldExceedCap, } from "@/lib/limits/auto-enforce-cap"
+import { recordMonthlyUsage } from "@/lib/limits/transaction-wallet"
 import type { SplitType, SharedTransaction } from "@/lib/types/rooms"
 
 const UpdateSplitsSchema = z.object({
@@ -74,8 +76,16 @@ export async function PUT(
             [txId]
         )
 
+        // Also delete any existing personal room_share transactions for this shared tx
+        // (they'll be re-written below for the uploader's new splits)
+        await neonQuery(
+            `DELETE FROM transactions
+             WHERE room_transaction_id = $1 AND user_id = $2 AND source_type = 'room_share'`,
+            [txId, tx.uploaded_by]
+        )
+
         let splitCount = 0
-        let resolvedSplits: { user_id: string; amount: number }[] = []
+        let resolvedSplits: { user_id: string; amount: number; item_id?: string }[] = []
         if (data.splits.length > 0) {
             // Validate and insert new splits
             resolvedSplits = validateSplits(
@@ -86,26 +96,72 @@ export async function PUT(
             )
 
             for (const split of resolvedSplits) {
+                const isUploaderSplit = split.user_id === tx.uploaded_by
                 await neonInsert("transaction_splits", {
                     shared_tx_id: txId,
                     user_id: split.user_id,
                     amount: split.amount,
-                    status: split.user_id === userId ? "settled" : "pending",
-                    settled_at: split.user_id === userId ? new Date().toISOString() : null,
+                    item_id: split.item_id ?? null,
+                    status: isUploaderSplit ? "settled" : "pending",
+                    settled_at: isUploaderSplit ? new Date().toISOString() : null,
                 })
                 splitCount++
+            }
+
+            // Write personal expense transactions for the uploader's own auto-settled splits.
+            // Debtors get their personal tx when they explicitly settle via the settle dialog.
+            const uploaderSplits = resolvedSplits.filter(s => s.user_id === tx.uploaded_by)
+            if (uploaderSplits.length > 0) {
+                // Check wallet capacity before writing personal txs
+                const cap = await wouldExceedCap(tx.uploaded_by, uploaderSplits.length)
+                if (!cap.wouldExceed) {
+                    // Fetch item details for any item-level splits
+                    const itemIds = uploaderSplits.map(s => s.item_id).filter(Boolean) as string[]
+                    const itemRows = itemIds.length > 0
+                        ? await neonQuery<{ id: string; name: string; category: string | null }>(
+                            `SELECT id, name, category FROM receipt_items WHERE id = ANY($1::text[])`,
+                            [itemIds]
+                          )
+                        : []
+                    const itemMap = new Map(itemRows.map(r => [r.id, r]))
+
+                    const today = new Date().toISOString().split('T')[0]
+                    for (const split of uploaderSplits) {
+                        const item = split.item_id ? itemMap.get(split.item_id) : null
+                        const description = item?.name ?? tx.description
+                        const category = item?.category ?? tx.category ?? 'Other'
+
+                        await neonInsert("transactions", {
+                            user_id: tx.uploaded_by,
+                            tx_date: today,
+                            description,
+                            amount: split.amount,
+                            category,
+                            currency: tx.currency,
+                            tx_type: 'expense',
+                            source_type: 'room_share',
+                            room_transaction_id: txId,
+                            room_id: roomId,
+                            room_item_id: split.item_id ?? null,
+                        })
+                    }
+                    await recordMonthlyUsage(tx.uploaded_by, uploaderSplits.length)
+                    await invalidateUserCachePrefix(tx.uploaded_by, 'home')
+                    await invalidateUserCachePrefix(tx.uploaded_by, 'savings')
+                    await invalidateUserCachePrefix(tx.uploaded_by, 'trends')
+                    await invalidateUserCachePrefix(tx.uploaded_by, 'data-library')
+                }
+                // If wallet is full, skip writing personal tx — settle-time check will
+                // catch it for debtors; uploader's tx is best-effort at assignment time.
             }
         }
         // If splits is empty, the transaction is now unattributed (no rows)
 
         await invalidateRoomCache(roomId)
-        // Invalidate analytics for parties whose sharedExpenseSummary is affected:
-        // the uploader (fronted/pending_owed_to_you) and the caller (may differ)
         await invalidateUserCachePrefix(tx.uploaded_by, 'analytics')
         if (userId !== tx.uploaded_by) {
             await invalidateUserCachePrefix(userId, 'analytics')
         }
-        // Also invalidate analytics for anyone newly in the splits (their you_owe changes)
         for (const split of resolvedSplits) {
             if (split.user_id !== tx.uploaded_by && split.user_id !== userId) {
                 await invalidateUserCachePrefix(split.user_id, 'analytics')

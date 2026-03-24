@@ -1,14 +1,23 @@
 "use client"
 
 import { memo, useState } from "react"
-import { ArrowDownToLine, Receipt, FileSpreadsheet, PenLine, Edit2, ChevronDown, ChevronUp, MinusCircle } from "lucide-react"
+import { ArrowDownToLine, Receipt, FileSpreadsheet, PenLine, Edit2, ChevronDown, ChevronUp, MinusCircle, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table"
 import { cn } from "@/lib/utils"
 import { useCurrency } from "@/components/currency-provider"
+import { demoFetch } from "@/lib/demo/demo-fetch"
 
 interface Split {
     user_id: string
@@ -46,20 +55,24 @@ interface RoomAttributionListProps {
     transactions: Transaction[]
     onEditSplits?: (txId: string) => void
     onAddTransactions?: () => void
+    currentUserId?: string
+    currentUserRole?: string
+    roomId?: string
+    onDeleted?: () => void
 }
 
 function getSourceIcon(sourceType: string) {
     switch (sourceType) {
-        case "personal_import": return <ArrowDownToLine className="w-3.5 h-3.5" />
-        case "receipt": return <Receipt className="w-3.5 h-3.5" />
-        case "statement": return <FileSpreadsheet className="w-3.5 h-3.5" />
-        default: return <PenLine className="w-3.5 h-3.5" />
+        case "personal_import": return <ArrowDownToLine className="w-3 h-3" />
+        case "receipt": return <Receipt className="w-3 h-3" />
+        case "statement": return <FileSpreadsheet className="w-3 h-3" />
+        default: return <PenLine className="w-3 h-3" />
     }
 }
 
 function getSourceLabel(sourceType: string) {
     switch (sourceType) {
-        case "personal_import": return "Imported"
+        case "personal_import": return "Import"
         case "receipt": return "Receipt"
         case "statement": return "Statement"
         default: return "Manual"
@@ -80,16 +93,14 @@ function AttributionChips({ splits }: { splits: Split[] }) {
             </Badge>
         )
     }
-    // Group by user (for top-level splits)
     const byUser = splits.reduce<Record<string, number>>((acc, s) => {
         acc[s.user_id] = (acc[s.user_id] ?? 0) + s.amount
         return acc
     }, {})
-    const entries = Object.entries(byUser)
 
     return (
         <div className="flex flex-wrap gap-1">
-            {entries.map(([uid, amt]) => {
+            {Object.entries(byUser).map(([uid, amt]) => {
                 const name = splits.find(s => s.user_id === uid)?.display_name ?? uid
                 return (
                     <div key={uid} className="flex items-center gap-1 text-[10px] bg-muted/50 rounded-full px-2 py-0.5">
@@ -105,100 +116,131 @@ function AttributionChips({ splits }: { splits: Split[] }) {
     )
 }
 
+function ItemAmount({ amount }: { amount: number }) {
+    const { formatCurrency } = useCurrency()
+    return <>{formatCurrency(amount)}</>
+}
+
+function ExpandedItems({ items, splits }: { items: ReceiptItem[]; splits: Split[] }) {
+    return (
+        <div className="space-y-1.5">
+            {items.map(item => {
+                const itemSplits = splits.filter(s => s.item_id === item.id)
+                return (
+                    <div key={item.id} className="flex items-start justify-between gap-2 text-xs bg-muted/30 rounded-lg px-3 py-2">
+                        <div className="min-w-0 space-y-1">
+                            <p className="truncate font-medium">{item.name}</p>
+                            <AttributionChips splits={itemSplits} />
+                        </div>
+                        <span className="tabular-nums shrink-0 font-medium">
+                            <ItemAmount amount={item.amount} />
+                        </span>
+                    </div>
+                )
+            })}
+        </div>
+    )
+}
+
 function TransactionRow({
     tx,
     onEdit,
+    canDelete,
+    onDelete,
 }: {
     tx: Transaction
     onEdit?: (txId: string) => void
+    canDelete: boolean
+    onDelete: (txId: string) => void
 }) {
     const { formatCurrency } = useCurrency()
     const [expanded, setExpanded] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
     const sourceType = tx.source_type ?? (tx.metadata as any)?.source_type ?? "manual"
     const hasItems = (tx.items?.length ?? 0) > 0
     const topLevelSplits = (tx.splits ?? []).filter(s => !s.item_id)
-    const isAttributed = tx.is_attributed ?? (tx.splits?.length ?? 0) > 0
     const unattributedItemCount = hasItems
         ? (tx.items ?? []).filter(item => !(tx.splits ?? []).some(s => s.item_id === item.id)).length
         : 0
 
-    return (
-        <div className="px-6 py-4 space-y-2">
-            {/* Main row */}
-            <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3 min-w-0 flex-1">
-                    <div className="mt-0.5 text-muted-foreground shrink-0">
-                        {getSourceIcon(sourceType)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-medium text-sm">{tx.description}</p>
-                            <Badge variant="outline" className="text-[10px] h-4 shrink-0">
-                                {getSourceLabel(sourceType)}
-                            </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                            {tx.uploader_name} · {tx.transaction_date}
-                        </p>
-                        {/* Attribution chips */}
-                        {!hasItems && (
-                            <div className="mt-1.5">
-                                <AttributionChips splits={topLevelSplits} />
-                            </div>
-                        )}
-                        {hasItems && (
-                            <div className="mt-1.5 flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground">
-                                    {tx.items!.length} items
-                                    {unattributedItemCount > 0 && (
-                                        <span className="text-amber-500 ml-1">· {unattributedItemCount} unattributed</span>
-                                    )}
-                                </span>
-                                <button
-                                    type="button"
-                                    onClick={() => setExpanded(v => !v)}
-                                    className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground"
-                                >
-                                    {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                                    {expanded ? "Collapse" : "Expand"}
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-                <div className="text-right shrink-0 flex flex-col items-end gap-1">
-                    <p className="font-semibold tabular-nums text-sm">{formatCurrency(tx.total_amount)}</p>
-                    {onEdit && (
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => onEdit(tx.id)}
-                        >
-                            <Edit2 className="w-3 h-3" />
-                        </Button>
-                    )}
-                </div>
-            </div>
+    const handleDelete = async () => {
+        if (!confirm("Delete this transaction? This cannot be undone.")) return
+        setIsDeleting(true)
+        try {
+            await onDelete(tx.id)
+        } finally {
+            setIsDeleting(false)
+        }
+    }
 
-            {/* Expanded items */}
+    return (
+        <>
+            <TableRow className="group hover:bg-muted/40">
+                <TableCell className="text-xs text-muted-foreground tabular-nums whitespace-nowrap py-3 pl-4">
+                    {tx.transaction_date}
+                </TableCell>
+                <TableCell className="py-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-muted-foreground shrink-0">{getSourceIcon(sourceType)}</span>
+                        <span className="font-medium text-sm truncate max-w-[180px]">{tx.description}</span>
+                        <Badge variant="outline" className="text-[10px] h-4 shrink-0 hidden sm:flex">
+                            {getSourceLabel(sourceType)}
+                        </Badge>
+                    </div>
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground py-3 hidden md:table-cell">
+                    {tx.uploader_name}
+                </TableCell>
+                <TableCell className="py-3">
+                    {hasItems ? (
+                        <button
+                            type="button"
+                            onClick={() => setExpanded(v => !v)}
+                            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                            {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                            {tx.items!.length} items
+                            {unattributedItemCount > 0 && (
+                                <span className="text-amber-500 ml-1">· {unattributedItemCount} unattributed</span>
+                            )}
+                        </button>
+                    ) : (
+                        <AttributionChips splits={topLevelSplits} />
+                    )}
+                </TableCell>
+                <TableCell className="text-right font-semibold tabular-nums text-sm py-3 pr-2">
+                    {formatCurrency(tx.total_amount)}
+                </TableCell>
+                <TableCell className="py-3 pr-4 w-16">
+                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {onEdit && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(tx.id)}>
+                                <Edit2 className="w-3.5 h-3.5" />
+                            </Button>
+                        )}
+                        {canDelete && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                onClick={handleDelete}
+                                disabled={isDeleting}
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                        )}
+                    </div>
+                </TableCell>
+            </TableRow>
+
             {hasItems && expanded && (
-                <div className="pl-6 space-y-1.5">
-                    {tx.items!.map(item => {
-                        const itemSplits = (tx.splits ?? []).filter(s => s.item_id === item.id)
-                        return (
-                            <div key={item.id} className="flex items-start justify-between gap-2 text-xs bg-muted/30 rounded-lg px-3 py-2">
-                                <div className="min-w-0">
-                                    <p className="truncate font-medium">{item.name}</p>
-                                    <AttributionChips splits={itemSplits} />
-                                </div>
-                                <span className="tabular-nums shrink-0 font-medium">{formatCurrency(item.amount)}</span>
-                            </div>
-                        )
-                    })}
-                </div>
+                <TableRow className="bg-muted/20 hover:bg-muted/20">
+                    <TableCell colSpan={6} className="py-2 pl-10 pr-4">
+                        <ExpandedItems items={tx.items!} splits={tx.splits ?? []} />
+                    </TableCell>
+                </TableRow>
             )}
-        </div>
+        </>
     )
 }
 
@@ -206,14 +248,38 @@ export const RoomAttributionList = memo(function RoomAttributionList({
     transactions,
     onEditSplits,
     onAddTransactions,
+    currentUserId,
+    currentUserRole,
+    roomId,
+    onDeleted,
 }: RoomAttributionListProps) {
     const [filter, setFilter] = useState<"all" | "unattributed">("all")
+
+    const isAdmin = currentUserRole === "owner" || currentUserRole === "admin"
 
     const unattributedCount = transactions.filter(tx => !(tx.is_attributed ?? (tx.splits?.length ?? 0) > 0)).length
 
     const filtered = filter === "unattributed"
         ? transactions.filter(tx => !(tx.is_attributed ?? (tx.splits?.length ?? 0) > 0))
         : transactions
+
+    const handleDelete = async (txId: string) => {
+        if (!roomId) return
+        try {
+            const res = await demoFetch(`/api/rooms/${roomId}/transactions/${txId}`, {
+                method: "DELETE",
+            })
+            if (!res.ok) {
+                const json = await res.json()
+                toast.error(json.error ?? "Failed to delete transaction")
+                return
+            }
+            toast.success("Transaction deleted")
+            onDeleted?.()
+        } catch {
+            toast.error("Failed to delete transaction")
+        }
+    }
 
     return (
         <div className="space-y-3">
@@ -226,7 +292,6 @@ export const RoomAttributionList = memo(function RoomAttributionList({
                 )}
             </div>
 
-            {/* Filter tabs */}
             <div className="flex items-center gap-2 px-1">
                 <button
                     type="button"
@@ -252,26 +317,43 @@ export const RoomAttributionList = memo(function RoomAttributionList({
                 )}
             </div>
 
-            <Card className="border-border/40 bg-white/5 dark:bg-black/20 backdrop-blur-xl rounded-3xl overflow-hidden">
+            <div className="rounded-3xl border border-border/40 bg-white/5 dark:bg-black/20 backdrop-blur-xl overflow-hidden">
                 {filtered.length === 0 ? (
-                    <CardContent className="py-12 text-center text-muted-foreground text-sm">
+                    <div className="py-12 text-center text-muted-foreground text-sm">
                         {filter === "unattributed"
                             ? "All transactions are attributed."
                             : "No transactions yet. Add a shared expense to get started."
                         }
-                    </CardContent>
+                    </div>
                 ) : (
-                    <CardContent className="p-0 divide-y divide-border/30">
-                        {filtered.map(tx => (
-                            <TransactionRow
-                                key={tx.id}
-                                tx={tx}
-                                onEdit={onEditSplits}
-                            />
-                        ))}
-                    </CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="hover:bg-transparent border-border/40">
+                                <TableHead className="pl-4 text-xs">Date</TableHead>
+                                <TableHead className="text-xs">Description</TableHead>
+                                <TableHead className="text-xs hidden md:table-cell">Added by</TableHead>
+                                <TableHead className="text-xs">Attribution</TableHead>
+                                <TableHead className="text-right text-xs pr-2">Amount</TableHead>
+                                <TableHead className="w-16 pr-4" />
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {filtered.map(tx => {
+                                const canDelete = isAdmin || tx.uploaded_by === currentUserId
+                                return (
+                                    <TransactionRow
+                                        key={tx.id}
+                                        tx={tx}
+                                        onEdit={onEditSplits}
+                                        canDelete={canDelete}
+                                        onDelete={handleDelete}
+                                    />
+                                )
+                            })}
+                        </TableBody>
+                    </Table>
                 )}
-            </Card>
+            </div>
         </div>
     )
 })

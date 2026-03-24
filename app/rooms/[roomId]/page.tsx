@@ -160,6 +160,10 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
                                     transactions={data.recentTransactions}
                                     onEditSplits={(txId) => setEditTxId(txId)}
                                     onAddTransactions={() => setAddDialogOpen(true)}
+                                    currentUserId={userId ?? undefined}
+                                    currentUserRole={currentUserRole}
+                                    roomId={roomId}
+                                    onDeleted={() => queryClient.invalidateQueries({ queryKey: ["room-bundle", roomId] })}
                                 />
                             </div>
                         )}

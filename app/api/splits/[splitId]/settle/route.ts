@@ -4,16 +4,20 @@ import { z } from "zod"
 import { getCurrentUserId } from "@/lib/auth"
 import { neonQuery, neonInsert } from "@/lib/neonClient"
 import { invalidateRoomCache, invalidateUserCachePrefix } from "@/lib/cache/upstash"
+import { wouldExceedCap } from "@/lib/limits/auto-enforce-cap"
+import { recordMonthlyUsage } from "@/lib/limits/transaction-wallet"
 
 const SettleBodySchema = z.object({
     // omit = legacy path: mark split settled only, no personal transaction created
     payment_method: z.enum(["cash", "bank"]).optional(),
+    // Category for the personal expense tx written on settle (for debtor's share)
+    category: z.string().optional(),
 })
 
 type InsertedTx = Record<string, unknown> & { id?: number }
 
 // PATCH /api/splits/[splitId]/settle — Mark a split as settled
-// Body (optional): { payment_method: 'cash' | 'bank' }
+// Body (optional): { payment_method: 'cash' | 'bank', category?: string }
 //   cash → create personal settlement tx immediately (pending_import_match=false)
 //   bank → create personal settlement tx with pending_import_match=true (for CSV linking)
 //   omitted → legacy: mark split settled only
@@ -30,9 +34,9 @@ export async function PATCH(
         const { splitId } = await params
 
         const body = await req.json().catch(() => ({}))
-        const { payment_method } = SettleBodySchema.parse(body)
+        const { payment_method, category } = SettleBodySchema.parse(body)
 
-        // Fetch split + shared tx context
+        // Fetch split + shared tx context (including item details if item-level split)
         const rows = await neonQuery<{
             id: string
             user_id: string
@@ -41,16 +45,28 @@ export async function PATCH(
             uploaded_by: string
             room_id: string | null
             friendship_id: string | null
+            shared_tx_id: string
             shared_tx_description: string
             shared_tx_currency: string
+            shared_tx_category: string | null
             room_name: string | null
+            item_id: string | null
+            item_name: string | null
+            item_category: string | null
         }>(
             `SELECT ts.id, ts.user_id, ts.amount, ts.status, st.uploaded_by,
-                    st.room_id, st.friendship_id, st.description AS shared_tx_description,
-                    st.currency AS shared_tx_currency, r.name AS room_name
+                    st.room_id, st.friendship_id, st.id AS shared_tx_id,
+                    st.description AS shared_tx_description,
+                    st.currency AS shared_tx_currency,
+                    st.category AS shared_tx_category,
+                    r.name AS room_name,
+                    ts.item_id,
+                    ri.name AS item_name,
+                    COALESCE(ri.category, st.category) AS item_category
              FROM transaction_splits ts
              JOIN shared_transactions st ON st.id = ts.shared_tx_id
              LEFT JOIN rooms r ON r.id = st.room_id
+             LEFT JOIN receipt_items ri ON ri.id = ts.item_id
              WHERE ts.id = $1
                AND (
                    (st.room_id IS NOT NULL AND EXISTS (
@@ -96,6 +112,25 @@ export async function PATCH(
             ? `${split.room_name} — ${split.shared_tx_description}`
             : split.shared_tx_description
 
+        const isDebtor = split.user_id === userId
+
+        // For debtors: check wallet capacity before writing any personal transactions.
+        // Wallet full = block settlement entirely (user must free space or upgrade).
+        if (isDebtor && split.uploaded_by !== userId && payment_method) {
+            const cap = await wouldExceedCap(userId, 1)
+            if (cap.wouldExceed) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: "You've reached your transaction limit. Delete transactions from the Data Library or upgrade your plan to continue.",
+                        code: "WALLET_FULL",
+                        plan: cap.plan,
+                    },
+                    { status: 402 }
+                )
+            }
+        }
+
         // Step 1 (optional): Create personal settlement tx BEFORE marking split settled.
         // If this insert fails, the split stays pending — user can retry. Safe ordering.
         let personalTxId: number | null = null
@@ -104,11 +139,8 @@ export async function PATCH(
         if (payment_method) {
             pendingImportMatch = payment_method === "bank"
 
-            const isDebtor = split.user_id === userId
-            // Edge case: uploader assigned a split to themselves — skip personal tx creation
-            // as that would double-count (they already own the full transaction).
             if (isDebtor && split.uploaded_by !== userId) {
-                // Non-payer settling their debt: money going out
+                // Debtor settling their debt: record the payment going out
                 const ptRows = await neonInsert<InsertedTx>("transactions", {
                     user_id: userId,
                     tx_date: today,
@@ -120,8 +152,35 @@ export async function PATCH(
                     pending_import_match: pendingImportMatch,
                 })
                 personalTxId = ptRows[0]?.id ?? null
+
+                // Also write the actual EXPENSE transaction for the debtor's share.
+                // This is the record that appears in their personal analytics/categories.
+                const expenseDescription = split.item_id
+                    ? (split.item_name ?? split.shared_tx_description)
+                    : split.shared_tx_description
+                const expenseCategory = category
+                    ?? split.item_category
+                    ?? split.shared_tx_category
+                    ?? 'Other'
+
+                await neonInsert<InsertedTx>("transactions", {
+                    user_id: userId,
+                    tx_date: today,
+                    description: expenseDescription,
+                    amount: Number(split.amount),
+                    category: expenseCategory,
+                    currency: split.shared_tx_currency,
+                    tx_type: 'expense',
+                    source_type: 'room_share',
+                    room_transaction_id: split.shared_tx_id,
+                    room_id: split.room_id,
+                    room_item_id: split.item_id,
+                })
+
+                await recordMonthlyUsage(userId, 1)
+
             } else if (!isDebtor && split.uploaded_by === userId) {
-                // Payer confirming receipt of payment: money coming in
+                // Uploader confirming receipt of payment from a debtor: money coming in
                 const ptRows = await neonInsert<InsertedTx>("transactions", {
                     user_id: userId,
                     tx_date: today,
@@ -148,6 +207,8 @@ export async function PATCH(
         }
         await invalidateUserCachePrefix(userId, 'analytics')
         await invalidateUserCachePrefix(userId, 'home')
+        await invalidateUserCachePrefix(userId, 'trends')
+        await invalidateUserCachePrefix(userId, 'savings')
         if (personalTxId) {
             await invalidateUserCachePrefix(userId, 'data-library')
         }

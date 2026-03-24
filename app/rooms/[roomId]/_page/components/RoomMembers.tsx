@@ -1,13 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { ShieldCheck, UserRound, ChevronDown } from "lucide-react"
+import { ShieldCheck, UserRound, ChevronDown, UserMinus } from "lucide-react"
 import { toast } from "sonner"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ProfileModal } from "@/components/friends/profile-modal"
 import type { ProfileModalUser } from "@/components/friends/profile-modal"
 import { cn } from "@/lib/utils"
@@ -55,6 +55,25 @@ export function RoomMembers({ members, balances = EMPTY_BALANCES, currentUserId,
 
     const isAdmin = currentUserRole === "owner" || currentUserRole === "admin"
 
+    const handleKick = async (targetUserId: string) => {
+        if (!roomId) return
+        if (!confirm("Remove this member from the room?")) return
+        try {
+            const res = await demoFetch(`/api/rooms/${roomId}/members/${targetUserId}`, {
+                method: "DELETE",
+            })
+            if (!res.ok) {
+                const json = await res.json()
+                toast.error(json.error ?? "Failed to remove member")
+                return
+            }
+            toast.success("Member removed from room")
+            onMemberUpdated?.()
+        } catch {
+            toast.error("Failed to remove member")
+        }
+    }
+
     const handleRoleChange = async (targetUserId: string, newRole: "admin" | "member") => {
         if (!roomId) return
         try {
@@ -83,7 +102,7 @@ export function RoomMembers({ members, balances = EMPTY_BALANCES, currentUserId,
                     {members.map(m => {
                         const netBalance = balanceMap[m.user_id] ?? 0
                         const isYou = m.user_id === currentUserId
-                        const canManage = isAdmin && !isYou && m.role !== "owner" && m.role !== "admin"
+                        const canManage = isAdmin && !isYou && m.role !== "owner"
 
                         return (
                             <div
@@ -146,6 +165,14 @@ export function RoomMembers({ members, balances = EMPTY_BALANCES, currentUserId,
                                                         Remove Admin
                                                     </DropdownMenuItem>
                                                 )}
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem
+                                                    onClick={() => handleKick(m.user_id)}
+                                                    className="text-destructive focus:text-destructive"
+                                                >
+                                                    <UserMinus className="w-3.5 h-3.5 mr-2" />
+                                                    Remove from Room
+                                                </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     )}

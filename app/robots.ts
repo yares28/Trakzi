@@ -8,27 +8,27 @@ export default function robots(): MetadataRoute.Robots {
             {
                 userAgent: "*",
                 allow: "/",
-                disallow: ["/api/", "/home/", "/dashboard/", "/analytics/", "/savings/", "/fridge/", "/friends/", "/pockets/", "/rooms/", "/billing/", "/admin/", "/chat/", "/data-library/", "/challenges/"],
+                disallow: ["/api/", "/home", "/dashboard", "/analytics", "/savings", "/fridge", "/friends", "/pockets", "/rooms", "/billing", "/admin", "/chat", "/data-library", "/challenges"],
             },
             {
                 userAgent: "GPTBot",
                 allow: "/",
-                disallow: ["/api/", "/home/", "/dashboard/", "/analytics/", "/savings/", "/fridge/", "/friends/", "/pockets/", "/rooms/", "/billing/", "/admin/", "/chat/", "/data-library/", "/challenges/"],
+                disallow: ["/api/", "/home", "/dashboard", "/analytics", "/savings", "/fridge", "/friends", "/pockets", "/rooms", "/billing", "/admin", "/chat", "/data-library", "/challenges"],
             },
             {
                 userAgent: "ChatGPT-User",
                 allow: "/",
-                disallow: ["/api/", "/home/", "/dashboard/", "/analytics/", "/savings/", "/fridge/", "/friends/", "/pockets/", "/rooms/", "/billing/", "/admin/", "/chat/", "/data-library/", "/challenges/"],
+                disallow: ["/api/", "/home", "/dashboard", "/analytics", "/savings", "/fridge", "/friends", "/pockets", "/rooms", "/billing", "/admin", "/chat", "/data-library", "/challenges"],
             },
             {
                 userAgent: "anthropic-ai",
                 allow: "/",
-                disallow: ["/api/", "/home/", "/dashboard/", "/analytics/", "/savings/", "/fridge/", "/friends/", "/pockets/", "/rooms/", "/billing/", "/admin/", "/chat/", "/data-library/", "/challenges/"],
+                disallow: ["/api/", "/home", "/dashboard", "/analytics", "/savings", "/fridge", "/friends", "/pockets", "/rooms", "/billing", "/admin", "/chat", "/data-library", "/challenges"],
             },
             {
                 userAgent: "PerplexityBot",
                 allow: "/",
-                disallow: ["/api/", "/home/", "/dashboard/", "/analytics/", "/savings/", "/fridge/", "/friends/", "/pockets/", "/rooms/", "/billing/", "/admin/", "/chat/", "/data-library/", "/challenges/"],
+                disallow: ["/api/", "/home", "/dashboard", "/analytics", "/savings", "/fridge", "/friends", "/pockets", "/rooms", "/billing", "/admin", "/chat", "/data-library", "/challenges"],
             },
         ],
         sitemap: `${baseUrl}/sitemap.xml`,

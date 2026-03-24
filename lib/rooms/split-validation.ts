@@ -7,19 +7,27 @@ export type SplitInput = {
     user_id: string
     amount?: number
     percentage?: number
-    item_ids?: string[]
+    item_id?: string
+}
+
+export type ResolvedSplit = {
+    user_id: string
+    amount: number
+    item_id?: string
 }
 
 /**
  * Validate and compute split amounts based on split type.
  * Returns the resolved amounts per user, or throws on validation error.
+ *
+ * For item_level splits, duplicate user_ids are allowed (one entry per item).
  */
 export function validateSplits(
     splitType: SplitType,
     totalAmount: number,
     memberUserIds: string[],
     splits: SplitInput[]
-): { user_id: string; amount: number }[] {
+): ResolvedSplit[] {
     if (splits.length === 0) {
         return [] // Unattributed — no splits assigned yet
     }
@@ -32,10 +40,13 @@ export function validateSplits(
         }
     }
 
-    // Check for duplicate users
-    const userIds = splits.map(s => s.user_id)
-    if (new Set(userIds).size !== userIds.length) {
-        throw new Error('Duplicate user in splits')
+    // Duplicate user check only applies to non-item_level splits
+    // (item_level allows the same user to appear multiple times, once per item)
+    if (splitType !== 'item_level') {
+        const userIds = splits.map(s => s.user_id)
+        if (new Set(userIds).size !== userIds.length) {
+            throw new Error('Duplicate user in splits')
+        }
     }
 
     switch (splitType) {
@@ -78,11 +89,12 @@ export function validateSplits(
         }
 
         case 'item_level': {
-            // Item-level splits are handled separately via receipt_items
-            // For now, just pass through the custom amounts
+            // Each entry represents one item assigned to a user.
+            // Pass item_id through so callers can link splits to receipt_items.
             return splits.map(split => ({
                 user_id: split.user_id,
                 amount: Math.round((split.amount ?? 0) * 100) / 100,
+                item_id: split.item_id,
             }))
         }
 
