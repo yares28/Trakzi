@@ -18,7 +18,6 @@ import { ClaudeChatInput } from "@/components/claude-style-chat-input"
 import { ChatHistorySheet } from "@/components/chat/chat-history-sheet"
 import { useCurrency } from "@/components/currency-provider"
 import { getAnomalyChips, type AnomalyChip } from "@/lib/chat/anomaly-chips"
-import { shouldShowWeeklyDigest, markWeeklyDigestShown, WEEKLY_DIGEST_PROMPT } from "@/lib/chat/weekly-digest"
 
 interface Message {
   id: string
@@ -179,7 +178,7 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
   const searchParams = useSearchParams()
   const initialPromptSent = useRef(false)
   const bottomAnchorRef = useRef<HTMLDivElement>(null)
-  const digestSentRef = useRef(false)
+
 
   const { currency } = useCurrency()
   const { user } = useUser()
@@ -350,17 +349,6 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
     },
     [isLoading, streamAssistant, refreshChatUsage]
   )
-
-  // Feature 4: Weekly digest — auto-trigger on first open of the week
-  useEffect(() => {
-    if (isLoadingStats || digestSentRef.current) return
-    if (!shouldShowWeeklyDigest()) return
-    digestSentRef.current = true
-    markWeeklyDigestShown()
-    const t = setTimeout(() => sendMessage(WEEKLY_DIGEST_PROMPT), 600)
-    return () => clearTimeout(t)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoadingStats])
 
   // Auto-send from URL param
   useEffect(() => {

@@ -933,33 +933,39 @@ export function useAnalyticsChartData({
   )
 
   const polarBarData = useMemo(() => {
-    // Use bundle data if available for monthly category data
-    if (bundleData?.monthlyCategories && bundleData.monthlyCategories.length > 0 && bundleData?.categorySpending) {
+    // Use bundle data if available for monthly category data.
+    // Require categorySpending to be non-empty so an empty array doesn't
+    // block the rawTransactions fallback below.
+    if (bundleData?.monthlyCategories && bundleData.monthlyCategories.length > 0 && bundleData?.categorySpending && bundleData.categorySpending.length > 0) {
       const categorySet = new Set<string>(bundleData.categorySpending.map(c => c.category))
       const topCategories = bundleData.categorySpending
         .filter(c => !polarBarVisibility.hiddenCategorySet.has(c.category))
         .slice(0, 5)
         .map(c => c.category)
 
-      // Group by month
-      const timePeriodMap = new Map<string, Record<string, number>>()
-      bundleData.monthlyCategories
-        .filter(m => topCategories.includes(m.category))
-        .forEach(m => {
-          const monthKey = String(m.month).padStart(2, '0')
-          if (!timePeriodMap.has(monthKey)) {
-            const initialData: Record<string, number> = {}
-            topCategories.forEach(cat => { initialData[cat] = 0 })
-            timePeriodMap.set(monthKey, initialData)
-          }
-          timePeriodMap.get(monthKey)![m.category] = m.total
-        })
+      if (topCategories.length > 0) {
+        // Group by month
+        const timePeriodMap = new Map<string, Record<string, number>>()
+        bundleData.monthlyCategories
+          .filter(m => topCategories.includes(m.category))
+          .forEach(m => {
+            const monthKey = String(m.month).padStart(2, '0')
+            if (!timePeriodMap.has(monthKey)) {
+              const initialData: Record<string, number> = {}
+              topCategories.forEach(cat => { initialData[cat] = 0 })
+              timePeriodMap.set(monthKey, initialData)
+            }
+            timePeriodMap.get(monthKey)![m.category] = m.total
+          })
 
-      const data = Array.from(timePeriodMap.entries())
-        .map(([period, values]) => ({ month: period, ...values }))
-        .sort((a, b) => (a.month as string).localeCompare(b.month as string))
+        const data = Array.from(timePeriodMap.entries())
+          .map(([period, values]) => ({ month: period, ...values }))
+          .sort((a, b) => (a.month as string).localeCompare(b.month as string))
 
-      return { data, keys: topCategories, categories: Array.from(categorySet) }
+        if (data.length > 0) {
+          return { data, keys: topCategories, categories: Array.from(categorySet) }
+        }
+      }
     }
 
     // Fallback to rawTransactions

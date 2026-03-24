@@ -354,7 +354,7 @@ export function SettleUpDialog({ open, onOpenChange, splits, roomId }: SettleUpD
                         title={
                             <>Settle all with <span className="text-foreground">{settleAllGroup.label}</span>?</>
                         }
-                        subtitle={`${settleAllGroup.splits.filter(s => !settledIds.has(s.id)).length} splits · ${formatCurrency(settleAllGroup.splits.filter(s => !settledIds.has(s.id)).reduce((s, sp) => s + sp.amount, 0))}`}
+                        subtitle={`${settleAllGroup.splits.filter(s => !settledIds.has(s.id)).length} splits · ${formatCurrency(settleAllGroup.splits.filter(s => !settledIds.has(s.id)).reduce((s, sp) => s + Number(sp.amount), 0))}`}
                         loading={bulkLoading}
                         onSelect={handleSettleAll}
                         onCancel={() => setSettleAllGroup(null)}
@@ -375,7 +375,7 @@ export function SettleUpDialog({ open, onOpenChange, splits, roomId }: SettleUpD
                                 {(Object.keys(oweByPerson).length > 0 || incomingSplits.length > 0) && (
                                     <div className="space-y-2">
                                         {Object.entries(oweByPerson).map(([name, personSplits]) => {
-                                            const total = personSplits.reduce((s, sp) => s + sp.amount, 0)
+                                            const total = personSplits.reduce((s, sp) => s + Number(sp.amount), 0)
                                             return (
                                                 <div key={name} className="flex items-center justify-between p-3 rounded-xl bg-rose-500/5 border border-rose-500/20">
                                                     <div>
@@ -409,7 +409,7 @@ export function SettleUpDialog({ open, onOpenChange, splits, roomId }: SettleUpD
                                                 </div>
                                                 <div className="flex items-center gap-3">
                                                     <span className="text-sm font-bold text-emerald-500">
-                                                        {formatCurrency(incomingSplits.reduce((s, sp) => s + sp.amount, 0))}
+                                                        {formatCurrency(incomingSplits.reduce((s, sp) => s + Number(sp.amount), 0))}
                                                     </span>
                                                     <Button
                                                         size="sm"

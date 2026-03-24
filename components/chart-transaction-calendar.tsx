@@ -462,21 +462,22 @@ export const ChartTransactionCalendar = React.memo(function ChartTransactionCale
       }
     }
 
-    // 3. Last Year
+    // 3. Last Year (rolling 12 months — matches getDateRange("lastyear") in the API)
     if (filter === "lastyear") {
-      const lastYear = year - 1
-      const jan1 = new Date(lastYear, 0, 1)
-      const dec31 = new Date(lastYear, 11, 31)
+      const rollingStart = new Date(today)
+      rollingStart.setFullYear(rollingStart.getFullYear() - 1)
 
       if (!isMobile) {
-        return { period1: null, period2: null, singlePeriod: { fromDate: fmtDate(jan1), toDate: fmtDate(dec31) } }
+        return { period1: null, period2: null, singlePeriod: { fromDate: fmtDate(rollingStart), toDate: fmtDate(today) } }
       }
       // Mobile Last Year -> Dual 6-month
-      const jun30 = new Date(lastYear, 5, 30)
-      const jul1 = new Date(lastYear, 6, 1)
+      const midDate = new Date(rollingStart)
+      midDate.setMonth(midDate.getMonth() + 6)
+      const midDateEnd = new Date(midDate)
+      midDateEnd.setDate(midDateEnd.getDate() - 1)
       return {
-        period1: { fromDate: fmtDate(jan1), toDate: fmtDate(jun30), label: getMonthRangeLabel(jan1, jun30) },
-        period2: { fromDate: fmtDate(jul1), toDate: fmtDate(dec31), label: getMonthRangeLabel(jul1, dec31) },
+        period1: { fromDate: fmtDate(rollingStart), toDate: fmtDate(midDateEnd), label: getMonthRangeLabel(rollingStart, midDateEnd) },
+        period2: { fromDate: fmtDate(midDate), toDate: fmtDate(today), label: getMonthRangeLabel(midDate, today) },
         singlePeriod: null
       }
     }

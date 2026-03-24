@@ -152,15 +152,18 @@ async function checkEntryRequirements(userId: string, monthStart: string): Promi
     meetsTransactionRequirement: boolean
     meetsFridgeRequirement: boolean
 }> {
-    const MIN_TX_COUNT = 20
-    const MIN_TX_VOLUME = 500
+    // Low thresholds so users with any meaningful activity in the month are ranked.
+    // Count all transactions regardless of categorization to avoid penalising
+    // users who haven't manually categorised every import.
+    const MIN_TX_COUNT = 5
+    const MIN_TX_VOLUME = 50
     const MIN_RECEIPT_COUNT = 2
     const MIN_RECEIPT_VOLUME = 50
 
     const [txRows, fridgeRows] = await Promise.all([
         neonQuery<{ tx_count: string; tx_volume: string }>(
             `SELECT
-                COUNT(*) FILTER (WHERE category_id IS NOT NULL)::text AS tx_count,
+                COUNT(*)::text AS tx_count,
                 COALESCE(SUM(ABS(amount)) FILTER (WHERE amount < 0), 0)::text AS tx_volume
              FROM transactions
              WHERE user_id = $1
