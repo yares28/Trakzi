@@ -5,9 +5,9 @@ import { ShieldCheck, UserRound, ChevronDown, UserMinus } from "lucide-react"
 import { toast } from "sonner"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { ProfileModal } from "@/components/friends/profile-modal"
 import type { ProfileModalUser } from "@/components/friends/profile-modal"
 import { cn } from "@/lib/utils"
@@ -39,10 +39,6 @@ interface RoomMembersProps {
 // Module-level empty array constant to prevent new reference creation on every render
 const EMPTY_BALANCES: Balance[] = []
 
-const RoleIcon = ({ role }: { role: string }) => {
-    if (role === "owner" || role === "admin") return <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
-    return <UserRound className="w-3.5 h-3.5 text-muted-foreground" />
-}
 
 export function RoomMembers({ members, balances = EMPTY_BALANCES, currentUserId, currentUserRole, roomId, onMemberUpdated }: RoomMembersProps) {
     const [selectedUser, setSelectedUser] = useState<ProfileModalUser | null>(null)
@@ -137,10 +133,18 @@ export function RoomMembers({ members, balances = EMPTY_BALANCES, currentUserId,
                                 </button>
 
                                 <div className="flex items-center gap-2">
-                                    <Badge variant="outline" className="gap-1 text-xs capitalize">
-                                        <RoleIcon role={m.role} />
-                                        {m.role === "owner" ? "admin" : m.role}
-                                    </Badge>
+                                    {(m.role === "owner" || m.role === "admin") && (
+                                        <TooltipProvider delayDuration={300}>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <span className="flex items-center">
+                                                        <ShieldCheck className="w-4 h-4 text-blue-500" />
+                                                    </span>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="left" className="text-xs">Admin</TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    )}
 
                                     {canManage && (
                                         <DropdownMenu>

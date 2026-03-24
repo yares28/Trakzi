@@ -15,6 +15,16 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
 import { useCurrency } from "@/components/currency-provider"
 import { demoFetch } from "@/lib/demo/demo-fetch"
@@ -156,6 +166,7 @@ function TransactionRow({
     const { formatCurrency } = useCurrency()
     const [expanded, setExpanded] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
+    const [showDeleteAlert, setShowDeleteAlert] = useState(false)
     const sourceType = tx.source_type ?? (tx.metadata as any)?.source_type ?? "manual"
     const hasItems = (tx.items?.length ?? 0) > 0
     const topLevelSplits = (tx.splits ?? []).filter(s => !s.item_id)
@@ -163,8 +174,7 @@ function TransactionRow({
         ? (tx.items ?? []).filter(item => !(tx.splits ?? []).some(s => s.item_id === item.id)).length
         : 0
 
-    const handleDelete = async () => {
-        if (!confirm("Delete this transaction? This cannot be undone.")) return
+    const handleDeleteConfirm = async () => {
         setIsDeleting(true)
         try {
             await onDelete(tx.id)
@@ -223,7 +233,7 @@ function TransactionRow({
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                onClick={handleDelete}
+                                onClick={() => setShowDeleteAlert(true)}
                                 disabled={isDeleting}
                             >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -240,6 +250,26 @@ function TransactionRow({
                     </TableCell>
                 </TableRow>
             )}
+
+            <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete transaction?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            &quot;{tx.description}&quot; will be permanently removed. This cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDeleteConfirm}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                            {isDeleting ? "Deleting…" : "Delete"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     )
 }

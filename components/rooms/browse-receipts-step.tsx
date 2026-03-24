@@ -27,7 +27,7 @@ interface ReceiptItem {
     id: number
     description: string
     quantity: number
-    total_price: number
+    total_price: number | null
     category_name: string | null
 }
 
@@ -181,7 +181,7 @@ export const BrowseReceiptsStep = memo(function BrowseReceiptsStep({
 
     const totalSelectedAmount = [...selectedItems.entries()].reduce((sum, [rid, ids]) => {
         const items = itemsMap.get(rid) ?? []
-        return sum + items.filter(i => ids.has(i.id)).reduce((s, i) => s + i.total_price, 0)
+        return sum + items.filter(i => ids.has(i.id)).reduce((s, i) => s + (i.total_price ?? 0), 0)
     }, 0)
 
     // ── Save ──────────────────────────────────────────────────────────────────
@@ -197,7 +197,7 @@ export const BrowseReceiptsStep = memo(function BrowseReceiptsStep({
                 const items = (itemsMap.get(rid) ?? []).filter(i => ids.has(i.id))
                 if (items.length === 0) continue
 
-                const totalAmount = items.reduce((s, i) => s + i.total_price, 0)
+                const totalAmount = items.reduce((s, i) => s + (i.total_price ?? 0), 0)
                 const perPerson = totalAmount / splitMembers.length
                 const splits = splitMembers.map(uid => ({
                     user_id: uid,
@@ -223,7 +223,7 @@ export const BrowseReceiptsStep = memo(function BrowseReceiptsStep({
                             .filter(i => (i.total_price ?? 0) > 0)
                             .map(i => ({
                                 name: i.description,
-                                amount: Number(i.total_price),
+                                amount: Number(i.total_price ?? 0),
                                 quantity: Math.round(i.quantity) || 1,
                                 category: i.category_name ?? undefined,
                             })),
@@ -379,7 +379,7 @@ export const BrowseReceiptsStep = memo(function BrowseReceiptsStep({
                                                     )}
                                                 </div>
                                                 <span className="text-xs tabular-nums shrink-0 whitespace-nowrap text-right text-muted-foreground">
-                                                    {formatCurrency(item.total_price)}
+                                                    {formatCurrency(item.total_price ?? 0)}
                                                 </span>
                                             </div>
                                         )

@@ -1,7 +1,7 @@
 "use client"
 
-import { memo, useState, useEffect, useCallback } from "react"
-import { Search, X, SlidersHorizontal, CalendarRange } from "lucide-react"
+import { memo, useState, useEffect, useCallback, useRef } from "react"
+import { Search, X, SlidersHorizontal, CalendarRange, ChevronDown, ChevronUp } from "lucide-react"
 import { format } from "date-fns"
 import type { DateRange } from "react-day-picker"
 
@@ -49,12 +49,12 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 function formatDateRange(range: DateRange | undefined): string {
-    if (!range?.from && !range?.to) return "Any date"
+    if (!range?.from && !range?.to) return "Date"
     if (range.from && range.to) {
         return `${format(range.from, "MMM d")} – ${format(range.to, "MMM d, yyyy")}`
     }
     if (range.from) return `From ${format(range.from, "MMM d, yyyy")}`
-    return "Any date"
+    return "Date"
 }
 
 export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
@@ -73,7 +73,7 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
     const [search, setSearch] = useState("")
     const debouncedSearch = useDebounce(search, 300)
 
-    // Date range (lives inside Filters popover)
+    // Date range — lives inside the Filters popover
     const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
     const [showCalendar, setShowCalendar] = useState(false)
 
@@ -90,6 +90,20 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
 
     // Filter popover
     const [filtersOpen, setFiltersOpen] = useState(false)
+
+    // Native wheel listener — stops react-remove-scroll from blocking scroll inside Popover portal
+    const categoryListRef = useRef<HTMLDivElement>(null)
+    useEffect(() => {
+        if (!filtersOpen) return
+        const el = categoryListRef.current
+        if (!el) return
+        const handler = (e: WheelEvent) => {
+            e.stopPropagation()
+            el.scrollTop += e.deltaY
+        }
+        el.addEventListener("wheel", handler, { passive: false })
+        return () => el.removeEventListener("wheel", handler)
+    }, [filtersOpen])
 
     // All transactions ever fetched — keyed by id so selection survives filter changes
     const [txCache, setTxCache] = useState<Map<number, PersonalTx>>(new Map())
@@ -213,7 +227,7 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
 
     return (
         <div className="space-y-3">
-            {/* Search + Filters button */}
+            {/* Search + Filters */}
             <div className="flex gap-2">
                 <div className="relative flex-1 min-w-0">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -225,14 +239,15 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
                     />
                 </div>
 
-                <Popover open={filtersOpen} onOpenChange={(open) => { setFiltersOpen(open); if (!open) setShowCalendar(false) }}>
+                {/* Filters — date, amount + categories */}
+                <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
                     <PopoverTrigger asChild>
                         <Button
                             variant="outline"
                             size="sm"
                             className={cn(
                                 "gap-1.5 shrink-0 h-10 relative",
-                                hasAnyFilter && "border-primary text-primary"
+                                activeFilterCount > 0 && "border-primary text-primary"
                             )}
                         >
                             <SlidersHorizontal className="w-4 h-4" />
@@ -244,11 +259,16 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
                             )}
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-80 p-0" align="end">
+                    {/* onFocusOutside: prevents react-day-picker's internal focus shift from closing this popover */}
+                    <PopoverContent
+                        className="w-72 p-0"
+                        align="end"
+                        onFocusOutside={(e) => e.preventDefault()}
+                    >
                         {/* Header */}
                         <div className="p-3 border-b flex items-center justify-between">
                             <p className="text-xs font-semibold">Filters</p>
-                            {hasAnyFilter && (
+                            {activeFilterCount > 0 && (
                                 <Button
                                     variant="ghost"
                                     size="sm"
@@ -260,10 +280,10 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
                             )}
                         </div>
 
-                        {/* ── Date range ── */}
+                        {/* ── Date ── */}
                         <div className="p-3 space-y-2">
                             <div className="flex items-center justify-between">
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Date range</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Date</p>
                                 {hasDateFilter && (
                                     <Button
                                         variant="ghost"
@@ -275,20 +295,22 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
                                     </Button>
                                 )}
                             </div>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className={cn(
-                                    "w-full justify-start gap-2 h-8 text-xs font-normal",
-                                    hasDateFilter ? "text-foreground" : "text-muted-foreground"
-                                )}
+                            <button
+                                type="button"
                                 onClick={() => setShowCalendar(v => !v)}
+                                className="flex items-center gap-2 w-full text-xs text-left px-2 py-1.5 rounded hover:bg-muted/40 transition-colors"
                             >
-                                <CalendarRange className="w-3.5 h-3.5 shrink-0" />
-                                {formatDateRange(dateRange)}
-                            </Button>
+                                <CalendarRange className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                <span className={cn("flex-1", hasDateFilter ? "text-primary font-medium" : "text-muted-foreground")}>
+                                    {formatDateRange(dateRange)}
+                                </span>
+                                {showCalendar
+                                    ? <ChevronUp className="w-3 h-3 text-muted-foreground shrink-0" />
+                                    : <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+                                }
+                            </button>
                             {showCalendar && (
-                                <div className="border rounded-lg overflow-hidden">
+                                <div className="flex justify-center">
                                     <Calendar
                                         mode="range"
                                         selected={dateRange}
@@ -304,7 +326,7 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
                             )}
                         </div>
 
-                        <Separator />
+                        <div className="border-t border-border/40" />
 
                         {/* ── Amount range ── */}
                         <div className="p-3 space-y-2">
@@ -336,7 +358,7 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
                             </div>
                         </div>
 
-                        <Separator />
+                        <div className="border-t border-border/40" />
 
                         {/* ── Category ── */}
                         <div className="p-3 space-y-2">
@@ -358,7 +380,7 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
                             ) : availableCategories.length === 0 ? (
                                 <p className="text-xs text-muted-foreground py-1">No categories found.</p>
                             ) : (
-                                <div className="max-h-[160px] overflow-y-auto space-y-0.5">
+                                <div ref={categoryListRef} className="h-40 overflow-y-auto space-y-0.5 pr-2">
                                     {availableCategories.map(cat => (
                                         <label
                                             key={cat}
@@ -485,7 +507,7 @@ export const BrowseTransactionsStep = memo(function BrowseTransactionsStep({
                                     {tx.description}
                                 </p>
                                 <div className="flex items-center gap-1 mt-0.5 overflow-hidden">
-                                    <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{tx.date}</span>
+                                    <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{format(new Date(tx.date), "MMM d, yyyy")}</span>
                                     {tx.already_in_room ? (
                                         <span className="text-[10px] text-muted-foreground/60 shrink-0">· added</span>
                                     ) : tx.category_name ? (
