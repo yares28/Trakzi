@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import "./landing.css"
+import { ForceDark } from "@/components/force-dark"
 
 export const metadata: Metadata = {
   title: "Trakzi — The All-in-One Budgeting Workspace",
@@ -56,6 +57,7 @@ export default function LandingLayout({
 }) {
   return (
     <div className="min-h-screen">
+      <ForceDark />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}

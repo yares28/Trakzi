@@ -144,9 +144,9 @@ export default function RootLayout({
 
   return (
     <ClerkProvider publishableKey={publishableKey} afterSignOutUrl="/" signInFallbackRedirectUrl="/home" signUpFallbackRedirectUrl="/home">
-      <html lang="en" suppressHydrationWarning className="dark overflow-x-hidden">
+      <html lang="en" suppressHydrationWarning className="overflow-x-hidden">
         <head>
-          <script dangerouslySetInnerHTML={{ __html: `document.documentElement.classList.add('dark')` }} />
+          <script dangerouslySetInnerHTML={{ __html: `(function(){try{var p=window.location.pathname;var isApp=/^\\/(home|analytics|savings|fridge|chat|pockets|friends|data-library|rooms|settings|dashboard|testCharts)/.test(p);if(isApp){var s=localStorage.getItem('trakzi-theme');if(s!=='light')document.documentElement.classList.add('dark');}else{document.documentElement.classList.add('dark');}}catch(e){document.documentElement.classList.add('dark');}})();` }} />
           <link rel="alternate" hrefLang="en" href="https://trakzi.com/" />
           <link rel="alternate" hrefLang="es" href="https://trakzi.com/es/" />
           <link rel="alternate" hrefLang="x-default" href="https://trakzi.com/" />
@@ -167,7 +167,7 @@ export default function RootLayout({
           <LazyMotion features={domAnimation}>
           <ThemeProvider
             attribute="class"
-            forcedTheme="dark"
+            defaultTheme="dark"
             enableSystem={false}
             disableTransitionOnChange
             storageKey="trakzi-theme"

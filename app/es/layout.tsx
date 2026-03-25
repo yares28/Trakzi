@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { ForceDark } from "@/components/force-dark"
 
 export const metadata: Metadata = {
   title: "Trakzi — Tu Espacio de Finanzas Personales Todo en Uno",
@@ -18,5 +19,5 @@ export default function SpanishLandingLayout({
 }: {
   children: React.ReactNode
 }) {
-  return <>{children}</>
+  return <><ForceDark />{children}</>
 }
