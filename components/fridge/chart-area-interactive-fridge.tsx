@@ -15,7 +15,6 @@ import {
     Card,
     CardAction,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
@@ -154,8 +153,6 @@ export const ChartAreaInteractiveFridge = React.memo(function ChartAreaInteracti
                         />
                         <CardTitle>Grocery Spend Trend</CardTitle>
                     </div>
-                    <CardDescription>
-                    </CardDescription>
                     <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                         {infoAction()}
                     </CardAction>

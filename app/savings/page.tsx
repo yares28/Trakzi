@@ -5,6 +5,8 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import { SortableGridProvider, SortableGridItem } from "@/components/sortable-grid"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ChartSavingsAccumulation } from "@/components/chart-savings-accumulation"
+import { ChartSavingsRateTrend } from "@/components/test-charts/chart-savings-rate-trend"
+import { ChartNetWorthTrend } from "@/components/test-charts/chart-net-worth-trend"
 import { SectionCards } from "@/components/section-cards"
 import { SiteHeader } from "@/components/site-header"
 import {
@@ -41,7 +43,7 @@ type SavingsViewMode = "savings" | "debt" | "calculator" | "goals"
 const SAVINGS_ORDER_STORAGE_KEY = "savings-chart-order"
 const SAVINGS_SIZES_STORAGE_KEY = "savings-chart-sizes"
 const SAVINGS_VIEW_MODE_STORAGE_KEY = "savings-view-mode"
-const DEFAULT_SAVINGS_ORDER = ["savingsAccumulation"]
+const DEFAULT_SAVINGS_ORDER = ["savingsAccumulation", "savingsRateTrend", "netWorthTrend"]
 
 export default function Page() {
   const { startTour, completeChecklistItem } = useOnboarding()
@@ -595,6 +597,12 @@ export default function Page() {
                               data={accumulationChartData}
                               isLoading={savingsBundleLoading}
                             />
+                          )}
+                          {chartId === "savingsRateTrend" && (
+                            <ChartSavingsRateTrend data={transactions} isLoading={savingsBundleLoading} />
+                          )}
+                          {chartId === "netWorthTrend" && (
+                            <ChartNetWorthTrend data={transactions} isLoading={savingsBundleLoading} />
                           )}
                         </SortableGridItem>
                       )

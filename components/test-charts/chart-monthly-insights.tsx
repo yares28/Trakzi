@@ -1,11 +1,9 @@
 "use client"
-
 import { useMemo, useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
     CardAction,
@@ -18,7 +16,6 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { IconChartBar, IconCalendarStats, IconCash, IconChartPie } from "@tabler/icons-react"
-
 interface ChartMonthlyInsightsProps {
     data: Array<{
         date: string
@@ -27,7 +24,6 @@ interface ChartMonthlyInsightsProps {
     }>
     isLoading?: boolean
 }
-
 export function ChartMonthlyInsights({
     data,
     isLoading = false,
@@ -37,48 +33,38 @@ export function ChartMonthlyInsights({
     const { formatCurrency } = useCurrency()
     const palette = getPalette()
     const [mounted, setMounted] = useState(false)
-
     useEffect(() => {
         setMounted(true)
     }, [])
-
     const insightsData = useMemo(() => {
         if (!data || data.length === 0) return null
-
         const now = new Date()
         const currentMonth = now.getMonth()
         const currentYear = now.getFullYear()
-
         let totalSpent = 0
         let transactionCount = 0
         let largestPurchase = 0
         let largestPurchaseDesc = ''
         const categoryCount = new Set<string>()
         const dailySpending = new Map<number, number>()
-
         data.forEach((tx) => {
             if (tx.amount >= 0) return
             const txDate = new Date(tx.date)
             if (txDate.getMonth() !== currentMonth || txDate.getFullYear() !== currentYear) return
-
             const amount = Math.abs(tx.amount)
             totalSpent += amount
             transactionCount++
             categoryCount.add(tx.category || 'Other')
-
             const day = txDate.getDate()
             dailySpending.set(day, (dailySpending.get(day) || 0) + amount)
-
             if (amount > largestPurchase) {
                 largestPurchase = amount
             }
         })
-
         // Find busiest day
         const busiestDay = Array.from(dailySpending.entries()).sort((a, b) => b[1] - a[1])[0]
         const avgPerTransaction = transactionCount > 0 ? totalSpent / transactionCount : 0
         const daysWithSpending = dailySpending.size
-
         return {
             totalSpent,
             transactionCount,
@@ -90,12 +76,9 @@ export function ChartMonthlyInsights({
             daysWithSpending,
         }
     }, [data])
-
     const isDark = resolvedTheme === "dark"
-
     const chartTitle = "Monthly Insights"
     const chartDescription = "Key statistics and insights about your spending this month."
-
     const renderInfoTrigger = () => (
         <div className="flex flex-col items-center gap-2">
             <ChartInfoPopover
@@ -116,7 +99,6 @@ export function ChartMonthlyInsights({
             />
         </div>
     )
-
     if (!mounted || !insightsData) {
         return (
             <Card className="@container/card h-full flex flex-col">
@@ -134,7 +116,6 @@ export function ChartMonthlyInsights({
             </Card>
         )
     }
-
     const insights = [
         {
             icon: <IconCash size={24} style={{ color: palette[0] || '#fe8339' }} />,
@@ -161,7 +142,6 @@ export function ChartMonthlyInsights({
             sub: 'unique categories',
         },
     ]
-
     return (
         <Card className="@container/card h-full flex flex-col">
             <CardHeader>
@@ -170,10 +150,6 @@ export function ChartMonthlyInsights({
                     <ChartFavoriteButton chartId="testCharts:monthlyInsights" chartTitle={chartTitle} size="md" />
                     <CardTitle>{chartTitle}</CardTitle>
                 </div>
-                <CardDescription>
-                    <span className="hidden @[540px]/card:block">{chartDescription}</span>
-                    <span className="@[540px]/card:hidden">Month stats</span>
-                </CardDescription>
                 <CardAction>{renderInfoTrigger()}</CardAction>
             </CardHeader>
             <CardContent className="px-4 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">

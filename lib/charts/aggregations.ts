@@ -160,7 +160,7 @@ export async function getCategorySpending(
                 SELECT ts.amount AS split_amount
                 FROM shared_transactions st
                 LEFT JOIN transaction_splits ts ON ts.shared_tx_id = st.id AND ts.user_id = $1
-                WHERE st.original_tx_id = t.id::text
+                WHERE st.original_tx_id = t.id
                 LIMIT 1
             ) share_info ON true
             WHERE t.user_id = $1 AND t.amount < 0
@@ -848,7 +848,7 @@ export async function getKPIs(
                     SELECT ts.amount AS split_amount
                     FROM shared_transactions st
                     LEFT JOIN transaction_splits ts ON ts.shared_tx_id = st.id AND ts.user_id = $1
-                    WHERE st.original_tx_id = t.id::text
+                    WHERE st.original_tx_id = t.id
                     LIMIT 1
                 ) share_info ON true
                 WHERE t.user_id = $1

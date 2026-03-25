@@ -15,7 +15,6 @@ import {
     Card,
     CardAction,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
@@ -606,8 +605,6 @@ export const ChartCategoryFlowFridge = memo(function ChartCategoryFlowFridge({ r
                         />
                         <CardTitle>Grocery Category Rankings</CardTitle>
                     </div>
-                    <CardDescription>
-                    </CardDescription>
                     <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                         <FridgeCategoryFlowInfoTrigger data={data} />
                     </CardAction>

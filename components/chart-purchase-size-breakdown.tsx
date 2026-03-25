@@ -21,6 +21,7 @@ import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { getChartTextColor, getChartAxisLineColor } from "@/lib/chart-colors"
+import { HoverableBar } from "@/components/chart-hoverable-bar"
 
 interface ChartPurchaseSizeBreakdownProps {
   data: Array<{
@@ -96,6 +97,7 @@ const PurchaseSizeBarChart = memo(function PurchaseSizeBarChart({
       margin={{ top: 20, right: 20, bottom: 50, left: 60 }}
       padding={0.3}
       groupMode="stacked"
+      innerPadding={4}
       colors={[palette[2] || "#3b82f6", palette[1] || "#10b981", palette[0] || "#fe8339"]}
       borderRadius={10}
       enableLabel={false}
@@ -134,6 +136,7 @@ const PurchaseSizeBarChart = memo(function PurchaseSizeBarChart({
       )}
       animate={true}
       motionConfig="gentle"
+      barComponent={HoverableBar}
     />
   )
 })

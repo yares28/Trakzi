@@ -26,6 +26,18 @@ export const DEFAULT_CHART_ORDER = [
   "singleMonthCategorySpending",
   "spendingStreamgraph",
   "financialHealthScore",
+  // Moved from test charts
+  "seasonalSpending",
+  "hourlySpending",
+  "transactionCountTrend",
+  "momGrowth",
+  "topMerchantsRace",
+  "paydayImpact",
+  "incomeSources",
+  "spendingDistribution",
+  "yearOverYear",
+  "quarterlyComparison",
+  "dailyAverageByMonth",
 ]
 
 export const CHART_ORDER_STORAGE_KEY = "analytics-chart-order"

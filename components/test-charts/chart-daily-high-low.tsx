@@ -1,11 +1,9 @@
 "use client"
-
 import { useMemo, useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
     CardAction,
@@ -18,7 +16,6 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { IconArrowUp, IconArrowDown, IconCalendar } from "@tabler/icons-react"
-
 interface ChartDailyHighLowProps {
     data: Array<{
         date: string
@@ -26,7 +23,6 @@ interface ChartDailyHighLowProps {
     }>
     isLoading?: boolean
 }
-
 export function ChartDailyHighLow({
     data,
     isLoading = false,
@@ -36,30 +32,23 @@ export function ChartDailyHighLow({
     const { formatCurrency } = useCurrency()
     const palette = getPalette()
     const [mounted, setMounted] = useState(false)
-
     useEffect(() => {
         setMounted(true)
     }, [])
-
     const statsData = useMemo(() => {
         if (!data || data.length === 0) return null
-
         const dailyTotals = new Map<string, number>()
-
         data.forEach((tx) => {
             if (tx.amount >= 0) return
             const date = tx.date.split('T')[0]
             dailyTotals.set(date, (dailyTotals.get(date) || 0) + Math.abs(tx.amount))
         })
-
         const entries = Array.from(dailyTotals.entries()).sort((a, b) => a[0].localeCompare(b[0]))
         if (entries.length === 0) return null
-
         const values = entries.map(e => e[1])
         const highestDay = entries.reduce((max, curr) => curr[1] > max[1] ? curr : max)
         const lowestDay = entries.reduce((min, curr) => curr[1] < min[1] ? curr : min)
         const average = values.reduce((a, b) => a + b, 0) / values.length
-
         return {
             highestDate: highestDay[0],
             highestAmount: highestDay[1],
@@ -69,17 +58,13 @@ export function ChartDailyHighLow({
             totalDays: entries.length,
         }
     }, [data])
-
     const isDark = resolvedTheme === "dark"
-
     const chartTitle = "Daily High & Low"
     const chartDescription = "Your biggest and smallest spending days at a glance."
-
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr)
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     }
-
     const renderInfoTrigger = () => (
         <div className="flex flex-col items-center gap-2">
             <ChartInfoPopover
@@ -100,7 +85,6 @@ export function ChartDailyHighLow({
             />
         </div>
     )
-
     if (!mounted || !statsData) {
         return (
             <Card className="@container/card h-full flex flex-col">
@@ -118,7 +102,6 @@ export function ChartDailyHighLow({
             </Card>
         )
     }
-
     return (
         <Card className="@container/card h-full flex flex-col">
             <CardHeader>
@@ -127,10 +110,6 @@ export function ChartDailyHighLow({
                     <ChartFavoriteButton chartId="testCharts:dailyHighLow" chartTitle={chartTitle} size="md" />
                     <CardTitle>{chartTitle}</CardTitle>
                 </div>
-                <CardDescription>
-                    <span className="hidden @[540px]/card:block">{chartDescription}</span>
-                    <span className="@[540px]/card:hidden">Best & worst days</span>
-                </CardDescription>
                 <CardAction>{renderInfoTrigger()}</CardAction>
             </CardHeader>
             <CardContent className="px-4 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
@@ -152,7 +131,6 @@ export function ChartDailyHighLow({
                             {formatDate(statsData.highestDate)}
                         </div>
                     </div>
-
                     {/* Lowest Day */}
                     <div
                         className="flex flex-col justify-center p-4 rounded-xl"
@@ -171,7 +149,6 @@ export function ChartDailyHighLow({
                         </div>
                     </div>
                 </div>
-
                 {/* Average indicator */}
                 <div className="mt-4 text-center text-sm text-muted-foreground">
                     Daily average: <span className="font-semibold text-foreground">{formatCurrency(statsData.average)}</span>

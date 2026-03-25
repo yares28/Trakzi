@@ -14,7 +14,6 @@ import {
     Card,
     CardAction,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
@@ -84,7 +83,6 @@ export const ChartExpensesPieFridge = memo(function ChartExpensesPieFridge({ dat
                         </span>
                         <CardTitle>Basket Breakdown</CardTitle>
                     </div>
-                    <CardDescription></CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="h-[250px] w-full" />
@@ -102,8 +100,6 @@ export const ChartExpensesPieFridge = memo(function ChartExpensesPieFridge({ dat
                     </span>
                     <CardTitle>Basket Breakdown</CardTitle>
                 </div>
-                <CardDescription>
-                </CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                     <div className="flex flex-col items-center gap-2">
                         <ChartInfoPopover

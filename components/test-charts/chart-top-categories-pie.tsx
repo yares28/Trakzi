@@ -1,12 +1,10 @@
 "use client"
-
 import { useMemo, useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { ResponsivePie } from "@nivo/pie"
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
     CardAction,
@@ -20,7 +18,6 @@ import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
-
 interface ChartTopCategoriesPieProps {
     data: Array<{
         date: string
@@ -29,7 +26,6 @@ interface ChartTopCategoriesPieProps {
     }>
     isLoading?: boolean
 }
-
 export function ChartTopCategoriesPie({
     data,
     isLoading = false,
@@ -40,30 +36,23 @@ export function ChartTopCategoriesPie({
     const palette = getPalette()
     const [mounted, setMounted] = useState(false)
     const [isFullscreen, setIsFullscreen] = useState(false)
-
     useEffect(() => {
         setMounted(true)
     }, [])
-
     const chartData = useMemo(() => {
         if (!data || data.length === 0) return []
-
         const categoryTotals = new Map<string, number>()
-
         data.forEach((tx) => {
             if (tx.amount >= 0) return
             const category = tx.category?.trim() || "Other"
             categoryTotals.set(category, (categoryTotals.get(category) || 0) + Math.abs(tx.amount))
         })
-
         const sorted = Array.from(categoryTotals.entries())
             .sort((a, b) => b[1] - a[1])
-
         // Take top 5, group rest as "Others"
         const top5 = sorted.slice(0, 5)
         const others = sorted.slice(5)
         const othersTotal = others.reduce((sum, [_, val]) => sum + val, 0)
-
         const paletteLength = palette?.length || 0
         const result = top5.map(([name, value], i) => ({
             id: name,
@@ -71,7 +60,6 @@ export function ChartTopCategoriesPie({
             value,
             color: paletteLength > 0 ? (palette[i % paletteLength] || "#6b7280") : "#6b7280",
         }))
-
         if (othersTotal > 0) {
             result.push({
                 id: "Others",
@@ -80,17 +68,13 @@ export function ChartTopCategoriesPie({
                 color: resolvedTheme === "dark" ? "#4b5563" : "#9ca3af",
             })
         }
-
         return result
     }, [data, palette, resolvedTheme])
-
     const total = chartData.reduce((sum, d) => sum + d.value, 0)
     const isDark = resolvedTheme === "dark"
     const textColor = isDark ? "#9ca3af" : "#6b7280"
-
     const chartTitle = "Top Categories"
     const chartDescription = "Your top 5 spending categories as a pie chart. See where most of your money goes."
-
     const renderInfoTrigger = (forFullscreen = false) => (
         <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
             <ChartInfoPopover
@@ -111,7 +95,6 @@ export function ChartTopCategoriesPie({
             />
         </div>
     )
-
     // Chart content - reused in card and fullscreen modal
     const renderChart = () => (
         <ResponsivePie
@@ -148,7 +131,6 @@ export function ChartTopCategoriesPie({
             motionConfig="gentle"
         />
     )
-
     if (!mounted || chartData.length === 0) {
         return (
             <Card className="@container/card h-full flex flex-col">
@@ -166,7 +148,6 @@ export function ChartTopCategoriesPie({
             </Card>
         )
     }
-
     return (
         <>
             <ChartFullscreenModal
@@ -180,7 +161,6 @@ export function ChartTopCategoriesPie({
                     {renderChart()}
                 </div>
             </ChartFullscreenModal>
-
             <Card className="@container/card h-full flex flex-col">
                 <CardHeader>
                     <div className="flex items-center gap-2">
@@ -189,10 +169,6 @@ export function ChartTopCategoriesPie({
                         <ChartFavoriteButton chartId="testCharts:topCategoriesPie" chartTitle={chartTitle} size="md" />
                         <CardTitle>{chartTitle}</CardTitle>
                     </div>
-                    <CardDescription>
-                        <span className="hidden @[540px]/card:block">{chartDescription}</span>
-                        <span className="@[540px]/card:hidden">Top spending categories</span>
-                    </CardDescription>
                     <CardAction>{renderInfoTrigger()}</CardAction>
                 </CardHeader>
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">

@@ -14,7 +14,6 @@ import {
     Card,
     CardAction,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
@@ -282,9 +281,6 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
                     />
                     <CardTitle>Purchase Size Comparison</CardTitle>
                 </div>
-                <CardDescription>
-                    <span className="hidden @[540px]/card:block"></span>
-                </CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                     <FridgePurchaseSizeInfoTrigger sizeData={sizeData} totalReceipts={totalReceipts} />
                 </CardAction>

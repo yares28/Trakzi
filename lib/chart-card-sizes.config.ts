@@ -122,6 +122,21 @@ export type ChartId =
   | "testCharts:quarterlyComparison"
   | "testCharts:balanceHistory"
   | "testCharts:monthlyInsights"
+  // Analytics page (moved from test charts)
+  | "seasonalSpending"
+  | "hourlySpending"
+  | "transactionCountTrend"
+  | "momGrowth"
+  | "topMerchantsRace"
+  | "paydayImpact"
+  | "incomeSources"
+  | "spendingDistribution"
+  | "yearOverYear"
+  | "quarterlyComparison"
+  | "dailyAverageByMonth"
+  // Savings page (moved from test charts)
+  | "savingsRateTrend"
+  | "netWorthTrend"
 
 /**
  * Default size configuration for all charts
@@ -1000,6 +1015,23 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxH: 10,
     mobileH: 4,
   },
+
+  // ── Analytics page charts (moved from test charts) ────────────────────────
+  seasonalSpending: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
+  hourlySpending: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
+  transactionCountTrend: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
+  momGrowth: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
+  topMerchantsRace: { minW: 6, maxW: 12, minH: 8, maxH: 14, mobileH: 6 },
+  paydayImpact: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
+  incomeSources: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
+  spendingDistribution: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
+  yearOverYear: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
+  quarterlyComparison: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
+  dailyAverageByMonth: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
+
+  // ── Savings page charts (moved from test charts) ──────────────────────────
+  savingsRateTrend: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
+  netWorthTrend: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
 }
 
 /**

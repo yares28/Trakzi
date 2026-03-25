@@ -492,6 +492,72 @@ export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
     title: "Monthly Insights",
     description: "Key statistics and insights about your spending this month",
   },
+  // Production IDs (moved from testCharts: prefix)
+  seasonalSpending: {
+    id: "seasonalSpending",
+    title: "Seasonal Spending",
+    description: "Compare your spending across different seasons of the year",
+  },
+  hourlySpending: {
+    id: "hourlySpending",
+    title: "Hourly Spending Pattern",
+    description: "Discover what time of day you spend the most money",
+  },
+  transactionCountTrend: {
+    id: "transactionCountTrend",
+    title: "Transaction Count Trend",
+    description: "Track how your number of transactions changes over time",
+  },
+  momGrowth: {
+    id: "momGrowth",
+    title: "Month-over-Month Growth",
+    description: "Track your spending growth rate month-over-month",
+  },
+  topMerchantsRace: {
+    id: "topMerchantsRace",
+    title: "Top Merchants Race",
+    description: "See which merchants you spend the most at over time",
+  },
+  paydayImpact: {
+    id: "paydayImpact",
+    title: "Payday Impact",
+    description: "See how your spending changes around payday",
+  },
+  incomeSources: {
+    id: "incomeSources",
+    title: "Income Sources",
+    description: "Breakdown of where your income comes from",
+  },
+  spendingDistribution: {
+    id: "spendingDistribution",
+    title: "Spending Distribution",
+    description: "A histogram showing how your transactions are distributed across different spending ranges",
+  },
+  yearOverYear: {
+    id: "yearOverYear",
+    title: "Year Over Year",
+    description: "Compare your annual spending across years to spot long-term trends",
+  },
+  quarterlyComparison: {
+    id: "quarterlyComparison",
+    title: "Quarterly Comparison",
+    description: "Compare your spending across quarters to spot seasonal patterns",
+  },
+  dailyAverageByMonth: {
+    id: "dailyAverageByMonth",
+    title: "Daily Average by Month",
+    description: "Your average daily spending for each month",
+  },
+  savingsRateTrend: {
+    id: "savingsRateTrend",
+    title: "Savings Rate Trend",
+    description: "Track how your savings rate changes over time",
+  },
+  netWorthTrend: {
+    id: "netWorthTrend",
+    title: "Net Worth Trend",
+    description: "Track the growth of your net worth over time",
+  },
 }
 
 export function getChartMetadata(chartId: ChartId): ChartMetadata {

@@ -19,6 +19,28 @@ import { cn } from "@/lib/utils"
  * - Prevents pointer events to avoid tooltip flickering
  */
 
+/**
+ * Module-level mouse position cache.
+ * Persists across component mount/unmount cycles so tooltips
+ * immediately know cursor position when they first render.
+ */
+let _cachedMouseX = 0
+let _cachedMouseY = 0
+let _mouseTrackerInstalled = false
+
+function ensureMouseTracker() {
+  if (_mouseTrackerInstalled || typeof window === "undefined") return
+  _mouseTrackerInstalled = true
+  document.addEventListener(
+    "mousemove",
+    (e: MouseEvent) => {
+      _cachedMouseX = e.clientX
+      _cachedMouseY = e.clientY
+    },
+    { passive: true, capture: true }
+  )
+}
+
 export interface ChartTooltipWrapperProps {
   children: ReactNode
   className?: string
@@ -36,25 +58,30 @@ export const ChartTooltipWrapper = memo(function ChartTooltipWrapper({
   maxWidth,
 }: ChartTooltipWrapperProps) {
   const tooltipRef = useRef<HTMLDivElement>(null)
-  const [position, setPosition] = useState({ x: 0, y: 0 })
+  // Initialize from module-level cache so tooltip is visible on first hover
+  const [position, setPosition] = useState(() => ({ x: _cachedMouseX, y: _cachedMouseY }))
   const [mounted, setMounted] = useState(false)
-  // Track if we've received a real mouse position to prevent flash at (0,0)
-  const [hasPosition, setHasPosition] = useState(false)
+  // hasPosition is true immediately if we already have a cached position
+  const [hasPosition, setHasPosition] = useState(() => _cachedMouseX > 0 || _cachedMouseY > 0)
 
   // Track mouse/touch position for tooltip placement
   useEffect(() => {
+    ensureMouseTracker()
     setMounted(true)
+    // Sync with latest cached position in case it updated before mount
+    setPosition({ x: _cachedMouseX, y: _cachedMouseY })
+    if (_cachedMouseX > 0 || _cachedMouseY > 0) setHasPosition(true)
 
     const handleMouseMove = (e: MouseEvent) => {
       setPosition({ x: e.clientX, y: e.clientY })
-      if (!hasPosition) setHasPosition(true)
+      setHasPosition(true)
     }
 
     const handleTouchMove = (e: TouchEvent) => {
       if (e.touches.length > 0) {
         const touch = e.touches[0]
         setPosition({ x: touch.clientX, y: touch.clientY })
-        if (!hasPosition) setHasPosition(true)
+        setHasPosition(true)
       }
     }
 
@@ -65,7 +92,7 @@ export const ChartTooltipWrapper = memo(function ChartTooltipWrapper({
       document.removeEventListener("mousemove", handleMouseMove)
       document.removeEventListener("touchmove", handleTouchMove)
     }
-  }, [hasPosition])
+  }, [])
 
   // Calculate position with viewport boundary awareness
   const getTooltipStyle = (): React.CSSProperties => {

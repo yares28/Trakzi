@@ -21,6 +21,7 @@ import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { getChartTextColor, getChartAxisLineColor } from "@/lib/chart-colors"
+import { HoverableBar } from "@/components/chart-hoverable-bar"
 
 interface WeekendVsWeekdayInfoTriggerProps {
   forFullscreen?: boolean
@@ -119,6 +120,7 @@ const WeekendVsWeekdayChart = memo(function WeekendVsWeekdayChart({
       )}
       animate={true}
       motionConfig="gentle"
+      barComponent={HoverableBar}
     />
   )
 })

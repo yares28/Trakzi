@@ -1,12 +1,10 @@
 "use client"
-
 import { useMemo, useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveBar } from "@nivo/bar"
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
     CardAction,
@@ -18,7 +16,6 @@ import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
-
 interface ChartCategoryGrowthProps {
     data: Array<{
         date: string
@@ -27,7 +24,6 @@ interface ChartCategoryGrowthProps {
     }>
     isLoading?: boolean
 }
-
 export function ChartCategoryGrowth({
     data,
     isLoading = false,
@@ -36,64 +32,50 @@ export function ChartCategoryGrowth({
     const { colorScheme, getPalette } = useColorScheme()
     const palette = getPalette()
     const [mounted, setMounted] = useState(false)
-
     useEffect(() => {
         setMounted(true)
     }, [])
-
     const chartData = useMemo(() => {
         if (!data || data.length === 0) return []
-
         // Get current month and previous 3 months data
         const now = new Date()
         const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-
         const prevDate = new Date(now)
         prevDate.setMonth(prevDate.getMonth() - 1)
         const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`
-
         const categoryCurrentMonth = new Map<string, number>()
         const categoryPrevMonth = new Map<string, number>()
-
         data.forEach((tx) => {
             if (tx.amount >= 0) return
             const category = tx.category?.trim() || "Other"
             const txMonth = tx.date.slice(0, 7)
             const amount = Math.abs(tx.amount)
-
             if (txMonth === currentMonth) {
                 categoryCurrentMonth.set(category, (categoryCurrentMonth.get(category) || 0) + amount)
             } else if (txMonth === prevMonth) {
                 categoryPrevMonth.set(category, (categoryPrevMonth.get(category) || 0) + amount)
             }
         })
-
         // Calculate growth for each category
         const categories = new Set([...categoryCurrentMonth.keys(), ...categoryPrevMonth.keys()])
         const growthData: Array<{ category: string; growth: number; current: number; previous: number; color: string }> = []
-
         categories.forEach((cat) => {
             const current = categoryCurrentMonth.get(cat) || 0
             const previous = categoryPrevMonth.get(cat) || 0
             const growth = previous > 0 ? ((current - previous) / previous) * 100 : (current > 0 ? 100 : 0)
-
             growthData.push({ category: cat, growth, current, previous, color: growth > 0 ? "#ef4444" : "#10b981" })
         })
-
         // Sort by absolute growth and take top 8
         return growthData
             .filter(d => d.growth !== 0)
             .sort((a, b) => Math.abs(b.growth) - Math.abs(a.growth))
             .slice(0, 8)
     }, [data])
-
     const isDark = resolvedTheme === "dark"
     const textColor = isDark ? "#9ca3af" : "#6b7280"
     const gridColor = isDark ? "#374151" : "#e5e7eb"
-
     const chartTitle = "Category Growth"
     const chartDescription = "See which spending categories are growing or shrinking compared to last month."
-
     const renderInfoTrigger = () => (
         <div className="flex flex-col items-center gap-2">
             <ChartInfoPopover
@@ -114,7 +96,6 @@ export function ChartCategoryGrowth({
             />
         </div>
     )
-
     if (!mounted || chartData.length === 0) {
         return (
             <Card className="@container/card h-full flex flex-col">
@@ -132,7 +113,6 @@ export function ChartCategoryGrowth({
             </Card>
         )
     }
-
     return (
         <Card className="@container/card h-full flex flex-col">
             <CardHeader>
@@ -141,10 +121,6 @@ export function ChartCategoryGrowth({
                     <ChartFavoriteButton chartId="testCharts:categoryGrowth" chartTitle={chartTitle} size="md" />
                     <CardTitle>{chartTitle}</CardTitle>
                 </div>
-                <CardDescription>
-                    <span className="hidden @[540px]/card:block">{chartDescription}</span>
-                    <span className="@[540px]/card:hidden">Month-over-month by category</span>
-                </CardDescription>
                 <CardAction>{renderInfoTrigger()}</CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">

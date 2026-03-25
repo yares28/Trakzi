@@ -191,6 +191,10 @@ export const ChartRecurringVsOneTime = memo(function ChartRecurringVsOneTime({
   }, [data, palette])
 
   const total = useMemo(() => chartData.reduce((sum, d) => sum + d.value, 0), [chartData])
+
+  const recurringEntry = chartData.find(d => d.id === "Recurring")
+  const recurringPct = total > 0 && recurringEntry ? Math.round((recurringEntry.value / total) * 100) : 0
+
   const isDark = resolvedTheme === "dark"
   const textColor = getChartTextColor(isDark)
 
@@ -234,8 +238,13 @@ export const ChartRecurringVsOneTime = memo(function ChartRecurringVsOneTime({
         description={chartDescription}
         headerActions={<RecurringVsOneTimeInfoTrigger forFullscreen chartTitle={chartTitle} chartDescription={chartDescription} chartData={chartData} total={total} />}
       >
-        <div className="h-full w-full min-h-[400px]" key={colorScheme}>
+        <div className="h-full w-full min-h-[400px] relative" key={colorScheme}>
           <RecurringVsOneTimeChart chartData={chartData} total={total} textColor={textColor} formatCurrency={formatCurrency} />
+          {/* Center label overlay */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <span className="text-3xl font-bold text-foreground">{recurringPct}%</span>
+            <span className="text-sm font-medium text-muted-foreground">Recurring</span>
+          </div>
         </div>
       </ChartFullscreenModal>
 
@@ -252,8 +261,13 @@ export const ChartRecurringVsOneTime = memo(function ChartRecurringVsOneTime({
           </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
-          <div className="h-full w-full min-h-[200px]" key={colorScheme}>
+          <div className="h-full w-full min-h-[200px] relative" key={colorScheme}>
             <RecurringVsOneTimeChart chartData={chartData} total={total} textColor={textColor} formatCurrency={formatCurrency} />
+            {/* Center label overlay */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-3xl font-bold text-foreground">{recurringPct}%</span>
+              <span className="text-sm font-medium text-muted-foreground">Recurring</span>
+            </div>
           </div>
           {/* Legend */}
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2 mb-2">

@@ -35,6 +35,17 @@ import { ChartMonthlyBudgetPace } from "@/components/chart-monthly-budget-pace"
 import { ChartBudgetBurndown } from "@/components/chart-budget-burndown"
 import { ChartPurchaseSizeBreakdown } from "@/components/chart-purchase-size-breakdown"
 import { ChartRecurringVsOneTime } from "@/components/chart-recurring-vs-onetime"
+import { ChartSeasonalSpending } from "@/components/test-charts/chart-seasonal-spending"
+import { ChartHourlySpending } from "@/components/test-charts/chart-hourly-spending"
+import { ChartTransactionCountTrend } from "@/components/test-charts/chart-transaction-count-trend"
+import { ChartMoMGrowth } from "@/components/test-charts/chart-mom-growth"
+import { ChartTopMerchantsRace } from "@/components/test-charts/chart-top-merchants-race"
+import { ChartPaydayImpact } from "@/components/test-charts/chart-payday-impact"
+import { ChartIncomeSources } from "@/components/test-charts/chart-income-sources"
+import { ChartSpendingDistribution } from "@/components/test-charts/chart-spending-distribution"
+import { ChartYearOverYear } from "@/components/test-charts/chart-year-over-year"
+import { ChartQuarterlyComparison } from "@/components/test-charts/chart-quarterly-comparison"
+import { ChartDailyAverageByMonth } from "@/components/test-charts/chart-daily-average-by-month"
 import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -103,6 +114,17 @@ const CHART_TITLES: Record<string, string> = {
   budgetBurndown: "Budget Burndown",
   purchaseSizeBreakdown: "Purchase Size Breakdown",
   recurringVsOneTime: "Recurring vs One-Time",
+  seasonalSpending: "Seasonal Spending",
+  hourlySpending: "Hourly Spending Pattern",
+  transactionCountTrend: "Transaction Count Trend",
+  momGrowth: "Month-over-Month Growth",
+  topMerchantsRace: "Top 5 Merchants",
+  paydayImpact: "Payday Impact",
+  incomeSources: "Income Sources",
+  spendingDistribution: "Spending Distribution",
+  yearOverYear: "Year Over Year",
+  quarterlyComparison: "Quarterly Comparison",
+  dailyAverageByMonth: "Daily Average by Month",
 }
 
 export function ChartsGrid({
@@ -1044,6 +1066,138 @@ export function ChartsGrid({
                       emptyTitle="No transaction data yet"
                       emptyDescription="Import your bank statements to see recurring vs one-time spending."
                     />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "seasonalSpending") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Seasonal Spending" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartSeasonalSpending data={rawTransactions} isLoading={isLoadingTransactions} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "hourlySpending") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Hourly Spending Pattern" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartHourlySpending data={rawTransactions} isLoading={isLoadingTransactions} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "transactionCountTrend") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Transaction Count Trend" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartTransactionCountTrend data={rawTransactions} isLoading={isLoadingTransactions} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "momGrowth") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Month-over-Month Growth" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartMoMGrowth data={rawTransactions} isLoading={isLoadingTransactions} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "topMerchantsRace") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Top 5 Merchants" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartTopMerchantsRace data={rawTransactions} isLoading={isLoadingTransactions} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "paydayImpact") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Payday Impact" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartPaydayImpact data={rawTransactions} isLoading={isLoadingTransactions} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "incomeSources") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Income Sources" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartIncomeSources data={rawTransactions} isLoading={isLoadingTransactions} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "spendingDistribution") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Spending Distribution" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartSpendingDistribution data={rawTransactions} isLoading={isLoadingTransactions} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "yearOverYear") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Year Over Year" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartYearOverYear data={rawTransactions} isLoading={isLoadingTransactions} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "quarterlyComparison") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Quarterly Comparison" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartQuarterlyComparison data={rawTransactions} isLoading={isLoadingTransactions} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "dailyAverageByMonth") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Daily Average by Month" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartDailyAverageByMonth data={rawTransactions} isLoading={isLoadingTransactions} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
                   </div>
                 </LazyChart>
               </SortableGridItem>

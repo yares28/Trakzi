@@ -15,7 +15,6 @@ import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -235,8 +234,6 @@ export const ChartSpendingFunnel = memo(function ChartSpendingFunnel({
             />
             <CardTitle>Money Flow</CardTitle>
           </div>
-          <CardDescription>
-          </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {renderInfoTrigger()}
           </CardAction>

@@ -9,7 +9,6 @@ import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -359,8 +358,6 @@ export const ChartSankey = memo(function ChartSankey({
             />
             <CardTitle>Cash Flow Sankey</CardTitle>
           </div>
-          <CardDescription>
-          </CardDescription>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             <SankeyInfoTrigger sanitizedNodes={sanitizedData.nodes} sanitizedLinks={sanitizedData.links} categoryControls={categoryControls} />
           </CardAction>

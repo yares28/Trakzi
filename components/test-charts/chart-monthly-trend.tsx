@@ -1,12 +1,10 @@
 "use client"
-
 import { useMemo, useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveLine } from "@nivo/line"
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
     CardAction,
@@ -18,7 +16,6 @@ import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
-
 interface ChartMonthlyTrendProps {
     data: Array<{
         date: string
@@ -26,7 +23,6 @@ interface ChartMonthlyTrendProps {
     }>
     isLoading?: boolean
 }
-
 export function ChartMonthlyTrend({
     data,
     isLoading = false,
@@ -36,20 +32,15 @@ export function ChartMonthlyTrend({
     const { formatCurrency } = useCurrency()
     const palette = getPalette()
     const [mounted, setMounted] = useState(false)
-
     useEffect(() => {
         setMounted(true)
     }, [])
-
     const chartData = useMemo(() => {
         if (!data || data.length === 0) return []
-
         const monthlyTotals = new Map<string, { income: number; expenses: number }>()
-
         data.forEach((tx) => {
             const month = tx.date.slice(0, 7)
             const existing = monthlyTotals.get(month) || { income: 0, expenses: 0 }
-
             if (tx.amount > 0) {
                 existing.income += tx.amount
             } else {
@@ -57,9 +48,7 @@ export function ChartMonthlyTrend({
             }
             monthlyTotals.set(month, existing)
         })
-
         const sortedMonths = Array.from(monthlyTotals.keys()).sort().slice(-12)
-
         return [
             {
                 id: "Income",
@@ -77,14 +66,11 @@ export function ChartMonthlyTrend({
             },
         ]
     }, [data])
-
     const isDark = resolvedTheme === "dark"
     const textColor = isDark ? "#9ca3af" : "#6b7280"
     const gridColor = isDark ? "#374151" : "#e5e7eb"
-
     const chartTitle = "Monthly Income vs Expenses"
     const chartDescription = "Compare your income and expenses trend over the last 12 months."
-
     const renderInfoTrigger = () => (
         <div className="flex flex-col items-center gap-2">
             <ChartInfoPopover
@@ -105,7 +91,6 @@ export function ChartMonthlyTrend({
             />
         </div>
     )
-
     if (!mounted || chartData.length === 0 || !chartData[0]?.data?.length) {
         return (
             <Card className="@container/card h-full flex flex-col">
@@ -123,7 +108,6 @@ export function ChartMonthlyTrend({
             </Card>
         )
     }
-
     return (
         <Card className="@container/card h-full flex flex-col">
             <CardHeader>
@@ -132,10 +116,6 @@ export function ChartMonthlyTrend({
                     <ChartFavoriteButton chartId="testCharts:monthlyTrend" chartTitle={chartTitle} size="md" />
                     <CardTitle>{chartTitle}</CardTitle>
                 </div>
-                <CardDescription>
-                    <span className="hidden @[540px]/card:block">{chartDescription}</span>
-                    <span className="@[540px]/card:hidden">Income vs expenses</span>
-                </CardDescription>
                 <CardAction>{renderInfoTrigger()}</CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">

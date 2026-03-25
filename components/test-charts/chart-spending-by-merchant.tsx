@@ -1,12 +1,10 @@
 "use client"
-
 import { useMemo, useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveBar } from "@nivo/bar"
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
     CardAction,
@@ -18,7 +16,6 @@ import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
-
 interface ChartSpendingByMerchantProps {
     data: Array<{
         date: string
@@ -27,7 +24,6 @@ interface ChartSpendingByMerchantProps {
     }>
     isLoading?: boolean
 }
-
 export function ChartSpendingByMerchant({
     data,
     isLoading = false,
@@ -37,16 +33,12 @@ export function ChartSpendingByMerchant({
     const { formatCurrency } = useCurrency()
     const palette = getPalette()
     const [mounted, setMounted] = useState(false)
-
     useEffect(() => {
         setMounted(true)
     }, [])
-
     const chartData = useMemo(() => {
         if (!data || data.length === 0) return []
-
         const merchantTotals = new Map<string, number>()
-
         data.forEach((tx) => {
             if (tx.amount >= 0) return
             // Extract merchant name (first 2-3 words of description)
@@ -54,7 +46,6 @@ export function ChartSpendingByMerchant({
             const merchant = words.join(' ').substring(0, 25) || 'Unknown'
             merchantTotals.set(merchant, (merchantTotals.get(merchant) || 0) + Math.abs(tx.amount))
         })
-
         const paletteLength = palette?.length || 0
         return Array.from(merchantTotals.entries())
             .sort((a, b) => b[1] - a[1])
@@ -65,14 +56,11 @@ export function ChartSpendingByMerchant({
                 color: paletteLength > 0 ? (palette[i % paletteLength] || "#fe8339") : "#fe8339",
             }))
     }, [data, palette])
-
     const isDark = resolvedTheme === "dark"
     const textColor = isDark ? "#9ca3af" : "#6b7280"
     const gridColor = isDark ? "#374151" : "#e5e7eb"
-
     const chartTitle = "Spending by Merchant"
     const chartDescription = "Your top merchants by total spending. See where your money goes most often."
-
     const renderInfoTrigger = () => (
         <div className="flex flex-col items-center gap-2">
             <ChartInfoPopover
@@ -93,7 +81,6 @@ export function ChartSpendingByMerchant({
             />
         </div>
     )
-
     if (!mounted || chartData.length === 0) {
         return (
             <Card className="@container/card h-full flex flex-col">
@@ -111,7 +98,6 @@ export function ChartSpendingByMerchant({
             </Card>
         )
     }
-
     return (
         <Card className="@container/card h-full flex flex-col">
             <CardHeader>
@@ -120,10 +106,6 @@ export function ChartSpendingByMerchant({
                     <ChartFavoriteButton chartId="testCharts:spendingByMerchant" chartTitle={chartTitle} size="md" />
                     <CardTitle>{chartTitle}</CardTitle>
                 </div>
-                <CardDescription>
-                    <span className="hidden @[540px]/card:block">{chartDescription}</span>
-                    <span className="@[540px]/card:hidden">Top merchants</span>
-                </CardDescription>
                 <CardAction>{renderInfoTrigger()}</CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">

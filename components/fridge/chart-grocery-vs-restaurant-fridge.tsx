@@ -2,9 +2,10 @@
 
 // Home Food vs Outside Food Spending Chart - Monthly stacked bar chart comparing spending
 import * as React from "react"
-import { useMemo, useState, useEffect } from "react"
+import { memo, useMemo, useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveBar, BarDatum, BarTooltipProps } from "@nivo/bar"
+import { HoverableBar } from "@/components/chart-hoverable-bar"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
@@ -17,7 +18,6 @@ import {
     Card,
     CardAction,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
@@ -187,8 +187,6 @@ export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVs
                     />
                     <CardTitle>Home Food vs Outside Food</CardTitle>
                 </div>
-                <CardDescription>
-                </CardDescription>
                 <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                     <GroceryVsRestaurantInfoTrigger totals={totals} dataLength={data.length} />
                 </CardAction>
@@ -207,6 +205,9 @@ export const ChartGroceryVsRestaurantFridge = React.memo(function ChartGroceryVs
                                 layout="vertical"
                                 colors={palette}
                                 borderRadius={10}
+                                animate={true}
+                                motionConfig="gentle"
+                                barComponent={HoverableBar as any}
                                 axisTop={null}
                                 axisRight={null}
                                 axisBottom={{
