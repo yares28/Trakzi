@@ -75,6 +75,7 @@ export const ChartIncomeSources = memo(function ChartIncomeSources({
         return Array.from(sourceTotals.entries())
             .sort((a, b) => b[1] - a[1])
             .slice(0, 6)
+            .reverse()
             .map(([source, total], i) => ({
                 source,
                 total,

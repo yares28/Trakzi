@@ -381,8 +381,8 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
   budgetBurndown: {
     minW: 6,
     maxW: 12,
-    minH: 7,
-    maxH: 12,
+    minH: 6,
+    maxH: 10,
     mobileH: 5,
   },
 
@@ -1020,7 +1020,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
   seasonalSpending: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
   hourlySpending: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
   transactionCountTrend: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
-  momGrowth: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
+  momGrowth: { minW: 6, maxW: 12, minH: 6, maxH: 10, mobileH: 5 },
   topMerchantsRace: { minW: 6, maxW: 12, minH: 8, maxH: 14, mobileH: 6 },
   paydayImpact: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
   incomeSources: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },

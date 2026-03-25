@@ -28,9 +28,45 @@ interface ChartBudgetBurndownProps {
     date: string
     amount: number
   }>
+  dateFilter?: string | null
   isLoading?: boolean
   emptyTitle?: string
   emptyDescription?: string
+}
+
+const CUSTOM_DATE_RANGE_RE = /^custom:\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/
+const YEAR_FILTER_RE = /^\d{4}$/
+
+function getDateRangeFromFilter(filter: string | null | undefined): { startDate: Date; endDate: Date } {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const MS_PER_DAY = 86400000
+
+  if (!filter) return { startDate: new Date(today.getTime() - 182 * MS_PER_DAY), endDate: today }
+  const f = filter.trim()
+
+  if (CUSTOM_DATE_RANGE_RE.test(f)) {
+    const parts = f.split(":")
+    const start = new Date(parts[1]); start.setHours(0, 0, 0, 0)
+    const end = new Date(parts[2]); end.setHours(0, 0, 0, 0)
+    return { startDate: start, endDate: end }
+  }
+
+  if (YEAR_FILTER_RE.test(f)) {
+    const year = parseInt(f, 10)
+    const start = new Date(year, 0, 1)
+    const end = year === today.getFullYear() ? today : new Date(year, 11, 31)
+    return { startDate: start, endDate: end }
+  }
+
+  switch (f) {
+    case "last30days":  return { startDate: new Date(today.getTime() - 30 * MS_PER_DAY), endDate: today }
+    case "last3months": return { startDate: new Date(today.getTime() - 91 * MS_PER_DAY), endDate: today }
+    case "last6months": return { startDate: new Date(today.getTime() - 182 * MS_PER_DAY), endDate: today }
+    case "lastyear":    return { startDate: new Date(today.getTime() - 365 * MS_PER_DAY), endDate: today }
+    case "ytd":         return { startDate: new Date(today.getFullYear(), 0, 1), endDate: today }
+    default:            return { startDate: new Date(today.getTime() - 182 * MS_PER_DAY), endDate: today }
+  }
 }
 
 interface BudgetBurndownInfoTriggerProps {
@@ -58,7 +94,7 @@ const BudgetBurndownInfoTrigger = memo(function BudgetBurndownInfoTrigger({
         title={chartTitle}
         description={chartDescription}
         details={[
-          `Income: ${formatCurrency(monthlyIncome)}`,
+          `Total income: ${formatCurrency(monthlyIncome)}`,
           "Solid line = actual remaining balance",
           "Dashed line = ideal burn rate",
           "Stay above ideal to have savings",
@@ -202,6 +238,7 @@ BudgetBurndownChart.displayName = "BudgetBurndownChart"
 
 export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
   data,
+  dateFilter,
   isLoading = false,
   emptyTitle,
   emptyDescription,
@@ -222,71 +259,52 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
     const empty = { actual: [] as Array<{ id: string; data: Array<{ x: number; y: number }> }>, ideal: [] as Array<{ id: string; data: Array<{ x: number; y: number }> }>, remaining: 0, daysInMonth: 30, currentDay: 1, monthlyIncome: 0 }
     if (!data || data.length === 0) return empty
 
-    const now = new Date()
-    const currentMonth = now.getMonth()
-    const currentYear = now.getFullYear()
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
+    // Derive exact date range from the filter string — no guessing from transaction dates
+    const { startDate, endDate } = getDateRangeFromFilter(dateFilter)
+    const MS_PER_DAY = 86400000
+    const totalDays = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / MS_PER_DAY) + 1)
 
-    // Compute income per month
-    const monthlyIncome = new Map<string, number>()
-    const currentMonthData: typeof data = []
+    // Total income for the entire filtered period
+    const totalIncome = data.filter(tx => tx.amount > 0).reduce((sum, tx) => sum + tx.amount, 0)
+    if (totalIncome === 0) return empty
 
-    data.forEach((tx) => {
-      const txDate = new Date(tx.date)
-      const key = `${txDate.getFullYear()}-${txDate.getMonth()}`
-
-      if (tx.amount > 0) {
-        monthlyIncome.set(key, (monthlyIncome.get(key) || 0) + tx.amount)
-      }
-
-      if (txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear && tx.amount < 0) {
-        currentMonthData.push(tx)
-      }
-    })
-
-    const currentKey = `${currentYear}-${currentMonth}`
-    let income = monthlyIncome.get(currentKey) || 0
-
-    // Fall back to previous month income if current month has none
-    if (income === 0) {
-      const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1
-      const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear
-      income = monthlyIncome.get(`${prevYear}-${prevMonth}`) || 0
-    }
-
-    if (income === 0) return empty
-
-    // Build daily spending map for current month
+    // Map day index (0-based from startDate) -> total spending
     const dailySpending = new Map<number, number>()
-    currentMonthData.forEach((tx) => {
-      const day = new Date(tx.date).getDate()
-      dailySpending.set(day, (dailySpending.get(day) || 0) + Math.abs(tx.amount))
+    data.forEach((tx) => {
+      if (tx.amount < 0) {
+        const txDate = new Date(tx.date.split("T")[0])
+        txDate.setHours(0, 0, 0, 0)
+        const dayIndex = Math.round((txDate.getTime() - startDate.getTime()) / MS_PER_DAY)
+        if (dayIndex >= 0 && dayIndex < totalDays) {
+          dailySpending.set(dayIndex, (dailySpending.get(dayIndex) || 0) + Math.abs(tx.amount))
+        }
+      }
     })
 
-    // Actual burndown: start at income, subtract daily spending
-    let remaining = income
-    const actualData: Array<{ x: number; y: number }> = [{ x: 0, y: income }]
-    for (let day = 1; day <= now.getDate(); day++) {
-      remaining -= dailySpending.get(day) || 0
-      actualData.push({ x: day, y: Math.max(0, remaining) })
+    // Actual burndown: start at totalIncome, subtract daily spending
+    let remaining = totalIncome
+    const actualData: Array<{ x: number; y: number }> = [{ x: 0, y: totalIncome }]
+    for (let i = 0; i < totalDays; i++) {
+      remaining -= dailySpending.get(i) || 0
+      actualData.push({ x: i + 1, y: Math.max(0, remaining) })
     }
 
-    // Ideal burndown: linear from income to 0
+    // Ideal burndown: linear from totalIncome to 0 over totalDays
+    const dailyBurn = totalIncome / totalDays
     const idealData: Array<{ x: number; y: number }> = []
-    const dailyBurn = income / daysInMonth
-    for (let day = 0; day <= daysInMonth; day++) {
-      idealData.push({ x: day, y: Math.max(0, income - dailyBurn * day) })
+    for (let day = 0; day <= totalDays; day++) {
+      idealData.push({ x: day, y: Math.max(0, totalIncome - dailyBurn * day) })
     }
 
     return {
       actual: [{ id: "Actual", data: actualData }],
       ideal: [{ id: "Ideal", data: idealData }],
       remaining,
-      daysInMonth,
-      currentDay: now.getDate(),
-      monthlyIncome: income,
+      daysInMonth: totalDays,
+      currentDay: totalDays,
+      monthlyIncome: totalIncome,
     }
-  }, [data])
+  }, [data, dateFilter])
 
   const isDark = resolvedTheme === "dark"
 

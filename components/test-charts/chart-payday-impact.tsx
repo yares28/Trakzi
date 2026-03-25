@@ -289,11 +289,11 @@ export const ChartPaydayImpact = memo(function ChartPaydayImpact({
                         <CardTitle>{CHART_TITLE}</CardTitle>
                     </div>
                     <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+                        {renderTypePicker()}
                         {renderInfoTrigger()}
                     </CardAction>
                 </CardHeader>
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
-                    <div className="mb-3">{renderTypePicker()}</div>
                     <div className="h-full w-full min-h-[250px]">
                         <ChartLoadingState
                             isLoading={isLoading || !mounted}
@@ -329,11 +329,11 @@ export const ChartPaydayImpact = memo(function ChartPaydayImpact({
                         <CardTitle>{CHART_TITLE}</CardTitle>
                     </div>
                     <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+                        {renderTypePicker()}
                         {renderInfoTrigger()}
                     </CardAction>
                 </CardHeader>
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
-                    <div className="mb-3">{renderTypePicker()}</div>
                     <div className="h-full w-full min-h-[230px]" key={`${colorScheme}-${selectedType}`}>
                         {renderChart()}
                     </div>

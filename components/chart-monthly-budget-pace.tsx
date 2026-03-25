@@ -28,9 +28,45 @@ interface ChartMonthlyBudgetPaceProps {
     date: string
     amount: number
   }>
+  dateFilter?: string | null
   isLoading?: boolean
   emptyTitle?: string
   emptyDescription?: string
+}
+
+const CUSTOM_DATE_RANGE_RE_MBP = /^custom:\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/
+const YEAR_FILTER_RE_MBP = /^\d{4}$/
+
+function getDateRangeFromFilterMBP(filter: string | null | undefined): { startDate: Date; endDate: Date } {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const MS = 86400000
+
+  if (!filter) return { startDate: new Date(today.getTime() - 182 * MS), endDate: today }
+  const f = filter.trim()
+
+  if (CUSTOM_DATE_RANGE_RE_MBP.test(f)) {
+    const parts = f.split(":")
+    const start = new Date(parts[1]); start.setHours(0, 0, 0, 0)
+    const end = new Date(parts[2]); end.setHours(0, 0, 0, 0)
+    return { startDate: start, endDate: end }
+  }
+
+  if (YEAR_FILTER_RE_MBP.test(f)) {
+    const year = parseInt(f, 10)
+    const start = new Date(year, 0, 1)
+    const end = year === today.getFullYear() ? today : new Date(year, 11, 31)
+    return { startDate: start, endDate: end }
+  }
+
+  switch (f) {
+    case "last30days":  return { startDate: new Date(today.getTime() - 30 * MS), endDate: today }
+    case "last3months": return { startDate: new Date(today.getTime() - 91 * MS), endDate: today }
+    case "last6months": return { startDate: new Date(today.getTime() - 182 * MS), endDate: today }
+    case "lastyear":    return { startDate: new Date(today.getTime() - 365 * MS), endDate: today }
+    case "ytd":         return { startDate: new Date(today.getFullYear(), 0, 1), endDate: today }
+    default:            return { startDate: new Date(today.getTime() - 182 * MS), endDate: today }
+  }
 }
 
 interface PaceChartData {
@@ -207,6 +243,7 @@ MonthlyBudgetPaceChart.displayName = "MonthlyBudgetPaceChart"
 
 export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
   data,
+  dateFilter,
   isLoading = false,
   emptyTitle,
   emptyDescription,
@@ -229,72 +266,62 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
     const empty: PaceChartData = { lineData: [], currentDay: 0, daysInMonth: 30, avgMonthlySpend: 0, currentSpend: 0, displayMonth: "" }
     if (!data || data.length === 0) return empty
 
-    // Group spending by month
-    const monthlyTotals = new Map<string, Map<number, number>>() // month -> day -> total
+    // Derive exact date range from filter — same approach as Income Burndown
+    const { startDate, endDate } = getDateRangeFromFilterMBP(dateFilter)
+    const MS = 86400000
+    const totalDays = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / MS) + 1)
 
+    // Compute avg monthly spend from all months in the dataset
+    const monthlyTotals = new Map<string, number>()
     data.forEach((tx) => {
-      if (tx.amount >= 0) return // expenses only
+      if (tx.amount >= 0) return
       const txDate = new Date(tx.date)
       const monthKey = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, "0")}`
-      const day = txDate.getDate()
-
-      if (!monthlyTotals.has(monthKey)) monthlyTotals.set(monthKey, new Map())
-      const dayMap = monthlyTotals.get(monthKey)!
-      dayMap.set(day, (dayMap.get(day) || 0) + Math.abs(tx.amount))
+      monthlyTotals.set(monthKey, (monthlyTotals.get(monthKey) || 0) + Math.abs(tx.amount))
     })
 
     if (monthlyTotals.size === 0) return empty
 
-    const sortedMonths = Array.from(monthlyTotals.keys()).sort()
-    const displayMonthKey = sortedMonths[sortedMonths.length - 1] // most recent month
-    const pastMonths = sortedMonths.slice(0, -1)
+    const avgMonthlySpend = Array.from(monthlyTotals.values()).reduce((a, b) => a + b, 0) / monthlyTotals.size
+    const avgDailySpend = avgMonthlySpend / 30
 
-    // Average monthly spend from past months
-    const avgMonthlySpend = pastMonths.length > 0
-      ? pastMonths.reduce((sum, m) => {
-          const dayMap = monthlyTotals.get(m)!
-          return sum + Array.from(dayMap.values()).reduce((a, b) => a + b, 0)
-        }, 0) / pastMonths.length
-      : Array.from(monthlyTotals.get(displayMonthKey)!.values()).reduce((a, b) => a + b, 0)
+    // Build cumulative actual spending over the full filter period
+    const dailySpending = new Map<number, number>()
+    data.forEach((tx) => {
+      if (tx.amount >= 0) return
+      const txDate = new Date(tx.date.split("T")[0])
+      txDate.setHours(0, 0, 0, 0)
+      const dayIndex = Math.round((txDate.getTime() - startDate.getTime()) / MS)
+      if (dayIndex >= 0 && dayIndex < totalDays) {
+        dailySpending.set(dayIndex, (dailySpending.get(dayIndex) || 0) + Math.abs(tx.amount))
+      }
+    })
 
-    // Determine current day
-    const now = new Date()
-    const [year, month] = displayMonthKey.split("-").map(Number)
-    const daysInMonth = new Date(year, month, 0).getDate()
-    const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1
-    const currentDay = isCurrentMonth ? now.getDate() : daysInMonth
-
-    // Build cumulative actual spending for the display month
-    const dayMap = monthlyTotals.get(displayMonthKey)!
     let cumulative = 0
     const actualPoints: Array<{ x: number; y: number }> = []
-    for (let day = 1; day <= currentDay; day++) {
-      cumulative += dayMap.get(day) || 0
-      actualPoints.push({ x: day, y: cumulative })
+    for (let i = 0; i < totalDays; i++) {
+      cumulative += dailySpending.get(i) || 0
+      actualPoints.push({ x: i + 1, y: cumulative })
     }
 
-    // Build ideal pace: linear 0 → avgMonthlySpend over daysInMonth
+    // Ideal pace: linear 0 → avgDailySpend * totalDays over totalDays
     const pacePoints: Array<{ x: number; y: number }> = []
-    for (let day = 1; day <= daysInMonth; day++) {
-      pacePoints.push({ x: day, y: (avgMonthlySpend / daysInMonth) * day })
+    for (let day = 1; day <= totalDays; day++) {
+      pacePoints.push({ x: day, y: avgDailySpend * day })
     }
-
-    // Month label e.g. "Mar 2026"
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    const displayMonth = `${months[month - 1]} ${year}`
 
     return {
       lineData: [
         { id: "Pace", data: pacePoints },
         { id: "Actual", data: actualPoints },
       ],
-      currentDay,
-      daysInMonth,
+      currentDay: totalDays,
+      daysInMonth: totalDays,
       avgMonthlySpend,
       currentSpend: cumulative,
-      displayMonth,
+      displayMonth: "",
     }
-  }, [data])
+  }, [data, dateFilter])
 
   // Flatten Nivo-style lineData into Recharts flat format
   const flatData = useMemo((): FlatDataPoint[] => {
