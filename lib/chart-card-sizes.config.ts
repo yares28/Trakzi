@@ -651,9 +651,9 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
   "testCharts:topMerchantsRace": {
     minW: 6,
     maxW: 12,
-    minH: 8,
+    minH: 6,
     maxH: 14,
-    mobileH: 6,
+    mobileH: 4,
   },
 
   // Test Charts: Largest Transactions
@@ -1021,7 +1021,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
   hourlySpending: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
   transactionCountTrend: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
   momGrowth: { minW: 6, maxW: 12, minH: 6, maxH: 10, mobileH: 5 },
-  topMerchantsRace: { minW: 6, maxW: 12, minH: 8, maxH: 14, mobileH: 6 },
+  topMerchantsRace: { minW: 6, maxW: 12, minH: 6, maxH: 14, mobileH: 4 },
   paydayImpact: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
   incomeSources: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
   spendingDistribution: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },

@@ -2,13 +2,16 @@
 
 // Purchase Size Comparison Chart - Shows distribution of receipt totals by size range
 import * as React from "react"
-import { useMemo, useState, useEffect, memo } from "react"
-import { createPortal } from "react-dom"
+import { useMemo, memo } from "react"
 import { useTheme } from "next-themes"
+import { ResponsiveBar } from "@nivo/bar"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { useColorScheme } from "@/components/color-scheme-provider"
-import { getChartTextColor, getContrastTextColor, DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
+import { getChartTextColor, getChartAxisLineColor, DEFAULT_FALLBACK_PALETTE } from "@/lib/chart-colors"
+import { NivoChartTooltip } from "@/components/chart-tooltip"
+import { HoverableBar } from "@/components/chart-hoverable-bar"
+import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
     Card,
@@ -26,7 +29,7 @@ interface ReceiptTransaction {
     receiptDate: string
     receiptTotalAmount: number
     totalPrice: number
-    [key: string]: any
+    [key: string]: unknown
 }
 
 interface ChartPurchaseSizeComparisonFridgeProps {
@@ -101,21 +104,8 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
     isLoading = false,
 }: ChartPurchaseSizeComparisonFridgeProps) {
     const { resolvedTheme } = useTheme()
-    const { getShuffledPalette } = useColorScheme()
-    const [mounted, setMounted] = useState(false)
-    const containerRef = React.useRef<HTMLDivElement>(null)
-    const [tooltip, setTooltip] = useState<{
-        label: string
-        count: number
-        totalSpent: number
-        color: string
-        x: number
-        y: number
-    } | null>(null)
-
-    useEffect(() => {
-        setMounted(true)
-    }, [])
+    const { getShuffledPalette, colorScheme } = useColorScheme()
+    const { formatCurrency } = useCurrency()
 
     const palette = useMemo(() => {
         const base = getShuffledPalette()
@@ -125,16 +115,9 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
         return base
     }, [getShuffledPalette])
 
-    // Format currency
-    const currencyFormatter = useMemo(
-        () =>
-            new Intl.NumberFormat("en-US", {
-                style: "currency",
-                currency: "USD",
-                maximumFractionDigits: 0,
-            }),
-        []
-    )
+    const isDark = resolvedTheme === "dark"
+    const textColor = getChartTextColor(isDark)
+    const axisLineColor = getChartAxisLineColor(isDark)
 
     // Calculate size distribution from receipt totals
     const sizeData = useMemo(() => {
@@ -168,53 +151,37 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
         return rangeCounts.filter((r) => r.count > 0)
     }, [receiptTransactions, palette])
 
-    const maxCount = useMemo(() => {
-        return Math.max(...sizeData.map((d) => d.count), 1)
-    }, [sizeData])
-
-    // Generate unique integer tick values for Y-axis (0 to maxCount)
-    const yAxisTicks = useMemo(() => {
-        // For small maxCount values, show every integer
-        if (maxCount <= 5) {
-            return Array.from({ length: maxCount + 1 }, (_, i) => i)
-        }
-        // For larger values, show roughly 5 nice ticks
-        const step = Math.ceil(maxCount / 4)
-        const ticks: number[] = [0]
-        for (let i = step; i < maxCount; i += step) {
-            ticks.push(i)
-        }
-        ticks.push(maxCount)
-        return ticks
-    }, [maxCount])
-
     const totalReceipts = useMemo(() => {
         return sizeData.reduce((sum, d) => sum + d.count, 0)
     }, [sizeData])
 
-    const handleBarHover = (
-        range: SizeRange,
-        event: React.MouseEvent<SVGRectElement>
-    ) => {
-        setTooltip({
-            label: range.label,
-            count: range.count,
-            totalSpent: range.totalSpent,
-            color: range.color,
-            x: event.clientX,
-            y: event.clientY,
-        })
+    const chartData = useMemo(() => {
+        return sizeData
+            .filter(s => s.count > 0)
+            .map((s, i) => ({
+                range: s.label,
+                count: s.count,
+                totalSpent: s.totalSpent,
+                color: palette[i % palette.length],
+            }))
+    }, [sizeData, palette])
+
+    const nivoTheme = {
+        text: { fill: textColor, fontSize: 11 },
+        axis: {
+            ticks: { text: { fill: textColor } },
+            domain: { line: { stroke: axisLineColor } },
+        },
+        grid: {
+            line: {
+                stroke: axisLineColor,
+                strokeWidth: 0.5,
+                strokeDasharray: "3,3",
+            },
+        },
     }
 
-    const handleBarLeave = () => {
-        setTooltip(null)
-    }
-
-    const isDark = resolvedTheme === "dark"
-    const textColor = getChartTextColor(isDark)
-    const gridColor = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"
-
-    if (!mounted || isLoading) {
+    if (isLoading) {
         return (
             <Card className="@container/card" suppressHydrationWarning>
                 <CardHeader>
@@ -266,9 +233,6 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
         )
     }
 
-    const barWidth = Math.min(60, (100 / sizeData.length) * 0.7)
-    const barGap = (100 - barWidth * sizeData.length) / (sizeData.length + 1)
-
     return (
         <Card className="@container/card">
             <CardHeader>
@@ -286,136 +250,36 @@ export const ChartPurchaseSizeComparisonFridge = React.memo(function ChartPurcha
                 </CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
-                <div
-                    ref={containerRef}
-                    className="h-full w-full min-h-[250px] relative"
-                >
-                    <svg
-                        viewBox="0 0 100 70"
-                        preserveAspectRatio="xMidYMid meet"
-                        className="w-full h-full"
-                    >
-                        {/* Y-axis grid lines */}
-                        {yAxisTicks.map((tickValue) => {
-                            const tickPosition = maxCount > 0 ? (tickValue / maxCount) : 0
-                            return (
-                                <g key={tickValue}>
-                                    <line
-                                        x1="12"
-                                        y1={55 - tickPosition * 45}
-                                        x2="98"
-                                        y2={55 - tickPosition * 45}
-                                        stroke={gridColor}
-                                        strokeWidth="0.2"
-                                    />
-                                    <text
-                                        x="10"
-                                        y={55 - tickPosition * 45 + 1}
-                                        textAnchor="end"
-                                        fontSize="3"
-                                        fill={textColor}
-                                    >
-                                        {tickValue}
-                                    </text>
-                                </g>
-                            )
-                        })}
-
-                        {/* Bars */}
-                        {sizeData.map((range, index) => {
-                            const barHeight = (range.count / maxCount) * 45
-                            const x = 12 + barGap + index * (barWidth + barGap)
-                            const y = 55 - barHeight
-                            const cornerRadius = 3
-
-                            return (
-                                <g key={range.label}>
-                                    {/* Full bar with rounded corners on all sides */}
-                                    <rect
-                                        x={`${x}%`}
-                                        y={y}
-                                        width={`${barWidth}%`}
-                                        height={barHeight}
-                                        fill={range.color}
-                                        rx={cornerRadius}
-                                        className="cursor-pointer transition-opacity hover:opacity-80"
-                                        onMouseMove={(e) => handleBarHover(range, e)}
-                                        onMouseLeave={handleBarLeave}
-                                    />
-                                    {/* Overlay at bottom to square off the bottom corners */}
-                                    {barHeight > cornerRadius && (
-                                        <rect
-                                            x={`${x}%`}
-                                            y={55 - cornerRadius}
-                                            width={`${barWidth}%`}
-                                            height={cornerRadius}
-                                            fill={range.color}
-                                            className="pointer-events-none"
-                                        />
-                                    )}
-                                    {/* Bar label (count) */}
-                                    {barHeight > 5 && (
-                                        <text
-                                            x={`${x + barWidth / 2}%`}
-                                            y={y + barHeight / 2 + 1}
-                                            textAnchor="middle"
-                                            fontSize="3.5"
-                                            fill={getContrastTextColor(range.color)}
-                                            fontWeight="bold"
-                                        >
-                                            {range.count}
-                                        </text>
-                                    )}
-                                    {/* X-axis label */}
-                                    <text
-                                        x={`${x + barWidth / 2}%`}
-                                        y="62"
-                                        textAnchor="middle"
-                                        fontSize="2.8"
-                                        fill={textColor}
-                                    >
-                                        {range.label}
-                                    </text>
-                                </g>
-                            )
-                        })}
-
-                        {/* Y-axis label */}
-                        <text
-                            x="2"
-                            y="30"
-                            textAnchor="middle"
-                            fontSize="3"
-                            fill={textColor}
-                            transform="rotate(-90, 2, 30)"
-                        >
-                            Receipts
-                        </text>
-                    </svg>
-
-                    {/* Tooltip */}
-                    {mounted && tooltip && createPortal(
-                        <div
-                            className="pointer-events-none fixed z-[9999] rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl select-none"
-                            style={{
-                                left: tooltip.x + 12 + 180 > window.innerWidth ? tooltip.x - 192 : tooltip.x + 12,
-                                top: tooltip.y - 80 < 0 ? tooltip.y + 12 : tooltip.y - 80,
-                            }}
-                        >
-                            <div className="flex items-center gap-2">
-                                <span
-                                    className="h-2.5 w-2.5 rounded-sm"
-                                    style={{ backgroundColor: tooltip.color }}
-                                />
-                                <span className="font-medium text-foreground">{tooltip.label}</span>
-                            </div>
-                            <div className="mt-1 text-foreground/80">
-                                <div>{tooltip.count} receipt{tooltip.count !== 1 ? "s" : ""}</div>
-                                <div className="font-mono">{currencyFormatter.format(tooltip.totalSpent)} total</div>
-                            </div>
-                        </div>,
-                        document.body
-                    )}
+                <div className="h-full w-full min-h-[250px]" key={colorScheme}>
+                    <ResponsiveBar
+                        data={chartData}
+                        keys={["count"]}
+                        indexBy="range"
+                        margin={{ top: 16, right: 16, bottom: 60, left: 60 }}
+                        padding={0.3}
+                        colors={({ index }) => chartData[index]?.color ?? palette[index % palette.length]}
+                        borderRadius={10}
+                        enableLabel={false}
+                        axisBottom={{ tickSize: 0, tickPadding: 8, tickRotation: -25 }}
+                        axisLeft={{
+                            tickSize: 0,
+                            tickPadding: 8,
+                            format: (v) => String(v),
+                        }}
+                        enableGridY={true}
+                        gridYValues={5}
+                        theme={nivoTheme}
+                        tooltip={({ indexValue, value, color, data }) => (
+                            <NivoChartTooltip
+                                title={`${indexValue}: ${value} trips`}
+                                titleColor={color}
+                                value={formatCurrency((data as Record<string, unknown>).totalSpent as number ?? 0)}
+                            />
+                        )}
+                        animate={true}
+                        motionConfig="gentle"
+                        barComponent={HoverableBar}
+                    />
                 </div>
             </CardContent>
         </Card>

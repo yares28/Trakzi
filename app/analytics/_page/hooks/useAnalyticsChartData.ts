@@ -7,6 +7,32 @@ import type { ChartDataStatusMap } from "@/lib/types/chart-data-status"
 import type { ActivityRingsConfig, ActivityRingsData, AnalyticsTransaction } from "../types"
 import { getDefaultRingLimit, normalizeCategoryName } from "../utils/categories"
 
+/** Every calendar month from start through end (YYYY-MM), inclusive. */
+function expandYYYYMMRangeInclusive(startKey: string, endKey: string): string[] {
+  const parse = (k: string) => {
+    const m = k.match(/^(\d{4})-(\d{1,2})$/)
+    if (!m) return null
+    const y = Number(m[1])
+    const mo = Number(m[2]) - 1
+    const d = new Date(y, mo, 1)
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+  const start = parse(startKey)
+  const end = parse(endKey)
+  if (!start || !end) {
+    return Array.from(new Set([startKey, endKey])).sort((a, b) => a.localeCompare(b))
+  }
+  const lo = start.getTime() <= end.getTime() ? start : end
+  const hi = start.getTime() <= end.getTime() ? end : start
+  const out: string[] = []
+  const cur = new Date(lo)
+  while (cur.getTime() <= hi.getTime()) {
+    out.push(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`)
+    cur.setMonth(cur.getMonth() + 1)
+  }
+  return out
+}
+
 type BundleDailySpending = {
   date: string
   income?: number
@@ -1134,24 +1160,27 @@ export function useAnalyticsChartData({
         .slice(0, 7)
         .map(([cat]) => cat)
 
-      let sortedMonths = Array.from(monthMap.keys()).sort((a, b) => a.localeCompare(b))
+      const rawMonthKeys = Array.from(monthMap.keys()).sort((a, b) => a.localeCompare(b))
+      const sortedMonths =
+        rawMonthKeys.length > 0
+          ? expandYYYYMMRangeInclusive(rawMonthKeys[0]!, rawMonthKeys[rawMonthKeys.length - 1]!)
+          : []
 
-      // Streamgraph needs at least 2 time points to render - duplicate single point
-      if (sortedMonths.length === 1) {
-        const sole = sortedMonths[0]
-        const soleContinuation = sole + "\u200B" // zero-width space = distinct key, same display
-        sortedMonths = [sole, soleContinuation]
-        monthMap.set(soleContinuation, monthMap.get(sole)!)
-      }
-
-      const data = sortedMonths.map((month) => {
-        const cats = monthMap.get(month)!
-        const row: Record<string, string | number> = { month }
-        topCategories.forEach(cat => { row[cat] = cats.get(cat) || 0 })
-        return row
+      sortedMonths.forEach((m) => {
+        if (!monthMap.has(m)) monthMap.set(m, new Map())
       })
 
-      return { data, keys: topCategories, categories: Array.from(categorySet) }
+      // Match category rankings: single calendar month → use raw txs for weekly buckets (like category flow)
+      if (sortedMonths.length > 1) {
+        const data = sortedMonths.map((month) => {
+          const cats = monthMap.get(month)!
+          const row: Record<string, string | number> = { month }
+          topCategories.forEach(cat => { row[cat] = cats.get(cat) || 0 })
+          return row
+        })
+
+        return { data, keys: topCategories, categories: Array.from(categorySet) }
+      }
     }
 
     // Use rawTransactions for finer granularity or as fallback
@@ -1173,6 +1202,7 @@ export function useAnalyticsChartData({
     const periodMap = new Map<string, Map<string, number>>()
     const categoryTotals = new Map<string, number>()
     const categorySet = new Set<string>()
+    const allPeriodKeys = new Set<string>()
 
     rawTransactions
       .filter((tx) => tx.amount < 0)
@@ -1186,6 +1216,7 @@ export function useAnalyticsChartData({
         if (streamgraphVisibility.hiddenCategorySet.has(rawCategory)) return
         const amount = Math.abs(Number(tx.amount)) || 0
 
+        allPeriodKeys.add(periodKey)
         if (!periodMap.has(periodKey)) {
           periodMap.set(periodKey, new Map())
         }
@@ -1197,6 +1228,30 @@ export function useAnalyticsChartData({
 
     if (!periodMap.size || !categoryTotals.size) {
       return { data: [], keys: [], categories: Array.from(categorySet) }
+    }
+
+    // One month (or one week) of buckets — subdivide by week like Spending Category Rankings
+    if (allPeriodKeys.size <= 1) {
+      periodMap.clear()
+      allPeriodKeys.clear()
+
+      rawTransactions
+        .filter((tx) => tx.amount < 0)
+        .forEach((tx) => {
+          const date = new Date(tx.date)
+          if (isNaN(date.getTime())) return
+          const rawCategory = normalizeCategory(tx.category)
+          if (streamgraphVisibility.hiddenCategorySet.has(rawCategory)) return
+
+          const weekStart = new Date(date)
+          weekStart.setDate(date.getDate() - date.getDay())
+          const weekKey = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, "0")}-${String(weekStart.getDate()).padStart(2, "0")}`
+
+          allPeriodKeys.add(weekKey)
+          if (!periodMap.has(weekKey)) periodMap.set(weekKey, new Map())
+          const weekData = periodMap.get(weekKey)!
+          weekData.set(rawCategory, (weekData.get(rawCategory) || 0) + Math.abs(Number(tx.amount)) || 0)
+        })
     }
 
     const sortedCategories = Array.from(categoryTotals.entries()).sort((a, b) => b[1] - a[1])
@@ -1332,6 +1387,55 @@ export function useAnalyticsChartData({
       mobile: cumulativeExpensesByDate.get(date) || 0,
     }))
   }, [rawTransactions, incomeExpenseTopVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
+
+  /** Same cumulative logic as Income & Expenses Cumulative, scoped to this chart's category visibility. */
+  const incomeExpenseCumulativeData = useMemo(() => {
+    const filteredSource =
+      incomeExpenseVisibility.hiddenCategorySet.size === 0
+        ? rawTransactions
+        : rawTransactions.filter((tx) => {
+          const category = normalizeCategoryName(tx.category)
+          return !incomeExpenseVisibility.hiddenCategorySet.has(category)
+        })
+
+    const transactionsByDate = new Map<string, Array<{ amount: number }>>()
+    filteredSource.forEach(tx => {
+      const date = tx.date.split("T")[0]
+      if (!transactionsByDate.has(date)) {
+        transactionsByDate.set(date, [])
+      }
+      transactionsByDate.get(date)!.push({ amount: tx.amount })
+    })
+    const sortedDates = Array.from(transactionsByDate.keys()).sort((a, b) => a.localeCompare(b))
+    const incomeByDate = new Map<string, number>()
+    sortedDates.forEach(date => {
+      const dayTransactions = transactionsByDate.get(date)!
+      const dayIncome = dayTransactions
+        .filter(tx => tx.amount > 0)
+        .reduce((sum, tx) => sum + tx.amount, 0)
+      if (dayIncome > 0) {
+        incomeByDate.set(date, dayIncome)
+      }
+    })
+    let cumulativeExpenses = 0
+    const cumulativeExpensesByDate = new Map<string, number>()
+    sortedDates.forEach(date => {
+      const dayTransactions = transactionsByDate.get(date)!
+      dayTransactions.forEach(tx => {
+        if (tx.amount < 0) {
+          cumulativeExpenses += Math.abs(tx.amount)
+        } else if (tx.amount > 0) {
+          cumulativeExpenses = Math.max(0, cumulativeExpenses - tx.amount)
+        }
+      })
+      cumulativeExpensesByDate.set(date, cumulativeExpenses)
+    })
+    return sortedDates.map(date => ({
+      date,
+      desktop: incomeByDate.get(date) || 0,
+      mobile: cumulativeExpensesByDate.get(date) || 0,
+    }))
+  }, [rawTransactions, incomeExpenseVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
 
   const treeMapData = useMemo(() => {
     // Use bundle data if available (pre-computed by server)
@@ -1478,7 +1582,8 @@ export function useAnalyticsChartData({
 
     return {
       incomeExpensesTracking1: hasArr(incomeExpenseTopChartData) ? "has-data" : "empty",
-      incomeExpensesTracking2: hasArr(incomeExpenseChart.data) ? "has-data" : "empty",
+      incomeExpensesTracking2:
+        hasArr(incomeExpenseChart.data) || hasArr(incomeExpenseCumulativeData) ? "has-data" : "empty",
       spendingCategoryRankings: hasArr(categoryFlowChart.data) ? "has-data" : "empty",
       netWorthAllocation: hasObj(treeMapData) ? "has-data" : "empty",
       moneyFlow: hasArr(spendingFunnelChart.data) ? "has-data" : "empty",
@@ -1505,6 +1610,7 @@ export function useAnalyticsChartData({
     }
   }, [
     incomeExpenseTopChartData,
+    incomeExpenseCumulativeData,
     incomeExpenseChart.data,
     categoryFlowChart.data,
     treeMapData,
@@ -1544,6 +1650,7 @@ export function useAnalyticsChartData({
     incomeExpenseControls,
     incomeExpenseTopChartData,
     incomeExpenseTopControls,
+    incomeExpenseCumulativeData,
     moneyFlowMaxExpenseCategories,
     monthOfYearSpendingControls,
     needsWantsControls,

@@ -36,6 +36,11 @@ const ChartSpendingPyramid = dynamic(
   { ssr: false, loading: () => <div className="h-[300px] w-full animate-pulse rounded-lg bg-muted" /> }
 )
 
+const ChartAreaInteractive = dynamic(
+  () => import("@/components/chart-area-interactive").then((m) => ({ default: m.ChartAreaInteractive })),
+  { ssr: false, loading: () => <div className="h-[300px] w-full animate-pulse rounded-lg bg-muted" /> }
+)
+
 type AnalyticsViewMode = "analytics" | "advanced" | "trends"
 
 export default function AnalyticsPage() {
@@ -234,6 +239,36 @@ export default function AnalyticsPage() {
                     const sizeConfig = getChartCardSize(chartId as ChartId)
                     const w = (chartLayout.savedSizes[chartId]?.w ?? defaultSize.w) as 6 | 12
                     const h = chartLayout.savedSizes[chartId]?.h ?? defaultSize.h
+
+                    if (chartId === "incomeExpensesTracking1") {
+                      return (
+                        <SortableGridItem
+                          key={chartId}
+                          id={chartId}
+                          w={w}
+                          h={h}
+                          mobileH={sizeConfig.mobileH}
+                          resizable
+                          minW={sizeConfig.minW}
+                          maxW={sizeConfig.maxW}
+                          minH={sizeConfig.minH}
+                          maxH={sizeConfig.maxH}
+                          onResize={chartLayout.handleChartResize}
+                        >
+                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                            <ChartAreaInteractive
+                              chartId="incomeExpensesTracking1"
+                              title="Income & Expenses Cumulative"
+                              categoryControls={chartData.incomeExpenseTopControls}
+                              isLoading={isLoadingTransactions}
+                              data={chartData.incomeExpenseTopChartData}
+                              emptyTitle="No data yet"
+                              emptyDescription="Import your bank statements to see cumulative income and expenses"
+                            />
+                          </div>
+                        </SortableGridItem>
+                      )
+                    }
 
                     if (chartId === "spendingPyramid") {
                       return (

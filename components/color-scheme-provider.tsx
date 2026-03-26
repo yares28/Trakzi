@@ -10,10 +10,14 @@ interface ColorSchemeContextType {
   colorScheme: ColorScheme
   setColorScheme: (scheme: ColorScheme) => void
   getPalette: () => string[]
-  /** Returns the theme-aware palette with colors in a shuffled (non-sequential) order */
-  getShuffledPalette: () => string[]
-  /** Returns palette indices 1 to n-2 (middle only), shuffled. Re-randomizes on hard reload. */
-  getMiddleShuffledPalette: () => string[]
+  /**
+   * Theme-aware palette shuffled for visual variety (session-stable seed).
+   * Pass a unique `namespace` per chart so each chart gets a different permutation
+   * (avoids every chart sharing the same first color).
+   */
+  getShuffledPalette: (namespace?: string) => string[]
+  /** Middle swatches only (indices 1..n-2), shuffled; optional per-chart namespace. */
+  getMiddleShuffledPalette: (namespace?: string) => string[]
   /** Returns the raw palette without any theme-based trimming or neutral filtering */
   getRawPalette: () => string[]
 }
@@ -67,6 +71,17 @@ function shufflePaletteColors(palette: string[], sessionSeed?: number): string[]
     ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
   return shuffled
+}
+
+/** XOR session seed with a stable hash of namespace so each chart shuffles differently. */
+function mixSessionSeedWithNamespace(baseSeed: number, namespace?: string): number {
+  const base = (baseSeed >>> 0) || 1
+  if (!namespace) return base
+  let h = base
+  for (let i = 0; i < namespace.length; i++) {
+    h = ((h << 5) - h + namespace.charCodeAt(i)) | 0
+  }
+  return (h >>> 0) || 1
 }
 
 const ColorSchemeContext = createContext<ColorSchemeContextType | undefined>(undefined)
@@ -126,12 +141,9 @@ export function ColorSchemeProvider({ children }: { children: ReactNode }) {
     return filtered.slice(0, -1)   // skip lightest
   }, [colorScheme, resolvedTheme])
 
-  // Returns the theme-aware palette shuffled so adjacent colors are visually distinct.
-  // Uses a session-stored seed: same order for the tab session; new order on hard reload (new session).
-  const getShuffledPalette = useCallback(() => {
-    const palette = getPalette()
+  const ensureSessionSeed = useCallback((): number => {
     if (typeof window === "undefined") {
-      return shufflePaletteColors(palette)
+      return 1
     }
     if (sessionSeedRef.current === null) {
       const stored = sessionStorage.getItem(PALETTE_SESSION_SEED_KEY)
@@ -145,37 +157,68 @@ export function ColorSchemeProvider({ children }: { children: ReactNode }) {
         sessionSeedRef.current = newSeed
       }
     }
-    return shufflePaletteColors(palette, sessionSeedRef.current ?? undefined)
-  }, [getPalette])
+    return sessionSeedRef.current ?? 1
+  }, [])
 
-  // Returns palette indices 1 to n-2 (middle only), shuffled. Same session seed as getShuffledPalette.
-  const getMiddleShuffledPalette = useCallback(() => {
-    const palette = getPalette()
-    const middle = palette.length > 2 ? palette.slice(1, -1) : palette
-    if (typeof window === "undefined") {
-      return shufflePaletteColors(middle)
-    }
-    if (sessionSeedRef.current === null) {
-      const stored = sessionStorage.getItem(PALETTE_SESSION_SEED_KEY)
-      if (stored) {
-        const parsed = parseInt(stored, 10)
-        sessionSeedRef.current = Number.isNaN(parsed) ? null : parsed
+  // Returns the theme-aware palette shuffled so adjacent colors are visually distinct.
+  // Uses a session-stored seed; optional namespace gives each chart its own permutation.
+  const getShuffledPalette = useCallback(
+    (namespace?: string) => {
+      const palette = getPalette()
+      if (typeof window === "undefined") {
+        const base =
+          namespace !== undefined && namespace.length > 0
+            ? mixSessionSeedWithNamespace(0, namespace + (colorPalettes[colorScheme] || []).join(""))
+            : undefined
+        return shufflePaletteColors(palette, base)
       }
-      if (sessionSeedRef.current === null) {
-        const newSeed = Math.floor(Math.random() * 0xffffffff)
-        sessionStorage.setItem(PALETTE_SESSION_SEED_KEY, String(newSeed))
-        sessionSeedRef.current = newSeed
+      const seed = mixSessionSeedWithNamespace(ensureSessionSeed(), namespace)
+      return shufflePaletteColors(palette, seed)
+    },
+    [colorScheme, ensureSessionSeed, getPalette],
+  )
+
+  // Returns palette indices 1 to n-2 (middle only), shuffled.
+  const getMiddleShuffledPalette = useCallback(
+    (namespace?: string) => {
+      const palette = getPalette()
+      const middle = palette.length > 2 ? palette.slice(1, -1) : palette
+      if (typeof window === "undefined") {
+        const base =
+          namespace !== undefined && namespace.length > 0
+            ? mixSessionSeedWithNamespace(0, namespace + (colorPalettes[colorScheme] || []).join(""))
+            : undefined
+        return shufflePaletteColors(middle, base)
       }
-    }
-    return shufflePaletteColors(middle, sessionSeedRef.current ?? undefined)
-  }, [getPalette])
+      const seed = mixSessionSeedWithNamespace(ensureSessionSeed(), namespace ? `${namespace}:middle` : undefined)
+      return shufflePaletteColors(middle, seed)
+    },
+    [colorScheme, ensureSessionSeed, getPalette],
+  )
 
   // Avoid hydration mismatch
   if (!mounted) {
     const fallback = colorPalettes.sunset.slice(0, -1)
     const middleFallback = fallback.length > 2 ? fallback.slice(1, -1) : fallback
     return (
-      <ColorSchemeContext.Provider value={{ colorScheme: "sunset", setColorScheme, getPalette: () => fallback, getShuffledPalette: () => shufflePaletteColors(fallback), getMiddleShuffledPalette: () => shufflePaletteColors(middleFallback), getRawPalette: () => colorPalettes.sunset }}>
+      <ColorSchemeContext.Provider
+        value={{
+          colorScheme: "sunset",
+          setColorScheme,
+          getPalette: () => fallback,
+          getShuffledPalette: (namespace?: string) =>
+            shufflePaletteColors(
+              fallback,
+              namespace ? mixSessionSeedWithNamespace(1, namespace + fallback.join("")) : undefined,
+            ),
+          getMiddleShuffledPalette: (namespace?: string) =>
+            shufflePaletteColors(
+              middleFallback,
+              namespace ? mixSessionSeedWithNamespace(1, `${namespace}:middle` + middleFallback.join("")) : undefined,
+            ),
+          getRawPalette: () => colorPalettes.sunset,
+        }}
+      >
         {children}
       </ColorSchemeContext.Provider>
     )

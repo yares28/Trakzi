@@ -20,6 +20,7 @@ import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
+import { getChartTextColor } from "@/lib/chart-colors"
 
 interface ChartTopMerchantsRaceProps {
     data: Array<{
@@ -37,9 +38,12 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
     isLoading = false,
 }: ChartTopMerchantsRaceProps) {
     const { resolvedTheme } = useTheme()
-    const { getPalette } = useColorScheme()
+    const { getShuffledPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
-    const palette = useMemo(() => getPalette(), [getPalette])
+    const palette = useMemo(
+        () => getShuffledPalette("analytics:topMerchantsRace"),
+        [getShuffledPalette],
+    )
     const [mounted, setMounted] = useState(false)
     const [animationProgress, setAnimationProgress] = useState(0)
     const [isFullscreen, setIsFullscreen] = useState(false)
@@ -116,8 +120,8 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
         requestAnimationFrame(animate)
     }, [mounted, chartData])
 
-    const theme = resolvedTheme === "dark" ? "dark" : "light"
-    const textColor = theme === "dark" ? "#ffffff" : "#1f2937"
+    const isDark = resolvedTheme === "dark"
+    const barLabelColor = getChartTextColor(isDark)
 
     const chartTitle = "Top 5 Merchants"
     const chartDescription =
@@ -159,7 +163,7 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
     const hoveredItem = chartData.find((item) => item.name === hoveredMerchant) ?? null
 
     const renderBars = () => (
-        <div className="h-full w-full min-h-[250px] flex flex-col justify-center gap-3 py-4">
+        <div className="h-full w-full min-h-[230px] flex flex-col justify-center gap-3 py-4">
             {chartData.map((item, index) => {
                 const barWidth = (item.total / maxTotal) * 100 * animationProgress
                 const delay = index * 100
@@ -195,7 +199,7 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
                             >
                                 <span
                                     className="text-xs font-semibold truncate"
-                                    style={{ color: "#ffffff" }}
+                                    style={{ color: barLabelColor }}
                                 >
                                     {item.name}
                                 </span>
@@ -236,7 +240,7 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
                     </div>
                 </CardHeader>
                 <CardContent className="flex-1 min-h-0">
-                    <div className="h-full w-full min-h-[250px]" />
+                    <div className="h-full w-full min-h-[230px]" />
                 </CardContent>
             </Card>
         )
@@ -251,9 +255,9 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
                 description={chartDescription}
                 headerActions={renderInfoTrigger()}
             >
-                <div className="h-full w-full min-h-[400px]">
+                <div className="h-full w-full min-h-[380px]">
                     {isLoading || chartData.length === 0 ? (
-                        <div className="h-full w-full min-h-[400px] flex items-center justify-center">
+                        <div className="h-full w-full min-h-[380px] flex items-center justify-center">
                             <ChartLoadingState />
                         </div>
                     ) : (
@@ -279,7 +283,7 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
                 </CardHeader>
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
                     {isLoading || chartData.length === 0 ? (
-                        <div className="h-full w-full min-h-[250px] flex items-center justify-center">
+                        <div className="h-full w-full min-h-[230px] flex items-center justify-center">
                             <ChartLoadingState />
                         </div>
                     ) : (

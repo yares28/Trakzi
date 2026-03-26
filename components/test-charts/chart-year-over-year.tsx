@@ -42,7 +42,10 @@ export const ChartYearOverYear = memo(function ChartYearOverYear({
     const { resolvedTheme } = useTheme()
     const { colorScheme, getShuffledPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
-    const palette = getShuffledPalette()
+    const palette = useMemo(
+        () => getShuffledPalette("analytics:yearOverYear"),
+        [getShuffledPalette],
+    )
     const [mounted, setMounted] = useState(false)
     const [isFullscreen, setIsFullscreen] = useState(false)
     useEffect(() => {

@@ -186,7 +186,7 @@ const MonthlyBudgetPaceChart = memo(function MonthlyBudgetPaceChart({
     )
   }
 
-  const chartHeight = forFullscreen ? "h-full" : "aspect-auto h-[250px]"
+  const chartHeight = forFullscreen ? "h-full" : "aspect-auto h-full"
 
   return (
     <ChartContainer config={chartConfig} className={`${chartHeight} w-full min-w-0`}>
@@ -339,11 +339,11 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
     return (
       <Card className="@container/card h-full relative" suppressHydrationWarning>
         <CardHeader className="flex flex-row items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <GridStackCardDragHandle />
             <ChartExpandButton onClick={() => setIsFullscreen(true)} />
             <ChartFavoriteButton chartId="monthlyBudgetPace" chartTitle={chartTitle} size="md" />
-            <CardTitle>{chartTitle}</CardTitle>
+            <CardTitle className="truncate">{chartTitle}</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             <MonthlyBudgetPaceInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartData={chartData} formatCurrency={formatCurrency} />
@@ -382,11 +382,11 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
 
       <Card className="@container/card h-full relative">
         <CardHeader className="flex flex-row items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <GridStackCardDragHandle />
             <ChartExpandButton onClick={() => setIsFullscreen(true)} />
             <ChartFavoriteButton chartId="monthlyBudgetPace" chartTitle={chartTitle} size="md" />
-            <CardTitle>{chartTitle}</CardTitle>
+            <CardTitle className="truncate">{chartTitle}</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             <MonthlyBudgetPaceInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartData={chartData} formatCurrency={formatCurrency} />

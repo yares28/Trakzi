@@ -2307,6 +2307,56 @@ export default function AnalyticsPage() {
     }))
   }, [rawTransactions, incomeExpenseTopVisibility.hiddenCategorySet, normalizeCategoryName])
 
+  const incomeExpenseCumulativeData = useMemo(() => {
+    if (!rawTransactions || rawTransactions.length === 0) {
+      return [] as Array<{ date: string; desktop: number; mobile: number }>
+    }
+    const filteredSource =
+      incomeExpenseVisibility.hiddenCategorySet.size === 0
+        ? rawTransactions
+        : rawTransactions.filter((tx) => {
+          const category = normalizeCategoryName(tx.category)
+          return !incomeExpenseVisibility.hiddenCategorySet.has(category)
+        })
+    const transactionsByDate = new Map<string, Array<{ amount: number }>>()
+    filteredSource.forEach(tx => {
+      const date = tx.date.split('T')[0]
+      if (!transactionsByDate.has(date)) {
+        transactionsByDate.set(date, [])
+      }
+      transactionsByDate.get(date)!.push({ amount: tx.amount })
+    })
+    const sortedDates = Array.from(transactionsByDate.keys()).sort((a, b) => a.localeCompare(b))
+    const incomeByDate = new Map<string, number>()
+    sortedDates.forEach(date => {
+      const dayTransactions = transactionsByDate.get(date)!
+      const dayIncome = dayTransactions
+        .filter(tx => tx.amount > 0)
+        .reduce((sum, tx) => sum + tx.amount, 0)
+      if (dayIncome > 0) {
+        incomeByDate.set(date, dayIncome)
+      }
+    })
+    let cumulativeExpenses = 0
+    const cumulativeExpensesByDate = new Map<string, number>()
+    sortedDates.forEach(date => {
+      const dayTransactions = transactionsByDate.get(date)!
+      dayTransactions.forEach(tx => {
+        if (tx.amount < 0) {
+          cumulativeExpenses += Math.abs(tx.amount)
+        } else if (tx.amount > 0) {
+          cumulativeExpenses = Math.max(0, cumulativeExpenses - tx.amount)
+        }
+      })
+      cumulativeExpensesByDate.set(date, cumulativeExpenses)
+    })
+    return sortedDates.map(date => ({
+      date,
+      desktop: incomeByDate.get(date) || 0,
+      mobile: cumulativeExpensesByDate.get(date) || 0
+    }))
+  }, [rawTransactions, incomeExpenseVisibility.hiddenCategorySet, normalizeCategoryName])
+
   const netWorthAllocationData = useMemo(() => {
     const filteredSource =
       treeMapVisibility.hiddenCategorySet.size === 0
@@ -2504,6 +2554,7 @@ export default function AnalyticsPage() {
                                 chartId="incomeExpensesTracking2"
                                 categoryControls={incomeExpenseControls}
                                 data={incomeExpenseChart.data}
+                                cumulativeData={incomeExpenseCumulativeData}
                               />
                             </SortableAnalyticsChart>
                           )

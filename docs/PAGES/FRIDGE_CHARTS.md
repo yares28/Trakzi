@@ -110,10 +110,13 @@ fridge:{userId}:{filter}:bundle
 
 | Library | Charts Using It |
 |---------|-----------------|
-| **Recharts** | Area charts |
-| **Nivo** | Pie, TreeMap, Polar Bar, Area Bump |
-| **ECharts** | Heatmaps, Bar charts, Swarm plots |
-| **Custom SVG** | Various custom visualizations |
+| **Recharts** | `chart-area-interactive-fridge.tsx` (area chart) |
+| **Nivo + HoverableBar** | All bar charts: `chart-single-month-category-fridge`, `chart-all-months-category-fridge`, `chart-day-of-week-spending-category-fridge`, `chart-time-of-day-shopping-fridge`, `chart-purchase-size-comparison-fridge`, `chart-grocery-vs-restaurant-fridge` |
+| **Nivo (other)** | Pie (`chart-expense-breakdown-fridge`, `chart-expenses-pie-fridge`), TreeMap, Polar Bar, Area Bump (`chart-category-flow-fridge`) |
+| **ECharts** | Heatmaps (`chart-shopping-heatmap-hours-days-fridge`, `chart-shopping-heatmap-days-months-fridge`), Swarm plot (`chart-transaction-history-fridge`) |
+| **Custom / other** | Daily activity heatmap (`chart-daily-activity-fridge`), Day of week category (`chart-day-of-week-category-fridge`) |
+
+> All bar charts use `barComponent={HoverableBar}` from `chart-hoverable-bar.tsx` for CSS clip-path mount animation + hover scale effect. Wrapper `div` carries `key={colorScheme}` to retrigger animation on palette change.
 
 ---
 

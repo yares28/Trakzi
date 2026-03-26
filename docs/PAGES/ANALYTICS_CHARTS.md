@@ -11,7 +11,7 @@ This document lists all chart components used on the Analytics page.
 | # | Chart ID | Component File | Component Name | Description |
 |---|----------|----------------|----------------|-------------|
 | 1 | `incomeExpensesTracking1` | `chart-area-interactive.tsx` | `ChartAreaInteractive` | Income & Expenses Cumulative Tracking (Top Chart) - Visualizes cumulative cash flow over time |
-| 2 | `incomeExpensesTracking2` | `chart-area-interactive.tsx` | `ChartAreaInteractive` | Income & Expenses Cumulative Tracking (Bottom Chart) - Same visualization, different data slice |
+| 2 | `incomeExpensesTracking2` | `chart-area-interactive.tsx` | `ChartAreaInteractive` | Income & Expenses — Basic (daily income vs daily expenses) and Cumulative (same running-balance logic as the cumulative chart); segmented control toggles views |
 | 3 | `spendingScore` | `chart-spending-score.tsx` | `ChartSpendingScore` | Spending Score - AI-calculated score based on spending patterns, diversity, and trends |
 | 4 | `cashFlowIndicator` | `chart-cash-flow-indicator.tsx` | `ChartCashFlowIndicator` | Cash Flow Indicator - Visualizes income vs expenses with animated gauge |
 | 5 | `incomeExpenseRatio` | `chart-income-expense-ratio.tsx` | `ChartIncomeExpenseRatio` | Income to Expense Ratio - Donut gauge comparing income to expenses |
@@ -28,7 +28,7 @@ This document lists all chart components used on the Analytics page.
 | 16 | `expenseBreakdown` | `chart-expenses-pie.tsx` | `ChartExpensesPie` | Expense Breakdown Pie - Distribution across spending categories |
 | 17 | `netWorthAllocation` | `chart-treemap.tsx` | `ChartTreeMap` | Net Worth Allocation TreeMap - Hierarchical breakdown of spending |
 | 18 | `cashFlowSankey` | `chart-sankey.tsx` | `ChartSankey` | Cash Flow Sankey Diagram - Income flow through expenses to savings |
-| 19 | `spendingStreamgraph` | `chart-spending-streamgraph.tsx` | `ChartSpendingStreamgraph` | Category Streamgraph - Spending trends by category as flowing areas |
+| 19 | `spendingStreamgraph` | `chart-spending-streamgraph.tsx` | `ChartSpendingStreamgraph` | Category Streamgraph - Spending trends by category as flowing areas; months are gap-filled in-range, single-month views use weekly buckets; responsive SVG |
 | 20 | `dailyTransactionActivity` | `chart-transaction-calendar.tsx` | `ChartTransactionCalendar` | Daily Transaction Activity - Contribution graph heatmap of daily spending |
 | 21 | `categoryBubbleMap` | `chart-category-bubble.tsx` | `ChartCategoryBubble` | Category Bubble Map - Bubble chart with size/position encoding |
 | 22 | `dayOfWeekSpending` | `chart-day-of-week-spending.tsx` | `ChartDayOfWeekSpending` | Day of Week Spending - Grouped bar chart by day and category |
@@ -193,10 +193,13 @@ analytics:{userId}:{filter}:bundle
 
 | Library | Charts Using It |
 |---------|-----------------|
-| **Recharts** | Area charts, line charts |
-| **Nivo** | Pie, TreeMap, Polar Bar, Funnel, Sankey, Swarm Plot |
-| **ECharts** | Calendar heatmap, Bubble map, Bar charts |
-| **Custom SVG** | Streamgraph, Day of week charts, Activity rings |
+| **Recharts** | `chart-area-interactive.tsx` (area charts), `chart-category-trend.tsx` (trends tab) |
+| **Nivo + HoverableBar** | All bar charts: `chart-weekend-vs-weekday`, `chart-day-of-week-spending`, `chart-all-months-category-spending`, `chart-single-month-category-spending`, `chart-day-of-week-category`, `chart-purchase-size-breakdown`, `chart-monthly-budget-pace`, `chart-budget-burndown`, `chart-spending-pyramid` |
+| **Nivo (other)** | Pie charts, Radar, Polar Bar, Funnel, Sankey, SwarmPlot, TreeMap, Bump (category flow) |
+| **ECharts** | Calendar heatmap (`chart-transaction-calendar`), Bubble map (`chart-category-bubble`) |
+| **Custom SVG** | Streamgraph (`chart-spending-streamgraph`), Activity rings (`SpendingActivityRings`) |
+
+> All bar charts use `barComponent={HoverableBar}` from `chart-hoverable-bar.tsx` for CSS clip-path mount animation + hover scale effect. Wrapper `div` carries `key={colorScheme}` to retrigger animation on palette change.
 
 ---
 

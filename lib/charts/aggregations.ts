@@ -526,8 +526,14 @@ export async function getCashFlowData(
 ): Promise<CashFlowData> {
     // Get income sources
     let incomeQuery = `
-        SELECT 
-            COALESCE(c.name, 'Income') AS category,
+        SELECT
+            CASE
+                WHEN LOWER(t.description) ~* 'payroll|salary|wage|direct deposit|paycheque|paycheck|net pay|gross pay|employer' THEN 'Salary'
+                WHEN LOWER(t.description) ~* 'freelance|consulting|invoice|client payment|contract|upwork|fiverr|self-employed' THEN 'Freelance'
+                WHEN LOWER(t.description) ~* 'dividend|interest|capital gain|etf|stock|bond|crypto|investment return' THEN 'Investments'
+                WHEN LOWER(t.description) ~* 'refund|reimbursement|cashback|cash back|rebate|credit' THEN 'Refunds'
+                ELSE COALESCE(c.name, 'Other Income')
+            END AS category,
             SUM(t.amount) AS total
         FROM transactions t
         LEFT JOIN categories c ON t.category_id = c.id
@@ -544,11 +550,28 @@ export async function getCashFlowData(
         incomeParams.push(endDate)
         incomeQuery += ` AND t.tx_date <= $${incomeParams.length}::date`
     }
-    incomeQuery += ` GROUP BY c.name ORDER BY total DESC LIMIT 5`
+    incomeQuery += ` GROUP BY 1 ORDER BY total DESC LIMIT 5`
+
+    // Total income query (without LIMIT) — needed for accurate savings calculation
+    let totalIncomeQuery = `
+        SELECT SUM(t.amount) AS total
+        FROM transactions t
+        WHERE t.user_id = $1 AND t.amount > 0
+          AND (t.tx_type IS NULL OR t.tx_type = 'income')
+    `
+    const totalIncomeParams: (string | number)[] = [userId]
+    if (startDate) {
+        totalIncomeParams.push(startDate)
+        totalIncomeQuery += ` AND t.tx_date >= $${totalIncomeParams.length}::date`
+    }
+    if (endDate) {
+        totalIncomeParams.push(endDate)
+        totalIncomeQuery += ` AND t.tx_date <= $${totalIncomeParams.length}::date`
+    }
 
     // Get expense categories
     let expenseQuery = `
-        SELECT 
+        SELECT
             COALESCE(c.name, 'Other') AS category,
             ABS(SUM(t.amount)) AS total
        FROM transactions t
@@ -568,8 +591,9 @@ export async function getCashFlowData(
     }
     expenseQuery += ` GROUP BY c.name ORDER BY total DESC LIMIT 8`
 
-    const [incomeRows, expenseRows] = await Promise.all([
+    const [incomeRows, totalIncomeRow, expenseRows] = await Promise.all([
         neonQuery<{ category: string; total: string }>(incomeQuery, incomeParams),
+        neonQuery<{ total: string }>(totalIncomeQuery, totalIncomeParams),
         neonQuery<{ category: string; total: string }>(expenseQuery, expenseParams),
     ])
 
@@ -577,10 +601,12 @@ export async function getCashFlowData(
     const nodes: CashFlowNode[] = []
     const links: CashFlowLink[] = []
 
-    // Calculate totals
-    const totalIncome = incomeRows.reduce((sum, r) => sum + (parseFloat(r.total) || 0), 0)
+    // Use full total income for accurate savings, not just top 5
+    const capturedIncome = incomeRows.reduce((sum, r) => sum + (parseFloat(r.total) || 0), 0)
+    const fullTotalIncome = parseFloat(totalIncomeRow[0]?.total || '0') || 0
+    const otherIncome = Math.max(0, fullTotalIncome - capturedIncome)
     const totalExpense = expenseRows.reduce((sum, r) => sum + (parseFloat(r.total) || 0), 0)
-    const savings = Math.max(0, totalIncome - totalExpense)
+    const savings = Math.max(0, fullTotalIncome - totalExpense)
 
     // Layer 1: Income sources (left side)
     for (const row of incomeRows) {
@@ -595,6 +621,16 @@ export async function getCashFlowData(
                 value: Math.round(incomeValue * 100) / 100,
             })
         }
+    }
+
+    // Add "Other Income" node for income beyond the top 5 shown
+    if (otherIncome > 0.01) {
+        nodes.push({ id: 'income-Other Income', label: 'Other Income' })
+        links.push({
+            source: 'income-Other Income',
+            target: 'total-cash',
+            value: Math.round(otherIncome * 100) / 100,
+        })
     }
 
     // Layer 2: Central node - Total Cash (middle)

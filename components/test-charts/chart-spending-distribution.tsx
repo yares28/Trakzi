@@ -47,7 +47,10 @@ export const ChartSpendingDistribution = memo(function ChartSpendingDistribution
     const { resolvedTheme } = useTheme()
     const { colorScheme, getShuffledPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
-    const palette = getShuffledPalette()
+    const palette = useMemo(
+        () => getShuffledPalette("analytics:spendingDistribution"),
+        [getShuffledPalette],
+    )
     const [mounted, setMounted] = useState(false)
     const [isFullscreen, setIsFullscreen] = useState(false)
 
@@ -81,10 +84,12 @@ export const ChartSpendingDistribution = memo(function ChartSpendingDistribution
             }
         })
 
-        return buckets.map((bucket) => ({
-            range: bucket.label,
-            count: bucket.count,
-        }))
+        return buckets
+            .filter((bucket) => bucket.count > 0)
+            .map((bucket) => ({
+                range: bucket.label,
+                count: bucket.count,
+            }))
     }, [data])
 
     const isDark = resolvedTheme === "dark"

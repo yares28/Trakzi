@@ -39,7 +39,10 @@ export const ChartTransactionCountTrend = memo(function ChartTransactionCountTre
 }: ChartTransactionCountTrendProps) {
     const { resolvedTheme } = useTheme()
     const { colorScheme, getShuffledPalette } = useColorScheme()
-    const palette = useMemo(() => getShuffledPalette(), [getShuffledPalette])
+    const palette = useMemo(
+        () => getShuffledPalette("analytics:transactionCountTrend"),
+        [getShuffledPalette],
+    )
     const [mounted, setMounted] = useState(false)
     const [isFullscreen, setIsFullscreen] = useState(false)
     useEffect(() => {
@@ -226,13 +229,18 @@ export const ChartTransactionCountTrend = memo(function ChartTransactionCountTre
                                 axis: { ticks: { text: { fill: textColor } } },
                                 grid: { line: { stroke: gridColor } },
                             }}
-                            tooltip={({ indexValue, value, color }) => (
-                                <NivoChartTooltip
-                                    title={String(indexValue)}
-                                    titleColor={color}
-                                    value={String(value)}
-                                />
-                            )}
+                            tooltip={({ indexValue, value, color }) => {
+                                const [yr, mo] = String(indexValue).split("-")
+                                const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+                                const label = mo ? `${MONTHS[parseInt(mo) - 1]}-${yr.slice(2)}` : String(indexValue)
+                                return (
+                                    <NivoChartTooltip
+                                        title={label}
+                                        titleColor={color}
+                                        value={String(value)}
+                                    />
+                                )
+                            }}
                             animate={true}
                             motionConfig="gentle"
                         />

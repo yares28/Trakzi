@@ -157,6 +157,7 @@ export function ChartsGrid({
     expensesPieData,
     incomeExpenseChart,
     incomeExpenseControls,
+    incomeExpenseCumulativeData,
     incomeExpenseTopChartData,
     incomeExpenseTopControls,
     moneyFlowMaxExpenseCategories,
@@ -530,6 +531,7 @@ export function ChartsGrid({
                       categoryControls={incomeExpenseControls}
                       isLoading={chartIsLoading}
                       data={incomeExpenseChart.data}
+                      cumulativeData={incomeExpenseCumulativeData}
                       emptyTitle={emptyTitle}
                       emptyDescription={emptyDescription}
                     />
@@ -673,6 +675,7 @@ export function ChartsGrid({
                       dateFilter={dateFilter}
                       emptyTitle={emptyTitle}
                       emptyDescription={emptyDescription}
+                      rawTransactions={rawTransactions}
                     />
                   </div>
                 </LazyChart>

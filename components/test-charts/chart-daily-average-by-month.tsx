@@ -42,7 +42,10 @@ export const ChartDailyAverageByMonth = memo(function ChartDailyAverageByMonth({
     const { resolvedTheme } = useTheme()
     const { colorScheme, getShuffledPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
-    const palette = getShuffledPalette()
+    const palette = useMemo(
+        () => getShuffledPalette("analytics:dailyAverageByMonth"),
+        [getShuffledPalette],
+    )
     const [mounted, setMounted] = useState(false)
     const [isFullscreen, setIsFullscreen] = useState(false)
     useEffect(() => {

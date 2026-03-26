@@ -41,7 +41,10 @@ export const ChartSeasonalSpending = memo(function ChartSeasonalSpending({
     const { resolvedTheme } = useTheme()
     const { colorScheme, getShuffledPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
-    const palette = useMemo(() => getShuffledPalette(), [getShuffledPalette])
+    const palette = useMemo(
+        () => getShuffledPalette("analytics:seasonalSpending"),
+        [getShuffledPalette],
+    )
     const [mounted, setMounted] = useState(false)
     const [isFullscreen, setIsFullscreen] = useState(false)
     useEffect(() => {

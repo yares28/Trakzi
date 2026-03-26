@@ -1273,13 +1273,10 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
   }
 
   .chart-polar-bar path[data-testid^="arc."] {
-    transform-box: fill-box;
-    transform-origin: center;
-    transition: transform 200ms ease, opacity 200ms ease, filter 200ms ease;
+    transition: opacity 200ms ease, filter 200ms ease;
   }
 
   .chart-polar-bar path[data-testid^="arc."]:hover {
-    transform: scale(1.05);
     opacity: 0.92;
     filter: saturate(1.05);
   }
@@ -1314,6 +1311,25 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+/* Nivo bar grow-from-base animation — clip-path reveal so it doesn't conflict with hover transform */
+@keyframes nivo-bar-grow {
+  from {
+    clip-path: inset(100% 0 0% 0 round 10px);
+  }
+  to {
+    clip-path: inset(0% 0 0% 0 round 10px);
+  }
+}
+
+@keyframes nivo-bar-grow-horizontal {
+  from {
+    clip-path: inset(0% 100% 0% 0% round 10px);
+  }
+  to {
+    clip-path: inset(0% 0% 0% 0% round 10px);
   }
 }
 

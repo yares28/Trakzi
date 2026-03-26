@@ -500,9 +500,35 @@ export function useHomeChartData({
       return { data: [], keys: [], categories: [] }
     }
 
-    const monthMap = new Map<string, Map<string, number>>()
+    const expandYYYYMMRangeInclusive = (startKey: string, endKey: string): string[] => {
+      const parse = (k: string) => {
+        const m = k.match(/^(\d{4})-(\d{1,2})$/)
+        if (!m) return null
+        const y = Number(m[1])
+        const mo = Number(m[2]) - 1
+        const d = new Date(y, mo, 1)
+        return Number.isNaN(d.getTime()) ? null : d
+      }
+      const start = parse(startKey)
+      const end = parse(endKey)
+      if (!start || !end) {
+        return Array.from(new Set([startKey, endKey])).sort((a, b) => a.localeCompare(b))
+      }
+      const lo = start.getTime() <= end.getTime() ? start : end
+      const hi = start.getTime() <= end.getTime() ? end : start
+      const out: string[] = []
+      const cur = new Date(lo)
+      while (cur.getTime() <= hi.getTime()) {
+        out.push(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`)
+        cur.setMonth(cur.getMonth() + 1)
+      }
+      return out
+    }
+
+    let monthMap = new Map<string, Map<string, number>>()
     const categoryTotals = new Map<string, number>()
     const categorySet = new Set<string>()
+    let monthKeysSeen = new Set<string>()
 
     chartTransactions
       .filter((tx) => tx.amount < 0)
@@ -516,6 +542,7 @@ export function useHomeChartData({
         if (streamgraphVisibility.hiddenCategorySet.has(rawCategory)) return
         const amount = Math.abs(Number(tx.amount)) || 0
 
+        monthKeysSeen.add(monthKey)
         if (!monthMap.has(monthKey)) {
           monthMap.set(monthKey, new Map())
         }
@@ -529,12 +556,46 @@ export function useHomeChartData({
       return { data: [], keys: [], categories: Array.from(categorySet) }
     }
 
+    // Single calendar month → weekly buckets so the stream has multiple points
+    if (monthKeysSeen.size <= 1) {
+      monthMap = new Map()
+      monthKeysSeen = new Set()
+      chartTransactions
+        .filter((tx) => tx.amount < 0)
+        .forEach((tx) => {
+          const date = new Date(tx.date)
+          if (isNaN(date.getTime())) return
+          const rawCategory = normalizeCategoryName(tx.category)
+          if (streamgraphVisibility.hiddenCategorySet.has(rawCategory)) return
+
+          const weekStart = new Date(date)
+          weekStart.setDate(date.getDate() - date.getDay())
+          const weekKey = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, "0")}-${String(weekStart.getDate()).padStart(2, "0")}`
+
+          monthKeysSeen.add(weekKey)
+          if (!monthMap.has(weekKey)) monthMap.set(weekKey, new Map())
+          const wk = monthMap.get(weekKey)!
+          wk.set(rawCategory, (wk.get(rawCategory) || 0) + Math.abs(Number(tx.amount)) || 0)
+        })
+    }
+
     const sortedCategories = Array.from(categoryTotals.entries()).sort((a, b) => b[1] - a[1])
     const topCategories = sortedCategories.slice(0, 6).map(([category]) => category)
     const includeOther = sortedCategories.length > topCategories.length
     const keys = includeOther ? [...topCategories, "Other"] : topCategories
 
-    const months = Array.from(monthMap.keys()).sort((a, b) => a.localeCompare(b))
+    const rawKeys = Array.from(monthMap.keys()).sort((a, b) => a.localeCompare(b))
+    const isWeekly = rawKeys.some((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+    const months = isWeekly
+      ? rawKeys
+      : rawKeys.length > 0
+        ? expandYYYYMMRangeInclusive(rawKeys[0]!, rawKeys[rawKeys.length - 1]!)
+        : rawKeys
+
+    months.forEach((m) => {
+      if (!monthMap.has(m)) monthMap.set(m, new Map())
+    })
+
     const data = months.map((month) => {
       const entry: Record<string, string | number> = { month }
       const monthData = monthMap.get(month)!

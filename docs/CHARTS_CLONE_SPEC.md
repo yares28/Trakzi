@@ -1458,16 +1458,40 @@ import { HoverableBar } from "@/components/chart-hoverable-bar"
 // import { HoverableHorizontalBar } from "@/components/chart-hoverable-bar"
 ```
 
-#### Custom bar component — hover zoom animation
-This provides a "zoom from base" on hover that mirrors the pie chart's `activeOuterRadiusOffset` feel.
+#### Custom bar component — mount animation + hover zoom
+`HoverableBar` provides two effects via CSS (no `@react-spring/web` required):
+
+1. **Mount animation** — bars grow from their base using a `clip-path: inset()` reveal keyframe (`nivo-bar-grow` defined in `app/globals.css`). Bars stagger by `bar.index * 40ms` for a left-to-right wave.
+2. **Hover zoom** — `scaleY(1.05)` CSS transform from `transformOrigin: "bottom center"` on mouse-enter.
+
+`clip-path` and `transform` are separate CSS properties so they never conflict.
+
 The shared component lives in `components/chart-hoverable-bar.tsx`. **Do not re-define it locally in chart files.**
 
-- `HoverableBar` — vertical bars, zooms upward from base (`transformOrigin: "bottom center"`)
-- `HoverableHorizontalBar` — horizontal bars, zooms rightward from left (`transformOrigin: "left center"`)
+- `HoverableBar` — vertical bars, grows upward and zooms upward (`transformOrigin: "bottom center"`)
+- `HoverableHorizontalBar` — horizontal bars, grows rightward and zooms rightward (`transformOrigin: "left center"`)
 
 Pass the shared component via `barComponent`:
 ```tsx
 barComponent={HoverableBar}
+```
+
+#### Triggering re-animation on data change (selector charts)
+When a selector (day, month, income type…) changes the displayed data, re-mount the chart wrapper div with a `key` so the CSS animation reruns. **Put the `key` on the wrapper `<div>`, not on `<ResponsiveBar>` directly** — this lets `ResponsiveWrapper`'s resize observer settle before the bars paint, preventing a race condition between dimension measurement and the animation start.
+
+```tsx
+// ✅ Correct — key on wrapper div
+<div className="h-full w-full min-h-[210px]" key={`${colorScheme}-${selectedItem}`}>
+  {renderChart()}   {/* renderChart() returns <ResponsiveBar> with no key */}
+</div>
+
+// ❌ Wrong — key on ResponsiveBar; resize observer may not be ready
+<ResponsiveBar key={selectedItem} ... />
+```
+
+Include `colorScheme` in the key so the animation also fires when the user switches color palettes:
+```tsx
+key={`${colorScheme}-${selectedItem}`}
 ```
 
 #### Extract chart as a sub-component (pattern from reference)
@@ -1557,6 +1581,9 @@ MyBarChart.displayName = "MyBarChart"
 #### CardContent layout for bar (flex column — chart + legend)
 ```tsx
 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
+  {/* key includes colorScheme so animation fires on palette change too.
+      For selector charts (day/month/type pickers), also include the selected value:
+      key={`${colorScheme}-${selectedItem}`} */}
   <div className="h-full w-full min-h-[210px]" key={colorScheme}>
     <MyBarChart
       chartData={chartData}
@@ -1740,7 +1767,9 @@ ECharts renders its own canvas-based tooltips — no portal needed. Use `echarts
 | 9 | Add `CardDescription` | Title only — description goes in `ChartInfoPopover` |
 | 10 | Transform data inside JSX | Use `useMemo` with proper dependencies |
 | 11 | Use Nivo `ResponsiveBar` without `barComponent` | Import `HoverableBar` from `@/components/chart-hoverable-bar` and pass as `barComponent` (see §27b) |
-| 12 | Omit `animate={true}` + `motionConfig="gentle"` on bar charts | Always include — this gives the grow-from-base mount animation |
+| 12 | Omit `animate={true}` + `motionConfig="gentle"` on bar charts | Always include — required by Nivo for data-change transitions (the CSS mount animation is handled separately by `HoverableBar`) |
+| 15 | Put `key` on `<ResponsiveBar>` to trigger re-animation | Put `key` on the wrapper `<div>` instead — prevents a race with `ResponsiveWrapper`'s resize observer (see §27b) |
+| 16 | Import `@react-spring/web` directly | It is a nested dep of `@nivo/bar` and not available at the top level — `HoverableBar` uses CSS animation instead |
 | 13 | Omit `activeOuterRadiusOffset={8}` on pie charts | Always include — this is the hover zoom that expands the active slice |
 | 14 | Use Recharts for bar charts | Use Nivo `ResponsiveBar` for bars — Recharts only for area/line |
 | 11 | Forget the drag handle | Always include `GridStackCardDragHandle` as first element |

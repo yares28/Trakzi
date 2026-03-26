@@ -126,12 +126,11 @@ const PurchaseSizeBarChart = memo(function PurchaseSizeBarChart({
         axis: { ticks: { text: { fill: textColor } } },
         grid: { line: { stroke: gridColor, strokeDasharray: "4 4" } },
       }}
-      tooltip={({ id, value, indexValue, color }) => (
+      tooltip={({ id, value, color }) => (
         <NivoChartTooltip
           title={String(id)}
           titleColor={color}
           value={formatCurrency(value as number)}
-          subValue={indexValue as string}
         />
       )}
       animate={true}

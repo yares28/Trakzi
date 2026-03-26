@@ -44,7 +44,10 @@ export const ChartIncomeSources = memo(function ChartIncomeSources({
     const { resolvedTheme } = useTheme()
     const { colorScheme, getShuffledPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
-    const palette = getShuffledPalette()
+    const palette = useMemo(
+        () => getShuffledPalette("analytics:incomeSources"),
+        [getShuffledPalette],
+    )
     const [mounted, setMounted] = useState(false)
     const [isFullscreen, setIsFullscreen] = useState(false)
     useEffect(() => {

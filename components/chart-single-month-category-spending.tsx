@@ -1,48 +1,61 @@
-"use client"
+"use client";
 
 // Single Month Category Spending Chart - Shows one selected month at a time
-import * as React from "react"
-import ReactECharts from "echarts-for-react"
-import { useTheme } from "next-themes"
-import { ChartInfoPopover } from "@/components/chart-info-popover"
-import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
-import { useColorScheme } from "@/components/color-scheme-provider"
-import { useCurrency } from "@/components/currency-provider"
-import { DEFAULT_FALLBACK_PALETTE, getChartTextColor, getEChartsBackground, getEChartsSplitLineColor } from "@/lib/chart-colors"
-import { deduplicatedFetch, getCachedResponse } from "@/lib/request-deduplication"
-import { ChartLoadingState } from "@/components/chart-loading-state"
+import * as React from "react";
+import { useTheme } from "next-themes";
+import { ResponsiveBar } from "@nivo/bar";
+import { ChartInfoPopover } from "@/components/chart-info-popover";
+import { ChartAiInsightButton } from "@/components/chart-ai-insight-button";
+import { useColorScheme } from "@/components/color-scheme-provider";
+import { useCurrency } from "@/components/currency-provider";
+import {
+  DEFAULT_FALLBACK_PALETTE,
+  getChartTextColor,
+  getChartAxisLineColor,
+} from "@/lib/chart-colors";
+import { NivoChartTooltip } from "@/components/chart-tooltip";
+import { HoverableBar } from "@/components/chart-hoverable-bar";
+import {
+  deduplicatedFetch,
+  getCachedResponse,
+} from "@/lib/request-deduplication";
+import { ChartLoadingState } from "@/components/chart-loading-state";
 import {
   Card,
   CardAction,
   CardContent,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { ChartFavoriteButton } from "@/components/chart-favorite-button"
-import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
+} from "@/components/ui/card";
+import { ChartFavoriteButton } from "@/components/chart-favorite-button";
+import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { ChartExpandButton } from "@/components/chart-expand-button"
-import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
+} from "@/components/ui/select";
+import { ChartExpandButton } from "@/components/chart-expand-button";
+import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal";
 
 interface ChartSingleMonthCategorySpendingProps {
-  dateFilter?: string | null
-  monthlyCategoriesData?: Array<{ category: string; month: string | number; total: number }>
-  bundleLoading?: boolean
-  emptyTitle?: string
-  emptyDescription?: string
+  dateFilter?: string | null;
+  monthlyCategoriesData?: Array<{
+    category: string;
+    month: string | number;
+    total: number;
+  }>;
+  bundleLoading?: boolean;
+  emptyTitle?: string;
+  emptyDescription?: string;
 }
 
 type MonthData = {
-  category: string
-  month: number
-  total: number
-}
+  category: string;
+  month: number;
+  total: number;
+};
 
 const MONTH_NAMES = [
   "January",
@@ -57,48 +70,67 @@ const MONTH_NAMES = [
   "October",
   "November",
   "December",
-]
+];
 
-const SHORT_MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const SHORT_MONTH_NAMES = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 // Parse "Jan 2024" or "Jan" to month number 1-12
 const parseMonthToNumber = (m: string | number): number => {
-  if (typeof m === 'number') return m
-  const monthStr = String(m).split(' ')[0] // Extract "Jan" from "Jan 2024"
-  const idx = SHORT_MONTH_NAMES.indexOf(monthStr)
-  return idx >= 0 ? idx + 1 : 1
-}
+  if (typeof m === "number") return m;
+  const monthStr = String(m).split(" ")[0]; // Extract "Jan" from "Jan 2024"
+  const idx = SHORT_MONTH_NAMES.indexOf(monthStr);
+  return idx >= 0 ? idx + 1 : 1;
+};
 
 // Transform and aggregate bundle data by month number (combines all years)
 const aggregateBundleData = (
-  data: Array<{ category: string; month: string | number; total: number }>
+  data: Array<{ category: string; month: string | number; total: number }>,
 ): MonthData[] => {
-  const aggregated = new Map<string, Map<number, number>>() // category -> (month -> total)
+  const aggregated = new Map<string, Map<number, number>>(); // category -> (month -> total)
 
   data.forEach((d) => {
-    const monthNum = parseMonthToNumber(d.month)
+    const monthNum = parseMonthToNumber(d.month);
     if (!aggregated.has(d.category)) {
-      aggregated.set(d.category, new Map())
+      aggregated.set(d.category, new Map());
     }
-    const categoryMap = aggregated.get(d.category)!
-    categoryMap.set(monthNum, (categoryMap.get(monthNum) || 0) + d.total)
-  })
+    const categoryMap = aggregated.get(d.category)!;
+    categoryMap.set(monthNum, (categoryMap.get(monthNum) || 0) + d.total);
+  });
 
-  const result: MonthData[] = []
+  const result: MonthData[] = [];
   aggregated.forEach((monthMap, category) => {
     monthMap.forEach((total, month) => {
-      result.push({ category, month, total })
-    })
-  })
-  return result
-}
+      result.push({ category, month, total });
+    });
+  });
+  return result;
+};
 
 const buildMonthlyCategoryUrl = (params: URLSearchParams) =>
-  `/api/analytics/monthly-category-duplicate?${params.toString()}`
+  `/api/analytics/monthly-category-duplicate?${params.toString()}`;
 
-const SingleMonthInfoTrigger = React.memo(function SingleMonthInfoTrigger({ forFullscreen = false }: { forFullscreen?: boolean }) {
+const SingleMonthInfoTrigger = React.memo(function SingleMonthInfoTrigger({
+  forFullscreen = false,
+}: {
+  forFullscreen?: boolean;
+}) {
   return (
-    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
+    <div
+      className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}
+    >
       <ChartInfoPopover
         title="Single Month Category Spending"
         description="Compare spending across categories for a selected month."
@@ -116,540 +148,344 @@ const SingleMonthInfoTrigger = React.memo(function SingleMonthInfoTrigger({ forF
         size="sm"
       />
     </div>
-  )
-})
+  );
+});
 
-SingleMonthInfoTrigger.displayName = "SingleMonthInfoTrigger"
+SingleMonthInfoTrigger.displayName = "SingleMonthInfoTrigger";
 
-export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleMonthCategorySpending({
-  dateFilter,
-  monthlyCategoriesData,
-  bundleLoading,
-  emptyTitle,
-  emptyDescription
-}: ChartSingleMonthCategorySpendingProps) {
-  const { resolvedTheme } = useTheme()
-  const { getShuffledPalette } = useColorScheme()
-  const { formatCurrency } = useCurrency()
-  const buildMonthParams = React.useCallback(
-    (month?: number | null) => {
-      const params = new URLSearchParams()
-      if (dateFilter) {
-        params.append("filter", dateFilter)
-      }
-      if (typeof month === "number") {
-        params.append("month", month.toString())
-      }
-      return params
-    },
-    [dateFilter],
-  )
-  const availableUrl = buildMonthlyCategoryUrl(buildMonthParams())
-  const cachedAvailable = getCachedResponse<{
-    data: Array<{ category: string; month: number; total: number }>
-    availableMonths: number[]
-  }>(availableUrl)
-  const initialAvailableMonths = cachedAvailable?.availableMonths ?? []
-  const initialSelectedMonth =
-    initialAvailableMonths.length > 0 ? initialAvailableMonths[0] : null
-  const cachedSelected = initialSelectedMonth !== null
-    ? getCachedResponse<{
-      data: Array<{ category: string; month: number; total: number }>
-      availableMonths: number[]
-    }>(buildMonthlyCategoryUrl(buildMonthParams(initialSelectedMonth)))
-    : undefined
-  const [mounted, setMounted] = React.useState(false)
-  const [data, setData] = React.useState<MonthData[]>(
-    () => cachedSelected?.data ?? [],
-  )
-  const [availableMonths, setAvailableMonths] = React.useState<number[]>(
-    () => initialAvailableMonths,
-  )
-  const [selectedMonth, setSelectedMonth] = React.useState<number | null>(
-    () => initialSelectedMonth,
-  )
-  const [loading, setLoading] = React.useState(
-    () => initialAvailableMonths.length > 0 && cachedSelected === undefined,
-  )
-  const chartRef = React.useRef<any>(null)
-  const containerRef = React.useRef<HTMLDivElement>(null)
-  const [tooltip, setTooltip] = React.useState<{ label: string; value: number; color: string } | null>(null)
-  const [tooltipPosition, setTooltipPosition] = React.useState<{ x: number; y: number } | null>(null)
-  const mousePositionRef = React.useRef<{ x: number; y: number } | null>(null)
-  const [isFullscreen, setIsFullscreen] = React.useState(false)
-  const [refreshNonce, setRefreshNonce] = React.useState(0)
-  // Track if initial animation has completed to prevent replay on theme hydration
-  const hasAnimatedRef = React.useRef(false)
-
-  React.useEffect(() => {
-    // Mark as mounted to avoid rendering chart on server
-    setMounted(true)
-  }, [])
-
-  // Listen for transactions updated event (triggered after file uploads)
-  React.useEffect(() => {
-    if (typeof window === "undefined") return
-
-    const handleTransactionsUpdated = () => {
-      // Increment nonce to trigger a refetch
-      setRefreshNonce((n) => n + 1)
-    }
-
-    window.addEventListener("transactionsUpdated", handleTransactionsUpdated)
-    return () => {
-      window.removeEventListener("transactionsUpdated", handleTransactionsUpdated)
-    }
-  }, [])
-
-  // Fetch available months first (without selected month) when dateFilter changes
-  React.useEffect(() => {
-    // If parent provides bundleLoading prop, it's using the bundle system
-    if (bundleLoading !== undefined) {
-      // Still loading - wait
-      if (bundleLoading) {
-        setLoading(true)
-        return
-      }
-      // Use monthlyCategoriesData if provided
-      if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
-        // Transform bundle data: parse "Mon YYYY" strings to month numbers and aggregate across years
-        const normalizedData = aggregateBundleData(monthlyCategoriesData)
-        const months = [...new Set(normalizedData.map(d => d.month))].sort((a, b) => a - b)
-        setAvailableMonths(months)
-        if (months.length > 0) {
-          setSelectedMonth((prev) => {
-            if (prev === null || !months.includes(prev)) {
-              return months[0]
-            }
-            return prev
-          })
-        } else {
-          setSelectedMonth(null)
+export const ChartSingleMonthCategorySpending = React.memo(
+  function ChartSingleMonthCategorySpending({
+    dateFilter,
+    monthlyCategoriesData,
+    bundleLoading,
+    emptyTitle,
+    emptyDescription,
+  }: ChartSingleMonthCategorySpendingProps) {
+    const { resolvedTheme } = useTheme();
+    const { colorScheme, getShuffledPalette } = useColorScheme();
+    const { formatCurrency } = useCurrency();
+    const buildMonthParams = React.useCallback(
+      (month?: number | null) => {
+        const params = new URLSearchParams();
+        if (dateFilter) {
+          params.append("filter", dateFilter);
         }
-        setLoading(false)
-        return
-      }
-      // Bundle returned empty
-      setAvailableMonths([])
-      setSelectedMonth(null)
-      setLoading(false)
-      return
-    }
+        if (typeof month === "number") {
+          params.append("month", month.toString());
+        }
+        return params;
+      },
+      [dateFilter],
+    );
+    const availableUrl = buildMonthlyCategoryUrl(buildMonthParams());
+    const cachedAvailable = getCachedResponse<{
+      data: Array<{ category: string; month: number; total: number }>;
+      availableMonths: number[];
+    }>(availableUrl);
+    const initialAvailableMonths = cachedAvailable?.availableMonths ?? [];
+    const initialSelectedMonth =
+      initialAvailableMonths.length > 0 ? initialAvailableMonths[0] : null;
+    const cachedSelected =
+      initialSelectedMonth !== null
+        ? getCachedResponse<{
+            data: Array<{ category: string; month: number; total: number }>;
+            availableMonths: number[];
+          }>(buildMonthlyCategoryUrl(buildMonthParams(initialSelectedMonth)))
+        : undefined;
+    const [mounted, setMounted] = React.useState(false);
+    const [data, setData] = React.useState<MonthData[]>(
+      () => cachedSelected?.data ?? [],
+    );
+    const [availableMonths, setAvailableMonths] = React.useState<number[]>(
+      () => initialAvailableMonths,
+    );
+    const [selectedMonth, setSelectedMonth] = React.useState<number | null>(
+      () => initialSelectedMonth,
+    );
+    const [loading, setLoading] = React.useState(
+      () => initialAvailableMonths.length > 0 && cachedSelected === undefined,
+    );
+    const [isFullscreen, setIsFullscreen] = React.useState(false);
 
-    // Fallback: parent doesn't use bundle system
+    React.useEffect(() => {
+      setMounted(true);
+    }, []);
 
-    const fetchAvailableMonths = async () => {
-      try {
-        const cached = getCachedResponse<{ data: Array<{ category: string; month: number; total: number }>; availableMonths: number[] }>(
-          availableUrl,
-        )
-        if (cached) {
-          const months = cached.availableMonths || []
-          setAvailableMonths(months)
-
+    // Fetch available months first (without selected month) when dateFilter changes
+    React.useEffect(() => {
+      if (bundleLoading !== undefined) {
+        if (bundleLoading) {
+          setLoading(true);
+          return;
+        }
+        if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
+          const normalizedData = aggregateBundleData(monthlyCategoriesData);
+          const months = [...new Set(normalizedData.map((d) => d.month))].sort(
+            (a, b) => a - b,
+          );
+          setAvailableMonths(months);
           if (months.length > 0) {
             setSelectedMonth((prev) => {
               if (prev === null || !months.includes(prev)) {
-                return months[0]
+                return months[0];
               }
-              return prev
-            })
+              return prev;
+            });
           } else {
-            setSelectedMonth(null)
-            setLoading(false)
+            setSelectedMonth(null);
           }
-          return
+          setLoading(false);
+          return;
         }
+        setAvailableMonths([]);
+        setSelectedMonth(null);
+        setLoading(false);
+        return;
+      }
 
-        const result = await deduplicatedFetch<{ data: Array<{ category: string; month: number; total: number }>; availableMonths: number[] }>(
-          availableUrl
-        )
-        const months = result.availableMonths || []
-        setAvailableMonths(months)
-
-        // Reset selected month to first available when date filter changes
-        if (months.length > 0) {
-          setSelectedMonth((prev) => {
-            // Only update if current selection is not in the new list
-            if (prev === null || !months.includes(prev)) {
-              return months[0]
+      const fetchAvailableMonths = async () => {
+        try {
+          const cached = getCachedResponse<{
+            data: Array<{ category: string; month: number; total: number }>;
+            availableMonths: number[];
+          }>(availableUrl);
+          if (cached) {
+            const months = cached.availableMonths || [];
+            setAvailableMonths(months);
+            if (months.length > 0) {
+              setSelectedMonth((prev) => {
+                if (prev === null || !months.includes(prev)) {
+                  return months[0];
+                }
+                return prev;
+              });
+            } else {
+              setSelectedMonth(null);
+              setLoading(false);
             }
-            return prev
-          })
-        } else {
-          // No months available - set loading to false so we show empty state
-          setSelectedMonth(null)
-          setLoading(false)
+            return;
+          }
+
+          const result = await deduplicatedFetch<{
+            data: Array<{ category: string; month: number; total: number }>;
+            availableMonths: number[];
+          }>(availableUrl);
+          const months = result.availableMonths || [];
+          setAvailableMonths(months);
+          if (months.length > 0) {
+            setSelectedMonth((prev) => {
+              if (prev === null || !months.includes(prev)) {
+                return months[0];
+              }
+              return prev;
+            });
+          } else {
+            setSelectedMonth(null);
+            setLoading(false);
+          }
+        } catch {
+          setAvailableMonths([]);
+          setSelectedMonth(null);
+          setLoading(false);
         }
-      } catch (error) {
-        console.error("Error fetching available months:", error)
-        setAvailableMonths([])
-        setSelectedMonth(null)
-        setLoading(false)
-      }
-    }
+      };
 
-    if (mounted) {
-      fetchAvailableMonths()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFilter, mounted, availableUrl, refreshNonce, monthlyCategoriesData, bundleLoading])
-
-  // Fetch data when selectedMonth changes
-  React.useEffect(() => {
-    // If parent provides bundleLoading prop, it's using the bundle system
-    if (bundleLoading !== undefined) {
-      // Still loading - wait
-      if (bundleLoading) {
-        return
+      if (mounted) {
+        fetchAvailableMonths();
       }
-      // Use bundleData if available
-      if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
-        // Transform bundle data: parse "Mon YYYY" strings to month numbers and aggregate across years
-        const normalizedData = aggregateBundleData(monthlyCategoriesData)
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+      dateFilter,
+      mounted,
+      availableUrl,
+      monthlyCategoriesData,
+      bundleLoading,
+    ]);
+
+    // Fetch data when selectedMonth changes
+    React.useEffect(() => {
+      if (bundleLoading !== undefined) {
+        if (bundleLoading) {
+          return;
+        }
+        if (monthlyCategoriesData && monthlyCategoriesData.length > 0) {
+          const normalizedData = aggregateBundleData(monthlyCategoriesData);
+          if (selectedMonth === null) {
+            setData([]);
+          } else {
+            const filtered = normalizedData.filter(
+              (d) => d.month === selectedMonth,
+            );
+            setData(filtered);
+          }
+          setLoading(false);
+          return;
+        }
+        setData([]);
+        setLoading(false);
+        return;
+      }
+
+      const fetchData = async () => {
         if (selectedMonth === null) {
-          setData([])
-        } else {
-          const filtered = normalizedData.filter(d => d.month === selectedMonth)
-          setData(filtered)
+          setData([]);
+          setLoading(false);
+          return;
         }
-        setLoading(false)
-        return
-      }
-      // Bundle returned empty
-      setData([])
-      setLoading(false)
-      return
-    }
 
-    // Fallback: parent doesn't use bundle system
+        const dataUrl = buildMonthlyCategoryUrl(
+          buildMonthParams(selectedMonth),
+        );
+        const cached = getCachedResponse<{
+          data: Array<{ category: string; month: number; total: number }>;
+          availableMonths: number[];
+        }>(dataUrl);
+        if (cached) {
+          setData(cached.data || []);
+          setLoading(false);
+          return;
+        }
 
-    const fetchData = async () => {
-      if (selectedMonth === null) {
-        setData([])
-        setLoading(false)
-        return
-      }
+        setLoading(true);
+        try {
+          const result = await deduplicatedFetch<{
+            data: Array<{ category: string; month: number; total: number }>;
+            availableMonths: number[];
+          }>(dataUrl);
+          const fetchedData = result.data || [];
 
-      const dataUrl = buildMonthlyCategoryUrl(buildMonthParams(selectedMonth))
-      const cached = getCachedResponse<{ data: Array<{ category: string; month: number; total: number }>; availableMonths: number[] }>(
-        dataUrl,
-      )
-      if (cached) {
-        setData(cached.data || [])
-        setLoading(false)
-        return
-      }
+          if (fetchedData.length === 0 && availableMonths.length > 1) {
+            for (const month of availableMonths) {
+              if (month === selectedMonth) continue;
 
-      setLoading(true)
-      try {
-        const result = await deduplicatedFetch<{ data: Array<{ category: string; month: number; total: number }>; availableMonths: number[] }>(
-          dataUrl
-        )
-        const fetchedData = result.data || []
+              const altUrl = buildMonthlyCategoryUrl(buildMonthParams(month));
+              const cachedAlt = getCachedResponse<{
+                data: Array<{ category: string; month: number; total: number }>;
+                availableMonths: number[];
+              }>(altUrl);
+              if (cachedAlt?.data && cachedAlt.data.length > 0) {
+                setSelectedMonth(month);
+                setData(cachedAlt.data);
+                setLoading(false);
+                return;
+              }
 
-        // If data is empty and there are other available months, try to find one with data
-        if (fetchedData.length === 0 && availableMonths.length > 1) {
-          // Try other months in order (starting from the first)
-          for (const month of availableMonths) {
-            if (month === selectedMonth) continue
+              const altResult = await deduplicatedFetch<{
+                data: Array<{ category: string; month: number; total: number }>;
+                availableMonths: number[];
+              }>(altUrl);
 
-            const altUrl = buildMonthlyCategoryUrl(buildMonthParams(month))
-            const cachedAlt = getCachedResponse<{ data: Array<{ category: string; month: number; total: number }>; availableMonths: number[] }>(
-              altUrl,
-            )
-            if (cachedAlt?.data && cachedAlt.data.length > 0) {
-              setSelectedMonth(month)
-              setData(cachedAlt.data)
-              setLoading(false)
-              return
-            }
-
-            const altResult = await deduplicatedFetch<{ data: Array<{ category: string; month: number; total: number }>; availableMonths: number[] }>(
-              altUrl
-            )
-
-            if (altResult.data && altResult.data.length > 0) {
-              setSelectedMonth(month)
-              setData(altResult.data)
-              setLoading(false)
-              return
+              if (altResult.data && altResult.data.length > 0) {
+                setSelectedMonth(month);
+                setData(altResult.data);
+                setLoading(false);
+                return;
+              }
             }
           }
+
+          setData(fetchedData);
+        } catch {
+          setData([]);
+        } finally {
+          setLoading(false);
         }
+      };
 
-        setData(fetchedData)
-      } catch (error) {
-        console.error("Error fetching month category data:", error)
-        setData([])
-      } finally {
-        setLoading(false)
+      if (mounted && selectedMonth !== null) {
+        fetchData();
       }
-    }
+    }, [
+      selectedMonth,
+      dateFilter,
+      mounted,
+      availableMonths,
+      buildMonthParams,
+      monthlyCategoriesData,
+      bundleLoading,
+    ]);
 
-    if (mounted && selectedMonth !== null) {
-      fetchData()
-    }
-  }, [selectedMonth, dateFilter, mounted, availableMonths, buildMonthParams, refreshNonce, monthlyCategoriesData, bundleLoading])
+    const palette = React.useMemo(() => {
+      const p = getShuffledPalette("analytics:singleMonthCategorySpending");
+      return p.length ? p : DEFAULT_FALLBACK_PALETTE;
+    }, [getShuffledPalette]);
 
-  // getShuffledPalette() filters, trims by theme, and shuffles for visual variety
-  const palette = React.useMemo(() => {
-    const p = getShuffledPalette()
-    return p.length ? p : DEFAULT_FALLBACK_PALETTE
-  }, [getShuffledPalette])
+    const isDark = resolvedTheme === "dark";
+    const textColor = getChartTextColor(isDark);
+    const gridColor = getChartAxisLineColor(isDark);
 
+    const topCategories = React.useMemo(() => data.slice(0, 10), [data]);
 
-  // ECharts event handlers for custom tooltip
-  const handleChartMouseOver = React.useCallback(
-    (params: any) => {
-      if (!containerRef.current) return
+    const chartData = React.useMemo(
+      () =>
+        topCategories.map((item, index) => ({
+          category:
+            item.category.length > 14
+              ? item.category.slice(0, 13) + "…"
+              : item.category,
+          fullCategory: item.category,
+          total: item.total,
+          color: palette[index % palette.length],
+        })),
+      [topCategories, palette],
+    );
 
-      const rect = containerRef.current.getBoundingClientRect()
-      let mouseX = 0
-      let mouseY = 0
-      const ecEvent = (params && (params.event?.event || params.event)) as
-        | (MouseEvent & { offsetX?: number; offsetY?: number })
-        | undefined
+    const monthTotal = React.useMemo(
+      () => topCategories.reduce((sum, item) => sum + item.total, 0),
+      [topCategories],
+    );
 
-      if (ecEvent) {
-        if (
-          typeof ecEvent.clientX === "number" &&
-          typeof ecEvent.clientY === "number"
-        ) {
-          mouseX = ecEvent.clientX - rect.left
-          mouseY = ecEvent.clientY - rect.top
-        } else if (
-          typeof ecEvent.offsetX === "number" &&
-          typeof ecEvent.offsetY === "number"
-        ) {
-          mouseX = ecEvent.offsetX
-          mouseY = ecEvent.offsetY
+    const renderChart = () => (
+      <ResponsiveBar
+        data={chartData}
+        keys={["total"]}
+        indexBy="category"
+        margin={{ top: 16, right: 16, bottom: 60, left: 60 }}
+        padding={0.3}
+        colors={({ index }) =>
+          chartData[index]?.color ?? palette[index % palette.length]
         }
-      }
-
-      const position = { x: mouseX, y: mouseY }
-      mousePositionRef.current = position
-      setTooltipPosition(position)
-
-      if (params && params.name) {
-        const category = params.name || ""
-        let value = 0
-        if (Array.isArray(params.value)) {
-          value = params.value[1] || params.value[0] || 0
-        } else if (params.data && Array.isArray(params.data)) {
-          value = params.data[1] || 0
-        } else {
-          value = params.value || 0
-        }
-        const index = params.dataIndex || 0
-        const color = palette[index % palette.length]
-
-        setTooltip({
-          label: category,
-          value,
-          color,
-        })
-      }
-    },
-    [palette],
-  )
-
-  const handleChartMouseOut = React.useCallback(() => {
-    setTooltip(null)
-    setTooltipPosition(null)
-    mousePositionRef.current = null
-  }, [])
-
-  const chartEvents = React.useMemo(
-    () => ({
-      mouseover: handleChartMouseOver,
-      mouseout: handleChartMouseOut,
-      // Ensure tooltip clears even if the cursor leaves the chart entirely
-      globalout: handleChartMouseOut,
-    }),
-    [handleChartMouseOver, handleChartMouseOut],
-  )
-
-  // Track mouse movement continuously for tooltip positioning
-  React.useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const rect = container.getBoundingClientRect()
-      const position = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      }
-      mousePositionRef.current = position
-      setTooltipPosition(position)
-    }
-
-    const handleMouseLeave = () => {
-      setTooltip(null)
-      setTooltipPosition(null)
-      mousePositionRef.current = null
-    }
-
-    const handleDocumentTouch = (e: TouchEvent) => {
-      if (!container.contains(e.target as Node)) {
-        setTooltip(null)
-        setTooltipPosition(null)
-        mousePositionRef.current = null
-      }
-    }
-
-    container.addEventListener('mousemove', handleMouseMove)
-    container.addEventListener('mouseleave', handleMouseLeave)
-    document.addEventListener('touchstart', handleDocumentTouch, { passive: true })
-
-    return () => {
-      container.removeEventListener('mousemove', handleMouseMove)
-      container.removeEventListener('mouseleave', handleMouseLeave)
-      document.removeEventListener('touchstart', handleDocumentTouch)
-    }
-  }, [])
-
-  const option = React.useMemo(() => {
-    if (!data.length || selectedMonth === null) return null
-
-    // Data is already filtered to selected month and sorted by total descending
-    // Get top categories (already sorted by API)
-    const topCategories = data.slice(0, 10) // Show top 10 categories
-
-    if (!topCategories.length) return null
-
-    // Build dataset source
-    const datasetSource: any[] = [["category", "Amount"]]
-    topCategories.forEach((item) => {
-      datasetSource.push([item.category, item.total])
-    })
-
-    const isDark = resolvedTheme === "dark"
-    const backgroundColor = getEChartsBackground(isDark)
-
-    // Use muted-foreground color for axis labels
-    const textColor = getChartTextColor(isDark)
-
-    // Disable animation after first render to prevent replay on theme hydration
-    // Set ref synchronously to prevent race condition with theme changes
-    const shouldAnimate = !hasAnimatedRef.current
-    if (shouldAnimate) {
-      hasAnimatedRef.current = true
-    }
-
-    return {
-      backgroundColor,
-      animation: shouldAnimate,
-      animationDuration: shouldAnimate ? 1000 : 0,
-      textStyle: {
-        color: textColor,
-      },
-      legend: {
-        show: false,
-      },
-      tooltip: {
-        show: false, // Disable default ECharts tooltip
-        trigger: "axis",
-        axisPointer: { type: "shadow" },
-        transitionDuration: 0,
-      },
-      dataset: {
-        source: datasetSource,
-      },
-      xAxis: {
-        type: "category",
-        axisLabel: {
-          rotate: 45,
-          interval: 0,
-          color: textColor,
-        },
-        axisTick: {
-          lineStyle: {
-            color: textColor,
+        borderRadius={10}
+        enableLabel={false}
+        axisBottom={{
+          tickSize: 0,
+          tickPadding: 8,
+          tickRotation: -35,
+        }}
+        axisLeft={{
+          tickSize: 0,
+          tickPadding: 8,
+          format: (v: number) => {
+            if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+            if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
+            return formatCurrency(v, { maximumFractionDigits: 0 });
           },
-        },
-        axisLine: {
-          lineStyle: {
-            color: textColor,
-          },
-        },
-      },
-      yAxis: {
-        type: "value",
-        axisLabel: {
-          formatter: (value: number) => formatCurrency(value, { maximumFractionDigits: 0 }),
-          color: textColor,
-        },
-        axisTick: {
-          lineStyle: {
-            color: textColor,
-          },
-        },
-        axisLine: {
-          lineStyle: {
-            color: textColor,
-          },
-        },
-        splitLine: {
-          lineStyle: {
-            color: getEChartsSplitLineColor(isDark),
-          },
-        },
-      },
-      series: [
-        {
-          type: "bar",
-          itemStyle: {
-            borderRadius: [10, 10, 0, 0],
-            color: (params: any) => {
-              const index = params.dataIndex
-              return palette[index % palette.length]
-            },
-          },
-        },
-      ],
-    }
-  }, [data, selectedMonth, palette, resolvedTheme])
-
-  // Ensure tooltip clears when leaving the chart canvas entirely
-  React.useEffect(() => {
-    if (!chartRef.current) return
-    const instance = chartRef.current.getEchartsInstance?.()
-    if (!instance || !instance.getZr) return
-
-    const zr = instance.getZr()
-    const handleGlobalOut = () => {
-      setTooltip(null)
-      setTooltipPosition(null)
-      mousePositionRef.current = null
-    }
-
-    zr.on("globalout", handleGlobalOut)
-    return () => {
-      zr.off("globalout", handleGlobalOut)
-    }
-  }, [])
-
-
-  // Memoize the heavy chart element so tooltip state changes
-  // do not cause the ECharts instance to be recreated.
-  const chartElement = React.useMemo(() => {
-    if (!option) return null
-    return (
-      <ReactECharts
-        ref={chartRef}
-        option={option}
-        style={{ height: "100%", width: "100%" }}
-        opts={{ renderer: "svg" }}
-        notMerge={true}
-        onEvents={chartEvents}
+        }}
+        enableGridY={true}
+        gridYValues={5}
+        theme={{
+          text: { fill: textColor, fontSize: 11 },
+          axis: { ticks: { text: { fill: textColor } } },
+          grid: { line: { stroke: gridColor, strokeDasharray: "4 4" } },
+        }}
+        tooltip={({ indexValue, value, color }) => (
+          <NivoChartTooltip
+            title={
+              chartData.find((d) => d.category === indexValue)?.fullCategory ??
+              String(indexValue)
+            }
+            titleColor={color}
+            value={formatCurrency(value as number)}
+          />
+        )}
+        animate={true}
+        motionConfig="gentle"
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        barComponent={HoverableBar as any}
       />
-    )
-  }, [option, chartEvents])
+    );
 
-  if (!mounted) {
-    return (
+    const loadingCard = (isLoadingState: boolean) => (
       <Card className="@container/card">
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -667,163 +503,155 @@ export const ChartSingleMonthCategorySpending = React.memo(function ChartSingleM
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
           <ChartLoadingState
-            isLoading
+            isLoading={isLoadingState}
             skeletonType="bar"
             emptyTitle={emptyTitle}
             emptyDescription={emptyDescription}
           />
         </CardContent>
       </Card>
-    )
-  }
+    );
 
-  if (loading) {
-    return (
-      <Card className="@container/card">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <GridStackCardDragHandle />
-            <ChartFavoriteButton
-              chartId="singleMonthCategorySpending"
-              chartTitle="Single Month Category Spending"
-              size="md"
-            />
-            <CardTitle>Single Month Category Spending</CardTitle>
-          </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <SingleMonthInfoTrigger />
-          </CardAction>
-        </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-          <ChartLoadingState
-            isLoading
-            skeletonType="bar"
-            emptyTitle={emptyTitle}
-            emptyDescription={emptyDescription}
-          />
-        </CardContent>
-      </Card>
-    )
-  }
+    if (!mounted) return loadingCard(true);
+    if (loading) return loadingCard(true);
 
-  if (!availableMonths.length || selectedMonth === null) {
-    return (
-      <Card className="@container/card">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <GridStackCardDragHandle />
-            <ChartFavoriteButton
-              chartId="singleMonthCategorySpending"
-              chartTitle="Single Month Category Spending"
-              size="md"
-            />
-            <CardTitle>Single Month Category Spending</CardTitle>
-          </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <SingleMonthInfoTrigger />
-          </CardAction>
-        </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-          <ChartLoadingState
-            skeletonType="bar"
-            emptyTitle={emptyTitle || "No monthly data yet"}
-            emptyDescription={emptyDescription || "Import your bank statements to see monthly category spending"}
-          />
-        </CardContent>
-      </Card>
-    )
-  }
-
-  return (
-    <>
-      <ChartFullscreenModal
-        isOpen={isFullscreen}
-        onClose={() => setIsFullscreen(false)}
-        title="Single Month Category Spending"
-        description="Compare spending across categories for a selected month"
-        headerActions={<SingleMonthInfoTrigger forFullscreen />}
-      >
-        <div className="h-full w-full min-h-[400px] text-center flex items-center justify-center text-muted-foreground">
-          Fullscreen view - Select a month to see category breakdown
-        </div>
-      </ChartFullscreenModal>
-
-      <Card className="@container/card">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <GridStackCardDragHandle />
-            <ChartExpandButton onClick={() => setIsFullscreen(true)} />
-            <ChartFavoriteButton
-              chartId="singleMonthCategorySpending"
-              chartTitle="Single Month Category Spending"
-              size="md"
-            />
-            <CardTitle>Single Month Category Spending</CardTitle>
-          </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <Select
-              value={selectedMonth !== null ? selectedMonth.toString() : ""}
-              onValueChange={(value) => setSelectedMonth(parseInt(value, 10))}
-            >
-              <SelectTrigger
-                className="w-32"
-                size="sm"
-                aria-label="Select month"
-              >
-                <SelectValue placeholder="Select month" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                {availableMonths.map((month) => (
-                  <SelectItem key={month} value={month.toString()} className="rounded-lg">
-                    {MONTH_NAMES[month - 1]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <SingleMonthInfoTrigger />
-          </CardAction>
-        </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
-          {option && data.length > 0 ? (
-            <div className="h-full w-full flex flex-col">
-              <div className="mb-2 text-sm font-medium text-foreground text-center">
-                Total: {formatCurrency(data.reduce((sum, item) => sum + item.total, 0))}
-              </div>
-              <div ref={containerRef} className="relative flex-1 min-h-0" style={{ minHeight: 0, minWidth: 0 }}>
-                {chartElement}
-                {tooltip && tooltipPosition && (
-                  <div
-                    className="pointer-events-none absolute z-10 rounded-md border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-lg"
-                    style={{
-                      left: Math.min(Math.max(tooltipPosition.x + 16, 8), (containerRef.current?.clientWidth || 800) - 8),
-                      top: Math.min(Math.max(tooltipPosition.y - 16, 8), (containerRef.current?.clientHeight || 250) - 8),
-                    }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="h-2.5 w-2.5 rounded-full border border-border/50"
-                        style={{ backgroundColor: tooltip.color, borderColor: tooltip.color }}
-                      />
-                      <span className="font-medium text-foreground whitespace-nowrap">{tooltip.label}</span>
-                    </div>
-                    <div className="mt-1 font-mono text-[0.7rem] text-foreground/80">
-                      {formatCurrency(tooltip.value)}
-                    </div>
-                  </div>
-                )}
-              </div>
+    if (!availableMonths.length || selectedMonth === null) {
+      return (
+        <Card className="@container/card">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <GridStackCardDragHandle />
+              <ChartFavoriteButton
+                chartId="singleMonthCategorySpending"
+                chartTitle="Single Month Category Spending"
+                size="md"
+              />
+              <CardTitle>Single Month Category Spending</CardTitle>
             </div>
-          ) : (
+            <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+              <SingleMonthInfoTrigger />
+            </CardAction>
+          </CardHeader>
+          <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
             <ChartLoadingState
               skeletonType="bar"
-              emptyTitle={emptyTitle || "No spending data"}
-              emptyDescription={emptyDescription || "No transactions recorded for this month yet"}
+              emptyTitle={emptyTitle || "No monthly data yet"}
+              emptyDescription={
+                emptyDescription ||
+                "Import your bank statements to see monthly category spending"
+              }
             />
-          )}
-        </CardContent>
-      </Card>
-    </>
-  )
-})
+          </CardContent>
+        </Card>
+      );
+    }
 
-ChartSingleMonthCategorySpending.displayName = "ChartSingleMonthCategorySpending"
+    return (
+      <>
+        <ChartFullscreenModal
+          isOpen={isFullscreen}
+          onClose={() => setIsFullscreen(false)}
+          title="Single Month Category Spending"
+          description="Compare spending across categories for a selected month"
+          headerActions={<SingleMonthInfoTrigger forFullscreen />}
+        >
+          <div className="h-full w-full min-h-[400px] flex flex-col" key={`${colorScheme}-${selectedMonth}`}>
+            <div className="flex-1 min-h-0">
+              {renderChart()}
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2">
+              {chartData.map((item) => (
+                <div key={item.category} className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                  <span className="font-medium text-foreground truncate max-w-[120px]" title={item.fullCategory}>{item.fullCategory}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-end gap-1 px-4 py-2 text-xs text-muted-foreground border-t">
+              <span>Total:</span>
+              <span className="font-semibold text-foreground">{formatCurrency(monthTotal)}</span>
+            </div>
+          </div>
+        </ChartFullscreenModal>
+
+        <Card className="@container/card">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <GridStackCardDragHandle />
+              <ChartExpandButton onClick={() => setIsFullscreen(true)} />
+              <ChartFavoriteButton
+                chartId="singleMonthCategorySpending"
+                chartTitle="Single Month Category Spending"
+                size="md"
+              />
+              <CardTitle>Single Month Category Spending</CardTitle>
+            </div>
+            <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+              <Select
+                value={selectedMonth !== null ? selectedMonth.toString() : ""}
+                onValueChange={(value) =>
+                  setSelectedMonth(parseInt(value, 10))
+                }
+              >
+                <SelectTrigger
+                  className="w-32"
+                  size="sm"
+                  aria-label="Select month"
+                >
+                  <SelectValue placeholder="Select month" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  {availableMonths.map((month) => (
+                    <SelectItem
+                      key={month}
+                      value={month.toString()}
+                      className="rounded-lg"
+                    >
+                      {MONTH_NAMES[month - 1]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <SingleMonthInfoTrigger />
+            </CardAction>
+          </CardHeader>
+          <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0 flex flex-col">
+            {topCategories.length > 0 ? (
+              <>
+                <div className="h-full w-full min-h-[210px]" key={`${colorScheme}-${selectedMonth}`}>
+                  {renderChart()}
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2">
+                  {chartData.map((item) => (
+                    <div key={item.category} className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                      <span className="font-medium text-foreground truncate max-w-[120px]" title={item.fullCategory}>{item.fullCategory}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-end gap-1 pt-2 text-xs text-muted-foreground">
+                  <span>Total:</span>
+                  <span className="font-semibold text-foreground">{formatCurrency(monthTotal)}</span>
+                </div>
+              </>
+            ) : (
+              <div className="h-[250px]">
+                <ChartLoadingState
+                  skeletonType="bar"
+                  emptyTitle={emptyTitle || "No spending data"}
+                  emptyDescription={
+                    emptyDescription ||
+                    "No transactions recorded for this month yet"
+                  }
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </>
+    );
+  },
+);
+
+ChartSingleMonthCategorySpending.displayName =
+  "ChartSingleMonthCategorySpending";

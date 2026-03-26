@@ -371,8 +371,8 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
 
     if (!mounted || isLoading) {
         return (
-            <Card className="@container/card">
-                <CardHeader>
+            <Card className="@container/card gap-[20px]">
+                <CardHeader className="pb-0">
                     <div className="flex items-center gap-2">
                         <GridStackCardDragHandle />
                         <ChartFavoriteButton
@@ -386,7 +386,7 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
                         <DayOfWeekInfoTrigger selectedDay={selectedDay} data={data} />
                     </CardAction>
                 </CardHeader>
-                <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+                <CardContent className="px-2 pt-0 sm:px-6 h-[250px]">
                     <ChartLoadingState isLoading />
                 </CardContent>
             </Card>
@@ -395,8 +395,8 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
 
     if (!availableDays.length || selectedDay === null) {
         return (
-            <Card className="@container/card">
-                <CardHeader>
+            <Card className="@container/card gap-[20px]">
+                <CardHeader className="pb-0">
                     <div className="flex items-center gap-2">
                         <GridStackCardDragHandle />
                         <ChartFavoriteButton
@@ -410,7 +410,7 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
                         <DayOfWeekInfoTrigger selectedDay={selectedDay} data={data} />
                     </CardAction>
                 </CardHeader>
-                <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+                <CardContent className="px-2 pt-0 sm:px-6 h-[250px]">
                     <ChartLoadingState isLoading={false} />
                 </CardContent>
             </Card>
@@ -418,8 +418,8 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
     }
 
     return (
-        <Card className="@container/card">
-            <CardHeader>
+        <Card className="@container/card gap-[20px]">
+            <CardHeader className="pb-0">
                 <div className="flex items-center gap-2">
                     <GridStackCardDragHandle />
                     <ChartFavoriteButton
@@ -452,7 +452,7 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
                     <DayOfWeekInfoTrigger selectedDay={selectedDay} data={data} />
                 </CardAction>
             </CardHeader>
-            <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+            <CardContent className="px-2 pt-0 sm:px-6 h-[250px]">
                 {option && data.length > 0 ? (
                     <div className="h-full w-full flex flex-col">
                         <div className="mb-2 text-sm font-medium text-foreground text-center">

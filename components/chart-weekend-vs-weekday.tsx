@@ -150,7 +150,10 @@ export const ChartWeekendVsWeekday = memo(function ChartWeekendVsWeekday({
   const [mounted, setMounted] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
-  const palette = useMemo(() => getShuffledPalette(), [getShuffledPalette])
+  const palette = useMemo(
+    () => getShuffledPalette("analytics:weekendVsWeekday"),
+    [getShuffledPalette],
+  )
 
   useEffect(() => {
     setMounted(true)

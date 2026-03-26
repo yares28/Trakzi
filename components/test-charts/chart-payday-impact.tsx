@@ -1,5 +1,5 @@
 "use client"
-import { memo, useMemo, useState, useEffect } from "react"
+import { memo, useMemo, useState, useEffect, useCallback } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveBar } from "@nivo/bar"
 import {
@@ -196,6 +196,22 @@ export const ChartPaydayImpact = memo(function ChartPaydayImpact({
     const textColor = getChartTextColor(isDark)
     const gridColor = getChartAxisLineColor(isDark)
 
+    // Tooltip rendered by HoverableBar.
+    // bar.data is Nivo's wrapper { id, value, formattedValue, indexValue, data: originalItem }
+    // HoverableBar spreads it, so: props.indexValue = day label, props.value = numeric total
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const PaydayBarTooltip = useCallback((props: any) => {
+        const day = (props.indexValue ?? props.data?.day ?? "") as string
+        const total = (props.value ?? props.data?.total ?? 0) as number
+        return (
+            <NivoChartTooltip
+                title={day}
+                hideTitleIndicator
+                rows={[{ label: "Spent", value: formatCurrency(total, { maximumFractionDigits: 0 }) }]}
+            />
+        )
+    }, [formatCurrency])
+
     const renderTypePicker = () => (
         <Select value={selectedType} onValueChange={setSelectedType}>
             <SelectTrigger className="h-7 text-xs w-[140px]">
@@ -250,7 +266,9 @@ export const ChartPaydayImpact = memo(function ChartPaydayImpact({
             labelSkipWidth={50}
             labelSkipHeight={16}
             labelTextColor={{ from: 'color', modifiers: [['brighter', 3]] }}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             barComponent={HoverableBar as any}
+            tooltip={PaydayBarTooltip}
             axisBottom={{
                 tickSize: 0,
                 tickPadding: 8,
@@ -266,13 +284,6 @@ export const ChartPaydayImpact = memo(function ChartPaydayImpact({
                 axis: { ticks: { text: { fill: textColor } } },
                 grid: { line: { stroke: gridColor } },
             }}
-            tooltip={({ indexValue, value, color }) => (
-                <NivoChartTooltip
-                    title={String(indexValue) === "Payday" ? "Payday" : `${String(indexValue)} days`}
-                    titleColor={color}
-                    value={formatCurrency(value as number)}
-                />
-            )}
             animate={true}
             motionConfig="gentle"
         />

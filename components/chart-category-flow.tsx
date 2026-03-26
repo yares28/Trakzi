@@ -29,7 +29,6 @@ interface ChartCategoryFlowProps {
     data: Array<{
       x: string
       y: number
-      percentage?: number
     }>
   }>
   categoryControls?: ChartInfoPopoverCategoryControls
@@ -79,7 +78,7 @@ const CategoryFlowInfoTrigger = memo(function CategoryFlowInfoTrigger({
 })
 CategoryFlowInfoTrigger.displayName = "CategoryFlowInfoTrigger"
 
-type AreaBumpSerie = { id: string; data: Array<{ x: string; y: number; percentage?: number }> }
+type AreaBumpSerie = { id: string; data: Array<{ x: string; y: number }> }
 
 interface CategoryFlowFullChartProps {
   data: AreaBumpSerie[]
@@ -135,13 +134,13 @@ const CategoryFlowFullChart = memo(function CategoryFlowFullChart({
       }}
       tooltip={({ serie }) => {
         const originalSerie = data.find((d) => d.id === serie.id)
-        const lastPoint = originalSerie?.data[originalSerie.data.length - 1]
-        const percentage = lastPoint?.percentage ?? 0
+        const points = originalSerie?.data ?? []
+        const avg = points.length > 0 ? points.reduce((sum, p) => sum + p.y, 0) / points.length : 0
         return (
           <NivoChartTooltip
             title={serie.id}
             titleColor={serie.color}
-            value={`${percentage.toFixed(1)}%`}
+            value={`${avg.toFixed(1)}% avg`}
           />
         )
       }}
@@ -199,13 +198,13 @@ const CategoryFlowMobileChart = memo(function CategoryFlowMobileChart({
       }}
       tooltip={({ serie }) => {
         const originalSerie = data.find((d) => d.id === serie.id)
-        const lastPoint = originalSerie?.data[originalSerie.data.length - 1]
-        const percentage = lastPoint?.percentage ?? 0
+        const points = originalSerie?.data ?? []
+        const avg = points.length > 0 ? points.reduce((sum, p) => sum + p.y, 0) / points.length : 0
         return (
           <NivoChartTooltip
             title={serie.id}
             titleColor={serie.color}
-            value={`${percentage.toFixed(1)}%`}
+            value={`${avg.toFixed(1)}% avg`}
           />
         )
       }}

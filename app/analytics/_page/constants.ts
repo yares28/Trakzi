@@ -1,7 +1,6 @@
 export const ANALYTICS_CACHE_TTL_MS = 5 * 60 * 1000
 
 export const DEFAULT_CHART_ORDER = [
-  "incomeExpensesTracking1",
   "incomeExpensesTracking2",
   "incomeExpenseRatio",
   "weekendVsWeekday",
@@ -75,9 +74,11 @@ export const DEFAULT_CHART_SIZES: Record<string, { w: number; h: number; x?: num
 
 // Advanced tab chart order and default sizes
 export const DEFAULT_ADVANCED_CHART_ORDER = [
+  "incomeExpensesTracking1",
   "spendingPyramid",
 ]
 
 export const DEFAULT_ADVANCED_CHART_SIZES: Record<string, { w: number; h: number; x?: number; y?: number }> = {
-  "spendingPyramid": { w: 6, h: 8, x: 0, y: 0 },
+  "incomeExpensesTracking1": { w: 6, h: 6, x: 0, y: 0 },
+  "spendingPyramid": { w: 6, h: 8, x: 6, y: 0 },
 }

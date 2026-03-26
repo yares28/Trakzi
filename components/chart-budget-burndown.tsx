@@ -19,7 +19,7 @@ import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
-import { CHART_GRID_COLOR } from "@/lib/chart-colors"
+import { CHART_GRID_COLOR, getChartAxisLineColor } from "@/lib/chart-colors"
 import { ChartConfig, ChartContainer } from "@/components/ui/chart"
 import { ChartTooltipWrapper } from "@/components/chart-tooltip"
 
@@ -121,16 +121,16 @@ interface FlatBurndownPoint {
 
 interface BudgetBurndownChartProps {
   flatData: FlatBurndownPoint[]
-  palette: string[]
-  isDark: boolean
+  idealColor: string
+  actualColor: string
   formatCurrency: (value: number) => string
   forFullscreen?: boolean
 }
 
 const BudgetBurndownChart = memo(function BudgetBurndownChart({
   flatData,
-  palette,
-  isDark,
+  idealColor,
+  actualColor,
   formatCurrency,
   forFullscreen = false,
 }: BudgetBurndownChartProps) {
@@ -141,9 +141,6 @@ const BudgetBurndownChart = memo(function BudgetBurndownChart({
     return () => cancelAnimationFrame(rafId)
   }, [])
   const displayData = useRealData ? flatData : []
-
-  const idealColor = isDark ? "#4b5563" : "#9ca3af"
-  const actualColor = palette[0] || "#fe8339"
 
   const chartConfig = {
     ideal: {
@@ -181,7 +178,7 @@ const BudgetBurndownChart = memo(function BudgetBurndownChart({
     )
   }
 
-  const chartHeight = forFullscreen ? "h-full" : "aspect-auto h-[250px]"
+  const chartHeight = forFullscreen ? "h-full" : "aspect-auto h-full"
 
   return (
     <ChartContainer config={chartConfig} className={`${chartHeight} w-full min-w-0`}>
@@ -244,12 +241,17 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
   emptyDescription,
 }: ChartBudgetBurndownProps) {
   const { resolvedTheme } = useTheme()
-  const { getPalette } = useColorScheme()
+  const { getShuffledPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
   const [mounted, setMounted] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
-  const palette = useMemo(() => getPalette(), [getPalette])
+  const isDark = resolvedTheme === "dark"
+  const idealColor = getChartAxisLineColor(isDark)
+  const actualColor = useMemo(
+    () => getShuffledPalette("analytics:budgetBurndown")[0] ?? "#fe8339",
+    [getShuffledPalette],
+  )
 
   useEffect(() => {
     setMounted(true)
@@ -306,8 +308,6 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
     }
   }, [data, dateFilter])
 
-  const isDark = resolvedTheme === "dark"
-
   const chartTitle = "Income Burndown"
   const chartDescription = "See how fast you burn through your monthly income. Stay above the ideal line to save."
 
@@ -334,11 +334,11 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
     return (
       <Card className="@container/card h-full relative" suppressHydrationWarning>
         <CardHeader className="flex flex-row items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <GridStackCardDragHandle />
             <ChartExpandButton onClick={() => setIsFullscreen(true)} />
             <ChartFavoriteButton chartId="budgetBurndown" chartTitle={chartTitle} size="md" />
-            <CardTitle>{chartTitle}</CardTitle>
+            <CardTitle className="truncate">{chartTitle}</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             <BudgetBurndownInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} monthlyIncome={chartDataRaw.monthlyIncome} remaining={chartDataRaw.remaining} paceStatus={paceStatus} formatCurrency={formatCurrency} />
@@ -358,9 +358,6 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
     )
   }
 
-  const idealColor = isDark ? "#4b5563" : "#9ca3af"
-  const actualColor = palette[0] || "#fe8339"
-
   return (
     <>
       <ChartFullscreenModal
@@ -371,17 +368,23 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
         headerActions={<BudgetBurndownInfoTrigger forFullscreen chartTitle={chartTitle} chartDescription={chartDescription} monthlyIncome={chartDataRaw.monthlyIncome} remaining={chartDataRaw.remaining} paceStatus={paceStatus} formatCurrency={formatCurrency} />}
       >
         <div className="h-full w-full min-h-[400px]">
-          <BudgetBurndownChart flatData={flatData} palette={palette} isDark={isDark} formatCurrency={formatCurrency} forFullscreen />
+          <BudgetBurndownChart
+            flatData={flatData}
+            idealColor={idealColor}
+            actualColor={actualColor}
+            formatCurrency={formatCurrency}
+            forFullscreen
+          />
         </div>
       </ChartFullscreenModal>
 
       <Card className="@container/card h-full relative">
         <CardHeader className="flex flex-row items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <GridStackCardDragHandle />
             <ChartExpandButton onClick={() => setIsFullscreen(true)} />
             <ChartFavoriteButton chartId="budgetBurndown" chartTitle={chartTitle} size="md" />
-            <CardTitle>{chartTitle}</CardTitle>
+            <CardTitle className="truncate">{chartTitle}</CardTitle>
           </div>
           <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             <BudgetBurndownInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} monthlyIncome={chartDataRaw.monthlyIncome} remaining={chartDataRaw.remaining} paceStatus={paceStatus} formatCurrency={formatCurrency} />
@@ -389,7 +392,12 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
           <div className="flex-1 min-h-[200px]">
-            <BudgetBurndownChart flatData={flatData} palette={palette} isDark={isDark} formatCurrency={formatCurrency} />
+            <BudgetBurndownChart
+              flatData={flatData}
+              idealColor={idealColor}
+              actualColor={actualColor}
+              formatCurrency={formatCurrency}
+            />
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2 mb-2">
             <div className="flex items-center gap-1.5">

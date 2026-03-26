@@ -47,11 +47,14 @@ type FinancialHealthResponse = {
   years: FinancialHealthYearSummary[]
 }
 
+type RadarViewMode = "financial" | "weekday"
+
 interface ChartRadarProps {
   categoryControls?: ChartInfoPopoverCategoryControls
   dateFilter?: string | null
   emptyTitle?: string
   emptyDescription?: string
+  rawTransactions?: Array<{ date: string; amount: number }>
 }
 
 // ─── Extracted sub-components ────────────────────────────────────────────────
@@ -143,8 +146,8 @@ const RadarStatusCard = memo(function RadarStatusCard({
   isLoading = false,
 }: RadarStatusCardProps) {
   return (
-    <Card className="@container/card h-full relative" data-slot="card">
-      <CardHeader className="flex flex-row items-start justify-between gap-2">
+    <Card className="@container/card h-full relative gap-[20px]" data-slot="card">
+      <CardHeader className="flex flex-row items-start justify-between gap-2 pb-0">
         <div className="flex items-center gap-2">
           <GridStackCardDragHandle />
           <ChartFavoriteButton
@@ -162,7 +165,7 @@ const RadarStatusCard = memo(function RadarStatusCard({
           />
         </CardAction>
       </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[180px] md:h-[250px]">
+      <CardContent className="px-2 pt-0 sm:px-6 h-[180px] md:h-[250px]">
         <ChartLoadingState
           isLoading={isLoading}
           skeletonType="pie"
@@ -181,7 +184,8 @@ export const ChartRadar = memo(function ChartRadar({
   categoryControls,
   dateFilter,
   emptyTitle,
-  emptyDescription
+  emptyDescription,
+  rawTransactions = [],
 }: ChartRadarProps) {
   const { resolvedTheme } = useTheme()
   const { getShuffledPalette } = useColorScheme()
@@ -203,6 +207,20 @@ export const ChartRadar = memo(function ChartRadar({
   const isMobile = useIsMobile()
   const [isCategorySelectorOpen, setIsCategorySelectorOpen] = useState(false)
   const [hasUserInteracted, setHasUserInteracted] = useState(false)
+  const [viewMode, setViewMode] = useState<RadarViewMode>("financial")
+
+  // Weekday spending radar data (day-of-week view)
+  const weekdayChartData = useMemo(() => {
+    if (!rawTransactions.length) return []
+    const totals = [0, 0, 0, 0, 0, 0, 0]
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    rawTransactions.forEach((tx) => {
+      if (tx.amount >= 0) return
+      const dayIndex = new Date(tx.date).getDay()
+      totals[dayIndex] += Math.abs(tx.amount)
+    })
+    return days.map((day, i) => ({ day, spending: Math.round(totals[i] * 100) / 100 }))
+  }, [rawTransactions])
 
   // Shuffled palette for visual variety
   const palette = useMemo(() => getShuffledPalette(), [getShuffledPalette])
@@ -611,20 +629,46 @@ export const ChartRadar = memo(function ChartRadar({
     )
   }
 
+  const viewSwitchButton = (
+    <div className="flex w-full shrink-0 justify-center px-2 sm:px-6">
+      <div
+        className="flex shrink-0 items-center justify-start text-center rounded-full bg-muted p-px text-xs leading-tight"
+        role="group"
+        aria-label="Chart view mode"
+      >
+        <button
+          type="button"
+          className={`rounded-full px-2.5 py-1 font-medium transition-all whitespace-nowrap ${viewMode === "financial" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => setViewMode("financial")}
+        >
+          Health
+        </button>
+        <button
+          type="button"
+          className={`rounded-full px-2.5 py-1 font-medium transition-all whitespace-nowrap ${viewMode === "weekday" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => setViewMode("weekday")}
+        >
+          Weekday
+        </button>
+      </div>
+    </div>
+  )
+
   return (
-    <Card className="@container/card h-full relative" data-slot="card">
-      <CardHeader className="flex flex-row items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
+    <Card className="@container/card h-full relative gap-[20px]" data-slot="card">
+      <CardHeader className="flex flex-row items-start justify-between gap-2 pb-0">
+        <div className="flex items-center gap-2 min-w-0">
           <GridStackCardDragHandle />
           <ChartFavoriteButton
             chartId="financialHealthScore"
             chartTitle="Financial Health Score"
             size="md"
           />
-          <CardTitle>Financial Health Score</CardTitle>
+          <CardTitle className="truncate">Financial Health Score</CardTitle>
         </div>
-        <CardAction className="flex flex-row items-center gap-2">
+        <CardAction className="flex flex-row items-center justify-start gap-2 shrink-0">
           {filterableCapabilities.length > 0 && (
+            <div className={viewMode === "financial" ? "" : "invisible pointer-events-none"}>
             <DropdownMenu open={isCategorySelectorOpen} onOpenChange={setIsCategorySelectorOpen}>
               <DropdownMenuTrigger asChild>
                 <button
@@ -682,6 +726,7 @@ export const ChartRadar = memo(function ChartRadar({
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
+            </div>
           )}
           <RadarInfoTrigger
             categoryControls={categoryControls}
@@ -690,68 +735,117 @@ export const ChartRadar = memo(function ChartRadar({
           />
         </CardAction>
       </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col">
-        <div className="flex-1 min-h-[160px] md:min-h-[220px] [&_svg]:bg-transparent">
-          <ResponsiveRadar
-            key={`radar-${(isMobile ? mobileFilteredData : filteredData).map(d => String(d.capability)).sort().join('-')}`}
-            data={isMobile ? mobileFilteredData : filteredData}
-            keys={keys}
-            indexBy="capability"
-            margin={isMobile
-              ? { top: 30, right: 35, bottom: 15, left: 35 }
-              : { top: 70, right: 80, bottom: 40, left: 80 }
-            }
-            gridLabelOffset={isMobile ? 12 : 36}
-            dotSize={isMobile ? 6 : 10}
-            dotColor={{ theme: "background" }}
-            dotBorderWidth={2}
-            blendMode={resolvedTheme === "dark" ? "normal" : "multiply"}
-            colors={palette}
-            theme={radarTheme}
-            fillOpacity={0.6}
-            gridLevels={isMobile ? 4 : 5}
-            gridShape="linear"
-            sliceTooltip={({ index, data }: RadarSliceTooltipProps) => {
-              if (!data || data.length === 0) return null
+      {viewSwitchButton}
+      <CardContent className="px-2 pt-0 sm:px-6 flex flex-col">
+        {viewMode === "weekday" ? (
+          <div className="flex-1 min-h-[160px] md:min-h-[220px] [&_svg]:bg-transparent">
+            {weekdayChartData.length > 0 ? (
+              <ResponsiveRadar
+                data={weekdayChartData}
+                keys={["spending"]}
+                indexBy="day"
+                maxValue="auto"
+                margin={isMobile
+                  ? { top: 30, right: 35, bottom: 15, left: 35 }
+                  : { top: 50, right: 60, bottom: 30, left: 60 }
+                }
+                curve="linearClosed"
+                borderWidth={2}
+                borderColor={palette[0] || "#fe8339"}
+                gridLevels={5}
+                gridShape="circular"
+                gridLabelOffset={isMobile ? 12 : 20}
+                dotSize={isMobile ? 6 : 8}
+                dotColor={{ theme: "background" }}
+                dotBorderWidth={2}
+                dotBorderColor={palette[0] || "#fe8339"}
+                colors={[palette[0] || "#fe8339"]}
+                fillOpacity={0.25}
+                blendMode="normal"
+                theme={radarTheme}
+                animate
+                motionConfig="gentle"
+                sliceTooltip={({ index, data: sliceData }) => {
+                  if (!sliceData?.length) return null
+                  return (
+                    <NivoChartTooltip
+                      title={String(index)}
+                      hideTitleIndicator
+                      rows={sliceData.map((item) => ({
+                        color: item.color,
+                        label: "Spending",
+                        value: formatCurrency(item.value ?? 0),
+                      }))}
+                    />
+                  )
+                }}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                No transaction data available
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex-1 min-h-[160px] md:min-h-[220px] [&_svg]:bg-transparent">
+            <ResponsiveRadar
+              key={`radar-${(isMobile ? mobileFilteredData : filteredData).map(d => String(d.capability)).sort().join('-')}`}
+              data={isMobile ? mobileFilteredData : filteredData}
+              keys={keys}
+              indexBy="capability"
+              margin={isMobile
+                ? { top: 30, right: 35, bottom: 15, left: 35 }
+                : { top: 70, right: 80, bottom: 40, left: 80 }
+              }
+              gridLabelOffset={isMobile ? 12 : 36}
+              dotSize={isMobile ? 6 : 10}
+              dotColor={{ theme: "background" }}
+              dotBorderWidth={2}
+              blendMode={resolvedTheme === "dark" ? "normal" : "multiply"}
+              colors={palette}
+              theme={radarTheme}
+              fillOpacity={0.6}
+              gridLevels={isMobile ? 4 : 5}
+              gridShape="linear"
+              sliceTooltip={({ index, data }: RadarSliceTooltipProps) => {
+                if (!data || data.length === 0) return null
 
-              // Show all data points at this position (all overlapping years)
-              // index is the capability string (e.g., "G" on mobile, "Groceries" on desktop)
-              const currentChartData = isMobile ? mobileFilteredData : filteredData
-              // Find the data item by matching the capability (index is the label)
-              const dataItem = currentChartData.find(item => String(item.capability) === String(index))
-              const categoryName = dataItem
-                ? String((dataItem as any)._originalCapability || dataItem.capability || 'Category')
-                : String(index) || 'Category'
+                const currentChartData = isMobile ? mobileFilteredData : filteredData
+                const dataItem = currentChartData.find(item => String(item.capability) === String(index))
+                const categoryName = dataItem
+                  ? String((dataItem as any)._originalCapability || dataItem.capability || 'Category')
+                  : String(index) || 'Category'
 
-              return (
-                <NivoChartTooltip
-                  title={categoryName}
-                  hideTitleIndicator
-                  rows={data.map((item) => ({
-                    color: item.color,
-                    label: String(item.id ?? index ?? ""),
-                    value: formatCurrency(item.value ?? 0),
-                  }))}
-                />
-              )
-            }}
-            legends={!isMobile && legendEntries.length ? [
-              {
-                anchor: "top-left",
-                direction: "column",
-                translateX: -50,
-                translateY: -40,
-                itemWidth: 240,
-                itemHeight: 18,
-                symbolShape: "circle",
-                symbolSize: 12,
-                symbolBorderColor: "currentColor",
-                data: legendEntries,
-              },
-            ] : []}
-          />
-        </div>
-        {isMobile && <RadarMobileLegend legendEntries={legendEntries} />}
+                return (
+                  <NivoChartTooltip
+                    title={categoryName}
+                    hideTitleIndicator
+                    rows={data.map((item) => ({
+                      color: item.color,
+                      label: String(item.id ?? index ?? ""),
+                      value: formatCurrency(item.value ?? 0),
+                    }))}
+                  />
+                )
+              }}
+              legends={!isMobile && legendEntries.length ? [
+                {
+                  anchor: "top-left",
+                  direction: "column",
+                  translateX: -50,
+                  translateY: -40,
+                  itemWidth: 240,
+                  itemHeight: 18,
+                  symbolShape: "circle",
+                  symbolSize: 12,
+                  symbolBorderColor: "currentColor",
+                  data: legendEntries,
+                },
+              ] : []}
+            />
+          </div>
+        )}
+        {viewMode === "financial" && isMobile && <RadarMobileLegend legendEntries={legendEntries} />}
       </CardContent>
     </Card>
   )
