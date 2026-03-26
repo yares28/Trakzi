@@ -6,7 +6,7 @@ import { parseCsvToRows } from "@/lib/parsing/parseCsvToRows"
 import { buildStatementParseQuality, type ParseQualitySummary } from "@/lib/parsing/statement-parse-quality"
 import { rowsToCanonicalCsv } from "@/lib/parsing/rowsToCanonicalCsv"
 import { DEFAULT_CATEGORIES } from "@/lib/categories"
-import { safeCapture } from "@/lib/posthog-safe"
+import { typedCapture } from "@/types/posthog-events"
 import { toast } from "sonner"
 import { TxRow } from "@/lib/types/transactions"
 
@@ -219,7 +219,7 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
     const fileType = file.type || file.name.split(".").pop()?.toLowerCase() || "unknown"
 
     // Track file import started
-    safeCapture("file_import_started", {
+    typedCapture("file_import_started", {
       file_name: file.name,
       file_size: file.size,
       file_type: fileType,
@@ -591,7 +591,7 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
         })
       }
 
-      safeCapture("file_import_completed", {
+      typedCapture("file_import_completed", {
         file_name: statementName,
         file_count: pendingFiles.length,
         transaction_count: data.inserted,
@@ -615,7 +615,7 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
         description: errorMessage,
       })
 
-      safeCapture("file_import_failed", {
+      typedCapture("file_import_failed", {
         file_name: projectName || pendingFiles[0]?.name || "unknown",
         error_message: errorMessage,
         stage: "import",
@@ -696,7 +696,7 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
 
         setParsingProgress(progressBase + progressRange * 0.05)
 
-        safeCapture("file_import_started", {
+        typedCapture("file_import_started", {
           file_name: file.name,
           file_size: file.size,
           file_type: file.type || file.name.split(".").pop()?.toLowerCase() || "unknown",

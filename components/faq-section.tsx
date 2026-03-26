@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Plus, Minus } from "lucide-react"
 import { m, AnimatePresence } from "framer-motion"
-import { safeCapture } from "@/lib/posthog-safe"
+import { typedCapture } from "@/types/posthog-events"
 
 const faqs = [
   {
@@ -63,7 +63,7 @@ export function FAQSection() {
 
     // Track which FAQ questions users are most interested in
     if (isOpening) {
-      safeCapture("faq_question_expanded", {
+      typedCapture("faq_question_expanded", {
         question: faqs[index].question,
         question_index: index,
       })

@@ -45,7 +45,7 @@ export const WelcomeModal = memo(function WelcomeModal() {
         </ul>
 
         {/* Actions */}
-        <div className="flex flex-col gap-2 pb-2 sm:pb-0">
+        <div className="flex flex-col gap-2 pb-4 sm:pb-0">
           <Button onClick={dismissWelcome} className="w-full">
             Get started
           </Button>

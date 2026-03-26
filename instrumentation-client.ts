@@ -23,6 +23,8 @@ if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_POSTHOG_KEY) {
     // Disable autocapture in development to reduce noise
     // Enable in production for automatic event tracking
     autocapture: process.env.NODE_ENV !== "development",
+    // App Router: explicit $pageview in components/posthog-pageview.tsx (avoids missed SPA navigations)
+    capture_pageview: false,
     // Additional recommended options for Next.js
     loaded: (posthog) => {
       // Optional: Log successful initialization in development

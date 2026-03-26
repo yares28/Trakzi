@@ -54,7 +54,7 @@ import { CollapsedChartCard } from "@/components/collapsed-chart-card"
 
 
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
-import { safeCapture } from "@/lib/posthog-safe"
+import { typedCapture } from "@/types/posthog-events"
 
 import type { AnalyticsTransaction } from "../types"
 import { DEFAULT_CHART_SIZES } from "../constants"
@@ -337,7 +337,7 @@ export function ChartsGrid({
 
           if (res.ok) {
             // Track budget limit set
-            safeCapture('budget_limit_set', {
+            typedCapture('budget_limit_set', {
               category_name: savedCategory,
               budget_amount: limitValue,
               date_filter: dateFilter || 'all_time',

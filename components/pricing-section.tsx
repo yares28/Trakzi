@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@clerk/nextjs"
 import { toast } from "sonner"
-import { safeCapture } from "@/lib/posthog-safe"
+import { typedCapture } from "@/types/posthog-events"
 import Image from "next/image"
 
 // Plan logos for landing page (these replace the plan name text)
@@ -81,12 +81,12 @@ export function PricingSection() {
 
   const handlePlanSelect = async (plan: typeof pricingPlans[0]) => {
     // Track pricing plan click
-    safeCapture('pricing_plan_clicked', {
+    typedCapture('pricing_plan_clicked', {
       plan_name: plan.name,
       billing_period: isAnnual ? 'annual' : 'monthly',
       price: plan.price || (isAnnual ? plan.annualPrice : plan.monthlyPrice),
       is_popular: plan.popular,
-      is_signed_in: isSignedIn,
+      is_signed_in: Boolean(isSignedIn),
     })
 
     // Free plan - just redirect to sign up or dashboard
@@ -142,7 +142,7 @@ export function PricingSection() {
     }
 
     // Track checkout started
-    safeCapture('checkout_started', {
+    typedCapture('checkout_started', {
       plan_name: plan.name,
       billing_period: isAnnual ? 'annual' : 'monthly',
       price_id: priceId,
@@ -166,7 +166,7 @@ export function PricingSection() {
         console.error('Checkout error:', data.error)
 
         // Track checkout error
-        safeCapture('checkout_error', {
+        typedCapture('checkout_error', {
           plan_name: plan.name,
           error: data.error,
           status: response.status,
@@ -187,7 +187,7 @@ export function PricingSection() {
           throw new Error('Invalid checkout redirect URL')
         }
         // Track successful redirect to Stripe
-        safeCapture('checkout_redirect', {
+        typedCapture('checkout_redirect', {
           plan_name: plan.name,
           billing_period: isAnnual ? 'annual' : 'monthly',
         })
@@ -197,7 +197,7 @@ export function PricingSection() {
       console.error('Checkout error:', error)
 
       // Track network/unexpected error
-      safeCapture('checkout_error', {
+      typedCapture('checkout_error', {
         plan_name: plan.name,
         error: 'Network error',
       })
@@ -257,7 +257,7 @@ export function PricingSection() {
             <button
               onClick={() => {
                 setIsAnnual(false)
-                safeCapture('billing_period_toggled', { billing_period: 'monthly', previous_period: 'annual' })
+                typedCapture('billing_period_toggled', { billing_period: 'monthly', previous_period: 'annual' })
               }}
               className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-200 ${!isAnnual ? "bg-[#e78a53] text-white shadow-lg" : "text-white/60 hover:text-white/80"
                 }`}
@@ -267,7 +267,7 @@ export function PricingSection() {
             <button
               onClick={() => {
                 setIsAnnual(true)
-                safeCapture('billing_period_toggled', { billing_period: 'annual', previous_period: 'monthly' })
+                typedCapture('billing_period_toggled', { billing_period: 'annual', previous_period: 'monthly' })
               }}
               className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-200 relative ${isAnnual ? "bg-[#e78a53] text-white shadow-lg" : "text-white/60 hover:text-white/80"
                 }`}

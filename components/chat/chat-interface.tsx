@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import useSWR from "swr"
 import Image from "next/image"
-import { safeCapture } from "@/lib/posthog-safe"
+import { typedCapture } from "@/types/posthog-events"
 import { useSearchParams } from "next/navigation"
 import { useUser } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
@@ -325,8 +325,9 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
 
       setIsLoading(true)
 
-      safeCapture("ai_chat_message_sent", {
+      typedCapture("ai_chat_message_sent", {
         message_length: trimmed.length,
+        message_word_count: trimmed.split(/\s+/).filter(Boolean).length,
         is_first_message: messagesRef.current.filter((m) => m.role === "user").length === 0,
       })
 
@@ -383,8 +384,9 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
     setIsStreaming(false)
 
     // Track regenerate as a chat message (counts toward plan limit via API)
-    safeCapture("ai_chat_message_sent", {
+    typedCapture("ai_chat_message_sent", {
       message_length: base[lastUserIdx].content.length,
+      message_word_count: base[lastUserIdx].content.split(/\s+/).filter(Boolean).length,
       is_regenerate: true,
     })
 
@@ -563,7 +565,7 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
                     key={chip.label}
                     variants={suggestionItem}
                     onClick={() => {
-                      safeCapture("quick_ai_prompt_clicked", { prompt_text: chip.prompt, is_anomaly: true })
+                      typedCapture("quick_ai_prompt_clicked", { prompt_text: chip.prompt, is_anomaly: true })
                       sendMessage(chip.prompt)
                     }}
                     disabled={isLoading}
@@ -589,7 +591,7 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
                     key={q}
                     variants={suggestionItem}
                     onClick={() => {
-                      safeCapture("quick_ai_prompt_clicked", { prompt_text: q })
+                      typedCapture("quick_ai_prompt_clicked", { prompt_text: q })
                       sendMessage(q)
                     }}
                     disabled={isLoading}

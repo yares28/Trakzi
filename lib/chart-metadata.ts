@@ -492,6 +492,31 @@ export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
     title: "Monthly Insights",
     description: "Key statistics and insights about your spending this month",
   },
+  "testCharts:categoryPareto": {
+    id: "testCharts:categoryPareto",
+    title: "Category Pareto",
+    description: "Share of spend concentrated in top categories (80/20 style view)",
+  },
+  "testCharts:categorySeasonalityRadar": {
+    id: "testCharts:categorySeasonalityRadar",
+    title: "Category Seasonality Radar",
+    description: "How top categories shift across quarters",
+  },
+  "testCharts:merchantDiversity": {
+    id: "testCharts:merchantDiversity",
+    title: "Merchant Diversity",
+    description: "Spread of spending across merchants over time",
+  },
+  "testCharts:spendingVolatility": {
+    id: "testCharts:spendingVolatility",
+    title: "Spending Volatility",
+    description: "How much daily spending fluctuates versus your average",
+  },
+  "testCharts:weeklyDensityHeatmap": {
+    id: "testCharts:weeklyDensityHeatmap",
+    title: "Weekly Density Heatmap",
+    description: "When during the week you tend to spend",
+  },
   // Production IDs (moved from testCharts: prefix)
   seasonalSpending: {
     id: "seasonalSpending",

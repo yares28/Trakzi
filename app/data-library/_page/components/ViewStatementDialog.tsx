@@ -42,7 +42,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { safeCapture } from "@/lib/posthog-safe"
+import { typedCapture } from "@/types/posthog-events"
 
 import { formatDateLabel } from "../formatters"
 import type { ReceiptCategoryOption, Statement, Transaction } from "../types"
@@ -367,7 +367,7 @@ export function ViewStatementDialog({
         if (deleteCount > 0) messages.push(`${deleteCount} deletion${deleteCount > 1 ? "s" : ""}`)
         toast.success(`Saved: ${messages.join(", ")}`)
         
-        safeCapture("statement_transactions_saved", {
+        typedCapture("statement_transactions_saved", {
           category_updates: changeCount,
           deletions: deleteCount,
         })

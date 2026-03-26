@@ -122,6 +122,11 @@ export type ChartId =
   | "testCharts:quarterlyComparison"
   | "testCharts:balanceHistory"
   | "testCharts:monthlyInsights"
+  | "testCharts:categoryPareto"
+  | "testCharts:categorySeasonalityRadar"
+  | "testCharts:merchantDiversity"
+  | "testCharts:spendingVolatility"
+  | "testCharts:weeklyDensityHeatmap"
   // Analytics page (moved from test charts)
   | "seasonalSpending"
   | "hourlySpending"
@@ -1014,6 +1019,46 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     minH: 6,
     maxH: 10,
     mobileH: 4,
+  },
+
+  "testCharts:categoryPareto": {
+    minW: 6,
+    maxW: 12,
+    minH: 8,
+    maxH: 14,
+    mobileH: 6,
+  },
+
+  "testCharts:categorySeasonalityRadar": {
+    minW: 6,
+    maxW: 12,
+    minH: 8,
+    maxH: 14,
+    mobileH: 6,
+  },
+
+  "testCharts:merchantDiversity": {
+    minW: 6,
+    maxW: 12,
+    minH: 8,
+    maxH: 14,
+    mobileH: 6,
+  },
+
+  "testCharts:spendingVolatility": {
+    minW: 6,
+    maxW: 12,
+    minH: 8,
+    maxH: 14,
+    mobileH: 6,
+  },
+
+  "testCharts:weeklyDensityHeatmap": {
+    minW: 6,
+    maxW: 12,
+    minH: 8,
+    maxH: 14,
+    mobileH: 6,
   },
 
   // ── Analytics page charts (moved from test charts) ────────────────────────

@@ -18,7 +18,7 @@ export const OnboardingChecklist = memo(function OnboardingChecklist() {
   const progressPercent = (completedCount / totalCount) * 100
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 w-72 rounded-xl border border-border bg-background shadow-lg overflow-hidden">
+    <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:bottom-6 sm:right-6 sm:w-72 z-50 rounded-xl border border-border bg-background shadow-lg overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="flex flex-col gap-0.5">
@@ -27,16 +27,18 @@ export const OnboardingChecklist = memo(function OnboardingChecklist() {
             {completedCount} of {totalCount} complete
           </span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <button
             onClick={() => setExpanded((e) => !e)}
-            className="text-muted-foreground hover:text-foreground transition-colors p-1"
+            className="text-muted-foreground hover:text-foreground transition-colors p-2 -m-1 touch-manipulation"
+            aria-label={expanded ? "Collapse checklist" : "Expand checklist"}
           >
             {expanded ? <ChevronDown className="size-4" /> : <ChevronUp className="size-4" />}
           </button>
           <button
             onClick={dismissChecklist}
-            className="text-muted-foreground hover:text-foreground transition-colors p-1"
+            className="text-muted-foreground hover:text-foreground transition-colors p-2 -m-1 touch-manipulation"
+            aria-label="Dismiss checklist"
           >
             <X className="size-4" />
           </button>

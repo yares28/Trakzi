@@ -14,7 +14,7 @@ import {
     TrendingUp,
 } from "lucide-react";
 
-import { safeCapture } from "@/lib/posthog-safe";
+import { typedCapture } from "@/types/posthog-events";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { GoalSettingModal } from "@/components/dashboard/goal-setting-modal";
@@ -364,7 +364,7 @@ export default function DashboardPage() {
                                                     <Link
                                                         href={item.href}
                                                         className="text-sm font-medium text-primary px-6 py-4 hover:text-primary/80 hover:bg-primary/5 transition-all flex items-center gap-2"
-                                                        onClick={() => safeCapture('dashboard_card_viewed', {
+                                                        onClick={() => typedCapture('dashboard_card_viewed', {
                                                             card_name: item.name,
                                                             card_key: item.key,
                                                             card_score: item.progress,

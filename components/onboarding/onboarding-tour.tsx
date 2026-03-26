@@ -94,11 +94,11 @@ export const OnboardingTour = memo(function OnboardingTour({ pageId }: Onboardin
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-between pb-2 sm:pb-0">
+        <div className="flex items-center justify-between pb-4 sm:pb-0">
           {isFirstStep ? (
             <button
               onClick={handleSkip}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors py-2 px-1 -ml-1 touch-manipulation"
             >
               Skip tour
             </button>
@@ -107,13 +107,13 @@ export const OnboardingTour = memo(function OnboardingTour({ pageId }: Onboardin
               variant="ghost"
               size="sm"
               onClick={handleBack}
-              className="gap-1 text-xs h-7 px-2 text-muted-foreground"
+              className="gap-1 text-xs h-9 sm:h-7 px-3 sm:px-2 text-muted-foreground touch-manipulation"
             >
               <ChevronLeft className="size-3.5" />
               Back
             </Button>
           )}
-          <Button size="sm" onClick={handleNext} className="gap-1.5">
+          <Button size="sm" onClick={handleNext} className="gap-1.5 h-9 sm:h-8 touch-manipulation">
             {isLastStep ? "Done" : "Next"}
             {!isLastStep && <ChevronRight className="size-3.5" />}
           </Button>

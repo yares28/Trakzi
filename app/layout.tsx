@@ -18,6 +18,7 @@ import { ChartResizeProvider } from "@/lib/chart-resize-context";
 import { ChartVisibilityProvider } from "@/components/chart-visibility-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { PostHogUserIdentifier } from "@/components/posthog-user-identifier";
+import { PostHogPageView } from "@/components/posthog-pageview";
 import { DemoModeProvider } from "@/lib/demo/demo-context";
 import { DemoBanner } from "@/components/demo-banner";
 import { OnboardingProvider } from "@/components/onboarding/onboarding-provider";
@@ -185,6 +186,7 @@ export default function RootLayout({
                                 <DemoModeProvider>
                                   <div className="flex flex-col min-h-screen overflow-x-hidden">
                                     <PostHogUserIdentifier />
+                                    <PostHogPageView />
                                     <DemoBanner />
                                     <OnboardingRoot />
                                     <OfflineIndicator />

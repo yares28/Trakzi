@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from "react"
 import { toast } from "sonner"
 
 import type { CategoryLimitExceededData } from "@/components/limits/category-limit-dialog"
-import { safeCapture } from "@/lib/posthog-safe"
+import { typedCapture } from "@/types/posthog-events"
 
 import { CATEGORY_TIER_STORAGE_KEY } from "../constants"
 import type { Category } from "../types"
@@ -135,7 +135,7 @@ export const useCategoryManagement = ({
 
       saveCategoryTier(created.name ?? trimmedName, newCategoryTier)
 
-      safeCapture("category_created", {
+      typedCapture("category_created", {
         category_name: created.name ?? trimmedName,
         category_tier: newCategoryTier,
       })

@@ -4,7 +4,7 @@ import { toast } from "sonner"
 
 import type { CategoryLimitExceededData } from "@/components/limits/category-limit-dialog"
 import { normalizeTransactions } from "@/lib/utils"
-import { safeCapture } from "@/lib/posthog-safe"
+import { typedCapture } from "@/types/posthog-events"
 
 import type { ReceiptCategoryOption, Statement, Transaction } from "../types"
 
@@ -290,7 +290,7 @@ export const useStatementViewer = ({
           const result = await response.json()
           console.log("[Delete] DELETE successful:", result)
 
-          safeCapture("statement_deleted", {
+          typedCapture("statement_deleted", {
             statement_name: statementToDelete.name,
             statement_type: statementToDelete.type,
             is_receipt: true,
@@ -334,7 +334,7 @@ export const useStatementViewer = ({
         method: "DELETE",
       })
       if (response.ok) {
-        safeCapture("statement_deleted", {
+        typedCapture("statement_deleted", {
           statement_name: statementToDelete.name,
           statement_type: statementToDelete.type,
           is_receipt: false,
