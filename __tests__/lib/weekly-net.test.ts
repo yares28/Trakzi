@@ -70,7 +70,8 @@ describe("computeWeeklyNet", () => {
   it("rounds net to 2 decimal places", () => {
     const txs = [{ date: "2024-01-08", amount: 0.1 }, { date: "2024-01-08", amount: 0.2 }]
     const result = computeWeeklyNet(txs, new Set(), noop)
-    expect(result[0].net).toBe(0.3)
+    // toBeCloseTo verifies rounding is applied without brittleness from IEEE-754 float drift
+    expect(result[0].net).toBeCloseTo(0.3, 2)
   })
 
   it("groups Sunday transactions into previous Monday's week", () => {

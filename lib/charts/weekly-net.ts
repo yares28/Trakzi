@@ -3,7 +3,7 @@
  * ISO week: Monday = day 1, Sunday = day 7.
  */
 export function getIsoWeekStart(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00")
+  const d = new Date(dateStr.split("T")[0] + "T00:00:00")
   const day = d.getDay() // 0 = Sun, 1 = Mon … 6 = Sat
   const diff = day === 0 ? -6 : 1 - day // shift back to Monday
   d.setDate(d.getDate() + diff)
@@ -46,5 +46,6 @@ export function computeWeeklyNet(
 
   return Array.from(weekMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
+    // Rounding applied at output only; mid-accumulation float drift is negligible for typical financial amounts
     .map(([date, net]) => ({ date, net: Math.round(net * 100) / 100 }))
 }
