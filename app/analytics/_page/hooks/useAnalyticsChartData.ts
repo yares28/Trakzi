@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
+import { computeWeeklyNet, type WeeklyNetPoint } from "@/lib/charts/weekly-net"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
 import type { ChartDataStatusMap } from "@/lib/types/chart-data-status"
 
@@ -1437,6 +1438,16 @@ export function useAnalyticsChartData({
     }))
   }, [rawTransactions, incomeExpenseVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
 
+  /** Weekly net (income − expenses) for the Net tab of the Income & Expenses chart. */
+  const weeklyNetDiffData = useMemo((): WeeklyNetPoint[] => {
+    if (!rawTransactions || rawTransactions.length === 0) return []
+    return computeWeeklyNet(
+      rawTransactions,
+      incomeExpenseVisibility.hiddenCategorySet,
+      normalizeCategoryName,
+    )
+  }, [rawTransactions, incomeExpenseVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
+
   const treeMapData = useMemo(() => {
     // Use bundle data if available (pre-computed by server)
     if (bundleData?.treeMapData?.children) {
@@ -1541,6 +1552,17 @@ export function useAnalyticsChartData({
     return monthOfYearSpendingVisibility.buildCategoryControls(categories)
   }, [rawTransactions, monthOfYearSpendingVisibility, normalizeCategoryName])
 
+  const categorySpendingByPeriodControls = useMemo(() => {
+    const categories = Array.from(
+      new Set(
+        rawTransactions
+          .filter((tx) => Number(tx.amount) < 0)
+          .map((tx) => normalizeCategoryName(tx.category)),
+      ),
+    ).sort()
+    return dayOfWeekSpendingVisibility.buildCategoryControls(categories)
+  }, [rawTransactions, dayOfWeekSpendingVisibility, normalizeCategoryName])
+
   const swarmPlotData = useMemo(() => {
     // Use bundle data if available (pre-computed by server)
     if (bundleData?.transactionHistory && bundleData.transactionHistory.length > 0) {
@@ -1595,8 +1617,7 @@ export function useAnalyticsChartData({
       spendingStreamgraph: hasArr(spendingStreamData.data) ? "has-data" : "empty",
       cashFlowSankey: hasArr(sankeyData.graph.links) ? "has-data" : "empty",
       transactionHistory: hasArr(swarmPlotData) ? "has-data" : "empty",
-      dayOfWeekSpending: hasArr(rawTransactions) ? "has-data" : "empty",
-      allMonthsCategorySpending: hasArr(rawTransactions) ? "has-data" : "empty",
+      categorySpendingByPeriod: hasArr(rawTransactions) ? "has-data" : "empty",
       singleMonthCategorySpending: hasArr(bundleData?.monthlyCategories) ? "has-data" : "empty",
       dailyTransactionActivity: hasArr(bundleData?.dailySpending) ? "has-data" : "empty",
       dayOfWeekCategory: hasArr(rawTransactions) ? "has-data" : "empty",
@@ -1641,6 +1662,7 @@ export function useAnalyticsChartData({
     categoryFlowChart,
     categoryFlowControls,
     chartDataStatusMap,
+    categorySpendingByPeriodControls,
     circlePackingControls,
     circlePackingData,
     dayOfWeekSpendingControls,
@@ -1651,6 +1673,7 @@ export function useAnalyticsChartData({
     incomeExpenseTopChartData,
     incomeExpenseTopControls,
     incomeExpenseCumulativeData,
+    weeklyNetDiffData,
     moneyFlowMaxExpenseCategories,
     monthOfYearSpendingControls,
     needsWantsControls,
