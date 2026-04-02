@@ -123,8 +123,8 @@ const AreaInfoAction = memo(function AreaInfoAction({
             title={title}
             description="This chart visualizes your cash flow over time."
             details={[
-              "The income line shows daily deposits, while the expense line accumulates your negative transactions.",
-              "How it works: expenses stack up as they happen. Incoming cash reduces the cumulative expense line so you can see how quickly income offsets spending.",
+              "In Cumulative mode, the expenses line shows your running cumulative expenses, and income reduces that total over time.",
+              "In Basic mode, the income line shows daily deposits and the expense line shows daily spending (below zero).",
               ...(categoryControls
                 ? [
                     "Use the toggles below to hide categories across every analytics chart.",
@@ -146,7 +146,7 @@ const AreaInfoAction = memo(function AreaInfoAction({
         description="This chart visualizes your cash flow over time."
         details={[
           "The income line shows daily deposits, while the expense line accumulates your negative transactions.",
-          "How it works: expenses stack up as they happen. Incoming cash reduces the cumulative expense line so you can see how quickly income offsets spending.",
+          "How it works: expenses stack up as they happen, and incoming cash reduces that cumulative expense line.",
           ...(categoryControls
             ? [
                 "Use the toggles below to hide categories across every analytics chart.",
@@ -208,6 +208,8 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
     date: string;
     income: number;
     expenses: number;
+    /** Running balance for cumulative view (can be negative). Present only in cumulative mode. */
+    balance?: number;
     net?: number;
   } | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{
@@ -238,6 +240,13 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
     });
     return () => cancelAnimationFrame(rafId);
   }, []);
+
+  // Reset to "basic" if the Net tab becomes unavailable (e.g., after a filter change)
+  useEffect(() => {
+    if (viewMode === "net" && (netData?.length ?? 0) === 0) {
+      setViewMode("basic")
+    }
+  }, [viewMode, netData]);
 
   // Use the ordered palette so we can pick from the dark/light ends for max contrast
   const palette = useMemo(() => getPalette(), [getPalette]);
@@ -320,7 +329,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
         >
           Cumulative
         </button>
-        {netData !== undefined && (
+        {netData !== undefined && hasNetData && (
           <button
             type="button"
             className={`rounded-full px-2.5 py-1 font-medium transition-all whitespace-nowrap ${viewMode === "net" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
@@ -390,6 +399,17 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
   // This forces Recharts to see a data change and trigger animation
   const chartData = useRealData ? filteredData : [];
 
+  // Basic view: negate mobile (expenses) so they display below zero.
+  // Cumulative view keeps positive values intact (running total).
+  const basicDisplayData = useMemo(
+    () =>
+      (useRealData ? data : []).map((d) => ({
+        ...d,
+        mobile: d.mobile > 0 ? -d.mobile : d.mobile,
+      })),
+    [data, useRealData],
+  );
+
   // Show loading/empty state only when loading or no data available
   if (shouldShowEmptyCard) {
     return (
@@ -458,7 +478,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
             <div className="shrink-0 pt-1">{viewModeSwitcherControl}</div>
           ) : null}
           <div className="min-h-[320px] flex-1 min-h-0 w-full">
-            {filteredData.length === 0 ? (
+            {(viewMode === "net" ? (netData?.length ?? 0) === 0 : filteredData.length === 0) ? (
               <ChartLoadingState
                 isLoading={false}
                 skeletonType="area"
@@ -472,7 +492,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
             ) : (
               viewMode === "net" ? (
                 <ChartContainer config={netChartConfig} className="h-full w-full">
-                  <AreaChart data={useRealData ? (netData ?? []) : []}>
+                  <AreaChart data={useRealData ? (netData ?? []) : []} margin={{ top: 10, bottom: 10 }}>
                     <defs>
                       <linearGradient id="fillNetFS" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor={netColor} stopOpacity={0.8} />
@@ -499,7 +519,13 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                       }
                     />
                     <YAxis
-                      domain={["auto", "auto"]}
+                      domain={([dataMin, dataMax]: [number, number]): [number, number] => {
+                        const padding = (dataMax - dataMin || 100) * 0.15
+                        return [
+                          Math.min(0, dataMin) - padding,
+                          Math.max(0, dataMax) + padding,
+                        ]
+                      }}
                       tickLine={false}
                       axisLine={false}
                       tickMargin={4}
@@ -516,10 +542,11 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                       stroke={gridStrokeColor}
                       strokeDasharray="4 4"
                       strokeOpacity={0.6}
+                      label={{ value: "0", position: "insideTopRight", fontSize: 10 }}
                     />
                     <Area
                       dataKey="net"
-                      type="natural"
+                      type="monotone"
                       fill="url(#fillNetFS)"
                       stroke={netColor}
                       strokeWidth={1}
@@ -531,7 +558,10 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                 </ChartContainer>
               ) : (
           <ChartContainer config={chartConfig} className="h-full w-full">
-            <AreaChart data={filteredData}>
+            <AreaChart
+              data={viewMode === "basic" ? basicDisplayData : filteredData}
+              margin={{ top: 10, bottom: 10 }}
+            >
               <defs>
                 <linearGradient id="fillDesktopFS" x1="0" y1="0" x2="0" y2="1">
                   <stop
@@ -577,9 +607,30 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                   })
                 }
               />
+              <YAxis
+                domain={([dataMin, dataMax]: [number, number]): [number, number] => {
+                  const padding = (dataMax - dataMin || 100) * 0.15
+                  return [
+                    Math.min(0, dataMin) - padding,
+                    Math.max(0, dataMax) + padding,
+                  ]
+                }}
+                tickLine={false}
+                axisLine={false}
+                tickMargin={4}
+                width={72}
+                tickFormatter={(v: number) => formatCurrency(v, { maximumFractionDigits: 0 })}
+              />
+              <ReferenceLine
+                y={0}
+                stroke={gridStrokeColor}
+                strokeDasharray="4 4"
+                strokeOpacity={0.6}
+                label={{ value: "0", position: "insideTopRight", fontSize: 10 }}
+              />
               <Area
                 dataKey="desktop"
-                type="natural"
+                type="monotone"
                 fill="url(#fillDesktopFS)"
                 stroke={incomeBorderColor}
                 strokeWidth={1}
@@ -589,7 +640,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
               />
               <Area
                 dataKey="mobile"
-                type="natural"
+                type="monotone"
                 fill="url(#fillMobileFS)"
                 stroke={expensesBorderColor}
                 strokeWidth={1}
@@ -623,7 +674,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
         </CardHeader>
         <CardContent className="px-2 pt-0 sm:px-6 min-w-0 flex flex-col flex-1 min-h-0">
           <div ref={containerRef} className="relative flex-1 min-h-[180px]">
-            {filteredData.length === 0 ? (
+            {(viewMode === "net" ? (netData?.length ?? 0) === 0 : filteredData.length === 0) ? (
               <div className="flex h-full min-h-[180px] w-full items-center justify-center">
                 <ChartLoadingState
                   isLoading={false}
@@ -643,7 +694,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                   config={netChartConfig}
                   className="aspect-auto h-full w-full min-w-0"
                 >
-                  <AreaChart data={useRealData ? (netData ?? []) : []}>
+                  <AreaChart data={useRealData ? (netData ?? []) : []} margin={{ top: 10, bottom: 10 }}>
                     <defs>
                       <linearGradient id="fillNet" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor={netColor} stopOpacity={0.8} />
@@ -670,7 +721,13 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                       }
                     />
                     <YAxis
-                      domain={["auto", "auto"]}
+                      domain={([dataMin, dataMax]: [number, number]): [number, number] => {
+                        const padding = (dataMax - dataMin || 100) * 0.15
+                        return [
+                          Math.min(0, dataMin) - padding,
+                          Math.max(0, dataMax) + padding,
+                        ]
+                      }}
                       tickLine={false}
                       axisLine={false}
                       tickMargin={4}
@@ -687,6 +744,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                       stroke={gridStrokeColor}
                       strokeDasharray="4 4"
                       strokeOpacity={0.6}
+                      label={{ value: "0", position: "insideTopRight", fontSize: 10 }}
                     />
                     <Tooltip
                       cursor={false}
@@ -718,7 +776,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                     />
                     <Area
                       dataKey="net"
-                      type="natural"
+                      type="monotone"
                       fill="url(#fillNet)"
                       stroke={netColor}
                       strokeWidth={1}
@@ -730,11 +788,14 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                   </AreaChart>
                 </ChartContainer>
               ) : (
-              <ChartContainer
-                config={chartConfig}
-                className="aspect-auto h-full w-full min-w-0"
-              >
-                <AreaChart data={chartData}>
+                <ChartContainer
+                  config={chartConfig}
+                  className="aspect-auto h-full w-full min-w-0"
+                >
+                <AreaChart
+                  data={viewMode === "basic" ? basicDisplayData : chartData}
+                  margin={{ top: 10, bottom: 10 }}
+                >
                   <defs>
                     <linearGradient
                       id="fillDesktop"
@@ -786,6 +847,27 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                       });
                     }}
                   />
+                  <YAxis
+                    domain={([dataMin, dataMax]: [number, number]): [number, number] => {
+                      const padding = (dataMax - dataMin || 100) * 0.15
+                      return [
+                        Math.min(0, dataMin) - padding,
+                        Math.max(0, dataMax) + padding,
+                      ]
+                    }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={4}
+                    width={72}
+                    tickFormatter={(v: number) => formatCurrency(v, { maximumFractionDigits: 0 })}
+                  />
+                  <ReferenceLine
+                    y={0}
+                    stroke={gridStrokeColor}
+                    strokeDasharray="4 4"
+                    strokeOpacity={0.6}
+                    label={{ value: "0", position: "insideTopRight", fontSize: 10 }}
+                  />
                   <Tooltip
                     cursor={false}
                     content={(props: TooltipProps<number, string>) => {
@@ -808,10 +890,9 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                         return null;
                       }
 
-                      const data = payload[0].payload;
-                      const date = data.date;
-                      const income = data.desktop || 0;
-                      const expenses = data.mobile || 0;
+                      const d = payload[0].payload;
+                      const date = d.date;
+                      const income = d.desktop || 0;
 
                       if (containerRef.current && coordinate) {
                         const rect = containerRef.current.getBoundingClientRect();
@@ -819,10 +900,20 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                           x: rect.left + (coordinate.x ?? 0),
                           y: rect.top + (coordinate.y ?? 0),
                         };
-                        queueMicrotask(() => {
-                          setTooltipPosition(basePosition);
-                          setTooltip({ date, income, expenses });
-                        });
+                        if (viewMode === "cumulative") {
+                          const expenses = typeof d.mobile === "number" ? d.mobile : 0;
+                          queueMicrotask(() => {
+                            setTooltipPosition(basePosition);
+                            setTooltip({ date, income, expenses });
+                          });
+                        } else {
+                          // Basic: mobile is negated for display; show absolute for tooltip
+                          const expenses = Math.abs(d.mobile || 0);
+                          queueMicrotask(() => {
+                            setTooltipPosition(basePosition);
+                            setTooltip({ date, income, expenses });
+                          });
+                        }
                       }
 
                       return null;
@@ -830,7 +921,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                   />
                   <Area
                     dataKey="desktop"
-                    type="natural"
+                    type="monotone"
                     fill="url(#fillDesktop)"
                     stroke={incomeBorderColor}
                     strokeWidth={1}
@@ -841,7 +932,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                   />
                   <Area
                     dataKey="mobile"
-                    type="natural"
+                    type="monotone"
                     fill="url(#fillMobile)"
                     stroke={expensesBorderColor}
                     strokeWidth={1}
@@ -913,6 +1004,29 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                         {valueFormatter.format(tooltip.net)}
                       </span>
                     </div>
+                  ) : viewMode === "cumulative" ? (
+                    <>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full border border-border/50"
+                          style={{ backgroundColor: incomeBorderColor, borderColor: incomeBorderColor }}
+                        />
+                        <span className="text-foreground/80">Income:</span>
+                        <span className="font-mono text-[0.7rem] text-foreground font-medium">
+                          {valueFormatter.format(tooltip.income)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full border border-border/50"
+                          style={{ backgroundColor: expensesBorderColor, borderColor: expensesBorderColor }}
+                        />
+                        <span className="text-foreground/80">Cumulative Expenses:</span>
+                        <span className="font-mono text-[0.7rem] text-foreground font-medium">
+                          {valueFormatter.format(tooltip.expenses)}
+                        </span>
+                      </div>
+                    </>
                   ) : (
                     <>
                       <div className="flex items-center gap-2 mb-1">

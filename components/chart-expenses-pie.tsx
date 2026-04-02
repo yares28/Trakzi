@@ -15,11 +15,10 @@ import { NivoChartTooltip } from "@/components/chart-tooltip";
 import { getContrastTextColor, getChartTextColor } from "@/lib/chart-colors";
 import {
   Card,
-  CardAction,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
-  CardFooter,
 } from "@/components/ui/card";
 import { ChartFavoriteButton } from "@/components/chart-favorite-button";
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle";
@@ -100,10 +99,8 @@ export const ChartExpensesPie = memo(function ChartExpensesPie({
     [formatCurrency],
   );
 
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div
-      className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}
-    >
+  const renderInfoTrigger = () => (
+    <div className="flex items-center gap-2">
       <ChartInfoPopover
         title="Expense Breakdown"
         description="This pie chart shows how your total expenses are distributed across spending categories."
@@ -128,6 +125,24 @@ export const ChartExpensesPie = memo(function ChartExpensesPie({
       />
     </div>
   );
+
+  const spendingScore = useMemo(() => {
+    if (data.length === 0 || total === 0) return null;
+
+    const shares = data
+      .map((item) => item.value / total)
+      .filter((share) => Number.isFinite(share) && share > 0);
+
+    if (shares.length <= 1) return 0;
+
+    const entropy = shares.reduce(
+      (sum, share) => sum - share * Math.log(share),
+      0,
+    );
+    const normalizedEntropy = entropy / Math.log(shares.length);
+
+    return Math.max(0, Math.min(100, Math.round(normalizedEntropy * 100)));
+  }, [data, total]);
 
   // Render chart function for reuse
   const renderChart = (isCompact = false) => (
@@ -206,13 +221,13 @@ export const ChartExpensesPie = memo(function ChartExpensesPie({
             />
             <CardTitle>Expense Breakdown</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
         </CardHeader>
         <CardContent className="flex-1 min-h-0">
           <div className="h-full w-full min-h-[180px] md:min-h-[250px]" />
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          {renderInfoTrigger()}
+        </CardFooter>
       </Card>
     );
   }
@@ -231,9 +246,6 @@ export const ChartExpensesPie = memo(function ChartExpensesPie({
             />
             <CardTitle>Expense Breakdown</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
           <div className="h-full w-full min-h-[180px] md:min-h-[250px]">
@@ -245,6 +257,9 @@ export const ChartExpensesPie = memo(function ChartExpensesPie({
             />
           </div>
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          {renderInfoTrigger()}
+        </CardFooter>
       </Card>
     );
   }
@@ -256,7 +271,7 @@ export const ChartExpensesPie = memo(function ChartExpensesPie({
         onClose={() => setIsFullscreen(false)}
         title="Expense Breakdown"
         description="Expenses distributed across spending categories"
-        headerActions={renderInfoTrigger(true)}
+        headerActions={renderInfoTrigger()}
         orientation="portrait"
       >
         <div className="h-full w-full min-h-[400px]" key={colorScheme}>
@@ -276,19 +291,29 @@ export const ChartExpensesPie = memo(function ChartExpensesPie({
             />
             <CardTitle>Expense Breakdown</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0 flex flex-col">
           <div
-            className="flex-1 min-h-[140px] md:min-h-[200px]"
+            className="relative flex-1 min-h-[140px] md:min-h-[200px]"
             key={colorScheme}
           >
             {renderChart(true)}
+            {spendingScore !== null && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-2xl @sm/card:text-3xl @md/card:text-4xl @lg/card:text-5xl font-bold text-foreground leading-none">
+                  {spendingScore}
+                </span>
+                <span className="text-[0.65rem] @sm/card:text-xs @md/card:text-sm font-medium text-muted-foreground mt-0.5">
+                  Spending Score
+                </span>
+              </div>
+            )}
           </div>
           {renderLegend()}
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          {renderInfoTrigger()}
+        </CardFooter>
       </Card>
     </>
   );

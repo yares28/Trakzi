@@ -4,6 +4,14 @@ This document lists all chart components used on the Analytics page.
 
 > **IMPORTANT:** When adding, modifying, or deleting charts on this page, update this document accordingly.
 
+## Chart Control Placement Contract
+
+- When a request says update `ALL charts`, apply the change to every chart rendered by `app/analytics/_page/components/ChartsGrid.tsx` (not just the first charts found by search).
+- Card metadata controls must stay bottom-left in card view:
+  - `Insight` button above `Info` button.
+- Chart data switch controls (for example `Basic/Cumulative`, day-of-week selectors, period switches) must stay top-right and aligned with the card title.
+- Before finishing, verify there are no overlapping controls with chart legends or left-axis labels.
+
 ---
 
 ## Charts (27 total)

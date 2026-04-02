@@ -455,9 +455,6 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
             <CardContent className="px-2 pt-0 sm:px-6 h-[250px]">
                 {option && data.length > 0 ? (
                     <div className="h-full w-full flex flex-col">
-                        <div className="mb-2 text-sm font-medium text-foreground text-center">
-                            Total: {formatCurrency(data.reduce((sum, item) => sum + item.total, 0))}
-                        </div>
                         <div ref={containerRef} className="relative flex-1 min-h-0" style={{ minHeight: 0, minWidth: 0 }}>
                             {chartElement}
                             {mounted && tooltip && tooltipPosition && createPortal(
@@ -481,6 +478,12 @@ export const ChartDayOfWeekCategoryFridge = React.memo(function ChartDayOfWeekCa
                                 </div>,
                                 document.body
                             )}
+                        </div>
+                        <div className="flex items-center justify-end gap-1 pt-2 text-xs text-muted-foreground">
+                            <span>Total:</span>
+                            <span className="font-semibold text-foreground">
+                                {formatCurrency(data.reduce((sum, item) => sum + item.total, 0))}
+                            </span>
                         </div>
                     </div>
                 ) : (

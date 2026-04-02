@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react"
+import { memo, useCallback, useState, type Dispatch, type SetStateAction } from "react"
 
 import { LazyChart } from "@/components/lazy-chart"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -12,12 +12,15 @@ import dynamic from "next/dynamic"
 import { ChartCategoryBubble } from "@/components/chart-category-bubble"
 import { ChartCategoryFlow } from "@/components/chart-category-flow"
 import { ChartCirclePacking } from "@/components/chart-circle-packing"
+import { ChevronDownIcon } from "lucide-react"
 import { ChartDayOfWeekCategory } from "@/components/chart-day-of-week-category"
-import { ChartDayOfWeekSpending } from "@/components/chart-day-of-week-spending"
+import { ChartCategorySpendingByPeriod } from "@/components/chart-category-spending-by-period"
 import { ChartExpensesPie } from "@/components/chart-expenses-pie"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartLoadingState } from "@/components/chart-loading-state"
+import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
+import { useCurrency } from "@/components/currency-provider"
 import { ChartNeedsWantsPie } from "@/components/chart-needs-wants-pie"
 import { ChartPolarBar } from "@/components/chart-polar-bar"
 import { ChartRadar } from "@/components/chart-radar"
@@ -28,7 +31,6 @@ import { ChartSpendingStreamgraph } from "@/components/chart-spending-streamgrap
 import { ChartSwarmPlot } from "@/components/chart-swarm-plot"
 import { ChartTransactionCalendar } from "@/components/chart-transaction-calendar"
 import { ChartTreeMap } from "@/components/chart-treemap"
-import { ChartAllMonthsCategorySpending } from "@/components/chart-all-months-category-spending"
 import { ChartIncomeExpenseRatio } from "@/components/chart-income-expense-ratio"
 import { ChartWeekendVsWeekday } from "@/components/chart-weekend-vs-weekday"
 import { ChartMonthlyBudgetPace } from "@/components/chart-monthly-budget-pace"
@@ -41,9 +43,7 @@ import { ChartMoMGrowth } from "@/components/test-charts/chart-mom-growth"
 import { ChartTopMerchantsRace } from "@/components/test-charts/chart-top-merchants-race"
 import { ChartPaydayImpact } from "@/components/test-charts/chart-payday-impact"
 import { ChartIncomeSources } from "@/components/test-charts/chart-income-sources"
-import { ChartSpendingDistribution } from "@/components/test-charts/chart-spending-distribution"
 import { ChartYearOverYear } from "@/components/test-charts/chart-year-over-year"
-import { ChartQuarterlyComparison } from "@/components/test-charts/chart-quarterly-comparison"
 import { ChartDailyAverageByMonth } from "@/components/test-charts/chart-daily-average-by-month"
 import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -51,6 +51,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { PageEmptyState, ANALYTICS_EMPTY_STATE, ANALYTICS_EMPTY_PERIOD_STATE } from "@/components/page-empty-state"
 import { CollapsedChartCard } from "@/components/collapsed-chart-card"
+import {
+  ChartCardFloatingMeta,
+} from "@/components/chart-card-overlay-controls"
 
 
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
@@ -89,8 +92,7 @@ type ChartsGridProps = {
 /** Human-readable titles for each chart — used by collapsed cards */
 const CHART_TITLES: Record<string, string> = {
   transactionHistory: "Transaction History",
-  dayOfWeekSpending: "Day of Week Spending",
-  allMonthsCategorySpending: "All Months Category Spending",
+  categorySpendingByPeriod: "Category Spending by Period",
   incomeExpensesTracking1: "Income & Expenses Cumulative",
   incomeExpensesTracking2: "Income & Expenses",
   spendingCategoryRankings: "Spending Category Rankings",
@@ -120,9 +122,7 @@ const CHART_TITLES: Record<string, string> = {
   topMerchantsRace: "Top 5 Merchants",
   paydayImpact: "Payday Impact",
   incomeSources: "Income Sources",
-  spendingDistribution: "Spending Distribution",
-  yearOverYear: "Year Over Year",
-  quarterlyComparison: "Quarterly Comparison",
+  yearOverYear: "Spending comparison",
   dailyAverageByMonth: "Daily Average by Month",
 }
 
@@ -142,6 +142,8 @@ export function ChartsGrid({
   isError = false,
   isDemoMode = false,
 }: ChartsGridProps) {
+  const { symbol } = useCurrency()
+
   const {
     activityConfig,
     activityData,
@@ -152,16 +154,16 @@ export function ChartsGrid({
     categoryFlowChart,
     categoryFlowControls,
     chartDataStatusMap,
-    dayOfWeekSpendingControls,
+    categorySpendingByPeriodControls,
     expensesPieControls,
     expensesPieData,
     incomeExpenseChart,
     incomeExpenseControls,
     incomeExpenseCumulativeData,
+    weeklyNetDiffData,
     incomeExpenseTopChartData,
     incomeExpenseTopControls,
     moneyFlowMaxExpenseCategories,
-    monthOfYearSpendingControls,
     needsWantsControls,
     needsWantsPieData,
     pageHasAnyData,
@@ -198,130 +200,145 @@ export function ChartsGrid({
   const dailyActivityPreferredH = dailyActivityDisplayMode === "dual" ? 10 : 7
   const dailyActivityPreferredMobileH = dailyActivityDisplayMode === "dual" ? 10 : 7
 
-  const [ringCategoryPopoverIndex, setRingCategoryPopoverIndex] = useState<number | null>(null)
-  const [ringCategoryPopoverValue, setRingCategoryPopoverValue] = useState<string | null>(null)
-  const [ringLimitPopoverValue, setRingLimitPopoverValue] = useState<string>("")
+  const limitsTriggerClassName =
+    "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 w-40"
 
-  const RingPopoverContent = memo(function RingPopoverContent({
-    initialCategory,
-    initialLimit,
-    allCategories,
-    onSave,
-    onCancel,
-  }: {
-    initialCategory: string
-    initialLimit: number
-    allCategories: string[]
-    onSave: (category: string, limit: string) => void
-    onCancel: () => void
-  }) {
-    const [localCategory, setLocalCategory] = useState(initialCategory)
-    const [localLimit, setLocalLimit] = useState(() => initialLimit.toString())
+  const [isRingLimitsPopoverOpen, setIsRingLimitsPopoverOpen] = useState(false)
+  const [ringCategoryDrafts, setRingCategoryDrafts] = useState<string[]>([])
+  const [ringLimitDrafts, setRingLimitDrafts] = useState<Record<string, string>>({})
 
-    useEffect(() => {
-      setLocalCategory(initialCategory)
-      setLocalLimit(initialLimit.toString())
-    }, [initialCategory, initialLimit])
-
-    return (
-      <div className="space-y-3">
-        <div className="text-xs font-medium text-muted-foreground">
-          Select category for this ring
-        </div>
-        <select
-          className="w-full rounded-md border bg-background px-2 py-1 text-sm"
-          value={localCategory}
-          onChange={(e) => setLocalCategory(e.target.value)}
-        >
-          {allCategories.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
-        </select>
-        <div className="space-y-1 pt-1">
-          <div className="text-xs font-medium text-muted-foreground">
-            Limit for this category
-          </div>
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            className="w-full rounded-md border bg-background px-2 py-1 text-sm"
-            value={localLimit}
-            onChange={(e) => {
-              const value = e.target.value.replace(/[^\d]/g, "")
-              setLocalLimit(value)
-            }}
-          />
-        </div>
-        <div className="flex justify-end gap-2 pt-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onCancel}
-          >
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => onSave(localCategory, localLimit)}
-          >
-            Save
-          </Button>
-        </div>
-      </div>
+  const displayedRingCategories = Array.from(
+    new Set(
+      activityData.map((item) => {
+        const category =
+          (item as { category?: string }).category ??
+          (item.label ?? "Other")
+        return category
+      })
     )
-  })
+  )
 
-  const handleRingPopoverCancel = useCallback(() => {
-    setRingCategoryPopoverIndex(null)
-    setRingCategoryPopoverValue(null)
-    setRingLimitPopoverValue("")
-  }, [])
+  const availableRingCategories = Array.from(
+    new Set([...allExpenseCategories, ...displayedRingCategories, ...ringCategories])
+  )
 
-  const handleRingPopoverSave = useCallback(async (idx: number, savedCategory: string, savedLimit: string) => {
-    if (!savedCategory) {
-      setRingCategoryPopoverIndex(null)
-      setRingCategoryPopoverValue(null)
-      setRingLimitPopoverValue("")
+  const getResolvedLimit = useCallback((category: string) => {
+    const storedLimit = ringLimits[category]
+    return typeof storedLimit === "number" && storedLimit > 0
+      ? storedLimit
+      : getDefaultRingLimit(dateFilter, isDemoMode)
+  }, [dateFilter, isDemoMode, ringLimits])
+
+  const buildRingEditDrafts = useCallback(() => {
+    const desiredCount = ringCategories.length > 0
+      ? ringCategories.length
+      : Math.min(5, Math.max(displayedRingCategories.length, availableRingCategories.length))
+
+    if (desiredCount <= 0) {
+      setRingCategoryDrafts([])
+      setRingLimitDrafts({})
       return
     }
-    setRingCategories((prev) => {
-      const base =
-        prev && prev.length
-          ? [...prev]
-          : activityData.map(
-            (ringItem) => {
-              const ringCategory =
-                (ringItem as {
-                  category?: string
-                }).category ??
-                ringItem.label
-              return ringCategory as string
-            }
-          )
-      base[ringCategoryPopoverIndex ?? idx] = savedCategory
-      return base
-    })
-    if (savedLimit) {
-      const limitValue = parseFloat(savedLimit)
-      if (!isNaN(limitValue) && limitValue >= 0) {
-        setRingLimits((prev) => {
-          const updated = {
-            ...prev,
-            [savedCategory]: limitValue,
-          }
-          if (typeof window !== "undefined") {
-            localStorage.setItem(
-              "activityRingLimits",
-              JSON.stringify(updated)
-            )
-          }
-          return updated
-        })
 
-        // Save to database with current filter
+    const seed = ringCategories.length > 0
+      ? [...ringCategories]
+      : displayedRingCategories.length > 0
+        ? [...displayedRingCategories]
+        : availableRingCategories.slice(0, desiredCount)
+
+    while (seed.length < desiredCount) {
+      const nextOption = availableRingCategories.find((category) => !seed.includes(category))
+      if (!nextOption) break
+      seed.push(nextOption)
+    }
+
+    const nextCategories = seed.slice(0, desiredCount)
+    setRingCategoryDrafts(nextCategories)
+
+    const next: Record<string, string> = {}
+    nextCategories.forEach((category) => {
+      next[category] = Math.round(getResolvedLimit(category)).toString()
+    })
+    setRingLimitDrafts(next)
+  }, [availableRingCategories, displayedRingCategories, getResolvedLimit, ringCategories])
+
+  const handleRingLimitsPopoverChange = useCallback((open: boolean) => {
+    setIsRingLimitsPopoverOpen(open)
+    if (open) {
+      buildRingEditDrafts()
+      return
+    }
+    setRingCategoryDrafts([])
+    setRingLimitDrafts({})
+  }, [buildRingEditDrafts])
+
+  const handleRingCategoryDraftChange = useCallback((idx: number, category: string) => {
+    setRingCategoryDrafts((prev) => {
+      const next = [...prev]
+      next[idx] = category
+      return next
+    })
+
+    setRingLimitDrafts((prev) => {
+      if (prev[category] !== undefined) return prev
+      return {
+        ...prev,
+        [category]: Math.round(getResolvedLimit(category)).toString(),
+      }
+    })
+  }, [getResolvedLimit])
+
+  const handleRingLimitDraftChange = useCallback((category: string, value: string) => {
+    setRingLimitDrafts((prev) => ({
+      ...prev,
+      [category]: value.replace(/[^\d]/g, ""),
+    }))
+  }, [])
+
+  const handleRingLimitsSave = useCallback(async () => {
+    const nextRingCategories = ringCategoryDrafts
+      .map((category) => category.trim())
+      .filter(Boolean)
+
+    setRingCategories(nextRingCategories)
+
+    const limitUpdateMap = new Map<string, number>()
+    nextRingCategories.forEach((category) => {
+      const rawValue = ringLimitDrafts[category]
+      if (!rawValue) return
+      const parsed = parseFloat(rawValue)
+      if (isNaN(parsed) || parsed < 0) return
+      limitUpdateMap.set(category, parsed)
+    })
+
+    const updates = Array.from(limitUpdateMap.entries()).map(([category, limitValue]) => ({
+      category,
+      limitValue,
+    }))
+
+    if (updates.length === 0) {
+      setIsRingLimitsPopoverOpen(false)
+      setRingCategoryDrafts([])
+      setRingLimitDrafts({})
+      return
+    }
+
+    setRingLimits((prev) => {
+      const next = { ...prev }
+      updates.forEach(({ category, limitValue }) => {
+        next[category] = limitValue
+      })
+      if (typeof window !== "undefined") {
+        localStorage.setItem(
+          "activityRingLimits",
+          JSON.stringify(next)
+        )
+      }
+      return next
+    })
+
+    await Promise.all(
+      updates.map(async ({ category, limitValue }) => {
         try {
           const res = await fetch("/api/budgets", {
             method: "POST",
@@ -329,18 +346,17 @@ export function ChartsGrid({
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              categoryName: savedCategory,
+              categoryName: category,
               budget: limitValue,
-              filter: dateFilter, // Include current filter
+              filter: dateFilter,
             }),
           })
 
           if (res.ok) {
-            // Track budget limit set
-            typedCapture('budget_limit_set', {
-              category_name: savedCategory,
+            typedCapture("budget_limit_set", {
+              category_name: category,
               budget_amount: limitValue,
-              date_filter: dateFilter || 'all_time',
+              date_filter: dateFilter || "all_time",
             })
           } else {
             console.error(
@@ -351,36 +367,73 @@ export function ChartsGrid({
         } catch (error) {
           console.error("[Analytics] Error saving ring limit:", error)
         }
-      }
-    }
-    setRingCategoryPopoverIndex(null)
-    setRingCategoryPopoverValue(null)
-    setRingLimitPopoverValue("")
-  }, [activityData, ringCategoryPopoverIndex, dateFilter, setRingCategories, setRingLimits])
-
-  const RingPopoverWrapper = memo(function RingPopoverWrapper({
-    idx,
-    initialCategory,
-    initialLimit,
-    allCategories,
-  }: {
-    idx: number
-    initialCategory: string
-    initialLimit: number
-    allCategories: string[]
-  }) {
-    const onSave = useCallback(
-      (category: string, limit: string) => handleRingPopoverSave(idx, category, limit),
-      [idx],
+      })
     )
+
+    setIsRingLimitsPopoverOpen(false)
+    setRingCategoryDrafts([])
+    setRingLimitDrafts({})
+  }, [dateFilter, ringCategoryDrafts, ringLimitDrafts, setRingCategories, setRingLimits])
+
+  const RingLimitsPopoverContent = memo(function RingLimitsPopoverContent() {
     return (
-      <RingPopoverContent
-        initialCategory={initialCategory}
-        initialLimit={initialLimit}
-        allCategories={allCategories}
-        onSave={onSave}
-        onCancel={handleRingPopoverCancel}
-      />
+      <div className="space-y-3">
+        <div className="text-xs font-medium text-muted-foreground">
+          Choose ring categories and limits
+        </div>
+        <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+          {ringCategoryDrafts.map((category, idx) => (
+            <div
+              key={`${category}-${idx}`}
+              className="grid grid-cols-[1fr_auto] items-center gap-2"
+            >
+              <select
+                className="h-8 min-w-0 rounded-md border bg-background px-2 text-xs text-foreground"
+                value={category}
+                onChange={(event) => handleRingCategoryDraftChange(idx, event.target.value)}
+              >
+                {availableRingCategories.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                  {symbol}
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  className="h-8 w-24 rounded-md border bg-background pl-5 pr-2 text-right text-sm text-foreground"
+                  value={ringLimitDrafts[category] ?? ""}
+                  onChange={(event) =>
+                    handleRingLimitDraftChange(category, event.target.value)
+                  }
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+        {ringCategoryDrafts.length === 0 && (
+          <div className="text-xs text-muted-foreground">
+            No categories available yet.
+          </div>
+        )}
+        <div className="flex justify-end gap-2 pt-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleRingLimitsPopoverChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button size="sm" onClick={handleRingLimitsSave}>
+            Save
+          </Button>
+        </div>
+      </div>
     )
   })
 
@@ -456,34 +509,16 @@ export function ChartsGrid({
             )
           }
 
-          if (chartId === "dayOfWeekSpending") {
+          if (chartId === "categorySpendingByPeriod") {
             return (
               <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                <LazyChart title="Day of Week Spending" height={250}>
+                <LazyChart title="Category Spending by Period" height={250}>
                   <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                    <ChartDayOfWeekSpending
+                    <ChartCategorySpendingByPeriod
                       data={rawTransactions}
                       dayOfWeekCategoryData={bundleData?.dayOfWeekCategory}
-                      categoryControls={dayOfWeekSpendingControls}
-                      isLoading={isLoadingTransactions}
-                      emptyTitle={emptyTitle}
-                      emptyDescription={emptyDescription}
-                    />
-                  </div>
-                </LazyChart>
-              </SortableGridItem>
-            )
-          }
-
-          if (chartId === "allMonthsCategorySpending") {
-            return (
-              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                <LazyChart title="All Months Category Spending" height={250}>
-                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                    <ChartAllMonthsCategorySpending
-                      data={rawTransactions}
                       monthlyCategoriesData={bundleData?.monthlyCategories}
-                      categoryControls={monthOfYearSpendingControls}
+                      categoryControls={categorySpendingByPeriodControls}
                       isLoading={isLoadingTransactions}
                       bundleLoading={bundleLoading}
                       emptyTitle={emptyTitle}
@@ -532,6 +567,7 @@ export function ChartsGrid({
                       isLoading={chartIsLoading}
                       data={incomeExpenseChart.data}
                       cumulativeData={incomeExpenseCumulativeData}
+                      netData={weeklyNetDiffData}
                       emptyTitle={emptyTitle}
                       emptyDescription={emptyDescription}
                     />
@@ -700,113 +736,25 @@ export function ChartsGrid({
                           <CardTitle className="mb-0">Spending Activity Rings</CardTitle>
                         </div>
                       </div>
-                      {/* Info button pinned to top-right corner of the card */}
-                      <div className="absolute top-2 right-2 z-20">
-                        <ChartInfoPopover
-                          title="Spending Activity Rings"
-                          description="Top spending categories from your Neon transactions"
-                          details={[
-                            "Each ring shows how much a category has consumed relative to its budget.",
-                            "Budgets come from your saved limits or a default amount for the selected date filter.",
-                          ]}
-                        />
-                      </div>
-                      <div className="flex items-center gap-2 z-10">
+                      <div className="flex items-center justify-end gap-2 self-start z-10">
                         {activityData.length > 0 && (
-                          <div className="flex flex-col gap-1 z-10 w-[140px]">
-                            <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground text-center">
-                              Limits
-                            </span>
-                            <div className="flex flex-col gap-1">
-                              {activityData.map((item, idx) => {
-                                const category: string =
-                                  (item as { category?: string }).category ??
-                                  (item.label ?? "Other")
-                                const storedLimit = ringLimits[category]
-                                const limit =
-                                  typeof storedLimit === "number" &&
-                                    storedLimit > 0
-                                    ? storedLimit
-                                    : getDefaultRingLimit(dateFilter, isDemoMode)
-                                const percent = (item.value * 100).toFixed(1)
-                                const spent =
-                                  typeof (item as { spent?: number }).spent ===
-                                    "number"
-                                    ? (item as { spent?: number }).spent!
-                                    : null
-                                return (
-                                  <Popover
-                                    key={`${category}-${idx}`}
-                                    open={ringCategoryPopoverIndex === idx}
-                                    onOpenChange={(open) => {
-                                      if (
-                                        open &&
-                                        allExpenseCategories &&
-                                        allExpenseCategories.length
-                                      ) {
-                                        const currentCategory =
-                                          (category as string) ||
-                                          allExpenseCategories[0]
-                                        setRingCategoryPopoverIndex(idx)
-                                        setRingCategoryPopoverValue(
-                                          currentCategory
-                                        )
-                                        const currentLimitRaw =
-                                          ringLimits[currentCategory]
-                                        const currentLimit =
-                                          typeof currentLimitRaw === "number" &&
-                                            currentLimitRaw > 0
-                                            ? currentLimitRaw
-                                            : getDefaultRingLimit(dateFilter, isDemoMode)
-                                        setRingLimitPopoverValue(
-                                          currentLimit.toString()
-                                        )
-                                      } else {
-                                        setRingCategoryPopoverIndex(null)
-                                        setRingCategoryPopoverValue(null)
-                                        setRingLimitPopoverValue("")
-                                      }
-                                    }}
-                                  >
-                                    <PopoverTrigger asChild>
-                                      <div className="flex items-center gap-1 bg-background/80 backdrop-blur-sm p-1 rounded border cursor-pointer">
-                                        <button
-                                          type="button"
-                                          className="px-1.5 py-0.5 text-[0.7rem] rounded w-full flex items-center justify-between gap-1.5 hover:bg-muted/80 bg-muted"
-                                          title={
-                                            limit
-                                              ? `${category} – ${percent}% of limit (${item.value} of 1.0)`
-                                              : `${category} – no limit set`
-                                          }
-                                        >
-                                          <span className="max-w-[170px] whitespace-normal">
-                                            {category}
-                                          </span>
-                                          <span className="text-[0.65rem] font-medium text-muted-foreground flex-shrink-0 text-right">
-                                            {spent !== null
-                                              ? `$${spent.toFixed(2)}`
-                                              : `${percent}%`}
-                                          </span>
-                                        </button>
-                                      </div>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-56" align="end">
-                                      <RingPopoverWrapper
-                                        idx={idx}
-                                        initialCategory={ringCategoryPopoverValue ?? (category as string)}
-                                        initialLimit={
-                                          ringLimitPopoverValue
-                                            ? parseFloat(ringLimitPopoverValue) || limit
-                                            : limit
-                                        }
-                                        allCategories={allExpenseCategories}
-                                      />
-                                    </PopoverContent>
-                                  </Popover>
-                                )
-                              })}
-                            </div>
-                          </div>
+                          <Popover
+                            open={isRingLimitsPopoverOpen}
+                            onOpenChange={handleRingLimitsPopoverChange}
+                          >
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                className={limitsTriggerClassName}
+                              >
+                                <span className="truncate">Limits</span>
+                                <ChevronDownIcon className="h-4 w-4 text-muted-foreground" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-72" align="end">
+                              <RingLimitsPopoverContent />
+                            </PopoverContent>
+                            </Popover>
                         )}
                       </div>
                       {/* Chart overlay layer */}
@@ -860,6 +808,46 @@ export function ChartsGrid({
                           </>
                         )}
                       </div>
+                      <ChartCardFloatingMeta
+                        insight={(
+                          <ChartAiInsightButton
+                            chartId="spendingActivityRings"
+                            chartTitle="Spending Activity Rings"
+                            chartDescription="Concentric category rings showing spend against configured limits."
+                            chartData={{
+                              totalCategories: activityData.length,
+                              rings: activityData.map((item) => {
+                                const category =
+                                  (item as { category?: string }).category ??
+                                  item.label ??
+                                  "Other"
+                                const spent =
+                                  typeof (item as { spent?: number }).spent === "number"
+                                    ? (item as { spent?: number }).spent!
+                                    : 0
+                                const limit = ringLimits[category] ?? getDefaultRingLimit(dateFilter, isDemoMode)
+                                return {
+                                  category,
+                                  spent,
+                                  limit,
+                                  utilizationPercent: Number((item.value * 100).toFixed(1)),
+                                }
+                              }),
+                            }}
+                            size="sm"
+                          />
+                        )}
+                        info={(
+                          <ChartInfoPopover
+                            title="Spending Activity Rings"
+                            description="Top spending categories from your Neon transactions"
+                            details={[
+                              "Each ring shows how much a category has consumed relative to its budget.",
+                              "Budgets come from your saved limits or a default amount for the selected date filter.",
+                            ]}
+                          />
+                        )}
+                      />
                     </CardHeader>
                   </Card>
                 </div>
@@ -1148,17 +1136,6 @@ export function ChartsGrid({
             )
           }
 
-          if (chartId === "spendingDistribution") {
-            return (
-              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                <LazyChart title="Spending Distribution" height={250}>
-                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                    <ChartSpendingDistribution data={rawTransactions} isLoading={isLoadingTransactions} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
-                  </div>
-                </LazyChart>
-              </SortableGridItem>
-            )
-          }
 
           if (chartId === "yearOverYear") {
             return (
@@ -1166,18 +1143,6 @@ export function ChartsGrid({
                 <LazyChart title="Year Over Year" height={250}>
                   <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                     <ChartYearOverYear data={rawTransactions} isLoading={isLoadingTransactions} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
-                  </div>
-                </LazyChart>
-              </SortableGridItem>
-            )
-          }
-
-          if (chartId === "quarterlyComparison") {
-            return (
-              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                <LazyChart title="Quarterly Comparison" height={250}>
-                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                    <ChartQuarterlyComparison data={rawTransactions} isLoading={isLoadingTransactions} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
                   </div>
                 </LazyChart>
               </SortableGridItem>

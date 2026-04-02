@@ -108,7 +108,7 @@ export function SiteHeader() {
       )}
     >
       <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:pl-6 lg:pr-8 group-has-data-[collapsible=icon]/sidebar-wrapper:lg:pl-4">
-        <SidebarTrigger className="-ml-1" />
+        <SidebarTrigger className="-ml-1 md:hidden" />
         <Separator
           orientation="vertical"
           className="mx-2 data-[orientation=vertical]:h-4 hidden md:block"

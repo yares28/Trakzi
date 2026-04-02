@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query"
 import { useDateFilter } from "@/components/date-filter-provider"
 import { demoFetch } from "@/lib/demo/demo-fetch"
 import { useDemoMode } from "@/lib/demo/demo-context"
+import type { PocketsBundleResponse } from "@/lib/types/pockets"
+import type { DebtAccountSummary } from "@/lib/types/debts"
 
 // ============================================
 // TYPES - Bundle API Response Types
@@ -220,6 +222,38 @@ export interface FridgeBundleData {
     }>
 }
 
+// Test Charts Bundle Types
+export interface TestChartsBundleData {
+    transactions: Array<{
+        id: number
+        date: string
+        description: string
+        amount: number
+        balance: number | null
+        category: string
+    }>
+    receiptTransactions: Array<{
+        id: number
+        receiptId: string
+        storeName: string | null
+        receiptDate: string
+        receiptTime: string | null
+        receiptTotalAmount: number
+        receiptStatus: string
+        description: string
+        quantity: number
+        pricePerUnit: number
+        totalPrice: number
+        categoryId: number | null
+        categoryTypeId: number | null
+        categoryName: string | null
+        categoryColor: string | null
+        categoryTypeName: string | null
+        categoryTypeColor: string | null
+    }>
+    hasDataInOtherPeriods?: boolean
+}
+
 // Legacy types for backward compatibility
 export interface Transaction {
     id: number
@@ -236,6 +270,31 @@ export interface Category {
     color: string | null
     transactionCount: number
     totalSpend: number
+}
+
+export interface DebtsData {
+    debts: DebtAccountSummary[]
+}
+
+function toFiniteNumber(value: unknown, fallback = 0) {
+    const parsed = typeof value === "number" ? value : Number.parseFloat(String(value ?? ""))
+    return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function normalizeDebtSummary(debt: DebtAccountSummary): DebtAccountSummary {
+    return {
+        ...debt,
+        id: Number(debt.id),
+        linked_pocket_id: debt.linked_pocket_id == null ? null : Number(debt.linked_pocket_id),
+        interest_rate: debt.interest_rate == null ? null : toFiniteNumber(debt.interest_rate),
+        minimum_payment: debt.minimum_payment == null ? null : toFiniteNumber(debt.minimum_payment),
+        due_day: debt.due_day == null ? null : Number(debt.due_day),
+        current_balance: toFiniteNumber(debt.current_balance),
+        total_paid: toFiniteNumber(debt.total_paid),
+        total_interest: toFiniteNumber(debt.total_interest),
+        total_fees: toFiniteNumber(debt.total_fees),
+        entry_count: Number(debt.entry_count),
+    }
 }
 
 // ============================================
@@ -292,6 +351,25 @@ async function fetchSavingsBundle(filter: string | null): Promise<SavingsBundleD
     return response.json()
 }
 
+async function fetchPocketsBundle(): Promise<PocketsBundleResponse> {
+    const response = await demoFetch("/api/charts/pockets-bundle")
+    if (!response.ok) {
+        throw new Error(`Failed to fetch pockets bundle: ${response.statusText}`)
+    }
+    return response.json()
+}
+
+async function fetchDebts(): Promise<DebtsData> {
+    const response = await demoFetch("/api/debts")
+    if (!response.ok) {
+        throw new Error(`Failed to fetch debts: ${response.statusText}`)
+    }
+    const payload = await response.json() as DebtsData
+    return {
+        debts: (payload.debts ?? []).map((debt) => normalizeDebtSummary(debt)),
+    }
+}
+
 async function fetchFridgeBundle(filter: string | null): Promise<FridgeBundleData> {
     const url = filter
         ? `/api/charts/fridge-bundle?filter=${encodeURIComponent(filter)}`
@@ -300,6 +378,18 @@ async function fetchFridgeBundle(filter: string | null): Promise<FridgeBundleDat
     const response = await demoFetch(url)
     if (!response.ok) {
         throw new Error(`Failed to fetch fridge bundle: ${response.statusText}`)
+    }
+    return response.json()
+}
+
+async function fetchTestChartsBundle(filter: string | null): Promise<TestChartsBundleData> {
+    const url = filter
+        ? `/api/charts/test-charts-bundle?filter=${encodeURIComponent(filter)}`
+        : `/api/charts/test-charts-bundle`
+
+    const response = await demoFetch(url)
+    if (!response.ok) {
+        throw new Error(`Failed to fetch test charts bundle: ${response.statusText}`)
     }
     return response.json()
 }
@@ -436,6 +526,34 @@ export function useSavingsBundleData() {
 }
 
 /**
+ * Pockets bundle - vehicles, properties, and other pockets for net worth helpers
+ */
+export function usePocketsBundleData() {
+    const { userId } = useAuth()
+    const { isDemoMode } = useDemoMode()
+
+    return useQuery({
+        queryKey: ["pockets-bundle", isDemoMode ? "demo" : (userId ?? "")],
+        queryFn: fetchPocketsBundle,
+        enabled: isDemoMode || !!userId,
+    })
+}
+
+/**
+ * Debt accounts and summaries for savings net worth/debt workflows
+ */
+export function useDebtAccountsData() {
+    const { userId } = useAuth()
+    const { isDemoMode } = useDemoMode()
+
+    return useQuery({
+        queryKey: ["debts", isDemoMode ? "demo" : (userId ?? "")],
+        queryFn: fetchDebts,
+        enabled: isDemoMode || !!userId,
+    })
+}
+
+/**
  * Fridge page bundle - fridge data with Redis caching
  */
 export function useFridgeBundleData() {
@@ -446,6 +564,21 @@ export function useFridgeBundleData() {
     return useQuery({
         queryKey: ["fridge-bundle", isDemoMode ? "demo" : (userId ?? ""), filter],
         queryFn: () => fetchFridgeBundle(filter),
+        enabled: (isDemoMode || !!userId) && isReady,
+    })
+}
+
+/**
+ * Test charts page bundle - raw transactions and receipt transactions with Redis caching
+ */
+export function useTestChartsBundleData() {
+    const { userId } = useAuth()
+    const { filter, isReady } = useDateFilter()
+    const { isDemoMode } = useDemoMode()
+
+    return useQuery({
+        queryKey: ["test-charts-bundle", isDemoMode ? "demo" : (userId ?? ""), filter],
+        queryFn: () => fetchTestChartsBundle(filter),
         enabled: (isDemoMode || !!userId) && isReady,
     })
 }
@@ -604,4 +737,3 @@ export function useFridgeData() {
         error: bundle.error,
     }
 }
-

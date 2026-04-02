@@ -9,8 +9,8 @@ import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import {
   Card,
-  CardAction,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -138,9 +138,6 @@ export const ChartCategoryTrend = memo(function ChartCategoryTrend({
     <Card className="@container/card h-full w-full flex flex-col">
       <CardHeader className="flex-shrink-0">
         <CardTitle>{categoryName}</CardTitle>
-        <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          {renderInfoAction()}
-        </CardAction>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 min-w-0 flex-1 min-h-0">
         <div ref={containerRef} className="relative h-full w-full">
@@ -248,6 +245,9 @@ export const ChartCategoryTrend = memo(function ChartCategoryTrend({
           )}
         </div>
       </CardContent>
+      <CardFooter className="pb-3 gap-2">
+        {renderInfoAction()}
+      </CardFooter>
     </Card>
   )
 })

@@ -13,8 +13,9 @@ import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
     Card,
-    CardAction,
+  CardAction,
     CardContent,
+    CardFooter,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"

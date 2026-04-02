@@ -3,9 +3,7 @@ import { SortableGridItem, SortableGridProvider, type GridWidth } from "@/compon
 import { LazyChart } from "@/components/lazy-chart"
 import { ChartAreaInteractiveFridge } from "@/components/fridge/chart-area-interactive-fridge"
 import { ChartCategoryFlowFridge } from "@/components/fridge/chart-category-flow-fridge"
-import { ChartExpenseBreakdownFridge } from "@/components/fridge/chart-expense-breakdown-fridge"
-import { ChartMacronutrientBreakdownFridge } from "@/components/fridge/chart-macronutrient-breakdown-fridge"
-import { ChartSnackPercentageFridge } from "@/components/fridge/chart-snack-percentage-fridge"
+import { ChartFoodBreakdownFridge } from "@/components/fridge/chart-food-breakdown-fridge"
 import { ChartDailyActivityFridge } from "@/components/fridge/chart-daily-activity-fridge"
 
 import { ChartDayOfWeekCategoryFridge } from "@/components/fridge/chart-day-of-week-category-fridge"
@@ -56,28 +54,18 @@ const FridgeChart = memo(function FridgeChart({
       )
     case "groceryExpenseBreakdown":
       return (
-        <ChartExpenseBreakdownFridge
+        <ChartFoodBreakdownFridge
           data={chartData.expenseBreakdownData}
-          categorySpendingData={chartData.categorySpendingData}
-          isLoading={isLoading}
-        />
-      )
-    case "groceryMacronutrientBreakdown":
-      return (
-        <ChartMacronutrientBreakdownFridge
           receiptTransactions={receiptTransactions}
+          categorySpendingData={chartData.categorySpendingData}
           macronutrientBreakdown={chartData.macronutrientBreakdown}
           isLoading={isLoading}
         />
       )
+    case "groceryMacronutrientBreakdown":
+      return null
     case "grocerySnackPercentage":
-      return (
-        <ChartSnackPercentageFridge
-          receiptTransactions={receiptTransactions}
-          categorySpendingData={chartData.categorySpendingData}
-          isLoading={isLoading}
-        />
-      )
+      return null
     case "groceryDailyActivity":
       return (
         <ChartDailyActivityFridge
@@ -208,7 +196,7 @@ export function ChartsGrid({
   const chartTitles: Record<FridgeChartId, string> = {
     grocerySpendTrend: "Grocery Spend Trend",
     groceryCategoryRankings: "Category Rankings",
-    groceryExpenseBreakdown: "Expense Breakdown",
+    groceryExpenseBreakdown: "Food Breakdown",
     groceryMacronutrientBreakdown: "Macronutrient Breakdown",
     grocerySnackPercentage: "Spending Breakdown",
     groceryDailyActivity: "Daily Activity",

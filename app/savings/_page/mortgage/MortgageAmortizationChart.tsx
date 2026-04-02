@@ -40,7 +40,7 @@ export const MortgageAmortizationChart = memo(function MortgageAmortizationChart
   }), [palette])
 
   const chartConfig: ChartConfig = useMemo(() => ({
-    annualTax: { label: "Annual Tax (IBI)", color: colors.annualTax },
+    annualTax: { label: "Annual Property Tax", color: colors.annualTax },
     interest: { label: "Interest", color: colors.interest },
     principal: { label: "Principal", color: colors.principal },
     remainingBalance: { label: "Remaining Balance", color: colors.remainingBalance },

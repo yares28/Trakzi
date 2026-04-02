@@ -106,7 +106,12 @@ export function useFridgeChartData({ bundleData, receiptTransactions }: UseFridg
     return {
       grocerySpendTrend: hasArr(spendTrendData) ? "has-data" : "empty",
       groceryCategoryRankings: hasTx ? "has-data" : "empty",
-      groceryExpenseBreakdown: hasArr(expenseBreakdownData) ? "has-data" : "empty",
+      groceryExpenseBreakdown:
+        hasArr(expenseBreakdownData) ||
+        hasArr(bundleData?.macronutrientBreakdown as unknown[] | undefined) ||
+        hasTx
+          ? "has-data"
+          : "empty",
       groceryMacronutrientBreakdown: hasArr(bundleData?.macronutrientBreakdown as unknown[] | undefined) ? "has-data" : "empty",
       grocerySnackPercentage: hasArr(categorySpendingData) ? "has-data" : "empty",
       groceryDailyActivity: hasArr(dailySpendingData) || hasTx ? "has-data" : "empty",

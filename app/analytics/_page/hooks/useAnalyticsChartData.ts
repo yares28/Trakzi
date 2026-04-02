@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
+import { buildCashFlowGraphFromTransactions } from "@/lib/charts/cash-flow-graph"
 import { computeWeeklyNet, type WeeklyNetPoint } from "@/lib/charts/weekly-net"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
 import type { ChartDataStatusMap } from "@/lib/types/chart-data-status"
@@ -1306,8 +1307,14 @@ export function useAnalyticsChartData({
 
 
   const sankeyData = useMemo(() => {
-    // Bundle-only mode: Use pre-computed data from Redis cache
-    // No fallback to rawTransactions to avoid race conditions
+    if (rawTransactions.length > 0) {
+      return buildCashFlowGraphFromTransactions({
+        transactions: rawTransactions,
+        normalizeCategory: normalizeCategoryName,
+        hiddenExpenseCategories: sankeyVisibility.hiddenCategorySet,
+      })
+    }
+
     if (!bundleData?.cashFlow || bundleData.cashFlow.nodes.length === 0) {
       return {
         graph: { nodes: [], links: [] as Array<{ source: string; target: string; value: number }> },
@@ -1317,11 +1324,12 @@ export function useAnalyticsChartData({
 
     const categorySet = new Set<string>(
       bundleData.cashFlow.nodes
-        .filter(n => n.id !== 'income' && n.id !== 'savings' && n.id !== 'expenses')
-        .map(n => n.id)
+        .filter((node) => node.id.startsWith("expense-"))
+        .map((node) => node.id.replace(/^expense-/, ""))
     )
+
     return { graph: bundleData.cashFlow, categories: Array.from(categorySet) }
-  }, [bundleData?.cashFlow])
+  }, [bundleData?.cashFlow, rawTransactions, sankeyVisibility.hiddenCategorySet])
 
   const sankeyControls = sankeyVisibility.buildCategoryControls(sankeyData.categories, {
     description: "Hide sources to remove them from the cash-flow Sankey.",
@@ -1389,7 +1397,10 @@ export function useAnalyticsChartData({
     }))
   }, [rawTransactions, incomeExpenseTopVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
 
-  /** Same cumulative logic as Income & Expenses Cumulative, scoped to this chart's category visibility. */
+  /**
+   * Cumulative expenses view for the Income & Expenses chart (incomeExpensesTracking2).
+   * Expenses accumulate over time, and income reduces that running expense total.
+   */
   const incomeExpenseCumulativeData = useMemo(() => {
     const filteredSource =
       incomeExpenseVisibility.hiddenCategorySet.size === 0
@@ -1399,44 +1410,75 @@ export function useAnalyticsChartData({
           return !incomeExpenseVisibility.hiddenCategorySet.has(category)
         })
 
-    const transactionsByDate = new Map<string, Array<{ amount: number }>>()
-    filteredSource.forEach(tx => {
-      const date = tx.date.split("T")[0]
-      if (!transactionsByDate.has(date)) {
-        transactionsByDate.set(date, [])
-      }
-      transactionsByDate.get(date)!.push({ amount: tx.amount })
-    })
-    const sortedDates = Array.from(transactionsByDate.keys()).sort((a, b) => a.localeCompare(b))
-    const incomeByDate = new Map<string, number>()
-    sortedDates.forEach(date => {
-      const dayTransactions = transactionsByDate.get(date)!
-      const dayIncome = dayTransactions
-        .filter(tx => tx.amount > 0)
-        .reduce((sum, tx) => sum + tx.amount, 0)
-      if (dayIncome > 0) {
-        incomeByDate.set(date, dayIncome)
-      }
-    })
-    let cumulativeExpenses = 0
-    const cumulativeExpensesByDate = new Map<string, number>()
-    sortedDates.forEach(date => {
-      const dayTransactions = transactionsByDate.get(date)!
-      dayTransactions.forEach(tx => {
-        if (tx.amount < 0) {
-          cumulativeExpenses += Math.abs(tx.amount)
-        } else if (tx.amount > 0) {
-          cumulativeExpenses = Math.max(0, cumulativeExpenses - tx.amount)
+    if (filteredSource.length > 0) {
+      const dailyTotals = filteredSource.reduce((acc, tx) => {
+        const date = tx.date.split("T")[0]
+        if (!acc[date]) {
+          acc[date] = { date, income: 0, expenses: 0 }
         }
-      })
-      cumulativeExpensesByDate.set(date, cumulativeExpenses)
+
+        if (tx.amount > 0) {
+          acc[date].income += tx.amount
+        } else if (tx.amount < 0) {
+          acc[date].expenses += Math.abs(tx.amount)
+        }
+
+        return acc
+      }, {} as Record<string, { date: string; income: number; expenses: number }>)
+
+      let cumulativeExpenses = 0
+      let hasSeenExpense = false
+
+      return Object.values(dailyTotals)
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map((day) => {
+          if (day.expenses > 0) {
+            hasSeenExpense = true
+            cumulativeExpenses += day.expenses
+          }
+
+          if (hasSeenExpense && day.income > 0) {
+            cumulativeExpenses -= day.income
+          }
+
+          cumulativeExpenses = Math.round(cumulativeExpenses * 100) / 100
+
+          return {
+            date: day.date,
+            desktop: day.income,
+            mobile: cumulativeExpenses,
+          }
+        })
+    }
+
+    const source = incomeExpenseChart.data
+    if (!source || source.length === 0) return [] as Array<{ date: string; desktop: number; mobile: number }>
+
+    let cumulativeExpenses = 0
+    let hasSeenExpense = false
+
+    return source.map((d) => {
+      const dayIncome = d.desktop || 0
+      const dayExpenses = Math.abs(d.mobile || 0)
+
+      if (dayExpenses > 0) {
+        hasSeenExpense = true
+        cumulativeExpenses += dayExpenses
+      }
+
+      if (hasSeenExpense && dayIncome > 0) {
+        cumulativeExpenses -= dayIncome
+      }
+
+      cumulativeExpenses = Math.round(cumulativeExpenses * 100) / 100
+
+      return {
+        date: d.date,
+        desktop: dayIncome,
+        mobile: cumulativeExpenses,
+      }
     })
-    return sortedDates.map(date => ({
-      date,
-      desktop: incomeByDate.get(date) || 0,
-      mobile: cumulativeExpensesByDate.get(date) || 0,
-    }))
-  }, [rawTransactions, incomeExpenseVisibility.hiddenCategorySet, normalizeCategoryName, dateFilter])
+  }, [rawTransactions, incomeExpenseVisibility.hiddenCategorySet, normalizeCategoryName, incomeExpenseChart.data])
 
   /** Weekly net (income − expenses) for the Net tab of the Income & Expenses chart. */
   const weeklyNetDiffData = useMemo((): WeeklyNetPoint[] => {

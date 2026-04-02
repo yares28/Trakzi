@@ -12,8 +12,8 @@ import { getChartTextColor, getChartAxisLineColor, DEFAULT_FALLBACK_PALETTE } fr
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
     Card,
-    CardAction,
     CardContent,
+    CardFooter,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
@@ -225,13 +225,13 @@ export const ChartAllMonthsCategoryFridge = React.memo(function ChartAllMonthsCa
                         <ChartFavoriteButton chartId="fridge:allMonthsCategory" chartTitle="All Months Category Spending" size="md" />
                         <CardTitle>All Months Category Spending</CardTitle>
                     </div>
-                    <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                        {renderInfoTrigger()}
-                    </CardAction>
                 </CardHeader>
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
                     <ChartLoadingState isLoading={isLoading} />
                 </CardContent>
+                <CardFooter className="pb-3 gap-2">
+                    {renderInfoTrigger()}
+                </CardFooter>
             </Card>
         )
     }
@@ -244,9 +244,6 @@ export const ChartAllMonthsCategoryFridge = React.memo(function ChartAllMonthsCa
                     <ChartFavoriteButton chartId="fridge:allMonthsCategory" chartTitle="All Months Category Spending" size="md" />
                     <CardTitle>All Months Category Spending</CardTitle>
                 </div>
-                <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                    {renderInfoTrigger()}
-                </CardAction>
             </CardHeader>
             <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex flex-col">
                 <div className="flex-1 min-h-0">
@@ -264,6 +261,9 @@ export const ChartAllMonthsCategoryFridge = React.memo(function ChartAllMonthsCa
                     </div>
                 )}
             </CardContent>
+            <CardFooter className="pb-3 gap-2">
+                {renderInfoTrigger()}
+            </CardFooter>
         </Card>
     )
 })

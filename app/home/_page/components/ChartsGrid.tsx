@@ -37,12 +37,14 @@ export function ChartsGrid({ chartData, dateFilter }: ChartsGridProps) {
     expensesPieControls,
     treeMapControls,
     streamgraphControls,
+    sankeyControls,
     incomeExpensesChartData,
     categoryFlowChartData,
     spendingFunnelChartData,
     expensesPieChartData,
     polarBarChartData,
     spendingStreamData,
+    sankeyData,
     treeMapChartData,
   } = chartData
 
@@ -74,7 +76,10 @@ export function ChartsGrid({ chartData, dateFilter }: ChartsGridProps) {
       </div>
       <div className="px-4 lg:px-6">
         <LazyChart title="Cash Flow Sankey" height={250} rootMargin="0px">
-          <ChartSankey />
+          <ChartSankey
+            data={sankeyData.graph}
+            categoryControls={sankeyControls}
+          />
         </LazyChart>
       </div>
       <div className="px-4 lg:px-6">

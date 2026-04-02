@@ -16,8 +16,8 @@ import { NivoChartTooltip } from "@/components/chart-tooltip";
 import { getContrastTextColor, getChartTextColor } from "@/lib/chart-colors";
 import {
   Card,
-  CardAction,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -115,10 +115,8 @@ export const ChartSpendingFunnel = memo(function ChartSpendingFunnel({
   }
   colorConfig = colorConfig.slice(0, numLayers);
 
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div
-      className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}
-    >
+  const renderInfoTrigger = () => (
+    <div className="flex items-center gap-2">
       <ChartInfoPopover
         title="Money Flow"
         description="This funnel shows how income cascades through major expense categories before landing in savings."
@@ -222,13 +220,11 @@ export const ChartSpendingFunnel = memo(function ChartSpendingFunnel({
             />
             <CardTitle>Money Flow</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
-        </CardHeader>
+          </CardHeader>
         <CardContent className="flex-1 min-h-0">
           <div className="h-full w-full min-h-[250px]" />
         </CardContent>
+        <CardFooter className="pb-3 gap-2">{renderInfoTrigger()}</CardFooter>
       </Card>
     );
   }
@@ -247,10 +243,7 @@ export const ChartSpendingFunnel = memo(function ChartSpendingFunnel({
             />
             <CardTitle>Money Flow</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
-        </CardHeader>
+          </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
           <div className="h-full w-full min-h-[250px]">
             <ChartLoadingState
@@ -261,6 +254,7 @@ export const ChartSpendingFunnel = memo(function ChartSpendingFunnel({
             />
           </div>
         </CardContent>
+        <CardFooter className="pb-3 gap-2">{renderInfoTrigger()}</CardFooter>
       </Card>
     );
   }
@@ -272,7 +266,7 @@ export const ChartSpendingFunnel = memo(function ChartSpendingFunnel({
         onClose={() => setIsFullscreen(false)}
         title="Money Flow"
         description=""
-        headerActions={renderInfoTrigger(true)}
+        headerActions={renderInfoTrigger()}
         orientation="portrait"
       >
         <div className="h-full w-full min-h-[400px]">{renderChart()}</div>
@@ -290,13 +284,11 @@ export const ChartSpendingFunnel = memo(function ChartSpendingFunnel({
             />
             <CardTitle>Money Flow</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
-        </CardHeader>
+          </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
           <div className="h-full w-full min-h-[250px]">{renderChart()}</div>
         </CardContent>
+        <CardFooter className="pb-3 gap-2">{renderInfoTrigger()}</CardFooter>
       </Card>
     </>
   );

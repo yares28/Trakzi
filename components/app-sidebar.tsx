@@ -255,7 +255,7 @@ const data = {
       icon: IconMap,
     },
     {
-      title: "Chat",
+      title: "Insights",
       url: "/chat",
       icon: IconChat,
     },
@@ -370,50 +370,55 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
       }
       {...props}
     >
-      <SidebarHeader className="flex items-center justify-center pr-[15px]">
-        <SidebarMenu className="flex w-full items-center justify-center">
-          <SidebarMenuItem className="w-auto h-auto">
-            <SidebarMenuButton
-              asChild
-              className="data-[slot=sidebar-menu-button]:!p-4 !h-auto group-data-[collapsible=icon]:!p-3 group-data-[collapsible=icon]:!h-[4rem] group-data-[collapsible=icon]:!w-[4rem] group-data-[collapsible=icon]:!justify-center"
-              aria-label="Home"
-            >
-              <Link href="/">
-                <>
-                  {mounted ? (
-                    <Image
-                      src={
-                        theme === "dark"
-                          ? "/Trakzi/TrakzilogoB.png"
-                          : "/Trakzi/Trakzilogo.png"
-                      }
-                      alt="Trakzi"
-                      width={180}
-                      height={60}
-                      className="h-16 w-auto object-contain block group-data-[state=collapsed]:hidden group-data-[state=collapsed]:opacity-0 group-data-[state=collapsed]:scale-90 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
-                    />
-                  ) : (
-                    <div className="h-16 w-[180px] block group-data-[state=collapsed]:hidden" />
-                  )}
-                  {mounted ? (
-                    <Image
-                      src="/Trakzi/Trakziicon.png"
-                      alt="Trakzi icon"
-                      width={64}
-                      height={64}
-                      className="hidden h-12 w-auto object-contain group-data-[state=collapsed]:block opacity-0 scale-90 group-data-[state=collapsed]:opacity-100 group-data-[state=collapsed]:scale-100 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
-                    />
-                  ) : (
-                    <div className="hidden h-12 w-[64px] group-data-[state=collapsed]:block" />
-                  )}
-                </>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-        {/* Sidebar expand trigger — hidden when expanded, shown when collapsed (desktop only) */}
-        <div className="hidden group-data-[collapsible=icon]:flex w-full justify-center py-1">
-          <SidebarTrigger />
+      <SidebarHeader className="px-2 pt-3 pb-2">
+        <div className="grid w-full grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-1 group-data-[collapsible=icon]:grid-cols-1 group-data-[collapsible=icon]:justify-items-center">
+          <div className="hidden h-8 w-8 md:block group-data-[collapsible=icon]:hidden" />
+          <SidebarMenu className="flex w-full items-center justify-center">
+            <SidebarMenuItem className="w-auto h-auto">
+              <SidebarMenuButton
+                asChild
+                className="data-[slot=sidebar-menu-button]:!p-4 !h-auto group-data-[collapsible=icon]:!p-3 group-data-[collapsible=icon]:!h-[4rem] group-data-[collapsible=icon]:!w-[4rem] group-data-[collapsible=icon]:!justify-center"
+                aria-label="Home"
+              >
+                <Link href="/">
+                  <>
+                    {mounted ? (
+                      <Image
+                        src={
+                          theme === "dark"
+                            ? "/Trakzi/TrakzilogoB.png"
+                            : "/Trakzi/Trakzilogo.png"
+                        }
+                        alt="Trakzi"
+                        width={180}
+                        height={60}
+                        className="h-16 w-auto object-contain block group-data-[state=collapsed]:hidden group-data-[state=collapsed]:opacity-0 group-data-[state=collapsed]:scale-90 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
+                      />
+                    ) : (
+                      <div className="h-16 w-[180px] block group-data-[state=collapsed]:hidden" />
+                    )}
+                    {mounted ? (
+                      <Image
+                        src="/Trakzi/Trakziicon.png"
+                        alt="Trakzi icon"
+                        width={64}
+                        height={64}
+                        className="hidden h-12 w-auto object-contain group-data-[state=collapsed]:block opacity-0 scale-90 group-data-[state=collapsed]:opacity-100 group-data-[state=collapsed]:scale-100 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
+                      />
+                    ) : (
+                      <div className="hidden h-12 w-[64px] group-data-[state=collapsed]:block" />
+                    )}
+                  </>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+          <SidebarTrigger
+            className="hidden size-8 justify-self-end rounded-full border border-sidebar-border/70 bg-sidebar/95 text-sidebar-foreground shadow-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground md:inline-flex group-data-[collapsible=icon]:hidden"
+          />
+          <SidebarTrigger
+            className="hidden size-8 rounded-full border border-sidebar-border/70 bg-sidebar/95 text-sidebar-foreground shadow-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:inline-flex md:group-data-[collapsible=icon]:inline-flex"
+          />
         </div>
       </SidebarHeader>
       <SidebarContent>

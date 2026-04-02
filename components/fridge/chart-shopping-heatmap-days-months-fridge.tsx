@@ -15,8 +15,9 @@ import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
     Card,
-    CardAction,
+  CardAction,
     CardContent,
+    CardFooter,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
@@ -321,15 +322,15 @@ export const ChartShoppingHeatmapDaysMonthsFridge = React.memo(function ChartSho
                         />
                         <CardTitle>Monthly Shopping Patterns</CardTitle>
                     </div>
-                    <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                        {renderInfoTrigger()}
-                    </CardAction>
                 </CardHeader>
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
                     <div className="h-full w-full min-h-[250px]">
                         <ChartLoadingState isLoading={true} />
                     </div>
                 </CardContent>
+                <CardFooter className="pb-3 gap-2">
+                    {renderInfoTrigger()}
+                </CardFooter>
             </Card>
         )
     }

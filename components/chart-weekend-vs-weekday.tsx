@@ -6,9 +6,9 @@ import { ResponsiveBar } from "@nivo/bar"
 import {
   Card,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
-  CardAction,
 } from "@/components/ui/card"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
@@ -24,20 +24,18 @@ import { getChartTextColor, getChartAxisLineColor } from "@/lib/chart-colors"
 import { HoverableBar } from "@/components/chart-hoverable-bar"
 
 interface WeekendVsWeekdayInfoTriggerProps {
-  forFullscreen?: boolean
   chartTitle: string
   chartDescription: string
   chartDataForAI: Record<string, number | undefined>
 }
 
 const WeekendVsWeekdayInfoTrigger = memo(function WeekendVsWeekdayInfoTrigger({
-  forFullscreen = false,
   chartTitle,
   chartDescription,
   chartDataForAI,
 }: WeekendVsWeekdayInfoTriggerProps) {
   return (
-    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
+    <div className="flex items-center gap-2">
       <ChartInfoPopover
         title={chartTitle}
         description={chartDescription}
@@ -227,9 +225,6 @@ export const ChartWeekendVsWeekday = memo(function ChartWeekendVsWeekday({
             <ChartFavoriteButton chartId="weekendVsWeekday" chartTitle={chartTitle} size="md" />
             <CardTitle>{chartTitle}</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <WeekendVsWeekdayInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartDataForAI={chartDataForAI} />
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
           <div className="h-full w-full min-h-[250px]">
@@ -241,6 +236,9 @@ export const ChartWeekendVsWeekday = memo(function ChartWeekendVsWeekday({
             />
           </div>
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          <WeekendVsWeekdayInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartDataForAI={chartDataForAI} />
+        </CardFooter>
       </Card>
     )
   }
@@ -252,7 +250,7 @@ export const ChartWeekendVsWeekday = memo(function ChartWeekendVsWeekday({
         onClose={() => setIsFullscreen(false)}
         title={chartTitle}
         description={chartDescription}
-        headerActions={<WeekendVsWeekdayInfoTrigger forFullscreen chartTitle={chartTitle} chartDescription={chartDescription} chartDataForAI={chartDataForAI} />}
+        headerActions={<WeekendVsWeekdayInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartDataForAI={chartDataForAI} />}
       >
         <div className="h-full w-full min-h-[400px]" key={colorScheme}>
           <WeekendVsWeekdayChart chartData={chartData} textColor={textColor} gridColor={gridColor} formatCurrency={formatCurrency} />
@@ -267,15 +265,15 @@ export const ChartWeekendVsWeekday = memo(function ChartWeekendVsWeekday({
             <ChartFavoriteButton chartId="weekendVsWeekday" chartTitle={chartTitle} size="md" />
             <CardTitle>{chartTitle}</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <WeekendVsWeekdayInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartDataForAI={chartDataForAI} />
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
           <div className="h-full w-full min-h-[250px]" key={colorScheme}>
             <WeekendVsWeekdayChart chartData={chartData} textColor={textColor} gridColor={gridColor} formatCurrency={formatCurrency} />
           </div>
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          <WeekendVsWeekdayInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartDataForAI={chartDataForAI} />
+        </CardFooter>
       </Card>
     </>
   )

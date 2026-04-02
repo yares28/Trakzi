@@ -8,8 +8,8 @@ import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import {
   Card,
-  CardAction,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -73,8 +73,8 @@ export const ChartPolarBar = memo(function ChartPolarBar({
       ? Object.keys(sanitizedChartData[0]).filter(key => key !== 'month')
       : [])
 
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
+  const renderInfoTrigger = (_forFullscreen = false) => (
+    <div className="flex items-center gap-2">
       <ChartInfoPopover
         title="Household Spend Mix"
         description="Track monthly expenses across your top categories in a circular stacked chart."
@@ -99,7 +99,7 @@ export const ChartPolarBar = memo(function ChartPolarBar({
     </div>
   )
   const infoButton = (forFullscreen = false) => (
-    <div className={forFullscreen ? "flex items-center gap-2" : "absolute top-3 right-3 z-20 hidden md:block"}>
+    <div className={forFullscreen ? "flex items-center gap-2" : "absolute left-3 bottom-3 z-20 hidden md:block"}>
       {renderInfoTrigger(forFullscreen)}
     </div>
   )

@@ -1,10 +1,10 @@
 # Test Charts Page
 
-This document lists all chart components used on the Test Charts playground page (`/testCharts`).
+This document tracks the current `/testCharts` implementation surface.
 
-> **IMPORTANT:** When adding, modifying, or deleting charts on this page, update this document accordingly.
+> **IMPORTANT:** When the approved queue, chart renderer, or test-chart page wiring changes, update this file.
 
-The Test Charts page is a playground for testing and previewing chart components before promoting them to production pages.
+The page now behaves as a production-style review surface for both any live ideation shortlist and the saved `To Be Implemented` chart backlog rather than a lightweight prototype playground.
 
 ---
 
@@ -12,59 +12,39 @@ The Test Charts page is a playground for testing and previewing chart components
 
 | Section | Chart Count | Description |
 |---------|-------------|-------------|
-| Analytics Playground | 20 | General spending analysis and trends |
-| Savings & Wealth | 3 | Net worth, savings rates, and goals |
-| Fridge & Groceries | 5 | Food spending and nutrition data |
-| **Total** | **28** | |
+| Active Shortlist | 0 | The latest April 1 shortlist has been resolved and cleared from the live review queue |
+| Approved Analytics | 22 | Approved transaction-first analytics cards |
+| Approved Fridge | 21 | Approved receipt and grocery cards, including `Store Price Floor Reliability` and `Store Visit Mission Drift` |
+| Approved Savings | 29 | Approved balance, reserve, and runway cards, including `Paycheck-to-Paycheck Carry Ratio`, `Cushion Depth vs Essential Median`, and `Low-Balance Rescue Source Mix` |
+| Approved Debt | 2 | Approved debt burden cards, including `Debt Ticket Drift by Stream` |
+| Approved Goals | 4 | Approved goal feasibility and pressure cards |
+| Approved Pockets | 1 | Approved pocket burden card |
+| Approved Challenges | 1 | Approved challenge leaderboard card |
+| Approved Cross-Feature | 1 | Approved joined-system card |
+| **Visible Total** | **81** | Implementation queue only while the review queue is empty |
 
 ---
 
-## Analytics Playground Charts (20 total)
+## Current Page Behavior
 
-| # | Chart ID | Component Name | Description |
-|---|----------|----------------|-------------|
-| 1 | `testCharts:hourlySpending` | `ChartHourlySpending` | Spending by hour of day |
-| 2 | `testCharts:categoryBubbles` | `ChartCategoryBubbles` | Category bubble visualization |
-| 3 | `testCharts:categoryRanking` | `ChartCategoryRanking` | Category spending ranking |
-| 4 | `testCharts:seasonalSpending` | `ChartSeasonalSpending` | Seasonal spending patterns |
-| 5 | `testCharts:momGrowth` | `ChartMoMGrowth` | Month over month growth |
-| 6 | `testCharts:transactionCountTrend` | `ChartTransactionCountTrend` | Transaction count over time |
-| 7 | `testCharts:paydayImpact` | `ChartPaydayImpact` | Spending around payday |
-| 8 | `testCharts:topMerchantsRace` | `ChartTopMerchantsRace` | Top merchants racing bar chart |
-| 9 | `testCharts:incomeSources` | `ChartIncomeSources` | Income sources breakdown |
-| 10 | `testCharts:spendingDistribution` | `ChartSpendingDistribution` | Spending amount distribution |
-| 11 | `testCharts:largestTransactions` | `ChartLargestTransactions` | Largest transactions list |
-| 12 | `testCharts:monthCompare` | `ChartMonthCompare` | Month to month comparison |
-| 13 | `testCharts:dailyHighLow` | `ChartDailyHighLow` | Daily high/low spending |
-| 14 | `testCharts:monthlyTrend` | `ChartMonthlyTrend` | Monthly spending trend line |
-| 15 | `testCharts:weekdayRadar` | `ChartWeekdayRadar` | Weekday spending radar |
-| 16 | `testCharts:spendingByMerchant` | `ChartSpendingByMerchant` | Spending by merchant breakdown |
-| 17 | `testCharts:yearOverYear` | `ChartYearOverYear` | Year over year comparison |
-| 18 | `testCharts:quarterlyComparison` | `ChartQuarterlyComparison` | Quarterly spending comparison |
-| 19 | `testCharts:dailyAverageByMonth` | `ChartDailyAverageByMonth` | Daily average by month |
-| 20 | `testCharts:biggestExpenseCategories` | `ChartBiggestExpenseCategories` | Biggest expense categories |
-
----
-
-## Savings & Wealth Charts (3 total)
-
-| # | Chart ID | Component Name | Description |
-|---|----------|----------------|-------------|
-| 1 | `testCharts:savingsRateTrend` | `ChartSavingsRateTrend` | Savings rate percentage over time |
-| 2 | `testCharts:netWorthTrend` | `ChartNetWorthTrend` | Net worth trend line |
-| 3 | `testCharts:budgetMilestone` | `ChartBudgetMilestone` | Budget milestone progress |
-
----
-
-## Fridge & Groceries Charts (5 total)
-
-| # | Chart ID | Component Name | Description |
-|---|----------|----------------|-------------|
-| 1 | `fridge:spend-trend` | `ChartAreaInteractiveFridge` | Grocery spend trend over time |
-| 2 | `fridge:category-flow` | `ChartCategoryFlowFridge` | Grocery category flow/rankings |
-| 3 | `fridge:expense-breakdown` | `ChartExpenseBreakdownFridge` | Grocery expense breakdown pie |
-| 4 | `fridge:macronutrient-breakdown` | `ChartMacronutrientBreakdownFridge` | Macronutrient distribution |
-| 5 | `fridge:snack-percentage` | `ChartSnackPercentageFridge` | Snack percentage indicator |
+- `/testCharts` renders a top-level switch between `To Be Approved` and `To Be Implemented` through `TestChartsIdeaPlayground`
+- The active review queue is currently empty because the latest shortlist has already been resolved
+- `Store Visit Mission Drift`, `Low-Balance Rescue Source Mix`, and `Debt Ticket Drift by Stream` were promoted into `To Be Implemented`
+- The rest of the April 1 live shortlist was discarded and recorded in rejected memory so it does not return unchanged
+- The older approved queue stays separated from the active shortlist and continues to render as full clone-spec review cards
+- All visible charts are displayed as full production clone-spec cards in seeded mock-data mode, not prototype-only cards
+- The implementation queue continues to use explicit chart-specific scenario overrides in `components/test-charts/review-mock-data.ts` so cards remain reviewable without touching live user transactions
+- Common chart types now render with the same library family used elsewhere in Trakzi:
+  - line and trend charts use `@nivo/line`
+  - bar, grouped-bar, and stacked-bar charts use `@nivo/bar`
+  - pie / gauge-style radial charts use `@nivo/pie`
+  - treemaps use `@nivo/treemap`
+  - funnels use `@nivo/funnel`
+  - sankeys use `@nivo/sankey`
+  - heatmaps use `@nivo/heatmap`
+  - radar-style multi-axis cards use `@nivo/radar`
+  - scatter charts use `recharts`
+- Special chart shapes that do not map cleanly to an existing Trakzi library chart remain custom-built inside the production card shell.
 
 ---
 
@@ -72,83 +52,69 @@ The Test Charts page is a playground for testing and previewing chart components
 
 | File | Purpose |
 |------|---------|
-| `app/testCharts/page.tsx` | Main test charts page with all sections |
-| `app/api/charts/test-charts-bundle/route.ts` | Bundle API endpoint for test charts data |
-| `lib/charts/aggregations.ts` | Contains `getTestChartsBundle()` aggregation function |
-| `components/test-charts/index.ts` | Barrel export for all test chart components |
-| `components/test-charts/*.tsx` | Individual test chart components |
-| `components/fridge/*.tsx` | Fridge chart components (shared with Fridge page) |
+| `app/testCharts/page.tsx` | Main page shell for the test-chart review surface |
+| `app/api/test-charts/idea-lab/route.ts` | Live review manifest plus `To Be Implemented` payload |
+| `components/test-charts/idea-playground.tsx` | Builds the review and implementation queue tabs |
+| `components/test-charts/production-playground-chart-card.tsx` | Production-shell renderer for clone-spec queue cards |
+| `components/test-charts/review-mock-data.ts` | Deterministic seeded mock data for empty review scenarios |
+| `components/test-charts/one-click-playground-catalog.ts` | One-click approved card modeling and visual definitions |
+| `components/test-charts/idea-playground-catalog.ts` | Legacy approved analytics / fridge / savings card modeling |
+| `components/test-charts/chart-merchant-budget-miss-map.tsx` | Dedicated full card implementation used in the queue |
+| `components/test-charts/chart-store-price-dispersion-index.tsx` | Dedicated full card implementation used in the queue |
 
 ---
 
 ## Data Sources
 
-The Test Charts page fetches data from a **single bundle API**:
+The current `/testCharts` page is driven by the idea-lab payload:
 
-1. **Test Charts Bundle API**: `/api/charts/test-charts-bundle?filter=...`
-   - Aggregates both transactions and receipt transactions
-   - Returns pre-normalized data with Redis caching (5 min TTL)
-   - Used for all analytics, savings, and fridge charts
-   - Replaces the previous approach of fetching from `/api/transactions` and `/api/fridge` separately
+1. **Idea Lab API**: `/api/test-charts/idea-lab`
+   - reads the ranked April 1 manifest archive from `docs/chart generation/2026-04-01-one-click-100-charts-round-3.md`
+   - currently returns an empty live manifest because that shortlist has been resolved
+   - resolves the `To Be Implemented` queue from approved chart memory plus selected archived ideation picks
+   - provides empty base bundles for page-safe generation
+   - relies on deterministic seeded mock review data, with explicit scenario overrides for the approved cards, so charts render as believable review surfaces without touching live user data
 
-### Bundle Response Format
+2. **Approved chart memory**
+   - source file: `docs/chart generation/APPROVED_CHART_MEMORY.md`
+   - defines the approved set that belongs in `To Be Implemented`
 
-```json
-{
-  "transactions": [
-    {
-      "id": 1,
-      "date": "2024-01-15",
-      "description": "Transaction description",
-      "amount": 50.00,
-      "balance": 1000.00,
-      "category": "Groceries"
-    }
-  ],
-  "receiptTransactions": [
-    {
-      "id": 1,
-      "receiptId": "uuid",
-      "storeName": "Store Name",
-      "receiptDate": "2024-01-15",
-      "receiptTime": "14:30:00",
-      "description": "Item description",
-      "totalPrice": 25.50,
-      "categoryName": "Food",
-      "categoryColor": "#6366f1"
-    }
-  ],
-  "hasDataInOtherPeriods": true
-}
-```
+3. **Rejected chart memory**
+   - source file: `docs/chart generation/REJECTED_CHART_MEMORY.md`
+   - records the discarded April 1 shortlist concepts so they do not return unchanged
+
+4. **Active ranked run archive**
+   - source file: `docs/chart generation/2026-04-01-one-click-100-charts-round-3.md`
+   - preserves the ranked 100-idea pool and the now-resolved top-20 shortlist from that round
 
 ---
 
 ## Page Structure
 
-```
+```text
 testCharts/page.tsx
-├── Analytics Section (id="analytics-section")
-│   └── SortableGridProvider with 48 charts
-├── Savings Section (id="savings-section")
-│   └── SortableGridProvider with 3 charts
-└── Fridge Section (id="fridge-section")
-    └── SortableGridProvider with 5 charts
+└── TestChartsIdeaPlayground
+    ├── Production batch summary
+    ├── To Be Approved
+    │   ├── analytics
+    │   ├── fridge
+    │   ├── savings
+    │   ├── debt
+    │   ├── goals
+    │   ├── pockets
+    │   ├── friendRooms
+    │   ├── challenges
+    │   └── crossFeature
+    └── To Be Implemented
+        ├── approved-analytics
+        ├── approved-fridge
+        ├── approved-savings
+        ├── selected-debt
+        ├── selected-goals
+        ├── selected-pockets
+        ├── selected-challenges
+        └── selected-crossFeature
 ```
-
----
-
-## State Management
-
-Each section has independent state:
-- `analyticsOrder` / `analyticsSizes` - Analytics section layout
-- `savingsOrder` / `savingsSizes` - Savings section layout
-- `fridgeOrder` / `fridgeSizes` - Fridge section layout
-
-All persisted to localStorage with keys:
-- `testCharts-analytics-order`, `testCharts-analytics-sizes`
-- `testCharts-savings-order`, `testCharts-savings-sizes`
-- `testCharts-fridge-order`, `testCharts-fridge-sizes`
 
 ---
 
@@ -156,21 +122,19 @@ All persisted to localStorage with keys:
 
 When a test chart is ready for production:
 
-1. Move component from `components/test-charts/` to `components/`
-2. Wrap with `React.memo` and add `displayName`
-3. Add to appropriate page's ChartsGrid
-4. Add to bundle API aggregation if needed
-5. Update the relevant documentation:
-   - Remove from this document (TEST_CHARTS.md)
-   - Add to target page document (ANALYTICS_CHARTS.md, FRIDGE_CHARTS.md, etc.)
+1. Move the implementation into the target production page or shared chart component set.
+2. Keep the chart in clone-spec card structure.
+3. Replace any seeded review mock state with the real bundle/API path for that page.
+4. Remove or demote it from the `/testCharts` review queue when appropriate.
+5. Update this file and the destination page documentation.
 
 ---
 
-## Adding a New Test Chart
+## Adding More Approved Test Charts
 
-1. Create component in `components/test-charts/chart-{name}.tsx`
-2. Export from `components/test-charts/index.ts`
-3. Import in `app/testCharts/page.tsx`
-4. Add chart ID to appropriate section order array
-5. Add case in `renderChart()` switch statement
-6. **Update this document with the new chart**
+1. Add or promote the chart concept in the ideation docs.
+2. Ensure the idea-lab route exposes that chart through either the active manifest or the approved manifest.
+3. Extend the production review renderer in `components/test-charts/production-playground-chart-card.tsx` if the visual kind needs new chart support.
+4. Add an explicit scenario override in `components/test-charts/review-mock-data.ts` when the live shortlist needs chart-specific mock storytelling.
+5. Prefer the same chart-library mapping already used on the page before inventing a new rendering path.
+6. Update this document with the new section counts or behavior changes.

@@ -319,11 +319,12 @@ export const ChartSingleMonthCategoryFridge = React.memo(function ChartSingleMon
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
                     {chartData.length > 0 ? (
                         <div className="h-full w-full flex flex-col">
-                            <div className="mb-2 text-sm font-medium text-foreground text-center">
-                                Total: {formatCurrency(totalSpent)}
-                            </div>
                             <div className="flex-1 min-h-0">
                                 {renderChart()}
+                            </div>
+                            <div className="flex items-center justify-end gap-1 pt-2 text-xs text-muted-foreground">
+                                <span>Total:</span>
+                                <span className="font-semibold text-foreground">{formatCurrency(totalSpent)}</span>
                             </div>
                         </div>
                     ) : (
@@ -360,8 +361,14 @@ export const ChartSingleMonthCategoryFridge = React.memo(function ChartSingleMon
                 }
                 orientation="landscape"
             >
-                <div className="h-full w-full">
-                    {renderChart()}
+                <div className="h-full w-full flex flex-col">
+                    <div className="flex-1 min-h-0">
+                        {renderChart()}
+                    </div>
+                    <div className="flex items-center justify-end gap-1 px-4 py-2 text-xs text-muted-foreground border-t">
+                        <span>Total:</span>
+                        <span className="font-semibold text-foreground">{formatCurrency(totalSpent)}</span>
+                    </div>
                 </div>
             </ChartFullscreenModal>
         </>

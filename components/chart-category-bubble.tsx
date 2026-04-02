@@ -14,8 +14,8 @@ import { DEFAULT_FALLBACK_PALETTE, getEChartsBackground } from "@/lib/chart-colo
 import { ChartLoadingState } from "@/components/chart-loading-state"
 import {
   Card,
-  CardAction,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -64,8 +64,8 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
   const [hasValidPosition, setHasValidPosition] = React.useState(false)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
 
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
+  const renderInfoTrigger = () => (
+    <div className="flex items-center gap-2">
       <ChartInfoPopover
         title="Category Bubble Map"
         details={[
@@ -450,13 +450,11 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
             />
             <CardTitle>Category Bubble Map</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[180px] md:h-[250px]">
           <ChartLoadingState isLoading skeletonType="grid" />
         </CardContent>
+        <CardFooter className="pb-3 gap-2">{renderInfoTrigger()}</CardFooter>
       </Card>
     )
   }
@@ -474,9 +472,6 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
             />
             <CardTitle>Category Bubble Map</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[180px] md:h-[250px]">
           <ChartLoadingState
@@ -486,6 +481,7 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
             emptyDescription={emptyDescription}
           />
         </CardContent>
+        <CardFooter className="pb-3 gap-2">{renderInfoTrigger()}</CardFooter>
       </Card>
     )
   }
@@ -496,7 +492,7 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
         isOpen={isFullscreen}
         onClose={() => setIsFullscreen(false)}
         title="Category Bubble Map"
-        headerActions={renderInfoTrigger(true)}
+        headerActions={renderInfoTrigger()}
       >
         <div className="h-full w-full min-h-[400px] text-center flex items-center justify-center text-muted-foreground">
           Fullscreen view - Bubble pack shows category spending hierarchy
@@ -516,9 +512,6 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
             <CardTitle>Category Bubble Map</CardTitle>
           </div>
 
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[180px] md:h-[250px]">
           <div ref={containerRef} className="relative h-full w-full" style={{ minHeight: 0, minWidth: 0 }}>
@@ -562,6 +555,7 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
             )}
           </div>
         </CardContent>
+        <CardFooter className="pb-3 gap-2">{renderInfoTrigger()}</CardFooter>
       </Card>
     </>
   )

@@ -371,6 +371,33 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
       </div>
     ) : null
 
+  const dayOfWeekHeaderActionsEl = (
+    <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+      {availableDays.length > 0 ? (
+        <Select
+          value={selectedDay !== null ? selectedDay.toString() : ""}
+          onValueChange={(value) => setSelectedDay(parseInt(value, 10))}
+        >
+          <SelectTrigger
+            className="w-32"
+            size="sm"
+            aria-label="Select day of week"
+          >
+            <SelectValue placeholder="Select day" />
+          </SelectTrigger>
+          <SelectContent className="rounded-xl">
+            {availableDays.map((day) => (
+              <SelectItem key={day} value={day.toString()} className="rounded-lg">
+                {DAY_NAMES[day]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : null}
+      <DayOfWeekCategoryInfoTrigger />
+    </CardAction>
+  )
+
   if (!mounted) {
     return (
       <Card className="@container/card gap-[20px]">
@@ -384,11 +411,8 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
             />
             <CardTitle>Day of Week Category Spending</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <DayOfWeekCategoryInfoTrigger />
-          </CardAction>
+          {dayOfWeekHeaderActionsEl}
         </CardHeader>
-        {dayOfWeekSelectRowEl}
         <CardContent className="px-2 pt-0 sm:px-6 h-[250px]">
           <ChartLoadingState
             isLoading
@@ -414,11 +438,8 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
             />
             <CardTitle>Day of Week Category Spending</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <DayOfWeekCategoryInfoTrigger />
-          </CardAction>
+          {dayOfWeekHeaderActionsEl}
         </CardHeader>
-        {dayOfWeekSelectRowEl}
         <CardContent className="px-2 pt-0 sm:px-6 h-[250px]">
           <ChartLoadingState
             isLoading
@@ -444,11 +465,8 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
             />
             <CardTitle>Day of Week Category Spending</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <DayOfWeekCategoryInfoTrigger />
-          </CardAction>
+          {dayOfWeekHeaderActionsEl}
         </CardHeader>
-        {dayOfWeekSelectRowEl}
         <CardContent className="px-2 pt-0 sm:px-6 h-[250px]">
           <ChartLoadingState
             skeletonType="bar"
@@ -553,11 +571,8 @@ export const ChartDayOfWeekCategory = React.memo(function ChartDayOfWeekCategory
             />
             <CardTitle>Day of Week Category Spending</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <DayOfWeekCategoryInfoTrigger />
-          </CardAction>
+          {dayOfWeekHeaderActionsEl}
         </CardHeader>
-        {dayOfWeekSelectRowEl}
         <CardContent className="px-2 pt-0 sm:px-6 flex-1 min-h-0 flex flex-col">
           {topCategories.length > 0 ? (
             <>

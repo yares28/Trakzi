@@ -5,8 +5,10 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import { SortableGridProvider, SortableGridItem } from "@/components/sortable-grid"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ChartSavingsAccumulation } from "@/components/chart-savings-accumulation"
+import { DebtManagerPanel } from "@/components/debt-manager-panel"
 import { ChartSavingsRateTrend } from "@/components/test-charts/chart-savings-rate-trend"
 import { ChartNetWorthTrend } from "@/components/test-charts/chart-net-worth-trend"
+import { NetWorthCalculatorPanel } from "@/components/net-worth-calculator-panel"
 import { SectionCards } from "@/components/section-cards"
 import { SiteHeader } from "@/components/site-header"
 import {
@@ -14,7 +16,6 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
 import { normalizeTransactions } from "@/lib/utils"
 import { demoFetch } from "@/lib/demo/demo-fetch"
@@ -23,27 +24,32 @@ import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { MortgageCalculator } from "./_page/mortgage/MortgageCalculator"
 import {
   FALLBACK_DATE_FILTER,
+  getPeriodDaysFromFilter,
   isValidDateFilterValue,
   normalizeDateFilterValue,
 } from "@/lib/date-filter"
-import { useSavingsBundleData } from "@/hooks/use-dashboard-data"
+import { useDebtAccountsData, useHomeBundleData, usePocketsBundleData, useSavingsBundleData } from "@/hooks/use-dashboard-data"
 import { PageEmptyState, SAVINGS_EMPTY_STATE } from "@/components/page-empty-state"
 import { CollapsedChartCard } from "@/components/collapsed-chart-card"
 import { computeSavingsScore } from "@/lib/savings-score"
 import { GoalWizardCard } from "@/components/chat/goal-wizard-card"
-import { useCurrency } from "@/components/currency-provider"
+import { SavingsGoalsPanel } from "@/components/savings-goals-panel"
 import { AnimatePresence, m } from "framer-motion"
-import { Plus, Trash2, MapPin } from "lucide-react"
+import { MapPin } from "lucide-react"
 import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
 import { useOnboarding } from "@/components/onboarding/onboarding-context"
+import { summarizeGoals, type GoalContext } from "@/lib/goals"
+import { computeDefaultNetWorth } from "@/lib/net-worth"
+import type { GoalRecord } from "@/lib/types/goals"
+import type { GoalComposerDefaults, GoalFinancialProfile } from "@/components/chat/goal-wizard-card"
 
-type SavingsViewMode = "savings" | "debt" | "calculator" | "goals"
+type SavingsViewMode = "savings" | "netWorth" | "debt" | "calculator" | "goals"
 
 // Persistence keys
 const SAVINGS_ORDER_STORAGE_KEY = "savings-chart-order"
 const SAVINGS_SIZES_STORAGE_KEY = "savings-chart-sizes"
 const SAVINGS_VIEW_MODE_STORAGE_KEY = "savings-view-mode"
-const DEFAULT_SAVINGS_ORDER = ["savingsAccumulation", "savingsRateTrend", "netWorthTrend"]
+const DEFAULT_SAVINGS_ORDER = ["savingsAccumulation", "savingsRateTrend"]
 
 export default function Page() {
   const { startTour, completeChecklistItem } = useOnboarding()
@@ -61,6 +67,15 @@ export default function Page() {
     balance: number | null
     category: string
   }>>([])
+  const [goalTransactions, setGoalTransactions] = useState<Array<{
+    id: number
+    date: string
+    description: string
+    amount: number
+    category: string
+  }>>([])
+  const [goalTransactionsLoading, setGoalTransactionsLoading] = useState(false)
+  const [goalTransactionsError, setGoalTransactionsError] = useState<string | null>(null)
 
   // Date filter state
   const [dateFilter, setDateFilter] = useState<string | null>(null)
@@ -73,7 +88,7 @@ export default function Page() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem(SAVINGS_VIEW_MODE_STORAGE_KEY)
-      if (saved === "savings" || saved === "debt" || saved === "calculator" || saved === "goals") {
+      if (saved === "savings" || saved === "netWorth" || saved === "debt" || saved === "calculator" || saved === "goals") {
         setViewMode(saved)
       }
     } catch (e) {
@@ -86,7 +101,12 @@ export default function Page() {
     try {
       const savedOrder = localStorage.getItem(SAVINGS_ORDER_STORAGE_KEY)
       if (savedOrder) {
-        setChartOrder(JSON.parse(savedOrder))
+        const parsed = JSON.parse(savedOrder)
+        if (Array.isArray(parsed)) {
+          const validCharts = parsed.filter((id): id is string => DEFAULT_SAVINGS_ORDER.includes(id))
+          const missingCharts = DEFAULT_SAVINGS_ORDER.filter((id) => !validCharts.includes(id))
+          setChartOrder([...validCharts, ...missingCharts])
+        }
       }
 
       const savedSizes = localStorage.getItem(SAVINGS_SIZES_STORAGE_KEY)
@@ -130,28 +150,18 @@ export default function Page() {
   }, [])
 
   // Goals state
-  interface SavingsGoal {
-    id: number
-    category: string
-    label: string | null
-    target_amount: string
-    deadline: string
-    monthly_allocation: string
-    status: string
-    created_at: string
-  }
-  const [goals, setGoals] = useState<SavingsGoal[]>([])
+  const [goals, setGoals] = useState<GoalRecord[]>([])
   const [goalsLoading, setGoalsLoading] = useState(false)
   const [goalWizardOpen, setGoalWizardOpen] = useState(false)
+  const [goalWizardDefaults, setGoalWizardDefaults] = useState<GoalComposerDefaults | null>(null)
   const goalsFetchedRef = useRef(false)
-  const { formatCurrency } = useCurrency()
 
   const fetchGoals = useCallback(async () => {
     setGoalsLoading(true)
     try {
       const res = await fetch("/api/chat/goals")
       if (res.ok) {
-        const data = await res.json() as { goals: SavingsGoal[] }
+        const data = await res.json() as { goals: GoalRecord[] }
         setGoals(data.goals)
       }
     } catch { /* ignore */ }
@@ -169,12 +179,65 @@ export default function Page() {
     } catch { /* ignore */ }
   }, [])
 
+  const updateGoalStatus = useCallback(async (id: number, status: "active" | "completed" | "archived") => {
+    try {
+      const res = await fetch("/api/chat/goals", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      })
+
+      if (!res.ok) return
+
+      setGoals((prev) => prev.map((goal) => (goal.id === id ? { ...goal, status } : goal)))
+    } catch { /* ignore */ }
+  }, [])
+
+  const openGoalWizard = useCallback((defaults?: GoalComposerDefaults | null) => {
+    setGoalWizardDefaults(defaults ?? null)
+    setGoalWizardOpen(true)
+  }, [])
+
   useEffect(() => {
-    if (viewMode === "goals" && !goalsFetchedRef.current) {
+    if ((viewMode === "goals" || viewMode === "netWorth" || viewMode === "debt") && !goalsFetchedRef.current) {
       goalsFetchedRef.current = true
       fetchGoals()
     }
   }, [viewMode, fetchGoals])
+
+  const createGoalEntry = useCallback(async (
+    goalId: number,
+    draft: {
+      entryType: "contribution" | "withdrawal" | "adjustment"
+      amount: string
+      entryDate: string
+      note: string
+      transactionId?: number | null
+    }
+  ) => {
+    const amount = Number.parseFloat(draft.amount)
+    if (!Number.isFinite(amount) || amount <= 0) return
+
+    try {
+      const response = await fetch(`/api/chat/goals/${goalId}/entries`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entryType: draft.entryType,
+          amount,
+          entryDate: draft.entryDate,
+          note: draft.note.trim() || null,
+          transactionId: draft.transactionId ?? null,
+        }),
+      })
+
+      if (!response.ok) return
+      goalsFetchedRef.current = false
+      fetchGoals()
+    } catch {
+      // ignore
+    }
+  }, [fetchGoals])
 
   // Fetch transactions for charts - filter for savings category only
   const fetchTransactions = useCallback(async () => {
@@ -237,14 +300,127 @@ export default function Page() {
     }
   }, [dateFilter])
 
+  const fetchGoalTransactions = useCallback(async () => {
+    if (!dateFilter) return
+
+    setGoalTransactionsLoading(true)
+    setGoalTransactionsError(null)
+
+    try {
+      const params = new URLSearchParams()
+      params.append("all", "true")
+      params.append("filter", dateFilter)
+
+      const response = await demoFetch(`/api/transactions?${params.toString()}`)
+      const data = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        setGoalTransactions([])
+        setGoalTransactionsError(
+          typeof data?.error === "string" ? data.error : "Failed to fetch transactions"
+        )
+        return
+      }
+
+      const txArray = Array.isArray(data) ? data : (data?.data ?? [])
+      if (!Array.isArray(txArray)) {
+        setGoalTransactions([])
+        setGoalTransactionsError("Unexpected transactions response")
+        return
+      }
+
+      setGoalTransactions(
+        normalizeTransactions(txArray).map((tx) => ({
+          id: Number(tx.id),
+          date: typeof tx.date === "string" ? tx.date.slice(0, 10) : "",
+          description:
+            typeof tx.description === "string" && tx.description.trim().length > 0
+              ? tx.description
+              : "Transaction",
+          amount: Number(tx.amount),
+          category: tx.category,
+        }))
+      )
+    } catch {
+      setGoalTransactions([])
+      setGoalTransactionsError("Failed to fetch transactions")
+    } finally {
+      setGoalTransactionsLoading(false)
+    }
+  }, [dateFilter])
+
   // Savings bundle (savings category aggregation) for accumulation chart
   const { data: savingsBundle, isLoading: savingsBundleLoading } = useSavingsBundleData()
+  const { data: homeBundle } = useHomeBundleData()
+  const { data: pocketsBundle, isLoading: pocketsBundleLoading } = usePocketsBundleData()
+  const { data: debtsData, isLoading: debtsLoading, refetch: refetchDebts } = useDebtAccountsData()
+
+  const goalFinancialProfile = useMemo<GoalFinancialProfile | null>(() => {
+    const totalIncome = homeBundle?.kpis.totalIncome ?? 0
+    const totalExpenses = homeBundle?.kpis.totalExpense ?? 0
+    if (totalIncome <= 0 && totalExpenses <= 0) return null
+
+    const periodDays = Math.max(1, getPeriodDaysFromFilter(dateFilter ?? FALLBACK_DATE_FILTER) || 30)
+    const monthlyFactor = 30.4375 / periodDays
+    const monthlyIncome = totalIncome * monthlyFactor
+    const monthlyExpenses = totalExpenses * monthlyFactor
+    const monthlyNet = monthlyIncome - monthlyExpenses
+    const savingsRate =
+      totalIncome > 0
+        ? (Math.max(0, totalIncome - totalExpenses) / totalIncome) * 100
+        : (savingsBundle?.kpis.savingsRate ?? 0)
+
+    return {
+      monthlyIncome,
+      monthlyExpenses,
+      monthlyNet,
+      savingsRate,
+      periodDays,
+    }
+  }, [
+    dateFilter,
+    homeBundle?.kpis.totalExpense,
+    homeBundle?.kpis.totalIncome,
+    savingsBundle?.kpis.savingsRate,
+  ])
+
+  const netWorthSnapshot = useMemo(() => {
+    return computeDefaultNetWorth({
+      transactions,
+      savingsTotal: savingsBundle?.kpis.totalSaved ?? 0,
+      pocketsData: pocketsBundle,
+      debts: debtsData?.debts ?? [],
+    })
+  }, [debtsData?.debts, pocketsBundle, savingsBundle?.kpis.totalSaved, transactions])
+
+  const goalContext = useMemo<GoalContext>(() => {
+    const pocketNameByKey = new Map<string, string>()
+    for (const pocket of pocketsBundle?.properties ?? []) {
+      pocketNameByKey.set(`property:${pocket.id}`, pocket.name)
+    }
+    for (const pocket of pocketsBundle?.vehicles ?? []) {
+      pocketNameByKey.set(`vehicle:${pocket.id}`, pocket.name)
+    }
+
+    return {
+      debtsById: new Map((debtsData?.debts ?? []).map((debt) => [debt.id, debt])),
+      currentNetWorth: netWorthSnapshot.total,
+      pocketNameByKey,
+    }
+  }, [debtsData?.debts, netWorthSnapshot.total, pocketsBundle?.properties, pocketsBundle?.vehicles])
+
+  const goalsSummary = useMemo(() => summarizeGoals(goals, goalContext), [goalContext, goals])
 
   // Fetch transactions on mount and when filter changes
   useEffect(() => {
     if (!dateFilter) return
     fetchTransactions()
   }, [fetchTransactions, dateFilter])
+
+  useEffect(() => {
+    if (viewMode !== "goals" || !dateFilter) return
+    void fetchGoalTransactions()
+  }, [dateFilter, fetchGoalTransactions, viewMode])
 
   // Listen for date filter changes from SiteHeader
   useEffect(() => {
@@ -491,7 +667,7 @@ export default function Page() {
                 savingsScoreEnabled={true}
               />
 
-              {/* Savings / Debt / Calculator switch - Horizontal scroll on mobile */}
+              {/* Savings / Net Worth / Debt / Calculator switch - Horizontal scroll on mobile */}
               <section>
                 <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden -mx-4 px-4 lg:mx-0 lg:px-0">
                   <div className="flex justify-center">
@@ -507,6 +683,18 @@ export default function Page() {
                         )}
                       >
                         Savings
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleViewModeChange("netWorth")}
+                        className={cn(
+                          "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0",
+                          viewMode === "netWorth"
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        Net Worth
                       </button>
                       <button
                         type="button"
@@ -551,6 +739,30 @@ export default function Page() {
 
               {viewMode === "savings" && (
                 <div className="px-4 lg:px-6 min-w-0">
+                  {goalsSummary.nextGoalToFund ? (
+                    <div className="mb-4 rounded-[28px] border border-border/60 bg-card/80 px-5 py-5 shadow-sm">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/65">Next goal to fund</p>
+                          <h3 className="mt-1 text-lg font-semibold tracking-tight text-foreground">
+                            {goalsSummary.nextGoalToFund.displayLabel}
+                          </h3>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {goalsSummary.nextGoalToFund.nextBestAction}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full"
+                          onClick={() => handleViewModeChange("goals")}
+                        >
+                          Open Goals
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
                   {!savingsBundleLoading && accumulationChartData.length === 0 && (
                     <PageEmptyState
                       icon={SAVINGS_EMPTY_STATE.icon}
@@ -601,9 +813,6 @@ export default function Page() {
                           {chartId === "savingsRateTrend" && (
                             <ChartSavingsRateTrend data={transactions} isLoading={savingsBundleLoading} />
                           )}
-                          {chartId === "netWorthTrend" && (
-                            <ChartNetWorthTrend data={transactions} isLoading={savingsBundleLoading} />
-                          )}
                         </SortableGridItem>
                       )
                     })}
@@ -611,23 +820,89 @@ export default function Page() {
                 </div>
               )}
 
+              {viewMode === "netWorth" && (
+                <section className="px-4 lg:px-6">
+                  <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-1">
+                    {goalsSummary.netWorthGoal ? (
+                      <div className="rounded-[28px] border border-border/60 bg-card/80 px-5 py-5 shadow-sm">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                          <div>
+                            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/65">Net Worth Goal</p>
+                            <h3 className="mt-1 text-lg font-semibold tracking-tight text-foreground">
+                              {goalsSummary.netWorthGoal.displayLabel}
+                            </h3>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              {goalsSummary.netWorthGoal.nextBestAction}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="rounded-full"
+                            onClick={() =>
+                              openGoalWizard({
+                                goalKind: "net_worth_target",
+                                category: "Net Worth",
+                                label: goalsSummary.netWorthGoal?.displayLabel ?? "Net Worth Goal",
+                                startingAmount: netWorthSnapshot.total,
+                              })
+                            }
+                          >
+                            Update Goal
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-[28px] border border-dashed border-border/60 bg-muted/15 px-5 py-5">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                          <div>
+                            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/65">Net Worth Goal</p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              Turn your current net worth into a target and track the gap here.
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="rounded-full"
+                            onClick={() =>
+                              openGoalWizard({
+                                goalKind: "net_worth_target",
+                                category: "Net Worth",
+                                label: "Net Worth Goal",
+                                startingAmount: netWorthSnapshot.total,
+                              })
+                            }
+                          >
+                            Create Net Worth Goal
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    <NetWorthCalculatorPanel
+                      transactions={transactions}
+                      savingsTotal={savingsBundle?.kpis.totalSaved ?? 0}
+                      pocketsData={pocketsBundle}
+                      debts={debtsData?.debts ?? []}
+                      onCreatePocketGoal={(goalDefaults) => openGoalWizard(goalDefaults)}
+                      isLoading={savingsBundleLoading || pocketsBundleLoading || debtsLoading}
+                    />
+                    <ChartNetWorthTrend data={transactions} isLoading={savingsBundleLoading} />
+                  </div>
+                </section>
+              )}
+
               {viewMode === "debt" && (
                 <section className="px-4 lg:px-6">
                   <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-1">
-                    <Card className="@container/card h-full flex flex-col">
-                      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-                        <div className="flex items-center gap-2">
-                          <CardTitle className="text-base font-medium">
-                            Debt Overview
-                          </CardTitle>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1">
-                        <div className="h-[250px] w-full flex items-center justify-center text-sm text-muted-foreground">
-                          Debt charts will appear here once configured.
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <DebtManagerPanel
+                      debts={debtsData?.debts ?? []}
+                      goals={goalsSummary.debtPayoffGoals}
+                      isLoading={debtsLoading}
+                      onCreatePayoffGoal={(defaults) => openGoalWizard(defaults)}
+                      onRefresh={() => { void refetchDebts() }}
+                    />
                   </div>
                 </section>
               )}
@@ -638,98 +913,47 @@ export default function Page() {
 
               {viewMode === "goals" && (
                 <section className="px-4 lg:px-6">
-                  <div className="max-w-2xl mx-auto">
-                    {/* Header row */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h2 className="text-base font-semibold">Savings Goals</h2>
-                        <p className="text-xs text-muted-foreground mt-0.5">Track and manage your financial targets</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        onClick={() => setGoalWizardOpen(true)}
-                        className="gap-1.5"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        Add Goal
-                      </Button>
-                    </div>
-
-                    {/* Goals list */}
-                    {goalsLoading ? (
-                      <div className="flex items-center justify-center py-12 text-sm text-muted-foreground gap-2">
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                        Loading goals…
-                      </div>
-                    ) : goals.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-muted-foreground/20 bg-muted/10 px-6 py-10 text-center">
-                        <p className="text-2xl mb-2">🎯</p>
-                        <p className="text-sm font-medium text-muted-foreground">No goals yet</p>
-                        <p className="text-xs text-muted-foreground/60 mt-1">Click &quot;Add Goal&quot; to set your first savings target</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {goals.map((goal) => {
-                          const target = parseFloat(goal.target_amount)
-                          const monthly = parseFloat(goal.monthly_allocation)
-                          const deadline = new Date(goal.deadline)
-                          const now = new Date()
-                          const monthsLeft = Math.max(0, (deadline.getFullYear() - now.getFullYear()) * 12 + (deadline.getMonth() - now.getMonth()))
-                          const isActive = goal.status === "active"
-                          return (
-                            <div key={goal.id} className="group rounded-2xl border border-border/50 bg-card/60 px-4 py-3.5 flex items-start justify-between gap-3 hover:border-border/80 transition-colors">
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2 mb-0.5">
-                                  <span className="text-sm font-medium truncate">{goal.label || goal.category}</span>
-                                  {goal.label && (
-                                    <span className="text-[10px] text-muted-foreground/50 bg-muted/50 px-1.5 py-0.5 rounded-full shrink-0">{goal.category}</span>
-                                  )}
-                                  <span className={cn(
-                                    "text-[10px] px-1.5 py-0.5 rounded-full shrink-0",
-                                    isActive ? "bg-green-500/10 text-green-600" : "bg-muted/50 text-muted-foreground"
-                                  )}>
-                                    {goal.status}
-                                  </span>
-                                </div>
-                                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
-                                  <span>Target: <span className="font-medium text-foreground">{formatCurrency(target)}</span></span>
-                                  <span>Monthly: <span className="font-medium text-foreground">{formatCurrency(monthly)}</span></span>
-                                  <span>Deadline: <span className="font-medium text-foreground">{deadline.toLocaleDateString(undefined, { month: "short", year: "numeric" })}</span></span>
-                                  {monthsLeft > 0 && <span className="text-muted-foreground/60">{monthsLeft}mo left</span>}
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => deleteGoal(goal.id)}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/8"
-                                title="Delete goal"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-
-                    {/* Goal wizard modal */}
-                    <AnimatePresence>
-                      {goalWizardOpen && (
-                        <m.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30 backdrop-blur-sm"
-                          onClick={(e) => { if (e.target === e.currentTarget) setGoalWizardOpen(false) }}
-                        >
-                          <GoalWizardCard onDismiss={() => {
-                            setGoalWizardOpen(false)
-                            goalsFetchedRef.current = false
-                            fetchGoals()
-                          }} />
-                        </m.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
+                  <SavingsGoalsPanel
+                    goals={goals}
+                    goalContext={goalContext}
+                    isLoading={goalsLoading}
+                    isComposerOpen={goalWizardOpen}
+                    onAddGoal={(defaults) => openGoalWizard(defaults)}
+                    onDeleteGoal={deleteGoal}
+                    onUpdateStatus={updateGoalStatus}
+                    onCreateEntry={createGoalEntry}
+                    transactions={goalTransactions}
+                    transactionsLoading={goalTransactionsLoading}
+                    transactionsError={goalTransactionsError}
+                    composer={
+                      <AnimatePresence mode="wait" initial={false}>
+                        {goalWizardOpen ? (
+                          <m.div
+                            key={`goal-composer-${goalWizardDefaults?.goalKind ?? "default"}-${goalWizardDefaults?.label ?? "base"}`}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                          >
+                            <GoalWizardCard
+                              defaults={goalWizardDefaults ?? undefined}
+                              debts={debtsData?.debts ?? []}
+                              pocketsData={pocketsBundle}
+                              currentNetWorth={netWorthSnapshot.total}
+                              financialProfile={goalFinancialProfile ?? undefined}
+                              onDismiss={() => {
+                                setGoalWizardOpen(false)
+                                setGoalWizardDefaults(null)
+                              }}
+                              onSaved={() => {
+                                goalsFetchedRef.current = false
+                                fetchGoals()
+                              }}
+                            />
+                          </m.div>
+                        ) : null}
+                      </AnimatePresence>
+                    }
+                  />
                 </section>
               )}
             </div>
