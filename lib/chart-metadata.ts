@@ -598,6 +598,11 @@ export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
     title: "Store Price Dispersion Index",
     description: "Shows the price variation across stores for common items.",
   },
+  "testCharts:weekendSpendingShare": {
+    id: "testCharts:weekendSpendingShare",
+    title: "Weekend spending share",
+    description: "Share of spending that occurs on weekends vs weekdays.",
+  },
 }
 
 export function getChartMetadata(chartId: ChartId): ChartMetadata {

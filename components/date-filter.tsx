@@ -26,6 +26,7 @@ import { Calendar } from "@/components/ui/calendar"
 import type { DateRange } from "react-day-picker"
 
 import type { DateFilterType } from "@/lib/date-filter"
+import { cn } from "@/lib/utils"
 
 export type { DateFilterType } from "@/lib/date-filter"
 
@@ -35,6 +36,9 @@ interface DateFilterProps {
   value?: DateFilterType | null
   onChange?: (value: DateFilterType | null) => void
   availableYears: number[]
+  triggerVariant?: React.ComponentProps<typeof Button>["variant"]
+  triggerSize?: React.ComponentProps<typeof Button>["size"]
+  triggerClassName?: string
 }
 
 function formatCustomRangeLabel(filter: string): string {
@@ -48,7 +52,14 @@ function formatCustomRangeLabel(filter: string): string {
   return `${fmt(start)} – ${fmt(end)}`
 }
 
-export function DateFilter({ value, onChange, availableYears }: DateFilterProps) {
+export function DateFilter({
+  value,
+  onChange,
+  availableYears,
+  triggerVariant = "outline",
+  triggerSize = "icon",
+  triggerClassName,
+}: DateFilterProps) {
   const { filter: globalFilter, setFilter: setGlobalFilter } = useDateFilter()
 
   const effectiveValue = value !== undefined ? value : globalFilter
@@ -90,7 +101,11 @@ export function DateFilter({ value, onChange, availableYears }: DateFilterProps)
         <div ref={anchorRef} className="relative">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon">
+              <Button
+                variant={triggerVariant}
+                size={triggerSize}
+                className={cn("!gap-0 !p-0", triggerClassName)}
+              >
                 <IconFilter className="size-[1.2rem]" />
                 <span className="sr-only">Filter by date</span>
               </Button>

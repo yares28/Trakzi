@@ -35,7 +35,6 @@ import { computeSavingsScore } from "@/lib/savings-score"
 import { GoalWizardCard } from "@/components/chat/goal-wizard-card"
 import { SavingsGoalsPanel } from "@/components/savings-goals-panel"
 import { AnimatePresence, m } from "framer-motion"
-import { MapPin } from "lucide-react"
 import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
 import { useOnboarding } from "@/components/onboarding/onboarding-context"
 import { summarizeGoals, type GoalContext } from "@/lib/goals"
@@ -52,7 +51,7 @@ const SAVINGS_VIEW_MODE_STORAGE_KEY = "savings-view-mode"
 const DEFAULT_SAVINGS_ORDER = ["savingsAccumulation", "savingsRateTrend"]
 
 export default function Page() {
-  const { startTour, completeChecklistItem } = useOnboarding()
+  const { completeChecklistItem } = useOnboarding()
 
   useEffect(() => {
     completeChecklistItem("explore_savings")
@@ -636,17 +635,6 @@ export default function Page() {
         <div className="flex flex-1 flex-col overflow-hidden">
           <div className="@container/main flex flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden min-w-0">
             <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 min-w-0 w-full">
-              <div className="flex items-center justify-end px-4 lg:px-6">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => startTour("savings")}
-                  className="text-muted-foreground gap-1.5 text-xs h-7"
-                >
-                  <MapPin className="size-3.5" />
-                  Take a tour
-                </Button>
-              </div>
               {/* Top summary cards – shared layout for all modes */}
               <SectionCards
                 totalIncome={stats.totalIncome}

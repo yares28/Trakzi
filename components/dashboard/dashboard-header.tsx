@@ -2,12 +2,7 @@
 
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import { DateFilter, DateFilterType } from "@/components/date-filter"
-import {
-    FALLBACK_DATE_FILTER,
-    isValidDateFilterValue,
-    normalizeDateFilterValue,
-} from "@/lib/date-filter"
+import { DateFilter } from "@/components/date-filter"
 import { useState, useEffect } from "react"
 import { useDateFilter } from "@/components/date-filter-provider"
 
@@ -35,14 +30,14 @@ export function DashboardHeader() {
 
 
     return (
-        <header className="flex h-[var(--header-height)] shrink-0 items-center gap-2 border-b transition-[width,height] duration-300 ease-in-out will-change-[width,height] group-has-data-[collapsible=icon]/sidebar-wrapper:h-[var(--header-height)] ml-[5px]">
+        <header className="flex h-[var(--header-height)] shrink-0 items-center gap-2 border-b transition-[width,height] duration-300 ease-in-out will-change-[width,height] group-has-data-[collapsible=icon]/sidebar-wrapper:h-[var(--header-height)]">
             <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
                 <SidebarTrigger className="-ml-1 md:hidden" />
                 <Separator
                     orientation="vertical"
-                    className="mx-2 data-[orientation=vertical]:h-4"
+                    className="mx-2 data-[orientation=vertical]:h-4 md:hidden"
                 />
-                <div className="ml-auto flex items-center gap-2">
+                <div className="ml-auto flex items-center gap-2 md:hidden">
                     <DateFilter
                         value={dateFilter}
                         onChange={setDateFilter}

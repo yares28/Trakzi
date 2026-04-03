@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { useTheme } from "next-themes"
 import { useQueryClient } from "@tanstack/react-query"
 
@@ -29,7 +30,6 @@ import dynamic from "next/dynamic"
 import { DEFAULT_ADVANCED_CHART_ORDER, DEFAULT_ADVANCED_CHART_SIZES } from "./constants"
 import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
 import { useOnboarding } from "@/components/onboarding/onboarding-context"
-import { Button } from "@/components/ui/button"
 
 const ChartSpendingPyramid = dynamic(
   () => import("@/components/chart-spending-pyramid").then((m) => ({ default: m.ChartSpendingPyramid })),
@@ -44,6 +44,7 @@ const ChartAreaInteractive = dynamic(
 type AnalyticsViewMode = "analytics" | "advanced" | "trends"
 
 export default function AnalyticsPage() {
+  const searchParams = useSearchParams()
   const { resolvedTheme } = useTheme()
   const [viewMode, setViewMode] = useState<AnalyticsViewMode>("analytics")
   const [advancedChartOrder, setAdvancedChartOrder] = useState(DEFAULT_ADVANCED_CHART_ORDER)
@@ -134,6 +135,13 @@ export default function AnalyticsPage() {
   const handleViewModeChange = useCallback((mode: AnalyticsViewMode) => {
     setViewMode(mode)
   }, [])
+
+  useEffect(() => {
+    const v = searchParams.get("view")
+    if (v === "trends" || v === "advanced" || v === "analytics") {
+      setViewMode(v)
+    }
+  }, [searchParams])
 
   return (
     <AnalyticsLayout

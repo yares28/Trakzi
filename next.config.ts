@@ -59,7 +59,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/analytics/trends",
-        destination: "/trends",
+        destination: "/analytics?view=trends",
         permanent: true,
       },
     ]

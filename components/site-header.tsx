@@ -95,14 +95,8 @@ export function SiteHeader() {
         "border border-border/50 shadow-lg shadow-black/5",
         // Smooth transform transition (GPU-accelerated, no layout thrash)
         "transition-transform duration-300 ease-in-out will-change-transform",
-        // Desktop: regular flat header
-        "md:mx-0 md:mt-0 md:mb-0 md:ml-[5px]",
-        "md:h-[var(--header-height)] md:rounded-none md:rounded-t-2xl",
-        "md:bg-background md:backdrop-blur-none",
-        "md:border-0 md:border-b md:shadow-none",
-        // Desktop: completely hide when sidebar is collapsed
-        // (trigger + filter move into the sidebar itself in this state)
-        "md:group-has-data-[collapsible=icon]/sidebar-wrapper:hidden",
+        // Desktop: header removed entirely now that trigger + filter live in the sidebar
+        "md:hidden",
         // Mobile: slide up out of view when scrolling down
         !isHeaderVisible && "-translate-y-full",
       )}

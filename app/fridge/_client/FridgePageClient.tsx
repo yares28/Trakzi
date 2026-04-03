@@ -29,8 +29,6 @@ import { useReceiptUpload } from "./hooks/useReceiptUpload"
 import { useReviewDialog } from "./hooks/useReviewDialog"
 import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
 import { useOnboarding } from "@/components/onboarding/onboarding-context"
-import { MapPin } from "lucide-react"
-import { Button } from "@/components/ui/button"
 
 type FridgeViewMode = "fridge" | "advanced" | "trends"
 
@@ -170,7 +168,7 @@ export function FridgePageClient() {
 
   const isChartsLoading = bundleLoading || isLoadingReceiptTransactions
 
-  const { startTour, completeChecklistItem } = useOnboarding()
+  const { completeChecklistItem } = useOnboarding()
 
   useEffect(() => {
     completeChecklistItem("explore_fridge")
@@ -191,17 +189,6 @@ export function FridgePageClient() {
     >
       <div className="@container/main flex flex-1 flex-col gap-2 min-w-0">
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 min-w-0 w-full">
-          <div className="flex items-center justify-end px-4 lg:px-6">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => startTour("fridge")}
-              className="text-muted-foreground gap-1.5 text-xs h-7"
-            >
-              <MapPin className="size-3.5" />
-              Take a tour
-            </Button>
-          </div>
           <MetricsCards metrics={metrics} metricsTrends={metricsTrends} receiptTransactions={receiptTransactions} isLoading={isChartsLoading} />
 
           {/* Fridge / Advanced / Trends switch - Horizontal scroll on mobile */}

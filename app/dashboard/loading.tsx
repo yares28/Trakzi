@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 
 export default function Loading() {
     return (
-        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+        <div className="-mt-2 flex flex-col gap-4 pt-0 pb-4 md:-mt-2 md:gap-6 md:pt-0 md:pb-6">
             <div className="px-4 lg:px-6">
                 {/* Dashboard cards skeleton */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

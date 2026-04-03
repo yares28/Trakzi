@@ -18,13 +18,11 @@ import { useHomeData } from "./hooks/useHomeData"
 import { useHomeStats } from "./hooks/useHomeStats"
 import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
 import { useOnboarding } from "@/components/onboarding/onboarding-context"
-import { MapPin } from "lucide-react"
-import { Button } from "@/components/ui/button"
 
 export default function Page() {
   const { filter: dateFilter } = useDateFilter()
   const queryClient = useQueryClient()
-  const { startTour, completeChecklistItem } = useOnboarding()
+  const { completeChecklistItem } = useOnboarding()
 
   const {
     transactions,
@@ -74,17 +72,6 @@ export default function Page() {
     >
       <div className="@container/main flex flex-1 flex-col gap-2 min-w-0">
         <main className="flex-1 space-y-4 pt-0 lg:pt-2 min-w-0 w-full">
-          <div className="flex items-center justify-end px-4 lg:px-6 pt-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => startTour("home")}
-              className="text-muted-foreground gap-1.5 text-xs h-7"
-            >
-              <MapPin className="size-3.5" />
-              Take a tour
-            </Button>
-          </div>
           <StatsCards
             stats={stats}
             trends={statsTrends}
