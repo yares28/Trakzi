@@ -5,13 +5,14 @@ import { useTheme } from "next-themes"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
 import { buildCashFlowGraphFromTransactions } from "@/lib/charts/cash-flow-graph"
+import { useDemoMode } from "@/lib/demo/demo-context"
 
 import type {
   ActivityRingsConfig,
   ActivityRingsData,
   HomeTransaction,
 } from "../types"
-import { getSubCategoryLabel, normalizeCategoryName } from "../utils/categories"
+import { getSubCategoryLabel, getSuggestedDemoRingLimit, normalizeCategoryName } from "../utils/categories"
 
 type StreamgraphData = {
   data: Array<Record<string, string | number>>
@@ -82,6 +83,7 @@ export function useHomeChartData({
   const chartTransactions = transactions
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
+  const { isDemoMode } = useDemoMode()
   const palette = getPalette()
 
   const [ringLimits, setRingLimits] = useState<Record<string, number>>({})
@@ -115,7 +117,7 @@ export function useHomeChartData({
     const isYearLike =
       !filter || filter === "lastyear" || /^\d{4}$/.test(filter)
     const base = isYearLike ? 5000 : 2000
-    return isDemoMode ? base * 3 : base
+    return isDemoMode ? base * 4 : base
   }, [])
 
   const activityData: ActivityRingsData = useMemo(() => {
@@ -163,7 +165,9 @@ export function useHomeChartData({
       const effectiveLimit =
         typeof storedLimit === "number" && storedLimit > 0
           ? storedLimit
-          : getDefaultRingLimit(dateFilter)
+          : (isDemoMode
+              ? (getSuggestedDemoRingLimit(amount) ?? getDefaultRingLimit(dateFilter, true))
+              : getDefaultRingLimit(dateFilter))
 
       const ratioToLimit =
         effectiveLimit && effectiveLimit > 0
@@ -192,11 +196,12 @@ export function useHomeChartData({
             )}\nNo budget set`,
         category,
         spent: amount,
+        budget: effectiveLimit,
         value,
         color,
       }
     })
-  }, [chartTransactions, palette, ringCategories, ringLimits, dateFilter, getDefaultRingLimit])
+  }, [chartTransactions, palette, ringCategories, ringLimits, dateFilter, getDefaultRingLimit, isDemoMode])
 
   const activityConfig: ActivityRingsConfig = useMemo(
     () => ({

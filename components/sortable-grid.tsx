@@ -44,6 +44,7 @@ import {
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useChartResize } from "@/lib/chart-resize-context"
 
 // ============================================================================
 // Types
@@ -246,197 +247,214 @@ export function SortableGridItem({
     maxH = 12,
     onResize,
 }: SortableGridItemProps) {
-    const isMobile = useIsMobile()
+  const isMobile = useIsMobile()
+  const { pauseResize, resumeResize } = useChartResize()
 
-    // Use mobileH on mobile devices if provided, otherwise fall back to h
-    const effectiveH = isMobile && mobileH !== undefined ? mobileH : h
+  // Use mobileH on mobile devices if provided, otherwise fall back to h
+  const effectiveH = isMobile && mobileH !== undefined ? mobileH : h
 
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        setActivatorNodeRef,
-        transform,
-        transition,
-        isDragging,
-    } = useSortable({ id })
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id })
 
-    // Resize state
-    const [isResizing, setIsResizing] = React.useState(false)
-    const [resizeHeight, setResizeHeight] = React.useState<number | null>(null)
-    const [resizeWidth, setResizeWidth] = React.useState<GridWidth | null>(null)
-    const containerRef = React.useRef<HTMLDivElement>(null)
-    const startPosRef = React.useRef<{ x: number; y: number; w: number; h: number } | null>(null)
+  // Resize state
+  const [isResizing, setIsResizing] = React.useState(false)
+  const [resizeHeight, setResizeHeight] = React.useState<number | null>(null)
+  const [resizeWidth, setResizeWidth] = React.useState<GridWidth | null>(null)
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const startPosRef = React.useRef<{ x: number; y: number; w: number; h: number } | null>(null)
+  const resizeHeightRef = React.useRef<number | null>(null)
+  const resizeWidthRef = React.useRef<GridWidth | null>(null)
 
-    // Current dimensions (resize state or props)
-    // Use effectiveH for display, but resize operations work with original h
-    const currentH = resizeHeight ?? effectiveH
-    // On mobile the grid is grid-cols-1, so items must span 1 column
-    // to avoid creating implicit overflow columns
-    const currentW = isMobile ? 1 : (resizeWidth ?? w)
+  // Current dimensions (resize state or props)
+  // Use effectiveH for display, but resize operations work with original h
+  const currentH = resizeHeight ?? effectiveH
+  // On mobile the grid is grid-cols-1, so items must span 1 column
+  // to avoid creating implicit overflow columns
+  const currentW = isMobile ? 1 : (resizeWidth ?? w)
 
-    // Handle resize start
-    const handleResizeStart = React.useCallback((e: React.MouseEvent) => {
-        e.preventDefault()
-        e.stopPropagation()
+  // Handle resize start
+  const handleResizeStart = React.useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
 
-        const rect = containerRef.current?.getBoundingClientRect()
-        if (!rect) return
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (!rect) return
 
-        startPosRef.current = {
-            x: e.clientX,
-            y: e.clientY,
-            w: currentW,
-            h: currentH,
-        }
-        setIsResizing(true)
-    }, [currentW, currentH])
+    startPosRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      w: currentW,
+      h: currentH,
+    }
+    pauseResize()
+    setIsResizing(true)
+  }, [currentW, currentH, pauseResize])
 
-    // Handle resize move
-    React.useEffect(() => {
-        if (!isResizing) return
+  // Handle resize move
+  React.useEffect(() => {
+    if (!isResizing) return
 
-        const handleMouseMove = (e: MouseEvent) => {
-            if (!startPosRef.current) return
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!startPosRef.current) return
 
-            const deltaY = e.clientY - startPosRef.current.y
-            const deltaX = e.clientX - startPosRef.current.x
+      const deltaY = e.clientY - startPosRef.current.y
+      const deltaX = e.clientX - startPosRef.current.x
 
-            // Calculate new height in grid units
-            const newHPx = startPosRef.current.h * CELL_HEIGHT + deltaY
-            let newH = Math.round(newHPx / CELL_HEIGHT)
-            newH = Math.max(minH, Math.min(maxH, newH))
+      // Calculate new height in grid units
+      const newHPx = startPosRef.current.h * CELL_HEIGHT + deltaY
+      let newH = Math.round(newHPx / CELL_HEIGHT)
+      newH = Math.max(minH, Math.min(maxH, newH))
 
-            // Calculate width change - granular from 3 to 12
-            // Each grid unit is ~8.33% of container width
-            // Use deltaX to calculate proportional width change
-            const containerWidth = containerRef.current?.parentElement?.offsetWidth || 800
-            const widthPerUnit = containerWidth / 12
-            const unitChange = Math.round(deltaX / widthPerUnit)
-            let newW = Math.max(3, Math.min(12, startPosRef.current.w + unitChange)) as GridWidth
+      // Calculate width change - granular from 3 to 12
+      // Each grid unit is ~8.33% of container width
+      // Use deltaX to calculate proportional width change
+      const containerWidth = containerRef.current?.parentElement?.offsetWidth || 800
+      const widthPerUnit = containerWidth / 12
+      const unitChange = Math.round(deltaX / widthPerUnit)
+      let newW = Math.max(3, Math.min(12, startPosRef.current.w + unitChange)) as GridWidth
 
-            // Apply constraints
-            if (newW < minW) newW = Math.max(3, minW) as GridWidth
-            if (newW > maxW) newW = Math.min(12, maxW) as GridWidth
+      // Apply constraints
+      if (newW < minW) newW = Math.max(3, minW) as GridWidth
+      if (newW > maxW) newW = Math.min(12, maxW) as GridWidth
 
-            setResizeHeight(newH)
-            setResizeWidth(newW)
-        }
-
-        const handleMouseUp = () => {
-            setIsResizing(false)
-
-            // Notify parent of final size
-            if (onResize && (resizeHeight !== null || resizeWidth !== null)) {
-                onResize(id, resizeWidth ?? w, resizeHeight ?? h)
-            }
-
-            // Reset resize state - the parent should update w/h props
-            startPosRef.current = null
-        }
-
-        document.addEventListener('mousemove', handleMouseMove)
-        document.addEventListener('mouseup', handleMouseUp)
-
-        return () => {
-            document.removeEventListener('mousemove', handleMouseMove)
-            document.removeEventListener('mouseup', handleMouseUp)
-        }
-    }, [isResizing, id, w, h, minH, maxH, minW, maxW, onResize, resizeHeight, resizeWidth])
-
-    // Apply full transform (both X and Y) during drag
-    const adjustedTransform = transform ? {
-        x: transform.x,
-        y: transform.y,
-        scaleX: 1, // Prevent scaling
-        scaleY: 1, // Prevent scaling
-    } : null
-
-    // Provide drag handle context to children
-    const handleContext: DragHandleContextValue = {
-        setActivatorNodeRef,
-        listeners,
-        attributes,
-        isDragging,
+      setResizeHeight(newH)
+      setResizeWidth(newW)
+      resizeHeightRef.current = newH
+      resizeWidthRef.current = newW
     }
 
-    return (
-        <DragHandleContext.Provider value={handleContext}>
-            <div
-                ref={(node) => {
-                    setNodeRef(node)
-                    if (containerRef) {
-                        (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node
-                    }
-                }}
-                style={{
-                    // Grid positioning
-                    gridRow: `span ${currentH}`,
-                    gridColumn: `span ${currentW}`,
-                    // Transform for dragging (no scale during drag to avoid weirdness)
-                    transform: adjustedTransform ? CSS.Transform.toString(adjustedTransform) : undefined,
-                    // NO transition during drag for immediate feedback
-                    // Only use GPU-composited properties (transform, opacity, box-shadow)
-                    // Removed grid-row/grid-column transitions - they trigger expensive layout recalculations
-                    transition: isDragging
-                        ? 'none'
-                        : isResizing
-                            ? 'box-shadow 200ms ease, opacity 200ms ease'
-                            : 'transform 200ms ease-out, box-shadow 200ms ease, opacity 200ms ease',
-                    // Visual feedback
-                    opacity: isDragging ? 0.9 : 1,
-                    zIndex: isDragging ? 1000 : isResizing ? 999 : undefined,
-                    // Shadow effect based on state
-                    boxShadow: isDragging
-                        ? '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 2px rgba(var(--primary), 0.3)'
-                        : isResizing
-                            ? '0 10px 25px -5px rgba(0, 0, 0, 0.15)'
-                            : undefined,
-                    // GPU acceleration for smoother animations
-                    willChange: isDragging || isResizing ? 'transform, opacity' : 'auto',
-                }}
-                className={`${className} relative group`}
-                data-chart-id={id}
-            >
-                {children}
+    const handleMouseUp = () => {
+      setIsResizing(false)
 
-                {/* Resize handle - southeast corner - hidden on mobile */}
-                {resizable && (
-                    <div
-                        className={`hidden md:block absolute bottom-1 right-1 w-5 h-5 cursor-se-resize z-50 
+      // Notify parent of final size
+      if (onResize && (resizeHeightRef.current !== null || resizeWidthRef.current !== null)) {
+        onResize(id, resizeWidthRef.current ?? w, resizeHeightRef.current ?? h)
+      }
+
+      // Reset resize state - the parent should update w/h props
+      startPosRef.current = null
+      resizeHeightRef.current = null
+      resizeWidthRef.current = null
+      resumeResize(80)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizing, id, w, h, minH, maxH, minW, maxW, onResize, resumeResize])
+
+  // Apply full transform (both X and Y) during drag
+  const adjustedTransform = transform ? {
+    x: transform.x,
+    y: transform.y,
+    scaleX: 1, // Prevent scaling
+    scaleY: 1, // Prevent scaling
+  } : null
+
+  // Provide drag handle context to children
+  const handleContext: DragHandleContextValue = {
+    setActivatorNodeRef,
+    listeners,
+    attributes,
+    isDragging,
+  }
+
+  return (
+    <DragHandleContext.Provider value={handleContext}>
+      <div
+        ref={(node) => {
+          setNodeRef(node)
+          if (containerRef) {
+            (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node
+          }
+        }}
+        style={{
+          // Grid positioning
+          gridRow: `span ${currentH}`,
+          gridColumn: `span ${currentW}`,
+          // Transform for dragging (no scale during drag to avoid weirdness)
+          transform: adjustedTransform ? CSS.Transform.toString(adjustedTransform) : undefined,
+          // NO transition during drag for immediate feedback
+          // Only use GPU-composited properties (transform, opacity, box-shadow)
+          // Removed grid-row/grid-column transitions - they trigger expensive layout recalculations
+          transition: isDragging
+            ? 'none'
+            : isResizing
+              ? 'box-shadow 200ms ease, opacity 200ms ease'
+              : 'transform 200ms ease-out, box-shadow 200ms ease, opacity 200ms ease',
+          // Visual feedback
+          opacity: isDragging ? 0.9 : 1,
+          zIndex: isDragging ? 1000 : isResizing ? 999 : undefined,
+          // Shadow effect based on state
+          boxShadow: isDragging
+            ? '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 2px rgba(var(--primary), 0.3)'
+            : isResizing
+              ? '0 10px 25px -5px rgba(0, 0, 0, 0.15)'
+              : undefined,
+          // GPU acceleration for smoother animations
+          willChange: isDragging || isResizing ? 'transform, opacity' : 'auto',
+        }}
+        className={`${className} relative group`}
+        data-chart-id={id}
+      >
+        <div
+          className="h-full"
+          style={{
+            pointerEvents: isResizing ? 'none' : undefined,
+            userSelect: isResizing ? 'none' : undefined,
+          }}
+        >
+          {children}
+        </div>
+
+        {/* Resize handle - southeast corner - hidden on mobile */}
+        {resizable && (
+          <div
+            className={`hidden md:block absolute bottom-1 right-1 w-5 h-5 cursor-se-resize z-50 
                                    transition-all duration-200 ease-out
                                    hover:scale-125 hover:opacity-100
                                    ${isResizing ? 'scale-150 opacity-100' : 'opacity-60'}`}
-                        onMouseDown={handleResizeStart}
-                        title="Drag to resize"
-                    >
-                        {/* Three diagonal lines like standard resize handle */}
-                        <svg
-                            width="100%"
-                            height="100%"
-                            viewBox="0 0 20 20"
-                            className="text-muted-foreground/70"
-                        >
-                            <line x1="14" y1="20" x2="20" y2="14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                            <line x1="10" y1="20" x2="20" y2="10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                            <line x1="6" y1="20" x2="20" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                        </svg>
-                    </div>
-                )}
+            onMouseDown={handleResizeStart}
+            title="Drag to resize"
+          >
+            {/* Three diagonal lines like standard resize handle */}
+            <svg
+              width="100%"
+              height="100%"
+              viewBox="0 0 20 20"
+              className="text-muted-foreground/70"
+            >
+              <line x1="14" y1="20" x2="20" y2="14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              <line x1="10" y1="20" x2="20" y2="10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              <line x1="6" y1="20" x2="20" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </div>
+        )}
 
-                {/* Resize indicator while resizing - animated border */}
-                {isResizing && (
-                    <div
-                        className="absolute inset-0 border-2 border-primary/60 rounded-lg pointer-events-none z-40 
+        {/* Resize indicator while resizing - animated border */}
+        {isResizing && (
+          <div
+            className="absolute inset-0 border-2 border-primary/60 rounded-lg pointer-events-none z-40 
                                    animate-pulse"
-                        style={{
-                            boxShadow: '0 0 0 4px rgba(var(--primary), 0.1)',
-                        }}
-                    />
-                )}
-            </div>
-        </DragHandleContext.Provider>
-    )
+            style={{
+              boxShadow: '0 0 0 4px rgba(var(--primary), 0.1)',
+            }}
+          />
+        )}
+      </div>
+    </DragHandleContext.Provider>
+  )
 }
 
 // ============================================================================

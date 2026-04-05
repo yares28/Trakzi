@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { Play } from "lucide-react"
 import { LanguagePicker } from "@/components/language-picker"
+import { useDemoMode } from "@/lib/demo/demo-context"
 
 export function PageHeader({ locale = "en" }: { locale?: "en" | "es" }) {
   const isEs = locale === "es"
@@ -45,6 +46,8 @@ export function PageHeader({ locale = "en" }: { locale?: "en" | "es" }) {
 }
 
 export function CtaButtons({ locale = "en" }: { locale?: "en" | "es" }) {
+  const { enterDemo } = useDemoMode()
+
   return (
     <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
       {/* Get started button — matches landing hero exactly */}
@@ -70,7 +73,7 @@ export function CtaButtons({ locale = "en" }: { locale?: "en" | "es" }) {
       </Link>
 
       {/* Try Demo button — matches landing hero exactly */}
-      <Link href="/sign-up">
+      <button type="button" onClick={enterDemo}>
         <div className="group cursor-pointer border border-border bg-card gap-2 h-[60px] flex items-center p-[10px] rounded-full">
           <div className="border border-border bg-primary h-[40px] rounded-full flex items-center justify-center text-primary-foreground">
             <p className="font-medium tracking-tight mr-3 ml-3 flex items-center gap-2 justify-center text-base">
@@ -85,7 +88,7 @@ export function CtaButtons({ locale = "en" }: { locale?: "en" | "es" }) {
             </svg>
           </div>
         </div>
-      </Link>
+      </button>
     </div>
   )
 }

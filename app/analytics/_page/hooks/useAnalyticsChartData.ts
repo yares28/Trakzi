@@ -7,7 +7,7 @@ import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibilit
 import type { ChartDataStatusMap } from "@/lib/types/chart-data-status"
 
 import type { ActivityRingsConfig, ActivityRingsData, AnalyticsTransaction } from "../types"
-import { getDefaultRingLimit, normalizeCategoryName } from "../utils/categories"
+import { getDefaultRingLimit, getSuggestedDemoRingLimit, normalizeCategoryName } from "../utils/categories"
 
 /** Every calendar month from start through end (YYYY-MM), inclusive. */
 function expandYYYYMMRangeInclusive(startKey: string, endKey: string): string[] {
@@ -117,6 +117,7 @@ type UseAnalyticsChartDataParams = {
   dateFilter: string | null
   palette: string[] | undefined
   ringLimits: Record<string, number>
+  isDemoMode?: boolean
   savedChartSizes: Record<string, { w: number; h: number; x?: number; y?: number }>
   resolvedTheme?: string
 }
@@ -127,6 +128,7 @@ export function useAnalyticsChartData({
   dateFilter,
   palette,
   ringLimits,
+  isDemoMode = false,
   savedChartSizes,
   resolvedTheme,
 }: UseAnalyticsChartDataParams) {
@@ -265,7 +267,9 @@ export function useAnalyticsChartData({
       const effectiveLimit =
         typeof storedLimit === "number" && storedLimit > 0
           ? storedLimit
-          : getDefaultRingLimit(dateFilter)
+          : (isDemoMode
+              ? (getSuggestedDemoRingLimit(amount) ?? getDefaultRingLimit(dateFilter, true))
+              : getDefaultRingLimit(dateFilter))
 
       const ratioToLimit =
         effectiveLimit && effectiveLimit > 0
@@ -292,11 +296,12 @@ export function useAnalyticsChartData({
         // (extra fields are ignored by the library)
         category,
         spent: amount,
+        budget: effectiveLimit,
         value,
         color,
       }
     })
-  }, [rawTransactions, palette, ringCategories, ringLimits, dateFilter])
+  }, [rawTransactions, palette, ringCategories, ringLimits, dateFilter, isDemoMode])
 
   const incomeExpenseChart = useMemo(() => {
     // Use bundle data if available (pre-computed by server)

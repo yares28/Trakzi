@@ -2,7 +2,6 @@
 
 import { memo, useMemo, useState, useEffect, useRef } from "react"
 import ReactDOM from "react-dom"
-import { useTheme } from "next-themes"
 import {
     Card,
     CardContent,
@@ -20,7 +19,7 @@ import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
-import { getChartTextColor } from "@/lib/chart-colors"
+import { getContrastTextColor } from "@/lib/chart-colors"
 
 interface ChartTopMerchantsRaceProps {
     data: Array<{
@@ -37,7 +36,6 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
     data,
     isLoading = false,
 }: ChartTopMerchantsRaceProps) {
-    const { resolvedTheme } = useTheme()
     const { getShuffledPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
     const palette = useMemo(
@@ -120,9 +118,6 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
         requestAnimationFrame(animate)
     }, [mounted, chartData])
 
-    const isDark = resolvedTheme === "dark"
-    const barLabelColor = getChartTextColor(isDark)
-
     const chartTitle = "Top 5 Merchants"
     const chartDescription =
         "Bar race showing your top 5 merchants by total spending. See where your money goes most frequently."
@@ -199,7 +194,7 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
                             >
                                 <span
                                     className="text-xs font-semibold truncate"
-                                    style={{ color: barLabelColor }}
+                                    style={{ color: getContrastTextColor(item.color) }}
                                 >
                                     {item.name}
                                 </span>

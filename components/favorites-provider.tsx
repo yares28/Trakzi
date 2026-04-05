@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import { type ChartId } from "@/lib/chart-card-sizes.config"
 import { useUserPreferences } from "@/components/user-preferences-provider"
 import { useDemoMode } from "@/lib/demo/demo-context"
@@ -29,19 +29,35 @@ export function useFavorites() {
 export function FavoritesProvider({ children }: { children: ReactNode }) {
   const { preferences, updatePagePreferences } = useUserPreferences()
   const { isDemoMode } = useDemoMode()
+  const [demoFavorites, setDemoFavorites] = useState<ChartId[]>(DEMO_DEFAULT_FAVORITES)
+
+  useEffect(() => {
+    if (!isDemoMode) return
+    setDemoFavorites(DEMO_DEFAULT_FAVORITES)
+  }, [isDemoMode])
 
   // Derive the Set from the preferences object (memoised).
   // In demo mode, provide default favorites when none are set.
   const favorites = useMemo<Set<ChartId>>(() => {
-    const arr = preferences.home?.favorites ?? []
-    if (arr.length === 0 && isDemoMode) {
-      return new Set(DEMO_DEFAULT_FAVORITES)
+    if (isDemoMode) {
+      return new Set(demoFavorites)
     }
+
+    const arr = preferences.home?.favorites ?? []
     return new Set(arr as ChartId[])
-  }, [preferences.home?.favorites, isDemoMode])
+  }, [demoFavorites, isDemoMode, preferences.home?.favorites])
 
   const toggleFavorite = useCallback(
     (chartId: ChartId) => {
+      if (isDemoMode) {
+        setDemoFavorites((current) =>
+          current.includes(chartId)
+            ? current.filter((id) => id !== chartId)
+            : [...current, chartId]
+        )
+        return
+      }
+
       const current = preferences.home?.favorites ?? []
       const next = current.includes(chartId)
         ? current.filter((id) => id !== chartId)
@@ -49,7 +65,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
 
       updatePagePreferences("home", { favorites: next })
     },
-    [preferences.home?.favorites, updatePagePreferences]
+    [isDemoMode, preferences.home?.favorites, updatePagePreferences]
   )
 
   const isFavorite = useCallback(

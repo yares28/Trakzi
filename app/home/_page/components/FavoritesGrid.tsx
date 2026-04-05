@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/popover"
 import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { useDemoMode } from "@/lib/demo/demo-context"
+import { getSuggestedDemoRingLimit } from "../utils/categories"
 import { CollapsedChartCard } from "@/components/collapsed-chart-card"
 
 import { DEFAULT_FAVORITE_SIZES } from "../constants"
@@ -356,12 +357,31 @@ export const FavoritesGrid = memo(function FavoritesGrid({
     new Set([...allExpenseCategories, ...displayedRingCategories, ...ringCategories])
   )
 
+  const getSuggestedDemoLimit = useCallback((category: string) => {
+    if (!isDemoMode) return null
+
+    const matchingRing = activityData.find((item) => {
+      const itemCategory =
+        (item as { category?: string }).category ??
+        (item.label ?? "Other")
+      return itemCategory === category
+    })
+
+    const spent = typeof (matchingRing as { spent?: number } | undefined)?.spent === "number"
+      ? (matchingRing as { spent?: number }).spent ?? 0
+      : 0
+
+    if (spent <= 0) return null
+
+    return getSuggestedDemoRingLimit(spent)
+  }, [activityData, isDemoMode])
+
   const getResolvedLimit = useCallback((category: string) => {
     const storedLimit = ringLimits[category]
     return typeof storedLimit === "number" && storedLimit > 0
       ? storedLimit
-      : getDefaultRingLimit(dateFilter, isDemoMode)
-  }, [dateFilter, getDefaultRingLimit, isDemoMode, ringLimits])
+      : (getSuggestedDemoLimit(category) ?? getDefaultRingLimit(dateFilter, isDemoMode))
+  }, [dateFilter, getDefaultRingLimit, getSuggestedDemoLimit, isDemoMode, ringLimits])
 
   const buildRingEditDrafts = useCallback(() => {
     const desiredCount = ringCategories.length > 0

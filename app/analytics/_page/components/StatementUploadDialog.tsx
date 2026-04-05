@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import { useUser } from "@clerk/nextjs"
 
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { FileUploadStatement, type FileUploadStatementLead } from "@/components/file-upload-statement"
 
 type StatementUploadDialogProps = {
@@ -52,6 +52,10 @@ export function StatementUploadDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="p-0 border-0 bg-transparent shadow-none sm:max-w-[95vw] md:max-w-[720px]">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Upload statement</DialogTitle>
+          <DialogDescription>Upload one or more bank statements to parse transactions.</DialogDescription>
+        </DialogHeader>
         <FileUploadStatement
           files={pendingFiles}
           fileProgresses={fileProgresses}

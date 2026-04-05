@@ -61,7 +61,7 @@ import { typedCapture } from "@/types/posthog-events"
 
 import type { AnalyticsTransaction } from "../types"
 import { DEFAULT_CHART_SIZES } from "../constants"
-import { getDefaultRingLimit } from "../utils/categories"
+import { getDefaultRingLimit, getSuggestedDemoRingLimit } from "../utils/categories"
 import type { useAnalyticsChartData } from "../hooks/useAnalyticsChartData"
 import { SpendingActivityRings } from "./SpendingActivityRings"
 
@@ -222,12 +222,31 @@ export function ChartsGrid({
     new Set([...allExpenseCategories, ...displayedRingCategories, ...ringCategories])
   )
 
+  const getSuggestedDemoLimit = useCallback((category: string) => {
+    if (!isDemoMode) return null
+
+    const matchingRing = activityData.find((item) => {
+      const itemCategory =
+        (item as { category?: string }).category ??
+        (item.label ?? "Other")
+      return itemCategory === category
+    })
+
+    const spent = typeof (matchingRing as { spent?: number } | undefined)?.spent === "number"
+      ? (matchingRing as { spent?: number }).spent ?? 0
+      : 0
+
+    if (spent <= 0) return null
+
+    return getSuggestedDemoRingLimit(spent)
+  }, [activityData, isDemoMode])
+
   const getResolvedLimit = useCallback((category: string) => {
     const storedLimit = ringLimits[category]
     return typeof storedLimit === "number" && storedLimit > 0
       ? storedLimit
-      : getDefaultRingLimit(dateFilter, isDemoMode)
-  }, [dateFilter, isDemoMode, ringLimits])
+      : (getSuggestedDemoLimit(category) ?? getDefaultRingLimit(dateFilter, isDemoMode))
+  }, [dateFilter, getSuggestedDemoLimit, isDemoMode, ringLimits])
 
   const buildRingEditDrafts = useCallback(() => {
     const desiredCount = ringCategories.length > 0
@@ -1091,7 +1110,7 @@ export function ChartsGrid({
           if (chartId === "momGrowth") {
             return (
               <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
-                <LazyChart title="Month-over-Month Growth" height={250}>
+                <LazyChart title="Month-over-Month Growth" height={320}>
                   <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                     <ChartMoMGrowth data={rawTransactions} isLoading={isLoadingTransactions} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
                   </div>

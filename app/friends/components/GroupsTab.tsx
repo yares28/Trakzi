@@ -47,7 +47,11 @@ export default function GroupsTab() {
     const { getPalette } = useColorScheme()
     const palette = getPalette()
 
-    const rooms = (bundleData?.rooms || []) as RoomData[]
+    const rooms = ((bundleData?.rooms || []) as RoomData[]).map((room) => ({
+        ...room,
+        members: Array.isArray(room.members) ? room.members : [],
+        recentActivity: Array.isArray(room.recentActivity) ? room.recentActivity : [],
+    }))
 
     const activeGroups = rooms.length
     const totalYouOwe = rooms.reduce((acc, r) => r.yourBalance < 0 ? acc + Math.abs(r.yourBalance) : acc, 0)
@@ -139,6 +143,7 @@ export default function GroupsTab() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     {rooms.map((room, idx) => {
                         const cardColor = getCardColor(idx)
+                        const recentActivity = room.recentActivity
                         return (
                             <Card
                                 key={room.id}
@@ -191,11 +196,11 @@ export default function GroupsTab() {
                                     <div className="flex items-center justify-between pt-2 sm:pt-4 border-t border-border/40 mt-2 sm:mt-4">
                                         {/* Recent Activity - shows most recent action in room */}
                                         <div className="flex items-center gap-2 min-w-0 max-w-[60%]">
-                                            {room.recentActivity.length > 0 ? (
+                                            {recentActivity.length > 0 ? (
                                                 <div className="flex items-center gap-1.5 text-[9px] sm:text-[10px] text-muted-foreground truncate">
                                                     <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" />
-                                                    <span className="truncate">{room.recentActivity[0].description}</span>
-                                                    <span className="shrink-0">({formatActivityTime(room.recentActivity[0].created_at)})</span>
+                                                    <span className="truncate">{recentActivity[0].description}</span>
+                                                    <span className="shrink-0">({formatActivityTime(recentActivity[0].created_at)})</span>
                                                 </div>
                                             ) : (
                                                 <span className="text-[9px] sm:text-[10px] text-muted-foreground">No recent activity</span>

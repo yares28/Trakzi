@@ -146,6 +146,22 @@ function DebouncedResponsiveContainer({
     }
   }, [])
 
+  const renderSizedChildren = React.useCallback(
+    (width: number, height: number) => {
+      return React.Children.map(children, (child) => {
+        if (!React.isValidElement(child)) {
+          return child
+        }
+
+        return React.cloneElement(
+          child as React.ReactElement<{ width?: number; height?: number }>,
+          { width, height }
+        )
+      })
+    },
+    [children]
+  )
+
   return (
     <div
       ref={containerRef}
@@ -155,13 +171,7 @@ function DebouncedResponsiveContainer({
       }}
     >
       {dimensions && dimensions.width > 0 && dimensions.height > 0 ? (
-        <RechartsPrimitive.ResponsiveContainer
-          width={dimensions.width}
-          height={dimensions.height}
-          debounce={0}
-        >
-          {children}
-        </RechartsPrimitive.ResponsiveContainer>
+        renderSizedChildren(dimensions.width, dimensions.height)
       ) : (
         <div style={{ width: '100%', height: '100%' }} />
       )}

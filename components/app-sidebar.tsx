@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
+import { demoFetch } from "@/lib/demo/demo-fetch";
 import { NavDocuments } from "@/components/nav-documents";
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
@@ -90,13 +91,8 @@ IconAnalytics.displayName = "IconAnalytics";
 // Custom Chat icon component (using star image with mask for coloring)
 const IconChat = React.forwardRef<HTMLDivElement, React.ComponentProps<"div">>(
   (props, ref) => {
-    const { theme } = useTheme();
     const pathname = usePathname();
     const isActive = pathname === "/chat";
-
-    // Use mask approach for coloring support while respecting asset choice
-    const isDark = theme === "dark";
-    const src = isDark ? "/starW.png" : "/starB.png";
 
     return (
       <div
@@ -110,8 +106,7 @@ const IconChat = React.forwardRef<HTMLDivElement, React.ComponentProps<"div">>(
           ...props.style,
           width: "20px",
           height: "20px",
-          // marginLeft: '1px', // Handled via className
-          maskImage: `url(${src})`,
+          maskImage: "url(/starW.png)",
           maskSize: "contain",
           maskRepeat: "no-repeat",
           maskPosition: "center",
@@ -344,7 +339,7 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
   React.useEffect(() => {
     const fetchYears = async () => {
       try {
-        const response = await fetch("/api/transactions/years");
+        const response = await demoFetch("/api/transactions/years");
         if (response.ok) {
           const years = await response.json();
           setAvailableYears(years);

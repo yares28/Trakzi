@@ -11,7 +11,7 @@
 
 const COOKIE_NAME = "trakzi-demo-mode"
 
-function isDemoActive(): boolean {
+export function isDemoActive(): boolean {
     if (typeof document === "undefined") return false
     return document.cookie.includes(`${COOKIE_NAME}=true`)
 }

@@ -94,11 +94,11 @@ const MoMGrowthChart = memo(function MoMGrowthChart({
         )
     }
 
-    const chartHeight = forFullscreen ? "h-full" : "aspect-auto h-[250px]"
+    const chartHeight = forFullscreen ? "h-full" : "h-full min-h-[280px]"
 
     return (
-        <ChartContainer config={chartConfig} className={`${chartHeight} w-full min-w-0`}>
-            <AreaChart data={displayData}>
+        <ChartContainer config={chartConfig} className={`${chartHeight} flex-1 w-full min-w-0`}>
+            <AreaChart data={displayData} margin={{ top: 10, right: 10, bottom: 8, left: 0 }}>
                 <defs>
                     <linearGradient id="fillGrowthMoM" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="var(--color-growth)" stopOpacity={0.8} />
@@ -280,10 +280,10 @@ export const ChartMoMGrowth = memo(function ChartMoMGrowth({
                     </CardAction>
                 </CardHeader>
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
-                    <div className="flex-1 min-h-[200px]">
+                    <div className="flex min-h-0 flex-1">
                         <MoMGrowthChart flatData={flatData} growthColor={growthColor} />
                     </div>
-                    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2 mb-2">
+                    <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                         <div className="flex items-center gap-1.5">
                             <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: growthColor }} />
                             <span className="font-medium text-foreground">Growth Rate</span>

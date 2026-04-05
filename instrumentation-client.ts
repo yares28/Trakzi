@@ -12,17 +12,18 @@ import posthog from "posthog-js"
  * - Debug mode enabled in development for troubleshooting
  * - Autocapture disabled in development to reduce noise
  */
-if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_POSTHOG_KEY) {
+if (
+  typeof window !== 'undefined' &&
+  process.env.NODE_ENV !== 'development' &&
+  process.env.NEXT_PUBLIC_POSTHOG_KEY
+) {
   posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY, {
     api_host: "/ingest",
     ui_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
     // Enables capturing unhandled exceptions via Error Tracking
     capture_exceptions: true,
-    // Turn on debug in development mode for detailed logging
-    debug: process.env.NODE_ENV === "development",
-    // Disable autocapture in development to reduce noise
-    // Enable in production for automatic event tracking
-    autocapture: process.env.NODE_ENV !== "development",
+    debug: false,
+    autocapture: true,
     // App Router: explicit $pageview in components/posthog-pageview.tsx (avoids missed SPA navigations)
     capture_pageview: false,
     // Additional recommended options for Next.js

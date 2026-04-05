@@ -13,10 +13,10 @@ export default function SSOCallback() {
     const handleCallback = async () => {
       try {
         // handleRedirectCallback processes the OAuth response
-        // Clerk handles redirecting to afterSignInUrl/afterSignUpUrl automatically
+        // Clerk handles redirecting to the fallback URL automatically
         await handleRedirectCallback({
-          afterSignInUrl: "/home",
-          afterSignUpUrl: "/home",
+          signInFallbackRedirectUrl: "/home",
+          signUpFallbackRedirectUrl: "/home",
         })
         // If we reach here without redirect, manually redirect after short delay
         // This handles edge cases where automatic redirect doesn't occur

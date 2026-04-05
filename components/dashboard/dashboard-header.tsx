@@ -5,6 +5,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { DateFilter } from "@/components/date-filter"
 import { useState, useEffect } from "react"
 import { useDateFilter } from "@/components/date-filter-provider"
+import { demoFetch } from "@/lib/demo/demo-fetch"
 
 // Dashboard header - has date filter, no palette/theme switcher
 export function DashboardHeader() {
@@ -15,7 +16,7 @@ export function DashboardHeader() {
     useEffect(() => {
         const fetchYears = async () => {
             try {
-                const response = await fetch("/api/transactions/years")
+                const response = await demoFetch("/api/transactions/years")
                 if (response.ok) {
                     const years = await response.json()
                     setAvailableYears(years)
