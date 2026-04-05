@@ -16,6 +16,8 @@ type StatementUploadDialogProps = {
   onFilesChange: (files: File[]) => void
   onCancel: () => void
   onContinue: () => void
+  accountId?: string | null
+  onAccountChange?: (id: string | null) => void
 }
 
 export function StatementUploadDialog({
@@ -30,6 +32,8 @@ export function StatementUploadDialog({
   onFilesChange,
   onCancel,
   onContinue,
+  accountId,
+  onAccountChange,
 }: StatementUploadDialogProps) {
   const { user, isLoaded: isUserLoaded } = useUser()
 
@@ -63,6 +67,8 @@ export function StatementUploadDialog({
           projectName={projectName}
           onProjectNameChange={onProjectNameChange}
           projectLead={projectLead}
+          accountId={accountId}
+          onAccountChange={onAccountChange}
           accept={accept}
           onFilesChange={onFilesChange}
           onCancel={onCancel}

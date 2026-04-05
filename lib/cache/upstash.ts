@@ -27,6 +27,7 @@ const CACHE_PREFIX = {
     'friends': 'friends',
     'room': 'room',
     'financial-health': 'financial-health',
+    'accounts': 'accounts',
 } as const
 
 // TTL in seconds
@@ -39,6 +40,7 @@ const CACHE_TTL = {
     friends: 2 * 60, // 2 minutes (social data changes frequently)
     room: 2 * 60, // 2 minutes
     'financial-health': 5 * 60, // 5 minutes
+    'accounts': 5 * 60, // 5 minutes
 } as const
 
 /**

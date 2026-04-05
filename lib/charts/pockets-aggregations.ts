@@ -43,6 +43,7 @@ export async function getCountrySpending(userId: string): Promise<CountryData[]>
         WHERE ci.user_id = $1
             AND t.user_id = $1
             AND t.amount < 0
+            AND (t.tx_type IS NULL OR t.tx_type = 'expense')
         GROUP BY ci.id, ci.country_name, ci.label
         HAVING COALESCE(SUM(ABS(t.amount)), 0) > 0
         ORDER BY SUM(ABS(t.amount)) DESC`,
@@ -67,7 +68,8 @@ async function getDistinctTravelDays(userId: string): Promise<number> {
          JOIN country_instances ci ON t.country_instance_id = ci.id
          WHERE ci.user_id = $1
            AND t.user_id = $1
-           AND t.amount < 0`,
+           AND t.amount < 0
+           AND (t.tx_type IS NULL OR t.tx_type = 'expense')`,
         [userId]
     )
     return parseInt(rows[0]?.days ?? '0', 10)

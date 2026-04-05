@@ -45,9 +45,10 @@ import type { PlanType, SubscriptionStatus } from "@/components/subscription-dia
 import { AnimatedThemeSwitcher } from "@/components/animated-theme-switcher"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useOnboarding } from "@/components/onboarding/onboarding-context"
-import { MapPin, Users } from "lucide-react"
+import { MapPin, Users, Landmark } from "lucide-react"
+import { AccountsSection } from "@/components/accounts/AccountsSection"
 
-type SettingsSection = "preferences" | "subscription" | "privacy" | "bug-report"
+type SettingsSection = "preferences" | "accounts" | "subscription" | "privacy" | "bug-report"
 
 interface SettingsPanelProps {
     children: React.ReactNode
@@ -55,6 +56,7 @@ interface SettingsPanelProps {
 
 const sidebarItems: { id: SettingsSection; label: string; icon: React.ReactNode }[] = [
     { id: "preferences", label: "Preferences", icon: <IconPalette className="size-4" /> },
+    { id: "accounts", label: "Accounts", icon: <Landmark className="size-4" /> },
     { id: "subscription", label: "Subscription", icon: <IconCrown className="size-4" /> },
     { id: "privacy", label: "Privacy", icon: <IconLock className="size-4" /> },
     { id: "bug-report", label: "Bug Report", icon: <IconBug className="size-4" /> },
@@ -160,6 +162,7 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                                 }}
                             >
                                 {activeSection === "preferences" && <PreferencesContent />}
+                                {activeSection === "accounts" && <AccountsSection />}
                                 {activeSection === "subscription" && <SubscriptionSection />}
                                 {activeSection === "privacy" && <PrivacySection />}
                                 {activeSection === "bug-report" && <BugReportSection />}
@@ -201,6 +204,7 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                                 }}
                             >
                                 {activeSection === "preferences" && <PreferencesContent />}
+                                {activeSection === "accounts" && <AccountsSection />}
                                 {activeSection === "subscription" && <SubscriptionSection />}
                                 {activeSection === "privacy" && <PrivacySection />}
                                 {activeSection === "bug-report" && <BugReportSection />}

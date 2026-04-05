@@ -34,6 +34,7 @@ import {
   isDefaultReceiptType,
 } from "./utils/defaults"
 
+import { TransferReviewBanner } from "@/components/transfers/TransferReviewBanner"
 import { useCategoryManagement } from "./hooks/useCategoryManagement"
 import { useCategoryPreferences } from "./hooks/useCategoryPreferences"
 import { useStatementImport } from "./hooks/useStatementImport"
@@ -299,6 +300,10 @@ export default function DataLibraryPage() {
               </div>
             )}
           </section>
+
+          <div className="px-4 lg:px-6">
+            <TransferReviewBanner />
+          </div>
 
           <StatsCards
             transactions={transactions}
@@ -580,6 +585,8 @@ export default function DataLibraryPage() {
         onFilesChange={(files) => statementImport.handleFilesChange(files)}
         onCancel={statementImport.handleCancelUpload}
         onContinue={statementImport.handleContinueUpload}
+        accountId={statementImport.accountId}
+        onAccountChange={statementImport.setAccountId}
       />
 
       <DataLibraryStatementReviewDialog

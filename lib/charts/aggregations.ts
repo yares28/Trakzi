@@ -1212,6 +1212,7 @@ export async function getTestChartsBundle(
         FROM transactions t
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE t.user_id = $1
+          AND (t.tx_type IS NULL OR t.tx_type IN ('expense', 'income'))
     `
     const txParams: any[] = [userId]
 

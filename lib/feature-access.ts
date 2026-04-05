@@ -300,5 +300,40 @@ export async function getUserPlanSummary(userId: string) {
     };
 }
 
+/**
+ * Check if user can create another bank account.
+ * Only active (non-archived) accounts count toward the plan limit.
+ */
+export async function checkAccountLimit(userId: string): Promise<FeatureAccessResult> {
+    const plan = await getUserPlan(userId);
+    const limits = getPlanLimits(plan);
+
+    const result = await neonQuery<{ count: string }>(
+        `SELECT COUNT(*) AS count FROM bank_accounts
+         WHERE user_id = $1 AND is_active = true`,
+        [userId]
+    );
+
+    const current = parseInt(result[0]?.count || '0');
+
+    if (current >= limits.maxAccounts) {
+        return {
+            allowed: false,
+            reason: `You've reached your limit of ${limits.maxAccounts} active account${limits.maxAccounts === 1 ? '' : 's'}. Archive an existing account or upgrade your plan.`,
+            currentUsage: current,
+            limit: limits.maxAccounts,
+            plan,
+            upgradeRequired: true,
+        };
+    }
+
+    return {
+        allowed: true,
+        currentUsage: current,
+        limit: limits.maxAccounts,
+        plan,
+    };
+}
+
 // Re-export cap types for convenience
 export type { TransactionCapacity, LimitExceededResponse };

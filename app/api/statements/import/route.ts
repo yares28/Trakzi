@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import Papa from "papaparse";
 import { neonInsert, neonQuery } from "@/lib/neonClient";
 import { getCurrentUserId } from "@/lib/auth";
+import { detectTransfers, persistTransferPairs } from "@/lib/accounts/transfer-detection";
 import { TxRow } from "@/lib/types/transactions";
 import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limiter";
 import { invalidateUserCache } from "@/lib/cache/upstash";
@@ -22,6 +23,8 @@ type ImportBody = {
         rawFormat?: "pdf" | "csv" | "xlsx" | "xls" | "other";
         fileId?: string | null;
     };
+    // Optional: bank account to associate this import with
+    accountId?: string | null;
     // Optional: allow partial import if over cap
     allowPartialImport?: boolean;
     // Optional: filter by date range
@@ -77,12 +80,25 @@ function isValidIsoDate(value: string | null | undefined): boolean {
 export const POST = async (req: NextRequest) => {
     try {
         const body = (await req.json()) as ImportBody;
-        const { csv, statementMeta, allowPartialImport, dateFrom, dateTo } = body;
+        const { csv, statementMeta, accountId, allowPartialImport, dateFrom, dateTo } = body;
         if (!csv) {
             return NextResponse.json({ error: "Missing CSV" }, { status: 400 });
         }
 
         const userId = await getCurrentUserId();
+
+        // Validate accountId ownership if provided
+        let resolvedAccountId: string | null = null;
+        if (accountId) {
+            const [account] = await neonQuery<{ id: string }>(
+                `SELECT id FROM bank_accounts WHERE id = $1 AND user_id = $2 AND is_active = true`,
+                [accountId, userId]
+            );
+            if (!account) {
+                return NextResponse.json({ error: "Account not found" }, { status: 404 });
+            }
+            resolvedAccountId = account.id;
+        }
 
         // Rate limit - bulk imports are expensive (DB writes + parsing)
         const rateLimitResult = await checkRateLimit(userId, 'mutation');
@@ -201,6 +217,7 @@ export const POST = async (req: NextRequest) => {
             status: string;
             row_count: number;
             imported_count: number;
+            account_id?: string | null;
             id?: number;
         }>("statements", {
             user_id: userId,
@@ -208,12 +225,14 @@ export const POST = async (req: NextRequest) => {
             status: "completed",
             row_count: rowsToInsert.length,
             imported_count: rowsToInsert.length,
+            account_id: resolvedAccountId,
         }) as Array<{
             id: number;
             user_id: string;
             file_name: string;
             status: string;
             row_count: number;
+            account_id?: string | null;
             imported_count: number;
         }>;
 
@@ -280,6 +299,7 @@ export const POST = async (req: NextRequest) => {
         const txRows = rowsToInsert.map((r) => ({
             user_id: userId,
             statement_id: statementId,
+            account_id: resolvedAccountId ?? null,
             tx_date: r.date,
             tx_time: r.time ?? null,
             description: r.description,
@@ -295,12 +315,23 @@ export const POST = async (req: NextRequest) => {
             updated_at: timestamp
         }));
 
-        await neonInsert("transactions", txRows, {
-            returnRepresentation: false
-        });
+        // Only run transfer detection when a bank account is assigned
+        let detectedTransferCount = 0;
+        if (resolvedAccountId) {
+            type TxInsertRow = typeof txRows[number];
+            const insertedTxs = await neonInsert<TxInsertRow>(
+                "transactions", txRows, { returnRepresentation: true }
+            ) as Array<TxInsertRow & { id: number }>;
+            const newIds = insertedTxs.map(t => t.id);
+            const pairs = await detectTransfers(userId, newIds);
+            await persistTransferPairs(userId, pairs);
+            detectedTransferCount = pairs.length;
+        } else {
+            await neonInsert("transactions", txRows, { returnRepresentation: false });
+        }
 
         // Build response
-        const response: ImportResponse = {
+        const response: ImportResponse & { detectedTransfers?: number } = {
             statementId,
             inserted: rowsToInsert.length,
             capacity: {
@@ -310,6 +341,10 @@ export const POST = async (req: NextRequest) => {
                 remaining: capacity.remaining - rowsToInsert.length,
             },
         };
+
+        if (detectedTransferCount > 0) {
+            (response as any).detectedTransfers = detectedTransferCount;
+        }
 
         if (invalidDateCount > 0) {
             response.skippedInvalidDates = invalidDateCount;

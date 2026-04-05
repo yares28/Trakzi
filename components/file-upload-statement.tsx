@@ -22,6 +22,7 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import { useAccounts } from "@/hooks/use-accounts"
 
 export type FileUploadStatementLead = {
     id: string
@@ -39,6 +40,9 @@ export interface FileUploadStatementProps {
     projectName: string
     onProjectNameChange: (next: string) => void
     projectLead?: FileUploadStatementLead | null
+
+    accountId?: string | null
+    onAccountChange?: (id: string | null) => void
 
     accept?: string
     onFilesChange: (nextFiles: File[]) => void
@@ -75,7 +79,9 @@ export function FileUploadStatement({
     parsingStatus,
     projectName,
     onProjectNameChange,
-    projectLead,
+    projectLead: _projectLead,
+    accountId,
+    onAccountChange,
     accept = ".csv,.xlsx,.xls,.pdf,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf",
     onFilesChange,
     onCancel,
@@ -83,6 +89,7 @@ export function FileUploadStatement({
     continueLabel = "Parse file",
 }: FileUploadStatementProps) {
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const { data: accounts = [] } = useAccounts()
 
     const handleFileSelect = (selected: FileList | null) => {
         if (!selected) return
@@ -107,9 +114,6 @@ export function FileUploadStatement({
     const removeFile = (fileKey: string) => {
         onFilesChange(files.filter((file) => getFileKey(file) !== fileKey))
     }
-
-    const leadLabel = projectLead?.name ?? "You"
-    const leadValue = projectLead?.id ?? "me"
 
     return (
         <Card className="w-full mx-auto max-w-xl bg-background rounded-lg p-0 shadow-2xl">
@@ -141,29 +145,26 @@ export function FileUploadStatement({
                         </div>
 
                         <div>
-                            <Label htmlFor="projectLead" className="mb-2">
-                                Project lead
+                            <Label htmlFor="accountPicker" className="mb-2">
+                                Account / Card{" "}
+                                <span className="text-muted-foreground text-xs">(optional)</span>
                             </Label>
-                            <Select value={leadValue} onValueChange={() => { }} disabled>
-                                <SelectTrigger id="projectLead" className="ps-2 w-full">
-                                    <SelectValue placeholder="Select project lead" />
+                            <Select
+                                value={accountId ?? "none"}
+                                onValueChange={(v) => onAccountChange?.(v === "none" ? null : v)}
+                            >
+                                <SelectTrigger id="accountPicker" className="w-full">
+                                    <SelectValue placeholder="No account" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectGroup>
-                                        <SelectItem value={leadValue}>
-                                            {projectLead?.imageUrl ? (
-                                                <img
-                                                    className="size-5 rounded"
-                                                    src={projectLead.imageUrl}
-                                                    alt={leadLabel}
-                                                    width={20}
-                                                    height={20}
-                                                />
-                                            ) : (
-                                                <div className="size-5 rounded bg-muted" />
-                                            )}
-                                            <span className="truncate">{leadLabel}</span>
-                                        </SelectItem>
+                                        <SelectItem value="none">No account</SelectItem>
+                                        {accounts.map((acc) => (
+                                            <SelectItem key={acc.id} value={acc.id}>
+                                                {acc.name}
+                                                {acc.institution ? ` · ${acc.institution}` : ""}
+                                            </SelectItem>
+                                        ))}
                                     </SelectGroup>
                                 </SelectContent>
                             </Select>

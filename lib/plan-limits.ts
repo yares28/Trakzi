@@ -82,6 +82,13 @@ export interface PlanLimits {
     maxRooms: number;
     sharedTxPerMonth: number;
     quickSplitsPerMonth: number;
+
+    // -------------------------------------------------------------------------
+    // BANK ACCOUNTS
+    // Number of named bank/card accounts the user can create.
+    // Only active (non-archived) accounts count toward the limit.
+    // -------------------------------------------------------------------------
+    maxAccounts: number;
 }
 
 // ============================================================================
@@ -112,6 +119,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
         maxRooms: 2,
         sharedTxPerMonth: 50,
         quickSplitsPerMonth: 20,
+        maxAccounts: 2,
     },
 
     // =========================================================================
@@ -136,6 +144,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
         maxRooms: 10,
         sharedTxPerMonth: 200,
         quickSplitsPerMonth: 100,
+        maxAccounts: 5,
     },
 
     // =========================================================================
@@ -160,6 +169,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
         maxRooms: Infinity,
         sharedTxPerMonth: Infinity,
         quickSplitsPerMonth: Infinity,
+        maxAccounts: 15,
     },
 };
 
