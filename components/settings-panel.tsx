@@ -104,7 +104,7 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
     }, [])
 
     const currentTourPageId = React.useMemo(() => getTourPageIdFromPathname(pathname), [pathname])
-    const canReplayCurrentTour = isLocalhost && isSignedIn && currentTourPageId !== null
+    const canReplayCurrentTour = isLocalhost && isSignedIn === true && currentTourPageId !== null
 
     const handleReplayCurrentTour = React.useCallback(() => {
         if (!currentTourPageId) return
