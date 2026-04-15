@@ -265,7 +265,7 @@ function renderFavoriteChart(
         />
       )
     case "dailyTransactionActivity":
-      return <ChartTransactionCalendar />
+      return <ChartTransactionCalendar dateFilter={dateFilter} />
     case "dayOfWeekSpending":
       return (
         <ChartDayOfWeekSpending
@@ -604,7 +604,10 @@ export const FavoritesGrid = memo(function FavoritesGrid({
               >
                 {chartId === "financialHealthScore" ? (
                   <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                    <ChartRadar />
+                    <ChartRadar
+                      dateFilter={dateFilter}
+                      rawTransactions={chartTransactions}
+                    />
                   </div>
                 ) : chartId === "spendingActivityRings" ? (
                   <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">

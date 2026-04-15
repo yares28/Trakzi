@@ -83,6 +83,7 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
         // Clear the pending upload markers
         delete (window as any).__pendingUploadFile
         delete (window as any).__pendingUploadTargetPage
+        delete (window as any).__pendingUploadNeedsDetection
 
         // Open the upload dialog with the pending file
         setPendingFiles([pendingFile])
@@ -95,15 +96,19 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
       return false
     }
 
-    // Check immediately
-    if (checkPendingUpload()) return
+    checkPendingUpload()
 
     // Also check after a short delay in case of timing issues
     const timeoutId = setTimeout(() => {
       checkPendingUpload()
     }, 100)
 
-    return () => clearTimeout(timeoutId)
+    window.addEventListener("trakzi:pending-upload", checkPendingUpload)
+
+    return () => {
+      clearTimeout(timeoutId)
+      window.removeEventListener("trakzi:pending-upload", checkPendingUpload)
+    }
   }, [])
 
   // Reset upload processed ref when dialog closes to allow re-uploading

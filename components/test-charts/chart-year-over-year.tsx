@@ -25,6 +25,7 @@ import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { getChartTextColor, getChartAxisLineColor } from "@/lib/chart-colors"
 import { formatCompactAxisMagnitude } from "@/lib/chart-axis-compact"
 import { HoverableBar } from "@/components/chart-hoverable-bar"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 const CHART_ID = "yearOverYear"
 const CHART_TITLE = "Spending comparison"
@@ -51,6 +52,7 @@ export const ChartYearOverYear = memo(function ChartYearOverYear({
     const { resolvedTheme } = useTheme()
     const { colorScheme, getShuffledPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
+    const isMobile = useIsMobile()
     const palette = useMemo(
         () => getShuffledPalette("analytics:yearOverYear"),
         [getShuffledPalette],
@@ -187,6 +189,12 @@ export const ChartYearOverYear = memo(function ChartYearOverYear({
         </div>
     )
 
+    const mobileViewSwitchControl = (
+        <div className="flex justify-center px-2 pb-2 md:hidden">
+            {viewSwitchControl}
+        </div>
+    )
+
         const renderCardFloatingMeta = () => (
         <ChartCardFloatingMeta
             insight={
@@ -268,16 +276,16 @@ export const ChartYearOverYear = memo(function ChartYearOverYear({
     const bottomTickRotation = viewMode === "year" ? 0 : -45
 
     const chart = (
-        <div className="h-full w-full min-h-[250px]" key={`${viewMode}-${colorScheme}`}>
+        <div className="h-full w-full min-h-[210px] sm:min-h-[250px]" key={`${viewMode}-${colorScheme}`}>
             <ResponsiveBar
                 data={chartData}
                 keys={["total"]}
                 indexBy="period"
-                margin={{ top: 20, right: 20, bottom: 50, left: 70 }}
+                margin={isMobile ? { top: 14, right: 12, bottom: 42, left: 58 } : { top: 20, right: 20, bottom: 50, left: 70 }}
                 padding={viewMode === "year" ? 0.4 : 0.3}
                 colors={({ data: d }) => d.color as string}
                 borderRadius={viewMode === "year" ? 8 : 6}
-                enableLabel={true}
+                enableLabel={!isMobile}
                 label={(d) => {
                     const v = Number(d.value)
                     if (v <= 0) return ""
@@ -310,7 +318,7 @@ export const ChartYearOverYear = memo(function ChartYearOverYear({
                         }),
                 }}
                 theme={{
-                    text: { fill: textColor, fontSize: viewMode === "year" ? 12 : 11 },
+                    text: { fill: textColor, fontSize: isMobile ? 10 : viewMode === "year" ? 12 : 11 },
                     axis: { ticks: { text: { fill: textColor } } },
                     grid: { line: { stroke: gridColor } },
                 }}
@@ -352,7 +360,9 @@ export const ChartYearOverYear = memo(function ChartYearOverYear({
                 </div>
             </ChartFullscreenModal>
             <Card className="@container/card h-full flex flex-col relative">
-                <ChartCardTopRightControl>{viewSwitchControl}</ChartCardTopRightControl>
+                <ChartCardTopRightControl className="hidden md:block">
+                    {viewSwitchControl}
+                </ChartCardTopRightControl>
                 <CardHeader>
                     <div className="flex items-center gap-2">
                         <GridStackCardDragHandle />
@@ -361,6 +371,7 @@ export const ChartYearOverYear = memo(function ChartYearOverYear({
                         <CardTitle>{CHART_TITLE}</CardTitle>
                     </div>
                 </CardHeader>
+                {mobileViewSwitchControl}
                 <CardContent className="px-2 pt-0 sm:px-6 sm:pt-2 flex-1 min-h-0">
                     {chart}
                 </CardContent>

@@ -89,6 +89,39 @@ const formatNodeId = (id: string) => {
   return value.replace(/\b\w/g, char => char.toUpperCase())
 }
 
+const shortenSankeyLabel = (label: string, maxChars: number) => {
+  if (!label) return ""
+
+  const normalized = label
+    .replace(/\band\b/gi, "&")
+    .replace(/\bExpenses?\b/gi, "Exp.")
+    .replace(/\bInvestments?\b/gi, "Invest.")
+    .replace(/\bUtilities?\b/gi, "Utils.")
+    .replace(/\bTransfers?\b/gi, "Trans.")
+    .replace(/\bFreelance\b/gi, "Free.")
+    .replace(/\bSavings?\b/gi, "Save.")
+    .replace(/\bRefunds?\b/gi, "Refund.")
+    .replace(/\s+/g, " ")
+    .trim()
+
+  if (normalized.length <= maxChars) return normalized
+
+  const words = normalized.split(" ").filter(Boolean)
+  if (words.length > 1) {
+    const compact = words
+      .map((word, index) => {
+        if (index === 0) return word
+        if (word.length <= 4) return word
+        return `${word.slice(0, 3)}.`
+      })
+      .join(" ")
+
+    if (compact.length <= maxChars) return compact
+  }
+
+  return `${normalized.slice(0, Math.max(1, maxChars - 1)).trimEnd()}…`
+}
+
 interface SankeyInfoTriggerProps {
   categoryControls?: ChartInfoPopoverCategoryControls
   sanitizedNodes: Array<{ id: string }>
@@ -272,9 +305,14 @@ export const ChartSankey = memo(function ChartSankey({
 
   // ACTUAL ROOT CAUSE FIX: Nivo theme controls link colors
   const chartTheme = useMemo(() => ({
-    // This prevents Nivo from applying default darkening to links
     background: 'transparent',
-  }), [])
+    labels: {
+      text: {
+        fontSize: isMobile ? 10 : 11,
+        fontWeight: 500,
+      },
+    },
+  }), [isMobile])
 
 
 
@@ -387,9 +425,9 @@ export const ChartSankey = memo(function ChartSankey({
     >
       <ResponsiveSankey
         data={sanitizedData}
-        margin={{ top: 40, right: 160, bottom: 90, left: 100 }}
+        margin={{ top: 36, right: 132, bottom: 84, left: 92 }}
         align="justify"
-        label={node => getNodeLabel(node.id)}
+        label={node => shortenSankeyLabel(getNodeLabel(node.id), 14)}
         nodeTooltip={renderNodeTooltip}
         linkTooltip={({ link }) => {
           const sourceLabel = getNodeLabel(link.source.id)
@@ -418,7 +456,7 @@ export const ChartSankey = memo(function ChartSankey({
         linkBlendMode="normal"
         labelPosition="outside"
         labelOrientation="horizontal"
-        labelPadding={20}
+        labelPadding={12}
         labelTextColor={resolvedTheme === "dark" ? "#ffffff" : { from: "color", modifiers: [["darker", 1]] }}
         legends={[]}
         layers={sankeyLayers}
@@ -440,9 +478,9 @@ export const ChartSankey = memo(function ChartSankey({
     >
       <ResponsiveSankey
         data={sanitizedData}
-        margin={{ top: 20, right: 50, bottom: 20, left: 50 }}
+        margin={{ top: 18, right: 42, bottom: 20, left: 42 }}
         align="justify"
-        label={node => getMobileLabel(node.id)}
+        label={node => shortenSankeyLabel(getMobileLabel(node.id), 8)}
         nodeTooltip={renderNodeTooltip}
         linkTooltip={({ link }) => {
           const sourceLabel = getNodeLabel(link.source.id)
@@ -470,7 +508,7 @@ export const ChartSankey = memo(function ChartSankey({
         linkContract={0}
         labelPosition="outside"
         labelOrientation="vertical"
-        labelPadding={8}
+        labelPadding={6}
         labelTextColor={resolvedTheme === "dark" ? "#ffffff" : { from: "color", modifiers: [["darker", 1]] }}
         legends={[]}
         layers={sankeyLayers}
@@ -482,7 +520,7 @@ export const ChartSankey = memo(function ChartSankey({
   )
 
   const mobileLegendElement = (
-    <div className="flex flex-wrap gap-x-3 gap-y-1.5 px-2 pt-2 pb-1 text-[10px] text-muted-foreground">
+    <div className="flex flex-wrap justify-center gap-x-3 gap-y-1.5 px-2 pt-2 pb-1 text-[10px] text-muted-foreground">
       {sanitizedData.nodes.slice(0, 8).map((node, index) => (
         <div key={node.id} className="flex items-center gap-1">
           <span

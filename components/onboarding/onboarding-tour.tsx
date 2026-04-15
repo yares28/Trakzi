@@ -68,9 +68,22 @@ export const OnboardingTour = memo(function OnboardingTour({ pageId }: Onboardin
           {step + 1} / {totalSteps}
         </span>
 
-        {/* Visual placeholder — swap src for a real GIF when ready */}
+        {/* Visual placeholder — supports either a walkthrough video or image */}
         <div className="rounded-lg overflow-hidden border border-border bg-muted/40 aspect-video flex items-center justify-center">
-          {currentStep.image ? (
+          {currentStep.video ? (
+            <video
+              key={currentStep.video}
+              src={currentStep.video}
+              poster={currentStep.poster}
+              className="w-full h-full object-cover"
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              controls
+            />
+          ) : currentStep.image ? (
             <img
               src={currentStep.image}
               alt={currentStep.title}

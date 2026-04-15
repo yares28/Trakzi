@@ -321,6 +321,12 @@ export const ChartPurchaseSizeBreakdown = memo(function ChartPurchaseSizeBreakdo
     </div>
   )
 
+  const mobileViewSwitchControl = (
+    <div className="flex justify-center px-2 pb-2 md:hidden">
+      {viewSwitchControl}
+    </div>
+  )
+
   if (!mounted || isLoading || !hasAnySeries) {
     return (
       <Card className="@container/card h-full relative" suppressHydrationWarning>
@@ -372,7 +378,9 @@ export const ChartPurchaseSizeBreakdown = memo(function ChartPurchaseSizeBreakdo
       </ChartFullscreenModal>
 
       <Card className="@container/card h-full relative">
-        <ChartCardTopRightControl>{viewSwitchControl}</ChartCardTopRightControl>
+        <ChartCardTopRightControl className="hidden md:block">
+          {viewSwitchControl}
+        </ChartCardTopRightControl>
         <CardHeader className="flex flex-row items-start justify-between gap-2">
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
@@ -381,8 +389,9 @@ export const ChartPurchaseSizeBreakdown = memo(function ChartPurchaseSizeBreakdo
             <CardTitle>{CHART_TITLE}</CardTitle>
           </div>
         </CardHeader>
+        {mobileViewSwitchControl}
         <CardContent className="px-2 pt-0 sm:px-6 sm:pt-2 flex flex-col flex-1 min-h-0">
-          <div className="h-full w-full min-h-[210px]" key={`${viewMode}-${colorScheme}`}>
+          <div className="h-full w-full min-h-[180px] sm:min-h-[210px]" key={`${viewMode}-${colorScheme}`}>
             <PurchaseSizeBarChart
               chartData={chartData}
               viewMode={viewMode}
@@ -393,7 +402,7 @@ export const ChartPurchaseSizeBreakdown = memo(function ChartPurchaseSizeBreakdo
             />
           </div>
           {/* Legend */}
-          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2 mb-2">
+          <div className="mt-1 mb-1 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground sm:mt-2 sm:mb-2">
             {BAR_KEYS.map((key, i) => (
               <div key={key} className="flex items-center gap-1.5">
                 <span

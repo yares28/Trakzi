@@ -341,6 +341,12 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
       </div>
     ) : null;
 
+  const mobileViewModeSwitcherControl = viewModeSwitcherControl ? (
+    <div className="flex justify-center px-2 pb-2 md:hidden">
+      {viewModeSwitcherControl}
+    </div>
+  ) : null;
+
   // Format currency value using user's preferred currency
   const valueFormatter = {
     format: (value: number) => formatCurrency(value),
@@ -415,7 +421,9 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
     return (
       <Card className="@container/card relative gap-[20px]">
         {viewModeSwitcherControl ? (
-          <ChartCardTopRightControl>{viewModeSwitcherControl}</ChartCardTopRightControl>
+          <ChartCardTopRightControl className="hidden md:block">
+            {viewModeSwitcherControl}
+          </ChartCardTopRightControl>
         ) : null}
         <CardHeader className="flex flex-row items-start justify-between gap-2 pb-0">
           <div className="flex items-center gap-2 min-w-0">
@@ -429,6 +437,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
             <CardTitle className="truncate">{title}</CardTitle>
           </div>
         </CardHeader>
+        {mobileViewModeSwitcherControl}
         <CardContent className="px-2 pt-0 sm:px-6">
           <div className="h-[250px] w-full">
             <ChartLoadingState
@@ -658,7 +667,9 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
 
       <Card className="@container/card relative gap-[20px]">
         {viewModeSwitcherControl ? (
-          <ChartCardTopRightControl>{viewModeSwitcherControl}</ChartCardTopRightControl>
+          <ChartCardTopRightControl className="hidden md:block">
+            {viewModeSwitcherControl}
+          </ChartCardTopRightControl>
         ) : null}
         <CardHeader className="flex flex-row items-start justify-between gap-2 pb-0">
           <div className="flex items-center gap-2 min-w-0">
@@ -672,6 +683,7 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
             <CardTitle className="truncate">{title}</CardTitle>
           </div>
         </CardHeader>
+        {mobileViewModeSwitcherControl}
         <CardContent className="px-2 pt-0 sm:px-6 min-w-0 flex flex-col flex-1 min-h-0">
           <div ref={containerRef} className="relative flex-1 min-h-[180px]">
             {(viewMode === "net" ? (netData?.length ?? 0) === 0 : filteredData.length === 0) ? (

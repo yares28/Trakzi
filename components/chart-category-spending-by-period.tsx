@@ -605,6 +605,12 @@ export const ChartCategorySpendingByPeriod = memo(
       </div>
     );
 
+    const mobileViewSwitchControl = (
+      <div className="flex justify-center px-2 pb-2 md:hidden">
+        {viewSwitchControl}
+      </div>
+    );
+
     const renderChart = () => (
       <div className="h-full w-full min-h-0" key={`${viewMode}-${colorScheme}`}>
         <ResponsiveBar
@@ -691,9 +697,12 @@ export const ChartCategorySpendingByPeriod = memo(
               </div>
               <CardTitle className={chartCardHeaderTitleClassName}>{chartTitle}</CardTitle>
             </div>
-            <ChartCardTopRightControl>{viewSwitchControl}</ChartCardTopRightControl>
+            <ChartCardTopRightControl className="hidden md:block">
+              {viewSwitchControl}
+            </ChartCardTopRightControl>
           </CardHeader>
-          <CardContent className="flex flex-col gap-3 px-2 pt-4 sm:px-6 sm:pt-6">
+          {mobileViewSwitchControl}
+          <CardContent className="flex flex-col gap-3 px-2 pt-2 sm:px-6 sm:pt-6">
             <div className="h-[210px]">
               <ChartLoadingState
                 isLoading={isLoading || bundleLoading}
@@ -748,9 +757,12 @@ export const ChartCategorySpendingByPeriod = memo(
               </div>
               <CardTitle className={chartCardHeaderTitleClassName}>{chartTitle}</CardTitle>
             </div>
-            <ChartCardTopRightControl>{viewSwitchControl}</ChartCardTopRightControl>
+            <ChartCardTopRightControl className="hidden md:block">
+              {viewSwitchControl}
+            </ChartCardTopRightControl>
           </CardHeader>
-          <CardContent className="flex h-[250px] flex-col px-2 pt-4 sm:px-6 sm:pt-6">
+          {mobileViewSwitchControl}
+          <CardContent className="flex h-[250px] flex-col px-2 pt-2 sm:px-6 sm:pt-6">
             <div className="min-h-[180px] flex-1 w-full">
               {chartLoading ? (
                 <ChartLoadingState isLoading skeletonType="bar" />

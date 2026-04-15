@@ -106,6 +106,7 @@ export function FridgePageClient() {
         // Clear the pending upload markers
         delete (window as any).__pendingUploadFile
         delete (window as any).__pendingUploadTargetPage
+        delete (window as any).__pendingUploadNeedsDetection
 
         // Open the upload dialog with the pending file
         upload.handleUploadFilesChange([pendingFile])
@@ -116,15 +117,19 @@ export function FridgePageClient() {
       return false
     }
 
-    // Check immediately
-    if (checkPendingUpload()) return
+    checkPendingUpload()
 
     // Also check after a short delay in case of timing issues
     const timeoutId = setTimeout(() => {
       checkPendingUpload()
     }, 100)
 
-    return () => clearTimeout(timeoutId)
+    window.addEventListener("trakzi:pending-upload", checkPendingUpload)
+
+    return () => {
+      clearTimeout(timeoutId)
+      window.removeEventListener("trakzi:pending-upload", checkPendingUpload)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Only run on mount to avoid performance issues
 

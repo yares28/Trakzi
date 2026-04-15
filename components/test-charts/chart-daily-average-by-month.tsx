@@ -25,6 +25,7 @@ import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { getChartTextColor, getChartAxisLineColor } from "@/lib/chart-colors"
 import { formatCompactAxisMagnitude } from "@/lib/chart-axis-compact"
 import { HoverableBar } from "@/components/chart-hoverable-bar"
+import { useIsMobile } from "@/hooks/use-mobile"
 const CHART_ID = "dailyAverageByMonth"
 const CHART_TITLE = "Daily Average by Month"
 const CHART_DESCRIPTION = "Your average daily spending for each month - lower is better!"
@@ -48,6 +49,7 @@ export const ChartDailyAverageByMonth = memo(function ChartDailyAverageByMonth({
     const { resolvedTheme } = useTheme()
     const { colorScheme, getShuffledPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
+    const isMobile = useIsMobile()
     const palette = useMemo(
         () => getShuffledPalette("analytics:dailyAverageByMonth"),
         [getShuffledPalette],
@@ -187,6 +189,11 @@ export const ChartDailyAverageByMonth = memo(function ChartDailyAverageByMonth({
             </button>
         </div>
     )
+    const mobileViewSwitchControl = (
+        <div className="flex justify-center px-2 pb-2 md:hidden">
+            {viewSwitchControl}
+        </div>
+    )
         const renderCardFloatingMeta = () => (
         <ChartCardFloatingMeta
             insight={
@@ -261,16 +268,16 @@ export const ChartDailyAverageByMonth = memo(function ChartDailyAverageByMonth({
         )
     }
     const chart = (
-        <div className="h-full w-full min-h-[250px]" key={`${viewMode}-${colorScheme}`}>
+        <div className="h-full w-full min-h-[210px] sm:min-h-[250px]" key={`${viewMode}-${colorScheme}`}>
             <ResponsiveBar
                 data={chartData}
                 keys={["dailyAvg"]}
                 indexBy="period"
-                margin={{ top: 20, right: 20, bottom: 50, left: 60 }}
+                margin={isMobile ? { top: 14, right: 12, bottom: 42, left: 52 } : { top: 20, right: 20, bottom: 50, left: 60 }}
                 padding={0.3}
                 colors={({ data: d }) => d.color as string}
                 borderRadius={6}
-                enableLabel={true}
+                enableLabel={!isMobile}
                 label={(d) => {
                     const v = Number(d.value)
                     if (v <= 0) return ""
@@ -312,7 +319,7 @@ export const ChartDailyAverageByMonth = memo(function ChartDailyAverageByMonth({
                         }),
                 }}
                 theme={{
-                    text: { fill: textColor, fontSize: 11 },
+                    text: { fill: textColor, fontSize: isMobile ? 10 : 11 },
                     axis: { ticks: { text: { fill: textColor } } },
                     grid: { line: { stroke: gridColor } },
                 }}
@@ -344,7 +351,9 @@ export const ChartDailyAverageByMonth = memo(function ChartDailyAverageByMonth({
                 </div>
             </ChartFullscreenModal>
             <Card className="@container/card h-full flex flex-col relative">
-                <ChartCardTopRightControl>{viewSwitchControl}</ChartCardTopRightControl>
+                <ChartCardTopRightControl className="hidden md:block">
+                    {viewSwitchControl}
+                </ChartCardTopRightControl>
                 <CardHeader>
                     <div className="flex items-center gap-2">
                         <GridStackCardDragHandle />
@@ -353,6 +362,7 @@ export const ChartDailyAverageByMonth = memo(function ChartDailyAverageByMonth({
                         <CardTitle>{CHART_TITLE}</CardTitle>
                     </div>
                 </CardHeader>
+                {mobileViewSwitchControl}
                 <CardContent className="px-2 pt-0 sm:px-6 sm:pt-2 flex-1 min-h-0">
                     {chart}
                 </CardContent>

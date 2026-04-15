@@ -36,6 +36,10 @@ export function NavMain({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { isDemoMode } = useDemoMode()
 
+  const announcePendingUpload = (targetPage: "analytics" | "fridge") => {
+    window.dispatchEvent(new CustomEvent("trakzi:pending-upload", { detail: { targetPage } }))
+  }
+
   const handleQuickCreate = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -138,11 +142,13 @@ export function NavMain({
       // Receipt files go to fridge
       (window as any).__pendingUploadFile = file
         ; (window as any).__pendingUploadTargetPage = "fridge"
+      announcePendingUpload("fridge")
       router.push("/fridge")
     } else if (isCSV || isExcel || (isPDF && isStatementPDF)) {
       // Spending files go to analytics
       (window as any).__pendingUploadFile = file
         ; (window as any).__pendingUploadTargetPage = "analytics"
+      announcePendingUpload("analytics")
       router.push("/analytics")
     } else if (isPDF) {
       // PDF without clear indicators - default to analytics (statements are more common in PDF format)
@@ -150,6 +156,7 @@ export function NavMain({
       (window as any).__pendingUploadFile = file
         ; (window as any).__pendingUploadTargetPage = "analytics"
         ; (window as any).__pendingUploadNeedsDetection = true // Flag for content detection
+      announcePendingUpload("analytics")
       router.push("/analytics")
     }
 

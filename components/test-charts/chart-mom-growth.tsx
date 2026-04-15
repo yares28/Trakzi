@@ -20,6 +20,7 @@ import { ChartLoadingState } from "@/components/chart-loading-state"
 import { CHART_GRID_COLOR } from "@/lib/chart-colors"
 import { ChartConfig, ChartContainer } from "@/components/ui/chart"
 import { ChartTooltipWrapper } from "@/components/chart-tooltip"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 const CHART_TITLE = "Month-over-Month Growth"
 const CHART_DESCRIPTION =
@@ -56,6 +57,7 @@ const MoMGrowthChart = memo(function MoMGrowthChart({
     growthColor,
     forFullscreen = false,
 }: MoMGrowthChartProps) {
+    const isMobile = useIsMobile()
     const [useRealData, setUseRealData] = useState(false)
     useEffect(() => {
         const rafId = requestAnimationFrame(() => setUseRealData(true))
@@ -94,7 +96,7 @@ const MoMGrowthChart = memo(function MoMGrowthChart({
         )
     }
 
-    const chartHeight = forFullscreen ? "h-full" : "h-full min-h-[280px]"
+    const chartHeight = forFullscreen ? "h-full" : `h-full ${isMobile ? "min-h-[210px]" : "min-h-[280px]"}`
 
     return (
         <ChartContainer config={chartConfig} className={`${chartHeight} flex-1 w-full min-w-0`}>
@@ -152,6 +154,7 @@ export const ChartMoMGrowth = memo(function ChartMoMGrowth({
     emptyDescription,
 }: ChartMoMGrowthProps) {
     const { getPalette } = useColorScheme()
+    const isMobile = useIsMobile()
     const [mounted, setMounted] = useState(false)
     const [isFullscreen, setIsFullscreen] = useState(false)
 
@@ -279,21 +282,23 @@ export const ChartMoMGrowth = memo(function ChartMoMGrowth({
                         {renderInfoTrigger()}
                     </CardAction>
                 </CardHeader>
-                <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
+                <CardContent className="px-2 pt-2 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
                     <div className="flex min-h-0 flex-1">
                         <MoMGrowthChart flatData={flatData} growthColor={growthColor} />
                     </div>
-                    <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <div
+                        className={`mt-2 flex items-center justify-center text-muted-foreground ${isMobile ? "flex-col gap-1 text-[11px]" : "flex-wrap gap-x-3 gap-y-1 text-xs"}`}
+                    >
                         <div className="flex items-center gap-1.5">
                             <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: growthColor }} />
                             <span className="font-medium text-foreground">Growth Rate</span>
-                            <span className="text-[0.7rem]">
-                                {(() => {
-                                    const latest = flatData[flatData.length - 1]?.growth ?? 0
-                                    return `${latest > 0 ? "+" : ""}${latest.toFixed(1)}% latest`
-                                })()}
-                            </span>
                         </div>
+                        <span className="text-[0.7rem]">
+                            {(() => {
+                                const latest = flatData[flatData.length - 1]?.growth ?? 0
+                                return `${latest > 0 ? "+" : ""}${latest.toFixed(1)}% latest`
+                            })()}
+                        </span>
                     </div>
                 </CardContent>
             </Card>

@@ -150,7 +150,7 @@ export const ChartExpensesPie = memo(function ChartExpensesPie({
       data={data}
       margin={
         isCompact
-          ? { top: 20, right: 20, bottom: 20, left: 20 }
+          ? { top: 12, right: 12, bottom: 12, left: 12 }
           : { top: 40, right: 40, bottom: 40, left: 40 }
       }
       innerRadius={0.5}
@@ -190,13 +190,10 @@ export const ChartExpensesPie = memo(function ChartExpensesPie({
             style={{ backgroundColor: item.color }}
           />
           <span
-            className="font-medium text-foreground truncate max-w-[80px]"
+            className="font-medium text-foreground truncate max-w-[120px]"
             title={item.label}
           >
             {item.label}
-          </span>
-          <span className="text-[0.7rem]">
-            {total > 0 ? `${((item.value / total) * 100).toFixed(0)}%` : "0%"}
           </span>
         </div>
       ))}

@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from "react"
+import { usePathname } from "next/navigation"
+import { useUser } from "@clerk/nextjs"
 import { useTheme } from "next-themes"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -45,6 +47,7 @@ import type { PlanType, SubscriptionStatus } from "@/components/subscription-dia
 import { AnimatedThemeSwitcher } from "@/components/animated-theme-switcher"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useOnboarding } from "@/components/onboarding/onboarding-context"
+import { getTourPageIdFromPathname } from "@/components/onboarding/tour-content"
 import { MapPin, Users } from "lucide-react"
 
 type SettingsSection = "preferences" | "subscription" | "privacy" | "bug-report"
@@ -89,6 +92,28 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
     const [open, setOpen] = React.useState(false)
     const [activeSection, setActiveSection] = React.useState<SettingsSection>("preferences")
     const isMobile = useIsMobile()
+    const pathname = usePathname()
+    const { isSignedIn } = useUser()
+    const { startTour } = useOnboarding()
+    const [isLocalhost, setIsLocalhost] = React.useState(false)
+
+    React.useEffect(() => {
+        if (typeof window === "undefined") return
+        const { hostname } = window.location
+        setIsLocalhost(hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1")
+    }, [])
+
+    const currentTourPageId = React.useMemo(() => getTourPageIdFromPathname(pathname), [pathname])
+    const canReplayCurrentTour = isLocalhost && isSignedIn && currentTourPageId !== null
+
+    const handleReplayCurrentTour = React.useCallback(() => {
+        if (!currentTourPageId) return
+
+        setOpen(false)
+        window.setTimeout(() => {
+            startTour(currentTourPageId)
+        }, 150)
+    }, [currentTourPageId, startTour])
 
     // Allow external code (e.g. toast action buttons) to open a specific section
     React.useEffect(() => {
@@ -159,7 +184,12 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                                     scrollbarColor: 'hsl(var(--muted-foreground) / 0.3) transparent'
                                 }}
                             >
-                                {activeSection === "preferences" && <PreferencesContent />}
+                                {activeSection === "preferences" && (
+                                    <PreferencesContent
+                                        canReplayCurrentTour={canReplayCurrentTour}
+                                        onReplayCurrentTour={handleReplayCurrentTour}
+                                    />
+                                )}
                                 {activeSection === "subscription" && <SubscriptionSection />}
                                 {activeSection === "privacy" && <PrivacySection />}
                                 {activeSection === "bug-report" && <BugReportSection />}
@@ -200,7 +230,12 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                                     scrollbarColor: 'hsl(var(--muted-foreground) / 0.3) transparent'
                                 }}
                             >
-                                {activeSection === "preferences" && <PreferencesContent />}
+                                {activeSection === "preferences" && (
+                                    <PreferencesContent
+                                        canReplayCurrentTour={canReplayCurrentTour}
+                                        onReplayCurrentTour={handleReplayCurrentTour}
+                                    />
+                                )}
                                 {activeSection === "subscription" && <SubscriptionSection />}
                                 {activeSection === "privacy" && <PrivacySection />}
                                 {activeSection === "bug-report" && <BugReportSection />}
@@ -215,22 +250,35 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
 
 
 // ============ PREFERENCES CONTENT WRAPPER ============
-function PreferencesContent() {
+function PreferencesContent({
+    canReplayCurrentTour,
+    onReplayCurrentTour,
+}: {
+    canReplayCurrentTour: boolean
+    onReplayCurrentTour: () => void
+}) {
     return (
         <div className="space-y-10">
             <AppearanceSection />
             <FontsSection />
             <CurrencySection />
             <TimePeriodSection />
-            <AnalyticsPreferencesSection />
+            <AnalyticsPreferencesSection
+                canReplayCurrentTour={canReplayCurrentTour}
+                onReplayCurrentTour={onReplayCurrentTour}
+            />
             <LayoutSection />
         </div>
     )
 }
 
-function AnalyticsPreferencesSection() {
-    const { startTour } = useOnboarding()
-
+function AnalyticsPreferencesSection({
+    canReplayCurrentTour,
+    onReplayCurrentTour,
+}: {
+    canReplayCurrentTour: boolean
+    onReplayCurrentTour: () => void
+}) {
     const [showEffectiveCosts, setShowEffectiveCosts] = React.useState<boolean>(() => {
         if (typeof window === "undefined") return true
         const stored = localStorage.getItem("analytics:showEffectiveCosts")
@@ -250,9 +298,9 @@ function AnalyticsPreferencesSection() {
     return (
         <div className="space-y-4">
             <div>
-                <h3 className="text-base font-semibold mb-1">Analytics Preferences</h3>
+                <h3 className="text-base font-semibold mb-1">Analytics & Tours</h3>
                 <p className="text-[11px] text-muted-foreground/70">
-                    Control whether analytics uses shared-cost math, and replay onboarding tours.
+                    Control whether analytics uses shared-cost math, and replay the walkthrough for the current page in localhost.
                 </p>
             </div>
 
@@ -271,15 +319,17 @@ function AnalyticsPreferencesSection() {
                 </Label>
             </div>
 
-            <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => startTour("analytics")}
-                className="w-full justify-start text-muted-foreground gap-1.5 text-xs h-7 px-2"
-            >
-                <MapPin className="size-3.5" />
-                Take a tour
-            </Button>
+            {canReplayCurrentTour ? (
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onReplayCurrentTour}
+                    className="w-full justify-start text-muted-foreground gap-1.5 text-xs h-7 px-2"
+                >
+                    <MapPin className="size-3.5" />
+                    Take a tour of this page
+                </Button>
+            ) : null}
         </div>
     )
 }

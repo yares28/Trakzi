@@ -252,7 +252,7 @@ const CategoryFlowMobileLegend = memo(function CategoryFlowMobileLegend({
   colorConfig,
 }: CategoryFlowMobileLegendProps) {
   return (
-    <div className="flex flex-wrap gap-x-3 gap-y-1.5 px-2 pt-2 pb-1 text-[10px] text-muted-foreground">
+    <div className="flex flex-wrap justify-center gap-x-3 gap-y-1.5 px-2 pt-2 pb-1 text-[10px] text-muted-foreground">
       {data.slice(0, 8).map((serie, index) => (
         <div key={serie.id} className="flex items-center gap-1">
           <span

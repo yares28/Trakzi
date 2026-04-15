@@ -158,7 +158,7 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
     const hoveredItem = chartData.find((item) => item.name === hoveredMerchant) ?? null
 
     const renderBars = () => (
-        <div className="h-full w-full min-h-[230px] flex flex-col justify-center gap-3 py-4">
+        <div className="flex h-full w-full min-h-[190px] flex-col justify-start gap-1.5 py-1.5 sm:min-h-[230px] sm:justify-center sm:gap-3 sm:py-4">
             {chartData.map((item, index) => {
                 const barWidth = (item.total / maxTotal) * 100 * animationProgress
                 const delay = index * 100
@@ -166,7 +166,7 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
                 return (
                     <div
                         key={item.name}
-                        className="flex items-center gap-3 group relative"
+                        className="group relative flex items-center gap-2.5 sm:gap-3"
                         style={{
                             animationDelay: `${delay}ms`,
                             opacity: animationProgress > 0 ? 1 : 0,
@@ -179,12 +179,12 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
                             setTooltipPos(null)
                         }}
                     >
-                        <div className="w-6 text-sm font-bold text-muted-foreground">
+                        <div className="w-5 text-[11px] font-bold text-muted-foreground sm:w-6 sm:text-sm">
                             #{item.rank}
                         </div>
                         <div className="flex-1 relative">
                             <div
-                                className="h-10 rounded-lg flex items-center px-3 origin-left hover:scale-x-[1.02]"
+                                className="origin-left hover:scale-x-[1.02] flex h-7 items-center rounded-lg px-2 sm:h-10 sm:px-3"
                                 style={{
                                     width: `${Math.max(barWidth, 5)}%`,
                                     backgroundColor: item.color,
@@ -193,14 +193,14 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
                                 }}
                             >
                                 <span
-                                    className="text-xs font-semibold truncate"
+                                    className="truncate text-[10px] font-semibold sm:text-xs"
                                     style={{ color: getContrastTextColor(item.color) }}
                                 >
                                     {item.name}
                                 </span>
                             </div>
                         </div>
-                        <div className="w-24 text-right text-sm font-medium text-foreground">
+                        <div className="w-16 text-right text-[11px] font-medium text-foreground sm:w-24 sm:text-sm">
                             {formatCurrency(item.total * animationProgress)}
                         </div>
                     </div>
@@ -276,9 +276,9 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
                         {renderInfoTrigger()}
                     </CardAction>
                 </CardHeader>
-                <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
+                <CardContent className="px-2 pt-2 sm:px-6 sm:pt-6 flex-1 min-h-0">
                     {isLoading || chartData.length === 0 ? (
-                        <div className="h-full w-full min-h-[230px] flex items-center justify-center">
+                        <div className="flex h-full w-full min-h-[190px] items-center justify-center sm:min-h-[230px]">
                             <ChartLoadingState />
                         </div>
                     ) : (
