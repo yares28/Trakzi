@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useMemo, useState, useEffect, useRef } from "react"
+import { memo, useMemo, useState, useEffect } from "react"
 import ReactDOM from "react-dom"
 import {
     Card,
@@ -43,15 +43,21 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
         [getShuffledPalette],
     )
     const [mounted, setMounted] = useState(false)
-    const [animationProgress, setAnimationProgress] = useState(0)
+    const [animationReady, setAnimationReady] = useState(false)
     const [isFullscreen, setIsFullscreen] = useState(false)
     const [hoveredMerchant, setHoveredMerchant] = useState<string | null>(null)
     const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
-    const hasAnimated = useRef(false)
 
     useEffect(() => {
         setMounted(true)
     }, [])
+
+    // Trigger bar grow animation after mount — matches Nivo "gentle" spring feel
+    useEffect(() => {
+        if (!mounted || chartData.length === 0) return
+        const timer = setTimeout(() => setAnimationReady(true), 50)
+        return () => clearTimeout(timer)
+    }, [mounted, chartData])
 
     // Extract merchant from description (simplified extraction)
     const extractMerchant = (description: string): string => {
@@ -95,29 +101,6 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
             }))
     }, [data, palette])
 
-    // Animate bars (runs once only)
-    useEffect(() => {
-        if (!mounted || chartData.length === 0) return
-        if (hasAnimated.current) return
-        hasAnimated.current = true
-
-        const duration = 1500
-        const startTime = Date.now()
-
-        const animate = () => {
-            const elapsed = Date.now() - startTime
-            const progress = Math.min(elapsed / duration, 1)
-            const easeOut = 1 - Math.pow(1 - progress, 3)
-            setAnimationProgress(easeOut)
-
-            if (progress < 1) {
-                requestAnimationFrame(animate)
-            }
-        }
-
-        requestAnimationFrame(animate)
-    }, [mounted, chartData])
-
     const chartTitle = "Top 5 Merchants"
     const chartDescription =
         "Bar race showing your top 5 merchants by total spending. See where your money goes most frequently."
@@ -160,17 +143,16 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
     const renderBars = () => (
         <div className="flex h-full w-full min-h-[190px] flex-col justify-start gap-1.5 py-1.5 sm:min-h-[230px] sm:justify-center sm:gap-3 sm:py-4">
             {chartData.map((item, index) => {
-                const barWidth = (item.total / maxTotal) * 100 * animationProgress
-                const delay = index * 100
+                const barWidth = (item.total / maxTotal) * 100
+                const delay = index * 80
 
                 return (
                     <div
                         key={item.name}
                         className="group relative flex items-center gap-2.5 sm:gap-3"
                         style={{
-                            animationDelay: `${delay}ms`,
-                            opacity: animationProgress > 0 ? 1 : 0,
-                            transition: `opacity 0.3s ease ${delay}ms`
+                            opacity: animationReady ? 1 : 0,
+                            transition: `opacity 0.25s ease ${delay}ms`,
                         }}
                         onMouseEnter={() => setHoveredMerchant(item.name)}
                         onMouseMove={(e) => setTooltipPos({ x: e.clientX, y: e.clientY })}
@@ -186,9 +168,9 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
                             <div
                                 className="origin-left hover:scale-x-[1.02] flex h-7 items-center rounded-lg px-2 sm:h-10 sm:px-3"
                                 style={{
-                                    width: `${Math.max(barWidth, 5)}%`,
+                                    width: `${animationReady ? Math.max(barWidth, 5) : 0}%`,
                                     backgroundColor: item.color,
-                                    transition: "width 1.5s cubic-bezier(0.4, 0, 0.2, 1), filter 0.15s ease, transform 0.15s ease",
+                                    transition: `width 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) ${delay}ms, filter 0.15s ease, transform 0.15s ease`,
                                     filter: hoveredMerchant === item.name ? "brightness(1.15)" : "brightness(1)",
                                 }}
                             >
@@ -201,7 +183,7 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
                             </div>
                         </div>
                         <div className="w-16 text-right text-[11px] font-medium text-foreground sm:w-24 sm:text-sm">
-                            {formatCurrency(item.total * animationProgress)}
+                            {formatCurrency(item.total)}
                         </div>
                     </div>
                 )

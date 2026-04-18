@@ -67,17 +67,27 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   // have authoritative DB data — not just a localStorage fallback that might
   // be stale or empty after a deployment. checklistDismissed is a hard override
   // that persists regardless of how many items are added between deployments.
+  // We also filter completedItems against the CURRENT CHECKLIST_ITEMS so
+  // stale IDs left over from earlier versions (e.g. explore_savings) don't
+  // throw off the progress count.
+  const validCompletedItems = useMemo(
+    () => (onboarding.completedItems ?? []).filter(
+      (id): id is ChecklistItemId => CHECKLIST_ITEMS.some((item) => item.id === id)
+    ),
+    [onboarding.completedItems]
+  )
+
   const showChecklist =
     isServerSynced &&
     !onboarding.checklistDismissed &&
-    (onboarding.completedItems ?? []).length < CHECKLIST_ITEMS.length
+    validCompletedItems.length < CHECKLIST_ITEMS.length
 
   const value = useMemo(
     () => ({
       showWelcome,
       activeTour,
       showChecklist,
-      completedItems: (onboarding.completedItems ?? []) as ChecklistItemId[],
+      completedItems: validCompletedItems,
       startTour,
       dismissWelcome,
       completeTour,
@@ -89,7 +99,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       showWelcome,
       activeTour,
       showChecklist,
-      onboarding.completedItems,
+      validCompletedItems,
       startTour,
       dismissWelcome,
       completeTour,

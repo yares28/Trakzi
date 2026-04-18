@@ -4,6 +4,14 @@ import { DocsShell } from "@/components/docs-shell"
 export const metadata: Metadata = {
   title: "Docs — Guías de Presupuesto, Control de Gastos y Más",
   description: "Guías paso a paso para presupuesto, control de gastos, división de gastos y ahorro en supermercado.",
+  alternates: {
+    canonical: "https://trakzi.com/es/docs",
+    languages: {
+      en: "https://trakzi.com/docs",
+      es: "https://trakzi.com/es/docs",
+      "x-default": "https://trakzi.com/docs",
+    },
+  },
   openGraph: {
     title: "Trakzi Docs — Guías de Presupuesto y Control de Gastos",
     description: "Guías paso a paso para presupuesto, control de gastos, división de gastos y ahorro en supermercado.",

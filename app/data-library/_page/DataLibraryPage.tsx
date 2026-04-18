@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge"
 import type { TransactionLimitExceededData } from "@/components/limits/transaction-limit-dialog"
 import type { CategoryLimitExceededData } from "@/components/limits/category-limit-dialog"
 import { useCurrency } from "@/components/currency-provider"
-import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
 
 import { AiReparseDialog } from "./components/AiReparseDialog"
 import { CategoriesTable } from "./components/CategoriesTable"
@@ -598,7 +597,6 @@ export default function DataLibraryPage() {
         setCategoryLimitData={setCategoryLimitData}
       />
 
-      <OnboardingTour pageId="data-library" />
     </DataLibraryLayout>
   )
 }

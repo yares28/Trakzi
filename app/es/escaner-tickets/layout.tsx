@@ -4,6 +4,14 @@ export const metadata: Metadata = {
   title: "Escáner de Tickets — Escanea y Controla Gastos al Instante",
   description:
     "Fotografía cualquier ticket de supermercado, restaurante o tienda y Trakzi extrae el total automáticamente con IA. Controla gastos sin teclear nada. Gratis.",
+  alternates: {
+    canonical: "https://trakzi.com/es/escaner-tickets",
+    languages: {
+      en: "https://trakzi.com/receipt-scanner",
+      es: "https://trakzi.com/es/escaner-tickets",
+      "x-default": "https://trakzi.com/receipt-scanner",
+    },
+  },
   openGraph: {
     title: "Escáner de Tickets con IA — Controla Gastos al Instante | Trakzi",
     description:

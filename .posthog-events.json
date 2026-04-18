@@ -78,5 +78,40 @@
     "event": "subscription_updated",
     "description": "User's subscription was updated via Stripe portal",
     "file_path": "app/billing/return/page.tsx"
+  },
+  {
+    "event": "subscription_started",
+    "description": "[server] New paid subscription started (fired from Stripe webhook on checkout.session.completed) — source of truth for new paid conversions",
+    "file_path": "app/api/webhook/stripe/route.ts"
+  },
+  {
+    "event": "subscription_renewed",
+    "description": "[server] Recurring subscription cycle payment succeeded (fired from Stripe webhook on invoice.payment_succeeded with billing_reason=subscription_cycle) — source of truth for recurring revenue",
+    "file_path": "app/api/webhook/stripe/route.ts"
+  },
+  {
+    "event": "subscription_plan_changed",
+    "description": "[server] User upgraded, downgraded, or scheduled a plan change (fired from Stripe webhook on customer.subscription.updated) — includes direction and pending flag",
+    "file_path": "app/api/webhook/stripe/route.ts"
+  },
+  {
+    "event": "subscription_canceled",
+    "description": "[server] Subscription fully canceled / deleted in Stripe (fired from Stripe webhook on customer.subscription.deleted) — source of truth for involuntary + voluntary churn",
+    "file_path": "app/api/webhook/stripe/route.ts"
+  },
+  {
+    "event": "subscription_payment_failed",
+    "description": "[server] Recurring payment failed (fired from Stripe webhook on invoice.payment_failed) — includes attempt_count and next_payment_attempt for dunning analysis",
+    "file_path": "app/api/webhook/stripe/route.ts"
+  },
+  {
+    "event": "subscription_refunded",
+    "description": "[server] Full refund issued — subscription canceled and access revoked (fired from Stripe webhook on charge.refunded)",
+    "file_path": "app/api/webhook/stripe/route.ts"
+  },
+  {
+    "event": "transaction_pack_purchased",
+    "description": "[server] One-time transaction pack purchase completed (fired from Stripe webhook on checkout.session.completed with purchase_type=transaction_pack)",
+    "file_path": "app/api/webhook/stripe/route.ts"
   }
 ]

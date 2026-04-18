@@ -6,8 +6,6 @@ import { useAuth } from "@clerk/nextjs"
 import useSWR from "swr"
 
 import { MapPin, Car, Home, Package } from "lucide-react"
-import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
-import { useOnboarding } from "@/components/onboarding/onboarding-context"
 import { cn } from "@/lib/utils"
 import type {
     PocketsBundleResponse,
@@ -187,11 +185,6 @@ export type PocketViewMode = "travel" | "garage" | "assets" | "other"
 
 export default function WorldMapPage() {
     const { userId, isLoaded: isAuthLoaded } = useAuth()
-    const { completeChecklistItem } = useOnboarding()
-
-    useEffect(() => {
-        completeChecklistItem("explore_pockets")
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Tab state — default to "travel" for SSR, then hydrate from localStorage
     const [pocketViewMode, setPocketViewModeRaw] = useState<PocketViewMode>("travel")
@@ -730,7 +723,6 @@ export default function WorldMapPage() {
                 </div>
             </div>
 
-            <OnboardingTour pageId="pockets" />
 
             {/* Add Country Dialog */}
             <AddCountryDialog

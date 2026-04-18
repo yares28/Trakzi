@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation"
 
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
 
 import RankingsTab from "./components/RankingsTab"
 import GroupsTab from "./components/GroupsTab"
@@ -93,7 +92,6 @@ function FriendsContent() {
                     </div>
                 </div>
             </div>
-            <OnboardingTour pageId="friends" />
         </FriendsLayout>
     )
 }

@@ -76,15 +76,28 @@ function isSpanishBrowser(acceptLanguage: string | null): boolean {
   return langs.some(l => l.startsWith('es'))
 }
 
+// Skip auto language redirects for search engine / SEO crawlers.
+// Google explicitly warns against Accept-Language based redirects because
+// Googlebot crawls with en-US and ends up only seeing one locale, flagging
+// the other as "Page with redirect". We still redirect real users for UX.
+const CRAWLER_UA_REGEX = /(googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandex|sogou|exabot|facebot|facebookexternalhit|linkedinbot|twitterbot|applebot|ahrefsbot|semrushbot|mj12bot|dotbot|petalbot|seznambot|rogerbot|pinterest|whatsapp|telegrambot|discordbot|slackbot|embedly|quora link preview|msnbot|chatgpt|gptbot|oai-searchbot|anthropic-ai|claudebot|perplexitybot|ccbot)/i
+
+function isCrawler(userAgent: string | null): boolean {
+  if (!userAgent) return false
+  return CRAWLER_UA_REGEX.test(userAgent)
+}
+
 export default clerkMiddleware(async (auth, req) => {
   const path = req.nextUrl.pathname
 
   // Language auto-detection for landing pages
   // Skips if user has manually chosen a language (trakzi-lang cookie)
+  // Skips for search engine crawlers so both locales can be indexed independently.
   const langCookie = req.cookies.get('trakzi-lang')?.value
   const acceptLanguage = req.headers.get('accept-language')
+  const userAgent = req.headers.get('user-agent')
 
-  if (!langCookie) {
+  if (!langCookie && !isCrawler(userAgent)) {
     // English landing pages → redirect to Spanish if browser prefers Spanish
     if (LANDING_ROUTES.includes(path) && isSpanishBrowser(acceptLanguage)) {
       const esPath = EN_TO_ES[path] || '/es'

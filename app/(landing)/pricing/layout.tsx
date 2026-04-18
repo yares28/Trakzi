@@ -5,6 +5,11 @@ export const metadata: Metadata = {
   description: "Start free with 300 transactions. Upgrade to PRO (€4.99/mo) or MAX (€19.99/mo) for more transactions, AI insights, and unlimited rooms. No hidden fees.",
   alternates: {
     canonical: "https://trakzi.com/pricing",
+    languages: {
+      en: "https://trakzi.com/pricing",
+      es: "https://trakzi.com/es/precios",
+      "x-default": "https://trakzi.com/pricing",
+    },
   },
   openGraph: {
     title: "Trakzi Pricing — Simple, Transparent Plans",

@@ -6,6 +6,11 @@ export const metadata: Metadata = {
     "Snap a photo of any receipt and Trakzi extracts the total automatically. Track grocery, retail, and restaurant spending with AI-powered receipt scanning. Free to use.",
   alternates: {
     canonical: "https://trakzi.com/receipt-scanner",
+    languages: {
+      en: "https://trakzi.com/receipt-scanner",
+      es: "https://trakzi.com/es/escaner-tickets",
+      "x-default": "https://trakzi.com/receipt-scanner",
+    },
   },
   openGraph: {
     title: "Receipt Scanner App — Scan & Track Expenses Instantly | Trakzi",

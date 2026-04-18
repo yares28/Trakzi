@@ -16,14 +16,13 @@ export interface PageTour {
   steps: TourStep[]
 }
 
+// Only pages with real walkthrough media (images/videos) are listed here.
+// Pages without media intentionally omit the tour so we never show empty
+// placeholder slides.
 const TOUR_PATHNAME_TO_PAGE_ID = {
   "/home": "home",
   "/analytics": "analytics",
   "/fridge": "fridge",
-  "/savings": "savings",
-  "/pockets": "pockets",
-  "/friends": "friends",
-  "/data-library": "data-library",
 } as const
 
 export type TourPageId = (typeof TOUR_PATHNAME_TO_PAGE_ID)[keyof typeof TOUR_PATHNAME_TO_PAGE_ID]
@@ -89,78 +88,6 @@ export const PAGE_TOURS: Record<string, PageTour | undefined> = {
       },
     ],
   },
-  savings: {
-    pageId: "savings",
-    steps: [
-      {
-        title: "Track your savings",
-        description: "Savings shows how much you're setting aside each month, how your savings rate changes, and how close you are to your goals.",
-      },
-      {
-        title: "Monitor progress",
-        description: "Charts track your savings rate and net worth over time so you can spot when you're ahead or behind.",
-      },
-      {
-        title: "Set goals and track debt",
-        description: "Create savings or pocket goals, switch into the debt view when you need it, and follow progress across related parts of the app.",
-      },
-    ],
-  },
-  pockets: {
-    pageId: "pockets",
-    steps: [
-      {
-        title: "Track trips and assets",
-        description: "Pockets help you see what your last trip cost you and what your vehicles, homes, or other assets cost over time.",
-      },
-      {
-        title: "Track costs and loans",
-        description: "Break each pocket down into the tabs that matter, like mortgage, rent, utilities, fuel, maintenance, insurance, financing, parking, and fees.",
-      },
-      {
-        title: "Create your first pocket",
-        description: "Add a travel country, vehicle, owned or rented property, or other pocket to organize the costs you want to track.",
-      },
-    ],
-  },
-  friends: {
-    pageId: "friends",
-    steps: [
-      {
-        title: "Your social finance hub",
-        description: "The Friends section lets you compare privacy-safe scores, share rooms, and join challenges to build better financial habits together.",
-      },
-      {
-        title: "Rankings",
-        description: "See how your score stacks up against friends. Rankings update as activity changes without exposing raw dollar amounts.",
-      },
-      {
-        title: "Rooms",
-        description: "Create a shared room with roommates or travel companions. Share full transactions, specific receipt items, or statement expenses, then split and settle up in one place.",
-      },
-      {
-        title: "Challenges",
-        description: "Create private or public challenge groups with friends or strangers and track everyone's progress in real time.",
-      },
-    ],
-  },
-  "data-library": {
-    pageId: "data-library",
-    steps: [
-      {
-        title: "All your transactions",
-        description: "The Data Library is a searchable, editable table of every transaction you've imported.",
-      },
-      {
-        title: "Search and filter",
-        description: "Use the search bar and filters to find any transaction by name, category, date, or amount, then update categories when something needs fixing.",
-      },
-      {
-        title: "Edit or delete",
-        description: "Click any row to edit transaction details, change its category, or delete duplicates and transactions you no longer want to keep.",
-      },
-    ],
-  },
 }
 
 export function getTourPageIdFromPathname(pathname: string | null | undefined): TourPageId | null {
@@ -171,13 +98,13 @@ export function getTourPageIdFromPathname(pathname: string | null | undefined): 
   return TOUR_PATHNAME_TO_PAGE_ID[normalizedPath as keyof typeof TOUR_PATHNAME_TO_PAGE_ID] ?? null
 }
 
+// Only include tasks that correspond to pages with real walkthrough media.
+// Keeping image-less pages out ensures every task lines up with a visual tour.
 export const CHECKLIST_ITEMS = [
   { id: "upload_statement", label: "Import your first bank statement" },
   { id: "upload_receipt", label: "Upload a grocery receipt" },
   { id: "explore_analytics", label: "Explore the Analytics page" },
   { id: "explore_fridge", label: "Explore the Fridge page" },
-  { id: "explore_savings", label: "Explore the Savings page" },
-  { id: "explore_pockets", label: "Explore the Pockets page" },
 ] as const
 
 export type ChecklistItemId = typeof CHECKLIST_ITEMS[number]["id"]

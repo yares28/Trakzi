@@ -8,6 +8,11 @@ export const metadata: Metadata = {
     "Import bank CSVs, scan receipts, track expenses, visualize spending with AI-powered charts, and manage shared costs with friends. Free budgeting app.",
   alternates: {
     canonical: "https://trakzi.com",
+    languages: {
+      en: "https://trakzi.com",
+      es: "https://trakzi.com/es",
+      "x-default": "https://trakzi.com",
+    },
   },
   openGraph: {
     title: "Trakzi — The All-in-One Budgeting Workspace",

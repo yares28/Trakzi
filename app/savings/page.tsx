@@ -35,8 +35,6 @@ import { computeSavingsScore } from "@/lib/savings-score"
 import { GoalWizardCard } from "@/components/chat/goal-wizard-card"
 import { SavingsGoalsPanel } from "@/components/savings-goals-panel"
 import { AnimatePresence, m } from "framer-motion"
-import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
-import { useOnboarding } from "@/components/onboarding/onboarding-context"
 import { summarizeGoals, type GoalContext } from "@/lib/goals"
 import { computeDefaultNetWorth } from "@/lib/net-worth"
 import type { GoalRecord } from "@/lib/types/goals"
@@ -51,11 +49,6 @@ const SAVINGS_VIEW_MODE_STORAGE_KEY = "savings-view-mode"
 const DEFAULT_SAVINGS_ORDER = ["savingsAccumulation", "savingsRateTrend"]
 
 export default function Page() {
-  const { completeChecklistItem } = useOnboarding()
-
-  useEffect(() => {
-    completeChecklistItem("explore_savings")
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [viewMode, setViewMode] = useState<SavingsViewMode>("savings")
   // Transactions state
   const [transactions, setTransactions] = useState<Array<{
@@ -948,7 +941,6 @@ export default function Page() {
           </div>
         </div>
       </SidebarInset>
-      <OnboardingTour pageId="savings" />
     </SidebarProvider>
   )
 }

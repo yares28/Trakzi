@@ -6,6 +6,11 @@ export const metadata: Metadata = {
     "Create rooms with friends or roommates to track group expenses, split bills, and see who owes whom at a glance. The easiest way to manage shared costs.",
   alternates: {
     canonical: "https://trakzi.com/split-expenses",
+    languages: {
+      en: "https://trakzi.com/split-expenses",
+      es: "https://trakzi.com/es/dividir-gastos",
+      "x-default": "https://trakzi.com/split-expenses",
+    },
   },
   openGraph: {
     title: "Split Bills & Shared Expenses | Trakzi",
