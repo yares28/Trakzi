@@ -52,13 +52,6 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
         setMounted(true)
     }, [])
 
-    // Trigger bar grow animation after mount — matches Nivo "gentle" spring feel
-    useEffect(() => {
-        if (!mounted || chartData.length === 0) return
-        const timer = setTimeout(() => setAnimationReady(true), 50)
-        return () => clearTimeout(timer)
-    }, [mounted, chartData])
-
     // Extract merchant from description (simplified extraction)
     const extractMerchant = (description: string): string => {
         // Clean up common patterns
@@ -100,6 +93,13 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
                 color: paletteLength > 0 ? (palette[index % paletteLength] || "#6b7280") : "#6b7280",
             }))
     }, [data, palette])
+
+    // Trigger bar grow animation after mount — matches Nivo "gentle" spring feel
+    useEffect(() => {
+        if (!mounted || chartData.length === 0) return
+        const timer = setTimeout(() => setAnimationReady(true), 50)
+        return () => clearTimeout(timer)
+    }, [mounted, chartData])
 
     const chartTitle = "Top 5 Merchants"
     const chartDescription =
