@@ -124,15 +124,32 @@ export async function GET() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Return available packs with their env-configured price IDs
-        const packs = TRANSACTION_PACKS.map(pack => ({
-            id: pack.id,
-            name: pack.name,
-            transactions: pack.transactions,
-            priceCents: pack.priceCents,
-            currency: pack.currency,
-            priceId: process.env[pack.stripePriceEnvKey] ?? null,
-        }));
+        // Map each pack id to its resolved Stripe price id from STRIPE_PRICES
+        // (module-level static env access is more reliable than dynamic lookups).
+        const priceIdByPackId: Record<string, string | undefined> = {
+            pack_500: STRIPE_PRICES.TRANSACTION_PACK_500,
+            pack_1500: STRIPE_PRICES.TRANSACTION_PACK_1500,
+            pack_5000: STRIPE_PRICES.TRANSACTION_PACK_5000,
+        };
+
+        const packs = TRANSACTION_PACKS.map(pack => {
+            const priceId = priceIdByPackId[pack.id] ?? null;
+            if (!priceId) {
+                console.warn(
+                    `[Buy Transactions] Missing Stripe price id for ${pack.id} ` +
+                    `(env var ${pack.stripePriceEnvKey} is not set). ` +
+                    `The pack will be marked unavailable on the client.`
+                );
+            }
+            return {
+                id: pack.id,
+                name: pack.name,
+                transactions: pack.transactions,
+                priceCents: pack.priceCents,
+                currency: pack.currency,
+                priceId,
+            };
+        });
 
         return NextResponse.json({ packs });
     } catch (error: any) {

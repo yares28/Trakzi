@@ -10,7 +10,6 @@ import { demoFetch } from "@/lib/demo/demo-fetch";
 import { NavDocuments } from "@/components/nav-documents";
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
-import { DateFilter } from "@/components/date-filter";
 import {
   Sidebar,
   SidebarContent,
@@ -419,12 +418,6 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
               <SidebarTrigger
                 className="hidden size-8 rounded-full border border-sidebar-border/70 bg-sidebar/95 text-sidebar-foreground shadow-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:inline-flex"
               />
-              <DateFilter
-                availableYears={availableYears}
-                triggerVariant="ghost"
-                triggerSize="icon-sm"
-                triggerClassName="size-8 rounded-full border border-sidebar-border/70 bg-sidebar/95 text-sidebar-foreground shadow-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              />
             </div>
           </div>
         </div>
@@ -434,7 +427,7 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
         <NavDocuments items={data.documents} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser />
+        <NavUser availableYears={availableYears} />
       </SidebarFooter>
     </Sidebar>
   );
