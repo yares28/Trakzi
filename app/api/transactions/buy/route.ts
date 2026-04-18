@@ -78,11 +78,13 @@ export async function POST(request: NextRequest) {
             console.log(`[Buy Transactions] Created Stripe customer ${customerId} for user ${userId}`);
         }
 
+        const resolvedCustomerId = customerId as string;
+
         // Create one-time payment checkout session (mode: 'payment', not 'subscription')
         const session = await stripe.checkout.sessions.create({
             mode: 'payment',
             payment_method_types: ['card'],
-            customer: customerId,
+            customer: resolvedCustomerId,
             line_items: [
                 {
                     price: priceId,
