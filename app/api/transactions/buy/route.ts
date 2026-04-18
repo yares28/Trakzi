@@ -6,6 +6,7 @@ import { auth } from '@clerk/nextjs/server';
 import { getStripe, getAppUrl, STRIPE_PRICES, isTransactionPackPriceId } from '@/lib/stripe';
 import { getUserSubscription } from '@/lib/subscriptions';
 import { TRANSACTION_PACKS, getTransactionPackByPriceId } from '@/lib/plan-limits';
+import { neonQuery } from '@/lib/neonClient';
 
 export async function POST(request: NextRequest) {
     try {
@@ -53,15 +54,28 @@ export async function POST(request: NextRequest) {
         const stripe = getStripe();
         const appUrl = getAppUrl();
 
-        // Get or ensure Stripe customer exists
+        // Resolve a valid Stripe customer ID (cus_...).
+        // Manual/lifetime entries in the DB won't be real Stripe customers, so
+        // we create one on the fly and persist it for future purchases.
         const existingSubscription = await getUserSubscription(userId);
-        const customerId = existingSubscription?.stripeCustomerId;
+        let customerId = existingSubscription?.stripeCustomerId;
 
-        if (!customerId) {
-            return NextResponse.json(
-                { error: 'Please set up a subscription first before purchasing transaction packs.' },
-                { status: 400 }
+        const isValidStripeCustomer = customerId?.startsWith('cus_');
+
+        if (!isValidStripeCustomer) {
+            // Create a real Stripe customer tied to this user
+            const customer = await stripe.customers.create({
+                metadata: { userId },
+            });
+            customerId = customer.id;
+
+            // Persist the new customer ID so we don't create duplicates next time
+            await neonQuery(
+                `UPDATE subscriptions SET stripe_customer_id = $1 WHERE user_id = $2`,
+                [customerId, userId]
             );
+
+            console.log(`[Buy Transactions] Created Stripe customer ${customerId} for user ${userId}`);
         }
 
         // Create one-time payment checkout session (mode: 'payment', not 'subscription')
@@ -105,7 +119,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        if (msg.includes('No such price') || stripeCode === 'resource_missing') {
+        if (msg.includes('No such price') || (stripeCode === 'resource_missing' && msg.includes('price'))) {
             return NextResponse.json(
                 { error: 'This pack is currently unavailable. Please try again or contact support.' },
                 { status: 400 }
@@ -115,13 +129,6 @@ export async function POST(request: NextRequest) {
         if (msg.includes('recurring') || msg.includes('mode=payment') || msg.includes('mode: payment')) {
             return NextResponse.json(
                 { error: 'Pack price configuration error: price must be one-time, not recurring. Contact support.' },
-                { status: 400 }
-            );
-        }
-
-        if (msg.includes('No such customer') || stripeCode === 'customer_deleted') {
-            return NextResponse.json(
-                { error: 'Billing account not found. Please contact support.' },
                 { status: 400 }
             );
         }
