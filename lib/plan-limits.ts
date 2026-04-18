@@ -181,7 +181,7 @@ export const TRANSACTION_PACKS: TransactionPack[] = [
         id: 'pack_500',
         name: 'Bundle 1',
         transactions: 500,
-        priceCents: 1000,       // €10
+        priceCents: 999,        // €9.99
         currency: 'eur',
         stripePriceEnvKey: 'STRIPE_PRICE_ID_TRANSACTION_PACK_500',
     },
@@ -189,7 +189,7 @@ export const TRANSACTION_PACKS: TransactionPack[] = [
         id: 'pack_1500',
         name: 'Bundle 2',
         transactions: 1500,
-        priceCents: 2000,       // €20
+        priceCents: 1999,       // €19.99
         currency: 'eur',
         stripePriceEnvKey: 'STRIPE_PRICE_ID_TRANSACTION_PACK_1500',
     },
@@ -197,7 +197,7 @@ export const TRANSACTION_PACKS: TransactionPack[] = [
         id: 'pack_5000',
         name: 'Bundle 3',
         transactions: 5000,
-        priceCents: 5000,       // €50
+        priceCents: 4999,       // €49.99
         currency: 'eur',
         stripePriceEnvKey: 'STRIPE_PRICE_ID_TRANSACTION_PACK_5000',
     },

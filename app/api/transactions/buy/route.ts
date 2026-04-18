@@ -87,9 +87,16 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ url: session.url });
     } catch (error: any) {
-        console.error('[Buy Transactions] Error creating checkout session:', error);
-
         const msg = error.message || '';
+        const stripeCode = error.code || '';
+        const stripeType = error.type || '';
+
+        console.error('[Buy Transactions] Error creating checkout session:', {
+            message: msg,
+            code: stripeCode,
+            type: stripeType,
+            raw: error?.raw?.message,
+        });
 
         if (msg.includes('Stripe is not initialized')) {
             return NextResponse.json(
@@ -98,15 +105,29 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        if (msg.includes('No such price')) {
+        if (msg.includes('No such price') || stripeCode === 'resource_missing') {
             return NextResponse.json(
                 { error: 'This pack is currently unavailable. Please try again or contact support.' },
                 { status: 400 }
             );
         }
 
+        if (msg.includes('recurring') || msg.includes('mode=payment') || msg.includes('mode: payment')) {
+            return NextResponse.json(
+                { error: 'Pack price configuration error: price must be one-time, not recurring. Contact support.' },
+                { status: 400 }
+            );
+        }
+
+        if (msg.includes('No such customer') || stripeCode === 'customer_deleted') {
+            return NextResponse.json(
+                { error: 'Billing account not found. Please contact support.' },
+                { status: 400 }
+            );
+        }
+
         return NextResponse.json(
-            { error: 'Unable to start checkout. Please try again.' },
+            { error: `Unable to start checkout: ${msg || 'unknown error'}` },
             { status: 500 }
         );
     }

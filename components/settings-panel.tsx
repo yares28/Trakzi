@@ -1172,7 +1172,7 @@ function SubscriptionSection() {
                                     >
                                         <span className="font-semibold">{pack.transactions.toLocaleString()}</span>
                                         <span className="text-muted-foreground">txns</span>
-                                        <span className="text-primary font-medium">€{(pack.priceCents / 100).toFixed(0)}</span>
+                                        <span className="text-primary font-medium">€{(pack.priceCents / 100).toFixed(2)}</span>
                                     </button>
                                 ))}
                             </div>
