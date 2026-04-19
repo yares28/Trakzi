@@ -658,14 +658,16 @@ function ChartSparkles() {
   )
 }
 
+const FRIDGE_PALETTE = ["#fe680e", "#fe8339", "#fe9e64", "#feb98f"]
+
 /* ---- Chart Components with Nutrition Data ---- */
 
 function DonutChart() {
   const data = [
-    { label: "Vegetables", value: 35, color: "#22c55e" },
-    { label: "Meat", value: 25, color: "#ef4444" },
-    { label: "Dairy", value: 20, color: "#eab308" },
-    { label: "Drinks", value: 20, color: "#3b82f6" },
+    { label: "Vegetables", value: 35, color: FRIDGE_PALETTE[0] },
+    { label: "Meat",       value: 25, color: FRIDGE_PALETTE[1] },
+    { label: "Dairy",      value: 20, color: FRIDGE_PALETTE[2] },
+    { label: "Drinks",     value: 20, color: FRIDGE_PALETTE[3] },
   ]
 
   let cumulativePercent = 0
@@ -744,19 +746,22 @@ function BarsChart() {
           <div key={i} className="flex flex-col items-center gap-1">
             <div className="flex gap-[2px] items-end h-24">
               <motion.div
-                className="w-2 bg-green-500 rounded-t"
+                className="w-2 rounded-t"
+                style={{ backgroundColor: FRIDGE_PALETTE[0] }}
                 initial={{ height: 0 }}
                 animate={{ height: `${(item.vegetables / maxValue) * 100}%` }}
                 transition={{ delay: i * 0.05, duration: 0.4 }}
               />
               <motion.div
-                className="w-2 bg-red-500 rounded-t"
+                className="w-2 rounded-t"
+                style={{ backgroundColor: FRIDGE_PALETTE[1] }}
                 initial={{ height: 0 }}
                 animate={{ height: `${(item.meat / maxValue) * 100}%` }}
                 transition={{ delay: i * 0.05 + 0.1, duration: 0.4 }}
               />
               <motion.div
-                className="w-2 bg-yellow-500 rounded-t"
+                className="w-2 rounded-t"
+                style={{ backgroundColor: FRIDGE_PALETTE[2] }}
                 initial={{ height: 0 }}
                 animate={{ height: `${(item.dairy / maxValue) * 100}%` }}
                 transition={{ delay: i * 0.05 + 0.2, duration: 0.4 }}
@@ -769,18 +774,12 @@ function BarsChart() {
 
       {/* Legend */}
       <div className="flex justify-center gap-3 text-[8px] pb-1">
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-sm bg-green-500" />
-          <span className="text-muted-foreground">Veg</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-sm bg-red-500" />
-          <span className="text-muted-foreground">Meat</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-sm bg-yellow-500" />
-          <span className="text-muted-foreground">Dairy</span>
-        </div>
+        {["Veg", "Meat", "Dairy"].map((name, i) => (
+          <div key={name} className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: FRIDGE_PALETTE[i] }} />
+            <span className="text-muted-foreground">{name}</span>
+          </div>
+        ))}
       </div>
     </motion.div>
   )
@@ -807,30 +806,15 @@ function StackedChart() {
           <div key={i} className="flex items-center gap-2">
             <span className="text-[8px] text-muted-foreground w-14 text-right">{item.meal}</span>
             <div className="flex-1 h-5 flex rounded overflow-hidden">
-              <motion.div
-                className="bg-green-500"
-                initial={{ width: 0 }}
-                animate={{ width: `${item.vegetables}%` }}
-                transition={{ delay: i * 0.1, duration: 0.4 }}
-              />
-              <motion.div
-                className="bg-red-500"
-                initial={{ width: 0 }}
-                animate={{ width: `${item.meat}%` }}
-                transition={{ delay: i * 0.1 + 0.1, duration: 0.4 }}
-              />
-              <motion.div
-                className="bg-yellow-500"
-                initial={{ width: 0 }}
-                animate={{ width: `${item.dairy}%` }}
-                transition={{ delay: i * 0.1 + 0.2, duration: 0.4 }}
-              />
-              <motion.div
-                className="bg-blue-500"
-                initial={{ width: 0 }}
-                animate={{ width: `${item.drinks}%` }}
-                transition={{ delay: i * 0.1 + 0.3, duration: 0.4 }}
-              />
+              {[item.vegetables, item.meat, item.dairy, item.drinks].map((val, j) => (
+                <motion.div
+                  key={j}
+                  style={{ backgroundColor: FRIDGE_PALETTE[j] }}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${val}%` }}
+                  transition={{ delay: i * 0.1 + j * 0.1, duration: 0.4 }}
+                />
+              ))}
             </div>
           </div>
         ))}
@@ -838,22 +822,12 @@ function StackedChart() {
 
       {/* Legend */}
       <div className="flex justify-center gap-2 text-[8px] pb-1">
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-sm bg-green-500" />
-          <span className="text-muted-foreground">Veg</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-sm bg-red-500" />
-          <span className="text-muted-foreground">Meat</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-sm bg-yellow-500" />
-          <span className="text-muted-foreground">Dairy</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-sm bg-blue-500" />
-          <span className="text-muted-foreground">Drinks</span>
-        </div>
+        {["Veg", "Meat", "Dairy", "Drinks"].map((name, i) => (
+          <div key={name} className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: FRIDGE_PALETTE[i] }} />
+            <span className="text-muted-foreground">{name}</span>
+          </div>
+        ))}
       </div>
     </motion.div>
   )

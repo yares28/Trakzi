@@ -15,14 +15,27 @@ export default function Hero() {
       <section className="relative min-h-screen flex flex-col" suppressHydrationWarning>
         <div className="container mx-auto px-4 py-32 sm:py-48 relative z-10 flex-1 flex flex-col">
           <div className="mx-auto max-w-4xl text-center flex-1 flex flex-col justify-center relative">
-            {/* Background Logo with Special Glow */}
+            {/* Background logo image */}
             <m.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 1.5, ease: "easeOut" }}
               className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 pointer-events-none select-none flex items-center justify-center w-[120%] h-[120%]"
             >
-              {/* Animated Outer Glow */}
+              <img
+                src="/3d/3dlogo.png"
+                alt=""
+                className="absolute w-[800px] h-[800px] sm:w-[1200px] sm:h-[1200px] object-contain opacity-45"
+              />
+            </m.div>
+
+            {/* Old outline design (uncomment this block to switch back)
+            <m.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1.5, ease: "easeOut" }}
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 pointer-events-none select-none flex items-center justify-center w-[120%] h-[120%]"
+            >
               <m.div
                 animate={{
                   scale: [1, 1.2, 1],
@@ -36,7 +49,6 @@ export default function Hero() {
                 className="absolute w-[600px] h-[600px] sm:w-[1200px] sm:h-[1200px] bg-white/20 blur-[150px] rounded-full mix-blend-screen"
               />
 
-              {/* Logo with Liquid Glass Effect */}
               <m.div
                 animate={{
                   scale: [0.95, 1.05, 0.95],
@@ -48,21 +60,16 @@ export default function Hero() {
                 }}
                 className="absolute flex items-center justify-center w-[800px] h-[800px] sm:w-[1600px] sm:h-[1600px] opacity-[0.35] mix-blend-plus-lighter"
               >
-                {/* Base SVG inverted to white with light drop shadow */}
                 <img
                   src="/Trakzi/fulleticonB.svg"
                   alt=""
                   className="absolute w-full h-full object-contain brightness-0 invert drop-shadow-[0_0_40px_rgba(255,255,255,1)]"
                 />
-
-                {/* Secondary blurred logo for liquid volume/glow spread */}
                 <img
                   src="/Trakzi/fulleticonB.svg"
                   alt=""
                   className="absolute w-full h-full object-contain brightness-0 invert blur-[30px] opacity-80"
                 />
-
-                {/* Third crisp layer to give the glass edge reflection */}
                 <img
                   src="/Trakzi/fulleticonB.svg"
                   alt=""
@@ -70,6 +77,7 @@ export default function Hero() {
                 />
               </m.div>
             </m.div>
+            */}
 
             {/* Badge */}
             <m.div
@@ -80,7 +88,7 @@ export default function Hero() {
             >
               <Badge variant="secondary" className="inline-flex items-center gap-2 px-4 py-2 text-sm">
                 <Sparkles className="h-4 w-4" />
-                Latest news
+                Start for Free
               </Badge>
             </m.div>
 
@@ -152,7 +160,7 @@ export default function Hero() {
                           <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
                           <path d="M2 12h20"></path>
                         </svg>
-                        Get started
+                        Get started for Free
                       </p>
                     </div>
                     <div className="text-muted-foreground group-hover:ml-4 ease-in-out transition-all size-[24px] flex items-center justify-center rounded-full border-2 border-border">

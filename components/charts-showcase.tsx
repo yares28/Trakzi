@@ -497,7 +497,9 @@ export function ChartsShowcase() {
   const isInView = useInView(ref, { once: true, margin: "-50px" })
 
   return (
-    <section ref={ref} className="py-48 px-4 relative">
+    <section ref={ref} className="py-48 px-4 relative overflow-hidden">
+      <div className="bg-primary absolute -top-10 left-1/2 h-16 w-44 -translate-x-1/2 rounded-full opacity-40 blur-3xl select-none pointer-events-none"></div>
+      <div className="via-primary/50 absolute top-0 left-1/2 h-px w-3/5 -translate-x-1/2 bg-gradient-to-r from-transparent to-transparent pointer-events-none"></div>
       <div className="max-w-7xl mx-auto p-6 lg:p-12">
         {/* Header */}
         <m.div

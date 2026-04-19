@@ -7,6 +7,7 @@ import { NewReleasePromo } from "@/components/new-release-promo"
 import { FAQSection } from "@/components/faq-section"
 import { StickyFooter } from "@/components/sticky-footer"
 import { ChartsShowcase } from "@/components/charts-showcase"
+import { ImageComparisonSection } from "@/components/image-comparison-section"
 import Link from "next/link"
 import Image from "next/image"
 import { LanguagePicker } from "@/components/language-picker"
@@ -234,6 +235,14 @@ export default function Home() {
 
       {/* Hero Section */}
       <Hero />
+
+      {/* Image Comparison Section */}
+      <ImageComparisonSection
+        beforeSrc="/SheetsCompare.jpeg"
+        afterSrc="/trakziCompare.png"
+        beforeAlt="Financial data without Trakzi"
+        afterAlt="Financial data with Trakzi"
+      />
 
       {/* Features Section */}
       <div id="features">

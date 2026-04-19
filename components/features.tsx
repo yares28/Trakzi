@@ -7,13 +7,14 @@ import Earth from "./globe"
 import ScrambleHover from "./scramble"
 import { FollowerPointerCard } from "./following-pointer"
 import { m, useInView } from "framer-motion"
-import { Suspense, useRef, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import { Sparkles, FileSpreadsheet, ShoppingCart, LayoutGrid, MessageSquare, BarChart3 } from "lucide-react"
 import { geist } from "@/lib/fonts"
 import { cn } from "@/lib/utils"
 import { AnimatedCharts } from "./animated-charts"
 import { ReceiptFridgeAnimation } from "./receipt-fridge-animation"
 import { DynamicLayoutsAnimation } from "./dynamic-layouts-animation"
+import { ReceiptScannerAnimation } from "./receipt-scanner-animation"
 
 const BASE_COLOR: [number, number, number] = [0.906, 0.541, 0.325] // #e78a53 — RGB normalized
 
@@ -26,6 +27,19 @@ export default function Features() {
   const [isFeature3Hovering, setIsFeature3Hovering] = useState(false)
   const [isFeature4Hovering, setIsFeature4Hovering] = useState(false)
   const [inputValue, setInputValue] = useState("")
+
+  const FORMAT_CYCLE = ["CSV", "PDF", "XLSX", "IMAGE"]
+  const [formatIndex, setFormatIndex] = useState(0)
+  const [isAutoScrambling, setIsAutoScrambling] = useState(false)
+
+  useEffect(() => {
+    const cycleInterval = setInterval(() => {
+      setFormatIndex((prev) => (prev + 1) % FORMAT_CYCLE.length)
+      setIsAutoScrambling(true)
+      setTimeout(() => setIsAutoScrambling(false), 1600)
+    }, 2800)
+    return () => clearInterval(cycleInterval)
+  }, [])
 
   const baseColor = BASE_COLOR
   const glowColor = BASE_COLOR
@@ -47,17 +61,24 @@ export default function Features() {
         initial={{ opacity: 0, y: 50 }}
         animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
         transition={{ duration: 0.5, delay: 0 }}
-        className="container mx-auto flex flex-col items-center gap-6 sm:gap-12"
+        className="flex flex-col gap-6 sm:gap-12"
       >
-        <h2
-          className={cn(
-            "mb-12 text-center text-5xl font-semibold tracking-tighter text-foreground md:text-[72px] md:leading-[80px]",
-            geist.className,
-          )}
-        >
-          Features
-        </h2>
+        {/* Heading — constrained */}
+        <div className="max-w-screen-xl mx-auto w-full px-4 sm:px-8">
+          <h2
+            className={cn(
+              "mb-12 text-center text-5xl font-semibold tracking-tighter text-foreground md:text-[72px] md:leading-[80px]",
+              geist.className,
+            )}
+          >
+            Features
+          </h2>
+        </div>
+
+        {/* Grid — wider */}
+        <div className="max-w-screen-2xl mx-auto w-full px-4 sm:px-6">
         <FollowerPointerCard
+          className="w-full"
           title={
             <div className="flex items-center gap-2">
               <span>✨</span>
@@ -66,10 +87,10 @@ export default function Features() {
           }
         >
           <div className="cursor-none">
-            <div className="grid grid-cols-12 gap-4 justify-center">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Cli */}
               <m.div
-                className="group border-secondary/40 text-card-foreground relative col-span-12 flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out md:col-span-6 xl:col-span-6 xl:col-start-2"
+                className="group border-secondary/40 text-card-foreground relative flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out"
                 onMouseEnter={() => setIsCliHovering(true)}
                 onMouseLeave={() => setIsCliHovering(false)}
                 ref={ref}
@@ -258,7 +279,7 @@ export default function Features() {
 
               {/* Global */}
               <m.div
-                className="group border-secondary/40 text-card-foreground relative col-span-12 flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out md:col-span-6 xl:col-span-6 xl:col-start-8"
+                className="group border-secondary/40 text-card-foreground relative flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out"
                 onMouseEnter={() => setIsHovering(true)}
                 onMouseLeave={() => setIsHovering(false)}
                 ref={ref}
@@ -274,19 +295,19 @@ export default function Features() {
                 <div className="flex flex-col gap-4">
                   <h3 className="text-2xl leading-none font-semibold tracking-tight">Globally Usable</h3>
                   <div className="text-md text-muted-foreground flex flex-col gap-2 text-sm">
-                    <p className="max-w-[460px]">You can use any csv file from any bank</p>
+                    <p className="max-w-[460px]">Import from any bank — supports CSV, PDF, XLSX, and image files</p>
                   </div>
                 </div>
                 <div className="flex min-h-[300px] grow items-start justify-center select-none">
                   <h1 className="mt-8 text-center text-5xl leading-[100%] font-semibold sm:leading-normal lg:mt-12 lg:text-6xl">
                     <span className="bg-background relative mt-3 inline-block w-fit rounded-md border px-1.5 py-0.5">
                       <ScrambleHover
-                        text="CSV"
+                        text={FORMAT_CYCLE[formatIndex]}
                         scrambleSpeed={70}
                         maxIterations={20}
                         useOriginalCharsOnly={false}
                         className="cursor-pointer bg-gradient-to-t from-[#e78a53] to-[#e78a53] bg-clip-text text-transparent"
-                        isHovering={isHovering}
+                        isHovering={isHovering || isAutoScrambling}
                         setIsHovering={setIsHovering}
                         characters="abcdefghijklmnopqrstuvwxyz!@#$%^&*()_+-=[]{}|;':\,./<>?"
                       />
@@ -312,7 +333,7 @@ export default function Features() {
 
               {/* Smart Components */}
               <m.div
-                className="group border-secondary/40 text-card-foreground relative col-span-12 flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out md:col-span-6 xl:col-span-6 xl:col-start-2"
+                className="group border-secondary/40 text-card-foreground relative flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out"
                 onMouseEnter={() => setIsFeature3Hovering(true)}
                 onMouseLeave={() => setIsFeature3Hovering(false)}
                 initial={{ opacity: 0, y: 50 }}
@@ -406,7 +427,7 @@ export default function Features() {
 
               {/* Dynamic Layouts */}
               <m.div
-                className="group border-secondary/40 text-card-foreground relative col-span-12 flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out md:col-span-6 xl:col-span-6 xl:col-start-8"
+                className="group border-secondary/40 text-card-foreground relative flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out"
                 onMouseEnter={() => setIsFeature4Hovering(true)}
                 onMouseLeave={() => setIsFeature4Hovering(false)}
                 initial={{ opacity: 0, y: 50 }}
@@ -433,7 +454,7 @@ export default function Features() {
 
               {/* Advanced Analytics */}
               <m.div
-                className="group border-secondary/40 text-card-foreground relative col-span-12 flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out md:col-span-6 xl:col-span-6 xl:col-start-2"
+                className="group border-secondary/40 text-card-foreground relative flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out"
                 initial={{ opacity: 0, y: 50 }}
                 animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
                 transition={{ duration: 0.5, delay: 1.2 }}
@@ -459,7 +480,7 @@ export default function Features() {
 
               {/* Secure by Default */}
               <m.div
-                className="group border-secondary/40 text-card-foreground relative col-span-12 flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out md:col-span-6 xl:col-span-6 xl:col-start-8"
+                className="group border-secondary/40 text-card-foreground relative flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out"
                 initial={{ opacity: 0, y: 50 }}
                 animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
                 transition={{ duration: 0.5, delay: 1.2 }}
@@ -481,9 +502,32 @@ export default function Features() {
                   <ReceiptFridgeAnimation />
                 </div>
               </m.div>
+              {/* Fridge Showcase — full width */}
+              <m.div
+                className="group border-secondary/40 text-card-foreground relative col-span-1 md:col-span-2 flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out"
+                initial={{ opacity: 0, y: 50 }}
+                animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
+                transition={{ duration: 0.5, delay: 1.4 }}
+                whileHover={{
+                  scale: 1.005,
+                  borderColor: "rgba(231, 138, 83, 0.45)",
+                }}
+                style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
+              >
+                <div className="flex flex-col gap-4 mb-4">
+                  <h3 className="text-2xl leading-none font-semibold tracking-tight">Scan a receipt. Get insights.</h3>
+                  <p className="text-sm text-muted-foreground max-w-[560px]">
+                    Upload any grocery receipt and watch Trakzi extract, categorize, and analyze every item — from spending patterns to nutrition breakdowns, all automatically.
+                  </p>
+                </div>
+                <div className="flex grow items-center justify-center select-none">
+                  <ReceiptScannerAnimation />
+                </div>
+              </m.div>
             </div>
           </div>
         </FollowerPointerCard>
+        </div>
       </m.div>
     </section>
   )
