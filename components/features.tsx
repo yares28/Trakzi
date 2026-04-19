@@ -13,6 +13,7 @@ import { geist } from "@/lib/fonts"
 import { cn } from "@/lib/utils"
 import { AnimatedCharts } from "./animated-charts"
 import { ReceiptFridgeAnimation } from "./receipt-fridge-animation"
+import { DynamicLayoutsAnimation } from "./dynamic-layouts-animation"
 
 const BASE_COLOR: [number, number, number] = [0.906, 0.541, 0.325] // #e78a53 — RGB normalized
 
@@ -412,28 +413,21 @@ export default function Features() {
                 animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
                 transition={{ duration: 0.5, delay: 1.0 }}
                 whileHover={{
-                  rotateY: 5,
-                  rotateX: 2,
+                  scale: 1.01,
+                  borderColor: "rgba(231, 138, 83, 0.35)",
                 }}
-                style={{ transition: "opacity 0.3s ease, transform 0.3s ease" }}
+                style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4">
-                  <h3 className="text-2xl leading-none font-semibold tracking-tight">Dynamic Layouts</h3>
+                  <h3 className="text-2xl leading-none font-semibold tracking-tight">Track Everything</h3>
                   <div className="text-md text-muted-foreground flex flex-col gap-2 text-sm">
                     <p className="max-w-[460px]">
-                      Responsive layouts, you can drag, drop and resize all the charts to fit your prefrences.
+                      Track countries you've visited, vehicles you own, and properties — all in one place.
                     </p>
                   </div>
                 </div>
                 <div className="flex grow items-center justify-center select-none relative min-h-[300px] p-4">
-                  <div className="relative w-full max-w-sm">
-                    <img
-                      src="/window.svg"
-                      alt="Dynamic Layout Example"
-                      className="w-full h-auto rounded-lg shadow-lg"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-lg"></div>
-                  </div>
+                  <DynamicLayoutsAnimation />
                 </div>
               </m.div>
 
