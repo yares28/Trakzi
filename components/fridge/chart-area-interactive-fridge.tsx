@@ -13,8 +13,9 @@ import { ChartLoadingState } from "@/components/chart-loading-state"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import {
     Card,
-    CardAction,
+  CardAction,
     CardContent,
+    CardFooter,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"

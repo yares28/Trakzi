@@ -16,8 +16,9 @@ import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { deduplicatedFetch } from "@/lib/request-deduplication"
 import {
     Card,
-    CardAction,
+  CardAction,
     CardContent,
+    CardFooter,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"

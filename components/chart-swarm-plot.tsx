@@ -651,75 +651,77 @@ export const ChartSwarmPlot = memo(function ChartSwarmPlot({
             />
             <CardTitle>Transaction History</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-center gap-3 sm:flex-row sm:items-center">
+          <CardAction className="flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row sm:items-center sm:justify-start">
             {chartGroups.length > 0 && (
-              <DropdownMenu
-                open={isGroupSelectorOpen}
-                onOpenChange={setIsGroupSelectorOpen}
-                modal={false}
-              >
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className={triggerClassName}
-                    aria-label="Select categories to display"
-                  >
-                    <span className="truncate">{selectionSummary}</span>
-                    <ChevronDownIcon className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <p className="px-2 pb-1 pt-1.5 text-xs font-medium text-muted-foreground">
-                    Select categories to display
-                  </p>
-                  {/* Hide Select All on mobile (single-select mode) */}
-                  {maxCategories > 1 && (
-                    <>
-                      <DropdownMenuItem
-                        onSelect={(e) => {
-                          e.preventDefault();
-                          selectAllGroups();
-                        }}
-                        className="cursor-pointer font-medium"
-                      >
-                        {visibleGroups.length === chartGroups.length &&
-                        chartGroups.every((group) =>
-                          visibleGroups.includes(group),
-                        )
-                          ? "Deselect all"
-                          : "Select all"}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                    </>
-                  )}
-                  <div className="max-h-64 overflow-y-auto">
-                    {chartGroups.map((group) => {
-                      const checked = visibleGroups.includes(group);
-                      return (
-                        <DropdownMenuCheckboxItem
-                          key={group}
-                          checked={checked}
-                          onCheckedChange={() => toggleGroup(group)}
-                          onSelect={(event) => event.preventDefault()}
-                          className="capitalize"
+              <div className="flex w-full justify-center sm:w-auto">
+                <DropdownMenu
+                  open={isGroupSelectorOpen}
+                  onOpenChange={setIsGroupSelectorOpen}
+                  modal={false}
+                >
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className={`${triggerClassName} mx-auto`}
+                      aria-label="Select categories to display"
+                    >
+                      <span className="truncate">{selectionSummary}</span>
+                      <ChevronDownIcon className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <p className="px-2 pb-1 pt-1.5 text-xs font-medium text-muted-foreground">
+                      Select categories to display
+                    </p>
+                    {/* Hide Select All on mobile (single-select mode) */}
+                    {maxCategories > 1 && (
+                      <>
+                        <DropdownMenuItem
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            selectAllGroups();
+                          }}
+                          className="cursor-pointer font-medium"
                         >
-                          <span className="truncate">{group}</span>
-                        </DropdownMenuCheckboxItem>
-                      );
-                    })}
-                    {chartGroups.length === 0 && (
-                      <div className="px-2 py-4 text-sm text-muted-foreground">
-                        No categories
-                      </div>
+                          {visibleGroups.length === chartGroups.length &&
+                          chartGroups.every((group) =>
+                            visibleGroups.includes(group),
+                          )
+                            ? "Deselect all"
+                            : "Select all"}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                      </>
                     )}
-                  </div>
-                  <div className="border-t px-2 py-1 text-xs text-muted-foreground">
-                    {visibleGroups.length === chartGroups.length
-                      ? "All categories selected"
-                      : `${visibleGroups.length}/${chartGroups.length} selected`}
-                  </div>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    <div className="max-h-64 overflow-y-auto">
+                      {chartGroups.map((group) => {
+                        const checked = visibleGroups.includes(group);
+                        return (
+                          <DropdownMenuCheckboxItem
+                            key={group}
+                            checked={checked}
+                            onCheckedChange={() => toggleGroup(group)}
+                            onSelect={(event) => event.preventDefault()}
+                            className="capitalize"
+                          >
+                            <span className="truncate">{group}</span>
+                          </DropdownMenuCheckboxItem>
+                        );
+                      })}
+                      {chartGroups.length === 0 && (
+                        <div className="px-2 py-4 text-sm text-muted-foreground">
+                          No categories
+                        </div>
+                      )}
+                    </div>
+                    <div className="border-t px-2 py-1 text-xs text-muted-foreground">
+                      {visibleGroups.length === chartGroups.length
+                        ? "All categories selected"
+                        : `${visibleGroups.length}/${chartGroups.length} selected`}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             )}
             <SwarmInfoTrigger swarmControls={swarmControls} />
           </CardAction>

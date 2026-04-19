@@ -4,6 +4,14 @@ export const metadata: Metadata = {
   title: "Importar CSV Bancario — Visualiza tus Gastos sin Conectar tu Banco",
   description:
     "Sube cualquier extracto bancario en CSV de CaixaBank, BBVA, Santander, ING o cualquier banco. Trakzi normaliza los datos y genera gráficos automáticamente. Sin conexión bancaria.",
+  alternates: {
+    canonical: "https://trakzi.com/es/importar-csv",
+    languages: {
+      en: "https://trakzi.com/csv-import",
+      es: "https://trakzi.com/es/importar-csv",
+      "x-default": "https://trakzi.com/csv-import",
+    },
+  },
   openGraph: {
     title: "Importar CSV Bancario — Visualiza tus Gastos sin Conectar tu Banco | Trakzi",
     description:

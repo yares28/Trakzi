@@ -11,8 +11,8 @@ import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import {
   Card,
-  CardAction,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -324,8 +324,8 @@ export const ChartSpendingStreamgraph = memo(function ChartSpendingStreamgraph({
     setTooltipPosition(null)
   }
 
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
+  const renderInfoTrigger = () => (
+    <div className="flex items-center gap-2">
       <ChartInfoPopover
         title="Category Streamgraph"
         description="Stacked monthly expenses inspired by D3 streamgraphs"
@@ -497,13 +497,13 @@ export const ChartSpendingStreamgraph = memo(function ChartSpendingStreamgraph({
             />
             <CardTitle>Category Streamgraph</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
         </CardHeader>
         <CardContent className="flex min-h-[220px] flex-col px-2 pt-4 sm:min-h-[260px] sm:px-6 sm:pt-6 md:min-h-[280px]">
           {renderPlot(null, mainSize.ref)}
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          {renderInfoTrigger()}
+        </CardFooter>
       </Card>
     )
   }
@@ -515,7 +515,7 @@ export const ChartSpendingStreamgraph = memo(function ChartSpendingStreamgraph({
         onClose={() => setIsFullscreen(false)}
         title="Category Streamgraph"
         description="Stacked monthly expenses inspired by D3 streamgraphs"
-        headerActions={renderInfoTrigger(true)}
+        headerActions={renderInfoTrigger()}
         orientation="portrait"
       >
         {fsGeometry && rows.length > 0 && activeKeys.length > 0 ? (
@@ -539,9 +539,6 @@ export const ChartSpendingStreamgraph = memo(function ChartSpendingStreamgraph({
             />
             <CardTitle>Category Streamgraph</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
         </CardHeader>
         <CardContent className="flex min-h-[220px] flex-col px-2 pt-4 sm:min-h-[260px] sm:px-6 sm:pt-6 md:min-h-[280px]">
           {!isFullscreen ? renderPlot(mainGeometry, mainSize.ref) : (
@@ -550,6 +547,9 @@ export const ChartSpendingStreamgraph = memo(function ChartSpendingStreamgraph({
             </div>
           )}
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          {renderInfoTrigger()}
+        </CardFooter>
       </Card>
 
       {mounted && tooltip && tooltipPosition && createPortal(

@@ -65,6 +65,7 @@ export type ActivityRingsDatum = {
   backgroundColor?: string
   category?: string
   spent?: number
+  budget?: number
 }
 
 export type ActivityRingsData = ActivityRingsDatum[]

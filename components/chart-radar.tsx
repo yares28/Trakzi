@@ -147,7 +147,7 @@ const RadarStatusCard = memo(function RadarStatusCard({
 }: RadarStatusCardProps) {
   return (
     <Card className="@container/card h-full relative gap-[20px]" data-slot="card">
-      <CardHeader className="flex flex-row items-start justify-between gap-2 pb-0">
+      <CardHeader className="flex flex-col gap-3 pb-0 md:flex-row md:items-start md:justify-between">
         <div className="flex items-center gap-2">
           <GridStackCardDragHandle />
           <ChartFavoriteButton
@@ -157,7 +157,7 @@ const RadarStatusCard = memo(function RadarStatusCard({
           />
           <CardTitle>Financial Health Score</CardTitle>
         </div>
-        <CardAction className="flex flex-row items-center gap-2">
+        <CardAction className="hidden md:flex flex-row items-center gap-2">
           <RadarInfoTrigger
             categoryControls={categoryControls}
             yearSummaries={yearSummaries}
@@ -190,8 +190,13 @@ export const ChartRadar = memo(function ChartRadar({
   const { resolvedTheme } = useTheme()
   const { getShuffledPalette } = useColorScheme()
   const { formatCurrency } = useCurrency()
-  // Always fetch full annual data, ignoring the global date filter
-  const financialHealthUrl = "/api/financial-health"
+  const financialHealthUrl = useMemo(
+    () =>
+      dateFilter
+        ? `/api/financial-health?filter=${encodeURIComponent(dateFilter)}`
+        : "/api/financial-health",
+    [dateFilter],
+  )
   const cachedFinancialHealth = getCachedResponse<FinancialHealthResponse>(
     financialHealthUrl,
   )
@@ -226,11 +231,17 @@ export const ChartRadar = memo(function ChartRadar({
   const palette = useMemo(() => getShuffledPalette(), [getShuffledPalette])
 
   useEffect(() => {
+    setChartData(cachedFinancialHealth?.data ?? [])
+    setYearSummaries(cachedFinancialHealth?.years ?? [])
+    setIsLoading(!cachedFinancialHealth)
+    setError(null)
+  }, [cachedFinancialHealth, financialHealthUrl])
+
+  useEffect(() => {
     let isMounted = true
 
     async function loadNeonData() {
-      // Always fetch full annual data, ignoring the global date filter
-      const url = "/api/financial-health"
+      const url = financialHealthUrl
       const cached = getCachedResponse<FinancialHealthResponse>(url)
       if (cached) {
         if (isMounted) {
@@ -279,7 +290,7 @@ export const ChartRadar = memo(function ChartRadar({
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [financialHealthUrl])
 
   const sanitizedData = useMemo(() => {
     if (!chartData || chartData.length === 0) return []
@@ -654,9 +665,72 @@ export const ChartRadar = memo(function ChartRadar({
     </div>
   )
 
+  const mobileCategorySelector =
+    filterableCapabilities.length > 0 && viewMode === "financial" ? (
+      <div className="flex justify-center px-2 md:hidden">
+        <DropdownMenu open={isCategorySelectorOpen} onOpenChange={setIsCategorySelectorOpen}>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className={triggerClassName}
+              aria-label="Select categories to display"
+            >
+              <span className="truncate">{selectionSummary}</span>
+              <ChevronDownIcon className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="center"
+            className="w-56"
+          >
+            <p className="px-2 pb-1 pt-1.5 text-xs font-medium text-muted-foreground">
+              Select categories to display
+            </p>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault()
+                selectAllCapabilities()
+              }}
+              className="cursor-pointer font-medium"
+            >
+              {effectiveVisibleCapabilities.length === filterableCapabilities.length &&
+                filterableCapabilities.every(cap => effectiveVisibleCapabilities.includes(cap))
+                ? "Deselect all"
+                : "Select all"}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <div className="max-h-64 overflow-y-auto">
+              {filterableCapabilities.map(capability => {
+                const checked = effectiveVisibleCapabilities.includes(capability)
+                return (
+                  <DropdownMenuCheckboxItem
+                    key={capability}
+                    checked={checked}
+                    onCheckedChange={() => toggleCapability(capability)}
+                    onSelect={(event) => event.preventDefault()}
+                    className="capitalize"
+                  >
+                    <span className="truncate">{capability}</span>
+                  </DropdownMenuCheckboxItem>
+                )
+              })}
+              {filterableCapabilities.length === 0 && (
+                <div className="px-2 py-4 text-sm text-muted-foreground">No categories</div>
+              )}
+            </div>
+            <div className="border-t px-2 py-1 text-xs text-muted-foreground">
+              {effectiveVisibleCapabilities.length === filterableCapabilities.length
+                ? "All categories selected"
+                : `${effectiveVisibleCapabilities.length}/${filterableCapabilities.length} selected`}
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    ) : null
+
   return (
     <Card className="@container/card h-full relative gap-[20px]" data-slot="card">
-      <CardHeader className="flex flex-row items-start justify-between gap-2 pb-0">
+      <CardHeader className="flex flex-col gap-3 pb-0 md:flex-row md:items-start md:justify-between">
         <div className="flex items-center gap-2 min-w-0">
           <GridStackCardDragHandle />
           <ChartFavoriteButton
@@ -666,7 +740,7 @@ export const ChartRadar = memo(function ChartRadar({
           />
           <CardTitle className="truncate">Financial Health Score</CardTitle>
         </div>
-        <CardAction className="flex flex-row items-center justify-start gap-2 shrink-0">
+        <CardAction className="hidden shrink-0 md:flex flex-row items-center justify-start gap-2">
           {filterableCapabilities.length > 0 && (
             <div className={viewMode === "financial" ? "" : "invisible pointer-events-none"}>
             <DropdownMenu open={isCategorySelectorOpen} onOpenChange={setIsCategorySelectorOpen}>
@@ -735,6 +809,7 @@ export const ChartRadar = memo(function ChartRadar({
           />
         </CardAction>
       </CardHeader>
+      {mobileCategorySelector}
       {viewSwitchButton}
       <CardContent className="px-2 pt-0 sm:px-6 flex flex-col">
         {viewMode === "weekday" ? (

@@ -4,6 +4,14 @@ This document lists all chart components used on the Fridge (Grocery/Receipt) pa
 
 > **IMPORTANT:** When adding, modifying, or deleting charts on this page, update this document accordingly.
 
+## Chart Control Placement Contract
+
+- When a request says update `ALL charts`, apply the change to every chart rendered by `app/fridge/_client/components/ChartsGrid.tsx` (not only charts matched by partial search).
+- Card metadata controls must stay bottom-left in card view:
+  - `Insight` button above `Info` button.
+- Chart data switch controls must stay top-right and aligned with the card title.
+- Before finishing, verify controls do not overlap legends, labels, or left-axis content.
+
 ---
 
 ## Charts (18 total)

@@ -15,6 +15,15 @@ import {
     markEventAsFailed,
 } from '@/lib/webhook-events';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/security/rate-limiter';
+import {
+    trackSubscriptionStarted,
+    trackSubscriptionPlanChanged,
+    trackSubscriptionRenewed,
+    trackSubscriptionCanceled,
+    trackSubscriptionPaymentFailed,
+    trackSubscriptionRefunded,
+    trackTransactionPackPurchased,
+} from '@/lib/analytics/stripe-events';
 
 // Disable body parsing - we need raw body for signature verification
 export const runtime = 'nodejs';
@@ -139,32 +148,38 @@ export async function POST(request: NextRequest) {
         switch (event.type) {
             case 'checkout.session.completed': {
                 const session = event.data.object as Stripe.Checkout.Session;
-                await handleCheckoutCompleted(session);
+                await handleCheckoutCompleted(session, event.livemode);
                 break;
             }
 
             case 'customer.subscription.created':
             case 'customer.subscription.updated': {
                 const subscription = event.data.object as unknown as StripeSubscriptionData;
-                await handleSubscriptionUpdate(subscription);
+                await handleSubscriptionUpdate(subscription, event.livemode);
                 break;
             }
 
             case 'customer.subscription.deleted': {
                 const subscription = event.data.object as unknown as StripeSubscriptionData;
-                await handleSubscriptionDeleted(subscription);
+                await handleSubscriptionDeleted(subscription, event.livemode);
+                break;
+            }
+
+            case 'invoice.payment_succeeded': {
+                const invoice = event.data.object as Stripe.Invoice;
+                await handleInvoicePaid(invoice, event.livemode);
                 break;
             }
 
             case 'invoice.payment_failed': {
                 const invoice = event.data.object as Stripe.Invoice;
-                await handlePaymentFailed(invoice);
+                await handlePaymentFailed(invoice, event.livemode);
                 break;
             }
 
             case 'charge.refunded': {
                 const charge = event.data.object as Stripe.Charge;
-                await handleChargeRefunded(charge);
+                await handleChargeRefunded(charge, event.livemode);
                 break;
             }
 
@@ -226,7 +241,7 @@ async function syncSubscriptionToClerk(userId: string, plan: string, status: str
  * Handle checkout.session.completed
  * Creates initial subscription record
  */
-async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+async function handleCheckoutCompleted(session: Stripe.Checkout.Session, livemode: boolean) {
     const userId = session.metadata?.userId;
     const customerId = typeof session.customer === 'string'
         ? session.customer
@@ -265,6 +280,14 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
         await addPurchasedCapacity(userId, packTransactions);
         console.log(`[Webhook] Added ${packTransactions} purchased transactions for user ${userId} (pack: ${packId})`);
+
+        await trackTransactionPackPurchased({
+            userId,
+            session,
+            packId,
+            packTransactions,
+            livemode,
+        });
         return;
     }
 
@@ -328,12 +351,22 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
     await syncSubscriptionToClerk(userId, plan, 'active', customerId, periodEnd);
     console.log(`[Webhook] Subscription created for user ${userId}, plan: ${plan}`);
+
+    await trackSubscriptionStarted({
+        userId,
+        session,
+        subscription: {
+            id: subscription.id,
+            items: subscription.items,
+        },
+        livemode,
+    });
 }
 
 /**
  * Handle subscription updates (plan changes, renewals, etc.)
  */
-async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
+async function handleSubscriptionUpdate(subscription: StripeSubscriptionData, livemode: boolean) {
     const customerId = typeof subscription.customer === 'string'
         ? subscription.customer
         : subscription.customer?.id;
@@ -454,6 +487,18 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
 
             // Don't update Clerk - user still has their current plan
             console.log(`[Webhook] Subscription downgrade scheduled for customer ${customerId}`);
+
+            await trackSubscriptionPlanChanged({
+                userId,
+                customerId,
+                subscriptionId: subscription.id,
+                previousPlan: currentPlan,
+                newPlan,
+                priceId,
+                direction: 'downgrade',
+                pending: true,
+                livemode,
+            });
         } else {
             // Upgrade or renewal at period end: Apply new plan immediately, clear pending
             // If this is a downgrade being applied at period end, enforce cap
@@ -482,6 +527,22 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
             // Sync to Clerk
             await syncSubscriptionToClerk(userId, newPlan, status, customerId, periodEnd);
             console.log(`[Webhook] Subscription updated for customer ${customerId}`);
+
+            if (newPlan !== currentPlan) {
+                const direction: 'upgrade' | 'downgrade' | 'same_tier' =
+                    newTier > currentTier ? 'upgrade' : newTier < currentTier ? 'downgrade' : 'same_tier';
+                await trackSubscriptionPlanChanged({
+                    userId,
+                    customerId,
+                    subscriptionId: subscription.id,
+                    previousPlan: currentPlan,
+                    newPlan,
+                    priceId,
+                    direction,
+                    pending: false,
+                    livemode,
+                });
+            }
         }
     }
 }
@@ -489,7 +550,7 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData) {
 /**
  * Handle subscription cancellation/deletion
  */
-async function handleSubscriptionDeleted(subscription: StripeSubscriptionData) {
+async function handleSubscriptionDeleted(subscription: StripeSubscriptionData, livemode: boolean) {
     const customerId = typeof subscription.customer === 'string'
         ? subscription.customer
         : subscription.customer?.id;
@@ -536,13 +597,21 @@ async function handleSubscriptionDeleted(subscription: StripeSubscriptionData) {
         );
 
         console.log(`[Webhook] Subscription canceled for user ${userId}`);
+
+        await trackSubscriptionCanceled({
+            userId,
+            customerId,
+            subscriptionId: subscription.id,
+            previousPlan: currentPlan,
+            livemode,
+        });
     }
 }
 
 /**
  * Handle failed payment - mark subscription as past_due and sync to Clerk
  */
-async function handlePaymentFailed(invoice: Stripe.Invoice) {
+async function handlePaymentFailed(invoice: Stripe.Invoice, livemode: boolean) {
     const customerId = typeof invoice.customer === 'string'
         ? invoice.customer
         : invoice.customer?.id;
@@ -586,14 +655,53 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
         }
 
         console.log(`[Webhook] Payment failed for user ${existingSub.userId}, attempt ${attemptCount}`);
+
+        await trackSubscriptionPaymentFailed({
+            userId: existingSub.userId,
+            invoice,
+            livemode,
+        });
     }
+}
+
+/**
+ * Handle invoice.payment_succeeded
+ * Fires PostHog `subscription_renewed` for recurring cycle payments.
+ * The first invoice of a subscription (billing_reason='subscription_create') is
+ * skipped because `subscription_started` already covers it from checkout.
+ */
+async function handleInvoicePaid(invoice: Stripe.Invoice, livemode: boolean) {
+    const customerId = typeof invoice.customer === 'string'
+        ? invoice.customer
+        : invoice.customer?.id;
+
+    if (!customerId) {
+        return;
+    }
+
+    const billingReason = invoice.billing_reason;
+    if (billingReason === 'subscription_create') {
+        // Covered by subscription_started; avoid duplicate revenue event.
+        return;
+    }
+
+    const existingSub = await getSubscriptionByStripeCustomerId(customerId);
+    if (!existingSub) {
+        return;
+    }
+
+    await trackSubscriptionRenewed({
+        userId: existingSub.userId,
+        invoice,
+        livemode,
+    });
 }
 
 /**
  * Handle charge.refunded - cancel subscription and revoke access
  * This is triggered when you issue a refund from the Stripe dashboard
  */
-async function handleChargeRefunded(charge: Stripe.Charge) {
+async function handleChargeRefunded(charge: Stripe.Charge, livemode: boolean) {
     const customerId = typeof charge.customer === 'string'
         ? charge.customer
         : charge.customer?.id;
@@ -675,6 +783,13 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
     }
 
     console.log(`[Webhook] Subscription cancelled due to refund for user ${userId}`);
+
+    await trackSubscriptionRefunded({
+        userId,
+        charge,
+        previousPlan: currentPlan,
+        livemode,
+    });
 }
 
 // Note: mapStripeStatus is now imported from lib/subscriptions.ts

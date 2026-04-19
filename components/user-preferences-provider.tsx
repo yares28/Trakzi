@@ -19,6 +19,7 @@ import type {
   SettingsPreferences,
   UserPreferences,
 } from "@/lib/types/user-preferences"
+import { isDemoActive } from "@/lib/demo/demo-fetch"
 
 // ---------------------------------------------------------------------------
 // Context
@@ -356,6 +357,7 @@ export function UserPreferencesProvider({
 }: {
   children: ReactNode
 }) {
+  const isDemoMode = isDemoActive()
   const [preferences, setPreferences] = useState<UserPreferences>({})
   const [isLoaded, setIsLoaded] = useState(false)
   const [isServerSynced, setIsServerSynced] = useState(false)
@@ -381,7 +383,7 @@ export function UserPreferencesProvider({
   // Step 2: fetch server preferences via SWR (once, no revalidation to avoid
   // overwriting preferences mid-session).
   const { data: serverData, error: serverError } = useSWR<{ preferences: UserPreferences }>(
-    "/api/user-preferences",
+    isDemoMode ? null : "/api/user-preferences",
     (url: string) => fetch(url).then(r => {
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
       return r.json()
@@ -397,6 +399,13 @@ export function UserPreferencesProvider({
 
   // Step 3: reconcile server data with local state once server responds.
   useEffect(() => {
+    if (isDemoMode) {
+      setIsLoaded(true)
+      setIsServerSynced(false)
+      readyToSaveRef.current = false
+      return
+    }
+
     if (serverData === undefined && serverError === undefined) return // still loading
 
     if (serverData) {
@@ -426,12 +435,14 @@ export function UserPreferencesProvider({
     requestAnimationFrame(() => {
       readyToSaveRef.current = true
     })
-  }, [serverData, serverError])
+  }, [isDemoMode, serverData, serverError])
 
   // ------------------------------------------------------------------
   // Debounced save to server
   // ------------------------------------------------------------------
   const flushToServer = useCallback(() => {
+    if (isDemoActive()) return
+
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current)
       saveTimerRef.current = null

@@ -6,6 +6,11 @@ export const metadata: Metadata = {
     "Upload any CSV export from your bank or card provider. Trakzi normalizes the data and generates charts automatically. No bank connection required — your data stays private.",
   alternates: {
     canonical: "https://trakzi.com/csv-import",
+    languages: {
+      en: "https://trakzi.com/csv-import",
+      es: "https://trakzi.com/es/importar-csv",
+      "x-default": "https://trakzi.com/csv-import",
+    },
   },
   openGraph: {
     title: "Import Bank CSV — Visualize Spending Without Connecting Your Bank | Trakzi",

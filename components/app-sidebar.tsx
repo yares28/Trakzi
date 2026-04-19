@@ -6,10 +6,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
+import { demoFetch } from "@/lib/demo/demo-fetch";
 import { NavDocuments } from "@/components/nav-documents";
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
-import { DateFilter } from "@/components/date-filter";
 import {
   Sidebar,
   SidebarContent,
@@ -90,13 +90,8 @@ IconAnalytics.displayName = "IconAnalytics";
 // Custom Chat icon component (using star image with mask for coloring)
 const IconChat = React.forwardRef<HTMLDivElement, React.ComponentProps<"div">>(
   (props, ref) => {
-    const { theme } = useTheme();
     const pathname = usePathname();
     const isActive = pathname === "/chat";
-
-    // Use mask approach for coloring support while respecting asset choice
-    const isDark = theme === "dark";
-    const src = isDark ? "/starW.png" : "/starB.png";
 
     return (
       <div
@@ -110,8 +105,7 @@ const IconChat = React.forwardRef<HTMLDivElement, React.ComponentProps<"div">>(
           ...props.style,
           width: "20px",
           height: "20px",
-          // marginLeft: '1px', // Handled via className
-          maskImage: `url(${src})`,
+          maskImage: "url(/starW.png)",
           maskSize: "contain",
           maskRepeat: "no-repeat",
           maskPosition: "center",
@@ -255,7 +249,7 @@ const data = {
       icon: IconMap,
     },
     {
-      title: "Chat",
+      title: "Insights",
       url: "/chat",
       icon: IconChat,
     },
@@ -344,7 +338,7 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
   React.useEffect(() => {
     const fetchYears = async () => {
       try {
-        const response = await fetch("/api/transactions/years");
+        const response = await demoFetch("/api/transactions/years");
         if (response.ok) {
           const years = await response.json();
           setAvailableYears(years);
@@ -364,56 +358,68 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
       collapsible="icon"
       style={
         {
-          "--sidebar-width": "calc(16rem - 5px)",
-          "--sidebar-width-icon": "calc(4.5rem - 5px)",
+          "--sidebar-width": "calc(16rem - 30px)",
+          "--sidebar-width-icon": "calc(4.5rem - 35px)",
         } as React.CSSProperties
       }
       {...props}
     >
-      <SidebarHeader className="flex items-center justify-center pr-[15px]">
-        <SidebarMenu className="flex w-full items-center justify-center">
-          <SidebarMenuItem className="w-auto h-auto">
-            <SidebarMenuButton
-              asChild
-              className="data-[slot=sidebar-menu-button]:!p-4 !h-auto group-data-[collapsible=icon]:!p-3 group-data-[collapsible=icon]:!h-[4rem] group-data-[collapsible=icon]:!w-[4rem] group-data-[collapsible=icon]:!justify-center"
-              aria-label="Home"
-            >
-              <Link href="/">
-                <>
-                  {mounted ? (
-                    <Image
-                      src={
-                        theme === "dark"
-                          ? "/Trakzi/TrakzilogoB.png"
-                          : "/Trakzi/Trakzilogo.png"
-                      }
-                      alt="Trakzi"
-                      width={180}
-                      height={60}
-                      className="h-16 w-auto object-contain block group-data-[state=collapsed]:hidden group-data-[state=collapsed]:opacity-0 group-data-[state=collapsed]:scale-90 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
-                    />
-                  ) : (
-                    <div className="h-16 w-[180px] block group-data-[state=collapsed]:hidden" />
-                  )}
-                  {mounted ? (
-                    <Image
-                      src="/Trakzi/Trakziicon.png"
-                      alt="Trakzi icon"
-                      width={64}
-                      height={64}
-                      className="hidden h-12 w-auto object-contain group-data-[state=collapsed]:block opacity-0 scale-90 group-data-[state=collapsed]:opacity-100 group-data-[state=collapsed]:scale-100 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
-                    />
-                  ) : (
-                    <div className="hidden h-12 w-[64px] group-data-[state=collapsed]:block" />
-                  )}
-                </>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-        {/* Sidebar expand trigger — hidden when expanded, shown when collapsed (desktop only) */}
-        <div className="hidden group-data-[collapsible=icon]:flex w-full justify-center py-1">
-          <SidebarTrigger />
+      <SidebarHeader className="px-2 pt-3 pb-2">
+        <div className="flex w-full flex-col gap-2">
+          <div className="grid w-full grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-1 group-data-[collapsible=icon]:grid-cols-1 group-data-[collapsible=icon]:justify-items-center">
+            <div className="hidden h-8 w-8 md:block group-data-[collapsible=icon]:hidden" />
+            <SidebarMenu className="flex w-full items-center justify-center">
+              <SidebarMenuItem className="w-auto h-auto group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center">
+                <SidebarMenuButton
+                  asChild
+                  className="data-[slot=sidebar-menu-button]:!px-1 data-[slot=sidebar-menu-button]:!py-2 !h-auto !min-h-0 group-data-[collapsible=icon]:!size-12 group-data-[collapsible=icon]:!min-h-12 group-data-[collapsible=icon]:!min-w-12 group-data-[collapsible=icon]:!max-h-12 group-data-[collapsible=icon]:!max-w-12 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:!justify-center"
+                  aria-label="Home"
+                >
+                  <Link
+                    href="/"
+                    className="flex w-full min-w-0 items-center justify-center outline-none group-data-[collapsible=icon]:!size-12"
+                  >
+                    <>
+                      {mounted ? (
+                        <Image
+                          src={
+                            theme === "dark"
+                              ? "/Trakzi/TrakzilogoB.png"
+                              : "/Trakzi/Trakzilogo.png"
+                          }
+                          alt="Trakzi"
+                          width={180}
+                          height={60}
+                          className="h-14 w-auto max-w-full object-contain object-left transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] group-data-[state=collapsed]:hidden group-data-[state=collapsed]:scale-90 group-data-[state=collapsed]:opacity-0 md:h-16"
+                        />
+                      ) : (
+                        <div className="h-14 w-full max-w-[200px] md:h-16 group-data-[state=collapsed]:hidden" />
+                      )}
+                      {mounted ? (
+                        <Image
+                          src="/Trakzi/Trakziicon.png"
+                          alt="Trakzi icon"
+                          width={64}
+                          height={64}
+                          className="hidden size-10 object-contain opacity-0 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] group-data-[state=collapsed]:block group-data-[state=collapsed]:opacity-100 group-data-[state=collapsed]:scale-100"
+                        />
+                      ) : (
+                        <div className="hidden size-10 group-data-[state=collapsed]:block" />
+                      )}
+                    </>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+            <div className="hidden md:flex flex-col items-end gap-2 group-data-[collapsible=icon]:items-center">
+              <SidebarTrigger
+                className="size-8 rounded-full border border-sidebar-border/70 bg-sidebar/95 text-sidebar-foreground shadow-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:hidden"
+              />
+              <SidebarTrigger
+                className="hidden size-8 rounded-full border border-sidebar-border/70 bg-sidebar/95 text-sidebar-foreground shadow-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:inline-flex"
+              />
+            </div>
+          </div>
         </div>
       </SidebarHeader>
       <SidebarContent>
@@ -421,11 +427,7 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
         <NavDocuments items={data.documents} />
       </SidebarContent>
       <SidebarFooter>
-        {/* Date filter — hidden when expanded, shown above settings when collapsed (desktop only) */}
-        <div className="hidden group-data-[collapsible=icon]:flex justify-center py-1">
-          <DateFilter availableYears={availableYears} />
-        </div>
-        <NavUser />
+        <NavUser availableYears={availableYears} />
       </SidebarFooter>
     </Sidebar>
   );

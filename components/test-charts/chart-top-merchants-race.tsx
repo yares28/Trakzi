@@ -1,8 +1,7 @@
 "use client"
 
-import { memo, useMemo, useState, useEffect, useRef } from "react"
+import { memo, useMemo, useState, useEffect } from "react"
 import ReactDOM from "react-dom"
-import { useTheme } from "next-themes"
 import {
     Card,
     CardContent,
@@ -20,7 +19,7 @@ import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
-import { getChartTextColor } from "@/lib/chart-colors"
+import { getContrastTextColor } from "@/lib/chart-colors"
 
 interface ChartTopMerchantsRaceProps {
     data: Array<{
@@ -37,7 +36,6 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
     data,
     isLoading = false,
 }: ChartTopMerchantsRaceProps) {
-    const { resolvedTheme } = useTheme()
     const { getShuffledPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
     const palette = useMemo(
@@ -45,11 +43,10 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
         [getShuffledPalette],
     )
     const [mounted, setMounted] = useState(false)
-    const [animationProgress, setAnimationProgress] = useState(0)
+    const [animationReady, setAnimationReady] = useState(false)
     const [isFullscreen, setIsFullscreen] = useState(false)
     const [hoveredMerchant, setHoveredMerchant] = useState<string | null>(null)
     const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
-    const hasAnimated = useRef(false)
 
     useEffect(() => {
         setMounted(true)
@@ -97,31 +94,12 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
             }))
     }, [data, palette])
 
-    // Animate bars (runs once only)
+    // Trigger bar grow animation after mount — matches Nivo "gentle" spring feel
     useEffect(() => {
         if (!mounted || chartData.length === 0) return
-        if (hasAnimated.current) return
-        hasAnimated.current = true
-
-        const duration = 1500
-        const startTime = Date.now()
-
-        const animate = () => {
-            const elapsed = Date.now() - startTime
-            const progress = Math.min(elapsed / duration, 1)
-            const easeOut = 1 - Math.pow(1 - progress, 3)
-            setAnimationProgress(easeOut)
-
-            if (progress < 1) {
-                requestAnimationFrame(animate)
-            }
-        }
-
-        requestAnimationFrame(animate)
+        const timer = setTimeout(() => setAnimationReady(true), 50)
+        return () => clearTimeout(timer)
     }, [mounted, chartData])
-
-    const isDark = resolvedTheme === "dark"
-    const barLabelColor = getChartTextColor(isDark)
 
     const chartTitle = "Top 5 Merchants"
     const chartDescription =
@@ -163,19 +141,18 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
     const hoveredItem = chartData.find((item) => item.name === hoveredMerchant) ?? null
 
     const renderBars = () => (
-        <div className="h-full w-full min-h-[230px] flex flex-col justify-center gap-3 py-4">
+        <div className="flex h-full w-full min-h-[190px] flex-col justify-start gap-1.5 py-1.5 sm:min-h-[230px] sm:justify-center sm:gap-3 sm:py-4">
             {chartData.map((item, index) => {
-                const barWidth = (item.total / maxTotal) * 100 * animationProgress
-                const delay = index * 100
+                const barWidth = (item.total / maxTotal) * 100
+                const delay = index * 80
 
                 return (
                     <div
                         key={item.name}
-                        className="flex items-center gap-3 group relative"
+                        className="group relative flex items-center gap-2.5 sm:gap-3"
                         style={{
-                            animationDelay: `${delay}ms`,
-                            opacity: animationProgress > 0 ? 1 : 0,
-                            transition: `opacity 0.3s ease ${delay}ms`
+                            opacity: animationReady ? 1 : 0,
+                            transition: `opacity 0.25s ease ${delay}ms`,
                         }}
                         onMouseEnter={() => setHoveredMerchant(item.name)}
                         onMouseMove={(e) => setTooltipPos({ x: e.clientX, y: e.clientY })}
@@ -184,29 +161,29 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
                             setTooltipPos(null)
                         }}
                     >
-                        <div className="w-6 text-sm font-bold text-muted-foreground">
+                        <div className="w-5 text-[11px] font-bold text-muted-foreground sm:w-6 sm:text-sm">
                             #{item.rank}
                         </div>
                         <div className="flex-1 relative">
                             <div
-                                className="h-10 rounded-lg flex items-center px-3 origin-left hover:scale-x-[1.02]"
+                                className="origin-left hover:scale-x-[1.02] flex h-7 items-center rounded-lg px-2 sm:h-10 sm:px-3"
                                 style={{
-                                    width: `${Math.max(barWidth, 5)}%`,
+                                    width: `${animationReady ? Math.max(barWidth, 5) : 0}%`,
                                     backgroundColor: item.color,
-                                    transition: "width 1.5s cubic-bezier(0.4, 0, 0.2, 1), filter 0.15s ease, transform 0.15s ease",
+                                    transition: `width 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) ${delay}ms, filter 0.15s ease, transform 0.15s ease`,
                                     filter: hoveredMerchant === item.name ? "brightness(1.15)" : "brightness(1)",
                                 }}
                             >
                                 <span
-                                    className="text-xs font-semibold truncate"
-                                    style={{ color: barLabelColor }}
+                                    className="truncate text-[10px] font-semibold sm:text-xs"
+                                    style={{ color: getContrastTextColor(item.color) }}
                                 >
                                     {item.name}
                                 </span>
                             </div>
                         </div>
-                        <div className="w-24 text-right text-sm font-medium text-foreground">
-                            {formatCurrency(item.total * animationProgress)}
+                        <div className="w-16 text-right text-[11px] font-medium text-foreground sm:w-24 sm:text-sm">
+                            {formatCurrency(item.total)}
                         </div>
                     </div>
                 )
@@ -281,9 +258,9 @@ export const ChartTopMerchantsRace = memo(function ChartTopMerchantsRace({
                         {renderInfoTrigger()}
                     </CardAction>
                 </CardHeader>
-                <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
+                <CardContent className="px-2 pt-2 sm:px-6 sm:pt-6 flex-1 min-h-0">
                     {isLoading || chartData.length === 0 ? (
-                        <div className="h-full w-full min-h-[230px] flex items-center justify-center">
+                        <div className="flex h-full w-full min-h-[190px] items-center justify-center sm:min-h-[230px]">
                             <ChartLoadingState />
                         </div>
                     ) : (

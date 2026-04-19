@@ -5,12 +5,25 @@ import { useUserPreferences } from "@/components/user-preferences-provider"
 import {
   DEFAULT_CHART_ORDER,
   DEFAULT_CHART_SIZES,
+  DEMO_DEFAULT_CHART_ORDER,
+  DEMO_DEFAULT_CHART_SIZES,
+  DEMO_DEFAULT_USER_SIZES,
   DEFAULT_SIZES_VERSION,
 } from "../constants"
 
 type ChartSize = { w: number; h: number; x?: number; y?: number }
 
-export function useChartLayout() {
+type UseChartLayoutOptions = {
+  isDemoMode?: boolean
+}
+
+function cloneChartSizes(source: Record<string, ChartSize>) {
+  return Object.fromEntries(
+    Object.entries(source).map(([chartId, size]) => [chartId, { ...size }])
+  ) as Record<string, ChartSize>
+}
+
+export function useChartLayout({ isDemoMode = false }: UseChartLayoutOptions = {}) {
   const { preferences, updatePagePreferences, isLoaded } = useUserPreferences()
   const analyticsPrefs = preferences.analytics
 
@@ -21,6 +34,11 @@ export function useChartLayout() {
     useState<string[]>(DEFAULT_CHART_ORDER)
 
   useEffect(() => {
+    if (isDemoMode) {
+      setAnalyticsChartOrder([...DEMO_DEFAULT_CHART_ORDER])
+      return
+    }
+
     const saved = analyticsPrefs?.order
     if (!saved || !Array.isArray(saved)) return
 
@@ -39,14 +57,15 @@ export function useChartLayout() {
     if (mergedOrder.length !== saved.length) {
       updatePagePreferences("analytics", { order: mergedOrder })
     }
-  }, [analyticsPrefs?.order, updatePagePreferences])
+  }, [analyticsPrefs?.order, isDemoMode, updatePagePreferences])
 
   const handleChartOrderChange = useCallback(
     (newOrder: string[]) => {
       setAnalyticsChartOrder(newOrder)
+      if (isDemoMode) return
       updatePagePreferences("analytics", { order: newOrder })
     },
-    [updatePagePreferences]
+    [isDemoMode, updatePagePreferences]
   )
 
   // -----------------------------------------------------------------
@@ -58,19 +77,27 @@ export function useChartLayout() {
   const savedSizesRef = useRef<Record<string, { w: number; h: number }>>({})
 
   useEffect(() => {
+    if (isDemoMode) {
+      const demoUserSizes = cloneChartSizes(DEMO_DEFAULT_USER_SIZES)
+      setSavedSizes(demoUserSizes)
+      savedSizesRef.current = demoUserSizes
+      return
+    }
+
     const s = analyticsPrefs?.user_sizes ?? {}
     setSavedSizes(s)
     savedSizesRef.current = s
-  }, [analyticsPrefs?.user_sizes])
+  }, [analyticsPrefs?.user_sizes, isDemoMode])
 
   const handleChartResize = useCallback(
     (chartId: string, w: number, h: number) => {
       const next = { ...savedSizesRef.current, [chartId]: { w, h } }
       savedSizesRef.current = next
       setSavedSizes(next)
+      if (isDemoMode) return
       updatePagePreferences("analytics", { user_sizes: next })
     },
-    [updatePagePreferences]
+    [isDemoMode, updatePagePreferences]
   )
 
   // -----------------------------------------------------------------
@@ -95,6 +122,20 @@ export function useChartLayout() {
 
   // Compute sizes from preferences (with version-reset logic).
   useEffect(() => {
+    if (isDemoMode) {
+      const demoSizes = cloneChartSizes(DEFAULT_CHART_SIZES)
+      Object.entries(DEMO_DEFAULT_CHART_SIZES).forEach(([chartId, size]) => {
+        demoSizes[chartId] = { ...demoSizes[chartId], ...size }
+      })
+      Object.entries(DEMO_DEFAULT_USER_SIZES).forEach(([chartId, size]) => {
+        demoSizes[chartId] = { ...demoSizes[chartId], ...size }
+      })
+      savedChartSizesRef.current = demoSizes
+      setSavedChartSizes(demoSizes)
+      setHasLoadedChartSizes(true)
+      return
+    }
+
     if (!isLoaded) return
 
     const storedSizes = analyticsPrefs?.sizes ?? {}
@@ -146,18 +187,19 @@ export function useChartLayout() {
     savedChartSizesRef.current = result
     setSavedChartSizes(result)
     setHasLoadedChartSizes(true)
-  }, [isLoaded, analyticsPrefs?.sizes, analyticsPrefs?.sizes_version, updatePagePreferences])
+  }, [analyticsPrefs?.sizes, analyticsPrefs?.sizes_version, isDemoMode, isLoaded, updatePagePreferences])
 
   const saveChartSizes = useCallback(
     (sizes: Record<string, ChartSize>) => {
       savedChartSizesRef.current = sizes
       setSavedChartSizes(sizes)
+      if (isDemoMode) return
       updatePagePreferences("analytics", {
         sizes,
         sizes_version: DEFAULT_SIZES_VERSION,
       })
     },
-    [updatePagePreferences]
+    [isDemoMode, updatePagePreferences]
   )
 
   return {

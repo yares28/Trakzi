@@ -153,10 +153,9 @@ export const CountryCard = memo(function CountryCard({
                     {countryCode ? (
                         <ReactCountryFlag
                             countryCode={countryCode}
-                            svg
                             style={{
-                                width: "1.5em",
-                                height: "1.5em",
+                                fontSize: "1.5em",
+                                lineHeight: "1.5em",
                             }}
                             title={countryName}
                             aria-label={`Flag of ${countryName}`}

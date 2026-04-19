@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { useTheme } from "next-themes"
 import { useQueryClient } from "@tanstack/react-query"
 
@@ -29,21 +30,16 @@ import dynamic from "next/dynamic"
 import { DEFAULT_ADVANCED_CHART_ORDER, DEFAULT_ADVANCED_CHART_SIZES } from "./constants"
 import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
 import { useOnboarding } from "@/components/onboarding/onboarding-context"
-import { Button } from "@/components/ui/button"
 
 const ChartSpendingPyramid = dynamic(
   () => import("@/components/chart-spending-pyramid").then((m) => ({ default: m.ChartSpendingPyramid })),
   { ssr: false, loading: () => <div className="h-[300px] w-full animate-pulse rounded-lg bg-muted" /> }
 )
 
-const ChartAreaInteractive = dynamic(
-  () => import("@/components/chart-area-interactive").then((m) => ({ default: m.ChartAreaInteractive })),
-  { ssr: false, loading: () => <div className="h-[300px] w-full animate-pulse rounded-lg bg-muted" /> }
-)
-
 type AnalyticsViewMode = "analytics" | "advanced" | "trends"
 
 export default function AnalyticsPage() {
+  const searchParams = useSearchParams()
   const { resolvedTheme } = useTheme()
   const [viewMode, setViewMode] = useState<AnalyticsViewMode>("analytics")
   const [advancedChartOrder, setAdvancedChartOrder] = useState(DEFAULT_ADVANCED_CHART_ORDER)
@@ -93,7 +89,7 @@ export default function AnalyticsPage() {
   // Cyclic barrier: all data sources must be ready before revealing numbers
   const isDataReady = !bundleLoading && !isLoadingTransactions
 
-  const chartLayout = useChartLayout()
+  const chartLayout = useChartLayout({ isDemoMode })
   const { stats, statsTrends, transactionSummary } = useAnalyticsStats(rawTransactions)
   const chartData = useAnalyticsChartData({
     rawTransactions,
@@ -101,6 +97,7 @@ export default function AnalyticsPage() {
     dateFilter,
     palette,
     ringLimits,
+    isDemoMode,
     savedChartSizes: chartLayout.savedChartSizes,
     resolvedTheme,
   })
@@ -134,6 +131,13 @@ export default function AnalyticsPage() {
   const handleViewModeChange = useCallback((mode: AnalyticsViewMode) => {
     setViewMode(mode)
   }, [])
+
+  useEffect(() => {
+    const v = searchParams.get("view")
+    if (v === "trends" || v === "advanced" || v === "analytics") {
+      setViewMode(v)
+    }
+  }, [searchParams])
 
   return (
     <AnalyticsLayout
@@ -239,36 +243,6 @@ export default function AnalyticsPage() {
                     const sizeConfig = getChartCardSize(chartId as ChartId)
                     const w = (chartLayout.savedSizes[chartId]?.w ?? defaultSize.w) as 6 | 12
                     const h = chartLayout.savedSizes[chartId]?.h ?? defaultSize.h
-
-                    if (chartId === "incomeExpensesTracking1") {
-                      return (
-                        <SortableGridItem
-                          key={chartId}
-                          id={chartId}
-                          w={w}
-                          h={h}
-                          mobileH={sizeConfig.mobileH}
-                          resizable
-                          minW={sizeConfig.minW}
-                          maxW={sizeConfig.maxW}
-                          minH={sizeConfig.minH}
-                          maxH={sizeConfig.maxH}
-                          onResize={chartLayout.handleChartResize}
-                        >
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <ChartAreaInteractive
-                              chartId="incomeExpensesTracking1"
-                              title="Income & Expenses Cumulative"
-                              categoryControls={chartData.incomeExpenseTopControls}
-                              isLoading={isLoadingTransactions}
-                              data={chartData.incomeExpenseTopChartData}
-                              emptyTitle="No data yet"
-                              emptyDescription="Import your bank statements to see cumulative income and expenses"
-                            />
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
 
                     if (chartId === "spendingPyramid") {
                       return (

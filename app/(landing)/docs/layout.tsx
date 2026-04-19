@@ -6,6 +6,11 @@ export const metadata: Metadata = {
   description: "Step-by-step guides for budgeting, expense tracking, splitting bills, and grocery savings. Learn how to use Trakzi to take control of your money.",
   alternates: {
     canonical: "https://trakzi.com/docs",
+    languages: {
+      en: "https://trakzi.com/docs",
+      es: "https://trakzi.com/es/docs",
+      "x-default": "https://trakzi.com/docs",
+    },
   },
   openGraph: {
     title: "Trakzi Docs — Budgeting & Expense Tracking Guides",

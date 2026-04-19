@@ -9,8 +9,8 @@ import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { useCurrency } from "@/components/currency-provider"
 import {
   Card,
-  CardAction,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -56,7 +56,7 @@ export const ChartCirclePacking = memo(function ChartCirclePacking({
   const sanitizedData = useMemo(() => sanitizeCirclePackingNode(data), [data])
 
   const renderInfoTrigger = () => (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex items-center gap-2">
       <ChartInfoPopover
         title="Budget Distribution"
         description="Visualizes how your budget or spending is allocated across each category."
@@ -84,9 +84,6 @@ export const ChartCirclePacking = memo(function ChartCirclePacking({
           <div>
             <CardTitle>Budget Distribution</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
           <ChartLoadingState
@@ -96,6 +93,9 @@ export const ChartCirclePacking = memo(function ChartCirclePacking({
             emptyDescription={emptyDescription}
           />
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          {renderInfoTrigger()}
+        </CardFooter>
       </Card>
     )
   }
@@ -106,9 +106,6 @@ export const ChartCirclePacking = memo(function ChartCirclePacking({
         <div>
           <CardTitle>Budget Distribution</CardTitle>
         </div>
-        <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          {renderInfoTrigger()}
-        </CardAction>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
         <ResponsiveCirclePacking
@@ -130,6 +127,9 @@ export const ChartCirclePacking = memo(function ChartCirclePacking({
           )}
         />
       </CardContent>
+      <CardFooter className="pb-3 gap-2">
+        {renderInfoTrigger()}
+      </CardFooter>
     </Card>
   )
 })

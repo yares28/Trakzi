@@ -6,9 +6,9 @@ import { ResponsivePie } from "@nivo/pie"
 import {
   Card,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
-  CardAction,
 } from "@/components/ui/card"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
@@ -23,20 +23,18 @@ import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { getChartTextColor } from "@/lib/chart-colors"
 
 interface IncomeExpenseRatioInfoTriggerProps {
-  forFullscreen?: boolean
   chartTitle: string
   chartDescription: string
   ratioData: { ratio: number; income: number; expenses: number; status: string }
 }
 
 const IncomeExpenseRatioInfoTrigger = memo(function IncomeExpenseRatioInfoTrigger({
-  forFullscreen = false,
   chartTitle,
   chartDescription,
   ratioData,
 }: IncomeExpenseRatioInfoTriggerProps) {
   return (
-    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
+    <div className="flex items-center gap-2">
       <ChartInfoPopover
         title={chartTitle}
         description={chartDescription}
@@ -232,9 +230,6 @@ export const ChartIncomeExpenseRatio = memo(function ChartIncomeExpenseRatio({
             <ChartFavoriteButton chartId="incomeExpenseRatio" chartTitle={chartTitle} size="md" />
             <CardTitle>{chartTitle}</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <IncomeExpenseRatioInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} ratioData={ratioData} />
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
           <div className="h-full w-full min-h-[180px] md:min-h-[250px]">
@@ -246,6 +241,9 @@ export const ChartIncomeExpenseRatio = memo(function ChartIncomeExpenseRatio({
             />
           </div>
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          <IncomeExpenseRatioInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} ratioData={ratioData} />
+        </CardFooter>
       </Card>
     )
   }
@@ -257,7 +255,7 @@ export const ChartIncomeExpenseRatio = memo(function ChartIncomeExpenseRatio({
         onClose={() => setIsFullscreen(false)}
         title={chartTitle}
         description={chartDescription}
-        headerActions={<IncomeExpenseRatioInfoTrigger forFullscreen chartTitle={chartTitle} chartDescription={chartDescription} ratioData={ratioData} />}
+        headerActions={<IncomeExpenseRatioInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} ratioData={ratioData} />}
       >
         <div className="h-full w-full min-h-[400px] relative flex flex-col" key={colorScheme}>
           <IncomeExpenseRatioChart pieData={pieData} total={total} textColor={textColor} formatCurrency={formatCurrency} />
@@ -279,9 +277,6 @@ export const ChartIncomeExpenseRatio = memo(function ChartIncomeExpenseRatio({
             <ChartFavoriteButton chartId="incomeExpenseRatio" chartTitle={chartTitle} size="md" />
             <CardTitle>{chartTitle}</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <IncomeExpenseRatioInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} ratioData={ratioData} />
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0 flex flex-col">
           <div className="flex-1 min-h-[140px] md:min-h-[200px] relative" key={colorScheme}>
@@ -296,6 +291,9 @@ export const ChartIncomeExpenseRatio = memo(function ChartIncomeExpenseRatio({
           </div>
           <IncomeExpenseRatioLegend palette={palette} income={ratioData.income} expenses={ratioData.expenses} formatCurrency={formatCurrency} />
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          <IncomeExpenseRatioInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} ratioData={ratioData} />
+        </CardFooter>
       </Card>
     </>
   )

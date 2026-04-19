@@ -6,7 +6,7 @@
 
 import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
-import { Dialog, DialogPortal, DialogOverlay } from "@/components/ui/dialog"
+import { Dialog, DialogDescription, DialogPortal, DialogOverlay, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 
 interface OnboardingShellProps {
@@ -56,6 +56,8 @@ export function OnboardingShell({ open, onOpenChange, children }: OnboardingShel
               "sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95",
             )}
           >
+            <DialogTitle className="sr-only">Onboarding tour</DialogTitle>
+            <DialogDescription className="sr-only">Step-by-step introduction to the current page.</DialogDescription>
             {/* Mobile drag handle pill */}
             <div className="flex justify-center pt-3 pb-0 sm:hidden">
               <div className="w-10 h-1 rounded-full bg-muted-foreground/20" />

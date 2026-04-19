@@ -6,9 +6,9 @@ import { Area, AreaChart, CartesianGrid, XAxis, Tooltip, TooltipProps } from "re
 import {
   Card,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
-  CardAction,
 } from "@/components/ui/card"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
@@ -19,7 +19,7 @@ import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useCurrency } from "@/components/currency-provider"
 import { ChartLoadingState } from "@/components/chart-loading-state"
-import { CHART_GRID_COLOR, getChartAxisLineColor } from "@/lib/chart-colors"
+import { CHART_GRID_COLOR } from "@/lib/chart-colors"
 import { ChartConfig, ChartContainer } from "@/components/ui/chart"
 import { ChartTooltipWrapper } from "@/components/chart-tooltip"
 
@@ -70,7 +70,6 @@ function getDateRangeFromFilter(filter: string | null | undefined): { startDate:
 }
 
 interface BudgetBurndownInfoTriggerProps {
-  forFullscreen?: boolean
   chartTitle: string
   chartDescription: string
   monthlyIncome: number
@@ -80,7 +79,6 @@ interface BudgetBurndownInfoTriggerProps {
 }
 
 const BudgetBurndownInfoTrigger = memo(function BudgetBurndownInfoTrigger({
-  forFullscreen = false,
   chartTitle,
   chartDescription,
   monthlyIncome,
@@ -89,7 +87,7 @@ const BudgetBurndownInfoTrigger = memo(function BudgetBurndownInfoTrigger({
   formatCurrency,
 }: BudgetBurndownInfoTriggerProps) {
   return (
-    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
+    <div className="flex items-center gap-2">
       <ChartInfoPopover
         title={chartTitle}
         description={chartDescription}
@@ -185,12 +183,12 @@ const BudgetBurndownChart = memo(function BudgetBurndownChart({
       <AreaChart data={displayData}>
         <defs>
           <linearGradient id="fillIdealIB" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="var(--color-ideal)" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="var(--color-ideal)" stopOpacity={0.05} />
+            <stop offset="5%" stopColor="var(--color-ideal)" stopOpacity={0.8} />
+            <stop offset="95%" stopColor="var(--color-ideal)" stopOpacity={0.1} />
           </linearGradient>
           <linearGradient id="fillActualIB" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="var(--color-actual)" stopOpacity={0.8} />
-            <stop offset="95%" stopColor="var(--color-actual)" stopOpacity={0.1} />
+            <stop offset="5%" stopColor="var(--color-actual)" stopOpacity={0.55} />
+            <stop offset="95%" stopColor="var(--color-actual)" stopOpacity={0.08} />
           </linearGradient>
         </defs>
         <CartesianGrid vertical={false} stroke={CHART_GRID_COLOR} strokeDasharray="3 3" opacity={0.3} />
@@ -203,23 +201,24 @@ const BudgetBurndownChart = memo(function BudgetBurndownChart({
           tickFormatter={(v) => `Day ${v}`}
         />
         <Area
-          dataKey="ideal"
-          type="monotone"
-          fill="url(#fillIdealIB)"
-          stroke="var(--color-ideal)"
-          strokeWidth={2}
-          strokeDasharray="6 3"
-          connectNulls
-          isAnimationActive={true}
-          animationDuration={1000}
-          animationEasing="ease-out"
-        />
-        <Area
           dataKey="actual"
           type="monotone"
           fill="url(#fillActualIB)"
           stroke="var(--color-actual)"
           strokeWidth={2.5}
+          connectNulls={false}
+          isAnimationActive={true}
+          animationDuration={1000}
+          animationEasing="ease-out"
+        />
+        <Area
+          dataKey="ideal"
+          type="monotone"
+          fill="url(#fillIdealIB)"
+          stroke="var(--color-ideal)"
+          strokeWidth={2.5}
+          strokeOpacity={1}
+          strokeDasharray="7 4"
           connectNulls
           isAnimationActive={true}
           animationDuration={1000}
@@ -247,7 +246,7 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   const isDark = resolvedTheme === "dark"
-  const idealColor = getChartAxisLineColor(isDark)
+  const idealColor = isDark ? "#4b5563" : "#9ca3af"
   const actualColor = useMemo(
     () => getShuffledPalette("analytics:budgetBurndown")[0] ?? "#fe8339",
     [getShuffledPalette],
@@ -283,15 +282,21 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
       }
     })
 
-    // Actual burndown: start at totalIncome, subtract daily spending
+    const lastExpenseDay = Array.from(dailySpending.keys()).reduce(
+      (maxDay, dayIndex) => Math.max(maxDay, dayIndex + 1),
+      0,
+    )
+    const cappedDays = Math.max(1, lastExpenseDay)
+
+    // Actual burndown: start at totalIncome, subtract daily spending only until the last expense day.
     let remaining = totalIncome
     const actualData: Array<{ x: number; y: number }> = [{ x: 0, y: totalIncome }]
-    for (let i = 0; i < totalDays; i++) {
+    for (let i = 0; i < cappedDays; i++) {
       remaining -= dailySpending.get(i) || 0
       actualData.push({ x: i + 1, y: Math.max(0, remaining) })
     }
 
-    // Ideal burndown: linear from totalIncome to 0 over totalDays
+    // Ideal burndown: linear from totalIncome to 0 over the full selected period.
     const dailyBurn = totalIncome / totalDays
     const idealData: Array<{ x: number; y: number }> = []
     for (let day = 0; day <= totalDays; day++) {
@@ -303,7 +308,7 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
       ideal: [{ id: "Ideal", data: idealData }],
       remaining,
       daysInMonth: totalDays,
-      currentDay: totalDays,
+      currentDay: cappedDays,
       monthlyIncome: totalIncome,
     }
   }, [data, dateFilter])
@@ -340,9 +345,6 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
             <ChartFavoriteButton chartId="budgetBurndown" chartTitle={chartTitle} size="md" />
             <CardTitle className="truncate">{chartTitle}</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <BudgetBurndownInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} monthlyIncome={chartDataRaw.monthlyIncome} remaining={chartDataRaw.remaining} paceStatus={paceStatus} formatCurrency={formatCurrency} />
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
           <div className="h-full w-full min-h-[250px]">
@@ -354,6 +356,9 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
             />
           </div>
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          <BudgetBurndownInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} monthlyIncome={chartDataRaw.monthlyIncome} remaining={chartDataRaw.remaining} paceStatus={paceStatus} formatCurrency={formatCurrency} />
+        </CardFooter>
       </Card>
     )
   }
@@ -365,7 +370,7 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
         onClose={() => setIsFullscreen(false)}
         title={chartTitle}
         description={chartDescription}
-        headerActions={<BudgetBurndownInfoTrigger forFullscreen chartTitle={chartTitle} chartDescription={chartDescription} monthlyIncome={chartDataRaw.monthlyIncome} remaining={chartDataRaw.remaining} paceStatus={paceStatus} formatCurrency={formatCurrency} />}
+        headerActions={<BudgetBurndownInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} monthlyIncome={chartDataRaw.monthlyIncome} remaining={chartDataRaw.remaining} paceStatus={paceStatus} formatCurrency={formatCurrency} />}
       >
         <div className="h-full w-full min-h-[400px]">
           <BudgetBurndownChart
@@ -386,9 +391,6 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
             <ChartFavoriteButton chartId="budgetBurndown" chartTitle={chartTitle} size="md" />
             <CardTitle className="truncate">{chartTitle}</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <BudgetBurndownInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} monthlyIncome={chartDataRaw.monthlyIncome} remaining={chartDataRaw.remaining} paceStatus={paceStatus} formatCurrency={formatCurrency} />
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
           <div className="flex-1 min-h-[200px]">
@@ -414,6 +416,9 @@ export const ChartBudgetBurndown = memo(function ChartBudgetBurndown({
             </div>
           </div>
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          <BudgetBurndownInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} monthlyIncome={chartDataRaw.monthlyIncome} remaining={chartDataRaw.remaining} paceStatus={paceStatus} formatCurrency={formatCurrency} />
+        </CardFooter>
       </Card>
     </>
   )

@@ -6,9 +6,9 @@ import { ResponsivePie } from "@nivo/pie"
 import {
   Card,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
-  CardAction,
 } from "@/components/ui/card"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
@@ -56,7 +56,6 @@ function isLikelyRecurring(description: string, category?: string): boolean {
 }
 
 interface RecurringVsOneTimeInfoTriggerProps {
-  forFullscreen?: boolean
   chartTitle: string
   chartDescription: string
   chartData: Array<{ id: string; label: string; value: number; count: number; color: string }>
@@ -64,14 +63,13 @@ interface RecurringVsOneTimeInfoTriggerProps {
 }
 
 const RecurringVsOneTimeInfoTrigger = memo(function RecurringVsOneTimeInfoTrigger({
-  forFullscreen = false,
   chartTitle,
   chartDescription,
   chartData,
   total,
 }: RecurringVsOneTimeInfoTriggerProps) {
   return (
-    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
+    <div className="flex items-center gap-2">
       <ChartInfoPopover
         title={chartTitle}
         description={chartDescription}
@@ -211,9 +209,6 @@ export const ChartRecurringVsOneTime = memo(function ChartRecurringVsOneTime({
             <ChartFavoriteButton chartId="recurringVsOneTime" chartTitle={chartTitle} size="md" />
             <CardTitle>{chartTitle}</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <RecurringVsOneTimeInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartData={chartData} total={total} />
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
           <div className="h-full w-full min-h-[250px]">
@@ -225,6 +220,9 @@ export const ChartRecurringVsOneTime = memo(function ChartRecurringVsOneTime({
             />
           </div>
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          <RecurringVsOneTimeInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartData={chartData} total={total} />
+        </CardFooter>
       </Card>
     )
   }
@@ -236,7 +234,7 @@ export const ChartRecurringVsOneTime = memo(function ChartRecurringVsOneTime({
         onClose={() => setIsFullscreen(false)}
         title={chartTitle}
         description={chartDescription}
-        headerActions={<RecurringVsOneTimeInfoTrigger forFullscreen chartTitle={chartTitle} chartDescription={chartDescription} chartData={chartData} total={total} />}
+        headerActions={<RecurringVsOneTimeInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartData={chartData} total={total} />}
       >
         <div className="h-full w-full min-h-[400px] relative" key={colorScheme}>
           <RecurringVsOneTimeChart chartData={chartData} total={total} textColor={textColor} formatCurrency={formatCurrency} />
@@ -256,9 +254,6 @@ export const ChartRecurringVsOneTime = memo(function ChartRecurringVsOneTime({
             <ChartFavoriteButton chartId="recurringVsOneTime" chartTitle={chartTitle} size="md" />
             <CardTitle>{chartTitle}</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <RecurringVsOneTimeInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartData={chartData} total={total} />
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
           <div className="h-full w-full min-h-[200px] relative" key={colorScheme}>
@@ -283,6 +278,9 @@ export const ChartRecurringVsOneTime = memo(function ChartRecurringVsOneTime({
             })}
           </div>
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          <RecurringVsOneTimeInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartData={chartData} total={total} />
+        </CardFooter>
       </Card>
     </>
   )

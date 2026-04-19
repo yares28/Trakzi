@@ -21,8 +21,8 @@ import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import {
   Card,
-  CardAction,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -129,14 +129,12 @@ function computeVisibleCategories(containerHeight: number): number {
 // ─── Extracted sub-components ────────────────────────────────────────────────
 
 interface SpendingPyramidInfoTriggerProps {
-  forFullscreen?: boolean
 }
 
 const SpendingPyramidInfoTrigger = memo(function SpendingPyramidInfoTrigger({
-  forFullscreen = false,
 }: SpendingPyramidInfoTriggerProps) {
   return (
-    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
+    <div className="flex items-center gap-2">
       <ChartInfoPopover
         title="Spending Pyramid"
         description="Compare your spending distribution against the average across all users."
@@ -349,9 +347,6 @@ export const ChartSpendingPyramid = memo(function ChartSpendingPyramid({
             />
             <CardTitle className="text-base font-medium">Spending Pyramid</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <SpendingPyramidInfoTrigger />
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1">
           <ChartLoadingState
@@ -361,6 +356,9 @@ export const ChartSpendingPyramid = memo(function ChartSpendingPyramid({
             emptyDescription={emptyDescription}
           />
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          <SpendingPyramidInfoTrigger />
+        </CardFooter>
       </Card>
     )
   }
@@ -372,7 +370,7 @@ export const ChartSpendingPyramid = memo(function ChartSpendingPyramid({
         onClose={() => setIsFullscreen(false)}
         title="Spending Pyramid"
         description="Your spending vs the average user"
-        headerActions={<SpendingPyramidInfoTrigger forFullscreen />}
+        headerActions={<SpendingPyramidInfoTrigger />}
       >
         <SpendingPyramidBarChart
           rows={allPyramidData}
@@ -397,9 +395,6 @@ export const ChartSpendingPyramid = memo(function ChartSpendingPyramid({
             />
             <CardTitle className="text-base font-medium">Spending Pyramid</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <SpendingPyramidInfoTrigger />
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
           <SpendingPyramidBarChart
@@ -412,6 +407,9 @@ export const ChartSpendingPyramid = memo(function ChartSpendingPyramid({
             formatCurrency={formatCurrency}
           />
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          <SpendingPyramidInfoTrigger />
+        </CardFooter>
       </Card>
     </>
   )

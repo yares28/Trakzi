@@ -1,14 +1,28 @@
 "use client"
 
-import { useMemo, useState, memo } from "react"
+import {
+  createElement,
+  useCallback,
+  useMemo,
+  useState,
+  memo,
+  type MouseEvent,
+  type ReactElement,
+} from "react"
 import { useTheme } from "next-themes"
-import { ResponsiveSankey } from "@nivo/sankey"
+import {
+  ResponsiveSankey,
+  type CustomSankeyLayerProps,
+  type SankeyLayer,
+  type SankeyNodeDatum,
+} from "@nivo/sankey"
+import { useTooltip } from "@nivo/tooltip"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import {
   Card,
-  CardAction,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -39,6 +53,18 @@ interface ChartSankeyProps {
   emptyDescription?: string
 }
 
+type SankeyChartNode = {
+  id: string
+  label: string
+  data: { label: string }
+}
+
+type SankeyChartLink = {
+  source: string
+  target: string
+  value: number
+}
+
 const formatNodeId = (id: string) => {
   if (!id) return ""
   let value = id
@@ -63,21 +89,178 @@ const formatNodeId = (id: string) => {
   return value.replace(/\b\w/g, char => char.toUpperCase())
 }
 
+const shortenSankeyLabel = (label: string, maxChars: number) => {
+  if (!label) return ""
+
+  const normalized = label
+    .replace(/\band\b/gi, "&")
+    .replace(/\bExpenses?\b/gi, "Exp.")
+    .replace(/\bInvestments?\b/gi, "Invest.")
+    .replace(/\bUtilities?\b/gi, "Utils.")
+    .replace(/\bTransfers?\b/gi, "Trans.")
+    .replace(/\bFreelance\b/gi, "Free.")
+    .replace(/\bSavings?\b/gi, "Save.")
+    .replace(/\bRefunds?\b/gi, "Refund.")
+    .replace(/\s+/g, " ")
+    .trim()
+
+  if (normalized.length <= maxChars) return normalized
+
+  const words = normalized.split(" ").filter(Boolean)
+  if (words.length > 1) {
+    const compact = words
+      .map((word, index) => {
+        if (index === 0) return word
+        if (word.length <= 4) return word
+        return `${word.slice(0, 3)}.`
+      })
+      .join(" ")
+
+    if (compact.length <= maxChars) return compact
+  }
+
+  return `${normalized.slice(0, Math.max(1, maxChars - 1)).trimEnd()}…`
+}
+
 interface SankeyInfoTriggerProps {
-  forFullscreen?: boolean
   categoryControls?: ChartInfoPopoverCategoryControls
   sanitizedNodes: Array<{ id: string }>
   sanitizedLinks: Array<unknown>
 }
 
+type SankeyHoverTargetLayerProps = CustomSankeyLayerProps<SankeyChartNode, SankeyChartLink> & {
+  tooltip: ({ node }: { node: SankeyNodeDatum<SankeyChartNode, SankeyChartLink> }) => ReactElement
+}
+
+type SankeyVisualNodeLayerProps = CustomSankeyLayerProps<SankeyChartNode, SankeyChartLink>
+
+const TERMINAL_NODE_FIXED_VALUE = 150
+const MIN_NODE_HOVER_HEIGHT = 18
+const NODE_HOVER_PADDING_X = 6
+
+const isTerminalNode = (node: SankeyNodeDatum<SankeyChartNode, SankeyChartLink>) =>
+  node.sourceLinks.length === 0 || node.targetLinks.length === 0
+
+const getDisplayedNodeHeight = (node: SankeyNodeDatum<SankeyChartNode, SankeyChartLink>) => {
+  if (!isTerminalNode(node) || node.value <= 0 || node.value > TERMINAL_NODE_FIXED_VALUE) {
+    return node.height
+  }
+
+  return node.height * (TERMINAL_NODE_FIXED_VALUE / node.value)
+}
+
+const SankeyVisualNodeLayer = memo(function SankeyVisualNodeLayer({
+  nodes,
+  currentNode,
+  currentLink,
+  isCurrentNode,
+}: SankeyVisualNodeLayerProps) {
+  return (
+    <g>
+      {nodes.map((node) => {
+        const displayHeight = getDisplayedNodeHeight(node)
+
+        if (displayHeight <= node.height) return null
+
+        const displayY = node.y + node.height / 2 - displayHeight / 2
+        const fillOpacity =
+          currentNode || currentLink
+            ? isCurrentNode(node)
+              ? 0.9
+              : 0.85
+            : 1
+
+        return (
+          <rect
+            key={`visual-node-${node.id}`}
+            x={node.x}
+            y={displayY}
+            width={node.width}
+            height={displayHeight}
+            rx={3}
+            ry={3}
+            fill={node.color}
+            fillOpacity={fillOpacity}
+            pointerEvents="none"
+          />
+        )
+      })}
+    </g>
+  )
+})
+
+SankeyVisualNodeLayer.displayName = "SankeyVisualNodeLayer"
+
+const SankeyHoverTargetLayer = memo(function SankeyHoverTargetLayer({
+  nodes,
+  setCurrentNode,
+  isInteractive,
+  tooltip,
+}: SankeyHoverTargetLayerProps) {
+  const { showTooltipFromEvent, hideTooltip } = useTooltip()
+
+  const handleMouseEnter = useCallback(
+    (
+      event: MouseEvent<SVGRectElement>,
+      node: SankeyNodeDatum<SankeyChartNode, SankeyChartLink>
+    ) => {
+      setCurrentNode(node)
+      showTooltipFromEvent(createElement(tooltip, { node }), event, "left")
+    },
+    [setCurrentNode, showTooltipFromEvent, tooltip]
+  )
+
+  const handleMouseMove = useCallback(
+    (
+      event: MouseEvent<SVGRectElement>,
+      node: SankeyNodeDatum<SankeyChartNode, SankeyChartLink>
+    ) => {
+      showTooltipFromEvent(createElement(tooltip, { node }), event, "left")
+    },
+    [showTooltipFromEvent, tooltip]
+  )
+
+  const handleMouseLeave = useCallback(() => {
+    setCurrentNode(null)
+    hideTooltip()
+  }, [setCurrentNode, hideTooltip])
+
+  if (!isInteractive) return null
+
+  return (
+    <g>
+      {nodes.map((node) => {
+        const hoverHeight = Math.max(getDisplayedNodeHeight(node), MIN_NODE_HOVER_HEIGHT)
+        const hoverY = node.y + node.height / 2 - hoverHeight / 2
+
+        return (
+          <rect
+            key={`hover-target-${node.id}`}
+            x={node.x - NODE_HOVER_PADDING_X}
+            y={hoverY}
+            width={node.width + NODE_HOVER_PADDING_X * 2}
+            height={hoverHeight}
+            fill="transparent"
+            pointerEvents="all"
+            onMouseEnter={(event) => handleMouseEnter(event, node)}
+            onMouseMove={(event) => handleMouseMove(event, node)}
+            onMouseLeave={handleMouseLeave}
+          />
+        )
+      })}
+    </g>
+  )
+})
+
+SankeyHoverTargetLayer.displayName = "SankeyHoverTargetLayer"
+
 const SankeyInfoTrigger = memo(function SankeyInfoTrigger({
-  forFullscreen = false,
   categoryControls,
   sanitizedNodes,
   sanitizedLinks,
 }: SankeyInfoTriggerProps) {
   return (
-    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
+    <div className="flex items-center gap-2">
       <ChartInfoPopover
         title="Cash Flow Sankey"
         description="Follow revenue as it moves through the org"
@@ -122,9 +305,14 @@ export const ChartSankey = memo(function ChartSankey({
 
   // ACTUAL ROOT CAUSE FIX: Nivo theme controls link colors
   const chartTheme = useMemo(() => ({
-    // This prevents Nivo from applying default darkening to links
     background: 'transparent',
-  }), [])
+    labels: {
+      text: {
+        fontSize: isMobile ? 10 : 11,
+        fontWeight: 500,
+      },
+    },
+  }), [isMobile])
 
 
 
@@ -154,6 +342,40 @@ export const ChartSankey = memo(function ChartSankey({
 
   const getNodeLabel = (id: string) => nodeLabelMap.get(id) ?? formatNodeId(id)
 
+  const renderNodeTooltip = useCallback(
+    ({ node }: { node: SankeyNodeDatum<SankeyChartNode, SankeyChartLink> }) => {
+      const label = getNodeLabel(node.id)
+      const value = typeof node.value === "number" ? node.value : 0
+      return (
+        <NivoChartTooltip
+          title={label}
+          hideTitleIndicator
+          value={formatCurrency(value)}
+        />
+      )
+    },
+    [formatCurrency, getNodeLabel]
+  )
+
+  const sankeyLayers = useMemo<readonly SankeyLayer<SankeyChartNode, SankeyChartLink>[]>(
+    () => [
+      "links" as const,
+      "nodes" as const,
+      (layerProps: CustomSankeyLayerProps<SankeyChartNode, SankeyChartLink>) => (
+        <SankeyVisualNodeLayer {...layerProps} />
+      ),
+      (layerProps: CustomSankeyLayerProps<SankeyChartNode, SankeyChartLink>) => (
+        <SankeyHoverTargetLayer
+          {...layerProps}
+          tooltip={renderNodeTooltip}
+        />
+      ),
+      "labels" as const,
+      "legends" as const,
+    ],
+    [renderNodeTooltip]
+  )
+
   if (!sanitizedData.nodes.length || !sanitizedData.links.length) {
     return (
       <Card className="@container/card">
@@ -168,9 +390,6 @@ export const ChartSankey = memo(function ChartSankey({
             />
             <CardTitle>Cash Flow Sankey</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <SankeyInfoTrigger sanitizedNodes={sanitizedData.nodes} sanitizedLinks={sanitizedData.links} categoryControls={categoryControls} />
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
           <div className="h-full w-full min-h-[180px] md:min-h-[250px]">
@@ -182,6 +401,9 @@ export const ChartSankey = memo(function ChartSankey({
             />
           </div>
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          <SankeyInfoTrigger sanitizedNodes={sanitizedData.nodes} sanitizedLinks={sanitizedData.links} categoryControls={categoryControls} />
+        </CardFooter>
       </Card>
     )
   }
@@ -203,20 +425,10 @@ export const ChartSankey = memo(function ChartSankey({
     >
       <ResponsiveSankey
         data={sanitizedData}
-        margin={{ top: 40, right: 160, bottom: 90, left: 100 }}
+        margin={{ top: 36, right: 132, bottom: 84, left: 92 }}
         align="justify"
-        label={node => getNodeLabel(node.id)}
-        nodeTooltip={({ node }) => {
-          const label = getNodeLabel(node.id)
-          const value = typeof node.value === "number" ? node.value : 0
-          return (
-            <NivoChartTooltip
-              title={label}
-              hideTitleIndicator
-              value={formatCurrency(value)}
-            />
-          )
-        }}
+        label={node => shortenSankeyLabel(getNodeLabel(node.id), 14)}
+        nodeTooltip={renderNodeTooltip}
         linkTooltip={({ link }) => {
           const sourceLabel = getNodeLabel(link.source.id)
           const targetLabel = getNodeLabel(link.target.id)
@@ -244,9 +456,10 @@ export const ChartSankey = memo(function ChartSankey({
         linkBlendMode="normal"
         labelPosition="outside"
         labelOrientation="horizontal"
-        labelPadding={20}
+        labelPadding={12}
         labelTextColor={resolvedTheme === "dark" ? "#ffffff" : { from: "color", modifiers: [["darker", 1]] }}
         legends={[]}
+        layers={sankeyLayers}
         enableLinkGradient={true}
         animate={true}
         motionConfig="gentle"
@@ -265,20 +478,10 @@ export const ChartSankey = memo(function ChartSankey({
     >
       <ResponsiveSankey
         data={sanitizedData}
-        margin={{ top: 20, right: 50, bottom: 20, left: 50 }}
+        margin={{ top: 18, right: 42, bottom: 20, left: 42 }}
         align="justify"
-        label={node => getMobileLabel(node.id)}
-        nodeTooltip={({ node }) => {
-          const label = getNodeLabel(node.id)
-          const value = typeof node.value === "number" ? node.value : 0
-          return (
-            <NivoChartTooltip
-              title={label}
-              hideTitleIndicator
-              value={formatCurrency(value)}
-            />
-          )
-        }}
+        label={node => shortenSankeyLabel(getMobileLabel(node.id), 8)}
+        nodeTooltip={renderNodeTooltip}
         linkTooltip={({ link }) => {
           const sourceLabel = getNodeLabel(link.source.id)
           const targetLabel = getNodeLabel(link.target.id)
@@ -305,9 +508,10 @@ export const ChartSankey = memo(function ChartSankey({
         linkContract={0}
         labelPosition="outside"
         labelOrientation="vertical"
-        labelPadding={8}
+        labelPadding={6}
         labelTextColor={resolvedTheme === "dark" ? "#ffffff" : { from: "color", modifiers: [["darker", 1]] }}
         legends={[]}
+        layers={sankeyLayers}
         enableLinkGradient={true}
         animate={true}
         motionConfig="gentle"
@@ -316,7 +520,7 @@ export const ChartSankey = memo(function ChartSankey({
   )
 
   const mobileLegendElement = (
-    <div className="flex flex-wrap gap-x-3 gap-y-1.5 px-2 pt-2 pb-1 text-[10px] text-muted-foreground">
+    <div className="flex flex-wrap justify-center gap-x-3 gap-y-1.5 px-2 pt-2 pb-1 text-[10px] text-muted-foreground">
       {sanitizedData.nodes.slice(0, 8).map((node, index) => (
         <div key={node.id} className="flex items-center gap-1">
           <span
@@ -339,7 +543,7 @@ export const ChartSankey = memo(function ChartSankey({
         onClose={() => setIsFullscreen(false)}
         title="Cash Flow Sankey"
         description=""
-        headerActions={<SankeyInfoTrigger forFullscreen sanitizedNodes={sanitizedData.nodes} sanitizedLinks={sanitizedData.links} categoryControls={categoryControls} />}
+        headerActions={<SankeyInfoTrigger sanitizedNodes={sanitizedData.nodes} sanitizedLinks={sanitizedData.links} categoryControls={categoryControls} />}
       >
         <div className="h-full w-full min-h-[400px]">
           {fullChartElement}
@@ -358,9 +562,6 @@ export const ChartSankey = memo(function ChartSankey({
             />
             <CardTitle>Cash Flow Sankey</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <SankeyInfoTrigger sanitizedNodes={sanitizedData.nodes} sanitizedLinks={sanitizedData.links} categoryControls={categoryControls} />
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
           <div className="h-full w-full min-h-[280px] md:min-h-[250px]">
@@ -369,10 +570,12 @@ export const ChartSankey = memo(function ChartSankey({
           {/* Mobile legend below chart */}
           {isMobile && mobileLegendElement}
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          <SankeyInfoTrigger sanitizedNodes={sanitizedData.nodes} sanitizedLinks={sanitizedData.links} categoryControls={categoryControls} />
+        </CardFooter>
       </Card>
     </>
   )
 })
 
 ChartSankey.displayName = "ChartSankey"
-

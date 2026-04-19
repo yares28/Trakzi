@@ -117,6 +117,7 @@ export default function RootLayout({
 }>) {
   // Build-time fallback so prerender succeeds when .env.local is missing (e.g. CI). Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY in .env.local for real auth.
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "pk_test_placeholder";
+  const enableVercelObservability = process.env.VERCEL === "1"
 
   const websiteJsonLd = {
     "@context": "https://schema.org",
@@ -144,13 +145,15 @@ export default function RootLayout({
   }
 
   return (
-    <ClerkProvider publishableKey={publishableKey} afterSignOutUrl="/" signInFallbackRedirectUrl="/home" signUpFallbackRedirectUrl="/home">
+    <ClerkProvider
+      publishableKey={publishableKey}
+      afterSignOutUrl="/"
+      signInForceRedirectUrl="/home"
+      signUpForceRedirectUrl="/home"
+    >
       <html lang="en" suppressHydrationWarning className="overflow-x-hidden">
         <head>
           <script dangerouslySetInnerHTML={{ __html: `(function(){try{var p=window.location.pathname;var isApp=/^\\/(home|analytics|savings|fridge|chat|pockets|friends|data-library|rooms|settings|dashboard|testCharts)/.test(p);if(isApp){var s=localStorage.getItem('trakzi-theme');if(s!=='light')document.documentElement.classList.add('dark');}else{document.documentElement.classList.add('dark');}}catch(e){document.documentElement.classList.add('dark');}})();` }} />
-          <link rel="alternate" hrefLang="en" href="https://trakzi.com/" />
-          <link rel="alternate" hrefLang="es" href="https://trakzi.com/es/" />
-          <link rel="alternate" hrefLang="x-default" href="https://trakzi.com/" />
         </head>
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
@@ -199,8 +202,8 @@ export default function RootLayout({
                             </DateFilterProvider>
                           </FavoritesProvider>
                           <Toaster />
-                          <Analytics />
-                          <SpeedInsights />
+                          {enableVercelObservability ? <Analytics /> : null}
+                          {enableVercelObservability ? <SpeedInsights /> : null}
                         </CurrencyProvider>
                       </ColorSchemeProvider>
                     </ChartVisibilityProvider>
@@ -215,4 +218,3 @@ export default function RootLayout({
     </ClerkProvider>
   );
 }
-

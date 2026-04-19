@@ -13,36 +13,34 @@ import { getUserSubscription } from "@/lib/subscriptions"
 import { isDemoCookie } from "@/lib/demo/demo-server"
 
 export default async function ChatPage() {
-  // Check for demo mode first
-  const cookieStore = await cookies()
-  const cookieHeader = cookieStore.toString()
-  const isDemo = isDemoCookie(cookieHeader)
-
-  if (isDemo) {
-    return (
-      <SidebarProvider
-        style={
-          {
-            "--sidebar-width": "calc(var(--spacing) * 72 - 15px)",
-            "--header-height": "calc(var(--spacing) * 12)",
-          } as React.CSSProperties
-        }
-      >
-        <AppSidebar variant="inset" />
-        <SidebarInset>
-          <SiteHeader />
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <DemoChatInterface />
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
-    )
-  }
-
-  // Protect this page with Clerk authentication
   const { userId } = await auth()
 
   if (!userId) {
+    const cookieStore = await cookies()
+    const cookieHeader = cookieStore.toString()
+    const isDemo = isDemoCookie(cookieHeader)
+
+    if (isDemo) {
+      return (
+        <SidebarProvider
+          style={
+            {
+              "--sidebar-width": "calc(var(--spacing) * 72 - 15px)",
+              "--header-height": "calc(var(--spacing) * 12)",
+            } as React.CSSProperties
+          }
+        >
+          <AppSidebar variant="inset" />
+          <SidebarInset>
+            <SiteHeader />
+            <div className="flex flex-1 flex-col overflow-hidden">
+              <DemoChatInterface />
+            </div>
+          </SidebarInset>
+        </SidebarProvider>
+      )
+    }
+
     redirect("/sign-in")
   }
 

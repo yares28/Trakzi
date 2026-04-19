@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { getCurrentUserId } from '@/lib/auth'
 import { neonQuery } from '@/lib/neonClient'
 import { getSharingPreferences, updateSharingPreferences } from '@/lib/friends/sharing'
+import { invalidateUserCachePrefix, buildCacheKey, invalidateExactKeys } from '@/lib/cache/upstash'
 
 const PatchSchema = z.object({
     share_with_friends: z.boolean().optional(),
@@ -64,6 +65,28 @@ export async function PATCH(req: NextRequest) {
         }
 
         const updated = await updateSharingPreferences(userId, parsed.data)
+
+        // Invalidate friends-bundle caches so the privacy change is visible immediately.
+        // We need to bust:
+        //   1. The user's own bundle (their view of the leaderboard)
+        //   2. Every friend's bundle (each friend caches this user's privacy-filtered metrics)
+        const friendRows = await neonQuery<{ friend_id: string }>(
+            `SELECT CASE WHEN requester_id = $1 THEN addressee_id ELSE requester_id END AS friend_id
+             FROM friendships
+             WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)`,
+            [userId]
+        ).catch(() => [])
+
+        const friendIds = friendRows.map(r => r.friend_id)
+
+        // Fire-and-forget — don't let cache errors block the response
+        void Promise.all([
+            invalidateExactKeys(buildCacheKey('friends', userId, null, 'bundle')),
+            invalidateUserCachePrefix(userId, 'friends'),
+            ...friendIds.map(fid => invalidateExactKeys(buildCacheKey('friends', fid, null, 'bundle'))),
+            ...friendIds.map(fid => invalidateUserCachePrefix(fid, 'friends')),
+        ]).catch(() => {})
+
         return NextResponse.json(updated)
     } catch (error: any) {
         if (error.message?.includes('Unauthorized')) {

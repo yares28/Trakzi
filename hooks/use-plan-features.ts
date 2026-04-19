@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { demoFetch } from "@/lib/demo/demo-fetch"
 
 export interface PlanFeatures {
   plan: string
@@ -25,7 +26,7 @@ let fetchPromise: Promise<PlanFeatures> | null = null
 async function loadFeatures(): Promise<PlanFeatures> {
   if (cachedFeatures) return cachedFeatures
   if (!fetchPromise) {
-    fetchPromise = fetch("/api/subscription/me")
+    fetchPromise = demoFetch("/api/subscription/me")
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch subscription")
         return res.json()

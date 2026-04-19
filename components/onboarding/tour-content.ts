@@ -5,12 +5,27 @@ export interface TourStep {
   description: string
   /** Optional image/GIF path relative to /public */
   image?: string
+  /** Optional video clip path relative to /public */
+  video?: string
+  /** Optional poster image for the video */
+  poster?: string
 }
 
 export interface PageTour {
   pageId: string
   steps: TourStep[]
 }
+
+// Only pages with real walkthrough media (images/videos) are listed here.
+// Pages without media intentionally omit the tour so we never show empty
+// placeholder slides.
+const TOUR_PATHNAME_TO_PAGE_ID = {
+  "/home": "home",
+  "/analytics": "analytics",
+  "/fridge": "fridge",
+} as const
+
+export type TourPageId = (typeof TOUR_PATHNAME_TO_PAGE_ID)[keyof typeof TOUR_PATHNAME_TO_PAGE_ID]
 
 export const PAGE_TOURS: Record<string, PageTour | undefined> = {
   home: {
@@ -19,18 +34,22 @@ export const PAGE_TOURS: Record<string, PageTour | undefined> = {
       {
         title: "Welcome to your dashboard",
         description: "This is your financial command center. All your key metrics are here at a glance.",
+        image: "/walkthrough/HOME1.jpeg",
       },
       {
         title: "Your charts",
         description: "Charts update automatically as you add data. Drag and resize them to customize your layout.",
+        video: "/walkthrough/HOME2.mp4",
       },
       {
         title: "Filter by date",
         description: "Use the date filter at the top to zoom in on any time period — last month, last year, or custom.",
+        video: "/walkthrough/HOME3.mp4",
       },
       {
         title: "Add your first data",
         description: "Upload a bank statement CSV or scan a receipt to start seeing your spending insights.",
+        video: "/walkthrough/HOME4.mp4",
       },
     ],
   },
@@ -40,14 +59,12 @@ export const PAGE_TOURS: Record<string, PageTour | undefined> = {
       {
         title: "Your spending breakdown",
         description: "Analytics gives you a deep dive into where your money goes, broken down by category.",
+        video: "/walkthrough/ANALYTICS1.mp4",
       },
       {
         title: "Filter by category",
         description: "Click any category chip to focus the charts on a specific spending area.",
-      },
-      {
-        title: "Adjust the date range",
-        description: "Narrow or widen the time window to compare spending across different periods.",
+        video: "/walkthrough/ANALYTICS2.mp4",
       },
     ],
   },
@@ -57,98 +74,37 @@ export const PAGE_TOURS: Record<string, PageTour | undefined> = {
       {
         title: "Grocery & receipt tracking",
         description: "The Fridge section tracks your grocery spending. Upload receipts to get item-level insights.",
+        image: "/walkthrough/FRIDGE1.jpeg",
       },
       {
         title: "Upload a receipt",
-        description: "Take a photo of any grocery receipt. Our AI reads and categorizes each item automatically.",
+        description: "Upload a grocery receipt image or PDF. Our AI reads and categorizes each item automatically.",
+        image: "/walkthrough/FRIDGE2.jpeg",
       },
       {
         title: "See your food trends",
         description: "Charts here show which categories you spend most on and how your grocery bill changes over time.",
-      },
-    ],
-  },
-  savings: {
-    pageId: "savings",
-    steps: [
-      {
-        title: "Track your savings",
-        description: "Savings shows how much you're setting aside each month and your progress toward goals.",
-      },
-      {
-        title: "Monitor progress",
-        description: "Charts track your savings rate over time so you can spot when you're ahead or behind.",
-      },
-      {
-        title: "Set a savings goal",
-        description: "Define a target amount and a deadline. Trakzi tracks your progress automatically.",
-      },
-    ],
-  },
-  pockets: {
-    pageId: "pockets",
-    steps: [
-      {
-        title: "Budget pockets",
-        description: "Pockets are virtual envelopes for your spending categories — like a digital cash budgeting system.",
-      },
-      {
-        title: "Allocate your budget",
-        description: "Set a monthly limit per pocket. The charts show how much you've used versus what's left.",
-      },
-      {
-        title: "Create your first pocket",
-        description: "Hit the + button to create a pocket for any spending category that matters to you.",
-      },
-    ],
-  },
-  friends: {
-    pageId: "friends",
-    steps: [
-      {
-        title: "Your social finance hub",
-        description: "The Friends section lets you compare spending, share rooms, and challenge friends to build better financial habits together.",
-      },
-      {
-        title: "Rankings",
-        description: "See how your spending score stacks up against friends. Rankings update automatically as everyone logs transactions.",
-      },
-      {
-        title: "Rooms",
-        description: "Create a shared room with roommates or travel companions. Add expenses, split costs, and settle up — all in one place.",
-      },
-      {
-        title: "Challenges",
-        description: "Start a spending challenge with friends — like 'spend under $200 on food this month'. Track everyone's progress in real time.",
-      },
-    ],
-  },
-  "data-library": {
-    pageId: "data-library",
-    steps: [
-      {
-        title: "All your transactions",
-        description: "The Data Library is a searchable, filterable table of every transaction you've imported.",
-      },
-      {
-        title: "Search and filter",
-        description: "Use the search bar and filters to find any transaction by name, category, date, or amount.",
-      },
-      {
-        title: "Edit or delete",
-        description: "Click any row to edit transaction details, fix a category, or remove a duplicate.",
+        video: "/walkthrough/FRIDGE3.mp4",
       },
     ],
   },
 }
 
+export function getTourPageIdFromPathname(pathname: string | null | undefined): TourPageId | null {
+  if (!pathname) return null
+
+  const normalizedPath = pathname !== "/" ? pathname.replace(/\/+$/, "") : pathname
+
+  return TOUR_PATHNAME_TO_PAGE_ID[normalizedPath as keyof typeof TOUR_PATHNAME_TO_PAGE_ID] ?? null
+}
+
+// Only include tasks that correspond to pages with real walkthrough media.
+// Keeping image-less pages out ensures every task lines up with a visual tour.
 export const CHECKLIST_ITEMS = [
   { id: "upload_statement", label: "Import your first bank statement" },
   { id: "upload_receipt", label: "Upload a grocery receipt" },
   { id: "explore_analytics", label: "Explore the Analytics page" },
   { id: "explore_fridge", label: "Explore the Fridge page" },
-  { id: "explore_savings", label: "Explore the Savings page" },
-  { id: "explore_pockets", label: "Explore the Pockets page" },
 ] as const
 
 export type ChecklistItemId = typeof CHECKLIST_ITEMS[number]["id"]

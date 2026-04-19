@@ -8,10 +8,6 @@ import { Badge } from "@/components/ui/badge"
 import type { TransactionLimitExceededData } from "@/components/limits/transaction-limit-dialog"
 import type { CategoryLimitExceededData } from "@/components/limits/category-limit-dialog"
 import { useCurrency } from "@/components/currency-provider"
-import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
-import { useOnboarding } from "@/components/onboarding/onboarding-context"
-import { MapPin } from "lucide-react"
-import { Button } from "@/components/ui/button"
 
 import { AiReparseDialog } from "./components/AiReparseDialog"
 import { CategoriesTable } from "./components/CategoriesTable"
@@ -46,7 +42,6 @@ import { useStatementViewer } from "./hooks/useStatementViewer"
 
 export default function DataLibraryPage() {
   const { formatCurrency } = useCurrency()
-  const { startTour } = useOnboarding()
   const [, startTransition] = useTransition()
 
   const queryClient = useQueryClient()
@@ -268,15 +263,6 @@ export default function DataLibraryPage() {
                   ledger, and AI interpretations. Tap into real backend
                   telemetry without leaving the dashboard.
                 </p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => startTour("data-library")}
-                  className="text-muted-foreground gap-1.5 text-xs h-7 pl-0"
-                >
-                  <MapPin className="size-3.5" />
-                  Take a tour
-                </Button>
               </div>
             </div>
             {error && !error.toLowerCase().includes("authentication") && (
@@ -618,7 +604,6 @@ export default function DataLibraryPage() {
         setCategoryLimitData={setCategoryLimitData}
       />
 
-      <OnboardingTour pageId="data-library" />
     </DataLibraryLayout>
   )
 }

@@ -6,6 +6,11 @@ export const metadata: Metadata = {
     "Compare Trakzi and Splitwise. Trakzi combines shared expense tracking with personal budgeting, receipt scanning, and AI charts — Splitwise only does splits.",
   alternates: {
     canonical: "https://trakzi.com/compare/trakzi-vs-splitwise",
+    languages: {
+      en: "https://trakzi.com/compare/trakzi-vs-splitwise",
+      es: "https://trakzi.com/es/compare/trakzi-vs-splitwise",
+      "x-default": "https://trakzi.com/compare/trakzi-vs-splitwise",
+    },
   },
   openGraph: {
     title: "Trakzi vs Splitwise — Shared Expenses App Comparison",

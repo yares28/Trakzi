@@ -1,14 +1,11 @@
 "use client"
 
 import { useState, Suspense } from "react"
-import { Users, MapPin } from "lucide-react"
+import { Users } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
-import { useOnboarding } from "@/components/onboarding/onboarding-context"
 
 import RankingsTab from "./components/RankingsTab"
 import GroupsTab from "./components/GroupsTab"
@@ -26,7 +23,6 @@ const TAB_CONFIG: { key: FriendsViewMode; label: string; description: string }[]
 function FriendsContent() {
     const searchParams = useSearchParams()
     const router = useRouter()
-    const { startTour } = useOnboarding()
 
     const tabParam = searchParams.get("tab") as FriendsViewMode | null
     const isValidTab = tabParam && TAB_CONFIG.some(t => t.key === tabParam)
@@ -59,15 +55,6 @@ function FriendsContent() {
                                 <p className="text-muted-foreground max-w-2xl">
                                     {activeTab.description}
                                 </p>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => startTour("friends")}
-                                    className="text-muted-foreground gap-1.5 text-xs h-7 pl-0"
-                                >
-                                    <MapPin className="size-3.5" />
-                                    Take a tour
-                                </Button>
                             </div>
                         </div>
                     </section>
@@ -105,7 +92,6 @@ function FriendsContent() {
                     </div>
                 </div>
             </div>
-            <OnboardingTour pageId="friends" />
         </FriendsLayout>
     )
 }

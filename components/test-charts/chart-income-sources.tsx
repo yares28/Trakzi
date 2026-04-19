@@ -21,6 +21,8 @@ import { ChartLoadingState } from "@/components/chart-loading-state"
 import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { getChartTextColor, getChartAxisLineColor } from "@/lib/chart-colors"
 import { HoverableHorizontalBar } from "@/components/chart-hoverable-bar"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { formatCompactAxisMagnitude } from "@/lib/chart-axis-compact"
 const CHART_ID = "incomeSources"
 const CHART_TITLE = "Income Sources"
 const CHART_DESCRIPTION = "Breakdown of where your income comes from. Diversification is key to financial stability."
@@ -44,6 +46,7 @@ export const ChartIncomeSources = memo(function ChartIncomeSources({
     const { resolvedTheme } = useTheme()
     const { colorScheme, getShuffledPalette } = useColorScheme()
     const { formatCurrency } = useCurrency()
+    const isMobile = useIsMobile()
     const palette = useMemo(
         () => getShuffledPalette("analytics:incomeSources"),
         [getShuffledPalette],
@@ -129,19 +132,20 @@ export const ChartIncomeSources = memo(function ChartIncomeSources({
         )
     }
     const chart = (
-        <div className="h-full w-full min-h-[250px]" key={colorScheme}>
+        <div className="h-full w-full min-h-[220px] sm:min-h-[250px]" key={colorScheme}>
             <ResponsiveBar
                 data={chartData}
                 keys={["total"]}
                 indexBy="source"
                 layout="horizontal"
-                margin={{ top: 10, right: 60, bottom: 30, left: 100 }}
-                padding={0.3}
+                margin={{ top: 10, right: isMobile ? 24 : 60, bottom: 30, left: isMobile ? 88 : 120 }}
+                padding={0.4}
                 colors={({ data: d }) => d.color as string}
                 borderRadius={6}
-                enableLabel={true}
+                enableLabel={!isMobile}
                 label={(d) => formatCurrency(d.value as number, { maximumFractionDigits: 0 })}
-                labelSkipWidth={50}
+                labelSkipWidth={72}
+                labelSkipHeight={18}
                 labelTextColor="#ffffff"
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 barComponent={HoverableHorizontalBar as any}
@@ -150,11 +154,19 @@ export const ChartIncomeSources = memo(function ChartIncomeSources({
                 axisBottom={{
                     tickSize: 0,
                     tickPadding: 8,
-                    format: (v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : formatCurrency(v, { maximumFractionDigits: 0 }),
+                    tickValues: isMobile ? 3 : 5,
+                    format: (v: number) =>
+                        formatCompactAxisMagnitude(v, {
+                            belowThreshold: (x) => formatCurrency(x, { maximumFractionDigits: 0 }),
+                        }),
                 }}
                 axisLeft={{
                     tickSize: 0,
                     tickPadding: 8,
+                    format: (value: string) =>
+                        value.length > (isMobile ? 10 : 16)
+                            ? `${value.slice(0, isMobile ? 10 : 16)}…`
+                            : value,
                 }}
                 theme={{
                     text: { fill: textColor, fontSize: 11 },

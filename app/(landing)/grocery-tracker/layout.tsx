@@ -6,6 +6,11 @@ export const metadata: Metadata = {
     "Track every grocery purchase by scanning receipts with your phone. See spending by store, category, and week. Take control of your food budget with Trakzi.",
   alternates: {
     canonical: "https://trakzi.com/grocery-tracker",
+    languages: {
+      en: "https://trakzi.com/grocery-tracker",
+      es: "https://trakzi.com/es/gastos-supermercado",
+      "x-default": "https://trakzi.com/grocery-tracker",
+    },
   },
   openGraph: {
     title: "Grocery Budget Tracker — Scan Receipts & Control Food Spending | Trakzi",

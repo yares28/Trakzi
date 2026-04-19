@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight, Info, X } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -298,6 +298,10 @@ export function StatementReviewDialog({
                     ? "sm:max-w-[98vw] md:max-w-[1600px] lg:max-w-[1800px]"
                     : "sm:max-w-[95vw] md:max-w-[1400px]"
             )}>
+                <DialogHeader className="sr-only">
+                    <DialogTitle>Review Transactions</DialogTitle>
+                    <DialogDescription>Review imported statement transactions and adjust categories before importing.</DialogDescription>
+                </DialogHeader>
                 <div className="flex flex-col max-h-[85vh] overflow-hidden">
                     {/* Modern Glassmorphic Header */}
                     <div className="flex-none flex flex-col gap-4 p-6 pb-4 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">

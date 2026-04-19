@@ -122,6 +122,7 @@ export type ChartId =
   | "testCharts:quarterlyComparison"
   | "testCharts:balanceHistory"
   | "testCharts:monthlyInsights"
+  | "testCharts:weekendSpendingShare"
   | "testCharts:categoryPareto"
   | "testCharts:categorySeasonalityRadar"
   | "testCharts:merchantDiversity"
@@ -142,6 +143,9 @@ export type ChartId =
   // Savings page (moved from test charts)
   | "savingsRateTrend"
   | "netWorthTrend"
+  | "categorySpendingByPeriod"
+  | "testCharts:merchantBudgetMissMap"
+  | "testCharts:storePriceDispersionIndex"
 
 /**
  * Default size configuration for all charts
@@ -334,7 +338,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 8,
     maxH: 16,
-    mobileH: 7,
+    mobileH: 8,
   },
 
   // Savings Accumulation - Line chart
@@ -397,7 +401,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     maxW: 12,
     minH: 7,
     maxH: 12,
-    mobileH: 5,
+    mobileH: 6,
   },
 
   // Recurring vs One-Time - Comparison chart
@@ -1021,6 +1025,15 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
     mobileH: 4,
   },
 
+  // Test Charts: Weekend Spending Share
+  "testCharts:weekendSpendingShare": {
+    minW: 6,
+    maxW: 12,
+    minH: 8,
+    maxH: 14,
+    mobileH: 6,
+  },
+
   "testCharts:categoryPareto": {
     minW: 6,
     maxW: 12,
@@ -1065,18 +1078,21 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
   seasonalSpending: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
   hourlySpending: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
   transactionCountTrend: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
-  momGrowth: { minW: 6, maxW: 12, minH: 6, maxH: 10, mobileH: 5 },
-  topMerchantsRace: { minW: 6, maxW: 12, minH: 6, maxH: 14, mobileH: 4 },
+  momGrowth: { minW: 6, maxW: 12, minH: 8, maxH: 10, mobileH: 5 },
+  topMerchantsRace: { minW: 6, maxW: 12, minH: 6, maxH: 14, mobileH: 5 },
   paydayImpact: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
-  incomeSources: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
+  incomeSources: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 6 },
   spendingDistribution: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
-  yearOverYear: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
+  yearOverYear: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 6 },
   quarterlyComparison: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
-  dailyAverageByMonth: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
+  dailyAverageByMonth: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 6 },
 
   // ── Savings page charts (moved from test charts) ──────────────────────────
   savingsRateTrend: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
   netWorthTrend: { minW: 6, maxW: 12, minH: 8, maxH: 12, mobileH: 5 },
+  categorySpendingByPeriod: { minW: 12, maxW: 12, minH: 7, maxH: 16, mobileH: 6 },
+  "testCharts:merchantBudgetMissMap": { minW: 6, maxW: 12, minH: 8, maxH: 14, mobileH: 5 },
+  "testCharts:storePriceDispersionIndex": { minW: 6, maxW: 12, minH: 8, maxH: 14, mobileH: 5 },
 }
 
 /**
@@ -1091,4 +1107,3 @@ export function getChartCardSize(chartId: ChartId): ChartCardSizeConfig {
     mobileH: 5,
   }
 }
-

@@ -18,8 +18,8 @@ import { NivoChartTooltip } from "@/components/chart-tooltip";
 import { getContrastTextColor, getChartTextColor } from "@/lib/chart-colors";
 import {
   Card,
-  CardAction,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -102,10 +102,8 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
     [formatCurrency],
   );
 
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div
-      className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}
-    >
+  const renderInfoTrigger = () => (
+    <div className="flex items-center gap-2">
       <ChartInfoPopover
         title="Needs vs Wants"
         description="Groups your spending into essentials, mandatory obligations, and discretionary wants."
@@ -216,13 +214,11 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
             />
             <CardTitle>Needs vs Wants</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
-        </CardHeader>
+          </CardHeader>
         <CardContent className="flex-1 min-h-0">
           <div className="h-full w-full min-h-[180px] md:min-h-[250px]" />
         </CardContent>
+        <CardFooter className="pb-3 gap-2">{renderInfoTrigger()}</CardFooter>
       </Card>
     );
   }
@@ -241,10 +237,7 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
             />
             <CardTitle>Needs vs Wants</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
-        </CardHeader>
+          </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
           <div className="h-full w-full min-h-[180px] md:min-h-[250px]">
             <ChartLoadingState
@@ -255,6 +248,7 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
             />
           </div>
         </CardContent>
+        <CardFooter className="pb-3 gap-2">{renderInfoTrigger()}</CardFooter>
       </Card>
     );
   }
@@ -266,7 +260,7 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
         onClose={() => setIsFullscreen(false)}
         title="Needs vs Wants"
         description="Essentials, mandatory, and discretionary spending"
-        headerActions={renderInfoTrigger(true)}
+        headerActions={renderInfoTrigger()}
         orientation="portrait"
       >
         <div className="h-full w-full min-h-[400px]" key={colorScheme}>
@@ -286,10 +280,7 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
             />
             <CardTitle>Needs vs Wants</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
-        </CardHeader>
+          </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0 flex flex-col">
           <div
             className="relative flex-1 min-h-[140px] md:min-h-[200px]"
@@ -302,13 +293,14 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
                   {frugalityScore}
                 </span>
                 <span className="text-[0.65rem] @sm/card:text-xs @md/card:text-sm font-medium text-muted-foreground mt-0.5">
-                  frugality score
+                  Frugality Score
                 </span>
               </div>
             )}
           </div>
           {renderLegend()}
         </CardContent>
+        <CardFooter className="pb-3 gap-2">{renderInfoTrigger()}</CardFooter>
       </Card>
     </>
   );

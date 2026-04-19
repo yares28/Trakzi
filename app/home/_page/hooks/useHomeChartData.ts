@@ -4,13 +4,15 @@ import { useTheme } from "next-themes"
 
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
+import { buildCashFlowGraphFromTransactions } from "@/lib/charts/cash-flow-graph"
+import { useDemoMode } from "@/lib/demo/demo-context"
 
 import type {
   ActivityRingsConfig,
   ActivityRingsData,
   HomeTransaction,
 } from "../types"
-import { getSubCategoryLabel, normalizeCategoryName } from "../utils/categories"
+import { getSubCategoryLabel, getSuggestedDemoRingLimit, normalizeCategoryName } from "../utils/categories"
 
 type StreamgraphData = {
   data: Array<Record<string, string | number>>
@@ -81,6 +83,7 @@ export function useHomeChartData({
   const chartTransactions = transactions
   const { resolvedTheme } = useTheme()
   const { getPalette } = useColorScheme()
+  const { isDemoMode } = useDemoMode()
   const palette = getPalette()
 
   const [ringLimits, setRingLimits] = useState<Record<string, number>>({})
@@ -114,7 +117,7 @@ export function useHomeChartData({
     const isYearLike =
       !filter || filter === "lastyear" || /^\d{4}$/.test(filter)
     const base = isYearLike ? 5000 : 2000
-    return isDemoMode ? base * 3 : base
+    return isDemoMode ? base * 4 : base
   }, [])
 
   const activityData: ActivityRingsData = useMemo(() => {
@@ -162,7 +165,9 @@ export function useHomeChartData({
       const effectiveLimit =
         typeof storedLimit === "number" && storedLimit > 0
           ? storedLimit
-          : getDefaultRingLimit(dateFilter)
+          : (isDemoMode
+              ? (getSuggestedDemoRingLimit(amount) ?? getDefaultRingLimit(dateFilter, true))
+              : getDefaultRingLimit(dateFilter))
 
       const ratioToLimit =
         effectiveLimit && effectiveLimit > 0
@@ -191,11 +196,12 @@ export function useHomeChartData({
             )}\nNo budget set`,
         category,
         spent: amount,
+        budget: effectiveLimit,
         value,
         color,
       }
     })
-  }, [chartTransactions, palette, ringCategories, ringLimits, dateFilter, getDefaultRingLimit])
+  }, [chartTransactions, palette, ringCategories, ringLimits, dateFilter, getDefaultRingLimit, isDemoMode])
 
   const activityConfig: ActivityRingsConfig = useMemo(
     () => ({
@@ -635,93 +641,11 @@ export function useHomeChartData({
   // Sankey data computation from transactions
   // Uses 3-layer model: Income Sources → Total Cash → Expenses/Savings
   const sankeyData = useMemo(() => {
-    if (!chartTransactions || chartTransactions.length === 0) {
-      return {
-        graph: { nodes: [], links: [] as Array<{ source: string; target: string; value: number }> },
-        categories: [] as string[]
-      }
-    }
-
-    // Group income by category (source)
-    const incomeByCategoryMap = new Map<string, number>()
-    chartTransactions
-      .filter((tx) => tx.amount > 0)
-      .forEach((tx) => {
-        const category = normalizeCategoryName(tx.category) || "Income"
-        const current = incomeByCategoryMap.get(category) || 0
-        incomeByCategoryMap.set(category, current + tx.amount)
-      })
-
-    // Group expenses by category
-    const expenseByCategoryMap = new Map<string, number>()
-    chartTransactions
-      .filter((tx) => tx.amount < 0)
-      .forEach((tx) => {
-        const category = normalizeCategoryName(tx.category)
-        if (sankeyVisibility.hiddenCategorySet.has(category)) return
-        const current = expenseByCategoryMap.get(category) || 0
-        expenseByCategoryMap.set(category, current + Math.abs(tx.amount))
-      })
-
-    // Calculate totals
-    const totalIncome = Array.from(incomeByCategoryMap.values()).reduce((sum, v) => sum + v, 0)
-    const totalExpenses = Array.from(expenseByCategoryMap.values()).reduce((sum, v) => sum + v, 0)
-    const savings = Math.max(0, totalIncome - totalExpenses)
-
-    // Build nodes and links using 3-layer flow model
-    const nodes: Array<{ id: string; label?: string }> = []
-    const links: Array<{ source: string; target: string; value: number }> = []
-
-    // Layer 1: Income sources (left side) - top 5
-    const sortedIncomeSources = Array.from(incomeByCategoryMap.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-
-    for (const [category, amount] of sortedIncomeSources) {
-      if (amount > 0) {
-        nodes.push({ id: `income-${category}`, label: category })
-        // Connect income source to "Total Cash" central node
-        links.push({
-          source: `income-${category}`,
-          target: "total-cash",
-          value: Math.round(amount * 100) / 100,
-        })
-      }
-    }
-
-    // Layer 2: Central node - Total Cash (middle)
-    nodes.push({ id: "total-cash", label: "Total Cash" })
-
-    // Layer 3: Expenses (right side) - top 8
-    const sortedExpenses = Array.from(expenseByCategoryMap.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-
-    for (const [category, amount] of sortedExpenses) {
-      if (amount > 0) {
-        nodes.push({ id: `expense-${category}`, label: category })
-        // Connect "Total Cash" to each expense category
-        links.push({
-          source: "total-cash",
-          target: `expense-${category}`,
-          value: Math.round(amount * 100) / 100,
-        })
-      }
-    }
-
-    // Add savings if positive
-    if (savings > 0) {
-      nodes.push({ id: "savings", label: "Savings" })
-      links.push({
-        source: "total-cash",
-        target: "savings",
-        value: Math.round(savings * 100) / 100,
-      })
-    }
-
-    const categories = Array.from(expenseByCategoryMap.keys())
-
-    return { graph: { nodes, links }, categories }
+    return buildCashFlowGraphFromTransactions({
+      transactions: chartTransactions,
+      normalizeCategory: normalizeCategoryName,
+      hiddenExpenseCategories: sankeyVisibility.hiddenCategorySet,
+    })
   }, [chartTransactions, sankeyVisibility.hiddenCategorySet, normalizeCategoryName])
 
   const sankeyControls = sankeyVisibility.buildCategoryControls(sankeyData.categories, {

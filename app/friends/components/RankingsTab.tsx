@@ -284,7 +284,7 @@ export default function RankingsTab() {
                 <Card className="border-border/40 bg-white/5 dark:bg-black/20 backdrop-blur-xl shadow-2xl rounded-3xl overflow-hidden mt-6 sm:mt-8">
                     {/* Metric Selector */}
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-3 sm:px-6 py-3 sm:py-4 bg-muted/10 border-b border-border/40">
-                        <h3 className="text-base sm:text-lg font-semibold">All-Time Rankings</h3>
+                        <h3 className="text-base sm:text-lg font-semibold">This Month&apos;s Rankings</h3>
                         <Select value={activeMetric} onValueChange={(v) => setActiveMetric(v as RankingMetric)}>
                             <SelectTrigger className="w-full sm:w-[190px]">
                                 <SelectValue />
@@ -390,7 +390,7 @@ export default function RankingsTab() {
                                                         </TooltipTrigger>
                                                         <TooltipContent>
                                                             <p>Needs more data this month to be ranked</p>
-                                                            <p className="text-xs text-muted-foreground mt-0.5">Min. 20 transactions or 2 receipts</p>
+                                                            <p className="text-xs text-muted-foreground mt-0.5">Min. 5 transactions (≥$50) or 2 receipts (≥$50)</p>
                                                         </TooltipContent>
                                                     </Tooltip>
                                                 ) : (
@@ -437,7 +437,7 @@ export default function RankingsTab() {
                                             <div className="px-3 sm:px-6 py-4 sm:py-6 bg-muted/5 text-center text-xs sm:text-sm text-muted-foreground animate-in slide-in-from-top-2 duration-200">
                                                 <AlertCircle className="w-5 h-5 mx-auto mb-2 opacity-50" />
                                                 Not enough activity this month to rank.
-                                                <p className="text-[10px] sm:text-xs mt-1">Requires 20+ transactions (≥500 volume) or 2+ receipts (≥50 volume)</p>
+                                                <p className="text-[10px] sm:text-xs mt-1">Requires 5+ transactions (≥$50) or 2+ receipts (≥$50) this month</p>
                                             </div>
                                         )}
                                     </div>

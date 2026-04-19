@@ -43,7 +43,9 @@
       "Bash(grep:*)",
       "mcp__Neon__prepare_database_migration",
       "Bash(powershell -Command:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)"
     ]
   },
   "enabledPlugins": {

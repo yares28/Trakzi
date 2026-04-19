@@ -11,17 +11,16 @@ import { NivoChartTooltip } from "@/components/chart-tooltip"
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
   Card,
-  CardAction,
   CardContent,
   CardHeader,
   CardTitle,
-  CardFooter,
 } from "@/components/ui/card"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
 import { GridStackCardDragHandle } from "@/components/gridstack-card-drag-handle"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
 import { ChartExpandButton } from "@/components/chart-expand-button"
 import { ChartFullscreenModal } from "@/components/chart-fullscreen-modal"
+import { ChartCardFloatingMeta } from "@/components/chart-card-overlay-controls"
 
 interface ChartCategoryFlowProps {
   data?: Array<{
@@ -50,16 +49,46 @@ const CategoryFlowInfoTrigger = memo(function CategoryFlowInfoTrigger({
   categoryControls,
   data,
 }: CategoryFlowInfoTriggerProps) {
+  if (!forFullscreen) {
+    return (
+      <ChartCardFloatingMeta
+        insight={
+          <ChartAiInsightButton
+            chartId="spendingCategoryRankings"
+            chartTitle="Spending Category Rankings"
+            chartDescription="Ranks spending categories by amount over time (1 = highest spending)."
+            chartData={{
+              categories: data.map(d => d.id),
+              categoryCount: data.length,
+              dataPoints: data[0]?.data?.length || 0
+            }}
+            size="sm"
+          />
+        }
+        info={
+          <ChartInfoPopover
+            title="Spending Category Rankings"
+            description="Ranks your spending categories by amount over time (1 = highest spending)."
+            details={[
+              "Each colored area represents a spending category; the higher it sits, the more you spent in that category.",
+              "How it works: categories are ranked by total spending each period, so you can see which categories dominate over time.",
+            ]}
+            categoryControls={categoryControls}
+          />
+        }
+      />
+    )
+  }
+
   return (
-    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
+    <div className="flex flex-col items-center gap-2">
       <ChartInfoPopover
         title="Spending Category Rankings"
         description="Ranks your spending categories by amount over time (1 = highest spending)."
         details={[
           "Each colored area represents a spending category; the higher it sits, the more you spent in that category.",
           "How it works: categories are ranked by total spending each period, so you can see which categories dominate over time.",
-          forFullscreen ? "Use the checkboxes below to show/hide specific categories." : "",
-        ].filter(Boolean)}
+        ]}
         categoryControls={categoryControls}
       />
       <ChartAiInsightButton
@@ -98,7 +127,7 @@ const CategoryFlowFullChart = memo(function CategoryFlowFullChart({
   return (
     <ResponsiveAreaBump
       data={data}
-      margin={{ top: 20, right: 15, bottom: 20, left: 85 }}
+      margin={{ top: 20, right: 24, bottom: 20, left: 96 }}
       spacing={10}
       colors={colorConfig}
       blendMode="normal"
@@ -167,7 +196,7 @@ const CategoryFlowMobileChart = memo(function CategoryFlowMobileChart({
   return (
     <ResponsiveAreaBump
       data={data}
-      margin={{ top: 24, right: 10, bottom: 24, left: 10 }}
+      margin={{ top: 24, right: 16, bottom: 24, left: 16 }}
       spacing={8}
       colors={colorConfig}
       blendMode="normal"
@@ -223,7 +252,7 @@ const CategoryFlowMobileLegend = memo(function CategoryFlowMobileLegend({
   colorConfig,
 }: CategoryFlowMobileLegendProps) {
   return (
-    <div className="flex flex-wrap gap-x-3 gap-y-1.5 px-2 pt-2 pb-1 text-[10px] text-muted-foreground">
+    <div className="flex flex-wrap justify-center gap-x-3 gap-y-1.5 px-2 pt-2 pb-1 text-[10px] text-muted-foreground">
       {data.slice(0, 8).map((serie, index) => (
         <div key={serie.id} className="flex items-center gap-1">
           <span
@@ -354,7 +383,7 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
   // Don't render chart if data is empty
   if (!data || data.length === 0) {
     return (
-      <Card className="@container/card">
+      <Card className="@container/card relative">
         <CardHeader>
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
@@ -366,9 +395,6 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
             />
             <CardTitle>Spending Category Rankings</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <CategoryFlowInfoTrigger data={data} categoryControls={categoryControls} />
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
           <div className="h-full w-full min-h-[250px]">
@@ -380,6 +406,7 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
             />
           </div>
         </CardContent>
+        <CategoryFlowInfoTrigger data={data} categoryControls={categoryControls} />
       </Card>
     )
   }
@@ -415,11 +442,8 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
             />
             <CardTitle>Spending Category Rankings</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <CategoryFlowInfoTrigger data={data} categoryControls={categoryControls} />
-          </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0">
+        <CardContent className="px-3 pt-4 sm:px-8 sm:pt-6 flex-1 min-h-0">
           <div className="relative h-full w-full min-h-[250px]">
             {isMobile
               ? <CategoryFlowMobileChart
@@ -443,6 +467,7 @@ export const ChartCategoryFlow = memo(function ChartCategoryFlow({
             <CategoryFlowMobileLegend data={data} colorConfig={colorConfig} />
           )}
         </CardContent>
+        <CategoryFlowInfoTrigger data={data} categoryControls={categoryControls} />
       </Card>
     </>
   )

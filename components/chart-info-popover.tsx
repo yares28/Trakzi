@@ -106,6 +106,7 @@ export function ChartInfoPopover({
         <button
           type="button"
           ref={triggerRef}
+          data-chart-meta="info"
           aria-label={triggerAriaLabel ?? `Learn more about ${title}`}
           className={cn(
             "inline-flex items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
@@ -272,4 +273,3 @@ export function ChartInfoPopover({
     </Popover>
   )
 }
-

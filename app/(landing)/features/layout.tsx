@@ -6,6 +6,11 @@ export const metadata: Metadata = {
     "Explore all Trakzi features: AI receipt scanning, CSV bank import, shared expense rooms, grocery budget tracking, interactive charts, and savings tools. Free to start.",
   alternates: {
     canonical: "https://trakzi.com/features",
+    languages: {
+      en: "https://trakzi.com/features",
+      es: "https://trakzi.com/es/features",
+      "x-default": "https://trakzi.com/features",
+    },
   },
   openGraph: {
     title: "Trakzi Features — Budgeting, Receipt Scanning & More",

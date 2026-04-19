@@ -1,3 +1,7 @@
 "use client"
 
-export { default } from "./_page/AnalyticsPage"
+import dynamic from "next/dynamic"
+
+export default dynamic(() => import("./_page/AnalyticsPage"), {
+  ssr: false,
+})

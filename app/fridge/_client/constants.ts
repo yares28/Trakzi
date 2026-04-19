@@ -28,8 +28,6 @@ export const FRIDGE_CHART_ORDER: FridgeChartId[] = [
   "groceryNetWorthAllocation",
   "groceryExpenseBreakdown",
   "groceryDailyActivity",
-  "groceryMacronutrientBreakdown",
-  "grocerySnackPercentage",
   "groceryDayOfWeekCategory",
   "grocerySingleMonthCategory",
   "groceryTimeOfDay",
@@ -51,7 +49,7 @@ export const DEFAULT_CHART_SIZES: Record<
   grocerySpendTrend: { w: 6, h: 6, x: 0, y: 0 },
   groceryCategoryRankings: { w: 6, h: 6, x: 6, y: 0 },
   groceryNetWorthAllocation: { w: 6, h: 10, x: 0, y: 6 },
-  groceryExpenseBreakdown: { w: 6, h: 11, x: 0, y: 16 },
+  groceryExpenseBreakdown: { w: 12, h: 11, x: 0, y: 16 },
   groceryDailyActivity: { w: 12, h: 6, x: 0, y: 27 },
   groceryMacronutrientBreakdown: { w: 6, h: 11, x: 6, y: 16 },
   grocerySnackPercentage: { w: 6, h: 10, x: 0, y: 34 },
@@ -70,4 +68,4 @@ export const DEFAULT_CHART_SIZES: Record<
 export const CHART_ORDER_STORAGE_KEY = "fridge-chart-order"
 export const CHART_SIZES_STORAGE_KEY = "fridge-chart-sizes"
 export const CHART_SIZES_VERSION_KEY = "fridge-chart-sizes-version"
-export const DEFAULT_SIZES_VERSION = "2"
+export const DEFAULT_SIZES_VERSION = "3"

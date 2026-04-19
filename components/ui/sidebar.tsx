@@ -204,6 +204,7 @@ function Sidebar({
   variant = "sidebar",
   collapsible = "offcanvas",
   className,
+  style,
   children,
   ...props
 }: React.ComponentProps<"div"> & {
@@ -271,6 +272,9 @@ function Sidebar({
       data-variant={variant}
       data-side={side}
       data-slot="sidebar"
+      // Width tokens must live on this ancestor so sidebar-gap (sibling to the fixed
+      // container) sees the same --sidebar-width-icon as AppSidebar / layouts.
+      style={style}
     >
       {/* This is what handles the sidebar gap on desktop */}
       {/* For offcanvas: uses scaleX(0) transform (GPU) instead of width:0 (layout) */}
@@ -284,7 +288,8 @@ function Sidebar({
           "group-data-[side=right]:rotate-180 group-data-[side=right]:origin-right",
           // Icon mode: actual width change (layout needed for content reflow)
           variant === "floating" || variant === "inset"
-            ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]"
+            ? // Collapsed inset rail width (matched to design preview: 60px)
+              "group-data-[collapsible=icon]:w-[60px]"
             : "group-data-[collapsible=icon]:w-(--sidebar-width-icon)"
         )}
       />
@@ -300,9 +305,13 @@ function Sidebar({
             ? "group-data-[collapsible=offcanvas]:-translate-x-full"
             : "group-data-[collapsible=offcanvas]:translate-x-full",
           // Adjust the padding for floating and inset variants.
-          variant === "floating" || variant === "inset"
-            ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"
-            : "group-data-[collapsible=icon]:w-(--sidebar-width-icon)",
+          variant === "floating"
+            ? "p-2 group-data-[collapsible=icon]:p-1.5 group-data-[collapsible=icon]:w-[60px]"
+            : variant === "inset"
+              ? side === "left"
+                ? "pt-2 pb-2 pl-2 pr-0 group-data-[collapsible=icon]:pt-1.5 group-data-[collapsible=icon]:pb-1.5 group-data-[collapsible=icon]:pl-1.5 group-data-[collapsible=icon]:pr-0 group-data-[collapsible=icon]:w-[60px]"
+                : "pt-2 pb-2 pl-0 pr-2 group-data-[collapsible=icon]:pt-1.5 group-data-[collapsible=icon]:pb-1.5 group-data-[collapsible=icon]:pl-0 group-data-[collapsible=icon]:pr-1.5 group-data-[collapsible=icon]:w-[60px]"
+              : "group-data-[collapsible=icon]:w-(--sidebar-width-icon)",
           className
         )}
         {...props}
@@ -443,7 +452,11 @@ function SidebarGroup({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sidebar-group"
       data-sidebar="group"
-      className={cn("relative flex w-full min-w-0 flex-col p-2 ml-[2px]", className)}
+      className={cn(
+        "relative flex w-full min-w-0 flex-col p-2 ml-[2px]",
+        "group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1.5",
+        className
+      )}
       {...props}
     />
   )
@@ -501,7 +514,11 @@ function SidebarGroupContent({
     <div
       data-slot="sidebar-group-content"
       data-sidebar="group-content"
-      className={cn("w-full text-sm", className)}
+      className={cn(
+        "w-full text-sm",
+        "group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center",
+        className
+      )}
       {...props}
     />
   )
@@ -512,7 +529,11 @@ function SidebarMenu({ className, ...props }: React.ComponentProps<"ul">) {
     <ul
       data-slot="sidebar-menu"
       data-sidebar="menu"
-      className={cn("flex w-full min-w-0 flex-col gap-1", className)}
+      className={cn(
+        "flex w-full min-w-0 flex-col gap-1",
+        "group-data-[collapsible=icon]:items-center",
+        className
+      )}
       {...props}
     />
   )
@@ -523,14 +544,18 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
     <li
       data-slot="sidebar-menu-item"
       data-sidebar="menu-item"
-      className={cn("group/menu-item relative", className)}
+      className={cn(
+        "group/menu-item relative",
+        "group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:justify-center",
+        className
+      )}
       {...props}
     />
   )
 }
 
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2.5 text-left text-sm outline-hidden ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:p-2.5! [&>span:last-child]:truncate [&>svg]:size-5 [&>svg]:shrink-0",
+  "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2.5 text-left text-sm outline-hidden ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:!justify-center group-data-[collapsible=icon]:!p-0 [&>span:last-child]:truncate group-data-[collapsible=icon]:[&>span:not(.sr-only)]:hidden [&>svg]:size-5 [&>svg]:shrink-0 ",
   {
     variants: {
       variant: {

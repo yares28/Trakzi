@@ -583,6 +583,26 @@ export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
     title: "Net Worth Trend",
     description: "Track the growth of your net worth over time",
   },
+  categorySpendingByPeriod: {
+    id: "categorySpendingByPeriod",
+    title: "Category Spending by Period",
+    description: "Compare how your spending in each category changes across different time periods.",
+  },
+  "testCharts:merchantBudgetMissMap": {
+    id: "testCharts:merchantBudgetMissMap",
+    title: "Merchant Budget Miss Map",
+    description: "Visualize which merchants have caused budget overruns.",
+  },
+  "testCharts:storePriceDispersionIndex": {
+    id: "testCharts:storePriceDispersionIndex",
+    title: "Store Price Dispersion Index",
+    description: "Shows the price variation across stores for common items.",
+  },
+  "testCharts:weekendSpendingShare": {
+    id: "testCharts:weekendSpendingShare",
+    title: "Weekend spending share",
+    description: "Share of spending that occurs on weekends vs weekdays.",
+  },
 }
 
 export function getChartMetadata(chartId: ChartId): ChartMetadata {

@@ -18,6 +18,9 @@ export async function generateMetadata({ params }: EsDocPageProps): Promise<Meta
   return {
     title: `${post.title} | Trakzi Docs`,
     description: post.description,
+    alternates: {
+      canonical: `https://trakzi.com/es/docs/${post.slug}`,
+    },
     openGraph: {
       title: post.title,
       description: post.description,

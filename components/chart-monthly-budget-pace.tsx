@@ -6,9 +6,9 @@ import { Area, AreaChart, CartesianGrid, XAxis, Tooltip, TooltipProps } from "re
 import {
   Card,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
-  CardAction,
 } from "@/components/ui/card"
 import { ChartInfoPopover } from "@/components/chart-info-popover"
 import { ChartFavoriteButton } from "@/components/chart-favorite-button"
@@ -79,7 +79,6 @@ interface PaceChartData {
 }
 
 interface MonthlyBudgetPaceInfoTriggerProps {
-  forFullscreen?: boolean
   chartTitle: string
   chartDescription: string
   chartData: PaceChartData
@@ -87,14 +86,13 @@ interface MonthlyBudgetPaceInfoTriggerProps {
 }
 
 const MonthlyBudgetPaceInfoTrigger = memo(function MonthlyBudgetPaceInfoTrigger({
-  forFullscreen = false,
   chartTitle,
   chartDescription,
   chartData,
   formatCurrency,
 }: MonthlyBudgetPaceInfoTriggerProps) {
   return (
-    <div className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}>
+    <div className="flex items-center gap-2">
       <ChartInfoPopover
         title={chartTitle}
         description={chartDescription}
@@ -228,7 +226,7 @@ const MonthlyBudgetPaceChart = memo(function MonthlyBudgetPaceChart({
           fill="url(#fillActualMBP)"
           stroke="var(--color-actual)"
           strokeWidth={2.5}
-          connectNulls
+          connectNulls={false}
           isAnimationActive={true}
           animationDuration={1000}
           animationEasing="ease-out"
@@ -297,14 +295,20 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
       }
     })
 
+    const lastExpenseDay = Array.from(dailySpending.keys()).reduce(
+      (maxDay, dayIndex) => Math.max(maxDay, dayIndex + 1),
+      0,
+    )
+    const cappedDays = Math.max(1, lastExpenseDay)
+
     let cumulative = 0
     const actualPoints: Array<{ x: number; y: number }> = []
-    for (let i = 0; i < totalDays; i++) {
+    for (let i = 0; i < cappedDays; i++) {
       cumulative += dailySpending.get(i) || 0
       actualPoints.push({ x: i + 1, y: cumulative })
     }
 
-    // Ideal pace: linear 0 → avgDailySpend * totalDays over totalDays
+    // Ideal pace runs across the full selected period.
     const pacePoints: Array<{ x: number; y: number }> = []
     for (let day = 1; day <= totalDays; day++) {
       pacePoints.push({ x: day, y: avgDailySpend * day })
@@ -315,7 +319,7 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
         { id: "Pace", data: pacePoints },
         { id: "Actual", data: actualPoints },
       ],
-      currentDay: totalDays,
+      currentDay: cappedDays,
       daysInMonth: totalDays,
       avgMonthlySpend,
       currentSpend: cumulative,
@@ -345,9 +349,6 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
             <ChartFavoriteButton chartId="monthlyBudgetPace" chartTitle={chartTitle} size="md" />
             <CardTitle className="truncate">{chartTitle}</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <MonthlyBudgetPaceInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartData={chartData} formatCurrency={formatCurrency} />
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
           <div className="h-full w-full min-h-[250px]">
@@ -359,6 +360,9 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
             />
           </div>
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          <MonthlyBudgetPaceInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartData={chartData} formatCurrency={formatCurrency} />
+        </CardFooter>
       </Card>
     )
   }
@@ -373,7 +377,7 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
         onClose={() => setIsFullscreen(false)}
         title={chartTitle}
         description={chartDescription}
-        headerActions={<MonthlyBudgetPaceInfoTrigger forFullscreen chartTitle={chartTitle} chartDescription={chartDescription} chartData={chartData} formatCurrency={formatCurrency} />}
+        headerActions={<MonthlyBudgetPaceInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartData={chartData} formatCurrency={formatCurrency} />}
       >
         <div className="h-full w-full min-h-[400px]">
           <MonthlyBudgetPaceChart flatData={flatData} palette={palette} isDark={isDark} formatCurrency={formatCurrency} forFullscreen />
@@ -388,9 +392,6 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
             <ChartFavoriteButton chartId="monthlyBudgetPace" chartTitle={chartTitle} size="md" />
             <CardTitle className="truncate">{chartTitle}</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <MonthlyBudgetPaceInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartData={chartData} formatCurrency={formatCurrency} />
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex flex-col flex-1 min-h-0">
           <div className="flex-1 min-h-[200px]">
@@ -409,6 +410,9 @@ export const ChartMonthlyBudgetPace = memo(function ChartMonthlyBudgetPace({
             </div>
           </div>
         </CardContent>
+        <CardFooter className="pb-3 gap-2">
+          <MonthlyBudgetPaceInfoTrigger chartTitle={chartTitle} chartDescription={chartDescription} chartData={chartData} formatCurrency={formatCurrency} />
+        </CardFooter>
       </Card>
     </>
   )

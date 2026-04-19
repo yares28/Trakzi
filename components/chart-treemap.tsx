@@ -4,10 +4,10 @@ import { useMemo, useState, memo } from "react"
 import { useTheme } from "next-themes"
 import { ResponsiveTreeMap } from "@nivo/treemap"
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button"
+import { ChartCardFloatingMeta } from "@/components/chart-card-overlay-controls"
 import { ChartInfoPopover, ChartInfoPopoverCategoryControls } from "@/components/chart-info-popover"
 import {
   Card,
-  CardAction,
   CardContent,
   CardHeader,
   CardTitle,
@@ -88,23 +88,49 @@ export const ChartTreeMap = memo(function ChartTreeMap({
     return result
   }, [data])
 
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div className={`flex items-center gap-2 ${forFullscreen ? '' : 'hidden md:flex flex-col'}`}>
-      <ChartInfoPopover
-        title="Net Worth Allocation"
-        categoryControls={categoryControls}
-      />
-      <ChartAiInsightButton
-        chartId="netWorthAllocation"
-        chartTitle="Net Worth Allocation"
-        chartData={{
-          categories: sanitizedData.children?.map(c => c.name) || [],
-          totalCategories: sanitizedData.children?.length || 0
-        }}
-        size="sm"
-      />
-    </div>
-  )
+  const renderInfoTrigger = (forFullscreen = false) => {
+    if (!forFullscreen) {
+      return (
+        <ChartCardFloatingMeta
+          insight={
+            <ChartAiInsightButton
+              chartId="netWorthAllocation"
+              chartTitle="Net Worth Allocation"
+              chartData={{
+                categories: sanitizedData.children?.map(c => c.name) || [],
+                totalCategories: sanitizedData.children?.length || 0
+              }}
+              size="sm"
+            />
+          }
+          info={
+            <ChartInfoPopover
+              title="Net Worth Allocation"
+              categoryControls={categoryControls}
+            />
+          }
+        />
+      )
+    }
+
+    return (
+      <div className="flex flex-col items-center gap-2">
+        <ChartAiInsightButton
+          chartId="netWorthAllocation"
+          chartTitle="Net Worth Allocation"
+          chartData={{
+            categories: sanitizedData.children?.map(c => c.name) || [],
+            totalCategories: sanitizedData.children?.length || 0
+          }}
+          size="sm"
+        />
+        <ChartInfoPopover
+          title="Net Worth Allocation"
+          categoryControls={categoryControls}
+        />
+      </div>
+    )
+  }
 
   // Render chart function for reuse
   const renderChart = () => (
@@ -114,7 +140,7 @@ export const ChartTreeMap = memo(function ChartTreeMap({
       identity="name"
       value="loc"
       valueFormat=".02s"
-      margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
+      margin={{ top: 10, right: 20, bottom: 10, left: 20 }}
       labelSkipSize={12}
       labelTextColor={labelColorFn}
       orientLabel={false}
@@ -150,7 +176,7 @@ export const ChartTreeMap = memo(function ChartTreeMap({
 
   if (!sanitizedData || !sanitizedData.children || sanitizedData.children.length === 0) {
     return (
-      <Card className="@container/card col-span-full">
+      <Card className="@container/card col-span-full relative">
         <CardHeader>
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
@@ -162,11 +188,8 @@ export const ChartTreeMap = memo(function ChartTreeMap({
             />
             <CardTitle>Net Worth Allocation</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+        <CardContent className="px-3 pt-4 sm:px-8 sm:pt-6 h-[250px]">
           <ChartLoadingState
             isLoading={isLoading}
             skeletonType="grid"
@@ -174,6 +197,7 @@ export const ChartTreeMap = memo(function ChartTreeMap({
             emptyDescription={emptyDescription}
           />
         </CardContent>
+        {renderInfoTrigger()}
       </Card>
     )
   }
@@ -191,7 +215,7 @@ export const ChartTreeMap = memo(function ChartTreeMap({
         </div>
       </ChartFullscreenModal>
 
-      <Card className="col-span-full">
+      <Card className="col-span-full relative">
         <CardHeader>
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
@@ -203,15 +227,13 @@ export const ChartTreeMap = memo(function ChartTreeMap({
             />
             <CardTitle>Net Worth Allocation</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
         </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
+        <CardContent className="px-3 pt-4 sm:px-8 sm:pt-6 h-[250px]">
           <div className="h-full w-full">
             {renderChart()}
           </div>
         </CardContent>
+        {renderInfoTrigger()}
       </Card>
     </>
   )

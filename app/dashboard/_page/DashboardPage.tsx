@@ -136,27 +136,8 @@ export default function DashboardPage() {
     return (
         <DashboardLayout>
             <div className="flex flex-1 flex-col overflow-hidden">
-                <div className="@container/main flex flex-1 flex-col gap-2 overflow-y-auto">
-                    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-                        {/* Header Section */}
-                        <section className="px-4 lg:px-6">
-                            <div className="flex flex-col justify-between gap-4 rounded-3xl border bg-muted/30 px-4 py-6 lg:px-6 lg:py-6 lg:flex-row lg:items-center">
-                                <div className="space-y-2">
-                                    <span className="inline-flex items-center gap-1 px-3 py-1 text-sm border rounded-full">
-                                        <Sparkles className="size-4" />
-                                        AI-Powered
-                                    </span>
-                                    <h1 className="text-3xl font-semibold tracking-tight">
-                                        Dashboard
-                                    </h1>
-                                    <p className="text-muted-foreground max-w-2xl">
-                                        Real-time analysis of your spending, savings, and habits.
-                                        Track your financial health with AI-powered insights and personalized recommendations.
-                                    </p>
-                                </div>
-                            </div>
-                        </section>
-
+                <div className="@container/main -mt-2 flex flex-1 flex-col gap-2 overflow-y-auto md:-mt-2">
+                    <div className="flex flex-col gap-4 pt-0 pb-4 md:gap-6 md:pt-0 md:pb-6">
                         <section className="px-4 lg:px-6">
                             <dl className="grid grid-cols-1 gap-8 lg:grid-cols-2 xl:grid-cols-3 w-full">
                                 {displayData.map((item, index) => {
@@ -416,5 +397,3 @@ export default function DashboardPage() {
         </DashboardLayout>
     );
 }
-
-

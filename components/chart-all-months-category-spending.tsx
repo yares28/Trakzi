@@ -10,8 +10,8 @@ import {
 import { ChartAiInsightButton } from "@/components/chart-ai-insight-button";
 import {
   Card,
-  CardAction,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -83,18 +83,16 @@ const MONTH_ABBREV = [
 ];
 
 interface AllMonthsCategoryInfoTriggerProps {
-  forFullscreen?: boolean;
   categoryControls?: ChartInfoPopoverCategoryControls;
 }
 
 const AllMonthsCategoryInfoTrigger = memo(
   function AllMonthsCategoryInfoTrigger({
-    forFullscreen = false,
     categoryControls,
   }: AllMonthsCategoryInfoTriggerProps) {
     return (
       <div
-        className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}
+        className="flex items-center gap-2"
       >
         <ChartInfoPopover
           title="All Months Category Spending"
@@ -416,11 +414,6 @@ export const ChartAllMonthsCategorySpending = memo(
               />
               <CardTitle>All Months Category Spending</CardTitle>
             </div>
-            <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-              <AllMonthsCategoryInfoTrigger
-                categoryControls={categoryControls}
-              />
-            </CardAction>
           </CardHeader>
           <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
             <ChartLoadingState
@@ -430,6 +423,11 @@ export const ChartAllMonthsCategorySpending = memo(
               emptyDescription={emptyDescription}
             />
           </CardContent>
+          <CardFooter className="pb-3 gap-2">
+            <AllMonthsCategoryInfoTrigger
+              categoryControls={categoryControls}
+            />
+          </CardFooter>
         </Card>
       );
     }
@@ -443,7 +441,6 @@ export const ChartAllMonthsCategorySpending = memo(
           description="Monthly spending by category across all 12 months"
           headerActions={
             <AllMonthsCategoryInfoTrigger
-              forFullscreen
               categoryControls={categoryControls}
             />
           }
@@ -465,11 +462,6 @@ export const ChartAllMonthsCategorySpending = memo(
               />
               <CardTitle>All Months Category Spending</CardTitle>
             </div>
-            <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-              <AllMonthsCategoryInfoTrigger
-                categoryControls={categoryControls}
-              />
-            </CardAction>
           </CardHeader>
           <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex flex-col">
             <div className="h-full w-full min-h-[210px]" key={colorScheme}>
@@ -498,6 +490,11 @@ export const ChartAllMonthsCategorySpending = memo(
               </div>
             )}
           </CardContent>
+          <CardFooter className="pb-3 gap-2">
+            <AllMonthsCategoryInfoTrigger
+              categoryControls={categoryControls}
+            />
+          </CardFooter>
         </Card>
       </>
     );

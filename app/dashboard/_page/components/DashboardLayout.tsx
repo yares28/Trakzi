@@ -1,7 +1,6 @@
 import type { CSSProperties, ReactNode } from "react"
 
 import { AppSidebar } from "@/components/app-sidebar"
-import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 
 type DashboardLayoutProps = {
@@ -19,9 +18,8 @@ export function DashboardLayout({ children, overlay }: DashboardLayoutProps) {
         } as CSSProperties
       }
     >
-      <AppSidebar variant="inset" />
+      <AppSidebar />
       <SidebarInset className="h-svh overflow-hidden flex flex-col">
-        <DashboardHeader />
         {children}
       </SidebarInset>
       {overlay}

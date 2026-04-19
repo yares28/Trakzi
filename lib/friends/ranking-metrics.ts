@@ -3,8 +3,8 @@
 // All values are percentages (0-100) or scores — never raw dollar amounts.
 //
 // Entry requirements (to avoid gaming with a single transaction):
-//   Analytics/Savings: >= 20 categorized transactions AND >= 500 total spend volume in the current month
-//   Fridge Score:      >= 2 receipts AND >= 50 total spend volume on receipts in the current month
+//   Analytics/Savings: >= 5 categorized transactions AND >= $50 total spend volume in the current month
+//   Fridge Score:      >= 2 receipts AND >= $50 total spend volume on receipts in the current month
 
 import { neonQuery } from '@/lib/neonClient'
 import { getCachedOrCompute, buildCacheKey } from '@/lib/cache/upstash'

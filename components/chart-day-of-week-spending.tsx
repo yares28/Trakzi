@@ -11,8 +11,8 @@ import { ChartAiInsightButton } from "@/components/chart-ai-insight-button";
 import { ChartLoadingState } from "@/components/chart-loading-state";
 import {
   Card,
-  CardAction,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -91,10 +91,8 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
   const { hiddenCategorySet, buildCategoryControls, hiddenCategories } =
     chartVisibility;
 
-  const renderInfoTrigger = (forFullscreen = false) => (
-    <div
-      className={`flex items-center gap-2 ${forFullscreen ? "" : "hidden md:flex flex-col"}`}
-    >
+  const renderInfoTrigger = () => (
+    <div className="flex items-center gap-2">
       <ChartInfoPopover
         title="Day of Week Spending by Category"
         description="See which categories you spend the most on each day of the week."
@@ -330,9 +328,6 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
             />
             <CardTitle>Day of Week Spending by Category</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px]">
           <ChartLoadingState
@@ -342,6 +337,7 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
             emptyDescription={emptyDescription}
           />
         </CardContent>
+        <CardFooter className="pb-3 gap-2">{renderInfoTrigger()}</CardFooter>
       </Card>
     );
   }
@@ -353,7 +349,7 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
         onClose={() => setIsFullscreen(false)}
         title="Day of Week Spending by Category"
         description="See which categories you spend the most on each day"
-        headerActions={renderInfoTrigger(true)}
+        headerActions={renderInfoTrigger()}
       >
         <div className="h-full w-full min-h-[400px]" key={colorScheme}>
           {renderChart()}
@@ -372,9 +368,6 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
             />
             <CardTitle>Day of Week Spending by Category</CardTitle>
           </div>
-          <CardAction className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            {renderInfoTrigger()}
-          </CardAction>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 h-[250px] flex flex-col">
           <div className="h-full w-full min-h-[210px]" key={colorScheme}>
@@ -403,6 +396,7 @@ export const ChartDayOfWeekSpending = memo(function ChartDayOfWeekSpending({
             </div>
           )}
         </CardContent>
+        <CardFooter className="pb-3 gap-2">{renderInfoTrigger()}</CardFooter>
       </Card>
     </>
   );
