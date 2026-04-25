@@ -4,9 +4,9 @@ import Link from "next/link"
 
 export function NewReleasePromo() {
   return (
-    <section className="mt-12 w-full">
+    <section className="mt-12 w-full px-4 sm:px-0">
       <div className="mx-auto max-w-4xl rounded-[40px] border border-black/5 dark:border-white/20 p-2 shadow-sm">
-        <div className="relative mx-auto h-[400px] max-w-4xl overflow-hidden rounded-[38px] border border-black/5 dark:border-white/20 bg-[#fe985b] p-2 shadow-sm">
+        <div className="relative mx-auto min-h-[560px] sm:min-h-[400px] sm:h-[400px] max-w-4xl overflow-hidden rounded-[38px] border border-black/5 dark:border-white/20 bg-[#fe985b] p-2 shadow-sm">
           {/* Subtle radial glow from center */}
           <div
             className="absolute inset-0 z-0"
@@ -24,10 +24,10 @@ export function NewReleasePromo() {
           />
 
           <div className="relative z-10">
-            <div className="mt-8 text-center">
-              <h2 className="text-4xl font-bold text-white mb-6">We are here to find patterns 
+            <div className="mt-8 text-center px-3 sm:px-0">
+              <h2 className="text-2xl sm:text-4xl font-bold text-white mb-4 sm:mb-6 leading-tight">We are here to find patterns
 you didn't even know existed.</h2>
-              <p className="text-white/60 mb-8">Start now!</p>
+              <p className="text-white/60 mb-6 sm:mb-8">Start now!</p>
               <svg
                 width="100"
                 height="50"
@@ -92,7 +92,7 @@ you didn't even know existed.</h2>
 
             {/* Decorative wordmark */}
             <h1
-              className="absolute inset-x-0 mt-[120px] text-center text-[100px] font-semibold text-transparent sm:mt-[30px] sm:text-[190px] pointer-events-none select-none"
+              className="absolute inset-x-0 bottom-0 text-center text-[64px] font-semibold text-transparent sm:bottom-auto sm:mt-[30px] sm:text-[190px] pointer-events-none select-none leading-none"
               style={{
                 WebkitTextStroke: "1px currentColor",
                 color: "transparent",
@@ -102,7 +102,7 @@ you didn't even know existed.</h2>
               trakzi
             </h1>
             <h1
-              className="absolute inset-x-0 mt-[120px] text-center text-[100px] font-semibold text-primary sm:mt-[30px] sm:text-[190px] pointer-events-none select-none"
+              className="absolute inset-x-0 bottom-0 text-center text-[64px] font-semibold text-primary sm:bottom-auto sm:mt-[30px] sm:text-[190px] pointer-events-none select-none leading-none"
               aria-hidden="true"
             >
               trakzi

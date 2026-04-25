@@ -13,6 +13,10 @@ import { geist } from "@/lib/fonts"
 import { cn } from "@/lib/utils"
 import { getChartTextColor, getChartAxisLineColor } from "@/lib/chart-colors"
 
+// Only show the first N charts on mobile (1-column layout) — the rest
+// are accessible via the "And a lot more charts" CTA underneath.
+const MOBILE_CHART_LIMIT = 5
+
 // Sunset palette chart colors
 const palette = ["#fe680e", "#fe8339", "#fe9e64", "#feb98f", "#ffd4bb", "#b44401", "#893401", "#df5501"]
 
@@ -495,6 +499,21 @@ const chartSlots = [
 export function ChartsShowcase() {
   const ref = useRef(null)
   const isInView = useInView(ref, { once: true, margin: "-50px" })
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Detect mobile viewport so we can render a 1-column layout with only the first
+  // few charts visible, and surface the rest behind the CTA underneath.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const mq = window.matchMedia("(max-width: 639px)")
+    const update = () => setIsMobile(mq.matches)
+    update()
+    mq.addEventListener("change", update)
+    return () => mq.removeEventListener("change", update)
+  }, [])
+
+  const visibleSlots = isMobile ? chartSlots.slice(0, MOBILE_CHART_LIMIT) : chartSlots
+  const hiddenCount = chartSlots.length - visibleSlots.length
 
   return (
     <section ref={ref} className="py-48 px-4 relative overflow-hidden">
@@ -524,7 +543,7 @@ export function ChartsShowcase() {
           </p>
         </m.div>
 
-        {/* Masonry Grid */}
+        {/* Mobile: 1 column of full-width chart cards. Desktop: masonry grid. */}
         <FollowerPointerCard
           title={
             <div className="flex items-center gap-2">
@@ -534,7 +553,32 @@ export function ChartsShowcase() {
           }
         >
           <div className="cursor-none">
-            <div className="grid grid-cols-2 sm:grid-cols-3 auto-rows-[20px] gap-3">
+            {/* Mobile: stacked single column */}
+            <div className="flex flex-col gap-3 sm:hidden">
+              {visibleSlots.map((slot, index) => {
+                const ChartComponent = slot.Component
+                return (
+                  <m.div
+                    key={slot.key}
+                    className="rounded-lg border border-border overflow-hidden hover:border-foreground/20 transition-all duration-200 group"
+                    style={{ backgroundColor: "var(--card)" }}
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+                    transition={{ duration: 0.5, delay: index * 0.08 }}
+                  >
+                    <div className="p-4 pb-2">
+                      <span className="text-xs font-medium text-muted-foreground">{slot.title}</span>
+                    </div>
+                    <div className="px-4 pb-4" style={{ height: 240 }}>
+                      <ChartComponent />
+                    </div>
+                  </m.div>
+                )
+              })}
+            </div>
+
+            {/* Desktop: masonry grid */}
+            <div className="hidden sm:grid sm:grid-cols-3 auto-rows-[20px] gap-3">
               {chartSlots.map((slot, index) => {
                 const ChartComponent = slot.Component
                 const spanRows = Math.ceil(slot.height / 20)
@@ -570,7 +614,11 @@ export function ChartsShowcase() {
           >
             <div className="absolute inset-x-0 -top-px mx-auto h-0.5 w-1/2 bg-gradient-to-r from-transparent via-[#e78a53] to-transparent shadow-2xl transition-all duration-500 group-hover:w-3/4"></div>
             <div className="absolute inset-x-0 -bottom-px mx-auto h-0.5 w-1/2 bg-gradient-to-r from-transparent via-[#e78a53] to-transparent shadow-2xl transition-all duration-500 group-hover:h-px"></div>
-            <span className="relative text-white">And a lot more charts</span>
+            <span className="relative text-white">
+              {isMobile && hiddenCount > 0
+                ? `And ${hiddenCount} more charts`
+                : "And a lot more charts"}
+            </span>
           </button>
         </div>
       </div>

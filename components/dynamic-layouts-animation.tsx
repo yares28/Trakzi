@@ -23,8 +23,8 @@ const GREECE_COORDS: Coords = [[26.604196,41.562115],[26.294602,40.936261],[26.0
 
 function toPath(
   coords: Coords,
-  maxW = 160,
-  maxH = 140,
+  maxW = 240,
+  maxH = 200,
   pad = 12
 ): { path: string; w: number; h: number } {
   const lons = coords.map((c) => c[0])
@@ -74,15 +74,16 @@ type Slide =
 
 // Car aspect ratios derived from their viewBox dims (e.g. topviewcar3: 1076×1316 ≈ 0.818)
 // House aspect ratios: houseplan1 600×327 ≈ 1.835 | houseplan2 600×367 ≈ 1.635
+// Sizes bumped ~50% to fill more of the card and reduce empty space.
 const SLIDES: Slide[] = [
   { kind: "country", name: "France", flag: "🇫🇷", svgData: FRANCE_SVG },
-  { kind: "vehicle", name: "Vehicle Tracking", src: "/topView/topviewcar3.svg", w: 90, h: 110 },
+  { kind: "vehicle", name: "Vehicle Tracking", src: "/topView/topviewcar3.svg", w: 140, h: 170 },
   { kind: "country", name: "Japan", flag: "🇯🇵", svgData: JAPAN_SVG },
-  { kind: "house", name: "Property Tracking", src: "/property/houseplan1.svg", w: 190, h: 104 },
+  { kind: "house", name: "Property Tracking", src: "/property/houseplan1.svg", w: 280, h: 152 },
   { kind: "country", name: "Italy", flag: "🇮🇹", svgData: ITALY_SVG },
-  { kind: "vehicle", name: "Vehicle Tracking", src: "/topView/topviewcar5.svg", w: 90, h: 110 },
+  { kind: "vehicle", name: "Vehicle Tracking", src: "/topView/topviewcar5.svg", w: 140, h: 170 },
   { kind: "country", name: "Morocco", flag: "🇲🇦", svgData: MOROCCO_SVG },
-  { kind: "house", name: "Property Tracking", src: "/property/houseplan2.svg", w: 190, h: 116 },
+  { kind: "house", name: "Property Tracking", src: "/property/houseplan2.svg", w: 280, h: 170 },
   { kind: "country", name: "Greece", flag: "🇬🇷", svgData: GREECE_SVG },
 ]
 
@@ -118,10 +119,10 @@ export const DynamicLayoutsAnimation = memo(function DynamicLayoutsAnimation() {
   const MetaIcon = meta.Icon
 
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-center gap-4">
+    <div className="relative w-full h-full flex flex-col items-center justify-center gap-3 sm:gap-4">
       {/* Ambient glow blob */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-        <div className="w-52 h-52 bg-primary/20 rounded-full blur-[60px]" />
+        <div className="w-72 h-72 sm:w-80 sm:h-80 bg-primary/20 rounded-full blur-[70px]" />
       </div>
 
       {/* Category chip */}

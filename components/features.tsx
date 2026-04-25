@@ -21,12 +21,28 @@ const BASE_COLOR: [number, number, number] = [0.906, 0.541, 0.325] // #e78a53 â€
 export default function Features() {
   const ref = useRef(null)
   const isInView = useInView(ref, { once: true, amount: 0.1 })
+  const cliCardRef = useRef(null)
+  const cliCardInView = useInView(cliCardRef, { amount: 0.4 })
   const { theme } = useTheme()
   const [isHovering, setIsHovering] = useState(false)
   const [isCliHovering, setIsCliHovering] = useState(false)
   const [isFeature3Hovering, setIsFeature3Hovering] = useState(false)
   const [isFeature4Hovering, setIsFeature4Hovering] = useState(false)
   const [inputValue, setInputValue] = useState("")
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Detect mobile (no hover capability) so we can auto-animate hover-triggered cards
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const mq = window.matchMedia("(hover: none), (max-width: 768px)")
+    const update = () => setIsMobile(mq.matches)
+    update()
+    mq.addEventListener("change", update)
+    return () => mq.removeEventListener("change", update)
+  }, [])
+
+  // On mobile (no hover state), play the All-in-1 budgeting animation when the card is in view
+  const isCliActive = isCliHovering || (isMobile && cliCardInView)
 
   const FORMAT_CYCLE = ["CSV", "PDF", "XLSX", "IMAGE"]
   const [formatIndex, setFormatIndex] = useState(0)
@@ -93,7 +109,7 @@ export default function Features() {
                 className="group border-secondary/40 text-card-foreground relative flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out"
                 onMouseEnter={() => setIsCliHovering(true)}
                 onMouseLeave={() => setIsCliHovering(false)}
-                ref={ref}
+                ref={cliCardRef}
                 initial={{ opacity: 0, y: 50 }}
                 animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
                 transition={{ duration: 0.5, delay: 0.5 }}
@@ -127,7 +143,7 @@ export default function Features() {
                     <m.div
                       className="absolute inset-0 flex items-center justify-center"
                       initial={{ opacity: 0 }}
-                      animate={isCliHovering ? { opacity: 1 } : { opacity: 0 }}
+                      animate={isCliActive ? { opacity: 1 } : { opacity: 0 }}
                       transition={{ duration: 0.5 }}
                     >
                       <svg width="100%" height="100%" viewBox="0 0 121 94" className="absolute">
@@ -137,7 +153,7 @@ export default function Features() {
                           fill="transparent"
                           strokeDasharray="2 2"
                           initial={{ pathLength: 0 }}
-                          animate={isCliHovering ? { pathLength: 1 } : { pathLength: 0 }}
+                          animate={isCliActive ? { pathLength: 1 } : { pathLength: 0 }}
                           transition={{
                             duration: 2,
                             ease: "easeInOut",
@@ -151,7 +167,7 @@ export default function Features() {
                           fill="transparent"
                           strokeDasharray="2 2"
                           initial={{ pathLength: 0 }}
-                          animate={isCliHovering ? { pathLength: 1 } : { pathLength: 0 }}
+                          animate={isCliActive ? { pathLength: 1 } : { pathLength: 0 }}
                           transition={{
                             duration: 2,
                             delay: 0.5,
@@ -165,20 +181,20 @@ export default function Features() {
                     <m.div
                       className="absolute top-1/2 left-1/2 w-16 h-16 bg-purple-500 rounded-full blur-[74px] opacity-65 transform -translate-x-1/2 -translate-y-1/2"
                       initial={{ scale: 1 }}
-                      animate={isCliHovering ? { scale: [1, 1.342, 1, 1.342] } : { scale: 1 }}
+                      animate={isCliActive ? { scale: [1, 1.342, 1, 1.342] } : { scale: 1 }}
                       transition={{
                         duration: 3,
                         ease: "easeInOut",
-                        repeat: isCliHovering ? Number.POSITIVE_INFINITY : 0,
+                        repeat: isCliActive ? Number.POSITIVE_INFINITY : 0,
                         repeatType: "loop",
                       }}
                     />
 
                     {/* Main Content Container with Staggered Animations */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="flex items-center gap-8">
+                    <div className="absolute inset-0 flex items-center justify-center px-2 sm:px-4">
+                      <div className="flex items-center gap-2 sm:gap-4 md:gap-8 w-full justify-center">
                         {/* Left Column */}
-                        <div className="flex flex-col gap-3">
+                        <div className="flex flex-col gap-2 sm:gap-3 min-w-0">
                             {[
                             { icon: Sparkles, label: "Budget with AI" },
                             { icon: FileSpreadsheet, label: "CSV Support" },
@@ -186,16 +202,16 @@ export default function Features() {
                           ].map((item, index) => (
                             <m.div
                               key={`left-${item.label}`}
-                              className="bg-white rounded px-3 py-2 flex items-center gap-2 text-black text-sm font-medium shadow-sm"
+                              className="bg-white rounded px-2 py-1.5 sm:px-3 sm:py-2 flex items-center gap-1.5 sm:gap-2 text-black text-[11px] sm:text-sm font-medium shadow-sm whitespace-nowrap"
                               initial={{ opacity: 1, x: 0 }}
-                              animate={isCliHovering ? { x: [-20, 0] } : { x: 0 }}
+                              animate={isCliActive ? { x: [-20, 0] } : { x: 0 }}
                               transition={{
                                 duration: 0.5,
                                 delay: index * 0.1,
                               }}
                               whileHover={{ scale: 1.05 }}
                             >
-                              <div className="w-4 h-4 flex items-center justify-center">
+                              <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex items-center justify-center flex-shrink-0">
                                 <item.icon className="w-3 h-3" />
                               </div>
                               {item.label}
@@ -205,9 +221,9 @@ export default function Features() {
 
                         {/* Center Logo */}
                         <m.div
-                          className="w-20 h-20 bg-black rounded-lg overflow-hidden shadow-lg flex items-center justify-center p-2"
+                          className="w-14 h-14 sm:w-20 sm:h-20 bg-black rounded-lg overflow-hidden shadow-lg flex items-center justify-center p-2 flex-shrink-0"
                           initial={{ opacity: 1, scale: 1 }}
-                          animate={isCliHovering ? { scale: [1, 1.1, 1] } : { scale: 1 }}
+                          animate={isCliActive ? { scale: [1, 1.1, 1] } : { scale: 1 }}
                           transition={{ duration: 0.6, ease: "easeOut" }}
                           whileHover={{ scale: 1.1, rotate: 5 }}
                         >
@@ -219,7 +235,7 @@ export default function Features() {
                         </m.div>
 
                         {/* Right Column */}
-                        <div className="flex flex-col gap-3">
+                        <div className="flex flex-col gap-2 sm:gap-3 min-w-0">
                             {[
                             { icon: LayoutGrid, label: "Any Layout" },
                             { icon: MessageSquare, label: "Chat with AI" },
@@ -227,16 +243,16 @@ export default function Features() {
                           ].map((item, index) => (
                             <m.div
                               key={`right-${item.label}`}
-                              className="bg-white rounded px-3 py-2 flex items-center gap-2 text-black text-sm font-medium shadow-sm"
+                              className="bg-white rounded px-2 py-1.5 sm:px-3 sm:py-2 flex items-center gap-1.5 sm:gap-2 text-black text-[11px] sm:text-sm font-medium shadow-sm whitespace-nowrap"
                               initial={{ opacity: 1, x: 0 }}
-                              animate={isCliHovering ? { x: [20, 0] } : { x: 0 }}
+                              animate={isCliActive ? { x: [20, 0] } : { x: 0 }}
                               transition={{
                                 duration: 0.5,
                                 delay: index * 0.1,
                               }}
                               whileHover={{ scale: 1.05 }}
                             >
-                              <div className="w-4 h-4 flex items-center justify-center">
+                              <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex items-center justify-center flex-shrink-0">
                                 <item.icon className="w-3 h-3" />
                               </div>
                               {item.label}
@@ -250,7 +266,7 @@ export default function Features() {
                     <m.div
                       className="absolute inset-0 flex items-center justify-center"
                       initial={{ opacity: 0 }}
-                      animate={isCliHovering ? { opacity: 1 } : { opacity: 0 }}
+                      animate={isCliActive ? { opacity: 1 } : { opacity: 0 }}
                       transition={{ duration: 0.5 }}
                     >
                       <svg width="350" height="350" viewBox="0 0 350 350" className="opacity-40">
@@ -261,12 +277,12 @@ export default function Features() {
                           fill="transparent"
                           strokeDasharray="4 4"
                           initial={{ pathLength: 0, rotate: 0 }}
-                          animate={isCliHovering ? { pathLength: 1, rotate: 360 } : { pathLength: 0, rotate: 0 }}
+                          animate={isCliActive ? { pathLength: 1, rotate: 360 } : { pathLength: 0, rotate: 0 }}
                           transition={{
                             pathLength: { duration: 3, ease: "easeInOut" },
                             rotate: {
                               duration: 20,
-                              repeat: isCliHovering ? Number.POSITIVE_INFINITY : 0,
+                              repeat: isCliActive ? Number.POSITIVE_INFINITY : 0,
                               ease: "linear",
                             },
                           }}
@@ -443,11 +459,13 @@ export default function Features() {
                   <h3 className="text-2xl leading-none font-semibold tracking-tight">Track Everything</h3>
                   <div className="text-md text-muted-foreground flex flex-col gap-2 text-sm">
                     <p className="max-w-[460px]">
-                      Track countries you've visited, vehicles you own, and properties â€” all in one place.
+                      Bundle your real-world finances in one place: trips abroad with their per-country
+                      spend, vehicles with their fuel, insurance and maintenance, and properties with
+                      their mortgage, rent, bills and upkeep.
                     </p>
                   </div>
                 </div>
-                <div className="flex grow items-center justify-center select-none relative min-h-[300px] p-4">
+                <div className="flex grow items-center justify-center select-none relative min-h-[380px] sm:min-h-[420px] p-2 sm:p-4">
                   <DynamicLayoutsAnimation />
                 </div>
               </m.div>

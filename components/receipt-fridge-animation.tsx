@@ -77,7 +77,7 @@ export function ReceiptFridgeAnimation() {
 
   return (
     <div
-      className="relative w-full h-[280px] flex items-center justify-center overflow-hidden"
+      className="relative w-full max-w-full h-[280px] flex items-center justify-center overflow-hidden px-2 sm:px-0"
       style={{ perspective: "1400px" }}
     >
       {/* Global glow */}
@@ -220,7 +220,7 @@ export function ReceiptFridgeAnimation() {
         {phase === "charts" && (
           <motion.div
             key="charts"
-            className="relative w-[220px] h-[220px]"
+            className="relative w-[min(260px,calc(100%-1rem))] h-[240px]"
             initial={{ scale: 0.7, opacity: 0, rotateY: -20 }}
             animate={{ scale: 1, opacity: 1, rotateY: 0 }}
             exit={{ scale: 0.8, opacity: 0 }}
@@ -231,7 +231,7 @@ export function ReceiptFridgeAnimation() {
 
               <motion.div
                 key={`chart-title-${chartIndex}`}
-                className="relative z-10 mb-3 pt-2 text-[11px] font-semibold text-primary text-center tracking-tight"
+                className="relative z-10 mb-2 pt-2 px-2 text-[11px] font-semibold text-primary text-center tracking-tight leading-tight break-words"
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
@@ -243,7 +243,7 @@ export function ReceiptFridgeAnimation() {
 
               <ChartSparkles />
 
-              <div className="relative z-10 h-[180px] px-3 pb-3 flex items-center justify-center">
+              <div className="relative z-10 h-[190px] px-3 pb-3 flex items-center justify-center">
                 <AnimatePresence mode="wait">
                   {chartIndex === 0 && <DonutChart key="donut" />}
                   {chartIndex === 1 && <BarsChart key="bars" />}
