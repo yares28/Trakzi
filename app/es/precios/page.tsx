@@ -104,9 +104,7 @@ export default function EsPreciosPage() {
   }
 
   return (
-    <div className="min-h-screen w-full relative bg-black text-white">
-
-      <div className="fixed inset-0 z-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 50% 35% at 50% 0%, rgba(226, 232, 240, 0.12), transparent 60%), #000000" }} />
+    <div className="min-h-screen w-full relative bg-background text-foreground">
 
       <PageHeader locale="es" />
 
@@ -114,7 +112,7 @@ export default function EsPreciosPage() {
         <div className="max-w-4xl mx-auto relative z-10 text-center">
           <m.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm mb-6">
-              <Sparkles className="h-4 w-4 text-[#e78a53]" /><span className="text-[#e78a53] font-medium text-sm">Precios</span>
+              <Sparkles className="h-4 w-4 text-primary" /><span className="text-primary font-medium text-sm">Precios</span>
             </div>
             <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-7xl lg:text-9xl mb-8">
               Precios Simples y Transparentes
@@ -127,8 +125,8 @@ export default function EsPreciosPage() {
       <section className="pb-12 px-4 relative z-10">
         <div className="flex items-center justify-center">
           <div className="rounded-full bg-white/5 border border-white/10 p-1 flex items-center">
-            <button onClick={() => setIsAnnual(false)} className={cn("px-6 py-2 rounded-full text-sm font-medium transition-all", !isAnnual ? "bg-[#e78a53] text-white shadow-lg" : "text-white/60 hover:text-white/80")}>Mensual</button>
-            <button onClick={() => setIsAnnual(true)} className={cn("px-6 py-2 rounded-full text-sm font-medium transition-all relative", isAnnual ? "bg-[#e78a53] text-white shadow-lg" : "text-white/60 hover:text-white/80")}>
+            <button onClick={() => setIsAnnual(false)} className={cn("px-6 py-2 rounded-full text-sm font-medium transition-all", !isAnnual ? "bg-primary text-white shadow-lg" : "text-white/60 hover:text-white/80")}>Mensual</button>
+            <button onClick={() => setIsAnnual(true)} className={cn("px-6 py-2 rounded-full text-sm font-medium transition-all relative", isAnnual ? "bg-primary text-white shadow-lg" : "text-white/60 hover:text-white/80")}>
               Anual<span className="absolute -top-2 -right-6 bg-emerald-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">-20%</span>
             </button>
           </div>
@@ -139,9 +137,9 @@ export default function EsPreciosPage() {
         <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-6">
           {plans.map((plan, i) => (
             <m.div key={plan.name} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: i * 0.1 }} whileHover={{ y: -5 }}
-              className={cn("relative rounded-2xl p-8 backdrop-blur-sm border transition-all flex flex-col h-full", plan.popular ? "bg-gradient-to-b from-[#e78a53]/10 to-transparent border-[#e78a53]/30 shadow-lg shadow-[#e78a53]/10" : "bg-white/5 border-white/10 hover:border-white/20")}
+              className={cn("relative rounded-2xl p-8 backdrop-blur-sm border transition-all flex flex-col h-full", plan.popular ? "bg-gradient-to-b from-primary/10 to-transparent border-primary/30 shadow-lg shadow-primary/10" : "bg-white/5 border-white/10 hover:border-white/20")}
             >
-              {plan.popular && <div className="absolute -top-3 left-1/2 -translate-x-1/2"><span className="bg-gradient-to-r from-[#e78a53] to-[#e78a53]/80 text-white text-xs font-medium px-4 py-1.5 rounded-full">Más Popular</span></div>}
+              {plan.popular && <div className="absolute -top-3 left-1/2 -translate-x-1/2"><span className="bg-gradient-to-r from-primary to-primary/80 text-white text-xs font-medium px-4 py-1.5 rounded-full">Más Popular</span></div>}
               <img src={plan.icon} alt={plan.name} className="h-12 w-12 mb-4 object-contain" draggable={false} />
               <h3 className="text-lg font-semibold text-white">{plan.name}</h3>
               <p className="text-sm text-muted-foreground mb-4">{plan.description}</p>
@@ -158,13 +156,13 @@ export default function EsPreciosPage() {
               <ul className="space-y-3 mb-8 flex-1">
                 {plan.features.map((f) => (
                   <li key={f.text} className="flex items-start gap-2.5 text-sm">
-                    {f.included ? <Check className="h-4 w-4 text-[#e78a53] flex-shrink-0 mt-0.5" /> : <X className="h-4 w-4 text-white/20 flex-shrink-0 mt-0.5" />}
+                    {f.included ? <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" /> : <X className="h-4 w-4 text-white/20 flex-shrink-0 mt-0.5" />}
                     <span className={f.included ? "text-white/80" : "text-white/30"}>{f.text}</span>
                   </li>
                 ))}
               </ul>
               <m.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => handleSelect(plan)} disabled={loadingPlan === plan.name}
-                className={cn("w-full py-3 px-6 rounded-full font-medium text-sm transition-all", plan.popular ? "bg-gradient-to-r from-[#e78a53] to-[#e78a53]/80 text-white shadow-lg shadow-[#e78a53]/25" : "bg-white/10 text-white border border-white/20 hover:bg-white/20")}
+                className={cn("w-full py-3 px-6 rounded-full font-medium text-sm transition-all", plan.popular ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg shadow-primary/25" : "bg-white/10 text-white border border-white/20 hover:bg-white/20")}
               >
                 {loadingPlan === plan.name ? "Cargando..." : plan.cta}
               </m.button>
