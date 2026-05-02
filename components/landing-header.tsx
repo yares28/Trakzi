@@ -71,7 +71,7 @@ export function LandingHeader({
         >
           <Image
             src="/Trakzi/TrakzilogoB.png"
-            alt=""
+            alt="Trakzi"
             width={120}
             height={32}
             className="h-8 w-auto"
@@ -100,8 +100,7 @@ export function LandingHeader({
           )}
         </div>
 
-        {!isMobileMenuOpen && (
-          <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
             <LanguagePicker />
             <Link
               href={loginHref}
@@ -116,7 +115,6 @@ export function LandingHeader({
               {signupLabel}
             </Link>
           </div>
-        )}
       </header>
 
       {/* Mobile Header — visible on mobile, hidden on desktop via CSS */}

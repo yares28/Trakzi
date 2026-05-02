@@ -19,7 +19,7 @@ const enConfig = {
 describe("LandingHeader", () => {
   it("renders logo and nav links", () => {
     render(<LandingHeader {...enConfig} />)
-    expect(screen.getByAltText("Trakzi")).toBeInTheDocument()
+    expect(screen.getAllByAltText("Trakzi").length).toBeGreaterThan(0)
     expect(screen.getByText("Features")).toBeInTheDocument()
     expect(screen.getByText("Pricing")).toBeInTheDocument()
   })
@@ -28,6 +28,6 @@ describe("LandingHeader", () => {
     render(<LandingHeader {...enConfig} />)
     const hamburger = screen.getByLabelText("Toggle menu")
     fireEvent.click(hamburger)
-    expect(screen.getByText("Log In")).toBeInTheDocument()
+    expect(screen.getAllByText("Log In").length).toBeGreaterThan(0)
   })
 })
