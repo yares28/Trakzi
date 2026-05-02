@@ -1,248 +1,120 @@
 "use client"
 
-import { m } from "framer-motion"
-import Link from "next/link"
-import { LanguagePicker } from "@/components/language-picker"
-import { ChevronRight, FileSpreadsheet, Receipt, ShoppingCart, Users, BarChart3, PiggyBank, ArrowRight } from "lucide-react"
-import { geist } from "@/lib/fonts"
-import { cn } from "@/lib/utils"
+import { useEffect, useRef } from "react"
+import { useTheme } from "next-themes"
+import { LandingHeader } from "@/components/landing-header"
+import Hero from "@/landing/hero"
+import Features from "@/components/features"
+import { NewReleasePromo } from "@/components/new-release-promo"
+import { FAQSection, type FaqItem } from "@/components/faq-section"
+import { StickyFooter } from "@/components/sticky-footer"
+import { ChartsShowcase } from "@/components/charts-showcase"
+import { ImageComparisonSection } from "@/components/image-comparison-section"
 
-const features = [
+const esFaqs: FaqItem[] = [
   {
-    icon: Receipt,
-    title: "Escáner de Tickets",
-    description: "Fotografía cualquier ticket y Trakzi extrae el total, la tienda y la fecha automáticamente con IA.",
-    href: "/es/escaner-tickets",
+    question: "¿Qué es Trakzi y cómo me ayuda a presupuestar?",
+    answer: "Trakzi es un espacio de trabajo todo-en-uno donde puedes reunir tus extractos bancarios, exportaciones CSV y tickets para ver de un vistazo en qué gastas tu dinero. Combina gráficos con IA, análisis de gastos y seguimiento de gastos compartidos en una sola app.",
   },
   {
-    icon: Users,
-    title: "Gastos Compartidos",
-    description: "Crea habitaciones con amigos o compañeros de piso para rastrear gastos grupales y dividir facturas.",
-    href: "/es/dividir-gastos",
+    question: "¿Cómo importo mis transacciones bancarias a Trakzi?",
+    answer: "Sube cualquier CSV de tu banco o tarjeta. Trakzi normaliza los datos, conserva tus columnas originales y genera gráficos automáticamente — sin introducción manual de datos.",
   },
   {
-    icon: ShoppingCart,
-    title: "Control de Supermercado",
-    description: "Escanea tickets de Mercadona, Lidl, Carrefour y más. Controla tu presupuesto de alimentación.",
-    href: "/es/gastos-supermercado",
+    question: "¿Puedo escanear y guardar tickets de supermercado?",
+    answer: "Sí. Fotografía o sube tus tickets de supermercado y tiendas, y Trakzi extrae los totales para que puedas compararlos con tu presupuesto y hábitos de gasto anteriores.",
   },
   {
-    icon: FileSpreadsheet,
-    title: "Importar CSV Bancario",
-    description: "Sube cualquier extracto bancario en CSV. Trakzi normaliza los datos y genera gráficos al instante.",
-    href: "/es/importar-csv",
-  },
-]
-
-const faqs = [
-  {
-    q: "¿Qué es Trakzi?",
-    a: "Trakzi es una aplicación de finanzas personales que te permite importar extractos bancarios, escanear tickets y visualizar tus gastos con gráficos impulsados por IA. Todo sin conectar tu cuenta bancaria.",
+    question: "¿Qué hace la IA de Trakzi exactamente?",
+    answer: "La IA integrada te ayuda a detectar patrones de gasto excesivo, responde preguntas como '¿por qué gasté más en comida este mes?' y sugiere ajustes para que cumplas tus objetivos financieros.",
   },
   {
-    q: "¿Necesito conectar mi cuenta bancaria?",
-    a: "No. Trakzi funciona con archivos CSV que exportas de tu banco. Tus credenciales bancarias nunca se comparten. Tu privacidad está protegida.",
+    question: "¿Están seguros mis datos financieros en Trakzi?",
+    answer: "Tus datos permanecen en tu espacio de trabajo. Trakzi nunca los revende ni comparte, y puedes eliminar tus cargas en cualquier momento. Seguimos las mejores prácticas de seguridad para proteger tus archivos e información.",
   },
   {
-    q: "¿Funciona con bancos españoles?",
-    a: "Sí. Trakzi funciona con cualquier banco del mundo, incluyendo CaixaBank, BBVA, Santander, ING España, y muchos más.",
-  },
-  {
-    q: "¿Puedo escanear tickets de supermercados españoles?",
-    a: "Sí. Trakzi procesa tickets de Mercadona, Consum, Lidl, Carrefour, DIA, Eroski y otros supermercados españoles.",
-  },
-  {
-    q: "¿Es gratuita?",
-    a: "Trakzi ofrece un plan gratuito con hasta 100 transacciones. Los planes Pro (4,99 €/mes) y Max (19,99 €/mes) ofrecen límites más altos.",
+    question: "¿Puedo rastrear gastos compartidos y dividir facturas con amigos?",
+    answer: "Por supuesto. Trakzi te permite crear habitaciones compartidas con amigos o compañeros de piso, rastrear gastos grupales y ver quién debe qué — facilitando dividir facturas, alquiler y compras.",
   },
 ]
 
 export default function SpanishLandingPage() {
+  const { setTheme } = useTheme()
+  const previousThemeRef = useRef<string | null>(null)
+
+  // Force dark mode on landing page, restore user's theme on unmount
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const LANDING_FLAG = "trakzi-landing-active"
+    const SAVED_THEME_KEY = "trakzi-user-theme-before-landing"
+    const isLandingAlreadyActive = localStorage.getItem(LANDING_FLAG) === "true"
+    if (!isLandingAlreadyActive) {
+      const currentTheme = localStorage.getItem("trakzi-theme") || "light"
+      localStorage.setItem(SAVED_THEME_KEY, currentTheme)
+      localStorage.setItem(LANDING_FLAG, "true")
+    }
+    previousThemeRef.current = localStorage.getItem(SAVED_THEME_KEY) || "light"
+    setTheme("dark")
+    return () => {
+      const themeToRestore = previousThemeRef.current || "light"
+      localStorage.removeItem(LANDING_FLAG)
+      localStorage.removeItem(SAVED_THEME_KEY)
+      localStorage.setItem("trakzi-theme", themeToRestore)
+      setTheme(themeToRestore)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen w-full relative bg-background">
+      <LandingHeader
+        locale="es"
+        logoHref="/es"
+        navLinks={[
+          { label: "Características", href: "/es/features" },
+          { label: "Documentación", href: "/es/docs" },
+          { label: "Precios", href: "/es/precios" },
+        ]}
+        faqLabel="FAQ"
+        faqScrollId="faq"
+        loginLabel="Iniciar Sesión"
+        loginHref="/sign-in"
+        signupLabel="Registrarse"
+        signupHref="/sign-up"
+      />
 
-      {/* Header */}
-      <header className="sticky top-4 z-[9999] mx-auto max-w-5xl px-4 py-2 flex items-center justify-between rounded-full bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg">
-        <Link href="/es" className="flex items-center gap-2">
-          <img src="/Trakzi/TrakzilogoB.png" alt="Trakzi" className="h-8 w-auto" draggable={false} />
-        </Link>
-        <nav className="hidden md:flex items-center gap-1 text-sm font-medium text-muted-foreground">
-          <Link href="/es/features" className="px-4 py-2 hover:text-white transition-colors">Características</Link>
-          <a href="#precios" className="px-4 py-2 hover:text-white transition-colors">Precios</a>
-          <a href="#faq" className="px-4 py-2 hover:text-white transition-colors">FAQ</a>
-        </nav>
-        <div className="flex items-center gap-3">
-          <LanguagePicker />
-          <Link href="/sign-in" className="rounded-md text-sm border border-border bg-secondary/50 hover:bg-secondary text-muted-foreground hover:text-foreground px-4 py-2 transition-colors">
-            Iniciar Sesión
-          </Link>
-          <Link href="/sign-up" className="rounded-md font-bold relative cursor-pointer hover:-translate-y-0.5 transition duration-200 inline-block text-center bg-gradient-to-b from-primary to-primary/80 text-primary-foreground shadow-[0px_2px_0px_0px_rgba(255,255,255,0.3)_inset] px-4 py-2 text-sm">
-            Registrarse
-          </Link>
-        </div>
-      </header>
+      <Hero />
 
-      {/* Hero */}
-      <section className="relative py-24 sm:py-32">
-        <div className="container mx-auto px-4 relative z-10">
-          <m.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="mx-auto max-w-4xl text-center"
-          >
-            <h1
-              className={cn(
-                "text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-6 bg-gradient-to-b from-foreground to-muted-foreground bg-clip-text text-transparent",
-                geist.className,
-              )}
-            >
-              Un Gasto. Docenas de Formas de Verlo.
-            </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-10">
-              Importa extractos bancarios, escanea tickets de supermercado, divide gastos con amigos y visualiza todo tu dinero con gráficos impulsados por IA — todo en un solo lugar.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/sign-up" className="rounded-lg font-bold text-base bg-gradient-to-b from-primary to-primary/80 text-primary-foreground shadow-lg px-8 py-3 transition-all hover:-translate-y-0.5 hover:shadow-xl">
-                Empezar Gratis
-              </Link>
-              <Link href="/sign-up" className="rounded-lg font-medium text-base border border-border bg-secondary/50 hover:bg-secondary text-muted-foreground hover:text-foreground px-8 py-3 transition-all">
-                Probar Demo
-              </Link>
-            </div>
-          </m.div>
-        </div>
-      </section>
+      <ImageComparisonSection
+        beforeSrc="/SheetsCompare.jpeg"
+        afterSrc="/trakziCompare.png"
+        beforeAlt="Datos financieros sin Trakzi"
+        afterAlt="Datos financieros con Trakzi"
+      />
 
-      {/* Features */}
-      <section className="py-24 sm:py-32 border-t border-border/50">
-        <div className="container mx-auto px-4">
-          <m.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="mx-auto max-w-5xl"
-          >
-            <h2 className={cn("text-3xl sm:text-4xl font-bold text-center mb-4 bg-gradient-to-b from-foreground to-muted-foreground bg-clip-text text-transparent", geist.className)}>
-              Características
-            </h2>
-            <p className="text-muted-foreground text-center mb-16 max-w-2xl mx-auto">
-              Todo lo que necesitas para controlar tus finanzas personales, sin conectar tu cuenta bancaria.
-            </p>
-            <div className="grid sm:grid-cols-2 gap-6">
-              {features.map((f, i) => {
-                const Icon = f.icon
-                return (
-                  <m.div
-                    key={f.title}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.4, delay: i * 0.1 }}
-                  >
-                    <Link href={f.href} className="group block p-6 rounded-xl border border-border/50 bg-background/50 hover:border-border hover:bg-secondary/50 transition-all h-full">
-                      <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-                          <Icon className="h-5 w-5 text-primary" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-1">
-                            {f.title}
-                            <ChevronRight className="h-4 w-4 text-muted-foreground/60 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-                          </h3>
-                          <p className="text-muted-foreground text-sm">{f.description}</p>
-                        </div>
-                      </div>
-                    </Link>
-                  </m.div>
-                )
-              })}
-            </div>
-            <div className="text-center mt-10">
-              <Link href="/es/features" className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-medium transition-colors">
-                Ver todas las características
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-          </m.div>
-        </div>
-      </section>
+      <div id="features">
+        <Features />
+      </div>
 
-      {/* Pricing */}
-      <section id="precios" className="py-24 sm:py-32 border-t border-border/50">
-        <div className="container mx-auto px-4">
-          <h2 className={cn("text-3xl sm:text-4xl font-bold text-center mb-4 bg-gradient-to-b from-foreground to-muted-foreground bg-clip-text text-transparent", geist.className)}>
-            Precios
-          </h2>
-          <p className="text-muted-foreground text-center mb-16">Empieza gratis. Mejora cuando lo necesites.</p>
-          <div className="mx-auto max-w-4xl grid sm:grid-cols-3 gap-6">
-            {[
-              { name: "Starter", price: "0 €", period: "/mes", features: ["Hasta 100 transacciones", "Importar CSV", "Escáner de tickets", "Gráficos básicos"], cta: "Empezar Gratis", highlighted: false },
-              { name: "Pro", price: "4,99 €", period: "/mes", features: ["Hasta 3.000 transacciones", "Todos los gráficos", "Chat con IA", "Gastos compartidos ilimitados"], cta: "Elegir Pro", highlighted: true },
-              { name: "Max", price: "19,99 €", period: "/mes", features: ["Hasta 15.000 transacciones", "Todo de Pro", "Soporte prioritario", "Exportaciones avanzadas"], cta: "Elegir Max", highlighted: false },
-            ].map((plan) => (
-              <div key={plan.name} className={cn("p-6 rounded-xl border", plan.highlighted ? "border-primary/50 bg-primary/5" : "border-border/50 bg-background/50")}>
-                <h3 className="text-lg font-semibold text-white mb-1">{plan.name}</h3>
-                <p className="text-3xl font-bold text-white mb-1">{plan.price}<span className="text-sm font-normal text-muted-foreground">{plan.period}</span></p>
-                <ul className="space-y-2 my-6">
-                  {plan.features.map((f) => (
-                    <li key={f} className="text-sm text-muted-foreground flex items-center gap-2">
-                      <span className="text-primary">✓</span> {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/sign-up" className={cn("block text-center rounded-lg font-bold text-sm py-2.5 transition-all hover:-translate-y-0.5", plan.highlighted ? "bg-gradient-to-b from-primary to-primary/80 text-primary-foreground shadow-lg" : "border border-border text-muted-foreground hover:text-foreground hover:bg-secondary")}>
-                  {plan.cta}
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <ChartsShowcase />
 
-      {/* FAQ */}
-      <section id="faq" className="py-24 sm:py-32 border-t border-border/50">
-        <div className="container mx-auto px-4">
-          <h2 className={cn("text-3xl sm:text-4xl font-bold text-center mb-16 bg-gradient-to-b from-foreground to-muted-foreground bg-clip-text text-transparent", geist.className)}>
-            Preguntas Frecuentes
-          </h2>
-          <div className="mx-auto max-w-3xl space-y-6">
-            {faqs.map((faq) => (
-              <div key={faq.q} className="p-6 rounded-xl border border-border/50 bg-background/50">
-                <h3 className="text-lg font-semibold text-foreground mb-2">{faq.q}</h3>
-                <p className="text-muted-foreground text-sm">{faq.a}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <NewReleasePromo />
 
-      {/* CTA */}
-      <section className="py-24 sm:py-32 border-t border-border/50">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className={cn("text-3xl sm:text-4xl font-bold mb-6 text-foreground", geist.className)}>
-            ¿Listo para tomar el control?
-          </h2>
-          <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-            Gratis para empezar. Sin tarjeta de crédito. Funciona con cualquier banco del mundo.
-          </p>
-          <Link href="/sign-up" className="inline-block rounded-lg font-bold text-base bg-gradient-to-b from-primary to-primary/80 text-primary-foreground shadow-lg px-10 py-4 transition-all hover:-translate-y-0.5 hover:shadow-xl">
-            Crear Cuenta Gratis
-          </Link>
-        </div>
-      </section>
+      <div id="faq">
+        <FAQSection
+          items={esFaqs}
+          badgeLabel="FAQs"
+          title={
+            <>
+              ¿Preguntas? Tenemos{" "}
+              <span className="bg-gradient-to-b from-foreground via-rose-200 to-primary bg-clip-text text-transparent py-1">
+                respuestas
+              </span>
+            </>
+          }
+        />
+      </div>
 
-      {/* Footer */}
-      <footer className="py-8 border-t border-border/50">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-xs text-muted-foreground/60">
-            &copy; {new Date().getFullYear()} Trakzi. Todos los derechos reservados.{" "}
-            <Link href="/terms" className="hover:text-muted-foreground transition-colors">Términos</Link>{" "}&middot;{" "}
-            <Link href="/privacy" className="hover:text-muted-foreground transition-colors">Privacidad</Link>
-          </p>
-        </div>
-      </footer>
+      <StickyFooter locale="es" />
     </div>
   )
 }
