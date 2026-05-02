@@ -1,9 +1,20 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import { Plus, Minus } from "lucide-react"
 import { m, AnimatePresence } from "framer-motion"
 import { typedCapture } from "@/types/posthog-events"
+
+export interface FaqItem {
+  question: string
+  answer: string
+}
+
+interface FAQSectionProps {
+  items?: FaqItem[]
+  title?: React.ReactNode
+  badgeLabel?: string
+}
 
 const faqs = [
   {
@@ -39,11 +50,11 @@ const faqs = [
 ]
 
 // Generate the FAQPage JSON-LD schema for search engines and AI models
-function generateFaqSchema() {
+function generateFaqSchema(data: FaqItem[]) {
   return {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: faqs.map((faq) => ({
+    mainEntity: data.map((faq) => ({
       "@type": "Question",
       name: faq.question,
       acceptedAnswer: {
@@ -54,7 +65,8 @@ function generateFaqSchema() {
   }
 }
 
-export function FAQSection() {
+export function FAQSection({ items, title, badgeLabel = "Faqs" }: FAQSectionProps = {}) {
+  const activeFaqs = items ?? faqs
   const [openItems, setOpenItems] = useState<number[]>([])
 
   const toggleItem = (index: number) => {
@@ -64,7 +76,7 @@ export function FAQSection() {
     // Track which FAQ questions users are most interested in
     if (isOpening) {
       typedCapture("faq_question_expanded", {
-        question: faqs[index].question,
+        question: activeFaqs[index].question,
         question_index: index,
       })
     }
@@ -75,7 +87,7 @@ export function FAQSection() {
       {/* FAQPage JSON-LD Schema for SEO / AEO / GEO */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(generateFaqSchema()) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(generateFaqSchema(activeFaqs)) }}
       />
 
       {/* Background blur effects */}
@@ -92,7 +104,7 @@ export function FAQSection() {
         >
           <div className="border-primary/40 text-primary inline-flex items-center gap-2 rounded-full border px-3 py-1 uppercase">
             <span>✶</span>
-            <span className="text-sm">Faqs</span>
+            <span className="text-sm">{badgeLabel}</span>
           </div>
         </m.div>
 
@@ -103,14 +115,18 @@ export function FAQSection() {
           transition={{ duration: 0.6, delay: 0.2 }}
           viewport={{ once: true }}
         >
-          Questions? We've got{" "}
-          <span className="bg-gradient-to-b from-foreground via-rose-200 to-primary bg-clip-text text-transparent py-1">
-            answers
-          </span>
+          {title ?? (
+            <>
+              Questions? We&apos;ve got{" "}
+              <span className="bg-gradient-to-b from-foreground via-rose-200 to-primary bg-clip-text text-transparent py-1">
+                answers
+              </span>
+            </>
+          )}
         </m.h2>
 
         <div className="mx-auto mt-12 flex max-w-5xl flex-col gap-6">
-          {faqs.map((faq, index) => (
+          {activeFaqs.map((faq, index) => (
             <m.div
               key={faq.question}
               className="from-secondary/40 to-secondary/10 rounded-2xl border border-white/10 bg-gradient-to-b p-6 shadow-[0px_2px_0px_0px_rgba(255,255,255,0.1)_inset] transition-all duration-300 hover:border-white/20 cursor-pointer"
@@ -129,7 +145,7 @@ export function FAQSection() {
                   toggleItem(index)
                 }
               }}
-              {...(index === faqs.length - 1 && { "data-faq": faq.question })}
+              {...(index === activeFaqs.length - 1 && { "data-faq": faq.question })}
             >
               <div className="flex items-start justify-between">
                 <h3 className="m-0 font-medium pr-4">{faq.question}</h3>
