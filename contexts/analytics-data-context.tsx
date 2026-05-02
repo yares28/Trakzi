@@ -1,8 +1,9 @@
 "use client"
 
 import { createContext, useContext, ReactNode } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, keepPreviousData } from "@tanstack/react-query"
 import { useDateFilter } from "@/components/date-filter-provider"
+import { useAccountFilter } from "@/components/account-filter-provider"
 import type { AnalyticsSummary } from "@/lib/charts/aggregations"
 
 // Re-export types for chart components
@@ -27,10 +28,12 @@ interface AnalyticsDataContextValue {
 
 const AnalyticsDataContext = createContext<AnalyticsDataContextValue | null>(null)
 
-async function fetchAnalyticsBundle(filter: string | null): Promise<AnalyticsSummary> {
-    const url = filter
-        ? `/api/charts/analytics-bundle?filter=${encodeURIComponent(filter)}`
-        : `/api/charts/analytics-bundle`
+async function fetchAnalyticsBundle(filter: string | null, accountIds: string[] = []): Promise<AnalyticsSummary> {
+    const params = new URLSearchParams()
+    if (filter) params.set('filter', filter)
+    if (accountIds.length > 0) params.set('accounts', accountIds.join(','))
+    const qs = params.toString()
+    const url = qs ? `/api/charts/analytics-bundle?${qs}` : `/api/charts/analytics-bundle`
 
     // Ensure we bypass any framework fetch caching on the client.
     const response = await fetch(url, { cache: "no-store" })
@@ -50,10 +53,14 @@ interface AnalyticsDataProviderProps {
  */
 export function AnalyticsDataProvider({ children }: AnalyticsDataProviderProps) {
     const { filter } = useDateFilter()
+    const { selected: accountIds, isReady: accountsReady } = useAccountFilter()
+    const accountKey = accountIds.length === 0 ? "all" : accountIds.join(",")
 
     const { data, isLoading, error } = useQuery({
-        queryKey: ["analytics-bundle", filter],
-        queryFn: () => fetchAnalyticsBundle(filter),
+        queryKey: ["analytics-bundle", filter, accountKey],
+        queryFn: () => fetchAnalyticsBundle(filter, accountIds),
+        enabled: accountsReady,
+        placeholderData: keepPreviousData,
     })
 
     return (

@@ -13,7 +13,6 @@ interface AccountRow {
     name: string
     account_type: string
     currency: string
-    current_balance: string | null
     institution: string | null
     color: string | null
     is_active: boolean
@@ -34,7 +33,6 @@ function rowToAccount(row: AccountRow): BankAccount {
         name: row.name,
         accountType: row.account_type as BankAccount['accountType'],
         currency: row.currency,
-        currentBalance: row.current_balance !== null ? parseFloat(row.current_balance) : null,
         institution: row.institution,
         color: row.color,
         isActive: row.is_active,
@@ -105,15 +103,14 @@ export async function createAccount(userId: string, data: CreateAccountDto): Pro
     const nextOrder = (orderRows[0]?.max !== null ? parseInt(orderRows[0].max!) : -1) + 1
 
     const rows = await neonQuery<AccountRow>(
-        `INSERT INTO bank_accounts (user_id, name, account_type, currency, current_balance, institution, color, display_order)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `INSERT INTO bank_accounts (user_id, name, account_type, currency, institution, color, display_order)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING *`,
         [
             userId,
             data.name.trim(),
             data.accountType,
             data.currency ?? 'EUR',
-            data.currentBalance ?? null,
             data.institution?.trim() ?? null,
             data.color ?? null,
             nextOrder,
@@ -136,10 +133,9 @@ export async function updateAccount(
          SET name             = COALESCE($3, name),
              account_type     = COALESCE($4, account_type),
              currency         = COALESCE($5, currency),
-             current_balance  = $6,
-             institution      = $7,
-             color            = $8,
-             display_order    = COALESCE($9, display_order),
+             institution      = $6,
+             color            = $7,
+             display_order    = COALESCE($8, display_order),
              updated_at       = NOW()
          WHERE id = $1 AND user_id = $2
          RETURNING *`,
@@ -149,7 +145,6 @@ export async function updateAccount(
             data.name?.trim() ?? null,
             data.accountType ?? null,
             data.currency ?? null,
-            data.currentBalance !== undefined ? data.currentBalance : existing.currentBalance,
             data.institution !== undefined ? data.institution?.trim() ?? null : existing.institution,
             data.color !== undefined ? data.color : existing.color,
             data.displayOrder ?? null,

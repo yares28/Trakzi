@@ -4,6 +4,7 @@ import type { ComponentType } from "react"
 import { useMemo, useState, useCallback, useEffect } from "react"
 import { useAuth } from "@clerk/nextjs"
 import useSWR from "swr"
+import { useAccountFilter } from "@/components/account-filter-provider"
 
 import { MapPin, Car, Home, Package } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -185,6 +186,9 @@ export type PocketViewMode = "travel" | "garage" | "assets" | "other"
 
 export default function WorldMapPage() {
     const { userId, isLoaded: isAuthLoaded } = useAuth()
+    const { selected: accountIds, isReady: accountsReady } = useAccountFilter()
+    const accountsParam = accountIds.length > 0 ? `?accounts=${encodeURIComponent(accountIds.join(','))}` : ''
+    const accountKey = accountIds.length === 0 ? 'all' : accountIds.join(',')
 
     // Tab state — default to "travel" for SSR, then hydrate from localStorage
     const [pocketViewMode, setPocketViewModeRaw] = useState<PocketViewMode>("travel")
@@ -209,7 +213,7 @@ export default function WorldMapPage() {
 
     // Fetch all pockets data from bundle API
     const { data, isLoading: isFetching, mutate } = useSWR<PocketsBundleResponse>(
-        userId ? ['/api/charts/pockets-bundle', userId] : null,
+        userId && accountsReady ? [`/api/charts/pockets-bundle${accountsParam}`, userId, accountKey] : null,
         ([url]) => fetcher(url),
         {
             revalidateOnFocus: false,

@@ -5,6 +5,7 @@ import { FileUp, ChartLine, Receipt, Info } from "lucide-react"
 import { ShimmeringText } from "@/components/ui/shimmering-text"
 import { cn } from "@/lib/utils"
 import { ChartSkeleton, type ChartSkeletonType } from "@/components/chart-skeletons"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface ChartLoadingStateProps {
   isLoading?: boolean
@@ -192,10 +193,10 @@ export function ChartCardSkeleton({
       {/* Header skeleton */}
       <div className="flex items-center justify-between mb-4">
         <div className="space-y-2">
-          <div className="h-4 w-32 rounded bg-muted animate-pulse" />
-          <div className="h-3 w-48 rounded bg-muted animate-pulse" />
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3 w-48" />
         </div>
-        <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+        <Skeleton className="h-8 w-8 rounded-full" />
       </div>
 
       {/* Chart area skeleton - use appropriate type */}

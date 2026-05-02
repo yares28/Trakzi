@@ -240,7 +240,7 @@ export function ReceiptScannerAnimation() {
   const complete = phase === "complete"
 
   return (
-    <div className="relative w-full h-[340px] flex items-stretch gap-4 px-2 md:px-4">
+    <div className="relative w-full min-h-[340px] md:h-[340px] flex flex-col md:flex-row md:items-stretch gap-6 md:gap-4 px-2 md:px-4">
       {/* Ambient glow — covers both panels */}
       <motion.div
         className="absolute inset-0 pointer-events-none rounded-xl"
@@ -255,7 +255,8 @@ export function ReceiptScannerAnimation() {
       />
 
       {/* ── LEFT PANEL: Receipt + dots + tags/summary ── */}
-      <div className="relative flex-[3] flex items-center justify-center gap-4 md:gap-6 min-w-0">
+      {/* On mobile, stack receipt on top and summary below so neither gets squashed. */}
+      <div className="relative md:flex-[3] flex flex-col md:flex-row items-center md:justify-center gap-4 md:gap-6 min-w-0 w-full">
         {/* Receipt paper */}
         <div className="relative flex-shrink-0">
           <motion.div
@@ -405,9 +406,9 @@ export function ReceiptScannerAnimation() {
           <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-32 h-4 bg-black/18 rounded-full blur-lg" />
         </div>
 
-        {/* Dot connector */}
+        {/* Dot connector — vertical on desktop. Hidden on mobile (stacked layout). */}
         <motion.div
-          className="flex flex-col items-center gap-1.5 shrink-0"
+          className="hidden md:flex flex-col items-center gap-1.5 shrink-0"
           animate={{ opacity: scanning || complete ? 1 : 0.18 }}
           transition={{ duration: 0.5 }}
         >
@@ -430,8 +431,8 @@ export function ReceiptScannerAnimation() {
           ))}
         </motion.div>
 
-        {/* Tags / Summary */}
-        <div className="flex-1 min-w-0 h-full flex flex-col justify-center gap-2">
+        {/* Tags / Summary — full width on mobile, flex-1 on desktop */}
+        <div className="w-full md:flex-1 min-w-0 md:h-full flex flex-col justify-center gap-2">
           <AnimatePresence mode="wait">
             {!complete ? (
               <motion.div
@@ -478,14 +479,14 @@ export function ReceiptScannerAnimation() {
               >
                 {/* Total card */}
                 <motion.div
-                  className="rounded-xl border border-primary/25 bg-primary/5 px-4 py-3"
+                  className="rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 w-full"
                   initial={{ scale: 0.92, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ delay: 0.1, duration: 0.35 }}
                 >
-                  <div className="text-[8px] uppercase tracking-widest text-muted-foreground">Total spent</div>
-                  <div className="text-2xl font-bold tabular-nums text-foreground">${totalAmount}</div>
-                  <div className="text-[9px] text-muted-foreground">{ITEMS.length} items · Fresh Mart</div>
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Total spent</div>
+                  <div className="text-2xl font-bold tabular-nums text-foreground leading-tight">${totalAmount}</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">{ITEMS.length} items · Fresh Mart</div>
                 </motion.div>
 
                 {/* Category bars */}
@@ -499,8 +500,8 @@ export function ReceiptScannerAnimation() {
                       transition={{ delay: 0.22 + i * 0.08 }}
                     >
                       <span className="text-[11px] leading-none w-4 shrink-0">{emoji}</span>
-                      <span className="text-[9px] text-muted-foreground w-13 shrink-0">{name}</span>
-                      <div className="flex-1 h-[5px] rounded-full overflow-hidden bg-white/10">
+                      <span className="text-[10px] text-muted-foreground w-16 shrink-0 truncate">{name}</span>
+                      <div className="flex-1 h-[5px] rounded-full overflow-hidden bg-white/10 min-w-0">
                         <motion.div
                           className="h-full rounded-full"
                           style={{ backgroundColor: color }}
@@ -509,20 +510,20 @@ export function ReceiptScannerAnimation() {
                           transition={{ delay: 0.28 + i * 0.08, duration: 0.5, ease: "easeOut" }}
                         />
                       </div>
-                      <span className="text-[9px] text-muted-foreground shrink-0 tabular-nums">{pct}%</span>
+                      <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">{pct}%</span>
                     </motion.div>
                   ))}
                 </div>
 
                 {/* AI insight */}
                 <motion.div
-                  className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-[9px] text-muted-foreground leading-relaxed"
+                  className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-[11px] text-muted-foreground leading-relaxed w-full"
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.52 }}
                 >
                   <span className="text-primary font-semibold">AI: </span>
-                  Produce up 18% vs. last week. Olive oil adds 24% of this week's cost.
+                  Produce up 18% vs. last week. Olive oil adds 24% of this week&apos;s cost.
                 </motion.div>
               </motion.div>
             )}

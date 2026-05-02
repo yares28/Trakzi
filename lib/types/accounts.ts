@@ -11,7 +11,7 @@ export type AccountType =
 
 export type SyncStatus = 'manual' | 'active' | 'expired' | 'error'
 
-export type TransferStatus = 'pending' | 'confirmed' | 'rejected'
+export type TransferStatus = 'pending' | 'suggested' | 'confirmed' | 'rejected'
 
 export interface BankAccount {
     id: string
@@ -19,7 +19,6 @@ export interface BankAccount {
     name: string
     accountType: AccountType
     currency: string
-    currentBalance: number | null
     institution: string | null
     color: string | null
     isActive: boolean
@@ -37,7 +36,6 @@ export interface CreateAccountDto {
     name: string
     accountType: AccountType
     currency?: string
-    currentBalance?: number | null
     institution?: string | null
     color?: string | null
 }
@@ -46,7 +44,6 @@ export interface UpdateAccountDto {
     name?: string
     accountType?: AccountType
     currency?: string
-    currentBalance?: number | null
     institution?: string | null
     color?: string | null
     displayOrder?: number

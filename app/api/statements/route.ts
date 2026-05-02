@@ -16,9 +16,12 @@ export const GET = async () => {
                 s.row_count,
                 s.imported_count,
                 s.created_at as date,
-                'Income/Expenses' as type
+                'Income/Expenses' as type,
+                s.account_id,
+                a.name as account_name
             FROM statements s
             INNER JOIN transactions t ON t.statement_id = s.id AND t.user_id = s.user_id
+            LEFT JOIN bank_accounts a ON a.id = s.account_id AND a.user_id = s.user_id
             WHERE s.user_id = $1
             ORDER BY s.created_at DESC
         `;
@@ -31,6 +34,8 @@ export const GET = async () => {
             imported_count: number | null;
             date: Date | string;
             type: string;
+            account_id: string | null;
+            account_name: string | null;
         }>(statementsQuery, [userId]);
 
         // Fetch receipts
@@ -65,6 +70,8 @@ export const GET = async () => {
             rowCount: stmt.row_count,
             importedCount: stmt.imported_count,
             status: stmt.status,
+            accountId: stmt.account_id ?? null,
+            accountName: stmt.account_name ?? null,
         }));
 
         // Transform receipts to match the reportSchema format

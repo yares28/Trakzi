@@ -679,6 +679,56 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
             return
           }
 
+          if (response.status === 409 && errorData.duplicate) {
+            clearInterval(progressInterval)
+            setImportProgress(0)
+            setIsImporting(false)
+
+            // Capture request body for the force re-import closure below
+            const forceBody = JSON.stringify({
+              csv: parsedCsv,
+              accountId: accountId ?? undefined,
+              force: true,
+              statementMeta: {
+                bankName: "Unknown",
+                sourceFilename: (projectName.trim() || pendingFiles[0]?.name) ?? "imported_csv.csv",
+                fileId,
+              },
+            })
+
+            toast.warning("Looks like a re-import", {
+              description: "This statement appears to have been imported before. Check your Data Library before proceeding.",
+              duration: 12000,
+              action: {
+                label: "Import anyway",
+                onClick: async () => {
+                  setIsImporting(true)
+                  try {
+                    const res = await fetch("/api/statements/import", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: forceBody,
+                    })
+                    const d = await res.json()
+                    if (!res.ok) throw new Error(d.error || "Import failed")
+                    toast.success("Import Successful", { description: `${d.inserted} transactions imported` })
+                    resetAllState()
+                    setIsReviewDialogOpen(false)
+                    clearResponseCache()
+                    clearAnalyticsCache()
+                    window.dispatchEvent(new CustomEvent("transactionsUpdated"))
+                    await refreshAnalyticsData()
+                  } catch (err: any) {
+                    toast.error("Import failed", { description: err.message })
+                  } finally {
+                    setIsImporting(false)
+                  }
+                },
+              },
+            })
+            return
+          }
+
           errorMessage = errorData.error || errorMessage
         } catch {
           errorMessage = responseText || errorMessage

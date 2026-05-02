@@ -99,12 +99,6 @@ const AccountRow = memo(function AccountRow({ account, onEdit, onArchive, onDele
                     )}
                 </div>
             </div>
-            {account.currentBalance !== null && (
-                <span className="text-sm font-medium tabular-nums shrink-0">
-                    {account.currentBalance.toLocaleString(undefined, { style: "decimal", minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    {" "}{account.currency}
-                </span>
-            )}
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity">

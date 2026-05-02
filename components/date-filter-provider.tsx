@@ -57,7 +57,7 @@ export function useDateFilter() {
 
 export function DateFilterProvider({ children }: { children: ReactNode }) {
     const [filter, setFilterState] = useState<DateFilterType | null>(FALLBACK_DATE_FILTER)
-    const [isReady, setIsReady] = useState(false)
+    const [isReady, setIsReady] = useState(true)
     const { preferences, isServerSynced, updatePagePreferences } = useUserPreferences()
     const hasSyncedFromDb = useRef(false)
 

@@ -307,6 +307,7 @@ interface TransactionRowProps {
     amount: number
     balance: number | null
     category: string
+    tx_type?: string | null
     shared_tx_id?: string | null
     shared_room_name?: string | null
     effective_cost?: number | null
@@ -315,6 +316,7 @@ interface TransactionRowProps {
   isDeleting: boolean
   onToggleSelection: (id: number) => void
   onDelete: (id: number) => void
+  onMarkTransfer: (id: number, asTransfer: boolean) => void
   formatCurrency: (amount: number) => string
 }
 
@@ -324,8 +326,12 @@ const TransactionRow = React.memo(function TransactionRow({
   isDeleting,
   onToggleSelection,
   onDelete,
+  onMarkTransfer,
   formatCurrency,
 }: TransactionRowProps) {
+  const isTransfer = tx.tx_type === 'transfer' || tx.tx_type === 'pending_transfer'
+  const isSettlement = tx.tx_type === 'settlement_sent' || tx.tx_type === 'settlement_received'
+
   return (
     <TableRow
       className="group relative"
@@ -358,6 +364,11 @@ const TransactionRow = React.memo(function TransactionRow({
               Shared
             </span>
           )}
+          {isTransfer && (
+            <span className="shrink-0 inline-flex items-center text-[10px] font-semibold text-sky-600 dark:text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+              Transfer
+            </span>
+          )}
         </div>
       </TableCell>
       <TableCell className={`text-right font-medium w-20 md:w-24 flex-shrink-0 ${tx.amount < 0 ? "text-red-500" : "text-green-500"}`}>
@@ -374,20 +385,36 @@ const TransactionRow = React.memo(function TransactionRow({
         <Badge variant="outline">{tx.category}</Badge>
       </TableCell>
       <TableCell className="w-12 flex-shrink-0">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-          onClick={() => onDelete(tx.id)}
-          disabled={isDeleting}
-          title="Delete transaction"
-        >
-          {isDeleting ? (
-            <IconLoader className="h-4 w-4 animate-spin" />
-          ) : (
-            <IconTrash className="h-4 w-4" />
-          )}
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground"
+              disabled={isDeleting}
+            >
+              {isDeleting
+                ? <IconLoader className="h-4 w-4 animate-spin" />
+                : <IconDotsVertical className="h-4 w-4" />
+              }
+              <span className="sr-only">Row actions</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {!isSettlement && (
+              <DropdownMenuItem onClick={() => onMarkTransfer(tx.id, !isTransfer)}>
+                {isTransfer ? "Unmark as transfer" : "Mark as transfer"}
+              </DropdownMenuItem>
+            )}
+            {!isSettlement && <DropdownMenuSeparator />}
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => onDelete(tx.id)}
+            >
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </TableCell>
     </TableRow>
   )
@@ -413,6 +440,7 @@ export function DataTable<TData, TValue>({
     amount: number
     balance: number | null
     category: string
+    tx_type?: string | null
     shared_tx_id?: string | null
     shared_room_name?: string | null
     effective_cost?: number | null
@@ -451,6 +479,43 @@ export function DataTable<TData, TValue>({
   const isDialogOpen = transactionDialogOpen !== undefined ? transactionDialogOpen : internalDialogOpen
   const setIsDialogOpen = onTransactionDialogOpenChange || setInternalDialogOpen
   const sortableId = React.useId()
+
+  // Optimistic tx_type overrides (updated via Mark/Unmark as transfer)
+  const [localTxTypes, setLocalTxTypes] = React.useState<Map<number, string>>(new Map())
+
+  const handleMarkTransfer = React.useCallback(async (id: number, asTransfer: boolean) => {
+    const tx = transactions?.find(t => t.id === id)
+    const newType = asTransfer
+      ? 'transfer'
+      : (tx?.amount ?? 0) < 0 ? 'expense' : 'income'
+
+    // Optimistic update
+    setLocalTxTypes(prev => new Map(prev).set(id, newType))
+
+    try {
+      const res = await fetch(`/api/transactions/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tx_type: newType }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to update')
+      }
+      const data = await res.json()
+      if (data.transferUnlinked) {
+        toast.info('Transfer link removed because the type changed.')
+      }
+    } catch (error: any) {
+      // Revert optimistic update on failure
+      setLocalTxTypes(prev => {
+        const next = new Map(prev)
+        next.delete(id)
+        return next
+      })
+      toast.error(error.message || 'Failed to update transaction type')
+    }
+  }, [transactions])
 
   // Delete transaction handler
   const handleDeleteTransaction = React.useCallback(async () => {
@@ -857,11 +922,14 @@ export function DataTable<TData, TValue>({
                       return pageData.map((tx) => (
                         <TransactionRow
                           key={tx.id}
-                          tx={tx}
+                          tx={localTxTypes.has(tx.id)
+                            ? { ...tx, tx_type: localTxTypes.get(tx.id) }
+                            : tx}
                           isSelected={selectedTransactionIds.has(tx.id)}
                           isDeleting={deletingId === tx.id}
                           onToggleSelection={toggleTransactionSelection}
                           onDelete={openDeleteDialog}
+                          onMarkTransfer={handleMarkTransfer}
                           formatCurrency={formatCurrency}
                         />
                       ))

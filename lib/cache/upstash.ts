@@ -44,16 +44,25 @@ const CACHE_TTL = {
 } as const
 
 /**
- * Build cache key for user-specific data
+ * Build cache key for user-specific data.
+ *
+ * The `accountFilter` segment is canonicalized (dedup + sorted) so that
+ * `[a,b]` and `[b,a]` collide on the same key — avoids permutation explosion
+ * when the user reorders selections in the multi-select.
  */
 export function buildCacheKey(
     prefix: keyof typeof CACHE_PREFIX,
     userId: string,
     filter?: string | null,
-    suffix?: string
+    suffix?: string,
+    accountFilter?: string[] | null
 ): string {
     const parts = [`user:${userId}`, CACHE_PREFIX[prefix]]
     if (filter) parts.push(filter)
+    if (accountFilter && accountFilter.length > 0) {
+        const sorted = Array.from(new Set(accountFilter)).sort()
+        parts.push(`acc=${sorted.join(',')}`)
+    }
     if (suffix) parts.push(suffix)
     return parts.join(':')
 }

@@ -1,10 +1,11 @@
 "use client"
 
-import { memo, useEffect } from "react"
+import { memo, useEffect, useState, useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
+import { Check, ChevronsUpDown } from "lucide-react"
 import {
     Dialog,
     DialogContent,
@@ -22,6 +23,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
 import { useCreateAccount, useUpdateAccount } from "@/hooks/use-accounts"
 import type { BankAccount, AccountType } from "@/lib/types/accounts"
 
@@ -34,14 +41,149 @@ const ACCOUNT_TYPES: { value: AccountType; label: string }[] = [
     { value: "loan", label: "Loan / Mortgage" },
 ]
 
-const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "JPY", "CAD", "AUD", "PLN", "DKK", "SEK", "NOK"]
+const CURRENCIES: { code: string; name: string }[] = [
+    { code: "EUR", name: "Euro" },
+    { code: "USD", name: "US Dollar" },
+    { code: "GBP", name: "British Pound" },
+    { code: "CHF", name: "Swiss Franc" },
+    { code: "JPY", name: "Japanese Yen" },
+    { code: "CAD", name: "Canadian Dollar" },
+    { code: "AUD", name: "Australian Dollar" },
+    { code: "NZD", name: "New Zealand Dollar" },
+    { code: "SEK", name: "Swedish Krona" },
+    { code: "NOK", name: "Norwegian Krone" },
+    { code: "DKK", name: "Danish Krone" },
+    { code: "PLN", name: "Polish Zloty" },
+    { code: "CZK", name: "Czech Koruna" },
+    { code: "HUF", name: "Hungarian Forint" },
+    { code: "RON", name: "Romanian Leu" },
+    { code: "BGN", name: "Bulgarian Lev" },
+    { code: "HRK", name: "Croatian Kuna" },
+    { code: "RSD", name: "Serbian Dinar" },
+    { code: "CNY", name: "Chinese Yuan" },
+    { code: "HKD", name: "Hong Kong Dollar" },
+    { code: "SGD", name: "Singapore Dollar" },
+    { code: "TWD", name: "Taiwan Dollar" },
+    { code: "KRW", name: "South Korean Won" },
+    { code: "INR", name: "Indian Rupee" },
+    { code: "IDR", name: "Indonesian Rupiah" },
+    { code: "MYR", name: "Malaysian Ringgit" },
+    { code: "THB", name: "Thai Baht" },
+    { code: "PHP", name: "Philippine Peso" },
+    { code: "VND", name: "Vietnamese Dong" },
+    { code: "PKR", name: "Pakistani Rupee" },
+    { code: "BDT", name: "Bangladeshi Taka" },
+    { code: "LKR", name: "Sri Lankan Rupee" },
+    { code: "BRL", name: "Brazilian Real" },
+    { code: "MXN", name: "Mexican Peso" },
+    { code: "ARS", name: "Argentine Peso" },
+    { code: "CLP", name: "Chilean Peso" },
+    { code: "COP", name: "Colombian Peso" },
+    { code: "PEN", name: "Peruvian Sol" },
+    { code: "UYU", name: "Uruguayan Peso" },
+    { code: "BOB", name: "Bolivian Boliviano" },
+    { code: "PYG", name: "Paraguayan Guarani" },
+    { code: "ZAR", name: "South African Rand" },
+    { code: "NGN", name: "Nigerian Naira" },
+    { code: "KES", name: "Kenyan Shilling" },
+    { code: "GHS", name: "Ghanaian Cedi" },
+    { code: "EGP", name: "Egyptian Pound" },
+    { code: "MAD", name: "Moroccan Dirham" },
+    { code: "TND", name: "Tunisian Dinar" },
+    { code: "DZD", name: "Algerian Dinar" },
+    { code: "ETB", name: "Ethiopian Birr" },
+    { code: "TZS", name: "Tanzanian Shilling" },
+    { code: "UGX", name: "Ugandan Shilling" },
+    { code: "SAR", name: "Saudi Riyal" },
+    { code: "AED", name: "UAE Dirham" },
+    { code: "QAR", name: "Qatari Riyal" },
+    { code: "KWD", name: "Kuwaiti Dinar" },
+    { code: "BHD", name: "Bahraini Dinar" },
+    { code: "OMR", name: "Omani Rial" },
+    { code: "JOD", name: "Jordanian Dinar" },
+    { code: "ILS", name: "Israeli Shekel" },
+    { code: "TRY", name: "Turkish Lira" },
+    { code: "RUB", name: "Russian Ruble" },
+    { code: "UAH", name: "Ukrainian Hryvnia" },
+    { code: "KZT", name: "Kazakhstani Tenge" },
+    { code: "GEL", name: "Georgian Lari" },
+    { code: "AZN", name: "Azerbaijani Manat" },
+    { code: "AMD", name: "Armenian Dram" },
+    { code: "BYN", name: "Belarusian Ruble" },
+    { code: "ISK", name: "Icelandic Krona" },
+]
+
+interface CurrencyComboboxProps {
+    value: string
+    onChange: (value: string) => void
+}
+
+function CurrencyCombobox({ value, onChange }: CurrencyComboboxProps) {
+    const [open, setOpen] = useState(false)
+    const [search, setSearch] = useState("")
+
+    const filtered = useMemo(() => {
+        const q = search.trim().toLowerCase()
+        if (!q) return CURRENCIES
+        return CURRENCIES.filter(
+            c => c.code.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)
+        )
+    }, [search])
+
+    const selected = CURRENCIES.find(c => c.code === value)
+
+    return (
+        <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setSearch("") }}>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="w-full justify-between font-normal"
+                >
+                    <span>{selected ? `${selected.code} — ${selected.name}` : "Select currency"}</span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[280px] p-2" align="start">
+                <Input
+                    placeholder="Search currency…"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="mb-2 h-8 text-sm"
+                    autoFocus
+                />
+                <div className="max-h-52 overflow-y-auto">
+                    {filtered.length === 0 ? (
+                        <p className="px-2 py-3 text-xs text-muted-foreground text-center">No currencies found.</p>
+                    ) : (
+                        filtered.map(c => (
+                            <button
+                                key={c.code}
+                                type="button"
+                                className={cn(
+                                    "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground cursor-pointer",
+                                    value === c.code && "bg-accent text-accent-foreground"
+                                )}
+                                onClick={() => { onChange(c.code); setOpen(false); setSearch("") }}
+                            >
+                                <Check className={cn("h-3.5 w-3.5 shrink-0", value === c.code ? "opacity-100" : "opacity-0")} />
+                                <span className="font-mono text-xs font-medium w-9 shrink-0">{c.code}</span>
+                                <span className="text-muted-foreground truncate">{c.name}</span>
+                            </button>
+                        ))
+                    )}
+                </div>
+            </PopoverContent>
+        </Popover>
+    )
+}
 
 const schema = z.object({
     name: z.string().min(1, "Name is required").max(100),
     accountType: z.enum(["checking", "savings", "credit_card", "cash", "investment", "loan"] as const),
     institution: z.string().max(100).optional(),
     currency: z.string().length(3),
-    currentBalance: z.string().optional(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -75,7 +217,6 @@ export const AccountFormDialog = memo(function AccountFormDialog({
             accountType: "checking",
             institution: "",
             currency: "EUR",
-            currentBalance: "",
         },
     })
 
@@ -89,12 +230,9 @@ export const AccountFormDialog = memo(function AccountFormDialog({
                 accountType: editAccount.accountType,
                 institution: editAccount.institution ?? "",
                 currency: editAccount.currency,
-                currentBalance: editAccount.currentBalance !== null
-                    ? String(editAccount.currentBalance)
-                    : "",
             })
         } else {
-            reset({ name: "", accountType: "checking", institution: "", currency: "EUR", currentBalance: "" })
+            reset({ name: "", accountType: "checking", institution: "", currency: "EUR" })
         }
     }, [editAccount, open, reset])
 
@@ -104,7 +242,6 @@ export const AccountFormDialog = memo(function AccountFormDialog({
             accountType: values.accountType,
             institution: values.institution?.trim() || null,
             currency: values.currency,
-            currentBalance: values.currentBalance ? parseFloat(values.currentBalance) : null,
         }
 
         try {
@@ -154,41 +291,19 @@ export const AccountFormDialog = memo(function AccountFormDialog({
                         {errors.accountType && <p className="text-xs text-destructive">{errors.accountType.message}</p>}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                            <Label htmlFor="acc-institution">
-                                Institution{" "}
-                                <span className="text-muted-foreground text-xs">(optional)</span>
-                            </Label>
-                            <Input id="acc-institution" placeholder="Revolut, N26…" {...register("institution")} />
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <Label>Currency</Label>
-                            <Select value={watchedCurrency} onValueChange={v => setValue("currency", v)}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {CURRENCIES.map(c => (
-                                        <SelectItem key={c} value={c}>{c}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="acc-institution">
+                            Institution{" "}
+                            <span className="text-muted-foreground text-xs">(optional)</span>
+                        </Label>
+                        <Input id="acc-institution" placeholder="Revolut, N26…" {...register("institution")} />
                     </div>
 
                     <div className="space-y-1.5">
-                        <Label htmlFor="acc-balance">
-                            Current balance{" "}
-                            <span className="text-muted-foreground text-xs">(optional)</span>
-                        </Label>
-                        <Input
-                            id="acc-balance"
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            {...register("currentBalance")}
+                        <Label>Currency</Label>
+                        <CurrencyCombobox
+                            value={watchedCurrency}
+                            onChange={v => setValue("currency", v)}
                         />
                     </div>
 

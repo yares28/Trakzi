@@ -10,6 +10,7 @@ import { demoFetch } from "@/lib/demo/demo-fetch";
 import { NavDocuments } from "@/components/nav-documents";
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
+import { OverLimitBanner } from "@/components/accounts/OverLimitBanner";
 import {
   Sidebar,
   SidebarContent,
@@ -366,7 +367,9 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
     >
       <SidebarHeader className="px-2 pt-3 pb-2">
         <div className="flex w-full flex-col gap-2">
-          <div className="grid w-full grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-1 group-data-[collapsible=icon]:grid-cols-1 group-data-[collapsible=icon]:justify-items-center">
+          {/* Mobile: single column so the logo fills the available width.
+              Desktop: 3-col grid with side spacer + sidebar trigger. */}
+          <div className="grid w-full grid-cols-1 md:grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-1 group-data-[collapsible=icon]:grid-cols-1 group-data-[collapsible=icon]:justify-items-center">
             <div className="hidden h-8 w-8 md:block group-data-[collapsible=icon]:hidden" />
             <SidebarMenu className="flex w-full items-center justify-center">
               <SidebarMenuItem className="w-auto h-auto group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center">
@@ -390,10 +393,10 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
                           alt="Trakzi"
                           width={180}
                           height={60}
-                          className="h-14 w-auto max-w-full object-contain object-left transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] group-data-[state=collapsed]:hidden group-data-[state=collapsed]:scale-90 group-data-[state=collapsed]:opacity-0 md:h-16"
+                          className="h-20 w-auto max-w-full object-contain transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] group-data-[state=collapsed]:hidden group-data-[state=collapsed]:scale-90 group-data-[state=collapsed]:opacity-0 md:h-16 md:object-left"
                         />
                       ) : (
-                        <div className="h-14 w-full max-w-[200px] md:h-16 group-data-[state=collapsed]:hidden" />
+                        <div className="h-20 w-full max-w-[200px] md:h-16 group-data-[state=collapsed]:hidden" />
                       )}
                       {mounted ? (
                         <Image
@@ -423,6 +426,7 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
         </div>
       </SidebarHeader>
       <SidebarContent>
+        <OverLimitBanner />
         <NavMain items={data.navMain} onQuickCreate={onQuickCreate} />
         <NavDocuments items={data.documents} />
       </SidebarContent>

@@ -1,17 +1,43 @@
 // app/api/transfers/route.ts
-// List pending transfers and run on-demand detection.
+// List transfers in the review queue.
+//
+// Query params:
+//   ?status=open       (default) → 'pending' + 'suggested' (the active queue)
+//   ?status=pending
+//   ?status=suggested
+//   ?status=confirmed
+//   ?status=all
 import { NextResponse } from 'next/server'
 import { getCurrentUserId } from '@/lib/auth'
 import { neonQuery } from '@/lib/neonClient'
-import type { AccountTransferWithDetails } from '@/lib/types/accounts'
+import type { AccountTransferWithDetails, TransferStatus } from '@/lib/types/accounts'
 
-/**
- * GET /api/transfers
- * Returns all pending transfers with transaction details.
- */
-export async function GET() {
+type StatusFilter = 'open' | 'pending' | 'suggested' | 'confirmed' | 'all'
+
+const VALID_FILTERS: ReadonlySet<StatusFilter> = new Set([
+    'open', 'pending', 'suggested', 'confirmed', 'all',
+])
+
+function statusClause(filter: StatusFilter): { sql: string; values: string[] } {
+    switch (filter) {
+        case 'open':       return { sql: `at.status IN ('pending','suggested')`, values: [] }
+        case 'pending':    return { sql: `at.status = 'pending'`,                  values: [] }
+        case 'suggested':  return { sql: `at.status = 'suggested'`,                values: [] }
+        case 'confirmed':  return { sql: `at.status = 'confirmed'`,                values: [] }
+        case 'all':        return { sql: `TRUE`,                                   values: [] }
+    }
+}
+
+export async function GET(request: Request) {
     try {
         const userId = await getCurrentUserId()
+        const url = new URL(request.url)
+        const requested = (url.searchParams.get('status') ?? 'open').toLowerCase()
+        const filter: StatusFilter = VALID_FILTERS.has(requested as StatusFilter)
+            ? (requested as StatusFilter)
+            : 'open'
+
+        const { sql: where } = statusClause(filter)
 
         const rows = await neonQuery<{
             id: string
@@ -21,13 +47,11 @@ export async function GET() {
             amount: string
             status: string
             created_at: string
-            // from tx
             from_description: string
             from_amount: string
             from_date: string
             from_account_id: string | null
             from_account_name: string | null
-            // to tx
             to_description: string
             to_amount: string
             to_date: string
@@ -53,7 +77,7 @@ export async function GET() {
              LEFT JOIN bank_accounts fa ON fa.id = ft.account_id AND fa.user_id = $1
              LEFT JOIN bank_accounts ta ON ta.id = tt.account_id AND ta.user_id = $1
              WHERE at.user_id = $1
-               AND at.status = 'pending'
+               AND ${where}
              ORDER BY at.created_at DESC`,
             [userId]
         )
@@ -64,7 +88,7 @@ export async function GET() {
             fromTxId: r.from_tx_id,
             toTxId: r.to_tx_id,
             amount: parseFloat(r.amount),
-            status: r.status as 'pending' | 'confirmed' | 'rejected',
+            status: r.status as TransferStatus,
             createdAt: r.created_at,
             fromTx: {
                 id: r.from_tx_id,
@@ -84,8 +108,11 @@ export async function GET() {
             },
         }))
 
-        return NextResponse.json({ success: true, transfers })
+        return NextResponse.json({ success: true, transfers, filter })
     } catch (error: any) {
+        if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+            return NextResponse.json({ success: true, transfers: [], filter: 'open' })
+        }
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 }

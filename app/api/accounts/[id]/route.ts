@@ -7,6 +7,7 @@ import {
     unarchiveAccount,
     deleteAccount,
 } from '@/lib/accounts'
+import { invalidateAccountAffectedCaches } from '@/lib/accounts/cache'
 import { UpdateAccountDto } from '@/lib/types/accounts'
 import { z } from 'zod'
 
@@ -14,7 +15,6 @@ const updateAccountSchema = z.object({
     name: z.string().min(1).max(100).optional(),
     accountType: z.enum(['checking', 'savings', 'credit_card', 'cash', 'investment', 'loan']).optional(),
     currency: z.string().length(3).optional(),
-    currentBalance: z.number().nullable().optional(),
     institution: z.string().max(100).nullable().optional(),
     color: z.string().max(20).nullable().optional(),
     displayOrder: z.number().int().min(0).optional(),
@@ -61,15 +61,18 @@ export async function PATCH(
         if (isActive === false) {
             await archiveAccount(userId, id)
             const account = await getAccountById(userId, id)
+            await invalidateAccountAffectedCaches(userId)
             return NextResponse.json({ success: true, account })
         }
         if (isActive === true) {
             const account = await unarchiveAccount(userId, id)
+            await invalidateAccountAffectedCaches(userId)
             return NextResponse.json({ success: true, account })
         }
 
         const data: UpdateAccountDto = rest
         const account = await updateAccount(userId, id, data)
+        await invalidateAccountAffectedCaches(userId)
         return NextResponse.json({ success: true, account })
     } catch (error: any) {
         const isLimitError = error.message?.includes('limit') || error.message?.includes('reached')
@@ -88,6 +91,7 @@ export async function DELETE(
         const userId = await getCurrentUserId()
         const { id } = await params
         await deleteAccount(userId, id)
+        await invalidateAccountAffectedCaches(userId)
         return NextResponse.json({ success: true })
     } catch (error: any) {
         const isTxError = error.message?.includes('transactions')

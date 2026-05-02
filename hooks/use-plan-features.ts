@@ -9,6 +9,7 @@ export interface PlanFeatures {
   aiInsightsFreePreviewCount: number
   aiChatMessages: number
   aiInsightsEnabled: boolean
+  maxAccounts: number
 }
 
 const DEFAULT_FEATURES: PlanFeatures = {
@@ -17,6 +18,7 @@ const DEFAULT_FEATURES: PlanFeatures = {
   aiInsightsFreePreviewCount: 3,
   aiChatMessages: 10,
   aiInsightsEnabled: false,
+  maxAccounts: 2,
 }
 
 // Module-level singleton — avoids duplicate API calls across multiple hook instances
@@ -32,12 +34,14 @@ async function loadFeatures(): Promise<PlanFeatures> {
         return res.json()
       })
       .then((data): PlanFeatures => {
+        const rawMaxAccounts = data.limits?.max_accounts
         const features: PlanFeatures = {
           plan: data.plan || "free",
           advancedChartsEnabled: data.limits?.advanced_charts_enabled ?? false,
           aiInsightsFreePreviewCount: data.limits?.ai_insights_free_preview_count ?? 3,
           aiChatMessages: data.limits?.ai_chat_messages ?? 10,
           aiInsightsEnabled: data.limits?.ai_insights_enabled ?? false,
+          maxAccounts: rawMaxAccounts === -1 || rawMaxAccounts === undefined ? Infinity : rawMaxAccounts,
         }
         cachedFeatures = features
         return features

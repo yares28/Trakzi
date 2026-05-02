@@ -33,7 +33,7 @@ export default async function ChatPage() {
           <AppSidebar variant="inset" />
           <SidebarInset>
             <SiteHeader />
-            <div className="flex flex-1 flex-col overflow-hidden">
+            <div className="flex flex-1 flex-col overflow-hidden pt-[60px] md:pt-0">
               <DemoChatInterface />
             </div>
           </SidebarInset>
@@ -62,7 +62,7 @@ export default async function ChatPage() {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-hidden pt-[60px] md:pt-0">
           <ChatInterface isFree={isFree} />
         </div>
       </SidebarInset>

@@ -1,6 +1,7 @@
 // app/api/statements/import/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
+import { createHash } from "crypto";
 import Papa from "papaparse";
 import { neonInsert, neonQuery } from "@/lib/neonClient";
 import { getCurrentUserId } from "@/lib/auth";
@@ -8,6 +9,7 @@ import { detectTransfers, persistTransferPairs } from "@/lib/accounts/transfer-d
 import { TxRow } from "@/lib/types/transactions";
 import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limiter";
 import { invalidateUserCache } from "@/lib/cache/upstash";
+import { fetchRatesForBase, convertWithRates } from "@/lib/fx/converter";
 import {
     assertCapacityOrExplain,
     getRemainingCapacity,
@@ -23,13 +25,16 @@ type ImportBody = {
         rawFormat?: "pdf" | "csv" | "xlsx" | "xls" | "other";
         fileId?: string | null;
     };
-    // Optional: bank account to associate this import with
-    accountId?: string | null;
+    // Required: bank account to associate this import with. Every CSV must
+    // be tied to an account so transfer detection runs and currency is correct.
+    accountId: string;
     // Optional: allow partial import if over cap
     allowPartialImport?: boolean;
     // Optional: filter by date range
     dateFrom?: string;
     dateTo?: string;
+    // Optional: skip the duplicate-fingerprint check (user confirmed re-import)
+    force?: boolean;
 };
 
 type ImportResponse = {
@@ -38,6 +43,7 @@ type ImportResponse = {
     skipped?: number;
     duplicatesSkipped?: number;
     skippedInvalidDates?: number;
+    fxConverted?: number;
     partialImport?: boolean;
     reachedCap?: boolean;
     capacity?: {
@@ -63,6 +69,31 @@ async function ensureTransactionsTimeColumn(): Promise<void> {
     return ensureTransactionsTimeColumnPromise;
 }
 
+let ensureFingerprintColumnPromise: Promise<void> | null = null;
+
+async function ensureFingerprintColumn(): Promise<void> {
+    if (ensureFingerprintColumnPromise) return ensureFingerprintColumnPromise;
+
+    ensureFingerprintColumnPromise = (async () => {
+        await neonQuery(`ALTER TABLE statements ADD COLUMN IF NOT EXISTS fingerprint text`);
+    })().catch((error) => {
+        ensureFingerprintColumnPromise = null;
+        throw error;
+    });
+
+    return ensureFingerprintColumnPromise;
+}
+
+// Stable SHA-256 fingerprint of the row set — used to detect re-imports.
+// Rows are sorted before hashing so row order doesn't matter.
+function computeFingerprint(rows: Array<{ date: string; amount: number; description?: string }>): string {
+    const normalized = rows
+        .map(r => `${r.date}|${r.amount}|${(r.description ?? '').trim().toLowerCase()}`)
+        .sort()
+        .join('\n');
+    return createHash('sha256').update(normalized).digest('hex');
+}
+
 function isValidIsoDate(value: string | null | undefined): boolean {
     if (!value) return false;
     const trimmed = value.trim();
@@ -80,25 +111,31 @@ function isValidIsoDate(value: string | null | undefined): boolean {
 export const POST = async (req: NextRequest) => {
     try {
         const body = (await req.json()) as ImportBody;
-        const { csv, statementMeta, accountId, allowPartialImport, dateFrom, dateTo } = body;
+        const { csv, statementMeta, accountId, allowPartialImport, dateFrom, dateTo, force } = body;
         if (!csv) {
             return NextResponse.json({ error: "Missing CSV" }, { status: 400 });
         }
 
         const userId = await getCurrentUserId();
 
-        // Validate accountId ownership if provided
-        let resolvedAccountId: string | null = null;
-        if (accountId) {
-            const [account] = await neonQuery<{ id: string }>(
-                `SELECT id FROM bank_accounts WHERE id = $1 AND user_id = $2 AND is_active = true`,
-                [accountId, userId]
+        // accountId is required — the import flow must be tied to an account so
+        // transfer detection runs and the row currency matches the account.
+        if (!accountId) {
+            return NextResponse.json(
+                { error: "Account is required. Pick an account before importing." },
+                { status: 400 }
             );
-            if (!account) {
-                return NextResponse.json({ error: "Account not found" }, { status: 404 });
-            }
-            resolvedAccountId = account.id;
         }
+
+        const [account] = await neonQuery<{ id: string; currency: string }>(
+            `SELECT id, currency FROM bank_accounts WHERE id = $1 AND user_id = $2 AND is_active = true`,
+            [accountId, userId]
+        );
+        if (!account) {
+            return NextResponse.json({ error: "Account not found" }, { status: 404 });
+        }
+        const resolvedAccountId: string = account.id;
+        const resolvedCurrency: string = account.currency;
 
         // Rate limit - bulk imports are expensive (DB writes + parsing)
         const rateLimitResult = await checkRateLimit(userId, 'mutation');
@@ -210,6 +247,26 @@ export const POST = async (req: NextRequest) => {
             ? rows.slice(0, allowedCount)
             : rows.slice(0, allowedCount);
 
+        // 4a) Fingerprint check — soft-dedup: warn the user if the same set of rows
+        //     was imported before. Running ensureFingerprintColumn in parallel with
+        //     the dedup query is safe because the lazy migration is idempotent.
+        await ensureFingerprintColumn();
+        const fingerprint = computeFingerprint(rowsToInsert);
+
+        if (!force) {
+            const dupRows = await neonQuery<{ id: number }>(
+                `SELECT id FROM statements WHERE user_id = $1 AND fingerprint = $2 LIMIT 1`,
+                [userId, fingerprint]
+            );
+            if (dupRows.length > 0) {
+                return NextResponse.json({
+                    duplicate: true,
+                    existingStatementId: dupRows[0].id,
+                    message: 'This statement appears to have been imported before.',
+                }, { status: 409 });
+            }
+        }
+
         // 4) Insert statement
         const [statement] = await neonInsert<{
             user_id: string;
@@ -218,6 +275,7 @@ export const POST = async (req: NextRequest) => {
             row_count: number;
             imported_count: number;
             account_id?: string | null;
+            fingerprint?: string;
             id?: number;
         }>("statements", {
             user_id: userId,
@@ -226,6 +284,7 @@ export const POST = async (req: NextRequest) => {
             row_count: rowsToInsert.length,
             imported_count: rowsToInsert.length,
             account_id: resolvedAccountId,
+            fingerprint,
         }) as Array<{
             id: number;
             user_id: string;
@@ -293,42 +352,70 @@ export const POST = async (req: NextRequest) => {
             }
         }
 
-        // 6) Build transactions rows for Neon with proper category_id
+        // 6) FX conversion — fetch rates once for all source currencies that differ from account currency
+        const sourceCurrencies = [
+            ...new Set(
+                rowsToInsert
+                    .map(r => r.currency?.toUpperCase())
+                    .filter((c): c is string => !!c && c !== resolvedCurrency.toUpperCase())
+            )
+        ];
+        let fxRates: Record<string, number> = {};
+        if (sourceCurrencies.length > 0) {
+            try {
+                fxRates = await fetchRatesForBase(resolvedCurrency, sourceCurrencies);
+            } catch (fxError: any) {
+                return NextResponse.json(
+                    { error: `FX conversion failed: ${fxError.message}` },
+                    { status: 502 }
+                );
+            }
+        }
+
+        // 7) Build transactions rows for Neon with proper category_id and FX conversion
         const VALID_IMPORT_TX_TYPES = new Set(['expense', 'income', 'transfer'])
         const timestamp = new Date().toISOString();
-        const txRows = rowsToInsert.map((r) => ({
-            user_id: userId,
-            statement_id: statementId,
-            account_id: resolvedAccountId ?? null,
-            tx_date: r.date,
-            tx_time: r.time ?? null,
-            description: r.description,
-            amount: r.amount,
-            balance: r.balance,
-            currency: "EUR",
-            tx_type: r.tx_type && VALID_IMPORT_TX_TYPES.has(r.tx_type) ? r.tx_type : 'expense',
-            category_id: r.category && categoryNameToId.has(r.category)
-                ? categoryNameToId.get(r.category)!
-                : null,
-            raw_csv_row: JSON.stringify(r),
-            created_at: timestamp,
-            updated_at: timestamp
-        }));
+        const txRows = rowsToInsert.map((r) => {
+            const rowCurrency = r.currency?.toUpperCase() ?? resolvedCurrency.toUpperCase();
+            const needsConversion = rowCurrency !== resolvedCurrency.toUpperCase() && fxRates[rowCurrency];
+            const convertedAmount = needsConversion
+                ? convertWithRates(r.amount, rowCurrency, resolvedCurrency, fxRates)
+                : r.amount;
+            const convertedBalance = (needsConversion && r.balance != null)
+                ? convertWithRates(r.balance, rowCurrency, resolvedCurrency, fxRates)
+                : r.balance;
 
-        // Only run transfer detection when a bank account is assigned
-        let detectedTransferCount = 0;
-        if (resolvedAccountId) {
-            type TxInsertRow = typeof txRows[number];
-            const insertedTxs = await neonInsert<TxInsertRow>(
-                "transactions", txRows, { returnRepresentation: true }
-            ) as Array<TxInsertRow & { id: number }>;
-            const newIds = insertedTxs.map(t => t.id);
-            const pairs = await detectTransfers(userId, newIds);
-            await persistTransferPairs(userId, pairs);
-            detectedTransferCount = pairs.length;
-        } else {
-            await neonInsert("transactions", txRows, { returnRepresentation: false });
-        }
+            return {
+                user_id: userId,
+                statement_id: statementId,
+                account_id: resolvedAccountId,
+                tx_date: r.date,
+                tx_time: r.time ?? null,
+                description: r.description,
+                amount: convertedAmount,
+                balance: convertedBalance,
+                currency: resolvedCurrency,
+                original_amount: needsConversion ? r.amount : null,
+                original_currency: needsConversion ? rowCurrency : null,
+                tx_type: r.tx_type && VALID_IMPORT_TX_TYPES.has(r.tx_type) ? r.tx_type : 'expense',
+                category_id: r.category && categoryNameToId.has(r.category)
+                    ? categoryNameToId.get(r.category)!
+                    : null,
+                raw_csv_row: JSON.stringify(r),
+                created_at: timestamp,
+                updated_at: timestamp,
+            };
+        });
+
+        // Account is always set, so transfer detection always runs.
+        type TxInsertRow = typeof txRows[number];
+        const insertedTxs = await neonInsert<TxInsertRow>(
+            "transactions", txRows, { returnRepresentation: true }
+        ) as Array<TxInsertRow & { id: number }>;
+        const newIds = insertedTxs.map(t => t.id);
+        const pairs = await detectTransfers(userId, newIds);
+        await persistTransferPairs(userId, pairs);
+        const detectedTransferCount = pairs.length;
 
         // Build response
         const response: ImportResponse & { detectedTransfers?: number } = {
@@ -344,6 +431,11 @@ export const POST = async (req: NextRequest) => {
 
         if (detectedTransferCount > 0) {
             (response as any).detectedTransfers = detectedTransferCount;
+        }
+
+        if (sourceCurrencies.length > 0) {
+            const fxConvertedCount = txRows.filter(r => r.original_currency != null).length;
+            if (fxConvertedCount > 0) response.fxConverted = fxConvertedCount;
         }
 
         if (invalidDateCount > 0) {

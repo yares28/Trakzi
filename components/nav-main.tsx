@@ -27,6 +27,7 @@ export function NavMain({
     title: string
     url: string
     icon?: IconComponent
+    rightSlot?: React.ReactNode
   }[]
   onQuickCreate?: () => void
 }) {
@@ -209,6 +210,7 @@ export function NavMain({
                   <Link href={item.url} prefetch={false}>
                     {item.icon && <item.icon />}
                     <span>{item.title}</span>
+                    {item.rightSlot}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

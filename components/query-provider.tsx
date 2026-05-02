@@ -6,7 +6,7 @@ import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persi
 import { get as idbGet, set as idbSet, del as idbDel } from "idb-keyval"
 
 // Bump this string to invalidate all persisted caches (e.g. after a data schema change)
-const CACHE_BUSTER = "v1"
+const CACHE_BUSTER = "v2"
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
 

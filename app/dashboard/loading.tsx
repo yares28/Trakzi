@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 
 export default function Loading() {
     return (
-        <div className="-mt-2 flex flex-col gap-4 pt-0 pb-4 md:-mt-2 md:gap-6 md:pt-0 md:pb-6">
+        <div className="relative -mt-2 flex flex-col gap-4 pt-0 pb-4 md:-mt-2 md:gap-6 md:pt-0 md:pb-6">
+            <div className="pointer-events-none fixed inset-0" style={{ background: "radial-gradient(ellipse 60% 40% at 50% 20%, oklch(0.6716 0.1368 48.513 / 0.05) 0%, transparent 70%)" }} />
             <div className="px-4 lg:px-6">
                 {/* Dashboard cards skeleton */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

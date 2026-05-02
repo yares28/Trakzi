@@ -6,7 +6,7 @@ export function NewReleasePromo() {
   return (
     <section className="mt-12 w-full px-4 sm:px-0">
       <div className="mx-auto max-w-4xl rounded-[40px] border border-black/5 dark:border-white/20 p-2 shadow-sm">
-        <div className="relative mx-auto min-h-[560px] sm:min-h-[400px] sm:h-[400px] max-w-4xl overflow-hidden rounded-[38px] border border-black/5 dark:border-white/20 bg-[#fe985b] p-2 shadow-sm">
+        <div className="relative mx-auto min-h-[440px] sm:min-h-[400px] sm:h-[400px] max-w-4xl overflow-hidden rounded-[38px] border border-black/5 dark:border-white/20 bg-[#fe985b] p-2 shadow-sm">
           {/* Subtle radial glow from center */}
           <div
             className="absolute inset-0 z-0"
@@ -22,6 +22,25 @@ export function NewReleasePromo() {
               backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
             }}
           />
+
+          {/* Decorative wordmark — anchored to the CARD (sibling of content),
+              hidden on mobile where there's no room without overlapping. */}
+          <h1
+            className="hidden sm:block absolute inset-x-0 mt-[30px] text-center text-[190px] font-semibold text-transparent pointer-events-none select-none leading-none z-0"
+            style={{
+              WebkitTextStroke: "1px currentColor",
+              color: "transparent",
+            }}
+            aria-hidden="true"
+          >
+            trakzi
+          </h1>
+          <h1
+            className="hidden sm:block absolute inset-x-0 mt-[30px] text-center text-[190px] font-semibold text-primary pointer-events-none select-none leading-none z-0"
+            aria-hidden="true"
+          >
+            trakzi
+          </h1>
 
           <div className="relative z-10">
             <div className="mt-8 text-center px-3 sm:px-0">
@@ -89,24 +108,6 @@ you didn't even know existed.</h2>
                 </Link>
               </div>
             </div>
-
-            {/* Decorative wordmark */}
-            <h1
-              className="absolute inset-x-0 bottom-0 text-center text-[64px] font-semibold text-transparent sm:bottom-auto sm:mt-[30px] sm:text-[190px] pointer-events-none select-none leading-none"
-              style={{
-                WebkitTextStroke: "1px currentColor",
-                color: "transparent",
-              }}
-              aria-hidden="true"
-            >
-              trakzi
-            </h1>
-            <h1
-              className="absolute inset-x-0 bottom-0 text-center text-[64px] font-semibold text-primary sm:bottom-auto sm:mt-[30px] sm:text-[190px] pointer-events-none select-none leading-none"
-              aria-hidden="true"
-            >
-              trakzi
-            </h1>
           </div>
         </div>
       </div>

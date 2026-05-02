@@ -39,33 +39,44 @@ export const DEFAULT_CHART_ORDER = [
 export const CHART_ORDER_STORAGE_KEY = "analytics-chart-order"
 export const CHART_SIZES_STORAGE_KEY = "analytics-chart-sizes"
 export const CHART_SIZES_VERSION_KEY = "analytics-chart-sizes-version"
-export const DEFAULT_SIZES_VERSION = "14"
+export const DEFAULT_SIZES_VERSION = "15"
 
 export const DEFAULT_CHART_SIZES: Record<string, { w: number; h: number; x?: number; y?: number }> = {
   "incomeExpensesTracking1": { w: 6, h: 6, x: 0, y: 0 },
   "incomeExpensesTracking2": { w: 6, h: 6, x: 6, y: 0 },
   "incomeExpenseRatio": { w: 6, h: 13, x: 0, y: 12 },
-  "weekendVsWeekday": { w: 6, h: 6, x: 6, y: 12 },
-  "monthlyBudgetPace": { w: 6, h: 6, x: 0, y: 18 },
-  "budgetBurndown": { w: 6, h: 6, x: 6, y: 18 },
-  "purchaseSizeBreakdown": { w: 6, h: 6, x: 0, y: 24 },
-  "recurringVsOneTime": { w: 6, h: 6, x: 6, y: 24 },
-  "needsWantsBreakdown": { w: 6, h: 10, x: 0, y: 30 },
-  "expenseBreakdown": { w: 6, h: 10, x: 6, y: 30 },
-  "spendingCategoryRankings": { w: 12, h: 8, x: 0, y: 40 },
-  "netWorthAllocation": { w: 12, h: 10, x: 0, y: 48 },
-  "spendingActivityRings": { w: 6, h: 10, x: 0, y: 58 },
-  "categoryBubbleMap": { w: 6, h: 10, x: 6, y: 58 },
-  "moneyFlow": { w: 6, h: 10, x: 0, y: 68 },
-  "householdSpendMix": { w: 6, h: 10, x: 6, y: 68 },
-  "transactionHistory": { w: 12, h: 8, x: 0, y: 78 },
-  "categorySpendingByPeriod": { w: 12, h: 10, x: 0, y: 86 },
-  "cashFlowSankey": { w: 12, h: 10, x: 0, y: 96 },
-  "dailyTransactionActivity": { w: 12, h: 6, x: 0, y: 106 },
-  "dayOfWeekCategory": { w: 6, h: 9, x: 0, y: 112 },
-  "singleMonthCategorySpending": { w: 6, h: 9, x: 6, y: 112 },
-  "spendingStreamgraph": { w: 12, h: 9, x: 0, y: 121 },
-  "financialHealthScore": { w: 6, h: 10, x: 0, y: 130 },
+  // minH for these three is 7 — keep default at or above that
+  "weekendVsWeekday": { w: 6, h: 7, x: 6, y: 12 },
+  "monthlyBudgetPace": { w: 6, h: 7, x: 0, y: 19 },
+  "budgetBurndown": { w: 6, h: 7, x: 6, y: 19 },
+  "purchaseSizeBreakdown": { w: 6, h: 7, x: 0, y: 26 },
+  "recurringVsOneTime": { w: 6, h: 7, x: 6, y: 26 },
+  "needsWantsBreakdown": { w: 6, h: 10, x: 0, y: 33 },
+  "expenseBreakdown": { w: 6, h: 10, x: 6, y: 33 },
+  "spendingCategoryRankings": { w: 12, h: 8, x: 0, y: 43 },
+  "netWorthAllocation": { w: 12, h: 10, x: 0, y: 51 },
+  "spendingActivityRings": { w: 6, h: 10, x: 0, y: 61 },
+  "categoryBubbleMap": { w: 6, h: 10, x: 6, y: 61 },
+  "moneyFlow": { w: 6, h: 10, x: 0, y: 71 },
+  "householdSpendMix": { w: 6, h: 10, x: 6, y: 71 },
+  "transactionHistory": { w: 12, h: 8, x: 0, y: 81 },
+  "categorySpendingByPeriod": { w: 12, h: 10, x: 0, y: 89 },
+  "cashFlowSankey": { w: 12, h: 10, x: 0, y: 99 },
+  "dailyTransactionActivity": { w: 12, h: 7, x: 0, y: 109 },
+  "dayOfWeekCategory": { w: 6, h: 9, x: 0, y: 116 },
+  "singleMonthCategorySpending": { w: 6, h: 9, x: 6, y: 116 },
+  "spendingStreamgraph": { w: 12, h: 9, x: 0, y: 125 },
+  "financialHealthScore": { w: 6, h: 10, x: 0, y: 134 },
+  // Moved-from-test-charts — minH is 8 for all of these; defaults must be >= 8
+  "seasonalSpending": { w: 6, h: 8, x: 0, y: 144 },
+  "hourlySpending": { w: 6, h: 8, x: 6, y: 144 },
+  "transactionCountTrend": { w: 6, h: 8, x: 0, y: 152 },
+  "momGrowth": { w: 6, h: 8, x: 6, y: 152 },
+  "topMerchantsRace": { w: 6, h: 8, x: 0, y: 160 },
+  "paydayImpact": { w: 6, h: 8, x: 6, y: 160 },
+  "incomeSources": { w: 6, h: 8, x: 0, y: 168 },
+  "yearOverYear": { w: 6, h: 8, x: 6, y: 168 },
+  "dailyAverageByMonth": { w: 6, h: 8, x: 0, y: 176 },
 }
 
 // Advanced tab chart order and default sizes

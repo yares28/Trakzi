@@ -25,20 +25,22 @@ export const ChartSkeleton = memo(function ChartSkeleton({
 }: ChartSkeletonProps) {
   const skeletonClass = cn("w-full h-full", className)
 
-  switch (type) {
-    case "area":
-      return <AreaSkeleton className={skeletonClass} />
-    case "pie":
-      return <PieSkeleton className={skeletonClass} />
-    case "bar":
-      return <BarSkeleton className={skeletonClass} />
-    case "flow":
-      return <FlowSkeleton className={skeletonClass} />
-    case "grid":
-      return <GridSkeleton className={skeletonClass} />
-    default:
-      return <BarSkeleton className={skeletonClass} />
-  }
+  const svg = (() => {
+    switch (type) {
+      case "area": return <AreaSkeleton className={skeletonClass} />
+      case "pie":  return <PieSkeleton className={skeletonClass} />
+      case "bar":  return <BarSkeleton className={skeletonClass} />
+      case "flow": return <FlowSkeleton className={skeletonClass} />
+      case "grid": return <GridSkeleton className={skeletonClass} />
+      default:     return <BarSkeleton className={skeletonClass} />
+    }
+  })()
+
+  return (
+    <div className={cn("shimmer-wrap w-full h-full rounded-md", className)}>
+      {svg}
+    </div>
+  )
 })
 
 ChartSkeleton.displayName = "ChartSkeleton"

@@ -529,26 +529,30 @@ export const FavoritesGrid = memo(function FavoritesGrid({
   if (favorites.size === 0) {
     return (
       <div className="px-4 lg:px-6 mb-6 min-w-0">
-        <Card className="border-dashed border-2 bg-muted/30">
-          <CardHeader className="text-center py-10">
-            <div className="mx-auto bg-primary/10 p-4 rounded-full w-fit mb-4">
-              <IconCircleCheck className="w-8 h-8 text-primary" />
+        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border py-14 text-center animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <div className="relative">
+            <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-dashed border-border bg-[oklch(0.6716_0.1368_48.513/0.06)]">
+              <IconCircleCheck className="w-9 h-9" style={{ color: "oklch(0.6716 0.1368 48.513)" }} />
             </div>
-            <CardTitle className="text-xl">Customize Your Dashboard</CardTitle>
-            <CardDescription className="max-w-lg mx-auto mt-2 text-base">
-              You have not favorited any charts yet. Visit Analytics or Trends pages
-              and click the star icon on any chart to pin it here for quick access.
-            </CardDescription>
-            <div className="flex justify-center gap-4 mt-6">
-              <Button variant="outline" onClick={() => router.push("/analytics")}>
-                Go to Analytics
-              </Button>
-              <Button variant="outline" onClick={() => router.push("/trends")}>
-                Go to Trends
-              </Button>
+            <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-border bg-card px-2.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              PORTFOLIO · EMPTY
             </div>
-          </CardHeader>
-        </Card>
+          </div>
+          <div className="mt-1">
+            <h3 className="text-base font-semibold">No charts pinned yet</h3>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto mt-1.5">
+              Visit Analytics or Trends and click the star on any chart to pin it here for quick access.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="outline" size="sm" onClick={() => router.push("/analytics")}>
+              Go to Analytics
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => router.push("/trends")}>
+              Go to Trends
+            </Button>
+          </div>
+        </div>
       </div>
     )
   }

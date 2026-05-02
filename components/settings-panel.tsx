@@ -18,7 +18,6 @@ import {
     IconBug,
     IconPalette,
     IconCreditCard,
-    IconExternalLink,
     IconX,
     IconCheck,
     IconShoppingCart,
@@ -50,6 +49,7 @@ import { useOnboarding } from "@/components/onboarding/onboarding-context"
 import { getTourPageIdFromPathname } from "@/components/onboarding/tour-content"
 import { MapPin, Users, Landmark } from "lucide-react"
 import { AccountsSection } from "@/components/accounts/AccountsSection"
+
 
 type SettingsSection = "preferences" | "accounts" | "subscription" | "privacy" | "bug-report"
 
@@ -192,7 +192,9 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                                         onReplayCurrentTour={handleReplayCurrentTour}
                                     />
                                 )}
-                                {activeSection === "accounts" && <AccountsSection />}
+                                {activeSection === "accounts" && (
+                                    <AccountsSection />
+                                )}
                                 {activeSection === "subscription" && <SubscriptionSection />}
                                 {activeSection === "privacy" && <PrivacySection />}
                                 {activeSection === "bug-report" && <BugReportSection />}
@@ -239,7 +241,9 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
                                         onReplayCurrentTour={handleReplayCurrentTour}
                                     />
                                 )}
-                                {activeSection === "accounts" && <AccountsSection />}
+                                {activeSection === "accounts" && (
+                                    <AccountsSection />
+                                )}
                                 {activeSection === "subscription" && <SubscriptionSection />}
                                 {activeSection === "privacy" && <PrivacySection />}
                                 {activeSection === "bug-report" && <BugReportSection />}

@@ -45,7 +45,7 @@ export default async function TestChartsPage() {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
-        <main className="flex-1 space-y-8 p-4 pt-0 lg:p-6 lg:pt-2">
+        <main className="flex-1 space-y-8 p-4 pt-[60px] md:pt-0 lg:p-6 lg:pt-2">
           <TestLabWorkbench
             chartPrompts={{
               generation: chartPrompt,

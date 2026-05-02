@@ -1371,3 +1371,74 @@ html[data-file-dragging="true"] *::-webkit-scrollbar {
 [data-clerk-portal] {
   z-index: 99999 !important;
 }
+
+/* Shimmer overlay — works on any content including SVGs */
+.shimmer-wrap {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-wrap::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    oklch(1 0 0 / 0.22) 50%,
+    transparent 100%
+  );
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.dark .shimmer-wrap::before {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    oklch(1 0 0 / 0.08) 50%,
+    transparent 100%
+  );
+}
+
+/* Suppress per-element pulse inside shimmer wrappers — the sweep handles motion */
+.shimmer-wrap .animate-pulse {
+  animation: none;
+}
+
+/* Skeleton shimmer sweep */
+[data-slot="skeleton"] {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--accent);
+}
+
+[data-slot="skeleton"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    oklch(1 0 0 / 0.22) 50%,
+    transparent 100%
+  );
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+  animation-delay: var(--skeleton-delay, 0ms);
+}
+
+.dark [data-slot="skeleton"]::before {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    oklch(1 0 0 / 0.08) 50%,
+    transparent 100%
+  );
+}
+
+@keyframes skeleton-shimmer {
+  100% { transform: translateX(200%); }
+}

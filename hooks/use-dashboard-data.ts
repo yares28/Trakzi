@@ -1,10 +1,29 @@
 import { useAuth } from "@clerk/nextjs"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, keepPreviousData } from "@tanstack/react-query"
 import { useDateFilter } from "@/components/date-filter-provider"
+import { useAccountFilter } from "@/components/account-filter-provider"
 import { demoFetch } from "@/lib/demo/demo-fetch"
 import { useDemoMode } from "@/lib/demo/demo-context"
 import type { PocketsBundleResponse } from "@/lib/types/pockets"
 import type { DebtAccountSummary } from "@/lib/types/debts"
+
+/** Build "?accounts=id1,id2" when filter is non-empty; otherwise return ''. */
+function buildAccountsQuery(accountIds: string[]): string {
+    if (!accountIds || accountIds.length === 0) return ""
+    return `accounts=${encodeURIComponent(accountIds.join(","))}`
+}
+
+function appendAccountsToUrl(baseUrl: string, accountIds: string[]): string {
+    const accountsQs = buildAccountsQuery(accountIds)
+    if (!accountsQs) return baseUrl
+    const sep = baseUrl.includes("?") ? "&" : "?"
+    return `${baseUrl}${sep}${accountsQs}`
+}
+
+/** Stable React Query key segment for the account filter. */
+function accountQueryKey(accountIds: string[]): string {
+    return accountIds.length === 0 ? "all" : accountIds.join(",")
+}
 
 // ============================================
 // TYPES - Bundle API Response Types
@@ -301,10 +320,11 @@ function normalizeDebtSummary(debt: DebtAccountSummary): DebtAccountSummary {
 // BUNDLE API FETCHERS (with Redis caching)
 // ============================================
 
-async function fetchAnalyticsBundle(filter: string | null, effectiveCost = true): Promise<AnalyticsBundleData> {
+async function fetchAnalyticsBundle(filter: string | null, effectiveCost = true, accountIds: string[] = []): Promise<AnalyticsBundleData> {
     const params = new URLSearchParams()
     if (filter) params.set('filter', filter)
     if (!effectiveCost) params.set('effective_cost', '0')
+    if (accountIds.length > 0) params.set('accounts', accountIds.join(','))
     const qs = params.toString()
     const url = qs ? `/api/charts/analytics-bundle?${qs}` : `/api/charts/analytics-bundle`
 
@@ -315,10 +335,11 @@ async function fetchAnalyticsBundle(filter: string | null, effectiveCost = true)
     return response.json()
 }
 
-async function fetchHomeBundle(filter: string | null): Promise<HomeBundleData> {
-    const url = filter
+async function fetchHomeBundle(filter: string | null, accountIds: string[] = []): Promise<HomeBundleData> {
+    const baseUrl = filter
         ? `/api/charts/home-bundle?filter=${encodeURIComponent(filter)}`
         : `/api/charts/home-bundle`
+    const url = appendAccountsToUrl(baseUrl, accountIds)
 
     const response = await demoFetch(url)
     if (!response.ok) {
@@ -327,10 +348,11 @@ async function fetchHomeBundle(filter: string | null): Promise<HomeBundleData> {
     return response.json()
 }
 
-async function fetchTrendsBundle(filter: string | null): Promise<TrendsBundleData> {
-    const url = filter
+async function fetchTrendsBundle(filter: string | null, accountIds: string[] = []): Promise<TrendsBundleData> {
+    const baseUrl = filter
         ? `/api/charts/trends-bundle?filter=${encodeURIComponent(filter)}`
         : `/api/charts/trends-bundle`
+    const url = appendAccountsToUrl(baseUrl, accountIds)
 
     const response = await demoFetch(url)
     if (!response.ok) {
@@ -339,10 +361,11 @@ async function fetchTrendsBundle(filter: string | null): Promise<TrendsBundleDat
     return response.json()
 }
 
-async function fetchSavingsBundle(filter: string | null): Promise<SavingsBundleData> {
-    const url = filter
+async function fetchSavingsBundle(filter: string | null, accountIds: string[] = []): Promise<SavingsBundleData> {
+    const baseUrl = filter
         ? `/api/charts/savings-bundle?filter=${encodeURIComponent(filter)}`
         : `/api/charts/savings-bundle`
+    const url = appendAccountsToUrl(baseUrl, accountIds)
 
     const response = await demoFetch(url)
     if (!response.ok) {
@@ -351,8 +374,9 @@ async function fetchSavingsBundle(filter: string | null): Promise<SavingsBundleD
     return response.json()
 }
 
-async function fetchPocketsBundle(): Promise<PocketsBundleResponse> {
-    const response = await demoFetch("/api/charts/pockets-bundle")
+async function fetchPocketsBundle(accountIds: string[] = []): Promise<PocketsBundleResponse> {
+    const url = appendAccountsToUrl("/api/charts/pockets-bundle", accountIds)
+    const response = await demoFetch(url)
     if (!response.ok) {
         throw new Error(`Failed to fetch pockets bundle: ${response.statusText}`)
     }
@@ -471,12 +495,15 @@ export function useTotalTransactionCount() {
 export function useAnalyticsBundleData(showEffectiveCosts = true) {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
+    const { selected: accountIds, isReady: accountsReady } = useAccountFilter()
     const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["analytics-bundle", isDemoMode ? "demo" : (userId ?? ""), filter, showEffectiveCosts],
-        queryFn: () => fetchAnalyticsBundle(filter, showEffectiveCosts),
-        enabled: (isDemoMode || !!userId) && isReady,
+        queryKey: ["analytics-bundle", isDemoMode ? "demo" : (userId ?? ""), filter, showEffectiveCosts, accountQueryKey(accountIds)],
+        queryFn: () => fetchAnalyticsBundle(filter, showEffectiveCosts, accountIds),
+        enabled: (isDemoMode || !!userId) && isReady && accountsReady,
+        refetchOnMount: true,
+        placeholderData: keepPreviousData,
     })
 }
 
@@ -486,12 +513,15 @@ export function useAnalyticsBundleData(showEffectiveCosts = true) {
 export function useHomeBundleData() {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
+    const { selected: accountIds, isReady: accountsReady } = useAccountFilter()
     const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["home-bundle", isDemoMode ? "demo" : (userId ?? ""), filter],
-        queryFn: () => fetchHomeBundle(filter),
-        enabled: (isDemoMode || !!userId) && isReady,
+        queryKey: ["home-bundle", isDemoMode ? "demo" : (userId ?? ""), filter, accountQueryKey(accountIds)],
+        queryFn: () => fetchHomeBundle(filter, accountIds),
+        enabled: (isDemoMode || !!userId) && isReady && accountsReady,
+        refetchOnMount: true,
+        placeholderData: keepPreviousData,
     })
 }
 
@@ -501,12 +531,15 @@ export function useHomeBundleData() {
 export function useTrendsBundleData() {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
+    const { selected: accountIds, isReady: accountsReady } = useAccountFilter()
     const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["trends-bundle", isDemoMode ? "demo" : (userId ?? ""), filter],
-        queryFn: () => fetchTrendsBundle(filter),
-        enabled: (isDemoMode || !!userId) && isReady,
+        queryKey: ["trends-bundle", isDemoMode ? "demo" : (userId ?? ""), filter, accountQueryKey(accountIds)],
+        queryFn: () => fetchTrendsBundle(filter, accountIds),
+        enabled: (isDemoMode || !!userId) && isReady && accountsReady,
+        refetchOnMount: true,
+        placeholderData: keepPreviousData,
     })
 }
 
@@ -516,12 +549,15 @@ export function useTrendsBundleData() {
 export function useSavingsBundleData() {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
+    const { selected: accountIds, isReady: accountsReady } = useAccountFilter()
     const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["savings-bundle", isDemoMode ? "demo" : (userId ?? ""), filter],
-        queryFn: () => fetchSavingsBundle(filter),
-        enabled: (isDemoMode || !!userId) && isReady,
+        queryKey: ["savings-bundle", isDemoMode ? "demo" : (userId ?? ""), filter, accountQueryKey(accountIds)],
+        queryFn: () => fetchSavingsBundle(filter, accountIds),
+        enabled: (isDemoMode || !!userId) && isReady && accountsReady,
+        refetchOnMount: true,
+        placeholderData: keepPreviousData,
     })
 }
 
@@ -530,12 +566,13 @@ export function useSavingsBundleData() {
  */
 export function usePocketsBundleData() {
     const { userId } = useAuth()
+    const { selected: accountIds, isReady: accountsReady } = useAccountFilter()
     const { isDemoMode } = useDemoMode()
 
     return useQuery({
-        queryKey: ["pockets-bundle", isDemoMode ? "demo" : (userId ?? "")],
-        queryFn: fetchPocketsBundle,
-        enabled: isDemoMode || !!userId,
+        queryKey: ["pockets-bundle", isDemoMode ? "demo" : (userId ?? ""), accountQueryKey(accountIds)],
+        queryFn: () => fetchPocketsBundle(accountIds),
+        enabled: (isDemoMode || !!userId) && accountsReady,
     })
 }
 

@@ -45,6 +45,11 @@ export interface SettingsPreferences {
   font?: string
   /** Compact number display — true = abbreviated (42.6K), false = full (42,616.68). */
   compactNumbers?: boolean
+  /**
+   * Selected account IDs to filter analytics by. Empty/missing means "all accounts".
+   * Stored canonically sorted to keep the Redis cache key stable across reorders.
+   */
+  account_filter?: string[]
 }
 
 /** Onboarding state — tracks tour completion and checklist progress. */

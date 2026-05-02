@@ -10,4 +10,7 @@ export type TxRow = {
     needsReview?: boolean;
     reviewReason?: string | null;
     tx_type?: string;      // 'expense' | 'income' | 'transfer' — set by heuristics during import
+    currency?: string;     // ISO 4217 code from CSV currency column (e.g., "USD"); absent means use account currency
+    originalAmount?: number;   // Pre-conversion amount when currency differs from account currency
+    originalCurrency?: string; // ISO 4217 code of the original row currency before FX conversion
 };

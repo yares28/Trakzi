@@ -7,9 +7,6 @@ import {
   ContributionGraph,
   ContributionGraphCalendar,
   ContributionGraphBlock,
-  ContributionGraphFooter,
-  ContributionGraphTotalCount,
-  ContributionGraphLegend,
   type Activity,
 } from "@/components/kibo-ui/contribution-graph";
 import { useTheme } from "next-themes";
@@ -136,15 +133,10 @@ export function getDailyTransactionActivityDisplayMode(
 
 interface CalendarContributionGraphProps {
   activities: Activity[];
-  showFooter: boolean;
   blockSize: number;
   blockMargin: number;
   fontSize: number;
   outlineColor: string;
-  filteredData: Array<{ day: string; value: number }>;
-  effectiveDateFilter: string;
-  totalSpent: number;
-  formatCurrency: (value: number) => string;
   getFillForLevel: (level: number) => string;
   onBlockMouseEnter: (e: React.MouseEvent, activity: Activity) => void;
   onBlockMouseMove: (e: React.MouseEvent) => void;
@@ -154,36 +146,15 @@ interface CalendarContributionGraphProps {
 const CalendarContributionGraph = React.memo(
   function CalendarContributionGraph({
     activities,
-    showFooter,
     blockSize,
     blockMargin,
     fontSize,
     outlineColor,
-    filteredData,
-    effectiveDateFilter,
-    totalSpent,
-    formatCurrency,
     getFillForLevel,
     onBlockMouseEnter,
     onBlockMouseMove,
     onBlockMouseLeave,
   }: CalendarContributionGraphProps) {
-    const footerText = (() => {
-      if (filteredData.length === 0)
-        return `No transactions in ${new Date().getFullYear()}`;
-      if (effectiveDateFilter === "last30days")
-        return `${formatCurrency(totalSpent)} spent in the last 30 days`;
-      if (effectiveDateFilter === "last3months")
-        return `${formatCurrency(totalSpent)} spent in the last 3 months`;
-      if (effectiveDateFilter === "last6months")
-        return `${formatCurrency(totalSpent)} spent in the last 6 months`;
-      const year =
-        activities.length > 0
-          ? new Date(activities[0].date).getFullYear()
-          : new Date().getFullYear();
-      return `${formatCurrency(totalSpent)} spent in ${year}`;
-    })();
-
     return (
       <ContributionGraph
         data={activities}
@@ -192,10 +163,7 @@ const CalendarContributionGraph = React.memo(
         blockRadius={2}
         maxLevel={MAX_LEVEL}
         fontSize={fontSize}
-        labels={{
-          totalCount: footerText,
-          legend: { less: "Less", more: "More" },
-        }}
+        labels={{ totalCount: "", legend: { less: "Less", more: "More" } }}
       >
         <ContributionGraphCalendar className="w-fit mx-auto">
           {({ activity, dayIndex, weekIndex }) => (
@@ -219,35 +187,70 @@ const CalendarContributionGraph = React.memo(
             />
           )}
         </ContributionGraphCalendar>
-        {showFooter && (
-          <ContributionGraphFooter className="mt-4 px-0 text-xs text-muted-foreground flex flex-col items-center gap-2">
-            <ContributionGraphTotalCount className="text-sm font-medium text-foreground order-1" />
-            <ContributionGraphLegend className="order-2 !ml-0">
-              {({ level }) => (
-                <svg height={12} width={12}>
-                  <title>{`Level ${level}`}</title>
-                  <rect
-                    height={12}
-                    width={12}
-                    rx={2}
-                    ry={2}
-                    style={{
-                      fill: getFillForLevel(level),
-                      stroke: outlineColor,
-                      strokeWidth: 1,
-                    }}
-                  />
-                </svg>
-              )}
-            </ContributionGraphLegend>
-          </ContributionGraphFooter>
-        )}
       </ContributionGraph>
     );
   },
 );
 
 CalendarContributionGraph.displayName = "CalendarContributionGraph";
+
+interface CalendarChartFooterProps {
+  filteredData: Array<{ day: string; value: number }>;
+  effectiveDateFilter: string;
+  totalSpent: number;
+  formatCurrency: (value: number) => string;
+  getFillForLevel: (level: number) => string;
+  outlineColor: string;
+}
+
+const CalendarChartFooter = React.memo(function CalendarChartFooter({
+  filteredData,
+  effectiveDateFilter,
+  totalSpent,
+  formatCurrency,
+  getFillForLevel,
+  outlineColor,
+}: CalendarChartFooterProps) {
+  const summaryText = (() => {
+    if (filteredData.length === 0)
+      return `No transactions in ${new Date().getFullYear()}`;
+    if (effectiveDateFilter === "last30days")
+      return `${formatCurrency(totalSpent)} spent in the last 30 days`;
+    if (effectiveDateFilter === "last3months")
+      return `${formatCurrency(totalSpent)} spent in the last 3 months`;
+    if (effectiveDateFilter === "last6months")
+      return `${formatCurrency(totalSpent)} spent in the last 6 months`;
+    return `${formatCurrency(totalSpent)} spent`;
+  })();
+
+  return (
+    <div className="flex flex-col items-center gap-2 mt-4 pt-3 border-t border-border/40">
+      <p className="text-sm font-medium text-foreground">{summaryText}</p>
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <span>Less</span>
+        {[0, 1, 2, 3, 4].map((level) => (
+          <svg key={level} height={12} width={12}>
+            <title>{`Level ${level}`}</title>
+            <rect
+              height={12}
+              width={12}
+              rx={2}
+              ry={2}
+              style={{
+                fill: getFillForLevel(level),
+                stroke: outlineColor,
+                strokeWidth: 1,
+              }}
+            />
+          </svg>
+        ))}
+        <span>More</span>
+      </div>
+    </div>
+  );
+});
+
+CalendarChartFooter.displayName = "CalendarChartFooter";
 
 interface CalendarInfoTriggerProps {
   filteredData: Array<{ day: string; value: number }>;
@@ -477,20 +480,27 @@ export const ChartTransactionCalendar = React.memo(
       setMounted(true);
     }, []);
 
-    // Dynamic sizing: observe container width
-    const contentRef = useRef<HTMLDivElement>(null);
+    // Dynamic sizing: observe container width via callback ref so the observer
+    // attaches the moment the div mounts (handles async data-load case where
+    // mounted=true but contentRef.current is null until isLoading becomes false)
     const [containerWidth, setContainerWidth] = useState(0);
+    const observerRef = useRef<ResizeObserver | null>(null);
 
-    useEffect(() => {
-      if (!contentRef.current) return;
-      const observer = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          setContainerWidth(entry.contentRect.width);
-        }
-      });
-      observer.observe(contentRef.current);
-      return () => observer.disconnect();
-    }, [mounted]);
+    const contentRef = useCallback((node: HTMLDivElement | null) => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+        observerRef.current = null;
+      }
+      if (node) {
+        const observer = new ResizeObserver((entries) => {
+          for (const entry of entries) {
+            setContainerWidth(entry.contentRect.width);
+          }
+        });
+        observer.observe(node);
+        observerRef.current = observer;
+      }
+    }, []);
 
     // Compute periods for display
     const { period1, period2, singlePeriod } = useMemo(() => {
@@ -846,9 +856,10 @@ export const ChartTransactionCalendar = React.memo(
         ) + 1;
       const weeks = Math.ceil(days / 7) + 2;
 
-      // On desktop, enforce a minimum horizontal span to keep the chart horizontal (e.g. at least 6 months)
-      return !isMobile ? Math.max(weeks, 26) : weeks;
-    }, [isDualCalendar, period1, singlePeriod, isMobile]);
+      // On desktop, enforce minimum 26-week span only for long periods (year/ytd/lastyear)
+      // Short periods (30d/3m/6m) should use the natural period width so blocks aren't tiny
+      return !isMobile && !isShortPeriod ? Math.max(weeks, 26) : weeks;
+    }, [isDualCalendar, period1, singlePeriod, isMobile, isShortPeriod]);
 
     // Dynamic block sizing based on container width
     const { blockSize, blockMargin } = useMemo(() => {
@@ -988,9 +999,11 @@ export const ChartTransactionCalendar = React.memo(
             filteredData={filteredData}
             totalSpent={totalSpent}
           />
-          <CardContent className="flex flex-1 flex-col justify-center px-2 pt-4 pb-2 sm:px-6 sm:pt-6 md:pb-6">
-            <div ref={contentRef} className="w-full">
-              {isDualCalendar && period1 && period2 ? (
+          <CardContent className="flex flex-1 flex-col justify-center px-2 pt-4 pb-2 sm:px-6 sm:pt-6 md:pb-6 overflow-hidden">
+            <div ref={contentRef} className="w-full overflow-x-hidden">
+              {containerWidth === 0 ? (
+                <div className="h-[120px] w-full rounded-md bg-accent animate-pulse" />
+              ) : isDualCalendar && period1 && period2 ? (
                 <div className="flex flex-col gap-4">
                   <div>
                     <p className="mb-1 text-xs font-medium text-muted-foreground text-center">
@@ -998,15 +1011,10 @@ export const ChartTransactionCalendar = React.memo(
                     </p>
                     <CalendarContributionGraph
                       activities={period1Activities}
-                      showFooter={false}
                       blockSize={blockSize}
                       blockMargin={blockMargin}
                       fontSize={fontSize}
                       outlineColor={outlineColor}
-                      filteredData={filteredData}
-                      effectiveDateFilter={effectiveDateFilter}
-                      totalSpent={totalSpent}
-                      formatCurrency={formatCurrency}
                       getFillForLevel={getFillForLevel}
                       onBlockMouseEnter={handleBlockMouseEnter}
                       onBlockMouseMove={handleBlockMouseMove}
@@ -1019,15 +1027,10 @@ export const ChartTransactionCalendar = React.memo(
                     </p>
                     <CalendarContributionGraph
                       activities={period2Activities}
-                      showFooter={true}
                       blockSize={blockSize}
                       blockMargin={blockMargin}
                       fontSize={fontSize}
                       outlineColor={outlineColor}
-                      filteredData={filteredData}
-                      effectiveDateFilter={effectiveDateFilter}
-                      totalSpent={totalSpent}
-                      formatCurrency={formatCurrency}
                       getFillForLevel={getFillForLevel}
                       onBlockMouseEnter={handleBlockMouseEnter}
                       onBlockMouseMove={handleBlockMouseMove}
@@ -1039,15 +1042,10 @@ export const ChartTransactionCalendar = React.memo(
                 <div className="relative w-full">
                   <CalendarContributionGraph
                     activities={singleActivities}
-                    showFooter={true}
                     blockSize={blockSize}
                     blockMargin={blockMargin}
                     fontSize={fontSize}
                     outlineColor={outlineColor}
-                    filteredData={filteredData}
-                    effectiveDateFilter={effectiveDateFilter}
-                    totalSpent={totalSpent}
-                    formatCurrency={formatCurrency}
                     getFillForLevel={getFillForLevel}
                     onBlockMouseEnter={handleBlockMouseEnter}
                     onBlockMouseMove={handleBlockMouseMove}
@@ -1055,6 +1053,14 @@ export const ChartTransactionCalendar = React.memo(
                   />
                 </div>
               )}
+              <CalendarChartFooter
+                filteredData={filteredData}
+                effectiveDateFilter={effectiveDateFilter}
+                totalSpent={totalSpent}
+                formatCurrency={formatCurrency}
+                getFillForLevel={getFillForLevel}
+                outlineColor={outlineColor}
+              />
             </div>
 
             {mounted &&

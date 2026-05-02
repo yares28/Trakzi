@@ -145,6 +145,13 @@ export const GET = async (request: Request) => {
                      WHERE t.user_id = $1`;
         const params: any[] = [userId];
 
+        // When fetching for chart consumers, exclude transfer-related rows so
+        // pending/confirmed account transfers do not double-count as spending.
+        // Legacy rows with NULL tx_type are preserved (they predate the field).
+        if (fetchAll) {
+            query += ` AND (t.tx_type IS NULL OR t.tx_type NOT IN ('transfer', 'pending_transfer'))`;
+        }
+
         if (startDate && endDate) {
             query += ` AND t.tx_date >= $${params.length + 1} AND t.tx_date <= $${params.length + 2}`;
             params.push(startDate, endDate);

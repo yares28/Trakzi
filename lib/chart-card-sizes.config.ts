@@ -152,21 +152,21 @@ export type ChartId =
  * Edit these values to customize min/max sizes for each chart
  */
 export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
-  // Income & Expenses Tracking (1) - Area chart, compact on mobile
+  // Income & Expenses Tracking (1) - Area chart
   incomeExpensesTracking1: {
     minW: 6,
     maxW: 12,
     minH: 6,
-    maxH: 6,
+    maxH: 14,
     mobileH: 5,
   },
 
-  // Income & Expenses Tracking (2) - Area chart, compact on mobile
+  // Income & Expenses Tracking (2) - Area chart
   incomeExpensesTracking2: {
     minW: 6,
     maxW: 12,
     minH: 6,
-    maxH: 6,
+    maxH: 14,
     mobileH: 5,
   },
 

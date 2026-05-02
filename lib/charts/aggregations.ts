@@ -1,6 +1,7 @@
 import { neonQuery } from '@/lib/neonClient'
 import { getDateRange } from '@/app/api/transactions/route'
 import { getCachedOrCompute } from '@/lib/cache/upstash'
+import { appendAccountFilter, type AccountFilter } from '@/lib/charts/account-filter'
 
 // Types for aggregated chart data
 export interface CategorySpending {
@@ -136,9 +137,10 @@ export async function getCategorySpending(
     userId: string,
     startDate?: string,
     endDate?: string,
-    useEffectiveCost?: boolean
+    useEffectiveCost?: boolean,
+    accountIds?: AccountFilter
 ): Promise<CategorySpending[]> {
-    const params: (string | number)[] = [userId]
+    const params: unknown[] = [userId]
 
     let query: string
     if (useEffectiveCost) {
@@ -189,6 +191,8 @@ export async function getCategorySpending(
         query += ` AND t.tx_date <= $${params.length}::date`
     }
 
+    query = appendAccountFilter(query, params, accountIds)
+
     query += ` GROUP BY c.name, c.color ORDER BY total DESC`
 
     const rows = await neonQuery<{
@@ -212,10 +216,11 @@ export async function getCategorySpending(
 export async function getDailySpending(
     userId: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    accountIds?: AccountFilter
 ): Promise<DailySpending[]> {
     let query = `
-        SELECT 
+        SELECT
             to_char(tx_date, 'YYYY-MM-DD') AS date,
             SUM(amount) AS total,
             SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) AS income,
@@ -224,7 +229,7 @@ export async function getDailySpending(
         WHERE user_id = $1
           AND (tx_type IS NULL OR tx_type IN ('expense', 'income'))
     `
-    const params: (string | number)[] = [userId]
+    const params: unknown[] = [userId]
 
     if (startDate) {
         params.push(startDate)
@@ -234,6 +239,8 @@ export async function getDailySpending(
         params.push(endDate)
         query += ` AND tx_date <= $${params.length}::date`
     }
+
+    query = appendAccountFilter(query, params, accountIds, '')
 
     query += ` GROUP BY tx_date ORDER BY tx_date`
 
@@ -258,10 +265,11 @@ export async function getDailySpending(
 export async function getMonthlyCategories(
     userId: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    accountIds?: AccountFilter
 ): Promise<MonthlyCategory[]> {
     let query = `
-        SELECT 
+        SELECT
             TO_CHAR(t.tx_date, 'Mon YYYY') AS month,
             COALESCE(c.name, 'Uncategorized') AS category,
             ABS(SUM(t.amount)) AS total
@@ -270,7 +278,7 @@ export async function getMonthlyCategories(
         WHERE t.user_id = $1 AND t.amount < 0
           AND (t.tx_type IS NULL OR t.tx_type = 'expense')
     `
-    const params: (string | number)[] = [userId]
+    const params: unknown[] = [userId]
 
     if (startDate) {
         params.push(startDate)
@@ -280,6 +288,8 @@ export async function getMonthlyCategories(
         params.push(endDate)
         query += ` AND t.tx_date <= $${params.length}::date`
     }
+
+    query = appendAccountFilter(query, params, accountIds)
 
     query += ` GROUP BY TO_CHAR(t.tx_date, 'Mon YYYY'), c.name ORDER BY MIN(t.tx_date), total DESC`
 
@@ -302,10 +312,11 @@ export async function getMonthlyCategories(
 export async function getDayOfWeekSpending(
     userId: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    accountIds?: AccountFilter
 ): Promise<DayOfWeekSpending[]> {
     let query = `
-        SELECT 
+        SELECT
             EXTRACT(DOW FROM tx_date)::int AS "dayOfWeek",
             ABS(SUM(amount)) AS total,
             COUNT(*)::int AS count
@@ -313,7 +324,7 @@ export async function getDayOfWeekSpending(
         WHERE user_id = $1 AND amount < 0
           AND (tx_type IS NULL OR tx_type = 'expense')
     `
-    const params: (string | number)[] = [userId]
+    const params: unknown[] = [userId]
 
     if (startDate) {
         params.push(startDate)
@@ -323,6 +334,8 @@ export async function getDayOfWeekSpending(
         params.push(endDate)
         query += ` AND tx_date <= $${params.length}::date`
     }
+
+    query = appendAccountFilter(query, params, accountIds, '')
 
     query += ` GROUP BY "dayOfWeek" ORDER BY "dayOfWeek"`
 
@@ -345,10 +358,11 @@ export async function getDayOfWeekSpending(
 export async function getDayOfWeekCategory(
     userId: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    accountIds?: AccountFilter
 ): Promise<DayOfWeekCategory[]> {
     let query = `
-        SELECT 
+        SELECT
             EXTRACT(DOW FROM t.tx_date)::int AS "dayOfWeek",
             COALESCE(c.name, 'Uncategorized') AS category,
             ABS(SUM(t.amount)) AS total
@@ -357,7 +371,7 @@ export async function getDayOfWeekCategory(
         WHERE t.user_id = $1 AND t.amount < 0
           AND (t.tx_type IS NULL OR t.tx_type = 'expense')
     `
-    const params: (string | number)[] = [userId]
+    const params: unknown[] = [userId]
 
     if (startDate) {
         params.push(startDate)
@@ -367,6 +381,8 @@ export async function getDayOfWeekCategory(
         params.push(endDate)
         query += ` AND t.tx_date <= $${params.length}::date`
     }
+
+    query = appendAccountFilter(query, params, accountIds)
 
     query += ` GROUP BY "dayOfWeek", c.name ORDER BY "dayOfWeek", total DESC`
 
@@ -390,10 +406,11 @@ export async function getTransactionHistory(
     userId: string,
     startDate?: string,
     endDate?: string,
-    limit: number = 500
+    limit: number = 500,
+    accountIds?: AccountFilter
 ): Promise<TransactionHistoryItem[]> {
     let query = `
-        SELECT 
+        SELECT
             t.id,
             to_char(t.tx_date, 'YYYY-MM-DD') AS date,
             t.description,
@@ -405,7 +422,7 @@ export async function getTransactionHistory(
         WHERE t.user_id = $1 AND t.amount < 0
           AND (t.tx_type IS NULL OR t.tx_type = 'expense')
     `
-    const params: (string | number)[] = [userId]
+    const params: unknown[] = [userId]
 
     if (startDate) {
         params.push(startDate)
@@ -415,6 +432,8 @@ export async function getTransactionHistory(
         params.push(endDate)
         query += ` AND t.tx_date <= $${params.length}::date`
     }
+
+    query = appendAccountFilter(query, params, accountIds)
 
     params.push(limit)
     query += ` ORDER BY t.tx_date DESC LIMIT $${params.length}`
@@ -445,10 +464,11 @@ export async function getTransactionHistory(
 export async function getNeedsWantsBreakdown(
     userId: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    accountIds?: AccountFilter
 ): Promise<NeedsWantsItem[]> {
     let query = `
-        SELECT 
+        SELECT
             COALESCE(c.name, 'Uncategorized') AS category,
             c.broad_type,
             ABS(SUM(t.amount)) AS total,
@@ -458,7 +478,7 @@ export async function getNeedsWantsBreakdown(
         WHERE t.user_id = $1 AND t.amount < 0
           AND (t.tx_type IS NULL OR t.tx_type = 'expense')
     `
-    const params: (string | number)[] = [userId]
+    const params: unknown[] = [userId]
 
     if (startDate) {
         params.push(startDate)
@@ -468,6 +488,8 @@ export async function getNeedsWantsBreakdown(
         params.push(endDate)
         query += ` AND t.tx_date <= $${params.length}::date`
     }
+
+    query = appendAccountFilter(query, params, accountIds)
 
     query += ` GROUP BY c.name, c.broad_type`
 
@@ -522,7 +544,8 @@ export async function getNeedsWantsBreakdown(
 export async function getCashFlowData(
     userId: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    accountIds?: AccountFilter
 ): Promise<CashFlowData> {
     // Get income sources
     let incomeQuery = `
@@ -540,7 +563,7 @@ export async function getCashFlowData(
         WHERE t.user_id = $1 AND t.amount > 0
           AND (t.tx_type IS NULL OR t.tx_type = 'income')
     `
-    const incomeParams: (string | number)[] = [userId]
+    const incomeParams: unknown[] = [userId]
 
     if (startDate) {
         incomeParams.push(startDate)
@@ -550,6 +573,7 @@ export async function getCashFlowData(
         incomeParams.push(endDate)
         incomeQuery += ` AND t.tx_date <= $${incomeParams.length}::date`
     }
+    incomeQuery = appendAccountFilter(incomeQuery, incomeParams, accountIds)
     incomeQuery += ` GROUP BY 1 ORDER BY total DESC LIMIT 5`
 
     // Total income query (without LIMIT) — needed for accurate savings calculation
@@ -559,7 +583,7 @@ export async function getCashFlowData(
         WHERE t.user_id = $1 AND t.amount > 0
           AND (t.tx_type IS NULL OR t.tx_type = 'income')
     `
-    const totalIncomeParams: (string | number)[] = [userId]
+    const totalIncomeParams: unknown[] = [userId]
     if (startDate) {
         totalIncomeParams.push(startDate)
         totalIncomeQuery += ` AND t.tx_date >= $${totalIncomeParams.length}::date`
@@ -568,6 +592,7 @@ export async function getCashFlowData(
         totalIncomeParams.push(endDate)
         totalIncomeQuery += ` AND t.tx_date <= $${totalIncomeParams.length}::date`
     }
+    totalIncomeQuery = appendAccountFilter(totalIncomeQuery, totalIncomeParams, accountIds)
 
     // Get expense categories
     let expenseQuery = `
@@ -579,7 +604,7 @@ export async function getCashFlowData(
         WHERE t.user_id = $1 AND t.amount < 0
           AND (t.tx_type IS NULL OR t.tx_type = 'expense')
     `
-    const expenseParams: (string | number)[] = [userId]
+    const expenseParams: unknown[] = [userId]
 
     if (startDate) {
         expenseParams.push(startDate)
@@ -589,6 +614,7 @@ export async function getCashFlowData(
         expenseParams.push(endDate)
         expenseQuery += ` AND t.tx_date <= $${expenseParams.length}::date`
     }
+    expenseQuery = appendAccountFilter(expenseQuery, expenseParams, accountIds)
     expenseQuery += ` GROUP BY c.name ORDER BY total DESC LIMIT 8`
 
     const [incomeRows, totalIncomeRow, expenseRows] = await Promise.all([
@@ -671,10 +697,11 @@ export async function getCashFlowData(
 export async function getMonthlyByCategory(
     userId: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    accountIds?: AccountFilter
 ): Promise<MonthlyByCategory[]> {
     let query = `
-        SELECT 
+        SELECT
             to_char(t.tx_date, 'YYYY-MM') AS month,
             COALESCE(c.name, 'Uncategorized') AS category,
             ABS(SUM(t.amount)) AS total
@@ -683,7 +710,7 @@ export async function getMonthlyByCategory(
         WHERE t.user_id = $1 AND t.amount < 0
           AND (t.tx_type IS NULL OR t.tx_type = 'expense')
     `
-    const params: (string | number)[] = [userId]
+    const params: unknown[] = [userId]
 
     if (startDate) {
         params.push(startDate)
@@ -693,6 +720,8 @@ export async function getMonthlyByCategory(
         params.push(endDate)
         query += ` AND t.tx_date <= $${params.length}::date`
     }
+
+    query = appendAccountFilter(query, params, accountIds)
 
     query += ` GROUP BY to_char(t.tx_date, 'YYYY-MM'), c.name ORDER BY month`
 
@@ -774,9 +803,12 @@ async function getPlatformCategoryAverages(
 export async function getSpendingPyramid(
     userId: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    accountIds?: AccountFilter
 ): Promise<SpendingPyramidItem[]> {
-    // Query 1: Current user spending by category
+    // Query 1: Current user spending by category — account-filtered.
+    // The platform average (Query 2) intentionally remains global so it isn't
+    // skewed by one user's account selection.
     let userQuery = `
         SELECT
             COALESCE(c.name, 'Uncategorized') AS category,
@@ -786,7 +818,7 @@ export async function getSpendingPyramid(
         WHERE t.user_id = $1 AND t.amount < 0
           AND (t.tx_type IS NULL OR t.tx_type = 'expense')
     `
-    const userParams: (string | number)[] = [userId]
+    const userParams: unknown[] = [userId]
 
     if (startDate) {
         userParams.push(startDate)
@@ -796,6 +828,8 @@ export async function getSpendingPyramid(
         userParams.push(endDate)
         userQuery += ` AND t.tx_date <= $${userParams.length}::date`
     }
+
+    userQuery = appendAccountFilter(userQuery, userParams, accountIds)
 
     userQuery += ` GROUP BY c.name ORDER BY total DESC`
 
@@ -848,9 +882,10 @@ export async function getKPIs(
     userId: string,
     startDate?: string,
     endDate?: string,
-    useEffectiveCost?: boolean
+    useEffectiveCost?: boolean,
+    accountIds?: AccountFilter
 ): Promise<AnalyticsSummary['kpis']> {
-    const params: (string | number)[] = [userId]
+    const params: unknown[] = [userId]
     let query: string
 
     if (useEffectiveCost) {
@@ -864,6 +899,9 @@ export async function getKPIs(
             params.push(endDate)
             dateConditions += ` AND t.tx_date <= $${params.length}::date`
         }
+        // Account filter participates in the same dateConditions string so it
+        // gets injected into the inner subquery WHERE alongside the date clause.
+        dateConditions = appendAccountFilter(dateConditions, params, accountIds)
 
         query = `
             SELECT
@@ -913,6 +951,7 @@ export async function getKPIs(
             params.push(endDate)
             query += ` AND tx_date <= $${params.length}::date`
         }
+        query = appendAccountFilter(query, params, accountIds, '')
     }
 
     const rows = await neonQuery<{
@@ -948,10 +987,11 @@ export interface TreeMapNode {
 export async function getTreeMapData(
     userId: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    accountIds?: AccountFilter
 ): Promise<TreeMapNode> {
     let query = `
-        SELECT 
+        SELECT
             t.description,
             ABS(t.amount) as amount,
             COALESCE(c.name, 'Uncategorized') as category
@@ -960,7 +1000,7 @@ export async function getTreeMapData(
         WHERE t.user_id = $1 AND t.amount < 0
           AND (t.tx_type IS NULL OR t.tx_type = 'expense')
     `
-    const params: (string | number)[] = [userId]
+    const params: unknown[] = [userId]
 
     if (startDate) {
         params.push(startDate)
@@ -970,6 +1010,8 @@ export async function getTreeMapData(
         params.push(endDate)
         query += ` AND t.tx_date <= $${params.length}::date`
     }
+
+    query = appendAccountFilter(query, params, accountIds)
 
     // Order by absolute amount for better processing
     query += ` ORDER BY ABS(t.amount) DESC`
@@ -1100,7 +1142,8 @@ export async function getSharedExpenseSummary(
 export async function getAnalyticsBundle(
     userId: string,
     filter: string | null,
-    useEffectiveCost?: boolean
+    useEffectiveCost?: boolean,
+    accountIds?: AccountFilter
 ): Promise<AnalyticsSummary> {
     const { startDate, endDate } = getDateRange(filter)
     const eff = useEffectiveCost ?? true
@@ -1123,17 +1166,19 @@ export async function getAnalyticsBundle(
 
     // Run all aggregations - individual error handling prevents total failure
     const [kpis, categorySpending, dailySpending, monthlyCategories, dayOfWeekSpending, dayOfWeekCategory, needsWants, cashFlow, monthlyByCategory, spendingPyramid, treeMapData, sharedExpenseSummary] = await Promise.all([
-        runQuery('kpis', () => getKPIs(userId, startDate ?? undefined, endDate ?? undefined, eff)),
-        runQuery('categorySpending', () => getCategorySpending(userId, startDate ?? undefined, endDate ?? undefined, eff)),
-        runQuery('dailySpending', () => getDailySpending(userId, startDate ?? undefined, endDate ?? undefined)),
-        runQuery('monthlyCategories', () => getMonthlyCategories(userId, startDate ?? undefined, endDate ?? undefined)),
-        runQuery('dayOfWeekSpending', () => getDayOfWeekSpending(userId, startDate ?? undefined, endDate ?? undefined)),
-        runQuery('dayOfWeekCategory', () => getDayOfWeekCategory(userId, startDate ?? undefined, endDate ?? undefined)),
-        runQuery('needsWants', () => getNeedsWantsBreakdown(userId, startDate ?? undefined, endDate ?? undefined)),
-        runQuery('cashFlow', () => getCashFlowData(userId, startDate ?? undefined, endDate ?? undefined)),
-        runQuery('monthlyByCategory', () => getMonthlyByCategory(userId, startDate ?? undefined, endDate ?? undefined)),
-        runQuery('spendingPyramid', () => getSpendingPyramid(userId, startDate ?? undefined, endDate ?? undefined)),
-        runQuery('treeMapData', () => getTreeMapData(userId, startDate ?? undefined, endDate ?? undefined)),
+        runQuery('kpis', () => getKPIs(userId, startDate ?? undefined, endDate ?? undefined, eff, accountIds)),
+        runQuery('categorySpending', () => getCategorySpending(userId, startDate ?? undefined, endDate ?? undefined, eff, accountIds)),
+        runQuery('dailySpending', () => getDailySpending(userId, startDate ?? undefined, endDate ?? undefined, accountIds)),
+        runQuery('monthlyCategories', () => getMonthlyCategories(userId, startDate ?? undefined, endDate ?? undefined, accountIds)),
+        runQuery('dayOfWeekSpending', () => getDayOfWeekSpending(userId, startDate ?? undefined, endDate ?? undefined, accountIds)),
+        runQuery('dayOfWeekCategory', () => getDayOfWeekCategory(userId, startDate ?? undefined, endDate ?? undefined, accountIds)),
+        runQuery('needsWants', () => getNeedsWantsBreakdown(userId, startDate ?? undefined, endDate ?? undefined, accountIds)),
+        runQuery('cashFlow', () => getCashFlowData(userId, startDate ?? undefined, endDate ?? undefined, accountIds)),
+        runQuery('monthlyByCategory', () => getMonthlyByCategory(userId, startDate ?? undefined, endDate ?? undefined, accountIds)),
+        runQuery('spendingPyramid', () => getSpendingPyramid(userId, startDate ?? undefined, endDate ?? undefined, accountIds)),
+        runQuery('treeMapData', () => getTreeMapData(userId, startDate ?? undefined, endDate ?? undefined, accountIds)),
+        // sharedExpenseSummary intentionally NOT account-filtered — shared_transactions
+        // has no account_id column; room scope already implies a different filter axis.
         runQuery('sharedExpenseSummary', () => getSharedExpenseSummary(userId, startDate ?? undefined, endDate ?? undefined)),
     ])
 

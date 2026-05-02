@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { SettingsPanel } from "@/components/settings-panel"
 import { DateFilter } from "@/components/date-filter"
+import { AccountFilter } from "@/components/account-filter"
 import { clearAllCachesOnLogout } from "@/lib/clear-cache-on-logout"
 
 
@@ -62,55 +63,64 @@ export function NavUser({ availableYears = [] }: NavUserProps) {
     <SettingsPanel>
       <SidebarMenuButton
         tooltip="Settings"
-        size="lg"
+        size="sm"
         type="button"
         aria-label="Settings"
-        className="w-12 flex-none justify-center group-data-[collapsible=icon]:w-10"
+        className="w-9 h-9 flex-none justify-center group-data-[collapsible=icon]:w-[26px] group-data-[collapsible=icon]:h-[26px]"
       >
-        <IconSettings />
+        <IconSettings className="size-[15px]" />
         <span className="sr-only">Settings</span>
       </SidebarMenuButton>
     </SettingsPanel>
   )
 
-  // Time filter button — sized to match the Settings SidebarMenuButton so the
-  // three footer actions (settings, time filter, user avatar) align neatly in
-  // both open and collapsed (icon) states.
   const dateFilterButton = (
     <DateFilter
       availableYears={availableYears}
       triggerVariant="ghost"
       triggerSize="icon"
-      triggerClassName="h-12 w-12 flex-none rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10"
+      triggerClassName="h-9 w-9 flex-none rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:h-[26px] group-data-[collapsible=icon]:w-[26px]"
     />
   )
 
-  // Shared layout for the three-button footer row.
-  // Open   → row, spaced evenly across full width (justify-between).
-  // Icon   → stacked vertically, centered.
-  const rowClassName =
-    "flex w-full items-center justify-between gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-start group-data-[collapsible=icon]:gap-1"
+  const accountFilterButton = (
+    <AccountFilter
+      triggerVariant="ghost"
+      triggerSize="icon"
+      triggerClassName="h-9 w-9 flex-none rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:h-[26px] group-data-[collapsible=icon]:w-[26px]"
+    />
+  )
 
-  // All three footer buttons share these dimensions so they align perfectly.
+  // Expanded: utility icons grouped left, avatar right.
+  // Icon mode: 2×2 grid so the footer stays compact.
+  const rowClassName =
+    "flex w-full items-center justify-between gap-1 group-data-[collapsible=icon]:grid group-data-[collapsible=icon]:grid-cols-2 group-data-[collapsible=icon]:justify-items-center group-data-[collapsible=icon]:gap-[3px]"
+
+  const utilGroupClassName =
+    "flex items-center gap-1 group-data-[collapsible=icon]:contents"
+
   const equalSizeClasses =
-    "w-12 h-12 flex-none justify-center group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:h-10"
+    "w-9 h-9 flex-none justify-center group-data-[collapsible=icon]:w-[26px] group-data-[collapsible=icon]:h-[26px]"
 
   return (
     <SidebarMenu>
       <SidebarMenuItem>
         {isDemoMode ? (
           <div className={rowClassName}>
-            {settingsButton}
-            {dateFilterButton}
+            <div className={utilGroupClassName}>
+              {settingsButton}
+              {dateFilterButton}
+              {accountFilterButton}
+            </div>
             <SidebarMenuButton
-              size="lg"
+              size="sm"
               tooltip="Exit demo — sign up free"
               aria-label="Exit demo"
               className={equalSizeClasses}
               onClick={exitDemo}
             >
-              <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarFallback className="rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 text-white">
+              <Avatar className="h-6 w-6 rounded-md">
+                <AvatarFallback className="rounded-md bg-gradient-to-br from-amber-400 to-orange-500 text-white text-[10px]">
                   D
                 </AvatarFallback>
               </Avatar>
@@ -121,18 +131,21 @@ export function NavUser({ availableYears = [] }: NavUserProps) {
           <>
             <SignedOut>
               <div className={rowClassName}>
-                {settingsButton}
-                {dateFilterButton}
+                <div className={utilGroupClassName}>
+                  {settingsButton}
+                  {dateFilterButton}
+                  {accountFilterButton}
+                </div>
                 <SignInButton mode="redirect">
                   <SidebarMenuButton
-                    size="lg"
+                    size="sm"
                     tooltip="Sign in"
                     aria-label="Sign in"
                     className={equalSizeClasses}
                   >
-                    <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarFallback className="rounded-lg">
-                        <IconLogin className="size-4" />
+                    <Avatar className="h-6 w-6 rounded-md">
+                      <AvatarFallback className="rounded-md">
+                        <IconLogin className="size-[13px]" />
                       </AvatarFallback>
                     </Avatar>
                     <span className="sr-only">Sign in</span>
@@ -144,20 +157,23 @@ export function NavUser({ availableYears = [] }: NavUserProps) {
             <SignedIn>
               {isLoaded && user ? (
                 <div className={rowClassName}>
-                  {settingsButton}
-                  {dateFilterButton}
+                  <div className={utilGroupClassName}>
+                    {settingsButton}
+                    {dateFilterButton}
+                    {accountFilterButton}
+                  </div>
                   {/* Custom dropdown for both mobile and desktop so sign out always clears caches */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
                         aria-label={user.fullName || user.firstName || "Account"}
-                        className="w-12 h-12 flex-none flex items-center justify-center rounded-md hover:bg-sidebar-accent transition-colors group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:h-10"
+                        className="w-9 h-9 flex-none flex items-center justify-center rounded-md hover:bg-sidebar-accent transition-colors group-data-[collapsible=icon]:w-[26px] group-data-[collapsible=icon]:h-[26px]"
                       >
-                        <Avatar className="h-8 w-8 rounded-lg">
+                        <Avatar className="h-6 w-6 rounded-md">
                           <AvatarImage src={user.imageUrl} alt={user.fullName || "User"} />
-                          <AvatarFallback className="rounded-lg">
-                            <IconUser className="size-4" />
+                          <AvatarFallback className="rounded-md">
+                            <IconUser className="size-[13px]" />
                           </AvatarFallback>
                         </Avatar>
                       </button>
@@ -191,15 +207,18 @@ export function NavUser({ availableYears = [] }: NavUserProps) {
                 </div>
               ) : (
                 <div className={rowClassName}>
-                  {settingsButton}
-                  {dateFilterButton}
+                  <div className={utilGroupClassName}>
+                    {settingsButton}
+                    {dateFilterButton}
+                    {accountFilterButton}
+                  </div>
                   <SidebarMenuButton
-                    size="lg"
+                    size="sm"
                     aria-label="Loading account"
                     className={equalSizeClasses}
                   >
-                    <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarFallback className="rounded-lg animate-pulse" />
+                    <Avatar className="h-6 w-6 rounded-md">
+                      <AvatarFallback className="rounded-md animate-pulse" />
                     </Avatar>
                     <span className="sr-only">Loading account</span>
                   </SidebarMenuButton>

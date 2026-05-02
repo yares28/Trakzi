@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useState, useEffect, useCallback } from "react"
-import { motion, animate, useInView, AnimatePresence } from "framer-motion"
+import { motion, useInView } from "framer-motion"
 import Image from "next/image"
 import { geist } from "@/lib/fonts"
 
@@ -23,54 +23,88 @@ export function ImageComparisonSection({
   const isInView = useInView(sectionRef, { once: true, margin: "-80px" })
   const [displayPosition, setDisplayPosition] = useState(50)
   const [isDragging, setIsDragging] = useState(false)
-  const [showHint, setShowHint] = useState(false)
-  const introPlayedRef = useRef(false)
-  const timersRef = useRef<number[]>([])
 
-  useEffect(() => {
-    if (!isInView || introPlayedRef.current) return
-    introPlayedRef.current = true
-
-    const t1 = window.setTimeout(() => setShowHint(true), 500)
-    timersRef.current.push(t1)
-
-    const t2 = window.setTimeout(() => {
-      animate(50, [50, 28, 72, 50], {
-        duration: 3.0,
-        ease: [0.4, 0, 0.2, 1],
-        onUpdate: (v) => setDisplayPosition(v),
-        onComplete: () => setShowHint(false),
-      })
-    }, 1100)
-    timersRef.current.push(t2)
-
-    return () => {
-      timersRef.current.forEach((id) => window.clearTimeout(id))
-    }
-  }, [isInView])
+  const updateFromClientX = useCallback((clientX: number) => {
+    if (!containerRef.current) return
+    const rect = containerRef.current.getBoundingClientRect()
+    const pct = Math.max(2, Math.min(98, ((clientX - rect.left) / rect.width) * 100))
+    setDisplayPosition(pct)
+  }, [])
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!isDragging || !containerRef.current) return
-      const rect = containerRef.current.getBoundingClientRect()
-      const pct = Math.max(2, Math.min(98, ((e.clientX - rect.left) / rect.width) * 100))
-      setDisplayPosition(pct)
+      if (!isDragging) return
+      // Block the browser from using this gesture for page scroll (mobile).
+      // Only effective when the element's CSS touch-action allows it.
+      if (e.cancelable) e.preventDefault()
+      updateFromClientX(e.clientX)
     },
-    [isDragging],
+    [isDragging, updateFromClientX],
   )
 
-  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    e.currentTarget.setPointerCapture(e.pointerId)
-    setIsDragging(true)
-    setShowHint(false)
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect()
-      const pct = Math.max(2, Math.min(98, ((e.clientX - rect.left) / rect.width) * 100))
-      setDisplayPosition(pct)
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      // Capture the pointer so move/up keep firing on this element even if the
+      // finger drifts outside its bounds — required for a smooth touch drag.
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId)
+      } catch {
+        /* setPointerCapture can throw if the pointer is already gone; ignore */
+      }
+      setIsDragging(true)
+      updateFromClientX(e.clientX)
+    },
+    [updateFromClientX],
+  )
+
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    try {
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId)
+      }
+    } catch {
+      /* ignore — pointer may already be released */
     }
+    setIsDragging(false)
   }, [])
 
-  const handlePointerUp = useCallback(() => setIsDragging(false), [])
+  // Fallback for browsers / WebViews where Pointer Events get suppressed by the
+  // page's scroll handling on touch (some older mobile Safari versions). We
+  // listen with a non-passive touchmove so we can call preventDefault() and stop
+  // the browser from scrolling the page while the user drags the slider.
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    const onTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0]
+      if (!touch) return
+      setIsDragging(true)
+      updateFromClientX(touch.clientX)
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0]
+      if (!touch) return
+      // Must be non-passive to call preventDefault — registered below.
+      if (e.cancelable) e.preventDefault()
+      updateFromClientX(touch.clientX)
+    }
+
+    const onTouchEnd = () => setIsDragging(false)
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true })
+    el.addEventListener("touchmove", onTouchMove, { passive: false })
+    el.addEventListener("touchend", onTouchEnd, { passive: true })
+    el.addEventListener("touchcancel", onTouchEnd, { passive: true })
+
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart)
+      el.removeEventListener("touchmove", onTouchMove)
+      el.removeEventListener("touchend", onTouchEnd)
+      el.removeEventListener("touchcancel", onTouchEnd)
+    }
+  }, [updateFromClientX])
 
   return (
     <section
@@ -104,10 +138,16 @@ export function ImageComparisonSection({
       <div className="max-w-screen-2xl mx-auto w-full px-4 sm:px-6">
         <motion.div
           ref={containerRef}
-          className="relative w-full rounded-2xl overflow-hidden border border-border/40 shadow-2xl select-none"
+          className="relative w-full rounded-2xl overflow-hidden border border-border/40 shadow-2xl select-none touch-none"
           style={{
             cursor: isDragging ? "grabbing" : "ew-resize",
             aspectRatio: "16 / 9",
+            // Tell the browser this element handles its own pointer input —
+            // without this, mobile uses the gesture for vertical page scroll
+            // and the slider never receives pointermove events.
+            touchAction: "none",
+            WebkitUserSelect: "none",
+            WebkitTouchCallout: "none",
           }}
           initial={{ opacity: 0, y: 30 }}
           animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
@@ -115,7 +155,7 @@ export function ImageComparisonSection({
           onPointerMove={handlePointerMove}
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerUp}
+          onPointerCancel={handlePointerUp}
         >
           {/* Before image — full width, always visible underneath */}
           <div className="absolute inset-0">
@@ -162,19 +202,19 @@ export function ImageComparisonSection({
             <div className="absolute inset-0 w-px bg-white/70" />
           </div>
 
-          {/* Handle */}
+          {/* Handle — small, no animation; user drags it directly */}
           <div
             className="absolute top-1/2 pointer-events-none z-10"
             style={{ left: `${displayPosition}%`, transform: "translate(-50%, -50%)" }}
           >
             <div
-              className="w-11 h-11 rounded-full border-[2.5px] border-white/90 flex items-center justify-center"
+              className="w-7 h-7 rounded-full border-2 border-white/90 flex items-center justify-center"
               style={{
                 backgroundColor: "#e78a53",
-                boxShadow: "0 0 0 4px rgba(231,138,83,0.25), 0 4px 16px rgba(0,0,0,0.35)",
+                boxShadow: "0 0 0 3px rgba(231,138,83,0.22), 0 2px 10px rgba(0,0,0,0.3)",
               }}
             >
-              <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+              <svg width="12" height="10" viewBox="0 0 18 14" fill="none">
                 <path
                   d="M5 1L1 7L5 13M13 1L17 7L13 13"
                   stroke="white"
@@ -212,31 +252,6 @@ export function ImageComparisonSection({
             </span>
           </div>
 
-          {/* Drag hint badge */}
-          <AnimatePresence>
-            {showHint && (
-              <motion.div
-                className="absolute bottom-5 left-1/2 -translate-x-1/2 pointer-events-none z-10"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.35 }}
-              >
-                <span className="bg-black/55 backdrop-blur-sm text-white/80 text-xs font-medium px-4 py-2 rounded-full flex items-center gap-2">
-                  <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
-                    <path
-                      d="M1 5h14M1 5l3.5-3.5M1 5l3.5 3.5M15 5l-3.5-3.5M15 5l-3.5 3.5"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  Drag to compare
-                </span>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </motion.div>
       </div>
     </section>

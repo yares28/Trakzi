@@ -12,6 +12,7 @@ import { TransactionDialogProvider } from "@/components/transaction-dialog-provi
 import { UserPreferencesProvider } from "@/components/user-preferences-provider";
 import { FavoritesProvider } from "@/components/favorites-provider";
 import { DateFilterProvider } from "@/components/date-filter-provider";
+import { AccountFilterProvider } from "@/components/account-filter-provider";
 import { QueryProvider } from "@/components/query-provider";
 import { LangSetter } from "@/components/lang-setter";
 import { ChartResizeProvider } from "@/lib/chart-resize-context";
@@ -185,20 +186,22 @@ export default function RootLayout({
                         <CurrencyProvider>
                           <FavoritesProvider>
                             <DateFilterProvider>
-                              <TransactionDialogProvider>
-                                <DemoModeProvider>
-                                  <div className="flex flex-col min-h-screen overflow-x-hidden">
-                                    <PostHogUserIdentifier />
-                                    <PostHogPageView />
-                                    <DemoBanner />
-                                    <OnboardingRoot />
-                                    <OfflineIndicator />
-                                    <div className="flex-1">
-                                      {children}
+                              <AccountFilterProvider>
+                                <TransactionDialogProvider>
+                                  <DemoModeProvider>
+                                    <div className="flex flex-col min-h-screen overflow-x-hidden">
+                                      <PostHogUserIdentifier />
+                                      <PostHogPageView />
+                                      <DemoBanner />
+                                      <OnboardingRoot />
+                                      <OfflineIndicator />
+                                      <div className="flex-1">
+                                        {children}
+                                      </div>
                                     </div>
-                                  </div>
-                                </DemoModeProvider>
-                              </TransactionDialogProvider>
+                                  </DemoModeProvider>
+                                </TransactionDialogProvider>
+                              </AccountFilterProvider>
                             </DateFilterProvider>
                           </FavoritesProvider>
                           <Toaster />

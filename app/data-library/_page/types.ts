@@ -28,6 +28,8 @@ export type Statement = {
   statementId: number | null
   fileId: string | null
   receiptId: string | null
+  accountId?: string | null
+  accountName?: string | null
 }
 
 export type ReceiptCategoryOption = {

@@ -73,6 +73,7 @@ export async function GET() {
                 ai_insights_enabled: limits.aiInsightsEnabled,
                 ai_insights_free_preview_count: limits.aiInsightsFreePreviewCount,
                 advanced_charts_enabled: limits.advancedChartsEnabled,
+                max_accounts: safeNumber(limits.maxAccounts),
             },
         });
     } catch (error: any) {

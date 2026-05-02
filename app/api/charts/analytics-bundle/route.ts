@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getCurrentUserId } from '@/lib/auth'
 import { getAnalyticsBundle, type AnalyticsSummary } from '@/lib/charts/aggregations'
+import { canonicalizeAccountFilter } from '@/lib/charts/account-filter'
 import { getCachedOrCompute, buildCacheKey, CACHE_TTL } from '@/lib/cache/upstash'
 import { autoEnforceTransactionCap } from '@/lib/limits/auto-enforce-cap'
 import { neonQuery } from '@/lib/neonClient'
@@ -20,18 +21,28 @@ export const GET = async (request: Request) => {
         // This ensures users who exceed limits (e.g., after downgrade) are brought back within limits
         await autoEnforceTransactionCap(userId, true)
 
-        // Get filter + effective cost mode from query params
+        // Get filter + effective cost mode + account filter from query params
         const { searchParams } = new URL(request.url)
         const filter = searchParams.get('filter')
         const useEffectiveCost = searchParams.get('effective_cost') !== '0'
+        const accountsParam = searchParams.get('accounts')
+        const accountIds = canonicalizeAccountFilter(
+            accountsParam ? accountsParam.split(',').filter(Boolean) : null
+        )
 
-        // Build cache key (include ec flag to avoid stale cross-mode cache hits)
-        const cacheKey = buildCacheKey('analytics', userId, filter, useEffectiveCost ? 'bundle-ec1' : 'bundle-ec0')
+        // Build cache key (include ec flag + account filter to avoid stale cross-mode cache hits)
+        const cacheKey = buildCacheKey(
+            'analytics',
+            userId,
+            filter,
+            useEffectiveCost ? 'bundle-ec1' : 'bundle-ec0',
+            accountIds
+        )
 
         // Try cache first, otherwise compute
         const data = await getCachedOrCompute<AnalyticsSummary>(
             cacheKey,
-            () => getAnalyticsBundle(userId!, filter, useEffectiveCost),
+            () => getAnalyticsBundle(userId!, filter, useEffectiveCost, accountIds),
             CACHE_TTL.analytics
         )
 

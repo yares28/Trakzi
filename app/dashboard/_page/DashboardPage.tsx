@@ -16,6 +16,7 @@ import {
 
 import { typedCapture } from "@/types/posthog-events";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { GoalSettingModal } from "@/components/dashboard/goal-setting-modal";
 import { TransactionProgressBar } from "@/components/dashboard/transaction-progress-bar";
@@ -42,11 +43,11 @@ import { demoFetch } from "@/lib/demo/demo-fetch";
 
 const ScoreRadialChart = dynamic(
     () => import("./components/ScoreRadialChart").then((m) => ({ default: m.ScoreRadialChart })),
-    { ssr: false, loading: () => <div className="h-[120px] w-[120px] animate-pulse rounded-full bg-muted" /> }
+    { ssr: false, loading: () => <Skeleton className="h-[120px] w-[120px] rounded-full" /> }
 )
 const ScoreSparkline = dynamic(
     () => import("./components/ScoreSparkline").then((m) => ({ default: m.ScoreSparkline })),
-    { ssr: false, loading: () => <div className="h-8 w-24 animate-pulse rounded bg-muted" /> }
+    { ssr: false, loading: () => <Skeleton className="h-8 w-24" /> }
 )
 
 export default function DashboardPage() {
@@ -225,7 +226,7 @@ export default function DashboardPage() {
                                                             <div className="mb-3">
                                                                 <dd className="text-2xl font-bold text-foreground">
                                                                     {isLoading ? (
-                                                                        <span className="text-muted-foreground text-lg">Loading...</span>
+                                                                        <Skeleton className="h-7 w-28 mt-1" />
                                                                     ) : (
                                                                         item.mainStat
                                                                     )}

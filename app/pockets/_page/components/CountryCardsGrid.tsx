@@ -84,14 +84,14 @@ export const CountryCardsGrid = memo(function CountryCardsGrid({
     if (isLoading) {
         return (
             <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @md/main:grid-cols-2 @3xl/main:grid-cols-3">
-                {[1, 2, 3].map((i) => (
-                    <Card key={i} className="overflow-hidden">
+                {[0, 1, 2].map((i) => (
+                    <Card key={i} className="overflow-hidden animate-in fade-in duration-300" style={{ animationDelay: `${i * 80}ms`, animationFillMode: "both" }}>
                         <CardContent className="p-6">
                             <div className="flex flex-col items-center gap-4">
-                                <Skeleton className="h-8 w-12 rounded" />
-                                <Skeleton className="h-5 w-24" />
-                                <Skeleton className="h-16 w-16 rounded-full" />
-                                <Skeleton className="h-8 w-20" />
+                                <Skeleton className="h-8 w-12 rounded" style={{ "--skeleton-delay": `${i * 80}ms` } as React.CSSProperties} />
+                                <Skeleton className="h-5 w-24" style={{ "--skeleton-delay": `${i * 80 + 40}ms` } as React.CSSProperties} />
+                                <Skeleton className="h-16 w-16 rounded-full" style={{ "--skeleton-delay": `${i * 80 + 80}ms` } as React.CSSProperties} />
+                                <Skeleton className="h-8 w-20" style={{ "--skeleton-delay": `${i * 80 + 120}ms` } as React.CSSProperties} />
                             </div>
                         </CardContent>
                     </Card>
@@ -104,21 +104,28 @@ export const CountryCardsGrid = memo(function CountryCardsGrid({
     if (visibleCountries.length === 0) {
         return (
             <div className="px-4 lg:px-6">
-                <Card className="flex flex-col items-center justify-center py-12">
-                    <Globe className="h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground text-center mb-4">
-                        No countries added yet
-                    </p>
-                    <p className="text-sm text-muted-foreground text-center mb-6 max-w-md">
-                        Track your spending by country. Add a country and link your transactions to see where your money goes around the world.
-                    </p>
+                <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border py-14 text-center animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <div className="relative">
+                        <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-dashed border-border bg-[oklch(0.6716_0.1368_48.513/0.06)]">
+                            <Globe className="h-9 w-9" style={{ color: "oklch(0.6716 0.1368 48.513)" }} />
+                        </div>
+                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-border bg-card px-2.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                            MARKETS · OFFLINE
+                        </div>
+                    </div>
+                    <div className="mt-1">
+                        <h3 className="text-base font-semibold">No countries added yet</h3>
+                        <p className="text-sm text-muted-foreground max-w-sm mx-auto mt-1.5">
+                            Track your spending by country. Add a country and link your transactions to see where your money goes around the world.
+                        </p>
+                    </div>
                     {onAddCountry && (
-                        <Button variant="outline" onClick={onAddCountry}>
+                        <Button variant="outline" size="sm" onClick={onAddCountry}>
                             <Plus className="mr-2 h-4 w-4" />
                             Add your first country
                         </Button>
                     )}
-                </Card>
+                </div>
             </div>
         )
     }
