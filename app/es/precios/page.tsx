@@ -173,7 +173,7 @@ export default function EsPreciosPage() {
 
       <section className="py-24 px-4 relative z-10">
         <div className="max-w-3xl mx-auto">
-          <h2 className={cn("text-3xl sm:text-4xl font-semibold tracking-tighter text-center mb-12 bg-gradient-to-b from-zinc-800 to-zinc-700 bg-clip-text text-transparent", geist.className)}>Preguntas de Facturación</h2>
+          <h2 className={cn("text-3xl sm:text-4xl font-semibold tracking-tighter text-center mb-12 bg-gradient-to-b from-muted to-muted-foreground bg-clip-text text-transparent", geist.className)}>Preguntas de Facturación</h2>
           {[
             { q: "¿Puedo cancelar en cualquier momento?", a: "Sí. Mantienes acceso hasta el final de tu periodo de facturación. Sin penalizaciones." },
             { q: "¿Qué pasa cuando llego al límite de transacciones?", a: "Puedes comprar un pack de transacciones o mejorar a un plan superior. Tus datos nunca se borran." },
@@ -190,7 +190,7 @@ export default function EsPreciosPage() {
 
       <section className="py-48 px-4 relative z-10">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className={cn("via-foreground bg-gradient-to-b from-zinc-800 to-zinc-700 bg-clip-text text-5xl font-semibold tracking-tighter text-transparent md:text-[72px] md:leading-[80px] mb-8", geist.className)}>Empieza Gratis Hoy</h2>
+          <h2 className={cn("via-foreground bg-gradient-to-b from-muted to-muted-foreground bg-clip-text text-5xl font-semibold tracking-tighter text-transparent md:text-[72px] md:leading-[80px] mb-8", geist.className)}>Empieza Gratis Hoy</h2>
           <p className="mx-auto mb-12 max-w-2xl text-lg text-muted-foreground">300 transacciones. Sin tarjeta de crédito.</p>
           <CtaButtons locale="es" />
         </div>

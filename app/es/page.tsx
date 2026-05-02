@@ -93,7 +93,7 @@ export default function SpanishLandingPage() {
           >
             <h1
               className={cn(
-                "text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-6 bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent",
+                "text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-6 bg-gradient-to-b from-foreground to-muted-foreground bg-clip-text text-transparent",
                 geist.className,
               )}
             >
@@ -124,7 +124,7 @@ export default function SpanishLandingPage() {
             transition={{ duration: 0.5 }}
             className="mx-auto max-w-5xl"
           >
-            <h2 className={cn("text-3xl sm:text-4xl font-bold text-center mb-4 bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent", geist.className)}>
+            <h2 className={cn("text-3xl sm:text-4xl font-bold text-center mb-4 bg-gradient-to-b from-foreground to-muted-foreground bg-clip-text text-transparent", geist.className)}>
               Características
             </h2>
             <p className="text-muted-foreground text-center mb-16 max-w-2xl mx-auto">
@@ -172,7 +172,7 @@ export default function SpanishLandingPage() {
       {/* Pricing */}
       <section id="precios" className="py-24 sm:py-32 border-t border-border/50">
         <div className="container mx-auto px-4">
-          <h2 className={cn("text-3xl sm:text-4xl font-bold text-center mb-4 bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent", geist.className)}>
+          <h2 className={cn("text-3xl sm:text-4xl font-bold text-center mb-4 bg-gradient-to-b from-foreground to-muted-foreground bg-clip-text text-transparent", geist.className)}>
             Precios
           </h2>
           <p className="text-muted-foreground text-center mb-16">Empieza gratis. Mejora cuando lo necesites.</p>
@@ -204,7 +204,7 @@ export default function SpanishLandingPage() {
       {/* FAQ */}
       <section id="faq" className="py-24 sm:py-32 border-t border-border/50">
         <div className="container mx-auto px-4">
-          <h2 className={cn("text-3xl sm:text-4xl font-bold text-center mb-16 bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent", geist.className)}>
+          <h2 className={cn("text-3xl sm:text-4xl font-bold text-center mb-16 bg-gradient-to-b from-foreground to-muted-foreground bg-clip-text text-transparent", geist.className)}>
             Preguntas Frecuentes
           </h2>
           <div className="mx-auto max-w-3xl space-y-6">
@@ -238,8 +238,8 @@ export default function SpanishLandingPage() {
         <div className="container mx-auto px-4 text-center">
           <p className="text-xs text-muted-foreground/60">
             &copy; {new Date().getFullYear()} Trakzi. Todos los derechos reservados.{" "}
-            <Link href="/terms" className="hover:text-zinc-400 transition-colors">Términos</Link>{" "}&middot;{" "}
-            <Link href="/privacy" className="hover:text-zinc-400 transition-colors">Privacidad</Link>
+            <Link href="/terms" className="hover:text-muted-foreground transition-colors">Términos</Link>{" "}&middot;{" "}
+            <Link href="/privacy" className="hover:text-muted-foreground transition-colors">Privacidad</Link>
           </p>
         </div>
       </footer>
