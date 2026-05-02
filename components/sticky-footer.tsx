@@ -3,7 +3,56 @@ import { m, AnimatePresence } from "framer-motion"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 
-export function StickyFooter() {
+type FooterLocale = "en" | "es"
+
+interface StickyFooterProps {
+  locale?: FooterLocale
+}
+
+interface FooterLink {
+  label: string
+  href: string | null
+  scroll?: boolean
+}
+
+const footerContent: Record<FooterLocale, { nav: FooterLink[]; legal: FooterLink[]; contact: FooterLink[] }> = {
+  en: {
+    nav: [
+      { label: "Home", href: null, scroll: true },
+      { label: "Features", href: "/features" },
+      { label: "Pricing", href: "/pricing" },
+    ],
+    legal: [
+      { label: "Terms", href: "/terms" },
+      { label: "Privacy", href: "/privacy" },
+      { label: "Cookies", href: "/cookies" },
+      { label: "Legal", href: "/legal" },
+    ],
+    contact: [
+      { label: "Contact", href: "mailto:hello@trakzi.com" },
+      { label: "Blog", href: "/docs" },
+    ],
+  },
+  es: {
+    nav: [
+      { label: "Inicio", href: null, scroll: true },
+      { label: "Características", href: "/es/features" },
+      { label: "Precios", href: "/es/precios" },
+    ],
+    legal: [
+      { label: "Términos", href: "/terms" },
+      { label: "Privacidad", href: "/privacy" },
+      { label: "Cookies", href: "/cookies" },
+      { label: "Legal", href: "/legal" },
+    ],
+    contact: [
+      { label: "Contacto", href: "mailto:hello@trakzi.com" },
+      { label: "Blog", href: "/es/docs" },
+    ],
+  },
+}
+
+export function StickyFooter({ locale = "en" }: StickyFooterProps = {}) {
   const [isAtBottom, setIsAtBottom] = useState(false)
 
   useEffect(() => {
@@ -104,80 +153,53 @@ export function StickyFooter() {
             >
               {/* Navigation */}
               <ul className="space-y-2">
-                <li
-                  className="hover:underline cursor-pointer transition-colors"
-                  style={linkStyle}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
-                >
-                  <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
-                    Home
-                  </button>
-                </li>
-                <li
-                  className="hover:underline cursor-pointer transition-colors"
-                  style={linkStyle}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
-                >
-                  <Link href="/features">Features</Link>
-                </li>
-                <li
-                  className="hover:underline cursor-pointer transition-colors"
-                  style={linkStyle}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
-                >
-                  <Link href="/pricing">Pricing</Link>
-                </li>
+                {footerContent[locale].nav.map((item) => (
+                  <li
+                    key={item.label}
+                    className="hover:underline cursor-pointer transition-colors"
+                    style={linkStyle}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
+                  >
+                    {item.scroll ? (
+                      <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+                        {item.label}
+                      </button>
+                    ) : (
+                      <Link href={item.href!}>{item.label}</Link>
+                    )}
+                  </li>
+                ))}
               </ul>
 
               {/* Legal */}
               <ul className="space-y-2">
-                <li
-                  className="hover:underline cursor-pointer transition-colors"
-                  style={linkStyle}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
-                >
-                  <Link href="/terms">Terms</Link>
-                </li>
-                <li
-                  className="hover:underline cursor-pointer transition-colors"
-                  style={linkStyle}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
-                >
-                  <Link href="/privacy">Privacy</Link>
-                </li>
-                <li
-                  className="hover:underline cursor-pointer transition-colors"
-                  style={linkStyle}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
-                >
-                  <Link href="/cookies">Cookies</Link>
-                </li>
-                <li
-                  className="hover:underline cursor-pointer transition-colors"
-                  style={linkStyle}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
-                >
-                  <Link href="/legal">Legal</Link>
-                </li>
+                {footerContent[locale].legal.map((item) => (
+                  <li
+                    key={item.label}
+                    className="hover:underline cursor-pointer transition-colors"
+                    style={linkStyle}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
+                  >
+                    <Link href={item.href!}>{item.label}</Link>
+                  </li>
+                ))}
               </ul>
 
               {/* Contact */}
               <ul className="space-y-2">
-                <li
-                  className="hover:underline cursor-pointer transition-colors"
-                  style={linkStyle}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
-                >
-                  <a href="mailto:help@trakzi.com">Contact</a>
-                </li>
+                {footerContent[locale].contact.map((item) => (
+                  <li
+                    key={item.label}
+                    className="hover:underline cursor-pointer transition-colors"
+                    style={linkStyle}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = hoverColor)}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "#121113")}
+                  >
+                    <a href={item.href!}>{item.label}</a>
+                  </li>
+                ))}
               </ul>
             </m.div>
             <m.img
