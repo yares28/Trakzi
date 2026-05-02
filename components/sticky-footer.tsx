@@ -29,7 +29,7 @@ const footerContent: Record<FooterLocale, { nav: FooterLink[]; legal: FooterLink
       { label: "Legal", href: "/legal" },
     ],
     contact: [
-      { label: "Contact", href: "mailto:hello@trakzi.com" },
+      { label: "Contact", href: "mailto:help@trakzi.com" },
       { label: "Blog", href: "/docs" },
     ],
   },
@@ -46,7 +46,7 @@ const footerContent: Record<FooterLocale, { nav: FooterLink[]; legal: FooterLink
       { label: "Legal", href: "/legal" },
     ],
     contact: [
-      { label: "Contacto", href: "mailto:hello@trakzi.com" },
+      { label: "Contacto", href: "mailto:help@trakzi.com" },
       { label: "Blog", href: "/es/docs" },
     ],
   },
