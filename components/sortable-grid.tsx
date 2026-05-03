@@ -43,7 +43,7 @@ import {
     rectSortingStrategy,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { useIsMobile } from "@/hooks/use-mobile"
+import { useIsBelowLg, useIsMobile } from "@/hooks/use-mobile"
 import { useChartResize } from "@/lib/chart-resize-context"
 
 // ============================================================================
@@ -209,9 +209,9 @@ export function SortableGridProvider({
             }}
         >
             <SortableContext items={chartOrder} strategy={rectSortingStrategy}>
-                {/* CSS Grid: 1 column on mobile, 12 columns on desktop */}
+                {/* CSS Grid: 1 column below `lg`, 12 columns from `lg` (avoids half-width cards on tablets) */}
                 <div
-                    className={`grid gap-4 grid-cols-1 md:grid-cols-12 ${className}`}
+                    className={`grid gap-4 grid-cols-1 lg:grid-cols-12 ${className}`}
                     style={{
                         gridAutoFlow: 'row dense', // Pack items densely row by row
                         gridAutoRows: `${cellHeight}px`, // Responsive row height for better mobile fit
@@ -230,7 +230,7 @@ export function SortableGridProvider({
 // SortableGridItem - wraps each chart card with optional resize
 // ============================================================================
 
-// Note: Resize is desktop-only (hidden on mobile), so use desktop cell height
+// Resize is only shown from `lg` up; use desktop cell height for drag math
 const CELL_HEIGHT = CELL_HEIGHT_DESKTOP // px per grid unit for resize calculations
 
 export function SortableGridItem({
@@ -248,6 +248,7 @@ export function SortableGridItem({
     onResize,
 }: SortableGridItemProps) {
   const isMobile = useIsMobile()
+  const isNarrowChartGrid = useIsBelowLg()
   const { pauseResize, resumeResize } = useChartResize()
 
   // Use mobileH on mobile devices if provided, otherwise fall back to h
@@ -275,9 +276,8 @@ export function SortableGridItem({
   // Current dimensions (resize state or props)
   // Use effectiveH for display, but resize operations work with original h
   const currentH = resizeHeight ?? effectiveH
-  // On mobile the grid is grid-cols-1, so items must span 1 column
-  // to avoid creating implicit overflow columns
-  const currentW = isMobile ? 1 : (resizeWidth ?? w)
+  // Below `lg` the grid is a single column; span 1 to fill row width (matches grid-cols-1)
+  const currentW = isNarrowChartGrid ? 1 : (resizeWidth ?? w)
 
   // Handle resize start
   const handleResizeStart = React.useCallback((e: React.MouseEvent) => {
@@ -421,7 +421,7 @@ export function SortableGridItem({
         {/* Resize handle - southeast corner - hidden on mobile */}
         {resizable && (
           <div
-            className={`hidden md:block absolute bottom-1 right-1 w-5 h-5 cursor-se-resize z-50 
+            className={`hidden lg:block absolute bottom-1 right-1 w-5 h-5 cursor-se-resize z-50 
                                    transition-all duration-200 ease-out
                                    hover:scale-125 hover:opacity-100
                                    ${isResizing ? 'scale-150 opacity-100' : 'opacity-60'}`}

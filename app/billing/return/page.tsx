@@ -64,16 +64,16 @@ export default function BillingReturnPage() {
 
                 // Redirect after short delay
                 setTimeout(() => {
-                    router.push("/dashboard");
+                    router.push("/home");
                 }, 1500);
             } catch (error: any) {
                 console.error("[BillingReturn] Error:", error);
                 setStatus("error");
                 setMessage(error.message || "Something went wrong. Redirecting...");
 
-                // Still redirect to dashboard after error
+                // Still redirect to home after error
                 setTimeout(() => {
-                    router.push("/dashboard");
+                    router.push("/home");
                 }, 2000);
             }
         }

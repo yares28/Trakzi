@@ -2,11 +2,13 @@
 // Create a Stripe Checkout session for a one-time transaction pack purchase
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 import { getStripe, getAppUrl, STRIPE_PRICES, isTransactionPackPriceId } from '@/lib/stripe';
-import { getUserSubscription } from '@/lib/subscriptions';
+import { getUserSubscription, upsertSubscription } from '@/lib/subscriptions';
 import { TRANSACTION_PACKS, getTransactionPackByPriceId } from '@/lib/plan-limits';
-import { neonQuery } from '@/lib/neonClient';
+import { ensureUserExists } from '@/lib/user-sync';
+import { checkRateLimit, createRateLimitResponse } from '@/lib/security/rate-limiter';
+import { getSubscriptionBlockReason } from '@/lib/billing-utils';
 
 export async function POST(request: NextRequest) {
     try {
@@ -19,6 +21,13 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        const rateLimitResult = await checkRateLimit(userId, 'mutation');
+        if (rateLimitResult.limited) {
+            return createRateLimitResponse(rateLimitResult.resetIn);
+        }
+
+        await ensureUserExists();
+
         const body = await request.json();
         const { priceId } = body;
 
@@ -29,7 +38,6 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Validate this is a transaction pack price ID
         const allowedPackPriceIds = [
             STRIPE_PRICES.TRANSACTION_PACK_500,
             STRIPE_PRICES.TRANSACTION_PACK_1500,
@@ -51,39 +59,49 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        const existingSubscription = await getUserSubscription(userId);
+        const blockReason = getSubscriptionBlockReason(existingSubscription?.status);
+        if (blockReason) {
+            return NextResponse.json({ error: blockReason }, { status: 403 });
+        }
+
         const stripe = getStripe();
         const appUrl = getAppUrl();
 
-        // Resolve a valid Stripe customer ID (cus_...).
-        // Manual/lifetime entries in the DB won't be real Stripe customers, so
-        // we create one on the fly and persist it for future purchases.
-        const existingSubscription = await getUserSubscription(userId);
         let customerId = existingSubscription?.stripeCustomerId;
-
         const isValidStripeCustomer = customerId?.startsWith('cus_');
 
         if (!isValidStripeCustomer) {
-            // Create a real Stripe customer tied to this user
+            const client = await clerkClient();
+            const clerkUser = await client.users.getUser(userId);
+            const email = clerkUser.emailAddresses[0]?.emailAddress;
+
             const customer = await stripe.customers.create({
+                email: email || undefined,
                 metadata: { userId },
             });
             customerId = customer.id;
 
-            // Persist the new customer ID so we don't create duplicates next time
-            await neonQuery(
-                `UPDATE subscriptions SET stripe_customer_id = $1 WHERE user_id = $2`,
-                [customerId, userId]
-            );
+            await upsertSubscription({
+                userId,
+                stripeCustomerId: customerId,
+                plan: existingSubscription?.plan ?? 'free',
+                status: existingSubscription?.status ?? 'active',
+            });
 
             console.log(`[Buy Transactions] Created Stripe customer ${customerId} for user ${userId}`);
         }
 
         const resolvedCustomerId = customerId as string;
 
-        // Create one-time payment checkout session (mode: 'payment', not 'subscription')
         const session = await stripe.checkout.sessions.create({
             mode: 'payment',
             payment_method_types: ['card'],
+            payment_method_options: {
+                card: {
+                    request_three_d_secure: 'automatic',
+                },
+            },
             customer: resolvedCustomerId,
             line_items: [
                 {
@@ -91,8 +109,8 @@ export async function POST(request: NextRequest) {
                     quantity: 1,
                 },
             ],
-            success_url: `${appUrl}/dashboard?pack_purchased=success&pack=${pack.id}`,
-            cancel_url: `${appUrl}/dashboard?pack_purchased=canceled`,
+            success_url: `${appUrl}/home?pack_purchased=success&pack=${pack.id}`,
+            cancel_url: `${appUrl}/home?pack_purchased=canceled`,
             metadata: {
                 userId,
                 pack_id: pack.id,
@@ -102,16 +120,17 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json({ url: session.url });
-    } catch (error: any) {
-        const msg = error.message || '';
-        const stripeCode = error.code || '';
-        const stripeType = error.type || '';
+    } catch (error: unknown) {
+        const err = error as { message?: string; code?: string; type?: string; raw?: { message?: string } };
+        const msg = err.message || '';
+        const stripeCode = err.code || '';
+        const stripeType = err.type || '';
 
         console.error('[Buy Transactions] Error creating checkout session:', {
             message: msg,
             code: stripeCode,
             type: stripeType,
-            raw: error?.raw?.message,
+            raw: err?.raw?.message,
         });
 
         if (msg.includes('Stripe is not initialized')) {
@@ -136,7 +155,7 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json(
-            { error: `Unable to start checkout: ${msg || 'unknown error'}` },
+            { error: 'Unable to start checkout. Please try again or contact support.' },
             { status: 500 }
         );
     }
@@ -154,8 +173,6 @@ export async function GET() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Map each pack id to its resolved Stripe price id from STRIPE_PRICES
-        // (module-level static env access is more reliable than dynamic lookups).
         const priceIdByPackId: Record<string, string | undefined> = {
             pack_500: STRIPE_PRICES.TRANSACTION_PACK_500,
             pack_1500: STRIPE_PRICES.TRANSACTION_PACK_1500,
@@ -182,7 +199,7 @@ export async function GET() {
         });
 
         return NextResponse.json({ packs });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Buy Transactions] Error fetching packs:', error);
         return NextResponse.json(
             { error: 'Failed to fetch transaction packs.' },

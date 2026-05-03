@@ -252,3 +252,64 @@ export async function trackTransactionPackPurchased(args: {
         currency: session.currency ?? undefined,
     });
 }
+
+export async function trackDisputeCreated(args: {
+    userId: string;
+    dispute: Stripe.Dispute;
+    customerId: string;
+    previousPlan: string;
+    livemode?: boolean;
+}): Promise<void> {
+    const { userId, dispute, customerId } = args;
+    await track('dispute_created', userId, {
+        stripe_mode: mode(args.livemode ?? dispute.livemode),
+        stripe_customer_id: customerId,
+        stripe_charge_id: typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id,
+        dispute_id: dispute.id,
+        dispute_reason: dispute.reason,
+        dispute_status: dispute.status,
+        amount_minor: asNumber(dispute.amount),
+        currency: dispute.currency ?? undefined,
+        previous_plan: args.previousPlan,
+        ...personSet(undefined, customerId),
+    });
+}
+
+export async function trackDisputeUpdated(args: {
+    userId: string;
+    dispute: Stripe.Dispute;
+    customerId: string;
+    livemode?: boolean;
+}): Promise<void> {
+    const { userId, dispute, customerId } = args;
+    await track('dispute_updated', userId, {
+        stripe_mode: mode(args.livemode ?? dispute.livemode),
+        stripe_customer_id: customerId,
+        dispute_id: dispute.id,
+        dispute_reason: dispute.reason,
+        dispute_status: dispute.status,
+        amount_minor: asNumber(dispute.amount),
+        currency: dispute.currency ?? undefined,
+    });
+}
+
+export async function trackDisputeClosed(args: {
+    userId: string;
+    dispute: Stripe.Dispute;
+    customerId: string;
+    outcome: 'won' | 'lost' | 'accepted';
+    livemode?: boolean;
+}): Promise<void> {
+    const { userId, dispute, customerId } = args;
+    await track('dispute_closed', userId, {
+        stripe_mode: mode(args.livemode ?? dispute.livemode),
+        stripe_customer_id: customerId,
+        dispute_id: dispute.id,
+        dispute_reason: dispute.reason,
+        dispute_status: dispute.status,
+        outcome: args.outcome,
+        amount_minor: asNumber(dispute.amount),
+        currency: dispute.currency ?? undefined,
+        ...personSet(undefined, customerId),
+    });
+}

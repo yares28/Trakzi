@@ -1,8 +1,8 @@
 # Stripe Integration Documentation
 
-**Last Updated:** December 2024  
-**Account:** Yares sandbox (Test Mode)  
-**Account ID:** `acct_1SfK253mCRibQnW1`
+**Last Updated:** May 2026  
+**Account:** Yares (Live Mode — Production)  
+**Account ID:** `acct_1SfK1r3vjWsbQA2n`
 
 > **Recent Updates (December 2024):**  
 > - ✅ Implemented webhook event idempotency (Stripe best practice)
@@ -11,6 +11,7 @@
 > - ✅ Fixed race conditions with proper locking
 > - ✅ Improved error handling and validation
 > - ✅ **CRITICAL:** Always create Stripe customer before checkout (prevents "split brain" issues)
+> - ✅ **Added Transaction Packs** — one-time capacity top-ups handled via checkout + webhook
 > 
 > See [Recent Improvements](#recent-improvements-december-2024) section for details.
 
@@ -38,15 +39,17 @@
 ## Stripe Account Overview
 
 ### Account Details
-- **Account ID:** `acct_1SfK253mCRibQnW1`
-- **Display Name:** Yares sandbox
-- **Mode:** Test Mode (Sandbox)
-- **Dashboard:** [Stripe Dashboard](https://dashboard.stripe.com/acct_1SfK253mCRibQnW1/apikeys)
+- **Account ID:** `acct_1SfK1r3vjWsbQA2n`
+- **Display Name:** Yares
+- **Mode:** Live Mode (Production)
+- **Dashboard:** [Stripe Dashboard](https://dashboard.stripe.com/acct_1SfK1r3vjWsbQA2n/apikeys)
 - **API Keys:** Available in Dashboard > Developers > API keys
 
+> **Test Mode Account (Sandbox):** `acct_1SfK253mCRibQnW1` — used for local development with the Stripe CLI.
+
 ### Account Balance
-- **Available:** €0.00 EUR
-- **Pending:** €9.16 EUR (from card payments)
+- **Available:** -€0.70 EUR (slightly negative due to Stripe processing fees)
+- **Pending:** €0.00 EUR
 - **Currency:** EUR (Euro)
 
 ---
@@ -55,153 +58,187 @@
 
 ### Products
 
-Your Stripe account contains **2 products**:
+Your live Stripe account contains **4 products**:
 
-#### 1. Trakzi PRO
-- **Product ID:** `prod_TcZVJqhZwHYJwY`
+#### 1. Trakzi PRO (Active)
+- **Product ID:** `prod_TclvYLjgHcKfte`
 - **Type:** Service
-- **Description:** PRO version with 2000 transactions
-- **Status:** Active
+- **Note:** Named "Trackzi PRO" in Stripe (typo — should be "Trakzi PRO")
+- **Description:** Up to 3,000 transactions, unlimited receipt scans, unlimited AI chat, AI-powered insights & summaries, unlimited custom categories, CSV export.
 
-#### 2. Trakzi MAX
-- **Product ID:** `prod_TcZXmtRuJO4Xvj`
+#### 2. Trakzi MAX (Active)
+- **Product ID:** `prod_TclwgsZGnlWvE6`
 - **Type:** Service
-- **Description:** Unlimited transactions.
-- **Status:** Active
+- **Description:** For power users — unlimited transactions, everything in PRO, priority support, early access to new features. Coming soon: sub-accounts and custom API.
+
+#### 3. TRANSACTION_PACK (Active — One-time purchases)
+- **Product ID:** `prod_UMJ7ykzB3YJeRh`
+- **Type:** Service
+- **Description:** One-time capacity top-ups sold in three tiers (500 / 1500 / 5000 transactions).
+
+#### 4. Trakzi BASIC (Deprecated)
+- **Product ID:** `prod_Tiwg977wzu0er6`
+- **Type:** Service
+- **Status:** Not referenced in app code — exists in Stripe from an earlier iteration. Do not use.
+
+---
 
 ### Prices
 
-Your Stripe account contains **4 prices**:
+Your live Stripe account contains **9 prices**:
 
-#### PRO Plan Prices
+#### PRO Plan Prices (Recurring)
 
 1. **PRO Monthly**
-   - **Price ID:** `price_1SfKMH3mCRibQnW1uLfyODWB`
+   - **Price ID:** `price_1SfWNB3vjWsbQA2nQwABawim`
    - **Amount:** €4.99 EUR (499 cents)
    - **Interval:** Monthly
-   - **Product:** Trakzi PRO (`prod_TcZVJqhZwHYJwY`)
-   - **Type:** Recurring
-   - **Usage Type:** Licensed
+   - **Product:** Trakzi PRO (`prod_TclvYLjgHcKfte`)
+   - **Type:** Recurring / Licensed
 
 2. **PRO Annual**
-   - **Price ID:** `price_1SfKMH3mCRibQnW1tMSIbBaf`
+   - **Price ID:** `price_1SfWNo3vjWsbQA2nma1S1moh`
    - **Amount:** €49.99 EUR (4999 cents)
    - **Interval:** Annual
-   - **Product:** Trakzi PRO (`prod_TcZVJqhZwHYJwY`)
-   - **Type:** Recurring
-   - **Usage Type:** Licensed
+   - **Product:** Trakzi PRO (`prod_TclvYLjgHcKfte`)
+   - **Type:** Recurring / Licensed
 
-#### MAX Plan Prices
+#### MAX Plan Prices (Recurring)
 
 3. **MAX Monthly**
-   - **Price ID:** `price_1SfKOa3mCRibQnW1sjLgXqzM`
+   - **Price ID:** `price_1SfWOd3vjWsbQA2nYfCK47x6`
    - **Amount:** €19.99 EUR (1999 cents)
    - **Interval:** Monthly
-   - **Product:** Trakzi MAX (`prod_TcZXmtRuJO4Xvj`)
-   - **Type:** Recurring
-   - **Usage Type:** Licensed
+   - **Product:** Trakzi MAX (`prod_TclwgsZGnlWvE6`)
+   - **Type:** Recurring / Licensed
 
 4. **MAX Annual**
-   - **Price ID:** `price_1SfKOa3mCRibQnW11mO0xiEy`
+   - **Price ID:** `price_1SfWPZ3vjWsbQA2n15OH9rDK`
    - **Amount:** €199.99 EUR (19999 cents)
    - **Interval:** Annual
-   - **Product:** Trakzi MAX (`prod_TcZXmtRuJO4Xvj`)
-   - **Type:** Recurring
-   - **Usage Type:** Licensed
+   - **Product:** Trakzi MAX (`prod_TclwgsZGnlWvE6`)
+   - **Type:** Recurring / Licensed
+
+#### Transaction Pack Prices (One-Time)
+
+5. **Pack 500 Transactions**
+   - **Price ID:** `price_1TNaVI3vjWsbQA2n16Lf7SnB`
+   - **Amount:** €9.99 EUR (999 cents)
+   - **Type:** One-time
+   - **Product:** TRANSACTION_PACK (`prod_UMJ7ykzB3YJeRh`)
+
+6. **Pack 1500 Transactions**
+   - **Price ID:** `price_1TNaXB3vjWsbQA2nKzUQSQ1y`
+   - **Amount:** €19.99 EUR (1999 cents)
+   - **Type:** One-time
+   - **Product:** TRANSACTION_PACK (`prod_UMJ7ykzB3YJeRh`)
+
+7. **Pack 5000 Transactions**
+   - **Price ID:** `price_1TNaXr3vjWsbQA2nUa52Wwr7`
+   - **Amount:** €49.99 EUR (4999 cents)
+   - **Type:** One-time
+   - **Product:** TRANSACTION_PACK (`prod_UMJ7ykzB3YJeRh`)
+
+#### BASIC Plan Prices (Deprecated — do not use)
+
+8. **BASIC Monthly** — `price_1SlUn43vjWsbQA2nTsGGBXI1` — €1.99/month
+9. **BASIC Annual** — `price_1SlUn43vjWsbQA2nbmuenWM6` — €199/year
+
+---
 
 ### Customers
 
-Your Stripe account has **3 customers**:
+Your live Stripe account has **12 customers** (including duplicate records from earlier dev testing):
 
-1. **Customer 1**
-   - **Customer ID:** `cus_Td9EnkSTQEg6yv`
-   - **Created:** January 2025
-   - **Has Active Subscription:** Yes (`sub_1Sfsvz3mCRibQnW1Ciiavxln`)
+| Customer ID | Name | Email | Notes |
+|-------------|------|-------|-------|
+| `cus_Tpp1OBMrNu0Kqy` | Ismail Benabdeljalil | ismabenabdeljalil@hotmail.com | **Active PRO sub** |
+| `cus_TpoxfMhGtDdl8x` | Ismail Benabdeljalil | ismabenabdeljalil@hotmail.com | Duplicate — no active sub |
+| `cus_Tj8QITLWkClX4d` | yahya fares | yayafaresW3@gmail.com | Active BASIC sub (dev test) |
+| `cus_Tj82FiYKRlKmkB` | yahya fares | yayafaresW3@gmail.com | Active BASIC sub (dev test) |
+| `cus_TcmI3TTUkxyYqD` | Yahya Fares | yayafaresW3@gmail.com | Dev test — PRO invoices paid |
+| `cus_Tj1oLgTVAeAliv` | — | yayafaresw2@gmail.com | Dev test — no active sub |
+| `cus_Tj0z2pmjAcj2ch` | — | yayafaresw2@gmail.com | Dev test duplicate |
+| `cus_Tj0YDdOooKMsp2` | — | yayafaresw2@gmail.com | Dev test duplicate |
+| `cus_Tj0XNjK8yyyBdD` | — | yayafaresw2@gmail.com | Dev test duplicate |
+| `cus_Tj0CNosqLEQFqm` | — | yayafaresw2@gmail.com | Dev test duplicate |
+| `cus_Tj0ClCRAWYwOl2` | — | yayafaresw2@gmail.com | Dev test duplicate |
+| `cus_UMMrxCdzJlYW3f` | — | — | Anonymous |
 
-2. **Customer 2**
-   - **Customer ID:** `cus_TciWypqQD4KCsI`
-   - **Created:** January 2025
-   - **Has Active Subscription:** Yes (`sub_1SfT5h3mCRibQnW16sCnYrQd`)
+> ⚠️ **Duplicate customers exist** for the same email addresses. These were created during early development/testing before the "always create customer before checkout" pattern was enforced. The checkout endpoint now reuses an existing `stripe_customer_id` from the Neon `subscriptions` table to prevent new duplicates.
 
-3. **Customer 3**
-   - **Customer ID:** `cus_TcZQFGQqtkzcvs`
-   - **Created:** January 2025
-   - **Has Active Subscription:** No
+---
 
 ### Subscriptions
 
-Your Stripe account has **2 active subscriptions**:
+Your live Stripe account has **3 active subscriptions**:
 
-#### Subscription 1
-- **Subscription ID:** `sub_1Sfsvz3mCRibQnW1Ciiavxln`
-- **Customer:** `cus_Td9EnkSTQEg6yv`
+#### Subscription 1 — Real user (PRO Annual)
+- **Subscription ID:** `sub_1Ss9Ny3vjWsbQA2nJS21W5i8`
+- **Customer:** `cus_Tpp1OBMrNu0Kqy` (Ismail Benabdeljalil)
 - **Status:** Active
-- **Price:** `price_1SfKMH3mCRibQnW1uLfyODWB` (PRO Monthly - €4.99/month)
-- **Current Period End:** January 2025
-- **Subscription Item ID:** `si_Td9Ec6DP2B2Yok`
-- **Quantity:** 1
+- **Price:** `price_1SfWNo3vjWsbQA2nma1S1moh` (PRO Annual — €49.99/year)
+- **Item ID:** `si_Tpp2HfprIetB5Z`
 
-#### Subscription 2
-- **Subscription ID:** `sub_1SfT5h3mCRibQnW16sCnYrQd`
-- **Customer:** `cus_TciWypqQD4KCsI`
+#### Subscription 2 — Dev test (BASIC Monthly)
+- **Subscription ID:** `sub_1SlgA73vjWsbQA2nGZI4ycLq`
+- **Customer:** `cus_Tj8QITLWkClX4d` (yahya fares — dev account)
 - **Status:** Active
-- **Price:** `price_1SfKMH3mCRibQnW1uLfyODWB` (PRO Monthly - €4.99/month)
-- **Current Period End:** January 2025
-- **Subscription Item ID:** `si_TciWWjvUojO08o`
-- **Quantity:** 1
+- **Price:** `price_1SlUn43vjWsbQA2nbmuenWM6` (BASIC Monthly — €1.99/month — deprecated)
+- **Item ID:** `si_Tj8QRqeCVHTRAE`
+
+#### Subscription 3 — Dev test (BASIC Monthly, duplicate customer)
+- **Subscription ID:** `sub_1Slfmk3vjWsbQA2nicprbso0`
+- **Customer:** `cus_Tj82FiYKRlKmkB` (yahya fares — dev duplicate)
+- **Status:** Active
+- **Price:** `price_1SlUn43vjWsbQA2nbmuenWM6` (BASIC Monthly — €1.99/month — deprecated)
+- **Item ID:** `si_Tj82KT0jz3WDnD`
+
+> ℹ️ Subscriptions 2 & 3 are from early developer testing and are on the deprecated BASIC product. The app code does not map BASIC price IDs to any plan — these customers would resolve to `free` in the application.
+
+---
 
 ### Invoices
 
-Your Stripe account has **2 paid invoices**:
+Your live Stripe account has **5 invoices** (all paid):
 
-#### Invoice 1
-- **Invoice ID:** `in_1Sfsvx3mCRibQnW17PyvQ0MK`
-- **Invoice Number:** OOOZV4WU-0002
-- **Customer:** `cus_Td9EnkSTQEg6yv`
-- **Status:** Paid
-- **Amount Due:** €4.99 EUR
-- **Amount Paid:** €4.99 EUR
-- **Amount Remaining:** €0.00 EUR
-- **Billing Reason:** subscription_create
-- **Currency:** EUR
-- **Hosted Invoice URL:** [View Invoice](https://invoice.stripe.com/i/acct_1SfK253mCRibQnW1/test_YWNjdF8xU2ZLMjUzbUNSaWJRblcxLF9UZDlFQk1vcG5iZHFaN2ZLTmJ0YmpaYjhUeVJRNml1LDE1NzA3NDg0OQ0200DeJNJcrG?s=ap)
+| Invoice ID | Customer | Billing Reason | Amount Paid |
+|------------|----------|----------------|-------------|
+| `in_1Ss9Nf3vjWsbQA2nndMsz4MO` | Ismail Benabdeljalil | subscription_create | €0.00 (100% coupon) |
+| `in_1SqlWK3vjWsbQA2nO38kNb0k` | Yahya Fares | subscription_cycle | €4.99 |
+| `in_1Slg9p3vjWsbQA2nlMmNCPkn` | yahya fares (dev) | subscription_create | €0.00 (100% coupon) |
+| `in_1SlfmM3vjWsbQA2ndy2TYPhS` | yahya fares (dev) | subscription_create | €0.00 (100% coupon) |
+| `in_1SfWjy3vjWsbQA2nHZgzdaMl` | Yahya Fares | subscription_create | €4.99 |
 
-#### Invoice 2
-- **Invoice ID:** `in_1SfT5f3mCRibQnW1JylkVK5m`
-- **Customer:** `cus_TciWypqQD4KCsI`
-- **Status:** Paid
-- **Amount Due:** €4.99 EUR
-- **Amount Paid:** €4.99 EUR
-- **Amount Remaining:** €0.00 EUR
-- **Billing Reason:** subscription_create
-- **Currency:** EUR
+---
 
 ### Payment Intents
 
-Your Stripe account has **2 succeeded payment intents**:
+Your live Stripe account has **2 succeeded payment intents** (both for real money):
 
-#### Payment Intent 1
-- **Payment Intent ID:** `pi_3Sfsvy3mCRibQnW107ooTpsv`
-- **Customer:** `cus_Td9EnkSTQEg6yv`
-- **Status:** Succeeded
-- **Amount:** €4.99 EUR (499 cents)
-- **Currency:** EUR
-- **Description:** Subscription creation
+| Payment Intent ID | Customer | Amount | Status |
+|-------------------|----------|--------|--------|
+| `pi_3SqmTP3vjWsbQA2n01eulPqQ` | `cus_TcmI3TTUkxyYqD` | €4.99 | Succeeded |
+| `pi_3SfWjy3vjWsbQA2n0HZgIPt0` | `cus_TcmI3TTUkxyYqD` | €4.99 | Succeeded |
 
-#### Payment Intent 2
-- **Payment Intent ID:** `pi_3SfT5g3mCRibQnW11iFBBjBU`
-- **Customer:** `cus_TciWypqQD4KCsI`
-- **Status:** Succeeded
-- **Amount:** €4.99 EUR (499 cents)
-- **Currency:** EUR
+---
 
 ### Coupons
 
-**No coupons** are currently configured in your Stripe account.
+Your live Stripe account has **2 coupons**:
+
+| Coupon ID | Name | Discount | Duration |
+|-----------|------|----------|----------|
+| `MH7n8YR4` | Free | 100% off | Forever |
+| `E1aMIZch` | Family discount | 100% off | Repeating |
+
+> These are used for developer/family accounts. Apply via the Stripe Dashboard when creating checkout sessions.
+
+---
 
 ### Disputes
 
-**No disputes** have been filed in your Stripe account.
+**No disputes** have been filed in your live Stripe account. ✅
 
 ---
 
@@ -217,23 +254,35 @@ Trakzi uses Stripe for subscription-based payments with three tiers:
 ### Integration Pattern
 
 The application uses:
-1. **Stripe Checkout Sessions** - Hosted payment pages for subscription purchases
-2. **Stripe Webhooks** - Real-time subscription lifecycle management
+1. **Stripe Checkout Sessions** - Hosted payment pages for subscription purchases and one-time transaction pack purchases
+2. **Stripe Webhooks** - Real-time subscription lifecycle management and transaction pack fulfillment
 3. **Stripe Customer Portal** - Self-service subscription management
-4. **Database Sync** - Neon PostgreSQL database stores subscription state
+4. **Database Sync** - Neon PostgreSQL database stores subscription state and wallet capacity
 5. **Clerk Integration** - User metadata sync for frontend access control
 
 ### Data Flow
 
+**Subscription Purchase:**
 ```
 User → Frontend (Pricing Section) 
   → API (/api/checkout) 
   → Stripe Checkout Session 
   → User completes payment 
-  → Stripe Webhook (/api/webhook/stripe) 
-  → Database Update (subscriptions table) 
+  → Stripe Webhook (/api/webhook/stripe) [checkout.session.completed]
+  → Database Update (subscriptions table + transaction_wallet)
   → Clerk Metadata Sync 
   → Frontend reflects new plan
+```
+
+**Transaction Pack Purchase (One-time):**
+```
+User → Frontend (Pack selection)
+  → API (/api/checkout) with purchase_type=transaction_pack
+  → Stripe Checkout Session (mode: payment)
+  → User completes payment
+  → Stripe Webhook (/api/webhook/stripe) [checkout.session.completed]
+  → addPurchasedCapacity(userId, packTransactions)
+  → User's wallet topped up (no plan change)
 ```
 
 ---
@@ -249,7 +298,9 @@ User → Frontend (Pricing Section)
 - **Key Functions:**
   - `getStripe()` - Returns Stripe SDK instance
   - `getPlanFromPriceId(priceId)` - Maps Stripe price IDs to plan names ('pro', 'max', 'free')
-  - `STRIPE_PRICES` - Environment variable mapping for price IDs
+  - `getBillingIntervalFromPriceId(priceId)` - Returns 'monthly' or 'annual'
+  - `isTransactionPackPriceId(priceId)` - Returns true if the price is a one-time transaction pack
+  - `STRIPE_PRICES` - Environment variable mapping for all price IDs (subscriptions + packs)
 
 **Key Code:**
 ```typescript
@@ -353,19 +404,20 @@ export function getStripe(): Stripe {
 - **Purpose:** Handle Stripe webhook events for subscription lifecycle
 - **Authentication:** Stripe signature verification
 - **Events Handled:**
-  - `checkout.session.completed` - Initial subscription creation
+  - `checkout.session.completed` - Subscription creation **or** transaction pack fulfillment (determined by `session.metadata.purchase_type`)
   - `customer.subscription.created` - New subscription
   - `customer.subscription.updated` - Plan changes, renewals, status updates
   - `customer.subscription.deleted` - Subscription cancellation
-  - `invoice.payment_succeeded` - Successful payment
-  - `invoice.payment_failed` - Failed payment
-  - `charge.refunded` - Refund processing
+  - `invoice.payment_succeeded` - Fires `subscription_renewed` PostHog event for billing cycles (skips `subscription_create` — already covered by checkout handler)
+  - `invoice.payment_failed` - Failed payment → marks as `past_due`
+  - `charge.refunded` - Full refund → immediately cancels subscription and syncs wallet
 
 **Key Handlers:**
 
 1. **handleCheckoutCompleted(session)**
-   - Creates subscription record in database
-   - Maps price ID to plan name
+   - Branches on `session.metadata.purchase_type`:
+     - `transaction_pack` → calls `addPurchasedCapacity(userId, packTransactions)` — no plan change
+     - (default) subscription → creates subscription record, maps price ID to plan, syncs wallet via `syncWalletForPlan()`
    - Syncs to Clerk metadata
    - Sets initial status to 'active'
 
@@ -688,38 +740,47 @@ CREATE TABLE subscriptions (
 
 #### Server-Side (Private)
 ```env
-# Stripe API Key (Secret Key)
-STRIPE_SECRET_KEY=sk_test_...  # or sk_live_... for production
+# Stripe API Key
+STRIPE_SECRET_KEY=sk_live_...  # sk_test_... for local dev
 
 # Stripe Webhook Secret
 STRIPE_WEBHOOK_SECRET=whsec_...
 
-# Price IDs (Server-side)
-STRIPE_PRICE_ID_PRO_MONTHLY=price_1SfKMH3mCRibQnW1uLfyODWB
-STRIPE_PRICE_ID_PRO_ANNUAL=price_1SfKMH3mCRibQnW1tMSIbBaf
-STRIPE_PRICE_ID_MAX_MONTHLY=price_1SfKOa3mCRibQnW1sjLgXqzM
-STRIPE_PRICE_ID_MAX_ANNUAL=price_1SfKOa3mCRibQnW11mO0xiEy
+# Subscription Price IDs (Server-side)
+STRIPE_PRICE_ID_PRO_MONTHLY=price_1SfWNB3vjWsbQA2nQwABawim
+STRIPE_PRICE_ID_PRO_ANNUAL=price_1SfWNo3vjWsbQA2nma1S1moh
+STRIPE_PRICE_ID_MAX_MONTHLY=price_1SfWOd3vjWsbQA2nYfCK47x6
+STRIPE_PRICE_ID_MAX_ANNUAL=price_1SfWPZ3vjWsbQA2n15OH9rDK
+
+# Transaction Pack Price IDs (Server-side)
+STRIPE_PRICE_ID_TRANSACTION_PACK_500=price_1TNaVI3vjWsbQA2n16Lf7SnB
+STRIPE_PRICE_ID_TRANSACTION_PACK_1500=price_1TNaXB3vjWsbQA2nKzUQSQ1y
+STRIPE_PRICE_ID_TRANSACTION_PACK_5000=price_1TNaXr3vjWsbQA2nUa52Wwr7
 ```
 
 #### Client-Side (Public)
 ```env
-# Price IDs (Client-side - same values as server-side)
-NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY=price_1SfKMH3mCRibQnW1uLfyODWB
-NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_ANNUAL=price_1SfKMH3mCRibQnW1tMSIbBaf
-NEXT_PUBLIC_STRIPE_PRICE_ID_MAX_MONTHLY=price_1SfKOa3mCRibQnW1sjLgXqzM
-NEXT_PUBLIC_STRIPE_PRICE_ID_MAX_ANNUAL=price_1SfKOa3mCRibQnW11mO0xiEy
+# Subscription Price IDs (Client-side — must match server values)
+NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY=price_1SfWNB3vjWsbQA2nQwABawim
+NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_ANNUAL=price_1SfWNo3vjWsbQA2nma1S1moh
+NEXT_PUBLIC_STRIPE_PRICE_ID_MAX_MONTHLY=price_1SfWOd3vjWsbQA2nYfCK47x6
+NEXT_PUBLIC_STRIPE_PRICE_ID_MAX_ANNUAL=price_1SfWPZ3vjWsbQA2n15OH9rDK
 
 # App URL for redirects
 NEXT_PUBLIC_APP_URL=https://trakzi.com  # or http://localhost:3000 for dev
 ```
 
-### Current Configuration
+### Current Configuration (Live — Production)
 
-Based on your Stripe account:
-- **PRO Monthly:** `price_1SfKMH3mCRibQnW1uLfyODWB` (€4.99/month)
-- **PRO Annual:** `price_1SfKMH3mCRibQnW1tMSIbBaf` (€49.99/year)
-- **MAX Monthly:** `price_1SfKOa3mCRibQnW1sjLgXqzM` (€19.99/month)
-- **MAX Annual:** `price_1SfKOa3mCRibQnW11mO0xiEy` (€199.99/year)
+| Plan | Billing | Price ID | Amount |
+|------|---------|----------|--------|
+| PRO | Monthly | `price_1SfWNB3vjWsbQA2nQwABawim` | €4.99/month |
+| PRO | Annual | `price_1SfWNo3vjWsbQA2nma1S1moh` | €49.99/year |
+| MAX | Monthly | `price_1SfWOd3vjWsbQA2nYfCK47x6` | €19.99/month |
+| MAX | Annual | `price_1SfWPZ3vjWsbQA2n15OH9rDK` | €199.99/year |
+| Pack 500 | One-time | `price_1TNaVI3vjWsbQA2n16Lf7SnB` | €9.99 |
+| Pack 1500 | One-time | `price_1TNaXB3vjWsbQA2nKzUQSQ1y` | €19.99 |
+| Pack 5000 | One-time | `price_1TNaXr3vjWsbQA2nUa52Wwr7` | €49.99 |
 
 **⚠️ Important:** After updating `NEXT_PUBLIC_*` variables in Vercel, you **MUST redeploy** your application. These variables are baked into the build at build time.
 
@@ -1052,14 +1113,16 @@ stripe listen --forward-to localhost:3000/api/webhook/stripe
 
 ## Summary
 
-### Stripe Account Summary
-- **Account:** Yares sandbox (Test Mode)
-- **Products:** 2 (Trakzi PRO, Trakzi MAX)
-- **Prices:** 4 (PRO Monthly/Annual, MAX Monthly/Annual)
-- **Customers:** 3
-- **Active Subscriptions:** 2
-- **Paid Invoices:** 2
-- **Payment Intents:** 2 (both succeeded)
+### Stripe Account Summary (Live — May 2026)
+- **Account:** Yares (Live Mode — `acct_1SfK1r3vjWsbQA2n`)
+- **Products:** 4 (PRO, MAX, TRANSACTION_PACK, BASIC[deprecated])
+- **Prices:** 9 (PRO Monthly/Annual, MAX Monthly/Annual, 3× Transaction Pack tiers, 2× BASIC[deprecated])
+- **Customers:** 12 (includes duplicate dev-test records)
+- **Active Subscriptions:** 3 (1 real PRO user, 2 dev-test BASIC)
+- **Paid Invoices:** 5
+- **Payment Intents:** 2 (both succeeded, €4.99 each)
+- **Coupons:** 2 (Free 100% forever, Family discount 100% repeating)
+- **Disputes:** 0
 
 ### Integration Points
 - **Checkout:** `/api/checkout` - Creates Stripe Checkout Sessions
@@ -1072,22 +1135,24 @@ stripe listen --forward-to localhost:3000/api/webhook/stripe
 - **Preview:** `/api/billing/preview-upgrade` - Calculate upgrade cost
 
 ### Key Files
-- **Stripe SDK:** `lib/stripe.ts`
-- **Subscriptions:** `lib/subscriptions.ts`
-- **Webhook Events:** `lib/webhook-events.ts` (NEW - December 2024)
-- **Feature Access:** `lib/feature-access.ts`
-- **Checkout API:** `app/api/checkout/route.ts` (Updated - customer creation)
-- **Webhook API:** `app/api/webhook/stripe/route.ts` (Updated - idempotency)
+- **Stripe SDK:** `lib/stripe.ts` — instance, price ID helpers, `isTransactionPackPriceId()`
+- **Subscriptions:** `lib/subscriptions.ts` — CRUD, `syncSubscriptionToClerk()`
+- **Webhook Events:** `lib/webhook-events.ts` — idempotency via `claimWebhookEvent()`
+- **Feature Access:** `lib/feature-access.ts` — plan-based feature gating
+- **Transaction Wallet:** `lib/limits/transaction-wallet.ts` — `syncWalletForPlan()`, `addPurchasedCapacity()`
+- **Plan Limits:** `lib/plan-limits.ts` — `getTransactionPackByPriceId()`
+- **Checkout API:** `app/api/checkout/route.ts` — subscription + transaction pack checkout
+- **Webhook API:** `app/api/webhook/stripe/route.ts` — all event handlers with idempotency
+- **Stripe Analytics:** `lib/analytics/stripe-events.ts` — PostHog tracking for all Stripe events
 - **Pricing UI:** `components/pricing-section.tsx`
 - **Subscription UI:** `components/subscription-dialog.tsx`
 - **Pending Checkout:** `hooks/use-pending-checkout.ts`
 
 ### Database
-- **Table:** `subscriptions`
-- **Key Fields:** `user_id`, `plan`, `status`, `stripe_customer_id`, `stripe_subscription_id`
-- **Table:** `webhook_events` (NEW - December 2024)
-- **Key Fields:** `event_id`, `event_type`, `status`, `processed_at`
-- **Sync:** Real-time via webhooks with idempotency tracking
+- **Table:** `subscriptions` — `user_id`, `plan`, `status`, `stripe_customer_id`, `stripe_subscription_id`
+- **Table:** `webhook_events` — `event_id`, `event_type`, `status`, `processed_at` (idempotency)
+- **Table:** `transaction_wallet` — `user_id`, `base_capacity`, `purchased_capacity`, `used_count`
+- **Sync:** Real-time via webhooks with atomic claim-based idempotency
 
 ### Security
 - **Webhook Verification:** Stripe signature verification
@@ -1325,46 +1390,256 @@ CREATE INDEX idx_webhook_events_processed ON webhook_events(processed_at);
 
 ## Best Practices Compliance
 
-### Stripe Official Best Practices ✅
+### Stripe Official Best Practices
 
-1. **✅ Quick 200 Response** - Returns 200 immediately after processing
-2. **✅ Signature Verification** - Uses `stripe.webhooks.constructEvent()` correctly
-3. **✅ Event Filtering** - Filters events with `relevantEvents` Set
-4. **✅ HTTPS Endpoint** - Deployed on HTTPS (Vercel)
-5. **✅ Error Handling** - Returns 500 on errors, triggering Stripe's automatic retry
-6. **✅ Event ID Idempotency** - **NOW IMPLEMENTED** - Tracks processed events to prevent duplicates
+| # | Practice | Status | Notes |
+|---|----------|--------|-------|
+| 1 | Quick 200 response | ✅ | Returns 200 immediately after processing |
+| 2 | Signature verification | ✅ | `stripe.webhooks.constructEvent()` — rejects bad sigs with 400 |
+| 3 | Event filtering | ✅ | `relevantEvents` Set — unknown events return 200 without processing |
+| 4 | HTTPS endpoint | ✅ | Vercel deployment — always TLS |
+| 5 | Error handling | ✅ | Returns 500 on handler errors so Stripe auto-retries (3-day retry window) |
+| 6 | Webhook idempotency | ✅ | `claimWebhookEvent()` uses `INSERT ... ON CONFLICT DO NOTHING` — atomic claim |
+| 7 | DoS protection | ✅ | IP-based rate limiting via Upstash before signature check |
+| 8 | Use Checkout Sessions | ✅ | Stripe-hosted checkout for both subscriptions and one-time packs |
+| 9 | Subscription Billing APIs | ✅ | Full subscription lifecycle via `customer.subscription.*` events |
+| 10 | Dispute webhook handlers | ❌ | No `charge.dispute.created/updated/closed` handlers — see Dispute Plan below |
+| 11 | Access revocation on dispute | ❌ | Disputed users retain full access — should be revoked on `charge.dispute.created` |
+| 12 | 3D Secure (3DS) | ❌ | Not configured — 3DS triggers liability shift, protecting against fraudulent disputes |
+| 13 | Statement descriptor | ⚠️ | Verify `TRAKZI.COM` is set in Dashboard → Settings → Public Business Info |
+| 14 | Stripe Radar rules | ⚠️ | Free Radar is active (built-in ML) but no custom rules configured |
 
-### t3dotgg Recommendations Compliance ✅
+### t3dotgg Recommendations Compliance
 
 Based on [t3dotgg/stripe-recommendations](https://github.com/t3dotgg/stripe-recommendations):
 
-1. **✅ Create Customer Before Checkout** - **NOW IMPLEMENTED** - Always creates customer explicitly
-2. **✅ Eager Sync on Success Page** - Syncs subscription immediately when user returns
-3. **✅ Webhook Idempotency** - **NOW IMPLEMENTED** - Tracks event IDs
-4. **✅ Signature Verification** - Always verifies webhook signatures
-5. **⚠️ Single Sync Function** - Partial (sync function exists but webhooks process individually - acceptable for database approach)
-6. **⚠️ KV Store** - Using database instead (acceptable, more durable)
+| # | Recommendation | Status | Notes |
+|---|---------------|--------|-------|
+| 1 | Create customer before checkout | ✅ | Always creates Stripe customer explicitly; stores `stripe_customer_id` in Neon before checkout session |
+| 2 | Eager sync on success page | ✅ | Syncs subscription immediately when user returns from Stripe |
+| 3 | Webhook idempotency | ✅ | Atomic event claiming via `claimWebhookEvent()` |
+| 4 | Signature verification | ✅ | Always verifies webhook signatures |
+| 5 | Single sync function | ⚠️ | Partial — sync logic split across handlers; acceptable with database-backed approach |
+| 6 | KV store for sync | ⚠️ | Using Neon (database) instead of Redis KV — more durable, acceptable trade-off |
 
-**Overall Compliance:** 9/10 - All critical recommendations implemented
+**Overall Compliance: 7.5/10** — Core payment flow is solid. Dispute handling is the main open gap.
 
-### Remaining Recommendations (Lower Priority)
+### Remaining Work (Prioritized)
 
-These are identified but not critical:
+| Priority | Item | Why It Matters |
+|----------|------|---------------|
+| 🔴 Critical | Add `charge.dispute.created` webhook handler | Revoke access + log the dispute immediately |
+| 🔴 Critical | Add `charge.dispute.closed` webhook handler | Restore access if dispute won; keep revoked if lost |
+| 🔴 Critical | Enable 3D Secure on checkout | Triggers liability shift — Stripe fights the dispute for you |
+| 🟠 High | Verify statement descriptor in Stripe Dashboard | Unrecognized charges are the #1 cause of friendly fraud disputes |
+| 🟠 High | Add Radar custom rules | Block prepaid cards, flag repeat high-risk IPs |
+| 🟡 Medium | Unified sync function | Reduce webhook handler duplication |
+| 🟡 Medium | Add `customer.subscription.paused/resumed` | Future-proof for Stripe billing pause feature |
+| 🟢 Low | Duplicate customer cleanup | Merge/archive dev-test records in Stripe Dashboard |
+| 🟢 Low | "Limit to one subscription" dashboard setting | Prevent duplicate subs at the Stripe level |
 
-1. **Unified Sync Function** - Consider refactoring webhooks to call single sync function (medium priority)
-2. **Additional Webhook Events** - Add more event types (paused, resumed, pending_update, etc.) - low priority
-3. **Stripe Settings** - Verify "Limit customers to one subscription" is enabled in Stripe Dashboard
-4. **Disable Cash App Pay** - Disable in Stripe Dashboard (Settings → Payment methods) - low priority
+---
+
+## Dispute Plan
+
+> ⚠️ **Risk context for small SaaS:** With low payment volume (e.g. 20 charges/month), just **2 disputes** puts you at a 10% dispute rate — far above Visa's 0.75% early warning threshold and Stripe's risk threshold. A malicious user can abuse this to get your account flagged or terminated.
+
+### How a Malicious Dispute Attack Works
+
+```
+User subscribes → uses the app for weeks → 
+disputes charge with bank ("unauthorized" or "service not received") →
+Bank issues provisional credit to user →
+Stripe debits your account + €15 dispute fee →
+No response in 7-21 days → automatic loss →
+Repeat 3-4x → dispute rate exceeds threshold →
+Stripe flags account → risk of termination
+```
+
+The user gets **free access** + **refund** + **you pay the dispute fee** + **your account is at risk**.
+
+---
+
+### Dispute Prevention Layers
+
+#### Layer 1: 3D Secure (Most Important — Liability Shift)
+
+3DS adds a verification step where the user authenticates with their bank (OTP, biometric). When 3DS is completed:
+- **Liability shifts** from you to the card issuer
+- If the user disputes a 3DS-authenticated payment as "unauthorized", **Stripe fights it for you** and you win automatically in most cases
+- You still receive Early Fraud Warnings but they don't count against you in the same way
+
+**How to enable on Stripe Checkout:**
+```typescript
+// In stripe.checkout.sessions.create():
+payment_method_options: {
+    card: {
+        request_three_d_secure: 'automatic', // Stripe decides based on risk
+        // Use 'any' to always require 3DS (higher friction but maximum protection)
+    },
+},
+```
+
+Stripe Checkout already enables 3DS automatically for high-risk transactions — setting `'automatic'` opts into this for all transactions and adds it explicitly when risk is detected.
+
+#### Layer 2: Dispute Webhook Handlers (Access Revocation — Not Yet Implemented)
+
+When a dispute is filed, **immediately revoke the user's access**. This sends a clear signal you take disputes seriously, and prevents the user from benefiting from the dispute.
+
+**Events to add to `relevantEvents`:**
+```typescript
+'charge.dispute.created'   // ← Dispute filed — revoke access NOW
+'charge.dispute.updated'   // ← Status changed (evidence period, etc.)
+'charge.dispute.closed'    // ← Dispute resolved — restore or keep revoked
+```
+
+**Handler logic sketch:**
+```typescript
+async function handleDisputeCreated(dispute: Stripe.Dispute) {
+    const customerId = typeof dispute.customer === 'string'
+        ? dispute.customer : dispute.customer?.id;
+    
+    if (!customerId) return;
+    
+    const existingSub = await getSubscriptionByStripeCustomerId(customerId);
+    if (!existingSub) return;
+    
+    // Immediately revoke access — set to 'disputed' status
+    await upsertSubscription({
+        userId: existingSub.userId,
+        status: 'disputed', // New status — blocks feature access
+    });
+    
+    // Sync to Clerk so UI reflects revoked state
+    await syncSubscriptionToClerk(existingSub.userId, existingSub.plan, 'disputed', customerId, null);
+    
+    // Log to PostHog for monitoring
+    await trackDisputeCreated({ userId: existingSub.userId, dispute });
+}
+
+async function handleDisputeClosed(dispute: Stripe.Dispute) {
+    const customerId = ...;
+    const existingSub = await getSubscriptionByStripeCustomerId(customerId);
+    
+    if (dispute.status === 'won') {
+        // Restore access
+        await upsertSubscription({ userId: existingSub.userId, status: 'active' });
+    }
+    // If 'lost' → keep revoked (already on free / disputed)
+}
+```
+
+#### Layer 3: Evidence Collection (Auto-populated by Stripe)
+
+Stripe Checkout automatically captures and stores:
+- Customer IP address
+- Customer email
+- CVC verification result
+- Billing postal code (AVS check)
+- Card fingerprint
+
+This evidence is **automatically included** in dispute responses when you respond via the Dashboard. The key is to respond — never let a dispute go unanswered.
+
+For digital services (like Trakzi), the most compelling evidence is:
+1. **IP address** of the checkout (Stripe captures this)
+2. **Usage logs** — timestamps of when the user accessed the app, uploaded files, ran AI features
+3. **Email receipt** — Stripe auto-sends this
+4. **ToS acceptance** — screenshot of the acceptance checkpoint at checkout
+
+#### Layer 4: Statement Descriptor
+
+**Verify in Stripe Dashboard → Settings → Public Business Information:**
+- Statement descriptor should be `TRAKZI.COM` or `TRAKZI`
+- Add a support phone number or email in the descriptor suffix
+- When customers see a clear, recognizable name on their statement, they contact you instead of disputing
+
+#### Layer 5: Stripe Radar Rules
+
+Stripe's free Radar ML is already active. Optionally add custom rules in **Stripe Dashboard → Radar → Rules**:
+
+```
+# Block prepaid cards (high fraud risk, impossible to win disputes)
+Block if :card_funding: = 'prepaid'
+
+# Review if IP country doesn't match card country (high-risk signal)
+Review if :ip_country: != :card_country: and :risk_level: = 'elevated'
+
+# Block if this card has been used on multiple failed attempts
+Block if :total_rule_failure_count: > 5
+```
+
+#### Layer 6: Visa Compelling Evidence 3.0
+
+Stripe automatically checks if a disputed payment qualifies for Visa CE 3.0 (available when you have prior non-fraudulent transactions from the same cardholder). When eligible, Stripe:
+- Flags the dispute in the Dashboard
+- Pre-populates prior transaction evidence automatically
+- Significantly increases your win likelihood for friendly fraud cases
+
+No code required — this is automatic as long as you process on Stripe consistently.
+
+---
+
+### Dispute Response Checklist
+
+When a `charge.dispute.created` webhook fires:
+
+- [ ] **Immediately:** Revoke user access (set status to `'disputed'`)
+- [ ] **Within 24h:** Review dispute in Stripe Dashboard
+- [ ] **Check reason:** `fraudulent` vs `product_not_received` vs `subscription_canceled` — each needs different evidence
+- [ ] **For `fraudulent` disputes:** Check if Visa CE 3.0 is eligible (Stripe shows this in Dashboard)
+- [ ] **Gather evidence:**
+  - Screenshot of Stripe payment receipt (auto-generated)
+  - App usage logs for that user (login timestamps, feature usage)
+  - Screenshot of ToS acceptance
+  - IP address + geolocation (Stripe captures this at checkout)
+- [ ] **Submit evidence before deadline** (7 days for Visa, up to 21 for Mastercard)
+- [ ] **If dispute is clearly fraudulent** (e.g., no usage after sign-up, VPN IP): Refund proactively as fraud (saves the dispute fee and doesn't count the same way)
+
+---
+
+### Dispute Rate Monitoring
+
+Stripe automatically flags your account if your dispute rate exceeds:
+- **Visa Early Warning:** 0.65% (1 dispute per ~154 charges)
+- **Visa Standard Program:** 0.9% (1 dispute per ~111 charges)
+- **Stripe internal threshold:** Roughly 0.75–1.0%
+
+With small volume (e.g. 30 charges/month), a **single dispute = 3.3%** — already in the danger zone.
+
+**Mitigation while small:**
+- Proactively refund any suspicious payment before it becomes a dispute
+- Use `stripe.refunds.create({ reason: 'fraudulent' })` (not just a regular refund) — this reports the fraud to Stripe's detection models
+- Keep your contact email visible — many disputes are customers who couldn't find support
+
+---
+
+### Subscription Table Status Extension
+
+The `subscriptions.status` column should be extended to include `'disputed'` to properly handle disputed users:
+
+```sql
+-- Current: 'active' | 'canceled' | 'past_due' | 'paused'
+-- Proposed: add 'disputed'
+ALTER TABLE subscriptions 
+    ADD CONSTRAINT subscriptions_status_check 
+    CHECK (status IN ('active', 'canceled', 'past_due', 'paused', 'disputed'));
+```
+
+The `'disputed'` status should block all feature access in `lib/feature-access.ts` identically to `'canceled'`.
 
 ---
 
 ## References
 
+- **Stripe Dashboard (Live):** https://dashboard.stripe.com
+- **Stripe Radar Rules:** https://dashboard.stripe.com/radar/rules
+- **Stripe Dispute Dashboard:** https://dashboard.stripe.com/disputes
+- **Stripe Webhook Events:** https://dashboard.stripe.com/webhooks
 - **Stripe Documentation:** https://docs.stripe.com
-- **Stripe Dashboard:** https://dashboard.stripe.com/test
+- **Dispute Prevention Best Practices:** https://docs.stripe.com/disputes/prevention/best-practices
+- **Dispute Evidence Best Practices:** https://docs.stripe.com/disputes/best-practices
+- **3D Secure:** https://docs.stripe.com/payments/3d-secure
+- **Visa CE 3.0:** https://docs.stripe.com/disputes/best-practices#visa-ce-30
+- **Stripe Monitoring Programs:** https://docs.stripe.com/disputes/monitoring-programs
 - **t3dotgg Recommendations:** https://github.com/t3dotgg/stripe-recommendations
-- **Review Documents:**
-  - `docs/STRIPE_REVIEW.md` - Initial code review and issues identified
-  - `docs/STRIPE_FIXES_APPLIED.md` - Detailed list of fixes applied
-  - `docs/STRIPE_T3_RECOMMENDATIONS_COMPARISON.md` - Comparison with t3dotgg recommendations
 

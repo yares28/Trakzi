@@ -1,11 +1,17 @@
 // app/api/billing/reactivate/route.ts
-// Reactivate a subscription that was scheduled to cancel
+// Reactivate a subscription that was set to cancel at period end
 
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 import { getStripe } from '@/lib/stripe';
 import { getUserSubscription, upsertSubscription } from '@/lib/subscriptions';
-import { clerkClient } from '@clerk/nextjs/server';
+import { checkRateLimit, createRateLimitResponse } from '@/lib/security/rate-limiter';
+import {
+    safeTimestampToDate,
+    buildClerkSubscriptionMetadata,
+    invalidateSubscriptionCaches,
+    getSubscriptionBlockReason,
+} from '@/lib/billing-utils';
 
 export async function POST() {
     try {
@@ -18,40 +24,26 @@ export async function POST() {
             );
         }
 
+        const rateLimitResult = await checkRateLimit(userId, 'mutation');
+        if (rateLimitResult.limited) {
+            return createRateLimitResponse(rateLimitResult.resetIn);
+        }
+
         const subscription = await getUserSubscription(userId);
 
-        console.log('[Reactivate Subscription] Request:', {
-            userId,
-            plan: subscription?.plan,
-            cancelAtPeriodEnd: subscription?.cancelAtPeriodEnd,
-            stripeSubscriptionId: subscription?.stripeSubscriptionId,
-        });
+        // Block disputed accounts
+        const blockReason = getSubscriptionBlockReason(subscription?.status);
+        if (blockReason) {
+            return NextResponse.json({ error: blockReason }, { status: 403 });
+        }
 
         if (!subscription) {
-            return NextResponse.json(
-                { error: 'No subscription found.' },
-                { status: 400 }
-            );
-        }
-
-        if (subscription.plan === 'free') {
-            return NextResponse.json(
-                { error: 'You are on the free plan. Use upgrade instead.' },
-                { status: 400 }
-            );
-        }
-
-        // Check for lifetime subscriptions
-        if (subscription.isLifetime) {
-            return NextResponse.json(
-                { error: 'Your lifetime subscription is already active and never expires!' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: 'No subscription found.' }, { status: 400 });
         }
 
         if (!subscription.cancelAtPeriodEnd) {
             return NextResponse.json(
-                { error: 'Your subscription is not scheduled to cancel.' },
+                { error: 'Your subscription is not set to cancel.' },
                 { status: 400 }
             );
         }
@@ -63,45 +55,46 @@ export async function POST() {
             );
         }
 
-        // Reactivate on Stripe
         const stripe = getStripe();
-
-        const stripeSubResult = await stripe.subscriptions.update(
+        const reactivated = await stripe.subscriptions.update(
             subscription.stripeSubscriptionId,
-            { cancel_at_period_end: false }
+            {
+                cancel_at_period_end: false,
+                proration_behavior: 'none',
+            }
         );
 
-        console.log('[Reactivate Subscription] Stripe updated:', {
-            id: stripeSubResult.id,
-            cancelAtPeriodEnd: stripeSubResult.cancel_at_period_end,
-        });
+        const periodEnd = safeTimestampToDate(
+            (reactivated as unknown as { current_period_end: number }).current_period_end
+        );
 
-        // Update our database
         await upsertSubscription({
             userId,
             plan: subscription.plan,
             status: 'active',
             cancelAtPeriodEnd: false,
-            stripeSubscriptionId: subscription.stripeSubscriptionId,
-            stripeCustomerId: subscription.stripeCustomerId ?? undefined,
+            currentPeriodEnd: periodEnd ?? undefined,
         });
 
-        // Update Clerk metadata
         const client = await clerkClient();
-        await client.users.updateUserMetadata(userId, {
-            publicMetadata: {
-                subscriptionPlan: subscription.plan,
-                subscriptionStatus: 'active',
-            },
-        });
+        await client.users.updateUserMetadata(
+            userId,
+            buildClerkSubscriptionMetadata({
+                plan: subscription.plan,
+                status: 'active',
+                stripeCustomerId: subscription.stripeCustomerId,
+                currentPeriodEnd: periodEnd,
+            })
+        );
+
+        await invalidateSubscriptionCaches(userId);
 
         return NextResponse.json({
             success: true,
-            message: 'Your subscription has been reactivated!',
-            plan: subscription.plan,
+            message: 'Your subscription has been reactivated.',
         });
     } catch (error: any) {
-        console.error('[Reactivate Subscription] Error:', error);
+        console.error('[Reactivate] Error:', error);
 
         if (error.message?.includes('Stripe is not initialized')) {
             return NextResponse.json(
@@ -109,7 +102,6 @@ export async function POST() {
                 { status: 503 }
             );
         }
-
         if (error.type === 'StripeInvalidRequestError') {
             return NextResponse.json(
                 { error: 'Invalid subscription. Please contact support.' },
@@ -118,7 +110,7 @@ export async function POST() {
         }
 
         return NextResponse.json(
-            { error: error.message || 'Failed to reactivate subscription' },
+            { error: 'Failed to reactivate subscription. Please try again or contact support.' },
             { status: 500 }
         );
     }

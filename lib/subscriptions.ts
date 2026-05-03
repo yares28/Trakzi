@@ -4,7 +4,7 @@
 import { neonQuery } from './neonClient';
 
 export type PlanType = 'free' | 'pro' | 'max';
-export type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'paused';
+export type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'paused' | 'disputed';
 
 const VALID_PLANS: readonly PlanType[] = ['free', 'pro', 'max'];
 
@@ -97,12 +97,23 @@ export async function getSubscriptionByStripeCustomerId(stripeCustomerId: string
 }
 
 /**
- * Get a user's current plan (returns 'free' if no subscription)
+ * Effective plan tier for feature gating (charts, limits, etc.).
+ *
+ * - `active`: returns the stored plan (pro/max/free).
+ * - `canceled` with `currentPeriodEnd` in the future: same as Stripe “still in period” (user keeps tier until period end).
+ * - `past_due` / `paused`: treated as **free** (strict — no paid features until Stripe status is active again).
+ *   If you want grace during `past_due`, change this function and document the policy.
+ * - `disputed`: **free** (immediate revocation).
  */
 export async function getUserPlan(userId: string): Promise<PlanType> {
     const subscription = await getUserSubscription(userId);
 
     if (!subscription) {
+        return 'free';
+    }
+
+    // Disputed accounts lose access immediately — no grace period
+    if (subscription.status === 'disputed') {
         return 'free';
     }
 
@@ -307,16 +318,16 @@ export async function syncSubscriptionToClerk(
         const { clerkClient } = await import('@clerk/nextjs/server');
         const client = await clerkClient();
 
-        await client.users.updateUserMetadata(userId, {
-            publicMetadata: {
-                subscriptionPlan: plan,
-                subscriptionStatus: status,
-            },
-            privateMetadata: {
+        const { buildClerkSubscriptionMetadata } = await import('@/lib/billing-utils');
+        await client.users.updateUserMetadata(
+            userId,
+            buildClerkSubscriptionMetadata({
+                plan,
+                status,
                 stripeCustomerId,
-                currentPeriodEnd: currentPeriodEnd?.toISOString(),
-            },
-        });
+                currentPeriodEnd,
+            }),
+        );
 
         console.log(`[Subscriptions] Successfully synced subscription to Clerk for user ${userId}`);
     } catch (error) {
@@ -326,13 +337,58 @@ export async function syncSubscriptionToClerk(
             plan,
             status,
             error: errorMessage,
-            // Log full error for debugging but don't expose to user
         });
 
-        // Don't throw - Clerk sync is best-effort
-        // Database is source of truth, Clerk metadata is for convenience
-        // However, this should be monitored for patterns indicating systemic issues
+        // Don't throw — Clerk sync is best-effort. DB is source of truth.
     }
+}
+
+/**
+ * Sync a raw Stripe subscription object into our DB + Clerk in one call.
+ * Use this as the single source of truth for any webhook that receives a
+ * Stripe.Subscription object, rather than manually mapping fields in each handler.
+ *
+ * Returns the upserted Subscription, or null if the user cannot be resolved.
+ */
+export async function syncSubscriptionFromStripe(
+    stripeSubscription: {
+        id: string;
+        status: string;
+        customer: string | { id: string };
+        items: { data: Array<{ price: { id: string } }> };
+        current_period_end: number;
+        cancel_at_period_end: boolean;
+        metadata?: Record<string, string>;
+    },
+    resolvedUserId: string,
+    resolvedPlan: PlanType,
+): Promise<Subscription> {
+    const customerId =
+        typeof stripeSubscription.customer === 'string'
+            ? stripeSubscription.customer
+            : stripeSubscription.customer?.id;
+
+    const status = mapStripeStatus(stripeSubscription.status);
+    const periodEnd = stripeSubscription.current_period_end
+        ? new Date(stripeSubscription.current_period_end * 1000)
+        : undefined;
+    const priceId = stripeSubscription.items.data[0]?.price.id;
+
+    const sub = await upsertSubscription({
+        userId: resolvedUserId,
+        plan: resolvedPlan,
+        status,
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: stripeSubscription.id,
+        stripePriceId: priceId,
+        currentPeriodEnd: periodEnd,
+        cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
+        pendingPlan: null,
+    });
+
+    await syncSubscriptionToClerk(resolvedUserId, resolvedPlan, status, customerId, periodEnd);
+
+    return sub;
 }
 
 /**
@@ -345,6 +401,7 @@ export function mapStripeStatus(stripeStatus: string): SubscriptionStatus {
             return 'active';
         case 'past_due':
         case 'unpaid':
+        case 'incomplete': // Initial payment not yet confirmed — no access until paid
             return 'past_due';
         case 'canceled':
         case 'incomplete_expired':
@@ -352,6 +409,9 @@ export function mapStripeStatus(stripeStatus: string): SubscriptionStatus {
         case 'paused':
             return 'paused';
         default:
-            return 'active';
+            // Unknown status — treat as past_due (no access) rather than active (access),
+            // to fail safely if Stripe adds a new status in a future API version.
+            console.warn(`[Subscriptions] Unknown Stripe status encountered: ${stripeStatus} — treating as past_due`);
+            return 'past_due';
     }
 }

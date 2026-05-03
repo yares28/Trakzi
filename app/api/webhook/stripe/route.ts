@@ -6,7 +6,7 @@ import { headers } from 'next/headers';
 import Stripe from 'stripe';
 import { clerkClient } from '@clerk/nextjs/server';
 import { getStripe, getPlanFromPriceId, isTransactionPackPriceId } from '@/lib/stripe';
-import { upsertSubscription, getSubscriptionByStripeCustomerId, mapStripeStatus } from '@/lib/subscriptions';
+import { upsertSubscription, getSubscriptionByStripeCustomerId, mapStripeStatus, type PlanType, type SubscriptionStatus } from '@/lib/subscriptions';
 import { getTransactionPackByPriceId } from '@/lib/plan-limits';
 import { syncWalletForPlan, addPurchasedCapacity } from '@/lib/limits/transaction-wallet';
 import {
@@ -15,6 +15,8 @@ import {
     markEventAsFailed,
 } from '@/lib/webhook-events';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/security/rate-limiter';
+import type { ClerkSubscriptionBillingExtras } from '@/lib/billing-utils';
+import { safeTimestampToDate, PLAN_HIERARCHY, buildClerkSubscriptionMetadata } from '@/lib/billing-utils';
 import {
     trackSubscriptionStarted,
     trackSubscriptionPlanChanged,
@@ -23,6 +25,9 @@ import {
     trackSubscriptionPaymentFailed,
     trackSubscriptionRefunded,
     trackTransactionPackPurchased,
+    trackDisputeCreated,
+    trackDisputeUpdated,
+    trackDisputeClosed,
 } from '@/lib/analytics/stripe-events';
 
 // Disable body parsing - we need raw body for signature verification
@@ -44,34 +49,54 @@ const relevantEvents = new Set([
     'customer.subscription.created',
     'customer.subscription.updated',
     'customer.subscription.deleted',
+    'customer.subscription.paused',
+    'customer.subscription.resumed',
     'invoice.payment_succeeded',
     'invoice.payment_failed',
     'charge.refunded',
+    'charge.dispute.created',
+    'charge.dispute.updated',
+    'charge.dispute.closed',
 ]);
 
-/**
- * Safely convert Unix timestamp to Date, returns null if invalid
- */
-function safeTimestampToDate(timestamp: number | undefined | null): Date | null {
-    if (timestamp === undefined || timestamp === null || isNaN(timestamp)) {
-        return null;
+/** Clerk extras derived from Stripe-backed subscription status (not for `disputed`, which is internal). */
+function clerkBillingForStripeSubscriptionStatus(status: SubscriptionStatus): ClerkSubscriptionBillingExtras {
+    if (status === 'active') {
+        return { paymentFailed: false, disputedAt: null, disputeReason: null };
     }
-    const date = new Date(timestamp * 1000);
-    // Check if date is valid
-    if (isNaN(date.getTime())) {
-        return null;
+    if (status === 'past_due') {
+        return { paymentFailed: true };
     }
-    return date;
+    if (status === 'paused') {
+        return { paymentFailed: false, disputedAt: null, disputeReason: null };
+    }
+    return { paymentFailed: false };
 }
 
-/**
- * Safely convert Date to ISO string, returns undefined if invalid
- */
-function safeDateToISO(date: Date | null | undefined): string | undefined {
-    if (!date || isNaN(date.getTime())) {
-        return undefined;
+async function syncSubscriptionToClerk(
+    userId: string,
+    plan: PlanType | string,
+    status: SubscriptionStatus | string,
+    stripeCustomerId: string,
+    currentPeriodEnd: Date | null,
+    billing?: ClerkSubscriptionBillingExtras,
+) {
+    try {
+        const client = await clerkClient();
+        await client.users.updateUserMetadata(
+            userId,
+            buildClerkSubscriptionMetadata({
+                plan: plan as PlanType,
+                status: status as SubscriptionStatus,
+                stripeCustomerId,
+                currentPeriodEnd,
+                billing,
+            }),
+        );
+        console.log(`[Webhook] Synced subscription to Clerk for user ${userId}`);
+    } catch (clerkError) {
+        console.error(`[Webhook] Failed to sync to Clerk:`, clerkError);
     }
-    return date.toISOString();
 }
 
 export async function POST(request: NextRequest) {
@@ -165,6 +190,36 @@ export async function POST(request: NextRequest) {
                 break;
             }
 
+            case 'customer.subscription.paused': {
+                const subscription = event.data.object as unknown as StripeSubscriptionData;
+                await handleSubscriptionPaused(subscription, event.livemode);
+                break;
+            }
+
+            case 'customer.subscription.resumed': {
+                const subscription = event.data.object as unknown as StripeSubscriptionData;
+                await handleSubscriptionResumed(subscription, event.livemode);
+                break;
+            }
+
+            case 'charge.dispute.created': {
+                const dispute = event.data.object as Stripe.Dispute;
+                await handleDisputeCreated(dispute, event.livemode);
+                break;
+            }
+
+            case 'charge.dispute.updated': {
+                const dispute = event.data.object as Stripe.Dispute;
+                await handleDisputeUpdated(dispute, event.livemode);
+                break;
+            }
+
+            case 'charge.dispute.closed': {
+                const dispute = event.data.object as Stripe.Dispute;
+                await handleDisputeClosed(dispute, event.livemode);
+                break;
+            }
+
             case 'invoice.payment_succeeded': {
                 const invoice = event.data.object as Stripe.Invoice;
                 await handleInvoicePaid(invoice, event.livemode);
@@ -210,30 +265,6 @@ export async function POST(request: NextRequest) {
             { error: 'Webhook processing failed' },
             { status: 500 }
         );
-    }
-}
-
-/**
- * Sync subscription info to Clerk user metadata
- */
-async function syncSubscriptionToClerk(userId: string, plan: string, status: string, stripeCustomerId: string, currentPeriodEnd: Date | null) {
-    try {
-        const client = await clerkClient();
-        await client.users.updateUserMetadata(userId, {
-            publicMetadata: {
-                subscription: {
-                    plan,
-                    status,
-                    stripeCustomerId,
-                    currentPeriodEnd: safeDateToISO(currentPeriodEnd),
-                    updatedAt: new Date().toISOString(),
-                },
-            },
-        });
-        console.log(`[Webhook] Synced subscription to Clerk for user ${userId}`);
-    } catch (clerkError) {
-        console.error(`[Webhook] Failed to sync to Clerk:`, clerkError);
-        // Don't fail if Clerk sync fails
     }
 }
 
@@ -332,6 +363,50 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, livemod
         return;
     }
 
+    // ── Prepaid card check (Radar rules alternative) ──────────────────────────
+    // Prepaid cards cannot be traced to a real cardholder, making it nearly
+    // impossible to win disputes. Cancel immediately and refund if detected.
+    // This replicates the Radar rule: "Block if :card_funding: = 'prepaid'"
+    // but as a post-payment check (no Radar for Fraud Teams plan required).
+    if (session.payment_intent) {
+        try {
+            const paymentIntentId = typeof session.payment_intent === 'string'
+                ? session.payment_intent
+                : session.payment_intent.id;
+
+            const pi = await stripe.paymentIntents.retrieve(paymentIntentId, {
+                expand: ['payment_method'],
+            });
+
+            const cardFunding = (pi.payment_method as Stripe.PaymentMethod | null)
+                ?.card?.funding;
+
+            if (cardFunding === 'prepaid') {
+                console.warn('[Webhook] Prepaid card detected — cancelling subscription and refunding', {
+                    userId, customerId, subscriptionId, paymentIntentId,
+                });
+
+                // Cancel the Stripe subscription immediately
+                await stripe.subscriptions.cancel(subscriptionId);
+
+                // Refund the payment and flag as fraudulent
+                await stripe.refunds.create({
+                    payment_intent: paymentIntentId,
+                    reason: 'fraudulent',
+                });
+
+                console.log(`[Webhook] Prepaid card: subscription cancelled and refund issued for user ${userId}`);
+                return;
+            }
+        } catch (prepaidCheckError) {
+            // Non-fatal: log and continue processing if the check itself fails.
+            // Better to let a prepaid card through than to block a legitimate user.
+            console.error('[Webhook] Failed to check card funding type — proceeding with subscription', {
+                userId, subscriptionId, error: prepaidCheckError,
+            });
+        }
+    }
+
     const periodEnd = safeTimestampToDate(subscription.current_period_end);
     const periodStart = periodEnd ? new Date(periodEnd.getTime() - 31 * 24 * 60 * 60 * 1000) : new Date();
 
@@ -349,7 +424,12 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, livemod
     // Sync wallet — sets base_capacity, resets monthly period
     await syncWalletForPlan(userId, plan, periodStart);
 
-    await syncSubscriptionToClerk(userId, plan, 'active', customerId, periodEnd);
+    await syncSubscriptionToClerk(userId, plan, 'active', customerId, periodEnd, {
+        paymentFailed: false,
+        refunded: false,
+        disputedAt: null,
+        disputeReason: null,
+    });
     console.log(`[Webhook] Subscription created for user ${userId}, plan: ${plan}`);
 
     await trackSubscriptionStarted({
@@ -418,9 +498,6 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData, li
 
     let userId: string;
 
-    // Plan hierarchy for comparison
-    const PLAN_HIERARCHY: Record<string, number> = { free: 0, pro: 1, max: 2 };
-
     if (!existingSub) {
         // Check metadata for userId (from subscription creation)
         const metaUserId = subscription.metadata?.userId;
@@ -443,7 +520,7 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData, li
         });
 
         // Sync to Clerk
-        await syncSubscriptionToClerk(userId, newPlan, status, customerId, periodEnd);
+        await syncSubscriptionToClerk(userId, newPlan, status, customerId, periodEnd, clerkBillingForStripeSubscriptionStatus(status));
         console.log(`[Webhook] Subscription created for user ${userId}, plan: ${newPlan}`);
     } else {
         // SECURITY: Verify customer ID matches (defense in depth)
@@ -525,7 +602,7 @@ async function handleSubscriptionUpdate(subscription: StripeSubscriptionData, li
             }
 
             // Sync to Clerk
-            await syncSubscriptionToClerk(userId, newPlan, status, customerId, periodEnd);
+            await syncSubscriptionToClerk(userId, newPlan, status, customerId, periodEnd, clerkBillingForStripeSubscriptionStatus(status));
             console.log(`[Webhook] Subscription updated for customer ${customerId}`);
 
             if (newPlan !== currentPlan) {
@@ -593,7 +670,13 @@ async function handleSubscriptionDeleted(subscription: StripeSubscriptionData, l
             'free',
             'canceled',
             customerId,
-            periodEnd
+            periodEnd,
+            {
+                paymentFailed: false,
+                refunded: false,
+                disputedAt: null,
+                disputeReason: null,
+            },
         );
 
         console.log(`[Webhook] Subscription canceled for user ${userId}`);
@@ -636,23 +719,18 @@ async function handlePaymentFailed(invoice: Stripe.Invoice, livemode: boolean) {
             status: 'past_due',
         });
 
-        // Sync payment failure to Clerk so UI can show warning
-        try {
-            const client = await clerkClient();
-            await client.users.updateUserMetadata(existingSub.userId, {
-                publicMetadata: {
-                    subscription: {
-                        plan: existingSub.plan,
-                        status: 'past_due',
-                        paymentFailed: true,
-                        failedAt: new Date().toISOString(),
-                        attemptCount,
-                    },
-                },
-            });
-        } catch (clerkError) {
-            console.error('[Webhook] Failed to sync payment failure to Clerk:', clerkError);
-        }
+        await syncSubscriptionToClerk(
+            existingSub.userId,
+            existingSub.plan,
+            'past_due',
+            customerId,
+            existingSub.currentPeriodEnd,
+            {
+                paymentFailed: true,
+                failedAt: new Date().toISOString(),
+                attemptCount,
+            },
+        );
 
         console.log(`[Webhook] Payment failed for user ${existingSub.userId}, attempt ${attemptCount}`);
 
@@ -765,22 +843,13 @@ async function handleChargeRefunded(charge: Stripe.Charge, livemode: boolean) {
         console.log(`[Webhook] Refund: wallet synced to free plan for user ${userId} (was: ${currentPlan})`);
     }
 
-    // Sync to Clerk - mark as canceled/free with refund flag
-    try {
-        const client = await clerkClient();
-        await client.users.updateUserMetadata(userId, {
-            publicMetadata: {
-                subscription: {
-                    plan: 'free',
-                    status: 'canceled',
-                    refunded: true,
-                    refundedAt: new Date().toISOString(),
-                },
-            },
-        });
-    } catch (clerkError) {
-        console.error('[Webhook] Failed to sync refund to Clerk:', clerkError);
-    }
+    await syncSubscriptionToClerk(userId, 'free', 'canceled', customerId, null, {
+        refunded: true,
+        refundedAt: new Date().toISOString(),
+        paymentFailed: false,
+        disputedAt: null,
+        disputeReason: null,
+    });
 
     console.log(`[Webhook] Subscription cancelled due to refund for user ${userId}`);
 
@@ -788,6 +857,234 @@ async function handleChargeRefunded(charge: Stripe.Charge, livemode: boolean) {
         userId,
         charge,
         previousPlan: currentPlan,
+        livemode,
+    });
+}
+
+/**
+ * Handle customer.subscription.paused — Stripe billing pause feature
+ */
+async function handleSubscriptionPaused(subscription: StripeSubscriptionData, livemode: boolean) {
+    const customerId = typeof subscription.customer === 'string'
+        ? subscription.customer
+        : subscription.customer?.id;
+
+    if (!customerId) {
+        console.error('[Webhook] Invalid customer ID in subscription paused', { subscriptionId: subscription.id });
+        return;
+    }
+
+    const existingSub = await getSubscriptionByStripeCustomerId(customerId);
+    if (!existingSub) {
+        console.warn('[Webhook] No subscription found for paused event', { customerId });
+        return;
+    }
+
+    await upsertSubscription({
+        userId: existingSub.userId,
+        status: 'paused',
+    });
+
+    await syncSubscriptionToClerk(
+        existingSub.userId,
+        existingSub.plan,
+        'paused',
+        customerId,
+        null,
+        clerkBillingForStripeSubscriptionStatus('paused'),
+    );
+    console.log(`[Webhook] Subscription paused for user ${existingSub.userId}`);
+}
+
+/**
+ * Handle customer.subscription.resumed — Stripe billing resume
+ */
+async function handleSubscriptionResumed(subscription: StripeSubscriptionData, livemode: boolean) {
+    const customerId = typeof subscription.customer === 'string'
+        ? subscription.customer
+        : subscription.customer?.id;
+
+    if (!customerId) {
+        console.error('[Webhook] Invalid customer ID in subscription resumed', { subscriptionId: subscription.id });
+        return;
+    }
+
+    const existingSub = await getSubscriptionByStripeCustomerId(customerId);
+    if (!existingSub) {
+        console.warn('[Webhook] No subscription found for resumed event', { customerId });
+        return;
+    }
+
+    const periodEnd = safeTimestampToDate(subscription.current_period_end);
+
+    await upsertSubscription({
+        userId: existingSub.userId,
+        status: 'active',
+        currentPeriodEnd: periodEnd ?? undefined,
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+    });
+
+    await syncSubscriptionToClerk(
+        existingSub.userId,
+        existingSub.plan,
+        'active',
+        customerId,
+        periodEnd,
+        clerkBillingForStripeSubscriptionStatus('active'),
+    );
+}
+
+/**
+ * Resolve customerId from a Stripe Dispute object.
+ * The dispute contains a charge ID — we retrieve the charge to get the customer.
+ */
+async function resolveCustomerIdFromDispute(dispute: Stripe.Dispute): Promise<string | null> {
+    const chargeId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id;
+    if (!chargeId) {
+        console.error('[Webhook] Dispute has no charge ID', { disputeId: dispute.id });
+        return null;
+    }
+
+    try {
+        const stripe = getStripe();
+        const charge = await stripe.charges.retrieve(chargeId);
+        return typeof charge.customer === 'string' ? charge.customer : charge.customer?.id ?? null;
+    } catch (err) {
+        console.error('[Webhook] Failed to retrieve charge for dispute', { disputeId: dispute.id, chargeId, err });
+        return null;
+    }
+}
+
+/**
+ * Handle charge.dispute.created — immediately revoke user access
+ */
+async function handleDisputeCreated(dispute: Stripe.Dispute, livemode: boolean) {
+    console.log(`[Webhook] Dispute created: ${dispute.id} reason=${dispute.reason} status=${dispute.status}`);
+
+    const customerId = await resolveCustomerIdFromDispute(dispute);
+    if (!customerId) return;
+
+    const existingSub = await getSubscriptionByStripeCustomerId(customerId);
+    if (!existingSub) {
+        console.warn('[Webhook] No subscription found for disputed customer', { customerId, disputeId: dispute.id });
+        return;
+    }
+
+    const previousPlan = existingSub.plan;
+
+    // Immediately revoke access — set status to 'disputed'
+    await upsertSubscription({
+        userId: existingSub.userId,
+        status: 'disputed',
+    });
+
+    await syncSubscriptionToClerk(
+        existingSub.userId,
+        existingSub.plan,
+        'disputed',
+        customerId,
+        existingSub.currentPeriodEnd,
+        {
+            disputedAt: new Date().toISOString(),
+            disputeReason: dispute.reason ?? null,
+        },
+    );
+
+    console.log(`[Webhook] Access revoked for user ${existingSub.userId} due to dispute ${dispute.id}`);
+
+    await trackDisputeCreated({
+        userId: existingSub.userId,
+        dispute,
+        customerId,
+        previousPlan,
+        livemode,
+    });
+}
+
+/**
+ * Handle charge.dispute.updated — log status changes for monitoring
+ */
+async function handleDisputeUpdated(dispute: Stripe.Dispute, livemode: boolean) {
+    console.log(`[Webhook] Dispute updated: ${dispute.id} status=${dispute.status}`);
+
+    const customerId = await resolveCustomerIdFromDispute(dispute);
+    if (!customerId) return;
+
+    const existingSub = await getSubscriptionByStripeCustomerId(customerId);
+    if (!existingSub) return;
+
+    await trackDisputeUpdated({
+        userId: existingSub.userId,
+        dispute,
+        customerId,
+        livemode,
+    });
+}
+
+/**
+ * Handle charge.dispute.closed — restore or permanently revoke access based on outcome
+ */
+async function handleDisputeClosed(dispute: Stripe.Dispute, livemode: boolean) {
+    console.log(`[Webhook] Dispute closed: ${dispute.id} status=${dispute.status}`);
+
+    const customerId = await resolveCustomerIdFromDispute(dispute);
+    if (!customerId) return;
+
+    const existingSub = await getSubscriptionByStripeCustomerId(customerId);
+    if (!existingSub) return;
+
+    let outcome: 'won' | 'lost' | 'accepted';
+
+    if (dispute.status === 'won') {
+        outcome = 'won';
+        // Restore access — the dispute was resolved in our favor
+        const periodEnd = existingSub.currentPeriodEnd;
+        await upsertSubscription({
+            userId: existingSub.userId,
+            plan: existingSub.plan,
+            status: 'active',
+        });
+        await syncSubscriptionToClerk(
+            existingSub.userId,
+            existingSub.plan,
+            'active',
+            customerId,
+            periodEnd,
+            {
+                paymentFailed: false,
+                refunded: false,
+                disputedAt: null,
+                disputeReason: null,
+            },
+        );
+        console.log(`[Webhook] Dispute won — access restored for user ${existingSub.userId}`);
+    } else if (dispute.status === 'lost') {
+        outcome = 'lost';
+        // Dispute lost — user got their money back; keep access revoked, downgrade to free
+        await upsertSubscription({
+            userId: existingSub.userId,
+            plan: 'free',
+            status: 'canceled',
+        });
+        await syncWalletForPlan(existingSub.userId, 'free', new Date());
+        await syncSubscriptionToClerk(existingSub.userId, 'free', 'canceled', customerId, null, {
+            paymentFailed: false,
+            refunded: false,
+            disputedAt: null,
+            disputeReason: null,
+        });
+        console.log(`[Webhook] Dispute lost — plan set to free for user ${existingSub.userId}`);
+    } else {
+        // 'warning_closed', 'charge_refunded', 'accepted' etc.
+        outcome = 'accepted';
+        console.log(`[Webhook] Dispute closed with status ${dispute.status} for user ${existingSub.userId}`);
+    }
+
+    await trackDisputeClosed({
+        userId: existingSub.userId,
+        dispute,
+        customerId,
+        outcome,
         livemode,
     });
 }

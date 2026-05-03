@@ -136,6 +136,14 @@ export async function POST(request: NextRequest) {
         const session = await stripe.checkout.sessions.create({
             mode: 'subscription',
             payment_method_types: ['card'],
+            payment_method_options: {
+                card: {
+                    // 'automatic' triggers 3DS when Stripe's risk engine deems it necessary.
+                    // Completed 3DS shifts liability to the card issuer, meaning fraudulent
+                    // dispute claims are automatically won by us — not the cardholder.
+                    request_three_d_secure: 'automatic',
+                },
+            },
             line_items: [
                 {
                     price: priceId,

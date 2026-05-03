@@ -3,8 +3,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getStripe } from '@/lib/stripe';
+import { getStripe, STRIPE_PRICES } from '@/lib/stripe';
 import { getUserSubscription } from '@/lib/subscriptions';
+import { checkRateLimit, createRateLimitResponse } from '@/lib/security/rate-limiter';
+import { getSubscriptionBlockReason } from '@/lib/billing-utils';
 
 export async function POST(request: NextRequest) {
     try {
@@ -17,6 +19,11 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        const rateLimitResult = await checkRateLimit(userId, 'standard');
+        if (rateLimitResult.limited) {
+            return createRateLimitResponse(rateLimitResult.resetIn);
+        }
+
         const body = await request.json();
         const { targetPriceId } = body;
 
@@ -27,10 +34,32 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Validate against known price IDs to prevent probing arbitrary Stripe resources
+        const allowedPriceIds = [
+            STRIPE_PRICES.PRO_MONTHLY,
+            STRIPE_PRICES.PRO_ANNUAL,
+            STRIPE_PRICES.MAX_MONTHLY,
+            STRIPE_PRICES.MAX_ANNUAL,
+        ].filter(Boolean) as string[];
+
+        if (!allowedPriceIds.includes(targetPriceId)) {
+            console.error('[Preview Upgrade] Unknown price ID:', { targetPriceId, userId });
+            return NextResponse.json(
+                { error: 'Invalid pricing option.' },
+                { status: 400 }
+            );
+        }
+
         const subscription = await getUserSubscription(userId);
 
+        // Block disputed accounts
+        const blockReason = getSubscriptionBlockReason(subscription?.status);
+        if (blockReason) {
+            return NextResponse.json({ error: blockReason }, { status: 403 });
+        }
+
         if (!subscription?.stripeSubscriptionId) {
-            // No existing subscription - they'll pay full price via checkout
+            // No existing subscription — they'll pay full price via checkout
             return NextResponse.json({
                 type: 'new_subscription',
                 message: 'Full payment required for new subscription',
@@ -39,7 +68,6 @@ export async function POST(request: NextRequest) {
 
         const stripe = getStripe();
 
-        // Get current subscription
         const stripeSubscription = await stripe.subscriptions.retrieve(
             subscription.stripeSubscriptionId
         );
@@ -68,16 +96,10 @@ export async function POST(request: NextRequest) {
             },
         });
 
-        // The amount_due on the preview invoice represents what will be charged immediately
-        // This includes the proration (credit for unused time on old plan + charge for remaining time on new plan)
         const prorationAmount = upcomingInvoice.amount_due;
-
-        // Get the current period end
         const currentPeriodEnd = new Date(
             (stripeSubscription as any).current_period_end * 1000
         );
-
-        // Days remaining in current period
         const now = new Date();
         const daysRemaining = Math.ceil(
             (currentPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
@@ -85,12 +107,12 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
             type: 'upgrade',
-            prorationAmount: prorationAmount, // in cents
+            prorationAmount,
             prorationAmountFormatted: (prorationAmount / 100).toFixed(2),
             currency: upcomingInvoice.currency,
             daysRemaining,
             currentPeriodEnd: currentPeriodEnd.toISOString(),
-            nextBillingAmount: upcomingInvoice.total, // Total for next period
+            nextBillingAmount: upcomingInvoice.total,
             nextBillingAmountFormatted: (upcomingInvoice.total / 100).toFixed(2),
         });
     } catch (error: any) {

@@ -268,8 +268,8 @@ export function FridgePageClient() {
 
           {viewMode === "advanced" && (
             <section className="px-4 lg:px-6">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-12 min-w-0">
-                <div className="md:col-span-6">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 min-w-0">
+                <div className="lg:col-span-6">
                   <Card className="@container/card h-[420px] flex flex-col">
                     <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                       <div className="flex items-center gap-2">

@@ -141,12 +141,37 @@ export async function markEventAsFailed(
 }
 
 /**
- * Get failure count for an event (for monitoring/alerting)
+ * Count rows for this event where status = 'failed'.
+ * Because `event_id` is the primary key, there is at most one row per id — so this is
+ * 0 or 1, not a Stripe retry counter. Use logs or a dedicated counter column if you need attempt counts.
  */
 export async function getEventFailureCount(eventId: string): Promise<number> {
-    // This would require tracking retry attempts separately
-    // For now, we can check if event exists and has failed status
-    const event = await getWebhookEvent(eventId);
-    return event?.status === 'failed' ? 1 : 0;
+    const rows = await neonQuery<{ cnt: string }>(
+        `SELECT COUNT(*) AS cnt FROM webhook_events WHERE event_id = $1 AND status = 'failed'`,
+        [eventId]
+    );
+    return parseInt(rows[0]?.cnt ?? '0', 10);
+}
+
+/**
+ * Delete webhook_events rows older than `olderThanDays` days.
+ * Stripe retries window is 3 days, so 30 days retention is more than enough.
+ * Call from a scheduled job or cron API route (e.g. /api/cron/cleanup-webhooks).
+ *
+ * @returns Number of rows deleted
+ */
+export async function deleteOldWebhookEvents(olderThanDays = 30): Promise<number> {
+    const rows = await neonQuery<{ deleted: string }>(
+        `WITH deleted AS (
+            DELETE FROM webhook_events
+            WHERE created_at < NOW() - ($1 || ' days')::INTERVAL
+            RETURNING 1
+         )
+         SELECT COUNT(*) AS deleted FROM deleted`,
+        [String(olderThanDays)]
+    );
+    const count = parseInt(rows[0]?.deleted ?? '0', 10);
+    console.log(`[WebhookEvents] Deleted ${count} old rows (older than ${olderThanDays} days)`);
+    return count;
 }
 

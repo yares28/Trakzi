@@ -1,26 +1,14 @@
 // app/api/stripe/sync-subscription/route.ts
-// Sync subscription from Stripe to database
-// Called after returning from Stripe Checkout or Portal
+// Sync subscription from Stripe to database.
+// Called after returning from Stripe Checkout or Portal (eager sync pattern).
 
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { getStripe, getPlanFromPriceId } from '@/lib/stripe';
 import { getUserSubscription, upsertSubscription, mapStripeStatus } from '@/lib/subscriptions';
 import { clerkClient } from '@clerk/nextjs/server';
-
-/**
- * Safely convert Unix timestamp to Date
- */
-function safeTimestampToDate(timestamp: number | undefined | null): Date | null {
-    if (timestamp === undefined || timestamp === null || isNaN(timestamp)) {
-        return null;
-    }
-    const date = new Date(timestamp * 1000);
-    if (isNaN(date.getTime())) {
-        return null;
-    }
-    return date;
-}
+import { checkRateLimit, createRateLimitResponse } from '@/lib/security/rate-limiter';
+import { safeTimestampToDate } from '@/lib/billing-utils';
 
 export async function POST() {
     try {
@@ -33,11 +21,15 @@ export async function POST() {
             );
         }
 
+        const rateLimitResult = await checkRateLimit(userId, 'standard');
+        if (rateLimitResult.limited) {
+            return createRateLimitResponse(rateLimitResult.resetIn);
+        }
+
         // Get current subscription from our database
         const dbSubscription = await getUserSubscription(userId);
 
         if (!dbSubscription?.stripeSubscriptionId) {
-            // No Stripe subscription to sync
             return NextResponse.json({
                 success: true,
                 message: 'No Stripe subscription to sync',
@@ -55,7 +47,6 @@ export async function POST() {
         );
 
         // CRITICAL SECURITY: Verify subscription ownership
-        // Ensure the subscription's customer ID matches the user's customer ID
         const stripeCustomerId = typeof stripeSubscription.customer === 'string'
             ? stripeSubscription.customer
             : stripeSubscription.customer?.id;
@@ -86,7 +77,6 @@ export async function POST() {
             );
         }
 
-        // Extract subscription data
         const priceId = stripeSubscription.items.data[0]?.price.id;
         const newPlan = getPlanFromPriceId(priceId || '');
         const status = mapStripeStatus(stripeSubscription.status);
@@ -94,7 +84,6 @@ export async function POST() {
             (stripeSubscription as any).current_period_end
         );
 
-        // Update our database
         await upsertSubscription({
             userId,
             plan: newPlan,
@@ -104,11 +93,9 @@ export async function POST() {
             stripePriceId: priceId,
             currentPeriodEnd: periodEnd ?? undefined,
             cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
-            // Clear pending plan if the subscription was updated
             pendingPlan: stripeSubscription.cancel_at_period_end ? dbSubscription.pendingPlan : null,
         });
 
-        // Sync to Clerk
         try {
             const client = await clerkClient();
             await client.users.updateUserMetadata(userId, {
@@ -116,14 +103,14 @@ export async function POST() {
                     subscription: {
                         plan: newPlan,
                         status,
-                        currentPeriodEnd: periodEnd?.toISOString(),
+                        stripeCustomerId,
+                        currentPeriodEnd: periodEnd?.toISOString() ?? undefined,
                         updatedAt: new Date().toISOString(),
                     },
                 },
             });
         } catch (clerkError) {
             console.error('[Sync Subscription] Failed to sync to Clerk:', clerkError);
-            // Don't fail if Clerk sync fails
         }
 
         console.log(`[Sync Subscription] Synced for user ${userId}: ${newPlan} (${status})`);
@@ -148,7 +135,6 @@ export async function POST() {
         }
 
         if (error.code === 'resource_missing') {
-            // Subscription was deleted on Stripe
             return NextResponse.json({
                 success: true,
                 message: 'Subscription no longer exists on Stripe',

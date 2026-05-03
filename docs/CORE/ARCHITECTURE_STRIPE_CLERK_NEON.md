@@ -1,5 +1,7 @@
 # How Stripe, Clerk, and Neon Communicate
 
+**Last Updated:** May 2026 | **Stripe Live Account:** `acct_1SfK1r3vjWsbQA2n`
+
 This document explains how your application connects Stripe (payments), Clerk (authentication), and Neon (database) to identify users and manage subscriptions.
 
 ## Overview: The Three-System Architecture
@@ -50,7 +52,15 @@ CREATE TABLE users (
 
 ---
 
-## 2. Subscription Flow: How Stripe Links to Users
+## 2. Payment Flows: How Stripe Links to Users
+
+Trakzi supports two payment types via Stripe:
+- **Subscriptions** — recurring PRO/MAX plans
+- **Transaction Packs** — one-time capacity top-ups (500 / 1500 / 5000 transactions)
+
+Both flows go through `/api/checkout` and are differentiated by `session.metadata.purchase_type` in the webhook.
+
+### Subscription Flow
 
 ### Step 1: User Initiates Checkout
 
@@ -88,7 +98,32 @@ const session = await stripe.checkout.sessions.create({
 });
 ```
 
-### Step 2: Stripe Webhook Receives Events
+### Transaction Pack Flow
+
+```typescript
+// app/api/checkout/route.ts — one-time pack checkout
+const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    customer: customerId,
+    metadata: {
+        userId,
+        purchase_type: 'transaction_pack', // ⭐ Signals webhook branch
+        pack_id: packId,
+        pack_transactions: String(transactions),
+    },
+    // ...
+});
+
+// Webhook: checkout.session.completed
+if (session.metadata?.purchase_type === 'transaction_pack') {
+    await addPurchasedCapacity(userId, packTransactions);
+    // ⭐ No plan change — just increases the user's wallet capacity
+}
+```
+
+The transaction pack capacity is stored in the `transaction_wallet` table and combined with the plan's `base_capacity` to form the user's total transaction allowance.
+
+### Subscription Step 2: Stripe Webhook Receives Events
 
 When Stripe sends webhook events (subscription created, updated, deleted, etc.):
 
@@ -122,7 +157,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 }
 ```
 
-### Step 3: Neon Database Stores the Link
+### Subscription Step 3: Neon Database Stores the Link
 
 **Neon Database (`subscriptions` table):**
 ```sql
@@ -136,6 +171,19 @@ CREATE TABLE subscriptions (
     stripe_price_id TEXT,
     current_period_end TIMESTAMP,
     cancel_at_period_end BOOLEAN,
+    pending_plan TEXT,  -- Scheduled downgrade plan
+    is_lifetime BOOLEAN DEFAULT false,
+    -- ...
+);
+```
+
+**Neon Database (`transaction_wallet` table — for capacity tracking):**
+```sql
+CREATE TABLE transaction_wallet (
+    user_id TEXT PRIMARY KEY REFERENCES users(id),
+    base_capacity INT NOT NULL,       -- From plan (400 / 3000 / unlimited)
+    purchased_capacity INT DEFAULT 0, -- From one-time packs
+    used_count INT DEFAULT 0,
     -- ...
 );
 ```
@@ -372,7 +420,9 @@ const userId = subscription?.userId; // Clerk userId from Neon
 
 ---
 
-## 8. Summary: The Three Identifiers
+## 8. Summary: Identifiers and Tables
+
+### The Three Identifiers
 
 | System | Identifier | Format | Example |
 |--------|-----------|--------|---------|
@@ -381,6 +431,15 @@ const userId = subscription?.userId; // Clerk userId from Neon
 | **Stripe** | `subscriptionId` | `sub_*` | `sub_XYZ789abc` |
 | **Neon** | `user_id` | `user_*` | `user_2abc123xyz` (same as Clerk) |
 | **Neon** | `stripe_customer_id` | `cus_*` | `cus_ABC123xyz` (same as Stripe) |
+
+### Neon Tables Involved in Stripe Integration
+
+| Table | Purpose |
+|-------|---------|
+| `users` | Stores Clerk `userId` as primary key |
+| `subscriptions` | Links Clerk user → Stripe customer → subscription; source of truth for plan/status |
+| `webhook_events` | Idempotency log — one row per processed Stripe event ID |
+| `transaction_wallet` | Tracks base capacity (from plan) + purchased capacity (from packs) + used count |
 
 **The Linking:**
 - Clerk `userId` = Neon `user_id` (same value)
@@ -392,13 +451,15 @@ const userId = subscription?.userId; // Clerk userId from Neon
 
 ## 9. Best Practices in Your Implementation
 
-✅ **Always create Stripe customer before checkout** - Prevents race conditions
-✅ **Store `userId` in Stripe metadata** - Allows webhooks to identify users
-✅ **Store customer ID in Neon immediately** - Ensures binding exists before checkout
-✅ **Use Neon as source of truth** - Clerk metadata is optional cache
-✅ **Query by `userId` for user-facing operations** - Most reliable
-✅ **Query by `customerId` in webhooks** - When Stripe sends customer ID
-✅ **Idempotency checks** - Prevent duplicate webhook processing
+✅ **Always create Stripe customer before checkout** — prevents race conditions; `stripe_customer_id` stored in Neon before the checkout session is created  
+✅ **Store `userId` in Stripe metadata** — every customer, checkout session, and subscription carries `userId` in metadata for reliable webhook identification  
+✅ **Store customer ID in Neon immediately** — ensures the Clerk↔Stripe binding exists before checkout completes  
+✅ **Use Neon as source of truth** — Clerk `publicMetadata.subscription` is an optional cache; always defer to Neon for authoritative state  
+✅ **Query by `userId` for user-facing operations** — most reliable path; avoids Stripe API calls  
+✅ **Query by `customerId` in webhooks** — when Stripe sends customer ID, look up Neon by `stripe_customer_id`; fall back to `subscription.metadata.userId`  
+✅ **Atomic webhook idempotency** — `claimWebhookEvent()` uses `INSERT ... ON CONFLICT DO NOTHING`; first delivery wins, duplicates are silently dropped  
+✅ **Rate-limit webhook endpoint** — IP-based rate limiting (Upstash) applied before signature verification for DoS protection  
+✅ **Branch on `purchase_type` in checkout handler** — subscription and transaction pack purchases share the same checkout endpoint and are differentiated cleanly via metadata
 
 ---
 
