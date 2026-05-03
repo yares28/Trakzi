@@ -28,9 +28,9 @@ interface ComparisonPageProps {
 }
 
 function StatusIcon({ status }: { status: string }) {
-  if (status === "yes") return <Check className="h-4 w-4 text-emerald-400" />
+  if (status === "yes") return <Check className="h-4 w-4 text-secondary" />
   if (status === "no") return <X className="h-4 w-4 text-white/20" />
-  if (status === "partial") return <Minus className="h-4 w-4 text-yellow-400" />
+  if (status === "partial") return <Minus className="h-4 w-4 text-muted-foreground" />
   return <span className="text-xs text-muted-foreground">{status}</span>
 }
 
@@ -68,7 +68,7 @@ export default function ComparisonPage({
             <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-8">
               <Badge variant="secondary" className="inline-flex items-center gap-2 px-4 py-2 text-sm">
                 <Sparkles className="h-4 w-4" />
-                Comparison
+                {isEs ? "Comparación" : "Comparison"}
               </Badge>
             </m.div>
             <m.h1
@@ -98,16 +98,17 @@ export default function ComparisonPage({
         <div className="container mx-auto max-w-4xl">
           <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm overflow-hidden">
             <table className="w-full text-sm">
+              <caption className="sr-only">Feature comparison between Trakzi and {competitorName}</caption>
               <thead>
                 <tr className="border-b border-white/10">
-                  <th className="text-left py-4 px-6 text-muted-foreground font-medium">{featureLabel}</th>
-                  <th className="text-center py-4 px-6 text-[#e78a53] font-bold">Trakzi</th>
-                  <th className="text-center py-4 px-6 text-muted-foreground font-medium">{compLabel}</th>
+                  <th scope="col" className="text-left py-4 px-6 text-muted-foreground font-medium">{featureLabel}</th>
+                  <th scope="col" className="text-center py-4 px-6 text-primary font-bold">Trakzi</th>
+                  <th scope="col" className="text-center py-4 px-6 text-muted-foreground font-medium">{compLabel}</th>
                 </tr>
               </thead>
               <tbody>
                 {features.map((f, i) => (
-                  <tr key={i} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                  <tr key={i} className="border-b border-white/5">
                     <td className="py-3 px-6 text-foreground">{f.feature}</td>
                     <td className="py-3 px-6 text-center"><div className="flex justify-center"><StatusIcon status={f.trakzi} /></div></td>
                     <td className="py-3 px-6 text-center"><div className="flex justify-center"><StatusIcon status={f.competitor} /></div></td>
@@ -124,13 +125,13 @@ export default function ComparisonPage({
       {/* Advantages */}
       <section className="py-48 px-4 relative z-10">
         <div className="container mx-auto max-w-4xl">
-          <h2 className="via-foreground mb-12 bg-gradient-to-b from-zinc-800 to-zinc-700 bg-clip-text text-center text-5xl font-semibold tracking-tighter text-transparent md:text-[72px] md:leading-[80px]">
+          <h2 className="mb-12 text-center text-5xl font-semibold tracking-tighter text-foreground md:text-[72px] md:leading-[80px]">
             {whyLabel}
           </h2>
           <ul className="space-y-4">
             {trakziAdvantages.map((adv, i) => (
               <m.li key={i} initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08 }} className="flex items-start gap-3">
-                <Check className="h-5 w-5 text-[#e78a53] flex-shrink-0 mt-0.5" />
+                <Check className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                 <span className="text-foreground">{adv}</span>
               </m.li>
             ))}
@@ -143,13 +144,13 @@ export default function ComparisonPage({
       {/* Competitor Strengths */}
       <section className="py-48 px-4 relative z-10">
         <div className="container mx-auto max-w-4xl">
-          <h2 className="via-foreground mb-12 bg-gradient-to-b from-zinc-800 to-zinc-700 bg-clip-text text-center text-5xl font-semibold tracking-tighter text-transparent md:text-[72px] md:leading-[80px]">
+          <h2 className="mb-12 text-center text-5xl font-semibold tracking-tighter text-foreground md:text-[72px] md:leading-[80px]">
             {whereLabel}
           </h2>
           <ul className="space-y-4">
             {competitorStrengths.map((str, i) => (
               <li key={i} className="flex items-start gap-3">
-                <Minus className="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                <Minus className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                 <span className="text-foreground">{str}</span>
               </li>
             ))}
@@ -162,7 +163,7 @@ export default function ComparisonPage({
       {/* Verdict */}
       <section className="py-48 px-4 relative z-10">
         <div className="container mx-auto max-w-4xl">
-          <h2 className="via-foreground mb-8 bg-gradient-to-b from-zinc-800 to-zinc-700 bg-clip-text text-center text-5xl font-semibold tracking-tighter text-transparent md:text-[72px] md:leading-[80px]">
+          <h2 className="mb-8 text-center text-5xl font-semibold tracking-tighter text-foreground md:text-[72px] md:leading-[80px]">
             {verdictLabel}
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">{conclusion}</p>
@@ -174,7 +175,7 @@ export default function ComparisonPage({
       {/* CTA */}
       <section className="py-48 px-4 relative z-10">
         <div className="container mx-auto max-w-2xl text-center">
-          <h2 className="via-foreground mb-8 bg-gradient-to-b from-zinc-800 to-zinc-700 bg-clip-text text-5xl font-semibold tracking-tighter text-transparent md:text-[72px] md:leading-[80px]">
+          <h2 className="mb-8 text-5xl font-semibold tracking-tighter text-foreground md:text-[72px] md:leading-[80px]">
             {isEs ? "¿Listo para probar?" : "Ready to try?"}
           </h2>
           <p className="mx-auto mb-12 max-w-2xl text-lg text-muted-foreground">
@@ -190,9 +191,9 @@ export default function ComparisonPage({
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-6 text-center">{moreLabel}</h3>
           <div className="flex flex-wrap justify-center gap-4">
             {[
-              { href: "/compare/trakzi-vs-ynab", label: "vs YNAB" },
-              { href: "/compare/trakzi-vs-splitwise", label: "vs Splitwise" },
-              { href: "/compare/trakzi-vs-monarch", label: "vs Monarch Money" },
+              { href: isEs ? "/es/compare/trakzi-vs-ynab" : "/compare/trakzi-vs-ynab", label: "vs YNAB" },
+              { href: isEs ? "/es/compare/trakzi-vs-splitwise" : "/compare/trakzi-vs-splitwise", label: "vs Splitwise" },
+              { href: isEs ? "/es/compare/trakzi-vs-monarch" : "/compare/trakzi-vs-monarch", label: "vs Monarch Money" },
             ].filter(c => !headline.toLowerCase().includes(c.label.replace("vs ", "").toLowerCase())).map((c) => (
               <Link key={c.href} href={c.href} className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-sm transition-colors group">
                 {c.label} <ChevronRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
@@ -205,7 +206,7 @@ export default function ComparisonPage({
         </div>
       </section>
 
-      <StickyFooter />
+      <StickyFooter locale={locale} />
     </div>
   )
 }

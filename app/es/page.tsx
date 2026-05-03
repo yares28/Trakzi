@@ -42,25 +42,15 @@ export default function SpanishLandingPage() {
   const { setTheme } = useTheme()
   const previousThemeRef = useRef<string | null>(null)
 
-  // Force dark mode on landing page, restore user's theme on unmount
+  // Force dark mode on landing page, restore user's theme on unmount.
+  // Stored in a ref (not localStorage) to avoid race conditions when navigating
+  // between EN/ES landing pages or doing a quick back-navigation.
   useEffect(() => {
-    if (typeof window === "undefined") return
-    const LANDING_FLAG = "trakzi-landing-active"
-    const SAVED_THEME_KEY = "trakzi-user-theme-before-landing"
-    const isLandingAlreadyActive = localStorage.getItem(LANDING_FLAG) === "true"
-    if (!isLandingAlreadyActive) {
-      const currentTheme = localStorage.getItem("trakzi-theme") || "light"
-      localStorage.setItem(SAVED_THEME_KEY, currentTheme)
-      localStorage.setItem(LANDING_FLAG, "true")
-    }
-    previousThemeRef.current = localStorage.getItem(SAVED_THEME_KEY) || "light"
+    const saved = localStorage.getItem("trakzi-theme") || "light"
+    previousThemeRef.current = saved
     setTheme("dark")
     return () => {
-      const themeToRestore = previousThemeRef.current || "light"
-      localStorage.removeItem(LANDING_FLAG)
-      localStorage.removeItem(SAVED_THEME_KEY)
-      localStorage.setItem("trakzi-theme", themeToRestore)
-      setTheme(themeToRestore)
+      setTheme(previousThemeRef.current || "light")
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -82,22 +72,23 @@ export default function SpanishLandingPage() {
         signupHref="/sign-up"
       />
 
-      <Hero />
+      <Hero locale="es" />
 
       <ImageComparisonSection
         beforeSrc="/SheetsCompare.jpeg"
         afterSrc="/trakziCompare.png"
         beforeAlt="Datos financieros sin Trakzi"
         afterAlt="Datos financieros con Trakzi"
+        locale="es"
       />
 
       <div id="features">
-        <Features />
+        <Features locale="es" />
       </div>
 
-      <ChartsShowcase />
+      <ChartsShowcase locale="es" />
 
-      <NewReleasePromo />
+      <NewReleasePromo locale="es" />
 
       <div id="faq">
         <FAQSection

@@ -2,16 +2,17 @@
 
 import Link from "next/link"
 
-export function NewReleasePromo() {
+export function NewReleasePromo({ locale = "en" }: { locale?: "en" | "es" }) {
+  const isEs = locale === "es"
   return (
     <section className="mt-12 w-full px-4 sm:px-0">
       <div className="mx-auto max-w-4xl rounded-[40px] border border-black/5 dark:border-white/20 p-2 shadow-sm">
-        <div className="relative mx-auto min-h-[440px] sm:min-h-[400px] sm:h-[400px] max-w-4xl overflow-hidden rounded-[38px] border border-black/5 dark:border-white/20 bg-[#fe985b] p-2 shadow-sm">
+        <div className="relative mx-auto min-h-[440px] sm:min-h-[400px] sm:h-[400px] max-w-4xl overflow-hidden rounded-[38px] border border-black/5 dark:border-white/20 bg-primary p-2 shadow-sm">
           {/* Subtle radial glow from center */}
           <div
             className="absolute inset-0 z-0"
             style={{
-              background: "radial-gradient(ellipse 60% 40% at 50% 50%, rgba(254, 152, 91, 0.3), transparent 70%)",
+              background: "radial-gradient(ellipse 60% 40% at 50% 50%, color-mix(in oklch, var(--primary), transparent 70%), transparent 70%)",
             }}
           />
 
@@ -44,9 +45,12 @@ export function NewReleasePromo() {
 
           <div className="relative z-10">
             <div className="mt-8 text-center px-3 sm:px-0">
-              <h2 className="text-2xl sm:text-4xl font-bold text-white mb-4 sm:mb-6 leading-tight">We are here to find patterns
-you didn't even know existed.</h2>
-              <p className="text-white/60 mb-6 sm:mb-8">Start now!</p>
+              <h2 className="text-2xl sm:text-4xl font-bold text-white mb-4 sm:mb-6 leading-tight">
+                {isEs
+                  ? "Estamos aquí para encontrar patrones que ni siquiera sabías que existían."
+                  : "We are here to find patterns you didn't even know existed."}
+              </h2>
+              <p className="text-white/60 mb-6 sm:mb-8">{isEs ? "¡Empieza ya!" : "Start now!"}</p>
               <svg
                 width="100"
                 height="50"
@@ -64,7 +68,7 @@ you didn't even know existed.</h2>
               <div className="flex items-center justify-center">
                 <Link href="/sign-up">
                   <div className="group border-border bg-secondary/70 flex h-[64px] cursor-pointer items-center gap-2 rounded-full border p-[11px] mt-10">
-                    <div className="border-border bg-[#fe985b] flex h-[43px] items-center justify-center rounded-full border">
+                    <div className="border-border bg-primary flex h-[43px] items-center justify-center rounded-full border">
                       <p className="mr-3 ml-2 flex items-center justify-center gap-2 font-medium tracking-tight text-white">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -83,7 +87,7 @@ you didn't even know existed.</h2>
                           <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
                           <path d="M2 12h20"></path>
                         </svg>
-                        Get started
+                        {isEs ? "Empieza" : "Get started"}
                       </p>
                     </div>
                     <div className="border-border flex size-[26px] items-center justify-center rounded-full border-2 transition-all ease-in-out group-hover:ml-2">

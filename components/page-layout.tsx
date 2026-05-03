@@ -8,22 +8,30 @@ import { useDemoMode } from "@/lib/demo/demo-context"
 export function PageHeader({ locale = "en" }: { locale?: "en" | "es" }) {
   const isEs = locale === "es"
 
+  const navLinks = isEs
+    ? [
+        { label: "Características", href: "/es/features" },
+        { label: "Documentación", href: "/es/docs" },
+        { label: "Precios", href: "/es/precios" },
+      ]
+    : [
+        { label: "Features", href: "/features" },
+        { label: "Docs", href: "/docs" },
+        { label: "Pricing", href: "/pricing" },
+      ]
+
   return (
     <header className="sticky top-4 z-[9999] mx-auto max-w-5xl hidden md:flex items-center justify-between rounded-full bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg px-4 py-2">
-      <Link href="/" className="flex items-center gap-2">
+      <Link href={isEs ? "/es" : "/"} className="flex items-center gap-2">
         <img src="/Trakzi/TrakzilogoB.png" alt="Trakzi" className="h-8 w-auto" draggable={false} />
       </Link>
 
       <div className="absolute inset-0 hidden flex-1 flex-row items-center justify-center space-x-2 text-sm font-medium text-muted-foreground pointer-events-none md:flex">
-        <Link href="/features" className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors pointer-events-auto">
-          <span>Features</span>
-        </Link>
-        <Link href="/docs" className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors pointer-events-auto">
-          <span>Docs</span>
-        </Link>
-        <Link href="/pricing" className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors pointer-events-auto">
-          <span>Pricing</span>
-        </Link>
+        {navLinks.map((link) => (
+          <Link key={link.href} href={link.href} className="relative px-4 py-2 text-muted-foreground hover:text-foreground transition-colors pointer-events-auto">
+            <span>{link.label}</span>
+          </Link>
+        ))}
       </div>
 
       <div className="flex items-center gap-2">
@@ -46,6 +54,7 @@ export function PageHeader({ locale = "en" }: { locale?: "en" | "es" }) {
 }
 
 export function CtaButtons({ locale = "en" }: { locale?: "en" | "es" }) {
+  const isEs = locale === "es"
   const { enterDemo } = useDemoMode()
 
   return (
@@ -60,7 +69,7 @@ export function CtaButtons({ locale = "en" }: { locale?: "en" | "es" }) {
                 <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
                 <path d="M2 12h20"></path>
               </svg>
-              Get started for free
+              {isEs ? "Empieza Gratis" : "Get started for free"}
             </p>
           </div>
           <div className="text-muted-foreground group-hover:ml-4 ease-in-out transition-all size-[24px] flex items-center justify-center rounded-full border-2 border-border">
@@ -77,8 +86,8 @@ export function CtaButtons({ locale = "en" }: { locale?: "en" | "es" }) {
         <div className="group cursor-pointer border border-border bg-card gap-2 h-[60px] flex items-center p-[10px] rounded-full">
           <div className="border border-border bg-primary h-[40px] rounded-full flex items-center justify-center text-primary-foreground">
             <p className="font-medium tracking-tight mr-3 ml-3 flex items-center gap-2 justify-center text-base">
-              <Play className="h-4 w-4 animate-spin" fill="currentColor" />
-              Try Demo
+              <Play className="h-4 w-4" fill="currentColor" />
+              {isEs ? "Probar Demo" : "Try Demo"}
             </p>
           </div>
           <div className="text-muted-foreground group-hover:ml-4 ease-in-out transition-all size-[24px] flex items-center justify-center rounded-full border-2 border-border">

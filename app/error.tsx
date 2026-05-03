@@ -79,17 +79,17 @@ export default function ErrorPage({
   }, [error])
 
   return (
-    <div className="min-h-screen bg-[var(--bg-0)] flex flex-col items-center justify-center p-6">
-      {/* Ambient glow */}
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+      {/* Ambient glow — behind content */}
       <div
-        className="pointer-events-none fixed inset-0 opacity-20"
+        className="pointer-events-none fixed inset-0 z-0"
         style={{
           background:
-            "radial-gradient(ellipse 50% 35% at 50% 50%, oklch(0.6368 0.2078 25.3313 / 0.15) 0%, transparent 70%)",
+            "radial-gradient(ellipse 50% 35% at 50% 50%, oklch(0.6368 0.2078 25.3313 / 0.08) 0%, transparent 70%)",
         }}
       />
 
-      <div className="relative w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="relative z-10 w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         {/* Chart */}
         <div className="flex flex-col items-center gap-3">
           <div className="w-full text-muted-foreground">
@@ -117,8 +117,8 @@ export default function ErrorPage({
           </p>
         </div>
 
-        {/* Error details — collapsible */}
-        {(error.message || error.digest) && (
+        {/* Error details — collapsible; never expose raw message in production */}
+        {(error.digest || process.env.NODE_ENV !== "production") && (
           <details className="group rounded-xl border border-border bg-muted/30 text-xs font-mono overflow-hidden">
             <summary className="px-4 py-3 cursor-pointer text-muted-foreground select-none flex items-center gap-2 hover:text-foreground transition-colors">
               <span className="inline-block transition-transform group-open:rotate-90">▶</span>
@@ -128,7 +128,7 @@ export default function ErrorPage({
               )}
             </summary>
             <div className="px-4 pb-4 pt-1 text-destructive/80 break-all leading-relaxed border-t border-border">
-              {error.message || "Unknown error"}
+              {process.env.NODE_ENV !== "production" ? error.message || "Unknown error" : `Digest: ${error.digest}`}
             </div>
           </details>
         )}
@@ -140,7 +140,7 @@ export default function ErrorPage({
             Try again
           </Button>
           <Button asChild variant="outline" className="flex-1 gap-2">
-            <Link href="/home">
+            <Link href="/">
               <Home className="size-4" />
               Back to home
             </Link>

@@ -7,8 +7,9 @@ import { useDemoMode } from "@/lib/demo/demo-context"
 
 import Link from "next/link"
 
-export default function Hero() {
+export default function Hero({ locale = "en" }: { locale?: "en" | "es" }) {
   const { enterDemo } = useDemoMode()
+  const isEs = locale === "es"
 
   return (
     <>
@@ -25,7 +26,7 @@ export default function Hero() {
               <img
                 src="/3d/3dlogo.png"
                 alt=""
-                className="absolute w-[800px] h-[800px] sm:w-[1200px] sm:h-[1200px] object-contain opacity-45"
+                className="absolute w-[min(800px,90vw)] h-[min(800px,90vw)] sm:w-[min(1200px,110vw)] sm:h-[min(1200px,110vw)] object-contain opacity-45"
               />
             </m.div>
 
@@ -88,7 +89,7 @@ export default function Hero() {
             >
               <Badge variant="secondary" className="inline-flex items-center gap-2 px-4 py-2 text-sm">
                 <Sparkles className="h-4 w-4" />
-                Start for Free
+                {isEs ? "Empieza Gratis" : "Start for Free"}
               </Badge>
             </m.div>
 
@@ -100,8 +101,11 @@ export default function Hero() {
               className="mb-8"
             >
               <h1 id="main-title" className="text-4xl font-bold tracking-tight text-foreground sm:text-7xl lg:text-9xl">
-                One <strong>spend.</strong> <span></span> <br />
-                <strong>A dozen </strong> <em className="italic"> ways to see it.</em>
+                {isEs ? (
+                  <>Un solo <strong>gasto.</strong> <br /><strong>Decenas de </strong><em className="italic">formas de verlo.</em></>
+                ) : (
+                  <>One <strong>spend.</strong> <br /><strong>A dozen </strong><em className="italic">ways to see it.</em></>
+                )}
               </h1>
             </m.div>
 
@@ -112,7 +116,7 @@ export default function Hero() {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="mx-auto mb-12 max-w-2xl text-lg text-muted-foreground"
             >
-              We turn your everyday spending into visual, actionable insight.
+              {isEs ? "Convierte tus gastos cotidianos en información visual y accionable." : "We turn your everyday spending into visual, actionable insight."}
             </m.p>
 
             <m.div
@@ -160,7 +164,7 @@ export default function Hero() {
                           <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
                           <path d="M2 12h20"></path>
                         </svg>
-                        Get started for Free
+                        {isEs ? "Empieza Gratis" : "Get started for Free"}
                       </p>
                     </div>
                     <div className="text-muted-foreground group-hover:ml-4 ease-in-out transition-all size-[24px] flex items-center justify-center rounded-full border-2 border-border">
@@ -187,8 +191,8 @@ export default function Hero() {
                   <div className="group cursor-pointer border border-border bg-card gap-2 h-[60px] flex items-center p-[10px] rounded-full">
                     <div className="border border-border bg-primary h-[40px] rounded-full flex items-center justify-center text-primary-foreground">
                       <p className="font-medium tracking-tight mr-3 ml-3 flex items-center gap-2 justify-center text-base">
-                        <Play className="h-4 w-4 animate-spin" fill="currentColor" />
-                        Try Demo
+                        <Play className="h-4 w-4" fill="currentColor" />
+                        {isEs ? "Probar Demo" : "Try Demo"}
                       </p>
                     </div>
                     <div className="text-muted-foreground group-hover:ml-4 ease-in-out transition-all size-[24px] flex items-center justify-center rounded-full border-2 border-border">
@@ -223,7 +227,7 @@ export default function Hero() {
             className="mt-auto pb-8"
           >
             <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-6">Same developers as</p>
+              <p className="text-sm text-muted-foreground mb-6">{isEs ? "Los mismos desarrolladores que" : "Same developers as"}</p>
               <div className="flex items-center justify-center gap-16">
                 {/* Partner Logo */}
                 <div className="opacity-60 grayscale hover:opacity-100 hover:grayscale-0 hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.3)] transition-all duration-300">

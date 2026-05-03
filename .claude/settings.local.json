@@ -45,7 +45,9 @@
       "Bash(powershell -Command:*)",
       "Bash(git branch:*)",
       "Bash(for f:*)",
-      "Bash(do echo:*)"
+      "Bash(do echo:*)",
+      "Bash(npx jest *)",
+      "Bash(git commit *)"
     ]
   },
   "enabledPlugins": {

@@ -18,7 +18,8 @@ import { ReceiptScannerAnimation } from "./receipt-scanner-animation"
 
 const BASE_COLOR: [number, number, number] = [0.906, 0.541, 0.325] // #e78a53 — RGB normalized
 
-export default function Features() {
+export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
+  const isEs = locale === "es"
   const ref = useRef(null)
   const isInView = useInView(ref, { once: true, amount: 0.1 })
   const cliCardRef = useRef(null)
@@ -87,7 +88,7 @@ export default function Features() {
               geist.className,
             )}
           >
-            Features
+            {isEs ? "Características" : "Features"}
           </h2>
         </div>
 
@@ -120,11 +121,12 @@ export default function Features() {
                 style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4">
-                  <h3 className="text-2xl leading-none font-semibold tracking-tight">{"All-in-1 budgeting app"}</h3>
+                  <h3 className="text-2xl leading-none font-semibold tracking-tight">{isEs ? "Todo en 1 — tu app de presupuesto" : "All-in-1 budgeting app"}</h3>
                   <div className="text-md text-muted-foreground flex flex-col gap-2 text-sm">
                     <p className="max-w-[460px]">
-                      Integrate your expenses, income and receipts in the dashboard to visualize where do you spend
-                      more.
+                      {isEs
+                        ? "Integra tus gastos, ingresos y tickets en el panel para visualizar en qué gastas más."
+                        : "Integrate your expenses, income and receipts in the dashboard to visualize where do you spend more."}
                     </p>
                   </div>
                 </div>
@@ -179,7 +181,7 @@ export default function Features() {
 
                     {/* Animated Purple Blur Effect */}
                     <m.div
-                      className="absolute top-1/2 left-1/2 w-16 h-16 bg-purple-500 rounded-full blur-[74px] opacity-65 transform -translate-x-1/2 -translate-y-1/2"
+                      className="absolute top-1/2 left-1/2 w-16 h-16 bg-primary/40 rounded-full blur-[74px] opacity-65 transform -translate-x-1/2 -translate-y-1/2"
                       initial={{ scale: 1 }}
                       animate={isCliActive ? { scale: [1, 1.342, 1, 1.342] } : { scale: 1 }}
                       transition={{
@@ -195,11 +197,18 @@ export default function Features() {
                       <div className="flex items-center gap-2 sm:gap-4 md:gap-8 w-full justify-center">
                         {/* Left Column */}
                         <div className="flex flex-col gap-2 sm:gap-3 min-w-0">
-                            {[
-                            { icon: Sparkles, label: "Budget with AI" },
-                            { icon: FileSpreadsheet, label: "CSV Support" },
-                            { icon: ShoppingCart, label: "Grocery Budget" },
-                          ].map((item, index) => (
+                            {(isEs
+                          ? [
+                              { icon: Sparkles, label: "IA para presupuesto" },
+                              { icon: FileSpreadsheet, label: "Soporte CSV" },
+                              { icon: ShoppingCart, label: "Presupuesto Compras" },
+                            ]
+                          : [
+                              { icon: Sparkles, label: "Budget with AI" },
+                              { icon: FileSpreadsheet, label: "CSV Support" },
+                              { icon: ShoppingCart, label: "Grocery Budget" },
+                            ]
+                        ).map((item, index) => (
                             <m.div
                               key={`left-${item.label}`}
                               className="bg-white rounded px-2 py-1.5 sm:px-3 sm:py-2 flex items-center gap-1.5 sm:gap-2 text-black text-[11px] sm:text-sm font-medium shadow-sm whitespace-nowrap"
@@ -236,11 +245,18 @@ export default function Features() {
 
                         {/* Right Column */}
                         <div className="flex flex-col gap-2 sm:gap-3 min-w-0">
-                            {[
-                            { icon: LayoutGrid, label: "Any Layout" },
-                            { icon: MessageSquare, label: "Chat with AI" },
-                            { icon: BarChart3, label: "Any Chart" },
-                          ].map((item, index) => (
+                            {(isEs
+                          ? [
+                              { icon: LayoutGrid, label: "Cualquier Vista" },
+                              { icon: MessageSquare, label: "Chat con IA" },
+                              { icon: BarChart3, label: "Cualquier Gráfico" },
+                            ]
+                          : [
+                              { icon: LayoutGrid, label: "Any Layout" },
+                              { icon: MessageSquare, label: "Chat with AI" },
+                              { icon: BarChart3, label: "Any Chart" },
+                            ]
+                        ).map((item, index) => (
                             <m.div
                               key={`right-${item.label}`}
                               className="bg-white rounded px-2 py-1.5 sm:px-3 sm:py-2 flex items-center gap-1.5 sm:gap-2 text-black text-[11px] sm:text-sm font-medium shadow-sm whitespace-nowrap"
@@ -309,9 +325,9 @@ export default function Features() {
                 style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4">
-                  <h3 className="text-2xl leading-none font-semibold tracking-tight">Globally Usable</h3>
+                  <h3 className="text-2xl leading-none font-semibold tracking-tight">{isEs ? "Uso Global" : "Globally Usable"}</h3>
                   <div className="text-md text-muted-foreground flex flex-col gap-2 text-sm">
-                    <p className="max-w-[460px]">Import from any bank — supports CSV, PDF, XLSX, and image files</p>
+                    <p className="max-w-[460px]">{isEs ? "Importa desde cualquier banco — admite CSV, PDF, XLSX y archivos de imagen" : "Import from any bank — supports CSV, PDF, XLSX, and image files"}</p>
                   </div>
                 </div>
                 <div className="flex min-h-[300px] grow items-start justify-center select-none">
@@ -322,7 +338,7 @@ export default function Features() {
                         scrambleSpeed={70}
                         maxIterations={20}
                         useOriginalCharsOnly={false}
-                        className="cursor-pointer bg-gradient-to-t from-[#e78a53] to-[#e78a53] bg-clip-text text-transparent"
+                        className="cursor-pointer bg-gradient-to-t from-primary to-primary bg-clip-text text-transparent"
                         isHovering={isHovering || isAutoScrambling}
                         setIsHovering={setIsHovering}
                         characters="abcdefghijklmnopqrstuvwxyz!@#$%^&*()_+-=[]{}|;':\,./<>?"
@@ -362,10 +378,12 @@ export default function Features() {
                 style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4">
-                  <h3 className="text-2xl leading-none font-semibold tracking-tight">{"AI integrated"}</h3>
+                  <h3 className="text-2xl leading-none font-semibold tracking-tight">{isEs ? "IA integrada" : "AI integrated"}</h3>
                   <div className="text-md text-muted-foreground flex flex-col gap-2 text-sm">
                     <p className="max-w-[460px]">
-                      Intelligent components that help you find issues with your spending or it can congratulate you!
+                      {isEs
+                        ? "Componentes inteligentes que te ayudan a detectar problemas con tu gasto o ¡pueden felicitarte!"
+                        : "Intelligent components that help you find issues with your spending or it can congratulate you!"}
                     </p>
                   </div>
                 </div>
@@ -375,7 +393,7 @@ export default function Features() {
                       <div className="p-4">
                         <textarea
                           className="w-full min-h-[100px] bg-transparent border-none text-white placeholder:text-white/50 resize-none focus:outline-none text-base leading-relaxed"
-                          placeholder="Ask about your spending..."
+                          placeholder={isEs ? "Pregunta sobre tus gastos..." : "Ask about your spending..."}
                           value={inputValue}
                           onChange={(e) => setInputValue(e.target.value)}
                           onKeyDown={handleKeyDown}
@@ -399,7 +417,7 @@ export default function Features() {
                               <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
                             </svg>
                           </button>
-                          <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#e78a53] hover:bg-[#e78a53]/90 transition-colors text-white font-medium">
+                          <button type="button" className="flex items-center gap-2 px-4 py-2 rounded-full bg-primary hover:bg-primary/90 transition-colors text-primary-foreground font-medium">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               width="16"
@@ -415,7 +433,7 @@ export default function Features() {
                               <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
                               <path d="M2 12h20"></path>
                             </svg>
-                            Ask
+                            {isEs ? "Preguntar" : "Ask"}
                           </button>
                         </div>
                         <button className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
@@ -456,12 +474,12 @@ export default function Features() {
                 style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4">
-                  <h3 className="text-2xl leading-none font-semibold tracking-tight">Track Everything</h3>
+                  <h3 className="text-2xl leading-none font-semibold tracking-tight">{isEs ? "Registra Todo" : "Track Everything"}</h3>
                   <div className="text-md text-muted-foreground flex flex-col gap-2 text-sm">
                     <p className="max-w-[460px]">
-                      Bundle your real-world finances in one place: trips abroad with their per-country
-                      spend, vehicles with their fuel, insurance and maintenance, and properties with
-                      their mortgage, rent, bills and upkeep.
+                      {isEs
+                        ? "Gas, arrendamientos, seguros, hipotecas, reparaciones y viajes — todo en un lugar."
+                        : "Gas, leases, insurance, mortgage, repairs, and trips — all in one place."}
                     </p>
                   </div>
                 </div>
@@ -484,10 +502,12 @@ export default function Features() {
                 style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4">
-                  <h3 className="text-2xl leading-none font-semibold tracking-tight">Advanced Analytics</h3>
+                  <h3 className="text-2xl leading-none font-semibold tracking-tight">{isEs ? "Análisis Avanzado" : "Advanced Analytics"}</h3>
                   <div className="text-md text-muted-foreground flex flex-col gap-2 text-sm">
                     <p className="max-w-[460px]">
-                      Gain deep insights into your expenses performance with real-time analytics and reporting.
+                      {isEs
+                        ? "Obtén información profunda sobre tu rendimiento de gastos con análisis e informes en tiempo real."
+                        : "Gain deep insights into your expenses performance with real-time analytics and reporting."}
                     </p>
                   </div>
                 </div>
@@ -509,10 +529,12 @@ export default function Features() {
                 style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4">
-                  <h3 className="text-2xl leading-none font-semibold tracking-tight">More features to discover</h3>
+                  <h3 className="text-2xl leading-none font-semibold tracking-tight">{isEs ? "Más funciones por descubrir" : "More features to discover"}</h3>
                   <div className="text-md text-muted-foreground flex flex-col gap-2 text-sm">
                     <p className="max-w-[460px]">
-                      Possibility to upload your receipts and get data on your grocery tendencies and more!
+                      {isEs
+                        ? "¡Posibilidad de subir tus tickets y obtener datos sobre tus tendencias de compras y más!"
+                        : "Possibility to upload your receipts and get data on your grocery tendencies and more!"}
                     </p>
                   </div>
                 </div>
@@ -533,9 +555,11 @@ export default function Features() {
                 style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4 mb-4">
-                  <h3 className="text-2xl leading-none font-semibold tracking-tight">Scan a receipt. Get insights.</h3>
+                  <h3 className="text-2xl leading-none font-semibold tracking-tight">{isEs ? "Escanea un ticket. Obtén información." : "Scan a receipt. Get insights."}</h3>
                   <p className="text-sm text-muted-foreground max-w-[560px]">
-                    Upload any grocery receipt and watch Trakzi extract, categorize, and analyze every item — from spending patterns to nutrition breakdowns, all automatically.
+                    {isEs
+                      ? "Sube cualquier ticket de supermercado y Trakzi extrae, categoriza y analiza cada artículo — desde patrones de gasto hasta análisis nutricional, todo automáticamente."
+                      : "Upload any grocery receipt and watch Trakzi extract, categorize, and analyze every item — from spending patterns to nutrition breakdowns, all automatically."}
                   </p>
                 </div>
                 <div className="flex grow items-center justify-center select-none">

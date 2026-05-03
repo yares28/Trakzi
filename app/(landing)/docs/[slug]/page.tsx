@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { getPostBySlug, getAllSlugs, getRelatedPosts } from "@/lib/docs/posts"
+import { DocsSidebar } from "@/components/docs-sidebar"
 
 interface DocPageProps {
   params: Promise<{ slug: string }>
@@ -45,5 +46,12 @@ export default async function DocPage({ params }: DocPageProps) {
 
   const { DocPostContent } = await import("./content")
 
-  return <DocPostContent post={post} relatedPosts={related} />
+  return (
+    <div className="max-w-5xl mx-auto px-6 pt-12 pb-96 flex gap-8 items-start">
+      <DocsSidebar mode="sticky" />
+      <div className="flex-1 min-w-0">
+        <DocPostContent post={post} relatedPosts={related} />
+      </div>
+    </div>
+  )
 }

@@ -150,7 +150,10 @@ export default clerkMiddleware(async (auth, req) => {
     }
   }
 
-  return NextResponse.next()
+  const response = NextResponse.next()
+  // Expose locale to server components via a request header so <html lang> can be set server-side
+  response.headers.set("x-locale", path.startsWith("/es") ? "es" : "en")
+  return response
 })
 
 export const config = {

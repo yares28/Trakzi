@@ -14,40 +14,15 @@ export default function Home() {
   const { setTheme } = useTheme()
   const previousThemeRef = useRef<string | null>(null)
 
-  // Force dark mode on landing page, restore user's theme on unmount
+  // Force dark mode on landing page, restore user's theme on unmount.
+  // Stored in a ref (not localStorage) to avoid race conditions when navigating
+  // between EN/ES landing pages or doing a quick back-navigation.
   useEffect(() => {
-    // Only run on client side
-    if (typeof window === 'undefined') return
-
-    const LANDING_FLAG = 'trakzi-landing-active'
-    const SAVED_THEME_KEY = 'trakzi-user-theme-before-landing'
-
-    // Check if we're already on the landing page (handles hard reload)
-    const isLandingAlreadyActive = localStorage.getItem(LANDING_FLAG) === 'true'
-
-    if (!isLandingAlreadyActive) {
-      // First time visiting landing page in this session
-      // Save the user's actual theme preference before we override it
-      const currentTheme = localStorage.getItem('trakzi-theme') || 'light'
-      localStorage.setItem(SAVED_THEME_KEY, currentTheme)
-      localStorage.setItem(LANDING_FLAG, 'true')
-    }
-
-    // Get the saved preference (either just saved, or from before hard reload)
-    previousThemeRef.current = localStorage.getItem(SAVED_THEME_KEY) || 'light'
-
-    // Force dark mode for the landing page
+    const saved = localStorage.getItem('trakzi-theme') || 'light'
+    previousThemeRef.current = saved
     setTheme("dark")
-
-    // Restore user's preference when leaving the landing page
     return () => {
-      const themeToRestore = previousThemeRef.current || 'light'
-      // Clean up the flags
-      localStorage.removeItem(LANDING_FLAG)
-      localStorage.removeItem(SAVED_THEME_KEY)
-      // Restore both localStorage AND the theme state
-      localStorage.setItem('trakzi-theme', themeToRestore)
-      setTheme(themeToRestore)
+      setTheme(previousThemeRef.current || 'light')
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

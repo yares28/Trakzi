@@ -10,6 +10,7 @@ interface ImageComparisonSectionProps {
   afterSrc: string
   beforeAlt?: string
   afterAlt?: string
+  locale?: "en" | "es"
 }
 
 export function ImageComparisonSection({
@@ -17,7 +18,9 @@ export function ImageComparisonSection({
   afterSrc,
   beforeAlt = "Before Trakzi",
   afterAlt = "With Trakzi",
+  locale = "en",
 }: ImageComparisonSectionProps) {
+  const isEs = locale === "es"
   const sectionRef = useRef<HTMLElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const isInView = useInView(sectionRef, { once: true, margin: "-80px" })
@@ -126,10 +129,12 @@ export function ImageComparisonSection({
           <h2
             className={`${geist.className} text-5xl md:text-[72px] md:leading-[80px] font-semibold tracking-tighter`}
           >
-            See the difference.
+            {isEs ? "Comprueba la diferencia." : "See the difference."}
           </h2>
           <p className="text-lg text-muted-foreground max-w-xl">
-            Drag to compare. Your finances shouldn&apos;t require a spreadsheet.
+            {isEs
+              ? "Arrastra para comparar. Tus finanzas no deberían requerir una hoja de cálculo."
+              : "Drag to compare. Your finances shouldn’t require a spreadsheet."}
           </p>
         </motion.div>
       </div>
@@ -165,7 +170,6 @@ export function ImageComparisonSection({
               fill
               className="object-cover object-top"
               draggable={false}
-              priority
             />
           </div>
 
@@ -180,7 +184,6 @@ export function ImageComparisonSection({
               fill
               className="object-cover object-top"
               draggable={false}
-              priority
             />
           </div>
 
@@ -194,7 +197,7 @@ export function ImageComparisonSection({
               className="absolute inset-0 w-[3px]"
               style={{
                 background:
-                  "linear-gradient(to bottom, transparent 0%, rgba(231,138,83,0.65) 15%, rgba(231,138,83,0.65) 85%, transparent 100%)",
+                  "linear-gradient(to bottom, transparent 0%, color-mix(in oklch, var(--primary), transparent 35%) 15%, color-mix(in oklch, var(--primary), transparent 35%) 85%, transparent 100%)",
                 filter: "blur(2px)",
               }}
             />
@@ -210,8 +213,8 @@ export function ImageComparisonSection({
             <div
               className="w-7 h-7 rounded-full border-2 border-white/90 flex items-center justify-center"
               style={{
-                backgroundColor: "#e78a53",
-                boxShadow: "0 0 0 3px rgba(231,138,83,0.22), 0 2px 10px rgba(0,0,0,0.3)",
+                backgroundColor: "var(--primary)",
+                boxShadow: "0 0 0 3px color-mix(in oklch, var(--primary), transparent 78%), 0 2px 10px rgba(0,0,0,0.3)",
               }}
             >
               <svg width="12" height="10" viewBox="0 0 18 14" fill="none">
@@ -232,7 +235,7 @@ export function ImageComparisonSection({
             style={{ opacity: displayPosition > 10 ? 1 : 0 }}
           >
             <span className="bg-black/55 backdrop-blur-sm text-white/90 text-xs font-medium px-3 py-1.5 rounded-full">
-              Before
+              {isEs ? "Antes" : "Before"}
             </span>
           </div>
 
@@ -244,11 +247,11 @@ export function ImageComparisonSection({
             <span
               className="text-white text-xs font-semibold px-3 py-1.5 rounded-full"
               style={{
-                backgroundColor: "rgba(231,138,83,0.9)",
+                backgroundColor: "color-mix(in oklch, var(--primary), transparent 10%)",
                 backdropFilter: "blur(6px)",
               }}
             >
-              With Trakzi
+              {isEs ? "Con Trakzi" : "With Trakzi"}
             </span>
           </div>
 

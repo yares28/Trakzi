@@ -2,18 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "@/components/ui/sidebar"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { cn } from "@/lib/utils"
 
 interface DocNavItem {
   title: string
@@ -81,45 +70,80 @@ function getDocsNav(locale: "en" | "es"): DocNavGroup[] {
   ]
 }
 
-export function DocsSidebar({ locale = "en" }: { locale?: "en" | "es" }) {
+export function DocsSidebar({ locale = "en", mode = "fixed" }: { locale?: "en" | "es"; mode?: "fixed" | "sticky" }) {
   const pathname = usePathname()
   const nav = getDocsNav(locale)
 
+  if (mode === "sticky") {
+    return (
+      <aside className="hidden lg:flex flex-col w-56 flex-shrink-0">
+        <div className="sticky flex flex-col rounded-2xl border border-border/50 bg-background/80 backdrop-blur-sm shadow-xl overflow-hidden" style={{ top: "calc(var(--header-height, 3rem) + 1rem)" }}>
+          <div className="flex-1 overflow-y-auto py-2">
+            {nav.map((group) => (
+              <div key={group.title} className="px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 px-2 mb-1.5">
+                  {group.title}
+                </p>
+                <div className="space-y-0.5">
+                  {group.items.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      aria-current={pathname === item.href ? "page" : undefined}
+                      className={cn(
+                        "block px-3 py-2 rounded-lg text-sm transition-colors",
+                        pathname === item.href
+                          ? "bg-muted text-primary font-medium"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                      )}
+                    >
+                      {item.title}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </aside>
+    )
+  }
+
   return (
-    <Sidebar collapsible="none" className="border-r border-border/50 bg-background/50 backdrop-blur-sm w-64 flex-shrink-0">
-      <SidebarHeader className="border-b border-border/50 px-4 py-4">
+    <aside className="hidden lg:flex fixed left-4 bottom-[340px] w-60 z-40 flex-col rounded-2xl border border-border/50 bg-background/80 backdrop-blur-sm shadow-xl overflow-hidden" style={{ top: "calc(var(--header-height, 3rem) + 1rem)" }}>
+      {/* Logo */}
+      <div className="border-b border-border/50 px-4 py-4 flex-shrink-0">
         <Link href="/" className="flex items-center gap-2">
           <img src="/Trakzi/TrakzilogoB.png" alt="Trakzi" className="h-6 w-auto" draggable={false} />
         </Link>
-      </SidebarHeader>
-      <SidebarContent>
-        <ScrollArea className="flex-1">
-          {nav.map((group) => (
-            <SidebarGroup key={group.title} className="px-2 py-2">
-              <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-zinc-500 px-2 mb-1">
-                {group.title}
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {group.items.map((item) => (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={pathname === item.href}
-                        className="text-sm text-zinc-400 hover:text-white hover:bg-zinc-800/50 data-[active=true]:bg-zinc-800/50 data-[active=true]:text-[#e78a53]"
-                      >
-                        <Link href={item.href}>
-                          <span>{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          ))}
-        </ScrollArea>
-      </SidebarContent>
-    </Sidebar>
+      </div>
+
+      {/* Nav */}
+      <div className="flex-1 overflow-y-auto py-2">
+        {nav.map((group) => (
+          <div key={group.title} className="px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 px-2 mb-1.5">
+              {group.title}
+            </p>
+            <div className="space-y-0.5">
+              {group.items.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "block px-3 py-2 rounded-lg text-sm transition-colors",
+                    pathname === item.href
+                      ? "bg-white/10 text-primary font-medium"
+                      : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                  )}
+                >
+                  {item.title}
+                </Link>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </aside>
   )
 }

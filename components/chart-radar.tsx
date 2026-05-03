@@ -210,7 +210,8 @@ export const ChartRadar = memo(function ChartRadar({
   const [error, setError] = useState<string | null>(null)
   const [visibleCapabilities, setVisibleCapabilities] = useState<string[]>([])
   const isMobile = useIsMobile()
-  const [isCategorySelectorOpen, setIsCategorySelectorOpen] = useState(false)
+  const [isMobileCategorySelectorOpen, setIsMobileCategorySelectorOpen] = useState(false)
+  const [isDesktopCategorySelectorOpen, setIsDesktopCategorySelectorOpen] = useState(false)
   const [hasUserInteracted, setHasUserInteracted] = useState(false)
   const [viewMode, setViewMode] = useState<RadarViewMode>("financial")
 
@@ -668,7 +669,7 @@ export const ChartRadar = memo(function ChartRadar({
   const mobileCategorySelector =
     filterableCapabilities.length > 0 && viewMode === "financial" ? (
       <div className="flex justify-center px-2 md:hidden">
-        <DropdownMenu open={isCategorySelectorOpen} onOpenChange={setIsCategorySelectorOpen}>
+        <DropdownMenu open={isMobileCategorySelectorOpen} onOpenChange={setIsMobileCategorySelectorOpen}>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
@@ -743,7 +744,7 @@ export const ChartRadar = memo(function ChartRadar({
         <CardAction className="hidden shrink-0 md:flex flex-row items-center justify-start gap-2">
           {filterableCapabilities.length > 0 && (
             <div className={viewMode === "financial" ? "" : "invisible pointer-events-none"}>
-            <DropdownMenu open={isCategorySelectorOpen} onOpenChange={setIsCategorySelectorOpen}>
+            <DropdownMenu open={isDesktopCategorySelectorOpen} onOpenChange={setIsDesktopCategorySelectorOpen}>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"

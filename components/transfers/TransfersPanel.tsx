@@ -8,6 +8,13 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
+import {
     Table,
     TableBody,
     TableCell,
@@ -37,9 +44,9 @@ const fmtAmount = (n: number) =>
 
 function statusVariant(status: AccountTransferWithDetails["status"]) {
     switch (status) {
-        case "pending":   return { label: "Pending",   className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300" }
-        case "suggested": return { label: "Suggested", className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" }
-        case "confirmed": return { label: "Confirmed", className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300" }
+        case "pending":   return { label: "Pending",   className: "bg-muted text-muted-foreground" }
+        case "suggested": return { label: "Suggested", className: "bg-secondary/15 text-secondary" }
+        case "confirmed": return { label: "Confirmed", className: "bg-primary/10 text-primary" }
         case "rejected":  return { label: "Rejected",  className: "bg-muted text-muted-foreground" }
     }
 }
@@ -210,7 +217,7 @@ TransferTableRow.displayName = "TransferTableRow"
 
 export const TransfersPanel = memo(function TransfersPanel({ hideHeader = false }: { hideHeader?: boolean }) {
     const isMobile = useIsMobile()
-    const [filter, setFilter] = useState<TransferStatusFilter>("open")
+    const [filter, setFilter] = useState<TransferStatusFilter>("all")
     const { data: transfers = [], isLoading } = useTransfers(filter)
     const resolve = useResolveTransfer()
     const [resolvingId, setResolvingId] = useState<string | null>(null)
@@ -236,17 +243,12 @@ export const TransfersPanel = memo(function TransfersPanel({ hideHeader = false 
     const handleBulkConfirm = async () => {
         if (bulkConfirmable.length === 0) return
         setBulkRunning(true)
-        let succeeded = 0
-        let failed = 0
-        for (const t of bulkConfirmable) {
-            try {
-                await resolve.mutateAsync({ id: t.id, action: "confirm" })
-                succeeded += 1
-            } catch {
-                failed += 1
-            }
-        }
+        const results = await Promise.allSettled(
+            bulkConfirmable.map((t) => resolve.mutateAsync({ id: t.id, action: "confirm" }))
+        )
         setBulkRunning(false)
+        const succeeded = results.filter((r) => r.status === "fulfilled").length
+        const failed = results.filter((r) => r.status === "rejected").length
         if (succeeded > 0) toast.success(`Confirmed ${succeeded} transfer${succeeded > 1 ? "s" : ""}`)
         if (failed > 0) toast.error(`Failed to confirm ${failed} transfer${failed > 1 ? "s" : ""}`)
     }
@@ -262,24 +264,19 @@ export const TransfersPanel = memo(function TransfersPanel({ hideHeader = false 
                 </div>
             )}
 
-            <div className="flex flex-wrap items-center gap-2 justify-between">
-                <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border w-max">
-                    {FILTER_TABS.map(t => (
-                        <button
-                            key={t.value}
-                            type="button"
-                            onClick={() => setFilter(t.value)}
-                            className={cn(
-                                "px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
-                                filter === t.value
-                                    ? "bg-background text-foreground shadow-sm"
-                                    : "text-muted-foreground hover:text-foreground"
-                            )}
-                        >
-                            {t.label}
-                        </button>
-                    ))}
-                </div>
+            <div className="flex flex-wrap items-center gap-2 justify-end">
+                <Select value={filter} onValueChange={(v) => setFilter(v as TransferStatusFilter)}>
+                    <SelectTrigger className="w-40">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {FILTER_TABS.map(t => (
+                            <SelectItem key={t.value} value={t.value}>
+                                {t.label}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
 
                 {bulkConfirmable.length > 0 && (
                     <Button
@@ -311,8 +308,8 @@ export const TransfersPanel = memo(function TransfersPanel({ hideHeader = false 
             ) : transfers.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 py-10 text-center animate-in fade-in duration-500">
                     <div className="relative">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-dashed border-border bg-[oklch(0.6716_0.1368_48.513/0.06)]">
-                            <ArrowRight className="size-6" style={{ color: "oklch(0.6716 0.1368 48.513)" }} />
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-dashed border-border bg-primary/[0.06]">
+                            <ArrowRight className="size-6 text-primary" />
                         </div>
                         <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-border bg-card px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
                             TXN · NIL

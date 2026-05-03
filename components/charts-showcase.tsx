@@ -496,7 +496,23 @@ const chartSlots = [
 
 // ─── Main Component ────────────────────────────────────────────────────────
 
-export function ChartsShowcase() {
+const esChartTitles: Record<string, string> = {
+  "stacked-area": "Área Apilada",
+  "pie": "Desglose de Gastos",
+  "grouped-bar": "Gasto por Categoría",
+  "burndown": "Seguimiento de Presupuesto",
+  "radar": "Salud Financiera",
+  "h-bar": "Principales Categorías",
+  "dual-area": "Flujo de Caja",
+  "stacked-bar": "Resumen Mensual",
+  "sparkline": "Ahorro Neto",
+  "recharts-bar": "Tendencia Semanal",
+  "nivo-line": "Tendencias de Gasto",
+  "multi-line": "Líneas por Categoría",
+}
+
+export function ChartsShowcase({ locale = "en" }: { locale?: "en" | "es" }) {
+  const isEs = locale === "es"
   const ref = useRef(null)
   const isInView = useInView(ref, { once: true, margin: "-50px" })
   const [isMobile, setIsMobile] = useState(false)
@@ -533,13 +549,16 @@ export function ChartsShowcase() {
               geist.className,
             )}
           >
-            Scattered financial
-            <br />
-            data into visual insights
+            {isEs ? (
+              <>Datos financieros dispersos<br />en perspectivas visuales</>
+            ) : (
+              <>Scattered financial<br />data into visual insights</>
+            )}
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
-            Trakzi brings flexibility to your analysis. From detailed transaction tables to dynamic charts, visualize
-            your spending exactly the way you need.
+            {isEs
+              ? "Trakzi trae flexibilidad a tu análisis. Desde tablas de transacciones detalladas hasta gráficos dinámicos, visualiza tu gasto exactamente como lo necesitas."
+              : "Trakzi brings flexibility to your analysis. From detailed transaction tables to dynamic charts, visualize your spending exactly the way you need."}
           </p>
         </m.div>
 
@@ -567,7 +586,7 @@ export function ChartsShowcase() {
                     transition={{ duration: 0.5, delay: index * 0.08 }}
                   >
                     <div className="p-4 pb-2">
-                      <span className="text-xs font-medium text-muted-foreground">{slot.title}</span>
+                      <span className="text-xs font-medium text-muted-foreground">{isEs ? esChartTitles[slot.key] ?? slot.title : slot.title}</span>
                     </div>
                     <div className="px-4 pb-4" style={{ height: 240 }}>
                       <ChartComponent />
@@ -595,7 +614,7 @@ export function ChartsShowcase() {
                     transition={{ duration: 0.5, delay: index * 0.08 }}
                   >
                     <div className="p-4 pb-2">
-                      <span className="text-xs font-medium text-muted-foreground">{slot.title}</span>
+                      <span className="text-xs font-medium text-muted-foreground">{isEs ? esChartTitles[slot.key] ?? slot.title : slot.title}</span>
                     </div>
                     <div className="px-4 pb-4" style={{ height: "calc(100% - 40px)" }}>
                       <ChartComponent />
@@ -616,8 +635,8 @@ export function ChartsShowcase() {
             <div className="absolute inset-x-0 -bottom-px mx-auto h-0.5 w-1/2 bg-gradient-to-r from-transparent via-[#e78a53] to-transparent shadow-2xl transition-all duration-500 group-hover:h-px"></div>
             <span className="relative text-white">
               {isMobile && hiddenCount > 0
-                ? `And ${hiddenCount} more charts`
-                : "And a lot more charts"}
+                ? (isEs ? `Y ${hiddenCount} gráficos más` : `And ${hiddenCount} more charts`)
+                : (isEs ? "Y muchos más gráficos" : "And a lot more charts")}
             </span>
           </button>
         </div>

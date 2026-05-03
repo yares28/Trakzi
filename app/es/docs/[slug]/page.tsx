@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { getEsPostBySlug, getAllEsSlugs, getEsRelatedPosts } from "@/lib/docs/es-posts"
+import { DocsSidebar } from "@/components/docs-sidebar"
 
 interface EsDocPageProps {
   params: Promise<{ slug: string }>
@@ -45,5 +46,12 @@ export default async function EsDocPage({ params }: EsDocPageProps) {
 
   const { DocPostContent } = await import("@/app/(landing)/docs/[slug]/content")
 
-  return <DocPostContent post={post} relatedPosts={related} locale="es" />
+  return (
+    <div className="max-w-5xl mx-auto px-6 pt-12 pb-96 flex gap-8 items-start">
+      <DocsSidebar mode="sticky" locale="es" />
+      <div className="flex-1 min-w-0">
+        <DocPostContent post={post} relatedPosts={related} locale="es" />
+      </div>
+    </div>
+  )
 }

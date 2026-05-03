@@ -92,12 +92,12 @@ export function NavUser({ availableYears = [] }: NavUserProps) {
   )
 
   // Expanded: utility icons grouped left, avatar right.
-  // Icon mode: 2×2 grid so the footer stays compact.
+  // Icon mode: vertical stack, centered.
   const rowClassName =
-    "flex w-full items-center justify-between gap-1 group-data-[collapsible=icon]:grid group-data-[collapsible=icon]:grid-cols-2 group-data-[collapsible=icon]:justify-items-center group-data-[collapsible=icon]:gap-[3px]"
+    "flex w-full items-center justify-between gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-start group-data-[collapsible=icon]:gap-[3px]"
 
   const utilGroupClassName =
-    "flex items-center gap-1 group-data-[collapsible=icon]:contents"
+    "flex items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-[3px]"
 
   const equalSizeClasses =
     "w-9 h-9 flex-none justify-center group-data-[collapsible=icon]:w-[26px] group-data-[collapsible=icon]:h-[26px]"
@@ -120,7 +120,7 @@ export function NavUser({ availableYears = [] }: NavUserProps) {
               onClick={exitDemo}
             >
               <Avatar className="h-6 w-6 rounded-md">
-                <AvatarFallback className="rounded-md bg-gradient-to-br from-amber-400 to-orange-500 text-white text-[10px]">
+                <AvatarFallback className="rounded-md bg-gradient-to-br from-primary/70 to-primary text-primary-foreground text-[10px]">
                   D
                 </AvatarFallback>
               </Avatar>
