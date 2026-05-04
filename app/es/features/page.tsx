@@ -253,11 +253,9 @@ export default function EsFeaturesPage() {
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.6 }}
-                    className={cn("group border-secondary/40 text-card-foreground relative rounded-xl border-2 shadow-xl transition-all ease-in-out shrink-0", isEven ? "md:basis-[65%] lg:-ml-16" : "md:basis-[65%] lg:-mr-16")}
+                    className={cn("group border-secondary/40 text-card-foreground relative rounded-xl border-2 shadow-xl transition-all ease-in-out shrink-0 hover:border-primary/60", isEven ? "md:basis-[65%] lg:-ml-16" : "md:basis-[65%] lg:-mr-16")}
                     whileHover={{
                       scale: 1.02,
-                      borderColor: "rgba(231, 138, 83, 0.6)",
-                      boxShadow: "0 0 30px rgba(231, 138, 83, 0.2)",
                     }}
                   >
                     {feature.visual}

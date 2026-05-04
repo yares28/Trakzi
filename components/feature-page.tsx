@@ -131,12 +131,10 @@ export default function FeaturePage({
                   transition={{ duration: 0.4, delay: i * 0.1 }}
                   whileHover={{
                     scale: 1.02,
-                    borderColor: "rgba(231, 138, 83, 0.6)",
-                    boxShadow: "0 0 30px rgba(231, 138, 83, 0.2)",
                   }}
-                  className="group border-secondary/40 text-card-foreground relative col-span-1 flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out"
+                  className="group border-secondary/40 text-card-foreground relative col-span-1 flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out hover:border-primary/60"
                 >
-                  <CheckCircle2 className="h-5 w-5 text-[#e78a53] mb-4" />
+                  <CheckCircle2 className="h-5 w-5 text-primary mb-4" />
                   <h3 className="text-2xl leading-none font-semibold tracking-tight text-foreground mb-2">
                     {benefit.title}
                   </h3>
@@ -167,7 +165,7 @@ export default function FeaturePage({
                   transition={{ duration: 0.4, delay: i * 0.15 }}
                   className="flex gap-6"
                 >
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#e78a53]/10 border border-[#e78a53]/30 flex items-center justify-center text-[#e78a53] font-bold text-sm">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center text-primary font-bold text-sm">
                     {step.step}
                   </div>
                   <div>

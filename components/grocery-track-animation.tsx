@@ -24,23 +24,20 @@ export function GroceryTrackAnimation() {
   }, [])
 
   const categories = [
-    { name: "Produce", pct: 35, color: "rgba(231,138,83,0.9)" },
-    { name: "Dairy", pct: 25, color: "rgba(231,138,83,0.7)" },
-    { name: "Meat", pct: 20, color: "rgba(231,138,83,0.5)" },
-    { name: "Household", pct: 20, color: "rgba(231,138,83,0.3)" },
+    { name: "Produce", pct: 35, opacity: 0.9 },
+    { name: "Dairy", pct: 25, opacity: 0.7 },
+    { name: "Meat", pct: 20, opacity: 0.5 },
+    { name: "Household", pct: 20, opacity: 0.3 },
   ]
 
   return (
     <div className="flex flex-col items-center justify-center gap-6 p-8 h-full min-h-[300px]">
       {/* Receipt scanning */}
       <motion.div
-        className="w-full max-w-xs rounded-xl border border-white/10 bg-white/5 p-5 relative overflow-hidden"
-        animate={{
-          borderColor: phase === "scanning" ? "rgba(231,138,83,0.5)" : "rgba(255,255,255,0.1)",
-        }}
+        className={`w-full max-w-xs rounded-xl border bg-white/5 p-5 relative overflow-hidden transition-colors duration-300 ${phase === "scanning" ? "border-primary/50" : "border-white/10"}`}
       >
         <div className="flex items-center gap-2 mb-4">
-          <Camera className="h-4 w-4 text-[#e78a53]" />
+          <Camera className="h-4 w-4 text-primary" />
           <span className="text-xs text-muted-foreground">
             {phase === "idle" && "Point camera at receipt"}
             {phase === "scanning" && "Scanning..."}
@@ -68,7 +65,7 @@ export function GroceryTrackAnimation() {
           <div className="border-t border-white/10 pt-1.5 mt-1.5 flex items-center justify-between text-[10px]">
             <span className="text-white font-medium">Total</span>
             <motion.span
-              className="text-[#e78a53] font-bold"
+              className="text-primary font-bold"
               initial={{ opacity: 0 }}
               animate={{ opacity: phase !== "idle" ? 1 : 0 }}
               transition={{ delay: 1.5 }}
@@ -81,7 +78,7 @@ export function GroceryTrackAnimation() {
         {/* Scan line animation */}
         {phase === "scanning" && (
           <motion.div
-            className="absolute left-0 right-0 h-0.5 bg-[#e78a53]/60"
+            className="absolute left-0 right-0 h-0.5 bg-primary/60"
             initial={{ top: "30%" }}
             animate={{ top: ["30%", "80%", "30%"] }}
             transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
@@ -98,7 +95,7 @@ export function GroceryTrackAnimation() {
             className="w-full max-w-xs rounded-xl border border-white/10 bg-white/5 p-4"
           >
             <div className="flex items-center gap-2 mb-4">
-              <BarChart3 className="h-4 w-4 text-[#e78a53]" />
+              <BarChart3 className="h-4 w-4 text-primary" />
               <span className="text-xs text-muted-foreground">This week</span>
             </div>
             <div className="space-y-2.5">
@@ -111,7 +108,7 @@ export function GroceryTrackAnimation() {
                   <div className="h-2 rounded-full bg-white/5 overflow-hidden">
                     <motion.div
                       className="h-full rounded-full"
-                      style={{ backgroundColor: cat.color }}
+                      style={{ backgroundColor: "var(--primary)", opacity: cat.opacity }}
                       initial={{ width: 0 }}
                       animate={{ width: `${cat.pct}%` }}
                       transition={{ duration: 0.8, delay: i * 0.15, ease: "easeOut" }}

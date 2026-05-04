@@ -631,8 +631,8 @@ export function ChartsShowcase({ locale = "en" }: { locale?: "en" | "es" }) {
             type="button"
             className="group relative z-[60] mx-auto rounded-full border border-white/20 bg-white/5 px-6 py-2 text-sm backdrop-blur transition-all duration-300 hover:scale-105 hover:shadow-xl active:scale-100"
           >
-            <div className="absolute inset-x-0 -top-px mx-auto h-0.5 w-1/2 bg-gradient-to-r from-transparent via-[#e78a53] to-transparent shadow-2xl transition-all duration-500 group-hover:w-3/4"></div>
-            <div className="absolute inset-x-0 -bottom-px mx-auto h-0.5 w-1/2 bg-gradient-to-r from-transparent via-[#e78a53] to-transparent shadow-2xl transition-all duration-500 group-hover:h-px"></div>
+            <div className="absolute inset-x-0 -top-px mx-auto h-0.5 w-1/2 bg-gradient-to-r from-transparent via-primary to-transparent shadow-2xl transition-all duration-500 group-hover:w-3/4"></div>
+            <div className="absolute inset-x-0 -bottom-px mx-auto h-0.5 w-1/2 bg-gradient-to-r from-transparent via-primary to-transparent shadow-2xl transition-all duration-500 group-hover:h-px"></div>
             <span className="relative text-white">
               {isMobile && hiddenCount > 0
                 ? (isEs ? `Y ${hiddenCount} gráficos más` : `And ${hiddenCount} more charts`)

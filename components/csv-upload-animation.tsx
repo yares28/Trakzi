@@ -52,16 +52,13 @@ export function CsvUploadAnimation() {
     <div className="flex flex-col items-center justify-center gap-6 p-8 h-full min-h-[300px]">
       {/* Upload area */}
       <motion.div
-        className="w-full max-w-xs rounded-xl border-2 border-dashed border-white/20 bg-white/5 p-6 flex flex-col items-center gap-3"
-        animate={{
-          borderColor: phase === "uploading" ? "rgba(231,138,83,0.6)" : "rgba(255,255,255,0.2)",
-        }}
+        className={`w-full max-w-xs rounded-xl border-2 border-dashed bg-white/5 p-6 flex flex-col items-center gap-3 transition-colors duration-300 ${phase === "uploading" ? "border-primary/60" : "border-white/20"}`}
       >
         <motion.div
           animate={{ y: phase === "uploading" ? [0, -8, 0] : 0 }}
           transition={{ duration: 0.8, repeat: phase === "uploading" ? Infinity : 0 }}
         >
-          <FileSpreadsheet className="h-8 w-8 text-[#e78a53]" />
+          <FileSpreadsheet className="h-8 w-8 text-primary" />
         </motion.div>
         <p className="text-xs text-muted-foreground">
           {phase === "idle" && "Drop your CSV here"}
@@ -99,8 +96,8 @@ export function CsvUploadAnimation() {
                     className="border-b border-white/5"
                   >
                     <td className="py-1 px-2 text-white/70">{row.desc}</td>
-                    <td className="py-1 px-2 text-[#e78a53]">{row.cat}</td>
-                    <td className={`py-1 px-2 text-right ${row.amt.startsWith("+") ? "text-emerald-400" : "text-white/70"}`}>
+                    <td className="py-1 px-2 text-primary">{row.cat}</td>
+                    <td className={`py-1 px-2 text-right ${row.amt.startsWith("+") ? "text-secondary" : "text-white/70"}`}>
                       {row.amt}
                     </td>
                   </motion.tr>
@@ -120,9 +117,9 @@ export function CsvUploadAnimation() {
             className="w-full max-w-xs rounded-xl border border-white/10 bg-white/5 p-4"
           >
             <div className="flex items-center gap-2 mb-3">
-              <BarChart3 className="h-4 w-4 text-[#e78a53]" />
+              <BarChart3 className="h-4 w-4 text-primary" />
               <span className="text-xs text-muted-foreground">Auto-generated</span>
-              {phase === "done" && <Check className="h-3 w-3 text-emerald-400 ml-auto" />}
+              {phase === "done" && <Check className="h-3 w-3 text-secondary ml-auto" />}
             </div>
             <div className="flex items-end justify-between gap-2 h-16">
               {["Groceries", "Transport", "Entertain.", "Income"].map((label, i) => (
@@ -130,7 +127,8 @@ export function CsvUploadAnimation() {
                   <motion.div
                     className="w-full rounded-sm"
                     style={{
-                      background: `linear-gradient(180deg, rgba(231,138,83,${0.9 - i * 0.15}) 0%, rgba(231,138,83,${0.5 - i * 0.1}) 100%)`,
+                      backgroundColor: "var(--primary)",
+                      opacity: 0.9 - i * 0.12,
                     }}
                     initial={{ height: 0 }}
                     animate={{ height: `${barHeights[i]}%` }}

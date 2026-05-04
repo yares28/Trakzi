@@ -56,14 +56,14 @@ export function AiChatDemo() {
               animate={{ opacity: 1, y: 0 }}
               className="flex justify-end"
             >
-              <div className="max-w-[85%] rounded-xl rounded-br-sm bg-[#e78a53]/10 border border-[#e78a53]/20 px-3 py-2">
+              <div className="max-w-[85%] rounded-xl rounded-br-sm bg-primary/10 border border-primary/20 px-3 py-2">
                 <p className="text-xs text-white/80">
                   {QUESTION.slice(0, typedChars)}
                   {phase === "typing" && typedChars < QUESTION.length && (
                     <motion.span
                       animate={{ opacity: [1, 0] }}
                       transition={{ duration: 0.5, repeat: Infinity }}
-                      className="inline-block w-0.5 h-3 bg-[#e78a53] ml-0.5 align-middle"
+                      className="inline-block w-0.5 h-3 bg-primary ml-0.5 align-middle"
                     />
                   )}
                 </p>
@@ -82,12 +82,12 @@ export function AiChatDemo() {
               className="flex justify-start"
             >
               <div className="rounded-xl rounded-bl-sm bg-white/5 border border-white/10 px-3 py-2 flex items-center gap-2">
-                <Sparkles className="h-3 w-3 text-[#e78a53]" />
+                <Sparkles className="h-3 w-3 text-primary" />
                 <div className="flex gap-1">
                   {[0, 1, 2].map((i) => (
                     <motion.div
                       key={i}
-                      className="w-1.5 h-1.5 rounded-full bg-[#e78a53]/60"
+                      className="w-1.5 h-1.5 rounded-full bg-primary/60"
                       animate={{ opacity: [0.3, 1, 0.3] }}
                       transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
                     />
@@ -108,7 +108,7 @@ export function AiChatDemo() {
             >
               <div className="max-w-[90%] rounded-xl rounded-bl-sm bg-white/5 border border-white/10 px-3 py-2.5">
                 <p className="text-xs text-white/70 leading-relaxed">
-                  Last month you spent <span className="text-[#e78a53] font-medium">€342.50</span> on groceries. That&apos;s <span className="text-emerald-400 font-medium">12% less</span> than the previous month. Your top store was Mercadona at €156.
+                  Last month you spent <span className="text-primary font-medium">€342.50</span> on groceries. That&apos;s <span className="text-secondary font-medium">12% less</span> than the previous month. Your top store was Mercadona at €156.
                 </p>
               </div>
             </motion.div>
@@ -125,7 +125,7 @@ export function AiChatDemo() {
             >
               <div className="max-w-[90%] rounded-xl rounded-bl-sm bg-white/5 border border-white/10 p-3 w-full">
                 <div className="flex items-center gap-1.5 mb-2">
-                  <TrendingUp className="h-3 w-3 text-[#e78a53]" />
+                  <TrendingUp className="h-3 w-3 text-primary" />
                   <span className="text-[10px] text-muted-foreground">Grocery spending</span>
                 </div>
                 <div className="flex items-end gap-1 h-12">
@@ -134,7 +134,8 @@ export function AiChatDemo() {
                       key={i}
                       className="flex-1 rounded-sm"
                       style={{
-                        background: `linear-gradient(180deg, rgba(231,138,83,${0.8 - i * 0.1}) 0%, rgba(231,138,83,${0.4 - i * 0.05}) 100%)`,
+                        backgroundColor: "var(--primary)",
+                        opacity: 0.8 - i * 0.1,
                       }}
                       initial={{ height: 0 }}
                       animate={{ height: `${h}%` }}
@@ -153,7 +154,7 @@ export function AiChatDemo() {
 
       {/* Input bar */}
       <div className="w-full max-w-xs rounded-full border border-white/10 bg-white/5 backdrop-blur-sm px-3 py-2 flex items-center gap-2">
-        <Sparkles className="h-3.5 w-3.5 text-[#e78a53] flex-shrink-0" />
+        <Sparkles className="h-3.5 w-3.5 text-primary flex-shrink-0" />
         <span className="text-xs text-muted-foreground flex-1 truncate">
           {phase === "typing" ? QUESTION.slice(0, typedChars) : "Ask about your spending..."}
         </span>
@@ -161,7 +162,7 @@ export function AiChatDemo() {
           animate={{ opacity: phase === "typing" ? 1 : 0.4 }}
           className="flex-shrink-0"
         >
-          <Send className="h-3.5 w-3.5 text-[#e78a53]" />
+          <Send className="h-3.5 w-3.5 text-primary" />
         </motion.div>
       </div>
     </div>

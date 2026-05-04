@@ -139,8 +139,8 @@ export function ImageComparisonSection({
         </motion.div>
       </div>
 
-      {/* Slider — slightly wider than heading container */}
-      <div className="max-w-screen-2xl mx-auto w-full px-4 sm:px-6">
+      {/* Slider — capped below common viewport widths so the compare stays a focal card */}
+      <div className="max-w-3xl mx-auto w-full px-4 sm:px-6">
         <motion.div
           ref={containerRef}
           className="relative w-full rounded-2xl overflow-hidden border border-border/40 shadow-2xl select-none touch-none"

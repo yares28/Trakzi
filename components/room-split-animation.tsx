@@ -7,7 +7,7 @@ import { Users, Receipt, Check } from "lucide-react"
 type Phase = "room" | "adding" | "expense" | "balance" | "done"
 
 const MEMBERS = [
-  { name: "You", color: "#e78a53" },
+  { name: "You", color: "var(--primary)" },
   { name: "Alex", color: "#6366f1" },
   { name: "Sam", color: "#10b981" },
 ]
@@ -41,11 +41,10 @@ export function RoomSplitAnimation() {
     <div className="flex flex-col items-center justify-center gap-6 p-8 h-full min-h-[300px]">
       {/* Room card */}
       <motion.div
-        className="w-full max-w-xs rounded-xl border border-white/10 bg-white/5 p-5"
-        animate={{ borderColor: phase === "room" ? "rgba(231,138,83,0.3)" : "rgba(255,255,255,0.1)" }}
+        className={`w-full max-w-xs rounded-xl border bg-white/5 p-5 transition-colors duration-300 ${phase === "room" ? "border-primary/30" : "border-white/10"}`}
       >
         <div className="flex items-center gap-2 mb-4">
-          <Users className="h-4 w-4 text-[#e78a53]" />
+          <Users className="h-4 w-4 text-primary" />
           <span className="text-sm font-semibold text-white">Apartment</span>
           <span className="text-xs text-muted-foreground ml-auto">Room</span>
         </div>
@@ -91,7 +90,7 @@ export function RoomSplitAnimation() {
             className="w-full max-w-xs rounded-xl border border-white/10 bg-white/5 p-4"
           >
             <div className="flex items-center gap-2 mb-3">
-              <Receipt className="h-4 w-4 text-[#e78a53]" />
+              <Receipt className="h-4 w-4 text-primary" />
               <span className="text-xs text-muted-foreground">New Expense</span>
               {expenseAdded && <Check className="h-3 w-3 text-emerald-400 ml-auto" />}
             </div>
@@ -129,7 +128,7 @@ export function RoomSplitAnimation() {
                   </div>
                   <span className="text-xs text-white/70">{member.name}</span>
                 </div>
-                <span className={`text-xs font-medium ${i === 0 ? "text-emerald-400" : "text-[#e78a53]"}`}>
+                <span className={`text-xs font-medium ${i === 0 ? "text-secondary" : "text-primary"}`}>
                   {i === 0 ? "+€30.00" : "-€15.00"}
                 </span>
               </motion.div>

@@ -16,7 +16,7 @@ import { ReceiptFridgeAnimation } from "./receipt-fridge-animation"
 import { DynamicLayoutsAnimation } from "./dynamic-layouts-animation"
 import { ReceiptScannerAnimation } from "./receipt-scanner-animation"
 
-const BASE_COLOR: [number, number, number] = [0.906, 0.541, 0.325] // #e78a53 — RGB normalized
+const BASE_COLOR: [number, number, number] = [0.906, 0.541, 0.325] // brand primary — RGB normalized for WebGL
 
 export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
   const isEs = locale === "es"
@@ -107,7 +107,7 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Cli */}
               <m.div
-                className="group border-secondary/40 text-card-foreground relative flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out"
+                className="group border-secondary/40 text-card-foreground relative flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out hover:border-primary/40"
                 onMouseEnter={() => setIsCliHovering(true)}
                 onMouseLeave={() => setIsCliHovering(false)}
                 ref={cliCardRef}
@@ -116,7 +116,6 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
                 transition={{ duration: 0.5, delay: 0.5 }}
                 whileHover={{
                   scale: 1.02,
-                  borderColor: "rgba(231, 138, 83, 0.4)",
                 }}
                 style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >
@@ -311,7 +310,7 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
 
               {/* Global */}
               <m.div
-                className="group border-secondary/40 text-card-foreground relative flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out"
+                className="group border-secondary/40 text-card-foreground relative flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out hover:border-primary/40"
                 onMouseEnter={() => setIsHovering(true)}
                 onMouseLeave={() => setIsHovering(false)}
                 ref={ref}
@@ -320,7 +319,6 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
                 transition={{ duration: 0.5, delay: 0.5 }}
                 whileHover={{
                   y: -4,
-                  borderColor: "rgba(231, 138, 83, 0.4)",
                 }}
                 style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >
@@ -365,7 +363,7 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
 
               {/* Smart Components */}
               <m.div
-                className="group border-secondary/40 text-card-foreground relative flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out"
+                className="group border-secondary/40 text-card-foreground relative flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out hover:border-primary/40"
                 onMouseEnter={() => setIsFeature3Hovering(true)}
                 onMouseLeave={() => setIsFeature3Hovering(false)}
                 initial={{ opacity: 0, y: 50 }}
@@ -373,7 +371,6 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
                 transition={{ duration: 0.5, delay: 1.0 }}
                 whileHover={{
                   scale: 1.01,
-                  borderColor: "rgba(231, 138, 83, 0.3)",
                 }}
                 style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >
@@ -461,7 +458,7 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
 
               {/* Dynamic Layouts */}
               <m.div
-                className="group border-secondary/40 text-card-foreground relative flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out"
+                className="group border-secondary/40 text-card-foreground relative flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out hover:border-primary/40"
                 onMouseEnter={() => setIsFeature4Hovering(true)}
                 onMouseLeave={() => setIsFeature4Hovering(false)}
                 initial={{ opacity: 0, y: 50 }}
@@ -469,7 +466,6 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
                 transition={{ duration: 0.5, delay: 1.0 }}
                 whileHover={{
                   scale: 1.01,
-                  borderColor: "rgba(231, 138, 83, 0.35)",
                 }}
                 style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >
@@ -490,14 +486,13 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
 
               {/* Advanced Analytics */}
               <m.div
-                className="group border-secondary/40 text-card-foreground relative flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out"
+                className="group border-secondary/40 text-card-foreground relative flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out hover:border-primary/40"
                 initial={{ opacity: 0, y: 50 }}
                 animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
                 transition={{ duration: 0.5, delay: 1.2 }}
                 whileHover={{
                   scale: 1.02,
                   y: -2,
-                  borderColor: "rgba(231, 138, 83, 0.4)",
                 }}
                 style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >
@@ -518,13 +513,12 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
 
               {/* Secure by Default */}
               <m.div
-                className="group border-secondary/40 text-card-foreground relative flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out"
+                className="group border-secondary/40 text-card-foreground relative flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out hover:border-primary/40"
                 initial={{ opacity: 0, y: 50 }}
                 animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
                 transition={{ duration: 0.5, delay: 1.2 }}
                 whileHover={{
                   scale: 1.01,
-                  borderColor: "rgba(231, 138, 83, 0.5)",
                 }}
                 style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >
@@ -550,7 +544,6 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
                 transition={{ duration: 0.5, delay: 1.4 }}
                 whileHover={{
                   scale: 1.005,
-                  borderColor: "rgba(231, 138, 83, 0.45)",
                 }}
                 style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >

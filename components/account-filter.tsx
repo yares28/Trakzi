@@ -73,8 +73,8 @@ function FilterBody({ accounts, selected, onToggle, onSelectAll, onClear, onMana
             <div className="max-h-[240px] overflow-y-auto px-1">
                 {accounts.length === 0 ? (
                     <div className="flex flex-col items-center gap-3 px-3 py-8 text-center">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-dashed border-border bg-[oklch(0.6716_0.1368_48.513/0.06)]">
-                            <Landmark className="size-4" style={{ color: "oklch(0.6716 0.1368 48.513)" }} />
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-dashed border-border bg-primary/[0.06]">
+                            <Landmark className="size-4 text-primary" />
                         </div>
                         <div>
                             <p className="text-xs font-medium">No accounts yet</p>

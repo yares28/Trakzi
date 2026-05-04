@@ -364,7 +364,7 @@ export function AnimatedCharts() {
             onClick={() => setActiveChart(index)}
             className={`px-2.5 py-1 text-[11px] sm:text-xs rounded-full transition-all ${
               activeChart === index
-                ? "bg-[#e78a53] text-white"
+                ? "bg-primary text-primary-foreground"
                 : "bg-secondary/50 text-muted-foreground hover:bg-secondary"
             }`}
           >

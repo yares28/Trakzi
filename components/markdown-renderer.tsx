@@ -61,7 +61,7 @@ function parseInline(text: string): (string | React.ReactNode)[] {
         <a
           key={key++}
           href={href}
-          className="text-[#fe985b] hover:text-[#fe985b]/80 underline underline-offset-2 transition-colors"
+          className="text-primary hover:text-primary/80 underline underline-offset-2 transition-colors"
           {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
         >
           {earliestMatch[1]}
