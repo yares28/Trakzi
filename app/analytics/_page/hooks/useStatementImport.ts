@@ -41,6 +41,7 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
   const [selectedParsedRowIds, setSelectedParsedRowIds] = useState<Set<number>>(new Set())
   const [transactionCount, setTransactionCount] = useState<number>(0)
   const [projectName, setProjectName] = useState<string>("")
+  const [accountId, setAccountId] = useState<string | null>(null)
   const dragCounterRef = useRef(0)
   const droppedFile = pendingFiles[0] ?? null
   const csvRegenerationTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -548,6 +549,7 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
     setParseError(null)
     setImportProgress(0)
     setParsingProgress(0)
+    setAccountId(null)
   }, [])
 
   const handleConfirm = useCallback(async () => {
@@ -583,6 +585,7 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
         },
         body: JSON.stringify({
           csv: parsedCsv,
+          accountId: accountId ?? undefined,
           statementMeta: {
             bankName: "Unknown",
             sourceFilename: statementName,
@@ -924,5 +927,7 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
     setProjectName,
     transactionCount,
     pendingFiles,
+    accountId,
+    setAccountId,
   }
 }

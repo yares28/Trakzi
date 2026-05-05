@@ -324,6 +324,8 @@ export default function AnalyticsPage() {
         parseError={statementImport.parseError}
         projectName={statementImport.projectName}
         onProjectNameChange={statementImport.setProjectName}
+        accountId={statementImport.accountId}
+        onAccountChange={statementImport.setAccountId}
         onFilesChange={(files) => statementImport.handleFilesChange(files)}
         onCancel={statementImport.handleCancelUpload}
         onContinue={statementImport.handleContinueUpload}

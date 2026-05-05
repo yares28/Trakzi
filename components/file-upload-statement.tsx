@@ -159,6 +159,7 @@ export function FileUploadStatement({
             })
             onAccountChange?.(account.id)
             setCreateOpen(false)
+            resetCreateForm()
             toast.success(`${account.name} added`)
         } catch (err: any) {
             const message = err?.message ?? "Failed to create account"
