@@ -47,11 +47,15 @@ export async function ensureTransactionCategoryPreferencesSchema(): Promise<void
   return ensurePreferencesSchemaPromise
 }
 
-export function normalizeTransactionDescriptionKey(description: string): string {
-  const trimmed = description.trim()
-  if (!trimmed) return ""
+const PREF_STOPWORDS = new Set([
+  'de', 'en', 'a', 'el', 'la', 'the', 'to', 'at', 'of', 'in', 'y', 'e', 'un', 'una',
+])
 
-  return trimmed
+export function normalizeTransactionDescriptionKey(description: string): string | null {
+  const trimmed = description.trim()
+  if (!trimmed) return null
+
+  const key = trimmed
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -63,6 +67,13 @@ export function normalizeTransactionDescriptionKey(description: string): string 
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 160)
+
+  // Reject keys that are too generic to prevent one preference silently
+  // overwriting another (e.g. "amazon" matching "Amazon Prime" AND "Amazon Fresh")
+  const tokens = key.split(/\s+/).filter(t => t.length >= 3 && !PREF_STOPWORDS.has(t))
+  if (tokens.length < 2 || key.length < 5) return null
+
+  return key
 }
 
 export async function getTransactionCategoryPreferences(params: {

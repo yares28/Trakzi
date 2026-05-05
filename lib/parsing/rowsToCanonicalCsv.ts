@@ -22,7 +22,9 @@ export function rowsToCanonicalCsv(rows: TxRow[]): string {
         category: escapeCsvFormula(r.category || ""),
         summary: escapeCsvFormula(r.summary || ""),
         needs_review: r.needsReview ? "true" : "",
-        review_reason: escapeCsvFormula(r.reviewReason || "")
+        review_reason: escapeCsvFormula(r.reviewReason || ""),
+        categorisation_source: r.categorisationSource ?? "",
+        categorisation_confidence: r.categorisationConfidence != null ? String(r.categorisationConfidence) : "",
     }));
 
     const csv = Papa.unparse(rowsWithCategories, {
@@ -35,7 +37,9 @@ export function rowsToCanonicalCsv(rows: TxRow[]): string {
             "category",
             "summary",
             "needs_review",
-            "review_reason"
+            "review_reason",
+            "categorisation_source",
+            "categorisation_confidence",
         ]
     });
 

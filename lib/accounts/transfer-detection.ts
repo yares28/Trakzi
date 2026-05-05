@@ -30,6 +30,7 @@ export interface TransferPair {
     toTxId: number    // inflow (positive amount)
     amount: number    // absolute value
     status: 'pending' | 'suggested'
+    needsReview?: boolean  // true for cross-currency pairs that require user confirmation
 }
 
 /**
@@ -213,16 +214,18 @@ function matchPairs(
         const absAmount = Math.abs(out.amount)
         const requireExactDay = absAmount < EXACT_DAY_THRESHOLD
 
-        const matches: { inf: TxCandidate; similarity: number; dateDelta: number }[] = []
+        const matches: { inf: TxCandidate; similarity: number; dateDelta: number; isCrossCurrency: boolean }[] = []
 
         for (const inf of inflows) {
             if (usedPool.has(inf.id)) continue
             if (alreadyMatched.has(inf.id)) continue
             if (selfMatch && out.id === inf.id) continue
             if (out.accountId && inf.accountId && out.accountId === inf.accountId) continue
-            if (out.accountCurrency && inf.accountCurrency
-                && out.accountCurrency !== inf.accountCurrency) continue
-            if (Math.abs(Math.abs(inf.amount) - absAmount) > 0.01) continue
+            const isCrossCurrency = !!out.accountCurrency && !!inf.accountCurrency
+                && out.accountCurrency !== inf.accountCurrency
+            const tolerance = isCrossCurrency ? 0.05 : 0.001  // 5% for FX, 0.1% for same-currency rounding
+            const amountDiff = Math.abs(Math.abs(inf.amount) - absAmount)
+            if (amountDiff / absAmount > tolerance) continue
             const dateDelta = daysBetween(out.txDate, inf.txDate)
             if (dateDelta > windowDays) continue
             if (requireExactDay && dateDelta > 0) continue
@@ -234,7 +237,7 @@ function matchPairs(
                 || TRANSFER_KEYWORDS.test(inf.description)
             if (!passesDescription) continue
 
-            matches.push({ inf, similarity, dateDelta })
+            matches.push({ inf, similarity, dateDelta, isCrossCurrency })
         }
 
         if (matches.length === 0) continue
@@ -242,13 +245,15 @@ function matchPairs(
         // Best = highest similarity, then closest date.
         matches.sort((a, b) => b.similarity - a.similarity || a.dateDelta - b.dateDelta)
         const best = matches[0]
-        const status: 'pending' | 'suggested' = matches.length === 1 ? 'pending' : 'suggested'
+        // Cross-currency pairs are always 'suggested' so the user confirms before analytics excludes them
+        const status: 'pending' | 'suggested' = (matches.length === 1 && !best.isCrossCurrency) ? 'pending' : 'suggested'
 
         pairs.push({
             fromTxId: out.id,
             toTxId: best.inf.id,
             amount: absAmount,
             status,
+            needsReview: best.isCrossCurrency ? true : undefined,
         })
         usedPool.add(best.inf.id)
         alreadyMatched.add(out.id)

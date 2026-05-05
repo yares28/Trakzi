@@ -1052,12 +1052,13 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
         return false;
     });
 
-    // Detect duplicates (same date, description, amount)
+    // Detect duplicates (same date, description, amount) and flag them
     const seen = new Set<string>();
     for (const row of validRows) {
         const key = `${row.date}|${row.description}|${row.amount}`;
         if (seen.has(key)) {
             diagnostics.duplicatesDetected++;
+            row.isDuplicate = true;
         } else {
             seen.add(key);
         }

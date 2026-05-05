@@ -47,7 +47,9 @@
       "Bash(for f:*)",
       "Bash(do echo:*)",
       "Bash(npx jest *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(xxd)",
+      "Bash(python3 *)"
     ]
   },
   "enabledPlugins": {

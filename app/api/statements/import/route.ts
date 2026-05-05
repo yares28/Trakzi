@@ -69,6 +69,28 @@ async function ensureTransactionsTimeColumn(): Promise<void> {
     return ensureTransactionsTimeColumnPromise;
 }
 
+let ensureNormalisationColumnsPromise: Promise<void> | null = null;
+
+async function ensureNormalisationColumns(): Promise<void> {
+    if (ensureNormalisationColumnsPromise) return ensureNormalisationColumnsPromise;
+
+    ensureNormalisationColumnsPromise = (async () => {
+        await neonQuery(`
+            ALTER TABLE transactions
+              ADD COLUMN IF NOT EXISTS simplified_description TEXT,
+              ADD COLUMN IF NOT EXISTS categorisation_source TEXT
+                CHECK (categorisation_source IN
+                  ('preference','statement','pattern','keyword','ai','fallback','manual')),
+              ADD COLUMN IF NOT EXISTS categorisation_confidence NUMERIC(4,3)
+        `);
+    })().catch((error) => {
+        ensureNormalisationColumnsPromise = null;
+        throw error;
+    });
+
+    return ensureNormalisationColumnsPromise;
+}
+
 let ensureFingerprintColumnPromise: Promise<void> | null = null;
 
 async function ensureFingerprintColumn(): Promise<void> {
@@ -143,7 +165,7 @@ export const POST = async (req: NextRequest) => {
             return createRateLimitResponse(rateLimitResult.resetIn);
         }
 
-        await ensureTransactionsTimeColumn();
+        await Promise.all([ensureTransactionsTimeColumn(), ensureNormalisationColumns()]);
 
         // 1) Parse CSV into TxRow[]
         const parsed = Papa.parse(csv, {
@@ -155,14 +177,26 @@ export const POST = async (req: NextRequest) => {
             console.warn("Import CSV parse errors:", parsed.errors);
         }
 
-        let rows: TxRow[] = (parsed.data as any[]).map((r) => ({
-            date: String(r.date),
-            time: r.time ? String(r.time) : null,
-            description: String(r.description),
-            amount: Number(r.amount),
-            balance: r.balance != null ? Number(r.balance) : null,
-            category: r.category ? String(r.category) : undefined
-        }));
+        const VALID_CAT_SOURCES = new Set([
+            'preference', 'statement', 'pattern', 'keyword', 'ai', 'fallback', 'manual'
+        ]);
+        let rows: TxRow[] = (parsed.data as any[]).map((r) => {
+            const catSource = r.categorisation_source ? String(r.categorisation_source).trim() : undefined;
+            const catConfRaw = r.categorisation_confidence ? Number(r.categorisation_confidence) : undefined;
+            return {
+                date: String(r.date),
+                time: r.time ? String(r.time) : null,
+                description: String(r.description),
+                amount: Number(r.amount),
+                balance: r.balance != null ? Number(r.balance) : null,
+                category: r.category ? String(r.category) : undefined,
+                summary: r.summary ? String(r.summary) : undefined,
+                categorisationSource: catSource && VALID_CAT_SOURCES.has(catSource)
+                    ? catSource as TxRow['categorisationSource']
+                    : undefined,
+                categorisationConfidence: catConfRaw != null && !isNaN(catConfRaw) ? catConfRaw : undefined,
+            };
+        });
 
         if (rows.length === 0) {
             return NextResponse.json({ error: "No rows in CSV" }, { status: 400 });
@@ -352,10 +386,14 @@ export const POST = async (req: NextRequest) => {
             }
         }
 
+        // 5b) Deduplicate — filter out rows flagged as duplicates within this import batch
+        const dedupedRows = rowsToInsert.filter(r => !r.isDuplicate);
+        const duplicatesSkipped = rowsToInsert.length - dedupedRows.length;
+
         // 6) FX conversion — fetch rates once for all source currencies that differ from account currency
         const sourceCurrencies = [
             ...new Set(
-                rowsToInsert
+                dedupedRows
                     .map(r => r.currency?.toUpperCase())
                     .filter((c): c is string => !!c && c !== resolvedCurrency.toUpperCase())
             )
@@ -375,7 +413,7 @@ export const POST = async (req: NextRequest) => {
         // 7) Build transactions rows for Neon with proper category_id and FX conversion
         const VALID_IMPORT_TX_TYPES = new Set(['expense', 'income', 'transfer'])
         const timestamp = new Date().toISOString();
-        const txRows = rowsToInsert.map((r) => {
+        const txRows = dedupedRows.map((r) => {
             const rowCurrency = r.currency?.toUpperCase() ?? resolvedCurrency.toUpperCase();
             const needsConversion = rowCurrency !== resolvedCurrency.toUpperCase() && fxRates[rowCurrency];
             const convertedAmount = needsConversion
@@ -392,6 +430,7 @@ export const POST = async (req: NextRequest) => {
                 tx_date: r.date,
                 tx_time: r.time ?? null,
                 description: r.description,
+                simplified_description: r.summary ?? null,
                 amount: convertedAmount,
                 balance: convertedBalance,
                 currency: resolvedCurrency,
@@ -400,6 +439,12 @@ export const POST = async (req: NextRequest) => {
                 tx_type: r.tx_type && VALID_IMPORT_TX_TYPES.has(r.tx_type) ? r.tx_type : 'expense',
                 category_id: r.category && categoryNameToId.has(r.category)
                     ? categoryNameToId.get(r.category)!
+                    : null,
+                categorisation_source: r.categorisationSource && VALID_CAT_SOURCES.has(r.categorisationSource)
+                    ? r.categorisationSource
+                    : null,
+                categorisation_confidence: typeof r.categorisationConfidence === 'number'
+                    ? r.categorisationConfidence
                     : null,
                 raw_csv_row: JSON.stringify(r),
                 created_at: timestamp,
@@ -418,19 +463,23 @@ export const POST = async (req: NextRequest) => {
         const detectedTransferCount = pairs.length;
 
         // Build response
-        const response: ImportResponse & { detectedTransfers?: number } = {
+        const response: ImportResponse & { detectedTransfers?: number; duplicatesSkipped?: number } = {
             statementId,
-            inserted: rowsToInsert.length,
+            inserted: dedupedRows.length,
             capacity: {
                 plan: capacity.plan,
                 cap: capacity.cap,
-                used: capacity.used + rowsToInsert.length,
-                remaining: capacity.remaining - rowsToInsert.length,
+                used: capacity.used + dedupedRows.length,
+                remaining: capacity.remaining - dedupedRows.length,
             },
         };
 
         if (detectedTransferCount > 0) {
             (response as any).detectedTransfers = detectedTransferCount;
+        }
+
+        if (duplicatesSkipped > 0) {
+            response.duplicatesSkipped = duplicatesSkipped;
         }
 
         if (sourceCurrencies.length > 0) {

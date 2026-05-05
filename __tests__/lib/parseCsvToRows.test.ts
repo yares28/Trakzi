@@ -61,6 +61,19 @@ Date\tDescription\tAmount\tBalance
     expect(diagnostics.warnings).toContain('1 potential duplicate transaction(s) detected.')
   })
 
+  it('flags the second occurrence of a duplicate row with isDuplicate=true', () => {
+    const csv = `date,description,amount
+2025-01-01,Grocery Store,-50
+2025-01-01,Grocery Store,-50
+2025-01-02,Different,-30`
+
+    const { rows } = parseCsvToRows(csv, { returnDiagnostics: true })
+
+    expect(rows[0].isDuplicate).toBeFalsy()
+    expect(rows[1].isDuplicate).toBe(true)
+    expect(rows[2].isDuplicate).toBeFalsy()
+  })
+
   it('handles European number format (comma as decimal)', () => {
     const csv = `date,description,amount,balance
 2025-01-01,Test,-123,45,1.234,56`
