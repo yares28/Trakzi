@@ -560,6 +560,13 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
       return
     }
 
+    if (!accountId) {
+      toast.error("Account required", {
+        description: "Please select an account before importing.",
+      })
+      return
+    }
+
     setIsImporting(true)
     setImportProgress(0)
 
@@ -679,7 +686,7 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
     } finally {
       setIsImporting(false)
     }
-  }, [pendingFiles, parsedCsv, fileId, projectName, resetAllState, refreshAnalyticsData, onImportSuccess, transactionCount])
+  }, [pendingFiles, parsedCsv, fileId, projectName, accountId, resetAllState, refreshAnalyticsData, onImportSuccess, transactionCount])
 
   const handleCancelUpload = useCallback(() => {
     if (csvRegenerationTimerRef.current) {

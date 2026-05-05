@@ -410,7 +410,7 @@ export function FileUploadStatement({
                             className="h-9 px-4 text-sm font-medium"
                             type="button"
                             onClick={onContinue}
-                            disabled={isBusy || files.length === 0 || !accountId}
+                            disabled={isBusy || files.length === 0}
                         >
                             {isBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                             {continueLabel}
