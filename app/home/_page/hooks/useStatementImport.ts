@@ -488,7 +488,7 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
     setAccountId(null)
   }, [])
 
-  const handleConfirm = useCallback(async () => {
+  const handleConfirm = useCallback(async (force = false) => {
     if (pendingFiles.length === 0 || !parsedCsv || !fileId) {
       toast.error("Missing data", {
         description: "Please wait for the file to be parsed before confirming.",
@@ -529,6 +529,7 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
         body: JSON.stringify({
           csv: parsedCsv,
           accountId: accountId ?? undefined,
+          force,
           statementMeta: {
             bankName: "Unknown",
             sourceFilename: statementName,
@@ -542,6 +543,20 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
       setImportProgress(95)
 
       if (!response.ok) {
+        if (response.status === 409) {
+          setImportProgress(0)
+          setIsImporting(false)
+          toast.warning("Already imported", {
+            description: "This statement looks like it was imported before. Import again anyway?",
+            duration: 12000,
+            action: {
+              label: "Import Anyway",
+              onClick: () => { void handleConfirm(true) },
+            },
+          })
+          return
+        }
+
         let errorMessage = `HTTP error! status: ${response.status}`
         const responseText = await response.text()
 
@@ -549,7 +564,6 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
           const errorData = JSON.parse(responseText)
 
           if (response.status === 403 && errorData.code === "LIMIT_EXCEEDED") {
-            clearInterval(progressInterval)
             setImportProgress(0)
             setIsImporting(false)
 

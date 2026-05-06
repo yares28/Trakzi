@@ -53,7 +53,9 @@ export async function detectTransfers(
     // Excludes settlements (room repayments) and any tx already shared with a room —
     // pairing those as transfers would silently break analytics + roommate balances.
     const placeholders = newTxIds.map((_, i) => `$${i + 2}`).join(', ')
-    const newTxs = await neonQuery<TxCandidate>(
+    // Second query has 3 fixed params before newTxIds ($1=userId, $2=earliest, $3=latest)
+    const existingPlaceholders = newTxIds.map((_, i) => `$${i + 4}`).join(', ')
+    const newTxsRaw = await neonQuery<TxCandidate>(
         `SELECT t.id, t.user_id AS "userId", t.tx_date AS "txDate",
                 t.amount, t.account_id AS "accountId",
                 a.currency AS "accountCurrency", t.description
@@ -73,6 +75,12 @@ export async function detectTransfers(
          ORDER BY t.tx_date`,
         [userId, ...newTxIds]
     )
+    const newTxs = newTxsRaw.map(t => ({
+        ...t,
+        txDate: (t.txDate as unknown) instanceof Date
+            ? (t.txDate as unknown as Date).toISOString().slice(0, 10)
+            : String(t.txDate).slice(0, 10),
+    }))
 
     if (newTxs.length === 0) return []
 
@@ -82,7 +90,7 @@ export async function detectTransfers(
     const latest = offsetDate(dates[dates.length - 1], windowDays)
 
     // Fetch existing unmatched transactions in that window (excluding the new ones)
-    const existingTxs = await neonQuery<TxCandidate>(
+    const existingTxsRaw = await neonQuery<TxCandidate>(
         `SELECT t.id, t.user_id AS "userId", t.tx_date AS "txDate",
                 t.amount, t.account_id AS "accountId",
                 a.currency AS "accountCurrency", t.description
@@ -95,7 +103,7 @@ export async function detectTransfers(
                'settlement_sent', 'settlement_received'
            ))
            AND t.account_id IS NOT NULL
-           AND t.id NOT IN (${placeholders})
+           AND t.id NOT IN (${existingPlaceholders})
            AND NOT EXISTS (
                SELECT 1 FROM account_transfers at2
                WHERE at2.user_id = $1
@@ -108,6 +116,12 @@ export async function detectTransfers(
          ORDER BY t.tx_date`,
         [userId, earliest, latest, ...newTxIds]
     )
+    const existingTxs = existingTxsRaw.map(t => ({
+        ...t,
+        txDate: (t.txDate as unknown) instanceof Date
+            ? (t.txDate as unknown as Date).toISOString().slice(0, 10)
+            : String(t.txDate).slice(0, 10),
+    }))
 
     // Also exclude already-matched new txs (in case two new txs pair with each other)
     const alreadyMatchedIds = new Set<number>()

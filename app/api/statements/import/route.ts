@@ -8,7 +8,7 @@ import { getCurrentUserId } from "@/lib/auth";
 import { detectTransfers, persistTransferPairs } from "@/lib/accounts/transfer-detection";
 import { TxRow } from "@/lib/types/transactions";
 import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limiter";
-import { invalidateUserCache } from "@/lib/cache/upstash";
+import { invalidateUserCache, invalidateExactKeys, buildCacheKey } from "@/lib/cache/upstash";
 import { fetchRatesForBase, convertWithRates } from "@/lib/fx/converter";
 import {
     assertCapacityOrExplain,
@@ -497,8 +497,13 @@ export const POST = async (req: NextRequest) => {
             response.reachedCap = true;
         }
 
-        // Invalidate ALL cache to ensure UI updates instantly across all pages
-        await invalidateUserCache(userId);
+        // Invalidate ALL cache to ensure UI updates instantly across all pages.
+        // Exact-key DEL for data-library runs alongside the broad SCAN as a belt-and-suspenders
+        // guarantee — SCAN can miss keys in the same iteration window.
+        await Promise.all([
+            invalidateUserCache(userId),
+            invalidateExactKeys(buildCacheKey('data-library', userId, null, 'bundle')),
+        ]);
         revalidatePath('/data-library');
         revalidatePath('/home');
         revalidatePath('/analytics');

@@ -27,6 +27,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast: "rounded-xl border shadow-sm font-sans text-sm",
+          title: "select-text cursor-text",
+          description: "select-text cursor-text",
           error: "!border-[oklch(0.6368_0.2078_25.3313/0.35)] !bg-[oklch(0.6368_0.2078_25.3313/0.06)]",
           success: "!border-green-200 !bg-green-50/70 dark:!border-green-800/40 dark:!bg-green-950/30",
           warning: "!border-amber-200 !bg-amber-50/70 dark:!border-amber-800/40 dark:!bg-amber-950/30",

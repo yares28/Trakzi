@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getCurrentUserId } from "@/lib/auth";
 import { neonQuery } from "@/lib/neonClient";
-import { invalidateUserCachePrefix } from "@/lib/cache/upstash";
+import { invalidateUserCachePrefix, invalidateExactKeys, buildCacheKey } from "@/lib/cache/upstash";
 import { invalidateAccountAffectedCaches } from "@/lib/accounts/cache";
 
 export const DELETE = async (
@@ -66,9 +66,10 @@ export const DELETE = async (
         `;
         await neonQuery(deleteStatementQuery, [statementId, userId]);
 
-        // Invalidate ALL affected caches to ensure deleted transactions don't appear anywhere
+        // Invalidate ALL affected caches to ensure deleted transactions don't appear anywhere.
+        // data-library uses exact-key DEL (more reliable than SCAN for a known key).
         await Promise.all([
-            invalidateUserCachePrefix(userId, 'data-library'),
+            invalidateExactKeys(buildCacheKey('data-library', userId, null, 'bundle')),
             invalidateUserCachePrefix(userId, 'analytics'),
             invalidateUserCachePrefix(userId, 'home'),
             invalidateUserCachePrefix(userId, 'trends'),

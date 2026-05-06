@@ -340,9 +340,15 @@ export const useStatementViewer = ({
           is_receipt: false,
         })
 
-        await fetchLibraryData()
+        setStatements((prev) =>
+          prev.filter((s) => s.id !== statementToDelete.id)
+        )
         setDeleteDialogOpen(false)
         setStatementToDelete(null)
+
+        fetchLibraryData().catch((err) => {
+          console.error("[Delete] Background refresh failed:", err)
+        })
       } else {
         const errorData = await response.json().catch(() => ({}))
         alert(errorData.error || "Failed to delete statement")
