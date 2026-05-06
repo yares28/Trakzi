@@ -49,21 +49,6 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
 
   const { schedulePreferenceUpdate, resetPreferenceUpdates } = useCategoryPreferences()
 
-  // Parse CSV when it changes
-  useEffect(() => {
-    if (parsedCsv) {
-      const rows = parseCsvToRows(parsedCsv)
-      const rowsWithId: ParsedRow[] = rows.map((row, index) => ({
-        ...row,
-        id: index,
-        category: row.category || undefined,
-      }))
-      setParsedRows(rowsWithId)
-    } else {
-      setParsedRows([])
-    }
-  }, [parsedCsv])
-
   // Keep ref in sync with parsedRows
   useEffect(() => {
     latestParsedRowsRef.current = parsedRows
@@ -543,6 +528,7 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
   const resetAllState = useCallback(() => {
     setPendingFiles([])
     setParsedCsv(null)
+    setParsedRows([])
     setParseQuality(null)
     setFileId(null)
     setTransactionCount(0)
