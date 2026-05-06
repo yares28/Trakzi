@@ -14,12 +14,12 @@ This document lists all chart components used on the Analytics page.
 
 ---
 
-## Charts (27 total)
+## Charts (29 total)
 
 | # | Chart ID | Component File | Component Name | Description |
 |---|----------|----------------|----------------|-------------|
 | 1 | `incomeExpensesTracking1` | `chart-area-interactive.tsx` | `ChartAreaInteractive` | Income & Expenses Cumulative Tracking (Top Chart) - Visualizes cumulative cash flow over time |
-| 2 | `incomeExpensesTracking2` | `chart-area-interactive.tsx` | `ChartAreaInteractive` | Income & Expenses — Basic (daily income vs daily expenses) and Cumulative (same running-balance logic as the cumulative chart); segmented control toggles views |
+| 2 | `incomeExpensesTracking2` | `chart-area-interactive.tsx` | `ChartAreaInteractive` | Income & Expenses — Basic / Cumulative / Net / Accounts views; the Accounts tab shows each bank account's running balance as a separate line, sourced from `accountBalances` in the analytics bundle |
 | 3 | `spendingScore` | `chart-spending-score.tsx` | `ChartSpendingScore` | Spending Score - AI-calculated score based on spending patterns, diversity, and trends |
 | 4 | `cashFlowIndicator` | `chart-cash-flow-indicator.tsx` | `ChartCashFlowIndicator` | Cash Flow Indicator - Visualizes income vs expenses with animated gauge |
 | 5 | `incomeExpenseRatio` | `chart-income-expense-ratio.tsx` | `ChartIncomeExpenseRatio` | Income to Expense Ratio - Donut gauge comparing income to expenses |
@@ -45,6 +45,7 @@ This document lists all chart components used on the Analytics page.
 | 25 | `dayOfWeekCategory` | `chart-day-of-week-category.tsx` | `ChartDayOfWeekCategory` | Day of Week Category - Spending breakdown by day and category |
 | 26 | `financialHealthScore` | `chart-radar.tsx` | `ChartRadar` | Financial Health Score - Radar chart of financial health metrics |
 | 27 | `spendingActivityRings` | `SpendingActivityRings.tsx` | `SpendingActivityRings` | Spending Activity Rings - Concentric rings showing category progress vs limits |
+| 28 | `dailySpendAllowance` | `chart-daily-spend-allowance.tsx` | `ChartDailySpendAllowance` | Daily Spend Allowance — Year + Month selectors; line chart of rolling daily discretionary allowance (income − essentials ÷ days remaining) with flat Ideal reference line; computed client-side from rawTransactions |
 
 ---
 

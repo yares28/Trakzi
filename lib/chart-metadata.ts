@@ -603,6 +603,11 @@ export const CHART_METADATA: Record<ChartId, ChartMetadata> = {
     title: "Weekend spending share",
     description: "Share of spending that occurs on weekends vs weekdays.",
   },
+  dailySpendAllowance: {
+    id: "dailySpendAllowance",
+    title: "Daily Spend Allowance",
+    description: "Tracks your rolling daily discretionary allowance (income minus essentials) throughout a selected month, compared to an ideal flat baseline.",
+  },
 }
 
 export function getChartMetadata(chartId: ChartId): ChartMetadata {

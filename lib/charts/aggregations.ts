@@ -87,6 +87,13 @@ export interface SharedExpenseSummary {
     totalYouOwe: number
 }
 
+export interface AccountBalanceSeries {
+    accountId: string
+    accountName: string
+    color: string | null
+    points: Array<{ date: string; balance: number }>
+}
+
 export interface AnalyticsSummary {
     kpis: {
         totalIncome: number
@@ -110,6 +117,8 @@ export interface AnalyticsSummary {
     // Phase 4: effective cost mode + shared expense summary
     effectiveCostMode: boolean
     sharedExpenseSummary: SharedExpenseSummary
+    // Account balance history for the Accounts view
+    accountBalances: AccountBalanceSeries[]
 }
 
 // Category classification for needs/wants
@@ -1134,6 +1143,69 @@ export async function getSharedExpenseSummary(
     }
 }
 
+export async function getAccountBalances(
+    userId: string,
+    startDate?: string,
+    endDate?: string,
+    accountIds?: AccountFilter
+): Promise<AccountBalanceSeries[]> {
+    let query = `
+        SELECT DISTINCT ON (t.account_id, t.tx_date::date)
+            t.tx_date::date::text AS date,
+            t.account_id,
+            ba.name AS account_name,
+            ba.color,
+            t.balance
+        FROM transactions t
+        JOIN bank_accounts ba ON ba.id = t.account_id
+        WHERE t.user_id = $1
+          AND t.account_id IS NOT NULL
+          AND t.balance IS NOT NULL
+          AND ba.is_active = true
+    `
+    const params: unknown[] = [userId]
+
+    if (startDate) {
+        params.push(startDate)
+        query += ` AND t.tx_date >= $${params.length}::date`
+    }
+    if (endDate) {
+        params.push(endDate)
+        query += ` AND t.tx_date <= $${params.length}::date`
+    }
+    if (accountIds && accountIds.length > 0) {
+        params.push(accountIds)
+        query += ` AND t.account_id = ANY($${params.length}::text[])`
+    }
+
+    query += ` ORDER BY t.account_id, t.tx_date::date, t.id DESC`
+
+    const rows = await neonQuery<{
+        date: string
+        account_id: string
+        account_name: string
+        color: string | null
+        balance: number
+    }>(query, params)
+
+    const accountMap = new Map<string, AccountBalanceSeries>()
+    for (const row of rows) {
+        if (!accountMap.has(row.account_id)) {
+            accountMap.set(row.account_id, {
+                accountId: row.account_id,
+                accountName: row.account_name,
+                color: row.color,
+                points: [],
+            })
+        }
+        accountMap.get(row.account_id)!.points.push({ date: row.date, balance: Number(row.balance) })
+    }
+    for (const series of accountMap.values()) {
+        series.points.sort((a, b) => a.date.localeCompare(b.date))
+    }
+    return Array.from(accountMap.values())
+}
+
 /**
  * Get complete analytics bundle - single endpoint for all chart data
  * Note: transactionHistory removed - fetched separately via /api/transactions
@@ -1165,7 +1237,7 @@ export async function getAnalyticsBundle(
     }
 
     // Run all aggregations - individual error handling prevents total failure
-    const [kpis, categorySpending, dailySpending, monthlyCategories, dayOfWeekSpending, dayOfWeekCategory, needsWants, cashFlow, monthlyByCategory, spendingPyramid, treeMapData, sharedExpenseSummary] = await Promise.all([
+    const [kpis, categorySpending, dailySpending, monthlyCategories, dayOfWeekSpending, dayOfWeekCategory, needsWants, cashFlow, monthlyByCategory, spendingPyramid, treeMapData, sharedExpenseSummary, accountBalances] = await Promise.all([
         runQuery('kpis', () => getKPIs(userId, startDate ?? undefined, endDate ?? undefined, eff, accountIds)),
         runQuery('categorySpending', () => getCategorySpending(userId, startDate ?? undefined, endDate ?? undefined, eff, accountIds)),
         runQuery('dailySpending', () => getDailySpending(userId, startDate ?? undefined, endDate ?? undefined, accountIds)),
@@ -1180,6 +1252,7 @@ export async function getAnalyticsBundle(
         // sharedExpenseSummary intentionally NOT account-filtered — shared_transactions
         // has no account_id column; room scope already implies a different filter axis.
         runQuery('sharedExpenseSummary', () => getSharedExpenseSummary(userId, startDate ?? undefined, endDate ?? undefined)),
+        runQuery('accountBalances', () => getAccountBalances(userId, startDate ?? undefined, endDate ?? undefined, accountIds)),
     ])
 
     return {
@@ -1196,6 +1269,7 @@ export async function getAnalyticsBundle(
         treeMapData,
         effectiveCostMode: eff,
         sharedExpenseSummary: sharedExpenseSummary as SharedExpenseSummary,
+        accountBalances: accountBalances as AccountBalanceSeries[],
     }
 }
 

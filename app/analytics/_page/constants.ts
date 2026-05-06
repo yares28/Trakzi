@@ -34,12 +34,13 @@ export const DEFAULT_CHART_ORDER = [
   "incomeSources",
   "yearOverYear",
   "dailyAverageByMonth",
+  "dailySpendAllowance",
 ]
 
 export const CHART_ORDER_STORAGE_KEY = "analytics-chart-order"
 export const CHART_SIZES_STORAGE_KEY = "analytics-chart-sizes"
 export const CHART_SIZES_VERSION_KEY = "analytics-chart-sizes-version"
-export const DEFAULT_SIZES_VERSION = "15"
+export const DEFAULT_SIZES_VERSION = "16"
 
 export const DEFAULT_CHART_SIZES: Record<string, { w: number; h: number; x?: number; y?: number }> = {
   "incomeExpensesTracking1": { w: 6, h: 6, x: 0, y: 0 },
@@ -77,6 +78,7 @@ export const DEFAULT_CHART_SIZES: Record<string, { w: number; h: number; x?: num
   "incomeSources": { w: 6, h: 8, x: 0, y: 168 },
   "yearOverYear": { w: 6, h: 8, x: 6, y: 168 },
   "dailyAverageByMonth": { w: 6, h: 8, x: 0, y: 176 },
+  "dailySpendAllowance": { w: 6, h: 8, x: 6, y: 176 },
 }
 
 // Advanced tab chart order and default sizes

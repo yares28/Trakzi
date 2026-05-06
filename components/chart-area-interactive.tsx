@@ -11,6 +11,9 @@ import {
   ReferenceLine,
   Tooltip,
   TooltipProps,
+  LineChart,
+  Line,
+  Legend,
 } from "recharts";
 import { useTheme } from "next-themes";
 
@@ -42,6 +45,13 @@ import {
 } from "@/components/chart-card-overlay-controls";
 export const description = "An interactive area chart";
 
+export interface AccountBalanceSeries {
+  accountId: string;
+  accountName: string;
+  color: string | null;
+  points: Array<{ date: string; balance: number }>;
+}
+
 interface ChartAreaInteractiveProps {
   data?: Array<{
     date: string;
@@ -65,6 +75,10 @@ interface ChartAreaInteractiveProps {
     date: string;
     net: number;
   }>;
+  /**
+   * When set, adds an "Accounts" pill showing each account's running balance as a separate line.
+   */
+  accountsData?: AccountBalanceSeries[];
   categoryControls?: ChartInfoPopoverCategoryControls;
   chartId?: ChartId;
   /** Custom title for the chart card. Defaults to "Income & Expenses Cumulative Tracking" */
@@ -188,12 +202,13 @@ AreaInfoAction.displayName = "AreaInfoAction";
 
 const DEFAULT_CHART_TITLE = "Income & Expenses Cumulative Tracking";
 
-type IncomeAreaViewMode = "basic" | "cumulative" | "net";
+type IncomeAreaViewMode = "basic" | "cumulative" | "net" | "accounts";
 
 export const ChartAreaInteractive = memo(function ChartAreaInteractive({
   data = [],
   cumulativeData,
   netData,
+  accountsData,
   categoryControls,
   chartId = "incomeExpensesTracking1",
   title = DEFAULT_CHART_TITLE,
@@ -211,6 +226,8 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
     /** Running balance for cumulative view (can be negative). Present only in cumulative mode. */
     balance?: number;
     net?: number;
+    /** Per-account balance payload for Accounts mode */
+    accountsPayload?: Array<{ dataKey?: string; value?: number; color?: string }>;
   } | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{
     x: number | undefined;
@@ -258,6 +275,36 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
     palette[palette.length - 2] || palette[palette.length - 1] || palette[0];
   const netColor = palette[Math.floor(palette.length / 2)] || palette[0];
 
+  // Account balance chart: merge per-account point arrays into flat date-keyed rows with forward-fill
+  const accountsChartData = useMemo(() => {
+    if (!accountsData || accountsData.length === 0) return []
+    const allDates = new Set<string>()
+    for (const s of accountsData) for (const p of s.points) allDates.add(p.date)
+    const sortedDates = Array.from(allDates).sort()
+    const lastKnown: Record<string, number> = {}
+    return sortedDates.map((date) => {
+      const row: Record<string, string | number> = { date }
+      for (const s of accountsData) {
+        const pt = s.points.find((p) => p.date === date)
+        if (pt !== undefined) {
+          lastKnown[s.accountId] = pt.balance
+          row[s.accountId] = pt.balance
+        } else if (s.accountId in lastKnown) {
+          row[s.accountId] = lastKnown[s.accountId]
+        }
+      }
+      return row
+    })
+  }, [accountsData])
+
+  // Assign a palette color to each account (override with account.color if set)
+  const accountColors = useMemo(() => {
+    if (!accountsData) return {}
+    return Object.fromEntries(
+      accountsData.map((s, i) => [s.accountId, s.color || palette[i % palette.length] || "#888"])
+    )
+  }, [accountsData, palette])
+
   // Use theme-based colors for proper CSS variable generation
   const chartConfig = {
     cashflow: {
@@ -293,20 +340,23 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
   const incomeBorderColor = incomeColor;
   const expensesBorderColor = expensesColor;
 
-  const showViewSwitcher = cumulativeData !== undefined || netData !== undefined;
+  const showViewSwitcher = cumulativeData !== undefined || netData !== undefined || (accountsData !== undefined && accountsData.length > 0);
   const hasBasicData = data.length > 0;
   const hasCumulativeData = (cumulativeData?.length ?? 0) > 0;
   const hasNetData = (netData?.length ?? 0) > 0;
+  const hasAccountsData = accountsChartData.length > 0;
 
   const filteredData = useMemo(() => {
     if (!showViewSwitcher) return data;
-    return viewMode === "cumulative" ? (cumulativeData ?? []) : data;
+    if (viewMode === "cumulative") return cumulativeData ?? []
+    if (viewMode === "accounts" || viewMode === "net") return data
+    return data;
   }, [showViewSwitcher, viewMode, cumulativeData, data]);
 
   const shouldShowEmptyCard =
     isLoading ||
     (!showViewSwitcher && (!data || data.length === 0)) ||
-    (showViewSwitcher && !hasBasicData && !hasCumulativeData && !hasNetData);
+    (showViewSwitcher && !hasBasicData && !hasCumulativeData && !hasNetData && !hasAccountsData);
 
   const viewModeSwitcherControl =
     showViewSwitcher && (hasBasicData || hasCumulativeData || hasNetData) ? (
@@ -336,6 +386,15 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
             onClick={() => setViewMode("net")}
           >
             Net
+          </button>
+        )}
+        {accountsData !== undefined && hasAccountsData && (
+          <button
+            type="button"
+            className={`rounded-full px-2.5 py-1 font-medium transition-all whitespace-nowrap ${viewMode === "accounts" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            onClick={() => setViewMode("accounts")}
+          >
+            Accounts
           </button>
         )}
       </div>
@@ -487,19 +546,42 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
             <div className="shrink-0 pt-1">{viewModeSwitcherControl}</div>
           ) : null}
           <div className="min-h-[320px] flex-1 min-h-0 w-full">
-            {(viewMode === "net" ? (netData?.length ?? 0) === 0 : filteredData.length === 0) ? (
+            {(viewMode === "accounts" ? !hasAccountsData : viewMode === "net" ? (netData?.length ?? 0) === 0 : filteredData.length === 0) ? (
               <ChartLoadingState
                 isLoading={false}
                 skeletonType="area"
                 emptyTitle={
-                  viewMode === "cumulative"
+                  viewMode === "accounts"
+                    ? "No account balance data"
+                    : viewMode === "cumulative"
                     ? "No cumulative data for this view"
                     : "No data for this view"
                 }
                 emptyDescription="Try the other mode or adjust category filters."
               />
             ) : (
-              viewMode === "net" ? (
+              viewMode === "accounts" ? (
+                <ChartContainer config={{}} className="h-full w-full">
+                  <LineChart data={useRealData ? accountsChartData : []} margin={{ top: 10, bottom: 10 }}>
+                    <CartesianGrid vertical={false} stroke={gridStrokeColor} strokeDasharray="3 3" opacity={0.3} />
+                    <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} minTickGap={32}
+                      tickFormatter={(value) => formatDateForDisplay(String(value), "en-US", { month: "short", day: "numeric" })}
+                    />
+                    <YAxis tickLine={false} axisLine={false} tickMargin={4} width={72}
+                      tickFormatter={(v: number) => formatCurrency(v, { maximumFractionDigits: 0 })}
+                    />
+                    <Legend formatter={(value) => accountsData?.find((s) => s.accountId === value)?.accountName ?? value}
+                      wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }}
+                    />
+                    {(accountsData ?? []).map((series) => (
+                      <Line key={series.accountId} dataKey={series.accountId} name={series.accountId}
+                        type="monotone" stroke={accountColors[series.accountId]} strokeWidth={2}
+                        dot={false} connectNulls isAnimationActive animationDuration={800} animationEasing="ease-out"
+                      />
+                    ))}
+                  </LineChart>
+                </ChartContainer>
+              ) : viewMode === "net" ? (
                 <ChartContainer config={netChartConfig} className="h-full w-full">
                   <AreaChart data={useRealData ? (netData ?? []) : []} margin={{ top: 10, bottom: 10 }}>
                     <defs>
@@ -686,22 +768,93 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
         {mobileViewModeSwitcherControl}
         <CardContent className="px-2 pt-0 sm:px-6 min-w-0 flex flex-col flex-1 min-h-0">
           <div ref={containerRef} className="relative flex-1 min-h-[180px]">
-            {(viewMode === "net" ? (netData?.length ?? 0) === 0 : filteredData.length === 0) ? (
+            {(viewMode === "accounts" ? !hasAccountsData : viewMode === "net" ? (netData?.length ?? 0) === 0 : filteredData.length === 0) ? (
               <div className="flex h-full min-h-[180px] w-full items-center justify-center">
                 <ChartLoadingState
                   isLoading={false}
                   skeletonType="area"
                   emptyTitle={
-                    viewMode === "cumulative"
+                    viewMode === "accounts"
+                      ? "No account balance data"
+                      : viewMode === "cumulative"
                       ? "No cumulative data for this view"
                       : "No data for this view"
                   }
-                  emptyDescription="Try the other mode or adjust category filters."
+                  emptyDescription={
+                    viewMode === "accounts"
+                      ? "Import transactions with a balance column to see account history."
+                      : "Try the other mode or adjust category filters."
+                  }
                 />
               </div>
             ) : (
             <div ref={chartContainerRef} className="h-full">
-              {viewMode === "net" ? (
+              {viewMode === "accounts" ? (
+                <ChartContainer config={{}} className="aspect-auto h-full w-full min-w-0">
+                  <LineChart data={useRealData ? accountsChartData : []} margin={{ top: 10, bottom: 10 }}>
+                    <CartesianGrid vertical={false} stroke={gridStrokeColor} strokeDasharray="3 3" opacity={0.3} />
+                    <XAxis
+                      dataKey="date"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      minTickGap={32}
+                      tickFormatter={(value) =>
+                        formatDateForDisplay(String(value), "en-US", { month: "short", day: "numeric" })
+                      }
+                    />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={4}
+                      width={72}
+                      tickFormatter={(v: number) => formatCurrency(v, { maximumFractionDigits: 0 })}
+                    />
+                    <Tooltip
+                      cursor={false}
+                      content={(props: TooltipProps<number, string>) => {
+                        const { active, payload, coordinate } = props
+                        if (!active || !payload || !payload.length || !coordinate) {
+                          queueMicrotask(() => { setTooltip(null); setTooltipPosition(null) })
+                          return null
+                        }
+                        const d = payload[0].payload
+                        if (containerRef.current) {
+                          const rect = containerRef.current.getBoundingClientRect()
+                          const basePosition = mousePositionRef.current ?? {
+                            x: rect.left + (coordinate.x ?? 0),
+                            y: rect.top + (coordinate.y ?? 0),
+                          }
+                          queueMicrotask(() => {
+                            setTooltipPosition(basePosition)
+                            setTooltip({ date: d.date, income: 0, expenses: 0, accountsPayload: payload as Array<{ dataKey?: string; value?: number; color?: string }> })
+                          })
+                        }
+                        return null
+                      }}
+                    />
+                    <Legend
+                      formatter={(value) => accountsData?.find((s) => s.accountId === value)?.accountName ?? value}
+                      wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
+                    />
+                    {(accountsData ?? []).map((series) => (
+                      <Line
+                        key={series.accountId}
+                        dataKey={series.accountId}
+                        name={series.accountId}
+                        type="monotone"
+                        stroke={accountColors[series.accountId]}
+                        strokeWidth={2}
+                        dot={false}
+                        connectNulls
+                        isAnimationActive={true}
+                        animationDuration={800}
+                        animationEasing="ease-out"
+                      />
+                    ))}
+                  </LineChart>
+                </ChartContainer>
+              ) : viewMode === "net" ? (
                 <ChartContainer
                   config={netChartConfig}
                   className="aspect-auto h-full w-full min-w-0"
@@ -1004,7 +1157,22 @@ export const ChartAreaInteractive = memo(function ChartAreaInteractive({
                       year: "numeric",
                     })}
                   </div>
-                  {tooltip.net !== undefined ? (
+                  {tooltip.accountsPayload !== undefined ? (
+                    <div className="flex flex-col gap-1">
+                      {tooltip.accountsPayload.map((entry) => {
+                        const accountName = accountsData?.find((s) => s.accountId === entry.dataKey)?.accountName ?? entry.dataKey
+                        return entry.value !== undefined ? (
+                          <div key={entry.dataKey} className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: entry.color ?? "#888" }} />
+                            <span className="text-foreground/80 truncate max-w-[120px]">{accountName}:</span>
+                            <span className="font-mono text-[0.7rem] text-foreground font-medium ml-auto">
+                              {valueFormatter.format(entry.value)}
+                            </span>
+                          </div>
+                        ) : null
+                      })}
+                    </div>
+                  ) : tooltip.net !== undefined ? (
                     <div className="flex items-center gap-2">
                       <span
                         className="h-2.5 w-2.5 rounded-full border border-border/50"

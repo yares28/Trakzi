@@ -45,6 +45,7 @@ import { ChartPaydayImpact } from "@/components/test-charts/chart-payday-impact"
 import { ChartIncomeSources } from "@/components/test-charts/chart-income-sources"
 import { ChartYearOverYear } from "@/components/test-charts/chart-year-over-year"
 import { ChartDailyAverageByMonth } from "@/components/test-charts/chart-daily-average-by-month"
+import { ChartDailySpendAllowance } from "@/components/chart-daily-spend-allowance"
 import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -124,6 +125,7 @@ const CHART_TITLES: Record<string, string> = {
   incomeSources: "Income Sources",
   yearOverYear: "Spending comparison",
   dailyAverageByMonth: "Daily Average by Month",
+  dailySpendAllowance: "Daily Spend Allowance",
 }
 
 export function ChartsGrid({
@@ -587,6 +589,7 @@ export function ChartsGrid({
                       data={incomeExpenseChart.data}
                       cumulativeData={incomeExpenseCumulativeData}
                       netData={weeklyNetDiffData}
+                      accountsData={bundleData?.accountBalances}
                       emptyTitle={emptyTitle}
                       emptyDescription={emptyDescription}
                     />
@@ -1174,6 +1177,24 @@ export function ChartsGrid({
                 <LazyChart title="Daily Average by Month" height={250}>
                   <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                     <ChartDailyAverageByMonth data={rawTransactions} isLoading={isLoadingTransactions} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "dailySpendAllowance") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Daily Spend Allowance" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartDailySpendAllowance
+                      chartId="dailySpendAllowance"
+                      rawTransactions={rawTransactions}
+                      isLoading={isLoadingTransactions}
+                      emptyTitle={emptyTitle}
+                      emptyDescription={emptyDescription}
+                    />
                   </div>
                 </LazyChart>
               </SortableGridItem>

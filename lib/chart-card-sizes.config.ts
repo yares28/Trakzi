@@ -146,6 +146,7 @@ export type ChartId =
   | "categorySpendingByPeriod"
   | "testCharts:merchantBudgetMissMap"
   | "testCharts:storePriceDispersionIndex"
+  | "dailySpendAllowance"
 
 /**
  * Default size configuration for all charts
@@ -1093,6 +1094,7 @@ export const CHART_CARD_SIZES: Record<ChartId, ChartCardSizeConfig> = {
   categorySpendingByPeriod: { minW: 12, maxW: 12, minH: 7, maxH: 16, mobileH: 6 },
   "testCharts:merchantBudgetMissMap": { minW: 6, maxW: 12, minH: 8, maxH: 14, mobileH: 5 },
   "testCharts:storePriceDispersionIndex": { minW: 6, maxW: 12, minH: 8, maxH: 14, mobileH: 5 },
+  dailySpendAllowance: { minW: 6, maxW: 12, minH: 7, maxH: 14, mobileH: 6 },
 }
 
 /**
