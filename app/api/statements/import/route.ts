@@ -91,6 +91,25 @@ async function ensureNormalisationColumns(): Promise<void> {
     return ensureNormalisationColumnsPromise;
 }
 
+let ensureFxColumnsPromise: Promise<void> | null = null;
+
+async function ensureFxColumns(): Promise<void> {
+    if (ensureFxColumnsPromise) return ensureFxColumnsPromise;
+
+    ensureFxColumnsPromise = (async () => {
+        await neonQuery(`
+            ALTER TABLE transactions
+              ADD COLUMN IF NOT EXISTS original_amount NUMERIC,
+              ADD COLUMN IF NOT EXISTS original_currency CHAR(3)
+        `);
+    })().catch((error) => {
+        ensureFxColumnsPromise = null;
+        throw error;
+    });
+
+    return ensureFxColumnsPromise;
+}
+
 let ensureFingerprintColumnPromise: Promise<void> | null = null;
 
 async function ensureFingerprintColumn(): Promise<void> {
@@ -165,7 +184,7 @@ export const POST = async (req: NextRequest) => {
             return createRateLimitResponse(rateLimitResult.resetIn);
         }
 
-        await Promise.all([ensureTransactionsTimeColumn(), ensureNormalisationColumns()]);
+        await Promise.all([ensureTransactionsTimeColumn(), ensureNormalisationColumns(), ensureFxColumns()]);
 
         // 1) Parse CSV into TxRow[]
         const parsed = Papa.parse(csv, {
