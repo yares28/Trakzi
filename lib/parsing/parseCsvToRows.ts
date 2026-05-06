@@ -1072,9 +1072,11 @@ export function parseCsvToRows<T extends ParseCsvOptions>(csv: string, options?:
         if (TRANSFER_REGEX.test(row.description)) {
             row.tx_type = 'transfer'
             row.needsReview = true
-            row.reviewReason = row.reviewReason
-                ? `${row.reviewReason}; Possible transfer`
-                : 'Possible transfer — delete if this is an internal account move'
+            if (!row.reviewReason?.includes('Possible transfer')) {
+                row.reviewReason = row.reviewReason
+                    ? `${row.reviewReason}; Possible transfer — delete if this is an internal account move`
+                    : 'Possible transfer — delete if this is an internal account move'
+            }
         }
     }
 
