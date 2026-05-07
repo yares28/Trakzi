@@ -442,6 +442,9 @@ export const POST = async (req: NextRequest) => {
                 ? convertWithRates(r.balance, rowCurrency, resolvedCurrency, fxRates)
                 : r.balance;
 
+            const safeAmount = Number.isFinite(convertedAmount) ? convertedAmount : 0;
+            const safeBalance = convertedBalance != null && Number.isFinite(convertedBalance) ? convertedBalance : null;
+
             return {
                 user_id: userId,
                 statement_id: statementId,
@@ -450,10 +453,10 @@ export const POST = async (req: NextRequest) => {
                 tx_time: r.time ?? null,
                 description: r.description,
                 simplified_description: r.summary ?? null,
-                amount: convertedAmount,
-                balance: convertedBalance,
+                amount: safeAmount,
+                balance: safeBalance,
                 currency: resolvedCurrency,
-                original_amount: needsConversion ? r.amount : null,
+                original_amount: needsConversion && Number.isFinite(r.amount) ? r.amount : null,
                 original_currency: needsConversion ? rowCurrency : null,
                 tx_type: r.tx_type && VALID_IMPORT_TX_TYPES.has(r.tx_type) ? r.tx_type : 'expense',
                 category_id: r.category && categoryNameToId.has(r.category)
@@ -465,7 +468,16 @@ export const POST = async (req: NextRequest) => {
                 categorisation_confidence: typeof r.categorisationConfidence === 'number'
                     ? r.categorisationConfidence
                     : null,
-                raw_csv_row: JSON.stringify(r),
+                raw_csv_row: JSON.stringify({
+                    date: r.date,
+                    time: r.time ?? null,
+                    description: r.description,
+                    amount: Number.isFinite(r.amount) ? r.amount : null,
+                    balance: r.balance != null && Number.isFinite(r.balance) ? r.balance : null,
+                    category: r.category ?? null,
+                    currency: r.currency ?? null,
+                    tx_type: r.tx_type ?? null,
+                }),
                 created_at: timestamp,
                 updated_at: timestamp,
             };
