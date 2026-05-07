@@ -563,6 +563,8 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
       })
     }, 200)
 
+    let importSucceeded = false
+
     try {
       const firstFile = pendingFiles[0]
       const extension = firstFile.name.split(".").pop()?.toLowerCase() ?? "other"
@@ -571,22 +573,19 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
           : (extension === "xls" || extension === "xlsx") ? "xlsx" : "other"
 
       const statementName = projectName.trim() || firstFile.name
+      const importFormData = new FormData()
+      importFormData.append("csv", new Blob([parsedCsv], { type: "text/plain" }))
+      importFormData.append("accountId", accountId ?? "")
+      importFormData.append("force", String(force))
+      importFormData.append("statementMeta", JSON.stringify({
+        bankName: "Unknown",
+        sourceFilename: statementName,
+        rawFormat: rawFormat,
+        fileId: fileId,
+      }))
       const response = await fetch("/api/statements/import", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          csv: parsedCsv,
-          accountId: accountId ?? undefined,
-          force,
-          statementMeta: {
-            bankName: "Unknown",
-            sourceFilename: statementName,
-            rawFormat: rawFormat as "pdf" | "csv" | "xlsx" | "xls" | "other",
-            fileId: fileId,
-          },
-        }),
+        body: importFormData,
       })
 
       clearInterval(progressInterval)
@@ -664,8 +663,7 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
       clearResponseCache()
       clearAnalyticsCache()
       window.dispatchEvent(new CustomEvent("transactionsUpdated"))
-
-      await refreshAnalyticsData()
+      importSucceeded = true
     } catch (error) {
       clearInterval(progressInterval)
       console.error("Import error:", error)
@@ -686,6 +684,14 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
       setImportProgress(0)
     } finally {
       setIsImporting(false)
+    }
+
+    if (importSucceeded) {
+      try {
+        await refreshAnalyticsData()
+      } catch {
+        // Non-critical: import succeeded; analytics refresh failure should not surface as an error
+      }
     }
   }, [pendingFiles, parsedCsv, fileId, projectName, accountId, resetAllState, refreshAnalyticsData, onImportSuccess, transactionCount])
 

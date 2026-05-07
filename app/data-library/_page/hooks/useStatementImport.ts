@@ -614,6 +614,8 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
       })
     }, 200)
 
+    let importSucceeded = false
+
     try {
       const firstFile = pendingFiles[0]
       const extension = firstFile.name.split(".").pop()?.toLowerCase() ?? "other"
@@ -622,21 +624,18 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
           : (extension === "xls" || extension === "xlsx") ? "xlsx" : "other"
 
       const statementName = projectName.trim() || firstFile.name
+      const importFormData = new FormData()
+      importFormData.append("csv", new Blob([parsedCsv], { type: "text/plain" }))
+      importFormData.append("accountId", accountId ?? "")
+      importFormData.append("statementMeta", JSON.stringify({
+        bankName: "Unknown",
+        sourceFilename: statementName,
+        rawFormat: rawFormat,
+        fileId: fileId,
+      }))
       const response = await fetch("/api/statements/import", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          csv: parsedCsv,
-          accountId: accountId ?? undefined,
-          statementMeta: {
-            bankName: "Unknown",
-            sourceFilename: statementName,
-            rawFormat: rawFormat as "pdf" | "csv" | "xlsx" | "xls" | "other",
-            fileId: fileId,
-          },
-        }),
+        body: importFormData,
       })
 
       clearInterval(progressInterval)
@@ -648,16 +647,10 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
           setImportProgress(0)
           setIsImporting(false)
 
-          const forceBody = JSON.stringify({
-            csv: parsedCsv,
-            accountId: accountId ?? undefined,
-            force: true,
-            statementMeta: {
-              bankName: "Unknown",
-              sourceFilename: (projectName.trim() || pendingFiles[0]?.name) ?? "imported_csv.csv",
-              fileId,
-            },
-          })
+          const csvSnapshot = parsedCsv
+          const accountIdSnapshot = accountId
+          const sourceFilenameSnapshot = (projectName.trim() || pendingFiles[0]?.name) ?? "imported_csv.csv"
+          const fileIdSnapshot = fileId
 
           toast.warning("Looks like a re-import", {
             description: "This statement appears to have been imported before. Check your Data Library before proceeding.",
@@ -666,11 +659,19 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
               label: "Import anyway",
               onClick: async () => {
                 setIsImporting(true)
+                const forceFormData = new FormData()
+                forceFormData.append("csv", new Blob([csvSnapshot ?? ""], { type: "text/plain" }))
+                forceFormData.append("accountId", accountIdSnapshot ?? "")
+                forceFormData.append("force", "true")
+                forceFormData.append("statementMeta", JSON.stringify({
+                  bankName: "Unknown",
+                  sourceFilename: sourceFilenameSnapshot,
+                  fileId: fileIdSnapshot,
+                }))
                 try {
                   const res = await fetch("/api/statements/import", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: forceBody,
+                    body: forceFormData,
                   })
                   const d = await res.json()
                   if (!res.ok) throw new Error(d.error || "Import failed")
@@ -680,11 +681,15 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
                   clearResponseCache()
                   clearAnalyticsCache()
                   window.dispatchEvent(new CustomEvent("transactionsUpdated"))
-                  await refreshAnalyticsData()
                 } catch (err: any) {
                   toast.error("Import failed", { description: err.message })
                 } finally {
                   setIsImporting(false)
+                }
+                try {
+                  await refreshAnalyticsData()
+                } catch {
+                  // Non-critical: import succeeded; analytics refresh failure should not surface as an error
                 }
               },
             },
@@ -748,8 +753,7 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
       clearResponseCache()
       clearAnalyticsCache()
       window.dispatchEvent(new CustomEvent("transactionsUpdated"))
-
-      await refreshAnalyticsData()
+      importSucceeded = true
     } catch (error) {
       clearInterval(progressInterval)
       console.error("Import error:", error)
@@ -770,6 +774,14 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
       setImportProgress(0)
     } finally {
       setIsImporting(false)
+    }
+
+    if (importSucceeded) {
+      try {
+        await refreshAnalyticsData()
+      } catch {
+        // Non-critical: import succeeded; analytics refresh failure should not surface as an error
+      }
     }
   }, [pendingFiles, parsedCsv, fileId, projectName, resetAllState, refreshAnalyticsData, transactionCount])
 

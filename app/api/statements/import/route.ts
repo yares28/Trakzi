@@ -151,8 +151,35 @@ function isValidIsoDate(value: string | null | undefined): boolean {
 
 export const POST = async (req: NextRequest) => {
     try {
-        const body = (await req.json()) as ImportBody;
-        const { csv, statementMeta, accountId, allowPartialImport, dateFrom, dateTo, force } = body;
+        const contentType = req.headers.get("content-type") ?? ""
+        let csv: string | null = null
+        let statementMeta: ImportBody["statementMeta"] | undefined
+        let accountId: string | undefined
+        let allowPartialImport: boolean | undefined
+        let dateFrom: string | undefined
+        let dateTo: string | undefined
+        let force: boolean | undefined
+
+        if (contentType.includes("multipart/form-data")) {
+            // Large CSV sent as FormData blob — bypasses JSON serialization and body size limits
+            const fd = await req.formData()
+            const csvField = fd.get("csv")
+            csv = csvField instanceof File ? await csvField.text() : typeof csvField === "string" ? csvField : null
+            accountId = (fd.get("accountId") as string | null) ?? undefined
+            force = fd.get("force") === "true"
+            allowPartialImport = fd.get("allowPartialImport") === "true"
+            dateFrom = (fd.get("dateFrom") as string | null) ?? undefined
+            dateTo = (fd.get("dateTo") as string | null) ?? undefined
+            const metaRaw = fd.get("statementMeta") as string | null
+            if (metaRaw) {
+                try { statementMeta = JSON.parse(metaRaw) } catch { /* ignore malformed meta */ }
+            }
+        } else {
+            // Legacy JSON body (small imports, direct API calls)
+            const body = (await req.json()) as ImportBody
+            ;({ csv, statementMeta, accountId, allowPartialImport, dateFrom, dateTo, force } = body)
+        }
+
         if (!csv) {
             return NextResponse.json({ error: "Missing CSV" }, { status: 400 });
         }

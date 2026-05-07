@@ -56,6 +56,8 @@ export default function Page() {
       queryClient.invalidateQueries({ queryKey: ["transactions"] }),
       queryClient.invalidateQueries({ queryKey: ["trends-bundle"] }),
       queryClient.invalidateQueries({ queryKey: ["savings-bundle"] }),
+      queryClient.invalidateQueries({ queryKey: ["data-library-bundle"] }),
+      queryClient.invalidateQueries({ queryKey: ["total-transaction-count"] }),
     ])
   }, [fetchTransactions, queryClient])
 
