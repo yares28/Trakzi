@@ -596,7 +596,7 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
     setAccountId(null)
   }, [])
 
-  const handleConfirm = useCallback(async () => {
+  const handleConfirm = useCallback(async (force = false) => {
     if (pendingFiles.length === 0 || !parsedCsv || !fileId) {
       toast.error("Missing data", {
         description: "Please wait for the file to be parsed before confirming.",
@@ -627,6 +627,7 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
       const importFormData = new FormData()
       importFormData.append("csv", new Blob([parsedCsv], { type: "text/plain" }))
       importFormData.append("accountId", accountId ?? "")
+      importFormData.append("force", String(force))
       importFormData.append("statementMeta", JSON.stringify({
         bankName: "Unknown",
         sourceFilename: statementName,
@@ -647,51 +648,12 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
           setImportProgress(0)
           setIsImporting(false)
 
-          const csvSnapshot = parsedCsv
-          const accountIdSnapshot = accountId
-          const sourceFilenameSnapshot = (projectName.trim() || pendingFiles[0]?.name) ?? "imported_csv.csv"
-          const fileIdSnapshot = fileId
-
           toast.warning("Looks like a re-import", {
             description: "This statement appears to have been imported before. Check your Data Library before proceeding.",
             duration: 12000,
             action: {
               label: "Import anyway",
-              onClick: async () => {
-                setIsImporting(true)
-                const forceFormData = new FormData()
-                forceFormData.append("csv", new Blob([csvSnapshot ?? ""], { type: "text/plain" }))
-                forceFormData.append("accountId", accountIdSnapshot ?? "")
-                forceFormData.append("force", "true")
-                forceFormData.append("statementMeta", JSON.stringify({
-                  bankName: "Unknown",
-                  sourceFilename: sourceFilenameSnapshot,
-                  fileId: fileIdSnapshot,
-                }))
-                try {
-                  const res = await fetch("/api/statements/import", {
-                    method: "POST",
-                    body: forceFormData,
-                  })
-                  const d = await res.json()
-                  if (!res.ok) throw new Error(d.error || "Import failed")
-                  toast.success("Import Successful", { description: `${d.inserted} transactions imported` })
-                  resetAllState()
-                  setIsReviewDialogOpen(false)
-                  clearResponseCache()
-                  clearAnalyticsCache()
-                  window.dispatchEvent(new CustomEvent("transactionsUpdated"))
-                } catch (err: any) {
-                  toast.error("Import failed", { description: err.message })
-                } finally {
-                  setIsImporting(false)
-                }
-                try {
-                  await refreshAnalyticsData()
-                } catch {
-                  // Non-critical: import succeeded; analytics refresh failure should not surface as an error
-                }
-              },
+              onClick: () => { void handleConfirm(true) },
             },
           })
           return
@@ -783,7 +745,7 @@ export function useStatementImport({ refreshAnalyticsData }: UseStatementImportO
         // Non-critical: import succeeded; analytics refresh failure should not surface as an error
       }
     }
-  }, [pendingFiles, parsedCsv, fileId, projectName, resetAllState, refreshAnalyticsData, transactionCount])
+  }, [pendingFiles, parsedCsv, fileId, projectName, accountId, resetAllState, refreshAnalyticsData, transactionCount])
 
   const handleCancelUpload = useCallback(() => {
     if (csvRegenerationTimerRef.current) {
