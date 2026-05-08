@@ -185,7 +185,7 @@ function SidebarProvider({
           }
           className={cn(
             // Mobile: Allow window scroll (no overflow-hidden)
-            "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full",
+            "group/sidebar-wrapper md:has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full",
             // Desktop: Fixed height with overflow control
             "md:h-full md:overflow-hidden",
             className
