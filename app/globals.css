@@ -693,6 +693,7 @@
 body {
   letter-spacing: var(--tracking-normal);
   scrollbar-gutter: stable;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* Fix: react-remove-scroll-bar injects a runtime <style> tag with !important rules on
