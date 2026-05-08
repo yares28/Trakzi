@@ -109,16 +109,6 @@ export default function Hero({ locale = "en" }: { locale?: "en" | "es" }) {
               </h1>
             </m.div>
 
-            {/* Description */}
-            <m.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="mx-auto mb-12 max-w-2xl text-lg text-muted-foreground"
-            >
-              {isEs ? "Convierte tus gastos cotidianos en información visual y accionable." : "We turn your everyday spending into visual, actionable insight."}
-            </m.p>
-
             <m.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}

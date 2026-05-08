@@ -107,14 +107,22 @@ export const ChartCategoryTrend = memo(function ChartCategoryTrend({
       }
     }
 
+    const handleScroll = () => {
+      setTooltip(null)
+      setTooltipPosition(null)
+      mousePositionRef.current = null
+    }
+
     container.addEventListener("mousemove", handleMouseMove)
     container.addEventListener("mouseleave", handleMouseLeave)
     document.addEventListener("touchstart", handleDocumentTouch, { passive: true })
+    window.addEventListener("scroll", handleScroll, { passive: true })
 
     return () => {
       container.removeEventListener("mousemove", handleMouseMove)
       container.removeEventListener("mouseleave", handleMouseLeave)
       document.removeEventListener("touchstart", handleDocumentTouch)
+      window.removeEventListener("scroll", handleScroll)
     }
   }, [])
 

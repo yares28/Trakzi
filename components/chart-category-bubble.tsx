@@ -173,9 +173,17 @@ export const ChartCategoryBubble = React.memo(function ChartCategoryBubble({
         if (!hasValidPosition) setHasValidPosition(true)
       }
 
+      const handleScroll = () => {
+        setTooltip(null)
+        setTooltipPosition(null)
+        setHasValidPosition(false)
+      }
+
       window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('scroll', handleScroll, { passive: true })
       return () => {
         window.removeEventListener('mousemove', handleMouseMove)
+        window.removeEventListener('scroll', handleScroll)
       }
     }
   }, [tooltip, hasValidPosition])

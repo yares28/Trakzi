@@ -147,6 +147,26 @@ function computeDailyAllowance(
   return { points, idealDailyAllowance, pool, totalIncome, totalEssentials }
 }
 
+type AllMonthsPoint = DailyAllowancePoint & { monthLabel: string; pointIndex: number }
+
+function computeAllMonthsAllowance(
+  transactions: ChartDailySpendAllowanceProps["rawTransactions"],
+  yearMonths: string[]
+): AllMonthsPoint[] {
+  const sorted = [...yearMonths].sort()
+  const result: AllMonthsPoint[] = []
+  let idx = 0
+  for (const ym of sorted) {
+    const [y, m] = ym.split("-")
+    const { points } = computeDailyAllowance(transactions, Number(y), Number(m))
+    const label = `${MONTH_NAMES[Number(m) - 1].slice(0, 3)} '${y.slice(2)}`
+    for (const p of points) {
+      result.push({ ...p, monthLabel: label, pointIndex: idx++ })
+    }
+  }
+  return result
+}
+
 const InfoAction = memo(function InfoAction({
   chartId,
   title,
@@ -251,7 +271,7 @@ export const ChartDailySpendAllowance = memo(function ChartDailySpendAllowance({
   const [viewMode, setViewMode] = useState<ViewMode>("daily")
   const [savingsTarget, setSavingsTarget] = useState(0)
   const [tooltip, setTooltip] = useState<{
-    day: number; date: string; allowance: number | null; totalAllowance: number | null; idealAllowance: number; actualSpend: number
+    day: number; date: string; allowance: number | null; totalAllowance: number | null; idealAllowance: number; actualSpend: number; monthLabel?: string
   } | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
 
@@ -301,9 +321,23 @@ export const ChartDailySpendAllowance = memo(function ChartDailySpendAllowance({
   const idealColor = palette[Math.floor(palette.length / 2)] || palette[0]
   const targetColor = palette[1] || palette[0]
 
+  const isAllTime = selectedYear === "all"
+
   const { points, idealDailyAllowance, pool, totalIncome, totalEssentials } = useMemo(
-    () => computeDailyAllowance(rawTransactions, Number(selectedYear), Number(selectedMonth)),
-    [rawTransactions, selectedYear, selectedMonth]
+    () => isAllTime
+      ? { points: [], idealDailyAllowance: 0, pool: 0, totalIncome: 0, totalEssentials: 0 }
+      : computeDailyAllowance(rawTransactions, Number(selectedYear), Number(selectedMonth)),
+    [rawTransactions, selectedYear, selectedMonth, isAllTime]
+  )
+
+  const allMonthsPoints = useMemo(
+    () => isAllTime ? computeAllMonthsAllowance(rawTransactions, availableYearMonths) : [],
+    [rawTransactions, availableYearMonths, isAllTime]
+  )
+
+  const monthBoundaryTicks = useMemo(
+    () => allMonthsPoints.filter((p) => p.day === 1).map((p) => p.pointIndex),
+    [allMonthsPoints]
   )
 
   useEffect(() => {
@@ -327,16 +361,21 @@ export const ChartDailySpendAllowance = memo(function ChartDailySpendAllowance({
     }
   }, [])
 
-  const totalDays = useMemo(() => daysInMonth(Number(selectedYear), Number(selectedMonth)), [selectedYear, selectedMonth])
+  const totalDays = useMemo(
+    () => isAllTime ? 0 : daysInMonth(Number(selectedYear), Number(selectedMonth)),
+    [isAllTime, selectedYear, selectedMonth]
+  )
 
   const targetDailyRate = useMemo(() => {
-    if (!savingsTarget || savingsTarget <= 0 || totalIncome <= 0 || totalDays <= 0) return null
+    if (isAllTime || !savingsTarget || savingsTarget <= 0 || totalIncome <= 0 || totalDays <= 0) return null
     const spendable = totalIncome * (1 - savingsTarget / 100) - totalEssentials
     return Math.max(0, spendable / totalDays)
-  }, [savingsTarget, totalIncome, totalEssentials, totalDays])
+  }, [isAllTime, savingsTarget, totalIncome, totalEssentials, totalDays])
 
-  const chartData = useRealData ? points : []
-  const hasData = points.length > 0 && pool > 0
+  const chartData = useRealData ? (isAllTime ? allMonthsPoints : points) : []
+  const hasData = isAllTime
+    ? allMonthsPoints.some((p) => p.allowance !== null)
+    : points.length > 0 && pool > 0
   const title = "Daily Spend Allowance"
 
   const monthLabel = MONTH_NAMES[Number(selectedMonth) - 1] ?? selectedMonth
@@ -363,29 +402,33 @@ export const ChartDailySpendAllowance = memo(function ChartDailySpendAllowance({
     <div className="flex items-center gap-1.5">
       <Select value={selectedYear} onValueChange={(v) => {
         setSelectedYear(v)
-        // default to first available month for that year
-        const firstMonth = availableYearMonths.find((ym) => ym.startsWith(v + "-"))?.split("-")[1]
-        if (firstMonth) setSelectedMonth(firstMonth)
+        if (v !== "all") {
+          const firstMonth = availableYearMonths.find((ym) => ym.startsWith(v + "-"))?.split("-")[1]
+          if (firstMonth) setSelectedMonth(firstMonth)
+        }
       }}>
-        <SelectTrigger className="h-7 w-[72px] rounded-full border-0 bg-muted px-2 text-xs font-medium shadow-none focus:ring-0">
+        <SelectTrigger className="h-7 w-[84px] rounded-full border-0 bg-muted px-2 text-xs font-medium shadow-none focus:ring-0">
           <SelectValue />
         </SelectTrigger>
         <SelectContent align="end">
+          <SelectItem value="all" className="text-xs">All time</SelectItem>
           {availableYears.map((y) => (
             <SelectItem key={y} value={y} className="text-xs">{y}</SelectItem>
           ))}
         </SelectContent>
       </Select>
-      <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-        <SelectTrigger className="h-7 w-[100px] rounded-full border-0 bg-muted px-2 text-xs font-medium shadow-none focus:ring-0">
-          <SelectValue placeholder="Month" />
-        </SelectTrigger>
-        <SelectContent align="end">
-          {monthsForYear.map((m) => (
-            <SelectItem key={m} value={m} className="text-xs">{MONTH_NAMES[Number(m) - 1]}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {!isAllTime && (
+        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+          <SelectTrigger className="h-7 w-[100px] rounded-full border-0 bg-muted px-2 text-xs font-medium shadow-none focus:ring-0">
+            <SelectValue placeholder="Month" />
+          </SelectTrigger>
+          <SelectContent align="end">
+            {monthsForYear.map((m) => (
+              <SelectItem key={m} value={m} className="text-xs">{MONTH_NAMES[Number(m) - 1]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
     </div>
   )
 
@@ -396,14 +439,28 @@ export const ChartDailySpendAllowance = memo(function ChartDailySpendAllowance({
     <ChartContainer config={{}} className={`w-full ${height ?? "h-full"}`}>
       <LineChart data={chartData} margin={{ top: 10, right: 8, bottom: 10 }}>
         <CartesianGrid vertical={false} stroke={gridStrokeColor} strokeDasharray="3 3" opacity={0.3} />
-        <XAxis
-          dataKey="day"
-          tickLine={false}
-          axisLine={false}
-          tickMargin={8}
-          tickFormatter={(v) => String(v)}
-          label={{ value: `${monthLabel} ${selectedYear}`, position: "insideBottom", offset: -2, fontSize: 10, fill: isDark ? "#888" : "#aaa" }}
-        />
+        {isAllTime ? (
+          <XAxis
+            dataKey="pointIndex"
+            ticks={monthBoundaryTicks}
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            tickFormatter={(v: number) => {
+              const p = allMonthsPoints[v]
+              return p ? p.monthLabel : ""
+            }}
+          />
+        ) : (
+          <XAxis
+            dataKey="day"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            tickFormatter={(v) => String(v)}
+            label={{ value: `${monthLabel} ${selectedYear}`, position: "insideBottom", offset: -2, fontSize: 10, fill: isDark ? "#888" : "#aaa" }}
+          />
+        )}
         <YAxis
           tickLine={false}
           axisLine={false}
@@ -411,14 +468,16 @@ export const ChartDailySpendAllowance = memo(function ChartDailySpendAllowance({
           width={72}
           tickFormatter={(v: number) => formatCurrency(v, { maximumFractionDigits: 0 })}
         />
-        <ReferenceLine
-          y={idealDailyAllowance}
-          stroke={idealColor}
-          strokeDasharray="5 3"
-          strokeOpacity={0.7}
-          strokeWidth={1.5}
-          label={{ value: "Ideal", position: "insideTopRight", fontSize: 9, fill: idealColor }}
-        />
+        {!isAllTime && (
+          <ReferenceLine
+            y={idealDailyAllowance}
+            stroke={idealColor}
+            strokeDasharray="5 3"
+            strokeOpacity={0.7}
+            strokeWidth={1.5}
+            label={{ value: "Ideal", position: "insideTopRight", fontSize: 9, fill: idealColor }}
+          />
+        )}
         {targetDailyRate !== null && (
           <ReferenceLine
             y={targetDailyRate}
@@ -437,7 +496,7 @@ export const ChartDailySpendAllowance = memo(function ChartDailySpendAllowance({
               queueMicrotask(() => { setTooltip(null); setTooltipPosition(null) })
               return null
             }
-            const d = payload[0].payload as DailyAllowancePoint
+            const d = payload[0].payload as AllMonthsPoint
             if (containerRef.current) {
               const rect = containerRef.current.getBoundingClientRect()
               const pos = mousePositionRef.current ?? {
@@ -446,7 +505,7 @@ export const ChartDailySpendAllowance = memo(function ChartDailySpendAllowance({
               }
               queueMicrotask(() => {
                 setTooltipPosition(pos)
-                setTooltip({ day: d.day, date: d.date, allowance: d.allowance, totalAllowance: d.totalAllowance, idealAllowance: d.idealAllowance, actualSpend: d.actualSpend })
+                setTooltip({ day: d.day, date: d.date, allowance: d.allowance, totalAllowance: d.totalAllowance, idealAllowance: d.idealAllowance, actualSpend: d.actualSpend, monthLabel: d.monthLabel })
               })
             }
             return null
@@ -464,6 +523,20 @@ export const ChartDailySpendAllowance = memo(function ChartDailySpendAllowance({
           animationDuration={800}
           animationEasing="ease-out"
         />
+        {isAllTime && (
+          <Line
+            dataKey="idealAllowance"
+            name="Ideal"
+            type="monotone"
+            stroke={idealColor}
+            strokeWidth={1.5}
+            strokeDasharray="5 3"
+            strokeOpacity={0.7}
+            dot={false}
+            connectNulls={false}
+            isAnimationActive={false}
+          />
+        )}
       </LineChart>
     </ChartContainer>
   )
@@ -496,7 +569,7 @@ export const ChartDailySpendAllowance = memo(function ChartDailySpendAllowance({
         isOpen={isFullscreen}
         onClose={() => setIsFullscreen(false)}
         title={title}
-        description={`Daily allowance for ${monthLabel} ${selectedYear}`}
+        description={isAllTime ? "Daily allowance — all time" : `Daily allowance for ${monthLabel} ${selectedYear}`}
         headerActions={<InfoAction chartId={chartId} title={title} forFullscreen savingsTarget={savingsTarget} onSavingsTargetChange={setSavingsTarget} targetColor={targetColor} />}
       >
         <div className="flex h-full min-h-0 w-full flex-col gap-3">
@@ -560,7 +633,9 @@ export const ChartDailySpendAllowance = memo(function ChartDailySpendAllowance({
                   })()}
                 >
                   <div className="font-medium text-foreground mb-2 whitespace-nowrap">
-                    {formatDateForDisplay(tooltip.date, "en-US", { month: "short", day: "numeric" })}
+                    {isAllTime && tooltip.monthLabel
+                      ? `${tooltip.monthLabel} · Day ${tooltip.day}`
+                      : formatDateForDisplay(tooltip.date, "en-US", { month: "short", day: "numeric" })}
                   </div>
                   {(() => {
                     const val = viewMode === "daily" ? tooltip.allowance : tooltip.totalAllowance

@@ -5,7 +5,6 @@ import type React from "react"
 import { useTheme } from "next-themes"
 import Earth from "./globe"
 import ScrambleHover from "./scramble"
-import { FollowerPointerCard } from "./following-pointer"
 import { m, useInView } from "framer-motion"
 import { Suspense, useEffect, useRef, useState } from "react"
 import { Sparkles, FileSpreadsheet, ShoppingCart, LayoutGrid, MessageSquare, BarChart3 } from "lucide-react"
@@ -94,17 +93,7 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
 
         {/* Grid — wider */}
         <div className="max-w-screen-2xl mx-auto w-full px-4 sm:px-6">
-        <FollowerPointerCard
-          className="w-full"
-          title={
-            <div className="flex items-center gap-2">
-              <span>✨</span>
-              <span>You</span>
-            </div>
-          }
-        >
-          <div className="cursor-none">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Cli */}
               <m.div
                 className="group border-secondary/40 text-card-foreground relative flex flex-col overflow-hidden rounded-xl border-2 p-6 shadow-xl transition-all ease-in-out hover:border-primary/40"
@@ -560,8 +549,6 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
                 </div>
               </m.div>
             </div>
-          </div>
-        </FollowerPointerCard>
         </div>
       </m.div>
     </section>
