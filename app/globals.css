@@ -798,6 +798,10 @@ button[data-active="true"] .icon-chat,
     cursor: url('/cursors/cursor-orange.svg') 4 0, auto;
   }
 
+  html {
+    background-color: var(--background);
+  }
+
   body {
     @apply bg-background text-foreground;
     cursor: url('/cursors/cursor-orange.svg') 4 0, auto;
@@ -901,14 +905,16 @@ button[data-active="true"] .icon-chat,
    MOBILE-FIRST IPHONE OPTIMIZATIONS
    ============================================ */
 
-/* Use 100dvh for proper iPhone viewport handling */
-@supports (height: 100dvh) {
+/* Use svh for stable iPhone viewport handling — dvh changes on every toolbar show/hide,
+   triggering layout reflows and white flashes. svh is static (toolbar-visible height)
+   and SidebarProvider's min-h-svh already guarantees full coverage. */
+@supports (height: 100svh) {
   .h-screen-mobile {
-    height: 100dvh;
+    height: 100svh;
   }
 
   .min-h-screen-mobile {
-    min-height: 100dvh;
+    min-height: 100svh;
   }
 }
 
