@@ -19,7 +19,7 @@ export function DashboardLayout({ children, overlay }: DashboardLayoutProps) {
       }
     >
       <AppSidebar />
-      <SidebarInset className="h-svh overflow-hidden flex flex-col">
+      <SidebarInset className="md:h-svh md:overflow-hidden flex flex-col">
         {children}
       </SidebarInset>
       {overlay}

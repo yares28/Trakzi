@@ -33,7 +33,7 @@ export function AnalyticsLayout({
       }
     >
       <AppSidebar variant="inset" />
-      <SidebarInset className="h-svh overflow-hidden flex flex-col">
+      <SidebarInset className="md:h-svh md:overflow-hidden flex flex-col">
         <SiteHeader />
         <main
           className="flex-1 space-y-4 pt-[60px] md:pt-0 lg:pt-2 overflow-y-auto overflow-x-hidden"
