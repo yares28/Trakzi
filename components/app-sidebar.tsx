@@ -11,6 +11,7 @@ import { NavDocuments } from "@/components/nav-documents";
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
 import { OverLimitBanner } from "@/components/accounts/OverLimitBanner";
+import { useFriendsBundleData } from "@/hooks/use-friends-bundle";
 import {
   Sidebar,
   SidebarContent,
@@ -216,6 +217,17 @@ const IconDashboard = React.forwardRef<
   </svg>
 ));
 IconDashboard.displayName = "IconDashboard";
+
+function FriendRequestBadge() {
+  const { data } = useFriendsBundleData()
+  const count = data?.pendingRequests?.incoming?.length ?? 0
+  if (count === 0) return null
+  return (
+    <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
+      {count > 9 ? "9+" : count}
+    </span>
+  )
+}
 
 const data = {
   user: {
@@ -427,7 +439,14 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
       </SidebarHeader>
       <SidebarContent>
         <OverLimitBanner />
-        <NavMain items={data.navMain} onQuickCreate={onQuickCreate} />
+        <NavMain
+          items={data.navMain.map(item =>
+            item.url === "/friends"
+              ? { ...item, rightSlot: <FriendRequestBadge /> }
+              : item
+          )}
+          onQuickCreate={onQuickCreate}
+        />
         <NavDocuments items={data.documents} />
       </SidebarContent>
       <SidebarFooter>

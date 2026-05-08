@@ -160,13 +160,16 @@ export const POST = async (req: NextRequest) => {
         let dateTo: string | undefined
         let force: boolean | undefined
 
+        // URL query param takes precedence — more reliable than body field for boolean flags
+        const forceFromUrl = req.nextUrl.searchParams.get("force") === "true"
+
         if (contentType.includes("multipart/form-data")) {
             // Large CSV sent as FormData blob — bypasses JSON serialization and body size limits
             const fd = await req.formData()
             const csvField = fd.get("csv")
             csv = csvField instanceof File ? await csvField.text() : typeof csvField === "string" ? csvField : null
             accountId = (fd.get("accountId") as string | null) ?? undefined
-            force = fd.get("force") === "true"
+            force = forceFromUrl || fd.get("force") === "true"
             allowPartialImport = fd.get("allowPartialImport") === "true"
             dateFrom = (fd.get("dateFrom") as string | null) ?? undefined
             dateTo = (fd.get("dateTo") as string | null) ?? undefined
@@ -178,6 +181,7 @@ export const POST = async (req: NextRequest) => {
             // Legacy JSON body (small imports, direct API calls)
             const body = (await req.json()) as ImportBody
             ;({ csv, statementMeta, accountId, allowPartialImport, dateFrom, dateTo, force } = body)
+            force = forceFromUrl || force
         }
 
         if (!csv) {

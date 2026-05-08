@@ -1,10 +1,11 @@
 "use client"
 
-import { memo, useMemo } from "react"
+import { memo, useMemo, useState } from "react"
 import { Users, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { useCurrency } from "@/components/currency-provider"
@@ -76,6 +77,9 @@ function ItemRow({
     onChange: (updated: PendingItem) => void
 }) {
     const { formatCurrency } = useCurrency()
+    const [splitMode, setSplitMode] = useState<"equal" | "amounts" | "pct">("equal")
+    const [inputAmounts, setInputAmounts] = useState<Record<string, string>>({})
+    const [inputPcts, setInputPcts] = useState<Record<string, string>>({})
 
     const selectedSet = useMemo(() => {
         if (item.mode === "skip") return new Set<string>()
@@ -89,10 +93,12 @@ function ItemRow({
         const next = new Set(selectedSet)
         if (next.has(userId)) {
             if (next.size > 1) next.delete(userId)
-            // single last member: can't deselect — use skip instead
         } else {
             next.add(userId)
         }
+        setInputAmounts({})
+        setInputPcts({})
+        setSplitMode("equal")
         applySelection(next)
     }
 
@@ -117,8 +123,74 @@ function ItemRow({
         }
     }
 
-    const perPersonAmount = selectedSet.size > 1 ? item.amount / selectedSet.size : 0
     const isSkipped = item.mode === "skip"
+    const showSplitInputs = item.mode === "split" && item.splitMembers.length > 1
+    const equalShare = showSplitInputs ? item.amount / item.splitMembers.length : 0
+    const defaultPct = showSplitInputs ? 100 / item.splitMembers.length : 0
+
+    // Amounts tab: running sum (blank = equalShare)
+    const currentSum = item.splitMembers.reduce((s, uid) => {
+        const raw = inputAmounts[uid]
+        return s + (raw !== undefined && raw !== "" ? (parseFloat(raw) || 0) : equalShare)
+    }, 0)
+    const sumOk = Math.abs(currentSum - item.amount) < 0.02
+
+    // Pct tab: running pct total (blank = defaultPct)
+    const pctSum = item.splitMembers.reduce((s, uid) => {
+        const raw = inputPcts[uid]
+        return s + (raw !== undefined && raw !== "" ? (parseFloat(raw) || 0) : defaultPct)
+    }, 0)
+    const pctOk = Math.abs(pctSum - 100) < 0.5
+
+    const handleSplitModeChange = (mode: "equal" | "amounts" | "pct") => {
+        setSplitMode(mode)
+        if (mode === "equal") {
+            setInputAmounts({})
+            setInputPcts({})
+            const perPerson = Math.round((item.amount / item.splitMembers.length) * 100) / 100
+            const amounts: Record<string, number> = {}
+            item.splitMembers.forEach((id, i) => {
+                const rem = i === 0 ? Math.round((item.amount - perPerson * item.splitMembers.length) * 100) / 100 : 0
+                amounts[id] = perPerson + rem
+            })
+            onChange({ ...item, splitAmounts: amounts })
+        }
+    }
+
+    const quickFill = (divisor: number) => {
+        const amt = item.amount / divisor
+        const newInputs: Record<string, string> = {}
+        const newAmounts: Record<string, number> = {}
+        item.splitMembers.forEach(uid => {
+            newInputs[uid] = amt.toFixed(2)
+            newAmounts[uid] = Math.round(amt * 100) / 100
+        })
+        setInputAmounts(newInputs)
+        onChange({ ...item, splitAmounts: newAmounts })
+    }
+
+    const handleAmountChange = (uid: string, raw: string) => {
+        const next = { ...inputAmounts, [uid]: raw }
+        setInputAmounts(next)
+        const newAmounts: Record<string, number> = {}
+        item.splitMembers.forEach(id => {
+            const v = next[id]
+            newAmounts[id] = (v !== undefined && v !== "") ? (parseFloat(v) || 0) : equalShare
+        })
+        onChange({ ...item, splitAmounts: newAmounts })
+    }
+
+    const handlePctChange = (uid: string, raw: string) => {
+        const next = { ...inputPcts, [uid]: raw }
+        setInputPcts(next)
+        const newAmounts: Record<string, number> = {}
+        item.splitMembers.forEach(id => {
+            const pStr = next[id]
+            const p = pStr !== undefined && pStr !== "" ? (parseFloat(pStr) || 0) : defaultPct
+            newAmounts[id] = Math.round(item.amount * p / 100 * 100) / 100
+        })
+        onChange({ ...item, splitAmounts: newAmounts })
+    }
 
     return (
         <div className={cn(
@@ -161,15 +233,10 @@ function ItemRow({
                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide mr-1 shrink-0 whitespace-nowrap">
                     Owes:
                 </span>
-
                 <div className="flex items-start gap-2 flex-wrap flex-1">
                     {members.map(m => {
                         const isSelected = selectedSet.has(m.user_id)
                         const firstName = m.user_id === currentUserId ? "You" : m.display_name.split(" ")[0]
-                        const splitAmount = isSelected && item.splitAmounts[m.user_id]
-                            ? item.splitAmounts[m.user_id]
-                            : (isSelected ? item.amount : null)
-
                         return (
                             <button
                                 key={m.user_id}
@@ -200,20 +267,19 @@ function ItemRow({
                                 )}>
                                     {firstName}
                                 </span>
-                                {isSelected && splitAmount !== null && (
-                                    <span className="text-[9px] font-semibold tabular-nums text-primary/80">
-                                        {formatCurrency(splitAmount)}
-                                    </span>
-                                )}
                             </button>
                         )
                     })}
                 </div>
-
-                {/* Skip pill — right aligned */}
+                {/* Skip pill */}
                 <button
                     type="button"
-                    onClick={() => onChange({ ...item, mode: "skip", splitMembers: [], splitAmounts: {}, assignedTo: "" })}
+                    onClick={() => {
+                        setInputAmounts({})
+                        setInputPcts({})
+                        setSplitMode("equal")
+                        onChange({ ...item, mode: "skip", splitMembers: [], splitAmounts: {}, assignedTo: "" })
+                    }}
                     className={cn(
                         "flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all shrink-0 ml-auto",
                         isSkipped
@@ -224,6 +290,154 @@ function ItemRow({
                     <X className="w-3 h-3" /> Skip
                 </button>
             </div>
+
+            {/* ── Split type tabs + content (only when 2+ members split) ── */}
+            {showSplitInputs && (
+                <div className="px-4 pb-4 space-y-3">
+                    <div className="h-px bg-border/30" />
+
+                    {/* Tab row */}
+                    <div className="flex gap-1 pt-0.5">
+                        {(["equal", "amounts", "pct"] as const).map(mode => (
+                            <button
+                                key={mode}
+                                type="button"
+                                onClick={() => handleSplitModeChange(mode)}
+                                className={cn(
+                                    "px-3 py-1 rounded-full text-[11px] font-medium transition-all",
+                                    splitMode === mode
+                                        ? "bg-primary text-primary-foreground"
+                                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                                )}
+                            >
+                                {mode === "equal" ? "Equal" : mode === "amounts" ? "Amounts" : "Percentages"}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Equal: read-only display */}
+                    {splitMode === "equal" && (
+                        <div className="flex flex-wrap gap-x-5 gap-y-2">
+                            {item.splitMembers.map(uid => {
+                                const m = members.find(mb => mb.user_id === uid)
+                                if (!m) return null
+                                const firstName = uid === currentUserId ? "You" : m.display_name.split(" ")[0]
+                                return (
+                                    <div key={uid} className="flex items-center gap-2">
+                                        <Avatar className="w-6 h-6 shrink-0">
+                                            <AvatarImage src={m.avatar_url || undefined} />
+                                            <AvatarFallback className="text-[9px]">{getInitials(m.display_name)}</AvatarFallback>
+                                        </Avatar>
+                                        <span className="text-xs font-medium">{firstName}</span>
+                                        <span className="text-xs tabular-nums font-semibold text-primary">{formatCurrency(equalShare)}</span>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+
+                    {/* Amounts: quick-fill chips + per-person inputs */}
+                    {splitMode === "amounts" && (
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] text-muted-foreground">Quick:</span>
+                                {[2, 3, 4].map(n => (
+                                    <button
+                                        key={n}
+                                        type="button"
+                                        onClick={() => quickFill(n)}
+                                        className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted hover:bg-muted/80 border border-border/40 transition-colors tabular-nums"
+                                    >
+                                        ÷{n} · {formatCurrency(item.amount / n)}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="rounded-xl border border-border/50 divide-y divide-border/30 overflow-hidden">
+                                {item.splitMembers.map(uid => {
+                                    const m = members.find(mb => mb.user_id === uid)
+                                    if (!m) return null
+                                    const firstName = uid === currentUserId ? "You" : m.display_name.split(" ")[0]
+                                    return (
+                                        <div key={uid} className="flex items-center gap-3 px-3 py-2 bg-muted/10">
+                                            <Avatar className="w-6 h-6 shrink-0">
+                                                <AvatarImage src={m.avatar_url || undefined} />
+                                                <AvatarFallback className="text-[9px] font-bold">{getInitials(m.display_name)}</AvatarFallback>
+                                            </Avatar>
+                                            <span className="text-xs font-medium flex-1 truncate">{firstName}</span>
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                placeholder={equalShare.toFixed(2)}
+                                                className="h-7 w-24 text-xs px-2 tabular-nums text-right"
+                                                value={inputAmounts[uid] ?? ""}
+                                                onChange={e => handleAmountChange(uid, e.target.value)}
+                                            />
+                                        </div>
+                                    )
+                                })}
+                                <div className={cn(
+                                    "flex items-center justify-between px-3 py-2 text-[10px] font-medium",
+                                    sumOk
+                                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                        : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                )}>
+                                    <span>{sumOk ? "✓ Splits match total" : `Sum: ${formatCurrency(currentSum)}`}</span>
+                                    <span className="tabular-nums">{formatCurrency(item.amount)} total</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Percentages: pct inputs + live dollar preview */}
+                    {splitMode === "pct" && (
+                        <div className="rounded-xl border border-border/50 divide-y divide-border/30 overflow-hidden">
+                            {item.splitMembers.map(uid => {
+                                const m = members.find(mb => mb.user_id === uid)
+                                if (!m) return null
+                                const firstName = uid === currentUserId ? "You" : m.display_name.split(" ")[0]
+                                const pStr = inputPcts[uid]
+                                const pct = pStr !== undefined && pStr !== "" ? (parseFloat(pStr) || 0) : defaultPct
+                                const computed = item.amount * pct / 100
+                                return (
+                                    <div key={uid} className="flex items-center gap-3 px-3 py-2 bg-muted/10">
+                                        <Avatar className="w-6 h-6 shrink-0">
+                                            <AvatarImage src={m.avatar_url || undefined} />
+                                            <AvatarFallback className="text-[9px] font-bold">{getInitials(m.display_name)}</AvatarFallback>
+                                        </Avatar>
+                                        <span className="text-xs font-medium flex-1 truncate">{firstName}</span>
+                                        <span className="text-xs tabular-nums text-muted-foreground w-14 text-right shrink-0">
+                                            {formatCurrency(computed)}
+                                        </span>
+                                        <div className="flex items-center gap-0.5 shrink-0">
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                step="1"
+                                                placeholder={defaultPct.toFixed(1)}
+                                                className="h-7 w-16 text-xs px-2 tabular-nums text-right"
+                                                value={inputPcts[uid] ?? ""}
+                                                onChange={e => handlePctChange(uid, e.target.value)}
+                                            />
+                                            <span className="text-xs text-muted-foreground pl-0.5">%</span>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                            <div className={cn(
+                                "flex items-center justify-between px-3 py-2 text-[10px] font-medium",
+                                pctOk
+                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                    : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                            )}>
+                                <span>{pctOk ? "✓ 100% allocated" : `Total: ${pctSum.toFixed(1)}%`}</span>
+                                <span className="tabular-nums">{formatCurrency(item.amount)} total</span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     )
 }

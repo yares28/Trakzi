@@ -533,7 +533,8 @@ export function useStatementImport({ refreshAnalyticsData, onImportSuccess }: Us
         rawFormat: rawFormat,
         fileId: fileId,
       }))
-      const response = await fetch("/api/statements/import", {
+      const importUrl = force ? "/api/statements/import?force=true" : "/api/statements/import"
+      const response = await fetch(importUrl, {
         method: "POST",
         body: importFormData,
       })

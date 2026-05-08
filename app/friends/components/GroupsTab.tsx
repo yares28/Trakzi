@@ -84,17 +84,17 @@ export default function GroupsTab() {
                 </p>
                 <div className="flex gap-2 w-full sm:w-auto">
                     <Button variant="outline" size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={() => setJoinOpen(true)}>
-                        <LogIn className="w-4 h-4" /> <span className="hidden sm:inline">Join</span>
+                        <LogIn className="w-4 h-4" /> Join
                     </Button>
                     <Button size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={() => setCreateOpen(true)}>
-                        <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Create</span>
+                        <Plus className="w-4 h-4" /> Create
                     </Button>
                 </div>
             </div>
 
             {/* Summary Top Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                <Card className="relative group overflow-hidden h-[5.5rem] sm:h-[7rem] py-3 sm:py-4 bg-card/60 backdrop-blur-sm border-border/50 shadow-sm">
+                <Card className="relative group overflow-hidden min-h-[5.5rem] sm:min-h-[7rem] py-3 sm:py-4 bg-card/60 backdrop-blur-sm border-border/50 shadow-sm">
                     <CardHeader className="pb-1 sm:pb-2 pt-2 sm:pt-[5px] flex-1 min-h-0">
                         <CardDescription className="text-[10px] sm:text-xs mb-0.5 sm:mb-1 truncate">Active rooms</CardDescription>
                         <CardTitle className="text-lg sm:text-2xl font-semibold tabular-nums md:text-3xl truncate">
@@ -103,7 +103,7 @@ export default function GroupsTab() {
                     </CardHeader>
                 </Card>
 
-                <Card className="relative group overflow-hidden h-[5.5rem] sm:h-[7rem] py-3 sm:py-4 bg-card/60 backdrop-blur-sm border-border/50 shadow-sm">
+                <Card className="relative group overflow-hidden min-h-[5.5rem] sm:min-h-[7rem] py-3 sm:py-4 bg-card/60 backdrop-blur-sm border-border/50 shadow-sm">
                     <CardHeader className="pb-1 sm:pb-2 pt-2 sm:pt-[5px] flex-1 min-h-0">
                         <CardDescription className="text-[10px] sm:text-xs mb-0.5 sm:mb-1 truncate">Owed to you</CardDescription>
                         <CardTitle className="text-lg sm:text-2xl font-semibold tabular-nums md:text-3xl truncate text-emerald-500">
@@ -112,7 +112,7 @@ export default function GroupsTab() {
                     </CardHeader>
                 </Card>
 
-                <Card className="relative group overflow-hidden h-[5.5rem] sm:h-[7rem] py-3 sm:py-4 bg-card/60 backdrop-blur-sm border-border/50 shadow-sm">
+                <Card className="relative group overflow-hidden min-h-[5.5rem] sm:min-h-[7rem] py-3 sm:py-4 bg-card/60 backdrop-blur-sm border-border/50 shadow-sm">
                     <CardHeader className="pb-1 sm:pb-2 pt-2 sm:pt-[5px] flex-1 min-h-0">
                         <CardDescription className="text-[10px] sm:text-xs mb-0.5 sm:mb-1 truncate">You owe</CardDescription>
                         <CardTitle className="text-lg sm:text-2xl font-semibold tabular-nums md:text-3xl truncate text-rose-500">
@@ -148,7 +148,7 @@ export default function GroupsTab() {
                             <Card
                                 key={room.id}
                                 onClick={() => router.push(`/rooms/${room.id}`)}
-                                className="relative h-[210px] sm:h-[260px] rounded-2xl sm:rounded-3xl bg-card/60 backdrop-blur-md shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer border border-border/50 hover:border-border"
+                                className="relative min-h-[210px] sm:min-h-[260px] rounded-2xl sm:rounded-3xl bg-card/60 backdrop-blur-md shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer border border-border/50 hover:border-border"
                             >
                                 {/* Palette-based accent glow */}
                                 <div

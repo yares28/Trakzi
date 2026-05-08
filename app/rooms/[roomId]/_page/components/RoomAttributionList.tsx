@@ -186,13 +186,31 @@ function TransactionRow({
     return (
         <>
             <TableRow className="group hover:bg-muted/40">
-                <TableCell className="text-xs text-muted-foreground tabular-nums whitespace-nowrap py-3 pl-4">
+                {/* Date — hidden on mobile, too narrow to fit */}
+                <TableCell className="text-xs text-muted-foreground tabular-nums whitespace-nowrap py-3 pl-4 hidden sm:table-cell">
                     {tx.transaction_date}
                 </TableCell>
-                <TableCell className="py-3">
+                <TableCell className="py-3 max-w-0">
                     <div className="flex items-center gap-2 min-w-0">
                         <span className="text-muted-foreground shrink-0">{getSourceIcon(sourceType)}</span>
-                        <span className="font-medium text-sm truncate max-w-[180px]">{tx.description}</span>
+                        <div className="min-w-0 flex-1">
+                            <span className="font-medium text-sm truncate block">{tx.description}</span>
+                            {/* Date + mobile expand (shown on mobile only) */}
+                            <div className="flex items-center gap-2 sm:hidden">
+                                <span className="text-[10px] text-muted-foreground">{tx.transaction_date}</span>
+                                {hasItems && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setExpanded(v => !v)}
+                                        className="flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground"
+                                    >
+                                        {expanded ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
+                                        {tx.items!.length} items
+                                        {unattributedItemCount > 0 && <span className="text-amber-500">·{unattributedItemCount}</span>}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                         <Badge variant="outline" className="text-[10px] h-4 shrink-0 hidden sm:flex">
                             {getSourceLabel(sourceType)}
                         </Badge>
@@ -201,7 +219,8 @@ function TransactionRow({
                 <TableCell className="text-xs text-muted-foreground py-3 hidden md:table-cell">
                     {tx.uploader_name}
                 </TableCell>
-                <TableCell className="py-3">
+                {/* Attribution — hidden on mobile, shown via expand button */}
+                <TableCell className="py-3 hidden sm:table-cell">
                     {hasItems ? (
                         <button
                             type="button"
@@ -221,8 +240,9 @@ function TransactionRow({
                 <TableCell className="text-right font-semibold tabular-nums text-sm py-3 pr-2">
                     {formatCurrency(tx.total_amount)}
                 </TableCell>
-                <TableCell className="py-3 pr-4 w-16">
-                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <TableCell className="py-3 pr-3 w-16">
+                    {/* Always visible on mobile (touch targets); hover-only on desktop */}
+                    <div className="flex items-center justify-end gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         {onEdit && (
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(tx.id)}>
                                 <Edit2 className="w-3.5 h-3.5" />
@@ -245,7 +265,7 @@ function TransactionRow({
 
             {hasItems && expanded && (
                 <TableRow className="bg-muted/20 hover:bg-muted/20">
-                    <TableCell colSpan={6} className="py-2 pl-10 pr-4">
+                    <TableCell colSpan={6} className="py-2 pl-4 sm:pl-10 pr-4">
                         <ExpandedItems items={tx.items!} splits={tx.splits ?? []} />
                     </TableCell>
                 </TableRow>
@@ -359,12 +379,12 @@ export const RoomAttributionList = memo(function RoomAttributionList({
                     <Table>
                         <TableHeader>
                             <TableRow className="hover:bg-transparent border-border/40">
-                                <TableHead className="pl-4 text-xs">Date</TableHead>
+                                <TableHead className="pl-4 text-xs hidden sm:table-cell">Date</TableHead>
                                 <TableHead className="text-xs">Description</TableHead>
                                 <TableHead className="text-xs hidden md:table-cell">Added by</TableHead>
-                                <TableHead className="text-xs">Attribution</TableHead>
+                                <TableHead className="text-xs hidden sm:table-cell">Attribution</TableHead>
                                 <TableHead className="text-right text-xs pr-2">Amount</TableHead>
-                                <TableHead className="w-16 pr-4" />
+                                <TableHead className="w-16 pr-3" />
                             </TableRow>
                         </TableHeader>
                         <TableBody>

@@ -276,8 +276,46 @@ function CustomExpenseStep({ members, currentUserId, roomId, onSaved }: {
     const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
     const [paidBy, setPaidBy] = useState(() => currentUserId)
     const [splitWith, setSplitWith] = useState<Set<string>>(() => new Set(members.map(m => m.user_id)))
+    // splitAmounts: always visible, pre-filled with equal split, user can edit freely
+    const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>({})
+    const [splitMode, setSplitMode] = useState<"equal" | "amounts" | "pct">("equal")
+    const [inputPcts, setInputPcts] = useState<Record<string, string>>({})
     const [alsoTrackPersonal, setAlsoTrackPersonal] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
+    const { formatCurrency } = useCurrency()
+
+    const totalAmt = parseFloat(amount)
+    const splitMembers = [...splitWith]
+
+    const equalShare = (splitMembers.length > 0 && !isNaN(totalAmt) && totalAmt > 0) ? totalAmt / splitMembers.length : 0
+    const defaultPct = splitMembers.length > 0 ? 100 / splitMembers.length : 0
+
+    // Amounts tab: live sum (blank = equalShare)
+    const currentSum = splitMembers.reduce((s, uid) => {
+        const raw = splitAmounts[uid]
+        return s + (raw !== undefined && raw !== "" ? (parseFloat(raw) || 0) : equalShare)
+    }, 0)
+    const sumOk = !isNaN(totalAmt) && totalAmt > 0 && Math.abs(currentSum - totalAmt) < 0.02
+
+    // Pct tab: live pct total (blank = defaultPct)
+    const pctSum = splitMembers.reduce((s, uid) => {
+        const raw = inputPcts[uid]
+        return s + (raw !== undefined && raw !== "" ? (parseFloat(raw) || 0) : defaultPct)
+    }, 0)
+    const pctOk = Math.abs(pctSum - 100) < 0.5
+
+    const quickFill = (divisor: number) => {
+        if (isNaN(totalAmt) || totalAmt <= 0) return
+        const amt = totalAmt / divisor
+        const next: Record<string, string> = {}
+        splitMembers.forEach(uid => { next[uid] = amt.toFixed(2) })
+        setSplitAmounts(next)
+    }
+
+    const handleSplitModeChange = (mode: "equal" | "amounts" | "pct") => {
+        setSplitMode(mode)
+        if (mode === "equal") { setSplitAmounts({}); setInputPcts({}) }
+    }
 
     const handlePaidByChange = (uid: string) => {
         setPaidBy(uid)
@@ -285,23 +323,56 @@ function CustomExpenseStep({ members, currentUserId, roomId, onSaved }: {
     }
 
     const toggleSplit = (uid: string) => {
-        setSplitWith(prev => { const next = new Set(prev); if (next.has(uid) && next.size > 1) next.delete(uid); else next.add(uid); return next })
+        setSplitWith(prev => {
+            const next = new Set(prev)
+            if (next.has(uid) && next.size > 1) next.delete(uid)
+            else next.add(uid)
+            return next
+        })
+        setSplitAmounts({})
+        setInputPcts({})
+        setSplitMode("equal")
     }
 
     const handleSave = async () => {
         if (!description.trim()) { toast.error("Description is required"); return }
-        const totalAmount = parseFloat(amount)
-        if (isNaN(totalAmount) || totalAmount <= 0) { toast.error("Enter a valid amount"); return }
+        if (isNaN(totalAmt) || totalAmt <= 0) { toast.error("Enter a valid amount"); return }
 
-        const splitMembers = [...splitWith]
-        const perPerson = Math.round((totalAmount / splitMembers.length) * 100) / 100
-        // Assign remainder to last member to ensure splits sum exactly to totalAmount
-        const splits = splitMembers.map((uid, i) => ({
-            user_id: uid,
-            amount: i === splitMembers.length - 1
-                ? Math.round((totalAmount - perPerson * (splitMembers.length - 1)) * 100) / 100
-                : perPerson,
-        }))
+        const perPerson = Math.round((totalAmt / splitMembers.length) * 100) / 100
+
+        let splits: { user_id: string; amount: number }[]
+
+        if (splitMode === "equal") {
+            splits = splitMembers.map((uid, i) => ({
+                user_id: uid,
+                amount: i === 0
+                    ? Math.round((totalAmt - perPerson * (splitMembers.length - 1)) * 100) / 100
+                    : perPerson,
+            }))
+        } else if (splitMode === "amounts") {
+            splits = splitMembers.map((uid, i) => {
+                const raw = splitAmounts[uid]
+                if (raw !== undefined && raw !== "") return { user_id: uid, amount: parseFloat(raw) || 0 }
+                return {
+                    user_id: uid,
+                    amount: i === splitMembers.length - 1
+                        ? Math.round((totalAmt - perPerson * (splitMembers.length - 1)) * 100) / 100
+                        : perPerson,
+                }
+            })
+        } else {
+            splits = splitMembers.map(uid => {
+                const pStr = inputPcts[uid]
+                const pct = pStr !== undefined && pStr !== "" ? (parseFloat(pStr) || 0) : defaultPct
+                return { user_id: uid, amount: Math.round(totalAmt * pct / 100 * 100) / 100 }
+            })
+        }
+
+        const splitsTotal = splits.reduce((s, sp) => s + sp.amount, 0)
+        if (Math.abs(splitsTotal - totalAmt) >= 0.02) {
+            toast.error(`Split amounts sum to ${formatCurrency(splitsTotal)}, expected ${formatCurrency(totalAmt)}`)
+            return
+        }
 
         setIsSaving(true)
         try {
@@ -310,7 +381,7 @@ function CustomExpenseStep({ members, currentUserId, roomId, onSaved }: {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     description: description.trim(),
-                    total_amount: totalAmount,
+                    total_amount: totalAmt,
                     transaction_date: date,
                     split_type: "custom",
                     source_type: "manual",
@@ -334,7 +405,7 @@ function CustomExpenseStep({ members, currentUserId, roomId, onSaved }: {
             <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                     <Label className="text-xs font-medium">Amount</Label>
-                    <Input type="number" min="0" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
+                    <Input type="number" min="0" step="0.01" placeholder="0.00" value={amount} onChange={e => { setAmount(e.target.value); setSplitAmounts({}) }} />
                 </div>
                 <div className="space-y-1.5">
                     <Label className="text-xs font-medium">Date</Label>
@@ -359,8 +430,12 @@ function CustomExpenseStep({ members, currentUserId, roomId, onSaved }: {
                     ))}
                 </div>
             </div>
-            <div className="space-y-2">
-                <Label className="text-xs font-medium">Split equally with</Label>
+
+            {/* ── Split section ── */}
+            <div className="space-y-3">
+                <Label className="text-xs font-medium">Split between</Label>
+
+                {/* Member chips — click to include/exclude */}
                 <div className="flex flex-wrap gap-2">
                     {members.map(m => {
                         const checked = splitWith.has(m.user_id)
@@ -377,8 +452,132 @@ function CustomExpenseStep({ members, currentUserId, roomId, onSaved }: {
                         )
                     })}
                 </div>
-                {splitWith.size > 0 && amount && !isNaN(parseFloat(amount)) && (
-                    <p className="text-[11px] text-muted-foreground">Each person pays: {(parseFloat(amount) / splitWith.size).toFixed(2)}</p>
+
+                {/* Split type tabs */}
+                {splitMembers.length > 1 && (
+                    <div className="space-y-3">
+                        <div className="flex gap-1">
+                            {(["equal", "amounts", "pct"] as const).map(mode => (
+                                <button key={mode} type="button"
+                                    onClick={() => handleSplitModeChange(mode)}
+                                    className={cn(
+                                        "px-3 py-1 rounded-full text-xs font-medium transition-all",
+                                        splitMode === mode
+                                            ? "bg-primary text-primary-foreground"
+                                            : "bg-muted text-muted-foreground hover:bg-muted/80"
+                                    )}>
+                                    {mode === "equal" ? "Equal" : mode === "amounts" ? "Amounts" : "Percentages"}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Equal: read-only display */}
+                        {splitMode === "equal" && equalShare > 0 && (
+                            <div className="flex flex-wrap gap-x-5 gap-y-2 px-1">
+                                {splitMembers.map(uid => {
+                                    const m = members.find(mb => mb.user_id === uid)
+                                    if (!m) return null
+                                    const firstName = uid === currentUserId ? "You" : m.display_name.split(" ")[0]
+                                    return (
+                                        <div key={uid} className="flex items-center gap-2">
+                                            <Avatar className="w-6 h-6 shrink-0">
+                                                <AvatarImage src={m.avatar_url || undefined} />
+                                                <AvatarFallback className="text-[9px]">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                            </Avatar>
+                                            <span className="text-sm font-medium">{firstName}</span>
+                                            <span className="text-sm tabular-nums font-semibold text-primary">{formatCurrency(equalShare)}</span>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+
+                        {/* Amounts: quick-fill + input rows */}
+                        {splitMode === "amounts" && (
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs text-muted-foreground">Quick:</span>
+                                    {[2, 3, 4].map(n => (
+                                        <button key={n} type="button" onClick={() => quickFill(n)}
+                                            className="px-2.5 py-1 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 border border-border/40 transition-colors tabular-nums">
+                                            ÷{n}{equalShare > 0 ? ` · ${formatCurrency(totalAmt / n)}` : ""}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="rounded-xl border border-border/50 divide-y divide-border/30 overflow-hidden">
+                                    {splitMembers.map(uid => {
+                                        const m = members.find(mb => mb.user_id === uid)
+                                        if (!m) return null
+                                        const firstName = uid === currentUserId ? "You" : m.display_name.split(" ")[0]
+                                        return (
+                                            <div key={uid} className="flex items-center gap-3 px-3 py-2.5 bg-muted/10">
+                                                <Avatar className="w-7 h-7 shrink-0">
+                                                    <AvatarImage src={m.avatar_url || undefined} />
+                                                    <AvatarFallback className="text-[10px] font-semibold">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                                </Avatar>
+                                                <span className="text-sm font-medium flex-1 truncate">{firstName}</span>
+                                                <Input
+                                                    type="number" min="0" step="0.01"
+                                                    placeholder={equalShare > 0 ? equalShare.toFixed(2) : "0.00"}
+                                                    className="h-8 w-28 text-sm tabular-nums text-right"
+                                                    value={splitAmounts[uid] ?? ""}
+                                                    onChange={e => setSplitAmounts(prev => ({ ...prev, [uid]: e.target.value }))}
+                                                />
+                                            </div>
+                                        )
+                                    })}
+                                    {!isNaN(totalAmt) && totalAmt > 0 && (
+                                        <div className={cn("flex items-center justify-between px-3 py-2 text-xs font-medium",
+                                            sumOk ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/10 text-amber-600 dark:text-amber-400")}>
+                                            <span>{sumOk ? "✓ Splits match total" : `Sum: ${formatCurrency(currentSum)}`}</span>
+                                            <span className="tabular-nums">{formatCurrency(totalAmt)} total</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Percentages: pct inputs + live dollar preview */}
+                        {splitMode === "pct" && (
+                            <div className="rounded-xl border border-border/50 divide-y divide-border/30 overflow-hidden">
+                                {splitMembers.map(uid => {
+                                    const m = members.find(mb => mb.user_id === uid)
+                                    if (!m) return null
+                                    const firstName = uid === currentUserId ? "You" : m.display_name.split(" ")[0]
+                                    const pStr = inputPcts[uid]
+                                    const pct = pStr !== undefined && pStr !== "" ? (parseFloat(pStr) || 0) : defaultPct
+                                    const computed = !isNaN(totalAmt) ? totalAmt * pct / 100 : 0
+                                    return (
+                                        <div key={uid} className="flex items-center gap-3 px-3 py-2.5 bg-muted/10">
+                                            <Avatar className="w-7 h-7 shrink-0">
+                                                <AvatarImage src={m.avatar_url || undefined} />
+                                                <AvatarFallback className="text-[10px] font-semibold">{m.display_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                            </Avatar>
+                                            <span className="text-sm font-medium flex-1 truncate">{firstName}</span>
+                                            <span className="text-sm tabular-nums text-muted-foreground w-16 text-right shrink-0">
+                                                {formatCurrency(computed)}
+                                            </span>
+                                            <div className="flex items-center gap-0.5 shrink-0">
+                                                <Input
+                                                    type="number" min="0" max="100" step="1"
+                                                    placeholder={defaultPct.toFixed(1)}
+                                                    className="h-8 w-20 text-sm tabular-nums text-right"
+                                                    value={inputPcts[uid] ?? ""}
+                                                    onChange={e => setInputPcts(prev => ({ ...prev, [uid]: e.target.value }))}
+                                                />
+                                                <span className="text-sm text-muted-foreground pl-0.5">%</span>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                                <div className={cn("flex items-center justify-between px-3 py-2 text-xs font-medium",
+                                    pctOk ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/10 text-amber-600 dark:text-amber-400")}>
+                                    <span>{pctOk ? "✓ 100% allocated" : `Total: ${pctSum.toFixed(1)}%`}</span>
+                                    <span className="tabular-nums">{!isNaN(totalAmt) && totalAmt > 0 ? formatCurrency(totalAmt) : "—"} total</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
             {paidBy === currentUserId && (

@@ -5,6 +5,7 @@ import { Plus, Trophy, Globe, Lock, Users, Search, PiggyBank, HeartPulse, Apple,
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useUser } from "@clerk/nextjs"
+import { useQueryClient } from "@tanstack/react-query"
 
 import { cn } from "@/lib/utils"
 import { useColorScheme } from "@/components/color-scheme-provider"
@@ -315,6 +316,7 @@ ChallengeMetricCluster.displayName = "ChallengeMetricCluster"
 export default function ChallengesTab() {
     const { getPalette } = useColorScheme()
     const router = useRouter()
+    const queryClient = useQueryClient()
     const [groups, setGroups] = useState<ChallengeGroupWithMembers[]>([])
     const [loading, setLoading] = useState(true)
     const [createOpen, setCreateOpen] = useState(false)
@@ -340,6 +342,7 @@ export default function ChallengesTab() {
 
     const handleCreated = (newGroup: ChallengeGroupWithMembers) => {
         setGroups(prev => [newGroup, ...prev])
+        queryClient.invalidateQueries({ queryKey: ['friends-bundle'] })
     }
 
     const refreshGroups = () => {
@@ -347,6 +350,7 @@ export default function ChallengesTab() {
             .then(r => r.json())
             .then(setGroups)
             .catch(() => { })
+        queryClient.invalidateQueries({ queryKey: ['friends-bundle'] })
     }
 
     if (loading) {
@@ -368,10 +372,10 @@ export default function ChallengesTab() {
                 </p>
                 <div className="flex gap-2 w-full sm:w-auto">
                     <Button variant="outline" size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={() => setJoinOpen(true)}>
-                        <Globe className="w-4 h-4" /> <span className="hidden sm:inline">Join</span>
+                        <Globe className="w-4 h-4" /> Join
                     </Button>
                     <Button size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={() => setCreateOpen(true)}>
-                        <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Create</span>
+                        <Plus className="w-4 h-4" /> Create
                     </Button>
                 </div>
             </div>
@@ -405,7 +409,7 @@ export default function ChallengesTab() {
                             <Card
                                 key={group.id}
                                 onClick={() => router.push(`/challenges/${group.id}`)}
-                                className="relative h-[210px] sm:h-[260px] rounded-2xl sm:rounded-3xl bg-card/60 backdrop-blur-md shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer border border-border/50 hover:border-border"
+                                className="relative min-h-[210px] sm:min-h-[260px] rounded-2xl sm:rounded-3xl bg-card/60 backdrop-blur-md shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer border border-border/50 hover:border-border"
                             >
                                 {/* Palette-based accent glow */}
                                 <div

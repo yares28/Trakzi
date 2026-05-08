@@ -70,15 +70,15 @@ export default function ChallengeDetailPage({ params }: { params: Promise<{ grou
 
     return (
         <FriendsLayout>
-            <div className="max-w-5xl mx-auto font-mono font-medium space-y-6 px-3 sm:px-0">
-                <div className="flex items-center justify-between gap-2">
+            <div className="max-w-5xl mx-auto font-mono font-medium space-y-6 px-4 sm:px-6">
+                <div className="flex items-center">
                     <Button
                         variant="ghost"
                         size="sm"
-                        className="gap-1.5"
+                        className="gap-1.5 -ml-3 text-muted-foreground hover:text-foreground"
                         onClick={() => router.push('/friends?tab=challenges')}
                     >
-                        <ArrowLeft className="w-4 h-4" /> <span className="hidden sm:inline">Back to Challenges</span>
+                        <ArrowLeft className="w-4 h-4" /> Back to Challenges
                     </Button>
                 </div>
 
@@ -112,133 +112,97 @@ export default function ChallengeDetailPage({ params }: { params: Promise<{ grou
                             onDescriptionUpdated={() => refetch()}
                         />
 
-                        {/* Leaderboards / About tab switch (desktop only — mobile shows all) */}
-                        <div className="hidden sm:block">
-                            <Tabs value={activeTab} onValueChange={setActiveTab}>
-                                <div className="flex justify-center">
-                                    <TabsList className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border w-max min-w-0 h-auto">
-                                        <TabsTrigger value="leaderboards" className="rounded-full px-4 py-2 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm text-sm font-medium transition-all duration-200">Leaderboard</TabsTrigger>
-                                        <TabsTrigger value="allTime" className="rounded-full px-4 py-2 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm text-sm font-medium transition-all duration-200">All Time</TabsTrigger>
-                                        <TabsTrigger value="about" className="rounded-full px-4 py-2 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm text-sm font-medium transition-all duration-200">About</TabsTrigger>
-                                    </TabsList>
-                                </div>
+                        {/* Unified tab system — works on all screen sizes */}
+                        <Tabs value={activeTab} onValueChange={setActiveTab}>
+                            <div className="flex justify-center">
+                                <TabsList className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border w-max min-w-0 h-auto overflow-x-auto">
+                                    <TabsTrigger value="leaderboards" className="rounded-full px-3 sm:px-4 py-2 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap">Leaderboard</TabsTrigger>
+                                    <TabsTrigger value="allTime" className="rounded-full px-3 sm:px-4 py-2 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap">All Time</TabsTrigger>
+                                    <TabsTrigger value="about" className="rounded-full px-3 sm:px-4 py-2 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap">About</TabsTrigger>
+                                </TabsList>
+                            </div>
 
-                                <TabsContent value="leaderboards" className="mt-6 space-y-6">
-                                    <ChallengeLeaderboards
-                                        metrics={data.metrics as ChallengeMetric[]}
-                                        members={data.members}
-                                        currentUserId={user?.id ?? ""}
-                                        hideAllTime
-                                    />
-                                    <ChallengeScoreChart
-                                        members={data.members}
-                                        metrics={data.metrics as ChallengeMetric[]}
-                                        currentUserId={user?.id ?? ""}
-                                    />
-                                </TabsContent>
+                            <TabsContent value="leaderboards" className="mt-6 space-y-6">
+                                <ChallengeLeaderboards
+                                    metrics={data.metrics as ChallengeMetric[]}
+                                    members={data.members}
+                                    currentUserId={user?.id ?? ""}
+                                    hideAllTime
+                                />
+                                <ChallengeScoreChart
+                                    members={data.members}
+                                    metrics={data.metrics as ChallengeMetric[]}
+                                    currentUserId={user?.id ?? ""}
+                                />
+                            </TabsContent>
 
-                                <TabsContent value="allTime" className="mt-6 space-y-6">
-                                    <ChallengeLeaderboards
-                                        metrics={[]}
-                                        members={data.members}
-                                        currentUserId={user?.id ?? ""}
-                                        allTimeOnly
-                                    />
-                                    <ChallengeScoreChart
-                                        members={data.members}
-                                        metrics={data.metrics as ChallengeMetric[]}
-                                        currentUserId={user?.id ?? ""}
-                                    />
-                                </TabsContent>
+                            <TabsContent value="allTime" className="mt-6 space-y-6">
+                                <ChallengeLeaderboards
+                                    metrics={[]}
+                                    members={data.members}
+                                    currentUserId={user?.id ?? ""}
+                                    allTimeOnly
+                                />
+                                <ChallengeScoreChart
+                                    members={data.members}
+                                    metrics={data.metrics as ChallengeMetric[]}
+                                    currentUserId={user?.id ?? ""}
+                                />
+                            </TabsContent>
 
-                                <TabsContent value="about" className="mt-6 space-y-6">
-                                    {/* Editable description */}
-                                    <Card className="border-border/40 bg-card/60 backdrop-blur-sm rounded-3xl overflow-hidden">
-                                        <CardContent className="p-6">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <h2 className="text-lg font-semibold">Description</h2>
-                                                {isAdmin && !isEditingDesc && (
-                                                    <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={handleStartEditDesc}>
-                                                        <Pencil className="w-3.5 h-3.5" /> Edit
-                                                    </Button>
-                                                )}
-                                            </div>
-                                            {isEditingDesc ? (
-                                                <div className="space-y-3">
-                                                    <Textarea
-                                                        value={draftDesc}
-                                                        onChange={(e) => setDraftDesc(e.target.value)}
-                                                        placeholder="Add a description for your group..."
-                                                        className="min-h-[100px] resize-none"
-                                                        maxLength={500}
-                                                    />
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-xs text-muted-foreground">{draftDesc.length}/500</span>
-                                                        <div className="flex gap-2">
-                                                            <Button variant="ghost" size="sm" onClick={() => setIsEditingDesc(false)} disabled={isSavingDesc}>
-                                                                <X className="w-4 h-4 mr-1" /> Cancel
-                                                            </Button>
-                                                            <Button size="sm" onClick={handleSaveDesc} disabled={isSavingDesc}>
-                                                                <Check className="w-4 h-4 mr-1" /> Save
-                                                            </Button>
-                                                        </div>
+                            <TabsContent value="about" className="mt-6 space-y-6">
+                                <Card className="border-border/40 bg-card/60 backdrop-blur-sm rounded-3xl overflow-hidden">
+                                    <CardContent className="p-4 sm:p-6">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <h2 className="text-lg font-semibold">Description</h2>
+                                            {isAdmin && !isEditingDesc && (
+                                                <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={handleStartEditDesc}>
+                                                    <Pencil className="w-3.5 h-3.5" /> Edit
+                                                </Button>
+                                            )}
+                                        </div>
+                                        {isEditingDesc ? (
+                                            <div className="space-y-3">
+                                                <Textarea
+                                                    value={draftDesc}
+                                                    onChange={(e) => setDraftDesc(e.target.value)}
+                                                    placeholder="Add a description for your group..."
+                                                    className="min-h-[100px] resize-none"
+                                                    maxLength={500}
+                                                />
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs text-muted-foreground">{draftDesc.length}/500</span>
+                                                    <div className="flex gap-2">
+                                                        <Button variant="ghost" size="sm" onClick={() => setIsEditingDesc(false)} disabled={isSavingDesc}>
+                                                            <X className="w-4 h-4 mr-1" /> Cancel
+                                                        </Button>
+                                                        <Button size="sm" onClick={handleSaveDesc} disabled={isSavingDesc}>
+                                                            <Check className="w-4 h-4 mr-1" /> Save
+                                                        </Button>
                                                     </div>
                                                 </div>
-                                            ) : (
-                                                <p className="text-sm text-muted-foreground">
-                                                    {data.description || "No description yet."}
-                                                </p>
-                                            )}
-                                        </CardContent>
-                                    </Card>
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground">
+                                                {data.description || "No description yet."}
+                                            </p>
+                                        )}
+                                    </CardContent>
+                                </Card>
 
-                                    <ChallengeMembers
-                                        members={data.members}
-                                        currentUserId={user?.id ?? ""}
-                                    />
-                                    {/* Leave button at bottom of members section */}
-                                    <Button
-                                        variant="outline"
-                                        className="w-full gap-2 text-rose-500 hover:text-rose-600 border-rose-500/30 hover:border-rose-500/50 hover:bg-rose-500/5"
-                                        onClick={handleLeave}
-                                    >
-                                        <LogOut className="w-4 h-4" /> Leave Group
-                                    </Button>
-                                </TabsContent>
-                            </Tabs>
-                        </div>
-
-                        {/* Mobile: show everything stacked (no tabs) */}
-                        <div className="sm:hidden space-y-6">
-                            <ChallengeLeaderboards
-                                metrics={data.metrics as ChallengeMetric[]}
-                                members={data.members}
-                                currentUserId={user?.id ?? ""}
-                                hideAllTime
-                            />
-                            <ChallengeLeaderboards
-                                metrics={[]}
-                                members={data.members}
-                                currentUserId={user?.id ?? ""}
-                                allTimeOnly
-                            />
-                            <ChallengeScoreChart
-                                members={data.members}
-                                metrics={data.metrics as ChallengeMetric[]}
-                                currentUserId={user?.id ?? ""}
-                            />
-                            <ChallengeMembers
-                                members={data.members}
-                                currentUserId={user?.id ?? ""}
-                            />
-                            <Button
-                                variant="outline"
-                                className="w-full gap-2 text-rose-500 hover:text-rose-600 border-rose-500/30 hover:border-rose-500/50 hover:bg-rose-500/5"
-                                onClick={handleLeave}
-                            >
-                                <LogOut className="w-4 h-4" /> Leave Group
-                            </Button>
-                        </div>
+                                <ChallengeMembers
+                                    members={data.members}
+                                    currentUserId={user?.id ?? ""}
+                                />
+                                <Button
+                                    variant="outline"
+                                    className="w-full gap-2 text-rose-500 hover:text-rose-600 border-rose-500/30 hover:border-rose-500/50 hover:bg-rose-500/5"
+                                    onClick={handleLeave}
+                                >
+                                    <LogOut className="w-4 h-4" /> Leave Group
+                                </Button>
+                            </TabsContent>
+                        </Tabs>
                     </div>
                 )}
             </div>
