@@ -152,9 +152,7 @@ export default function AnalyticsPage() {
       onDrop={statementImport.handleDrop}
     >
       <div className="@container/main flex flex-1 flex-col gap-2 min-w-0">
-        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 min-w-0 w-full">
-          <div className="flex items-center justify-end px-4 lg:px-6">
-          </div>
+        <div className="flex flex-col gap-4 pb-4 md:gap-6 md:pb-6 min-w-0 w-full">
           {/* Empty-state banner: visible when data is loaded but the filter returns nothing */}
           {isDataReady && transactionSummary.count === 0 && (
             <div className="mx-4 lg:mx-6 flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800/50 dark:bg-amber-950/30">

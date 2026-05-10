@@ -2434,7 +2434,7 @@ export default function AnalyticsPage() {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
-        <div className="flex-1 overflow-y-auto px-6 pb-0 pt-[60px] md:pt-6">
+        <div className="flex-1 overflow-y-auto px-6 pb-0 pt-[72px] md:pt-6">
           <div className="max-w-full space-y-6">
 
             <div className="@container/main flex flex-1 flex-col gap-2">

@@ -137,8 +137,8 @@ export default function DashboardPage() {
     return (
         <DashboardLayout>
             <div className="flex flex-1 flex-col overflow-hidden">
-                <div className="@container/main -mt-2 flex flex-1 flex-col gap-2 overflow-y-auto md:-mt-2">
-                    <div className="flex flex-col gap-4 pt-0 pb-4 md:gap-6 md:pt-0 md:pb-6">
+                <div className="@container/main flex flex-1 flex-col gap-2 pt-[72px] md:pt-0 overflow-y-auto overflow-x-hidden">
+                    <div className="flex flex-col gap-4 pb-4 md:gap-6 md:pb-6">
                         <section className="px-4 lg:px-6">
                             <dl className="grid grid-cols-1 gap-8 lg:grid-cols-2 xl:grid-cols-3 w-full">
                                 {displayData.map((item, index) => {

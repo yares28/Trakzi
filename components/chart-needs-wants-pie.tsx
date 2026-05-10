@@ -114,6 +114,7 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
         ]}
         ignoredFootnote="Only expense (negative) transactions are included, and hidden categories are excluded from the totals."
         categoryControls={categoryControls}
+        topContent={legendContent}
         extraContent={<NeedsWantsCategoryEditor />}
       />
       <ChartAiInsightButton
@@ -153,7 +154,7 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
       data={data}
       margin={
         isCompact
-          ? { top: 20, right: 20, bottom: 20, left: 20 }
+          ? { top: 0, right: 0, bottom: 0, left: 0 }
           : { top: 40, right: 40, bottom: 40, left: 40 }
       }
       innerRadius={0.5}
@@ -182,17 +183,17 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
     />
   );
 
-  // Custom legend component
-  const renderLegend = () => (
-    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground mt-2">
+  // Legend shown inside the info popover at the top
+  const legendContent = (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-border/60 bg-muted/40 px-2.5 py-2">
       {data.map((item) => (
         <div key={item.id} className="flex items-center gap-1.5">
           <span
-            className="h-2.5 w-2.5 rounded-full shrink-0"
+            className="h-2 w-2 rounded-full shrink-0"
             style={{ backgroundColor: item.color }}
           />
-          <span className="font-medium text-foreground">{item.label}</span>
-          <span className="text-[0.7rem]">
+          <span className="text-xs font-medium text-foreground">{item.label}</span>
+          <span className="text-[0.7rem] text-muted-foreground">
             {total > 0 ? `${((item.value / total) * 100).toFixed(0)}%` : "0%"}
           </span>
         </div>
@@ -269,7 +270,8 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
       </ChartFullscreenModal>
 
       <Card className="@container/card">
-        <CardHeader>
+        {/* Compact header on mobile: pull up into card's gap-6 */}
+        <CardHeader className="px-3 py-0 -mt-3 sm:px-6 sm:mt-0 sm:py-0">
           <div className="flex items-center gap-2">
             <GridStackCardDragHandle />
             <ChartExpandButton onClick={() => setIsFullscreen(true)} />
@@ -278,12 +280,13 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
               chartTitle="Needs vs Wants"
               size="md"
             />
-            <CardTitle>Needs vs Wants</CardTitle>
+            <CardTitle className="text-sm sm:text-base">Needs vs Wants</CardTitle>
           </div>
-          </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 flex-1 min-h-0 flex flex-col">
+        </CardHeader>
+        {/* Pull content up on mobile to reclaim gap-6 space */}
+        <CardContent className="px-2 pt-0 sm:px-6 sm:pt-2 flex-1 min-h-0 flex flex-col pb-0 -mt-4 sm:mt-0">
           <div
-            className="relative flex-1 min-h-[140px] md:min-h-[200px]"
+            className="relative flex-1 min-h-[240px] md:min-h-[200px]"
             key={colorScheme}
           >
             {renderChart(true)}
@@ -298,9 +301,10 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
               </div>
             )}
           </div>
-          {renderLegend()}
         </CardContent>
-        <CardFooter className="pb-3 gap-2">{renderInfoTrigger()}</CardFooter>
+        <CardFooter className="pb-2 pt-0 px-3 sm:px-6 sm:pb-3 -mb-2 sm:mb-0 gap-2">
+          {renderInfoTrigger()}
+        </CardFooter>
       </Card>
     </>
   );

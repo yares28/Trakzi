@@ -38,6 +38,8 @@ const geistMono = Geist_Mono({
 
 export const viewport: Viewport = {
   viewportFit: "cover",
+  userScalable: false,
+  maximumScale: 1,
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
     { media: "(prefers-color-scheme: dark)", color: "#1e1624" },

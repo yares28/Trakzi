@@ -182,6 +182,9 @@ export const config = {
     // Auth routes for sign-in redirect logic
     "/sign-in/:path*",
     "/sign-up/:path*",
+    // Admin route
+    "/admin/:path*",
+    "/admin",
     // API routes need proxy for auth() to work
     "/api/:path*",
   ],

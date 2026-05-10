@@ -272,8 +272,8 @@ export default function TransfersPage() {
             <SidebarInset>
                 <SiteHeader />
                 <div className="flex flex-1 flex-col overflow-hidden">
-                    <div className="@container/main flex flex-1 flex-col gap-2 pt-[60px] md:pt-0 overflow-y-auto overflow-x-hidden min-w-0">
-                        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 min-w-0 w-full px-4 lg:px-6">
+                    <div className="@container/main flex flex-1 flex-col gap-2 pt-[72px] md:pt-0 overflow-y-auto overflow-x-hidden min-w-0">
+                        <div className="flex flex-col gap-4 pb-4 md:gap-6 md:pb-6 min-w-0 w-full px-4 lg:px-6">
                             <header className="flex flex-col gap-1">
                                 <h1 className="text-2xl font-semibold tracking-tight">Transfers</h1>
                                 <p className="text-sm text-muted-foreground">

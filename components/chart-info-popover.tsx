@@ -45,6 +45,7 @@ export interface ChartInfoPopoverProps {
     defaultValue?: string
   }
   extraContent?: ReactNode
+  topContent?: ReactNode
 }
 
 export function ChartInfoPopover({
@@ -62,6 +63,7 @@ export function ChartInfoPopover({
   categoryControls,
   groupingControls,
   extraContent,
+  topContent,
 }: ChartInfoPopoverProps) {
   const [open, setOpen] = useState(false)
   const [categoryPanelOpen, setCategoryPanelOpen] = useState(false)
@@ -136,6 +138,7 @@ export function ChartInfoPopover({
             <h4 className="text-sm font-semibold text-foreground">{title}</h4>
             <p className="text-xs text-muted-foreground">{description}</p>
           </div>
+          {topContent}
           {groupingControls && groupingControls.options.length > 0 && (
             <div className="rounded-lg border border-border/60 bg-background/70 px-2.5 py-2">
               <div className="flex items-center justify-between gap-2">

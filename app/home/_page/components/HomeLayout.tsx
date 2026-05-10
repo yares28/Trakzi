@@ -36,7 +36,7 @@ export function HomeLayout({
       <SidebarInset className="md:h-svh md:overflow-hidden flex flex-col">
         <SiteHeader />
         <div
-          className="flex-1 space-y-4 pt-[60px] md:pt-0 lg:pt-2 overflow-y-auto overflow-x-hidden"
+          className="flex-1 space-y-4 pt-[72px] md:pt-0 lg:pt-2 overflow-y-auto overflow-x-hidden"
           onDragEnter={onDragEnter}
           onDragLeave={onDragLeave}
           onDragOver={onDragOver}
