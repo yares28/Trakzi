@@ -634,8 +634,9 @@ export async function getFridgeBundle(
 ): Promise<FridgeSummary> {
     const { startDate, endDate } = getDateRange(filter)
 
-    // Run all aggregations in parallel
-    const [kpis, categorySpending, dailySpending, storeSpending, macronutrientBreakdown, dayOfWeekSpending, monthlyCategories, hourlyActivity, dayOfWeekCategory, hourDayHeatmap, dayMonthHeatmap, categoryRankings] =
+    // Run aggregations in two sequential batches to limit peak Neon concurrency.
+    // Group 1: primary metrics (KPIs, spending breakdowns)
+    const [kpis, categorySpending, dailySpending, storeSpending, macronutrientBreakdown, dayOfWeekSpending] =
         await Promise.all([
             getFridgeKPIs(userId, startDate ?? undefined, endDate ?? undefined),
             getFridgeCategorySpending(userId, startDate ?? undefined, endDate ?? undefined),
@@ -643,6 +644,11 @@ export async function getFridgeBundle(
             getFridgeStoreSpending(userId, startDate ?? undefined, endDate ?? undefined),
             getFridgeMacronutrientBreakdown(userId, startDate ?? undefined, endDate ?? undefined),
             getFridgeDayOfWeekSpending(userId, startDate ?? undefined, endDate ?? undefined),
+        ])
+
+    // Group 2: advanced charts (temporal patterns, heatmaps, rankings)
+    const [monthlyCategories, hourlyActivity, dayOfWeekCategory, hourDayHeatmap, dayMonthHeatmap, categoryRankings] =
+        await Promise.all([
             getFridgeMonthlyCategories(userId, startDate ?? undefined, endDate ?? undefined),
             getFridgeHourlyActivity(userId, startDate ?? undefined, endDate ?? undefined),
             getFridgeDayOfWeekCategory(userId, startDate ?? undefined, endDate ?? undefined),

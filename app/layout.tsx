@@ -24,7 +24,8 @@ import { DemoModeProvider } from "@/lib/demo/demo-context";
 import { DemoBanner } from "@/components/demo-banner";
 import { OnboardingProvider } from "@/components/onboarding/onboarding-provider";
 import { OnboardingRoot } from "@/components/onboarding/onboarding-root";
-import { OfflineIndicator } from "@/components/offline-indicator";
+import { OfflineIndicator } from "@/components/offline-indicator"
+import { CookieConsentBanner } from "@/components/cookie-consent-banner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -225,6 +226,7 @@ export default function RootLayout({
               </UserPreferencesProvider>
             </QueryProvider>
           </ThemeProvider>
+          <CookieConsentBanner />
           </LazyMotion>
         </body>
       </html>

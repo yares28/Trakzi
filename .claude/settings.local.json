@@ -50,7 +50,8 @@
       "Bash(git commit *)",
       "Bash(xxd)",
       "Bash(python3 *)",
-      "Bash(xargs ls *)"
+      "Bash(xargs ls *)",
+      "Bash(claude plugin *)"
     ]
   },
   "enabledPlugins": {

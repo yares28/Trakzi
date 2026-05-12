@@ -32,16 +32,23 @@ const CACHE_PREFIX = {
 
 // TTL in seconds
 const CACHE_TTL = {
-    analytics: 5 * 60, // 5 minutes
-    fridge: 5 * 60, // 5 minutes
-    'pockets': 5 * 60, // 5 minutes
-    categories: 30 * 60, // 30 minutes
-    short: 60, // 1 minute
-    friends: 2 * 60, // 2 minutes (social data changes frequently)
-    room: 2 * 60, // 2 minutes
-    'financial-health': 5 * 60, // 5 minutes
-    'accounts': 5 * 60, // 5 minutes
+    analytics: 30 * 60, // 30 minutes — data only changes on import; invalidated on mutation
+    fridge: 30 * 60,    // 30 minutes — same reasoning as analytics
+    'pockets': 5 * 60,
+    categories: 30 * 60,
+    short: 60,
+    friends: 2 * 60,
+    room: 2 * 60,
+    'financial-health': 5 * 60,
+    'accounts': 5 * 60,
 } as const
+
+// How long the distributed compute lock is held before expiring (safety net for crashed instances)
+const LOCK_TTL_SECONDS = 45
+
+// Stale copies are kept at this multiplier of the main TTL so waiters can return
+// immediately instead of blocking on a cold-cache compute.
+const STALE_TTL_MULTIPLIER = 10
 
 /**
  * Build cache key for user-specific data.
@@ -114,37 +121,77 @@ export async function setCache<T>(
     }
 }
 
+// In-process singleflight map: deduplicates concurrent misses within the same serverless instance.
+// The distributed Redis lock (below) handles deduplication across different instances.
+const inflight = new Map<string, Promise<unknown>>()
+
 /**
- * Get cached data or compute and cache it
+ * Get cached data or compute and cache it.
+ *
+ * Two-layer stampede protection:
+ *  1. Process-local `inflight` map — deduplicates concurrent requests in the same instance.
+ *  2. Redis NX lock — deduplicates across multiple serverless instances.
+ *
+ * Lock waiters first try a stale copy (key prefixed with `stale:`). If no stale data exists
+ * (first-ever load) they poll briefly for the fresh result. After max retries they fall through
+ * and compute themselves as a last-resort safety net (e.g. if the lock holder crashed).
  */
 export async function getCachedOrCompute<T>(
     key: string,
     computeFn: () => Promise<T>,
     ttlSeconds: number = CACHE_TTL.analytics
 ): Promise<T> {
-    // Skip cache if Redis is not configured
     if (!redis) {
-        console.log(`[Cache] SKIP (Redis not configured): ${key}`)
-        return await computeFn()
+        return computeFn()
     }
 
-    // Try to get from cache first
+    // 1. Fast path: fresh cache hit
     const cached = await getCached<T>(key)
-    if (cached !== null) {
-        return cached
+    if (cached !== null) return cached
+
+    // 2. Process-local dedup — same instance, multiple concurrent requests
+    if (inflight.has(key)) return inflight.get(key) as Promise<T>
+
+    // 3. Distributed dedup — race across serverless instances
+    const lockKey  = `lock:${key}`
+    const staleKey = `stale:${key}`
+
+    const lockAcquired = !!(await redis.set(lockKey, '1', { nx: true, ex: LOCK_TTL_SECONDS }))
+
+    if (!lockAcquired) {
+        // Another instance holds the lock. Return stale data immediately if available —
+        // stale is vastly better than a 20-second wait or a 500 error.
+        const stale = await redis.get<T>(staleKey)
+        if (stale !== null) return stale
+
+        // No stale data yet (true cold start for this key). Poll until fresh data lands.
+        for (let i = 0; i < 8; i++) {
+            await new Promise<void>(r => setTimeout(r, 200 + i * 150))
+            const fresh = await getCached<T>(key)
+            if (fresh !== null) return fresh
+        }
+        // Lock holder is taking too long (crash/extreme slowness). Fall through and compute.
     }
 
-    console.log(`[Cache] MISS: ${key}`)
+    // 4. We hold the lock (or fell through as a safety net). Run computeFn() once.
+    const promise = computeFn()
+        .then(async (data) => {
+            await setCache(key, data, ttlSeconds)
+            // Stale copy lives 10× longer so future lock-waiters can return immediately
+            // instead of polling during the next cold-cache window.
+            await setCache(staleKey, data, ttlSeconds * STALE_TTL_MULTIPLIER)
+            if (lockAcquired) await redis!.del(lockKey).catch(() => {})
+            inflight.delete(key)
+            return data as T
+        })
+        .catch(async (err) => {
+            if (lockAcquired) await redis!.del(lockKey).catch(() => {})
+            inflight.delete(key)
+            throw err
+        })
 
-    // Compute fresh data
-    const data = await computeFn()
-
-    // Cache it (fire and forget)
-    setCache(key, data, ttlSeconds).catch((err) => {
-        console.error('[Cache] Failed to set cache:', err)
-    })
-
-    return data
+    inflight.set(key, promise)
+    return promise
 }
 
 /**

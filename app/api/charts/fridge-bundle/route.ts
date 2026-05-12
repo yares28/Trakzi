@@ -15,10 +15,6 @@ export const GET = async (request: Request) => {
             return createRateLimitResponse(rateLimitResult.resetIn)
         }
 
-        // Automatically enforce transaction cap on page load
-        // This ensures users who exceed limits (e.g., after downgrade) are brought back within limits
-        await autoEnforceTransactionCap(userId, true)
-
         // Get filter from query params
         const { searchParams } = new URL(request.url)
         const filter = searchParams.get('filter')
@@ -26,7 +22,10 @@ export const GET = async (request: Request) => {
         // Build cache key
         const cacheKey = buildCacheKey('fridge', userId, filter, 'bundle')
 
-        // Try cache first, otherwise compute
+        // Fire cap enforcement in the background — the result is never used to gate
+        // the response so there is no reason to await it at all.
+        void autoEnforceTransactionCap(userId, true)
+
         const data = await getCachedOrCompute<FridgeSummary>(
             cacheKey,
             () => getFridgeBundle(userId!, filter),

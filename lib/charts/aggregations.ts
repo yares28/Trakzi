@@ -153,6 +153,12 @@ export async function getCategorySpending(
 
     let query: string
     if (useEffectiveCost) {
+        // Derived table replaces the previous LATERAL join.
+        // LATERAL executed a subquery once per transaction row (O(n)); this derived
+        // table is computed once and joined with a hash/merge join, which is O(n) total
+        // instead of O(n) sequential round-trips.
+        // DISTINCT ON guarantees at most one split row per original_tx_id, preserving
+        // the LIMIT 1 semantics of the original LATERAL without per-row execution.
         query = `
             SELECT
                 COALESCE(c.name, 'Uncategorized') AS category,
@@ -167,13 +173,15 @@ export async function getCategorySpending(
                 c.color
             FROM transactions t
             LEFT JOIN categories c ON t.category_id = c.id
-            LEFT JOIN LATERAL (
-                SELECT ts.amount AS split_amount
+            LEFT JOIN (
+                SELECT DISTINCT ON (st.original_tx_id)
+                    st.original_tx_id,
+                    ts.amount AS split_amount
                 FROM shared_transactions st
-                LEFT JOIN transaction_splits ts ON ts.shared_tx_id = st.id AND ts.user_id = $1
-                WHERE st.original_tx_id = t.id
-                LIMIT 1
-            ) share_info ON true
+                LEFT JOIN transaction_splits ts
+                    ON ts.shared_tx_id = st.id AND ts.user_id = $1
+                ORDER BY st.original_tx_id
+            ) share_info ON share_info.original_tx_id = t.id
             WHERE t.user_id = $1 AND t.amount < 0
               AND (t.tx_type IS NULL OR t.tx_type = 'expense')
         `
@@ -912,6 +920,8 @@ export async function getKPIs(
         // gets injected into the inner subquery WHERE alongside the date clause.
         dateConditions = appendAccountFilter(dateConditions, params, accountIds)
 
+        // Derived table replaces the previous LATERAL join — see getCategorySpending
+        // for the full rationale. DISTINCT ON preserves LIMIT 1 semantics.
         query = `
             SELECT
                 SUM(CASE WHEN ea > 0 THEN ea ELSE 0 END) AS total_income,
@@ -927,13 +937,15 @@ export async function getKPIs(
                         ELSE t.amount
                     END AS ea
                 FROM transactions t
-                LEFT JOIN LATERAL (
-                    SELECT ts.amount AS split_amount
+                LEFT JOIN (
+                    SELECT DISTINCT ON (st.original_tx_id)
+                        st.original_tx_id,
+                        ts.amount AS split_amount
                     FROM shared_transactions st
-                    LEFT JOIN transaction_splits ts ON ts.shared_tx_id = st.id AND ts.user_id = $1
-                    WHERE st.original_tx_id = t.id
-                    LIMIT 1
-                ) share_info ON true
+                    LEFT JOIN transaction_splits ts
+                        ON ts.shared_tx_id = st.id AND ts.user_id = $1
+                    ORDER BY st.original_tx_id
+                ) share_info ON share_info.original_tx_id = t.id
                 WHERE t.user_id = $1
                   AND (t.tx_type IS NULL OR t.tx_type IN ('expense', 'income'))
                   ${dateConditions}
@@ -1022,8 +1034,10 @@ export async function getTreeMapData(
 
     query = appendAccountFilter(query, params, accountIds)
 
-    // Order by absolute amount for better processing
-    query += ` ORDER BY ABS(t.amount) DESC`
+    // Order by absolute amount and cap at 500 rows — the tree map chart needs at most
+    // ~100 leaf nodes (5 sub-categories × 20 categories). Beyond 500 rows the serialized
+    // TreeMapNode object exceeds the Redis 1MB command limit, silently breaking caching.
+    query += ` ORDER BY ABS(t.amount) DESC LIMIT 500`
 
     const rows = await neonQuery<{
         description: string
@@ -1178,7 +1192,11 @@ export async function getAccountBalances(
         query += ` AND t.account_id = ANY($${params.length}::text[])`
     }
 
-    query += ` ORDER BY t.account_id, t.tx_date::date, t.id DESC`
+    // Cap at 1000 rows — scales as active_accounts × days_in_range with no limit.
+    // For 10 accounts × 5 years = 18,250 rows × ~70 bytes ≈ 1.28MB for this field alone,
+    // which silently blows the Upstash 1MB setex limit and prevents the analytics bundle
+    // from ever being cached. 1000 points is more than enough for a line chart.
+    query += ` ORDER BY t.account_id, t.tx_date::date, t.id DESC LIMIT 1000`
 
     const rows = await neonQuery<{
         date: string
@@ -1236,14 +1254,19 @@ export async function getAnalyticsBundle(
         }
     }
 
-    // Run all aggregations - individual error handling prevents total failure
-    const [kpis, categorySpending, dailySpending, monthlyCategories, dayOfWeekSpending, dayOfWeekCategory, needsWants, cashFlow, monthlyByCategory, spendingPyramid, treeMapData, sharedExpenseSummary, accountBalances] = await Promise.all([
+    // Run aggregations in two sequential batches to limit peak Neon concurrency.
+    // Group 1: fast, simple queries (basic transactions + categories scans)
+    const [kpis, categorySpending, dailySpending, monthlyCategories, dayOfWeekSpending, dayOfWeekCategory] = await Promise.all([
         runQuery('kpis', () => getKPIs(userId, startDate ?? undefined, endDate ?? undefined, eff, accountIds)),
         runQuery('categorySpending', () => getCategorySpending(userId, startDate ?? undefined, endDate ?? undefined, eff, accountIds)),
         runQuery('dailySpending', () => getDailySpending(userId, startDate ?? undefined, endDate ?? undefined, accountIds)),
         runQuery('monthlyCategories', () => getMonthlyCategories(userId, startDate ?? undefined, endDate ?? undefined, accountIds)),
         runQuery('dayOfWeekSpending', () => getDayOfWeekSpending(userId, startDate ?? undefined, endDate ?? undefined, accountIds)),
         runQuery('dayOfWeekCategory', () => getDayOfWeekCategory(userId, startDate ?? undefined, endDate ?? undefined, accountIds)),
+    ])
+
+    // Group 2: heavier queries (cross-user aggregation, LATERAL joins, different tables)
+    const [needsWants, cashFlow, monthlyByCategory, spendingPyramid, treeMapData, sharedExpenseSummary, accountBalances] = await Promise.all([
         runQuery('needsWants', () => getNeedsWantsBreakdown(userId, startDate ?? undefined, endDate ?? undefined, accountIds)),
         runQuery('cashFlow', () => getCashFlowData(userId, startDate ?? undefined, endDate ?? undefined, accountIds)),
         runQuery('monthlyByCategory', () => getMonthlyByCategory(userId, startDate ?? undefined, endDate ?? undefined, accountIds)),
