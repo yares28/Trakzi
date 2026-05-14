@@ -4,8 +4,8 @@ import { m } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
 import { Sparkles, Play } from "lucide-react"
 import { useDemoMode } from "@/lib/demo/demo-context"
-
 import Link from "next/link"
+import { HeroBackgroundLogo } from "@/components/hero-background-logo"
 
 export default function Hero({ locale = "en" }: { locale?: "en" | "es" }) {
   const { enterDemo } = useDemoMode()
@@ -16,19 +16,8 @@ export default function Hero({ locale = "en" }: { locale?: "en" | "es" }) {
       <section className="relative min-h-screen flex flex-col" suppressHydrationWarning>
         <div className="container mx-auto px-4 py-32 sm:py-48 relative z-10 flex-1 flex flex-col">
           <div className="mx-auto max-w-4xl text-center flex-1 flex flex-col justify-center relative">
-            {/* Background logo image */}
-            <m.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1.5, ease: "easeOut" }}
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 pointer-events-none select-none flex items-center justify-center w-[120%] h-[120%]"
-            >
-              <img
-                src="/3d/3dlogo.png"
-                alt=""
-                className="absolute w-[min(800px,90vw)] h-[min(800px,90vw)] sm:w-[min(1200px,110vw)] sm:h-[min(1200px,110vw)] object-contain opacity-45"
-              />
-            </m.div>
+            {/* Animated logo background */}
+            <HeroBackgroundLogo />
 
             {/* Old outline design (uncomment this block to switch back)
             <m.div

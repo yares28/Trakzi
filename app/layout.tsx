@@ -152,7 +152,7 @@ export default function RootLayout({
     "@type": "Organization",
     name: "Trakzi",
     url: "https://trakzi.com",
-    logo: "https://trakzi.com/Trakzi/TrakzilogoB.png",
+    logo: "https://trakzi.com/Trakzi/LogoShort.svg",
     contactPoint: {
       "@type": "ContactPoint",
       email: "help@trakzi.com",

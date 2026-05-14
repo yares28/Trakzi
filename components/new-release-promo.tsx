@@ -7,7 +7,7 @@ export function NewReleasePromo({ locale = "en" }: { locale?: "en" | "es" }) {
   return (
     <section className="mt-12 w-full px-4 sm:px-0">
       <div className="mx-auto max-w-4xl rounded-[40px] border border-black/5 dark:border-white/20 p-2 shadow-sm">
-        <div className="relative mx-auto min-h-[440px] sm:min-h-[400px] sm:h-[400px] max-w-4xl overflow-hidden rounded-[38px] border border-black/5 dark:border-white/20 bg-primary p-2 shadow-sm">
+        <div className="relative mx-auto min-h-[520px] sm:min-h-[500px] sm:h-[500px] max-w-4xl overflow-hidden rounded-[38px] border border-black/5 dark:border-white/20 bg-primary p-2 shadow-sm">
           {/* Subtle radial glow from center */}
           <div
             className="absolute inset-0 z-0"
@@ -45,12 +45,21 @@ export function NewReleasePromo({ locale = "en" }: { locale?: "en" | "es" }) {
 
           <div className="relative z-10">
             <div className="mt-8 text-center px-3 sm:px-0">
+              {/* Wordmark — white variant on the orange card */}
+              <div className="w-[75%] sm:w-[65%] overflow-hidden flex justify-start mb-4 sm:mb-6 mx-auto">
+                <img
+                  src="/Trakzi/LogoLong.svg"
+                  alt="Trakzi"
+                  style={{ height: "90px", width: "auto", maxWidth: "none", filter: "brightness(0) invert(1)" }}
+                  draggable={false}
+                />
+              </div>
               <h2 className="text-2xl sm:text-4xl font-bold text-white mb-4 sm:mb-6 leading-tight">
                 {isEs
-                  ? "Estamos aquí para encontrar patrones que ni siquiera sabías que existían."
-                  : "We are here to find patterns you didn't even know existed."}
+                  ? "Tus malas decisiones financieras, por fin desenredadas."
+                  : "Your bad money decisions, finally untangled."}
               </h2>
-              <p className="text-white/60 mb-6 sm:mb-8">{isEs ? "¡Empieza ya!" : "Start now!"}</p>
+              <p className="text-white/60 mb-6 sm:mb-8">{isEs ? "Sin juicios. Solo claridad." : "No judgment. Just clarity."}</p>
               <svg
                 width="100"
                 height="50"

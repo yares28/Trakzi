@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { posts } from "@/lib/docs/posts"
 import { Badge } from "@/components/ui/badge"
 import { DocsSidebar } from "@/components/docs-sidebar"
+import { HeroBackgroundLogo } from "@/components/hero-background-logo"
 
 export default function DocsIndexPage() {
   return (
@@ -15,28 +16,7 @@ export default function DocsIndexPage() {
 
       {/* Hero */}
       <section className="relative min-h-screen flex flex-col">
-        {/* SVG background — same as landing/pricing/features */}
-        <m.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1.5, ease: "easeOut" }}
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 pointer-events-none select-none flex items-center justify-center w-full h-full"
-        >
-          <m.div
-            animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.3, 0.1] }}
-            transition={{ duration: 80, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute w-[500px] h-[500px] sm:w-[800px] sm:h-[800px] bg-white/20 blur-[120px] rounded-full mix-blend-screen"
-          />
-          <m.div
-            animate={{ scale: [0.95, 1.05, 0.95] }}
-            transition={{ duration: 80, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute flex items-center justify-center w-[600px] h-[600px] sm:w-[1100px] sm:h-[1100px] opacity-[0.35] dark:mix-blend-plus-lighter"
-          >
-            <img src="/Trakzi/fulleticonB.svg" alt="" className="absolute w-full h-full object-contain brightness-0 dark:invert dark:drop-shadow-[0_0_40px_rgba(255,255,255,1)]" />
-            <img src="/Trakzi/fulleticonB.svg" alt="" className="absolute w-full h-full object-contain brightness-0 dark:invert blur-[30px] opacity-80" />
-            <img src="/Trakzi/fulleticonB.svg" alt="" className="absolute w-full h-full object-contain brightness-0 dark:invert opacity-60 dark:mix-blend-overlay" />
-          </m.div>
-        </m.div>
+        <HeroBackgroundLogo />
 
         <div className="container mx-auto px-4 py-24 sm:py-32 relative z-10 flex-1 flex flex-col">
           <div className="mx-auto max-w-4xl text-center flex-1 flex flex-col justify-center relative">

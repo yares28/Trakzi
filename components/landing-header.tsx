@@ -104,12 +104,13 @@ export function LandingHeader({
           href={logoHref}
         >
           <Image
-            src={isDark ? "/Trakzi/TrakzilogoB.png" : "/Trakzi/Trakzilogo.png"}
+            src="/Trakzi/LogoShort.svg"
             alt="Trakzi"
             width={120}
             height={32}
             className="h-8 w-auto"
             draggable={false}
+           
           />
         </Link>
 
@@ -166,7 +167,7 @@ export function LandingHeader({
       {/* Mobile Header — visible on mobile, hidden on desktop via CSS */}
       <header className="sticky top-4 z-50 mx-4 flex w-auto flex-row items-center justify-between rounded-full bg-background border border-border/50 shadow-lg md:hidden px-4 py-3">
         <Link className="flex items-center justify-center gap-2" href={logoHref}>
-          <Image src={isDark ? "/Trakzi/TrakzilogoB.png" : "/Trakzi/Trakzilogo.png"} alt="Trakzi" width={120} height={28} className="h-7 w-auto" draggable={false} />
+          <Image src="/Trakzi/LogoShort.svg" alt="Trakzi" width={120} height={28} className="h-7 w-auto" draggable={false} />
         </Link>
         <div className="flex items-center gap-1">
           <LanguagePicker />

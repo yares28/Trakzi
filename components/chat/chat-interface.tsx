@@ -489,12 +489,13 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
               className="mb-4"
             >
               <Image
-                src="/Trakzi/Trakziicon.png"
+                src="/Trakzi/LogoShort.svg"
                 alt="Trakzi"
                 width={52}
                 height={52}
                 className="rounded-2xl shadow-md"
                 priority
+               
               />
             </m.div>
 
@@ -652,7 +653,7 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
             <div className="shrink-0 bg-background/80 backdrop-blur-sm border-b border-border/30">
               <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-2">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Image src="/Trakzi/Trakziicon.png" alt="Trakzi" width={24} height={24} className="rounded-lg" />
+                  <Image src="/Trakzi/LogoShort.svg" alt="Trakzi" width={24} height={24} className="rounded-lg" />
                   <span className="text-sm font-medium">Trakzi AI</span>
                   {stats && !isLoadingStats && (
                     <span className="hidden sm:inline text-xs text-muted-foreground/60">

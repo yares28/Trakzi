@@ -71,7 +71,7 @@ export function DocsShell({ children, locale = "en" }: { children: React.ReactNo
         {/* Desktop Header */}
         <header className="sticky top-4 z-[9999] mx-auto max-w-5xl hidden md:flex items-center justify-between rounded-full bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg px-4 py-2">
           <Link href={isEs ? "/es" : "/"} className="flex items-center gap-2">
-            <Image src={isDark ? "/Trakzi/TrakzilogoB.png" : "/Trakzi/Trakzilogo.png"} alt="Trakzi" width={120} height={32} className="h-8 w-auto" draggable={false} />
+            <Image src="/Trakzi/LogoShort.svg" alt="Trakzi" width={120} height={32} className="h-8 w-auto" draggable={false} />
           </Link>
 
           <div className="absolute inset-0 hidden flex-1 flex-row items-center justify-center space-x-2 text-sm font-medium text-muted-foreground md:flex pointer-events-none">
@@ -110,7 +110,7 @@ export function DocsShell({ children, locale = "en" }: { children: React.ReactNo
         {/* Mobile Header */}
         <header className="sticky top-4 z-[9999] mx-4 flex md:hidden items-center justify-between rounded-full bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg px-4 py-3">
           <Link href={isEs ? "/es" : "/"} className="flex items-center gap-2">
-            <Image src={isDark ? "/Trakzi/TrakzilogoB.png" : "/Trakzi/Trakzilogo.png"} alt="Trakzi" width={100} height={28} className="h-7 w-auto" draggable={false} />
+            <Image src="/Trakzi/LogoShort.svg" alt="Trakzi" width={100} height={28} className="h-7 w-auto" draggable={false} />
           </Link>
           <div className="flex items-center gap-1">
             <LanguagePicker />

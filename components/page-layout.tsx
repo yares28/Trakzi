@@ -46,7 +46,7 @@ export function PageHeader({ locale = "en" }: { locale?: "en" | "es" }) {
   return (
     <header className="sticky top-4 z-[9999] mx-auto max-w-5xl hidden md:flex items-center justify-between rounded-full bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg px-4 py-2">
       <Link href={isEs ? "/es" : "/"} className="flex items-center gap-2">
-        <img src={isDark ? "/Trakzi/TrakzilogoB.png" : "/Trakzi/Trakzilogo.png"} alt="Trakzi" className="h-8 w-auto" draggable={false} />
+        <img src="/Trakzi/LogoShort.svg" alt="Trakzi" className="h-8 w-auto" draggable={false} />
       </Link>
 
       <div className="absolute inset-0 hidden flex-1 flex-row items-center justify-center space-x-2 text-sm font-medium text-muted-foreground pointer-events-none md:flex">

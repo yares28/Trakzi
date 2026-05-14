@@ -109,7 +109,7 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
                 style={{ transition: "opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease" }}
               >
                 <div className="flex flex-col gap-4">
-                  <h3 className="text-2xl leading-none font-semibold tracking-tight">{isEs ? "Todo en 1 — tu app de presupuesto" : "All-in-1 budgeting app"}</h3>
+                  <h3 className="text-lg sm:text-2xl leading-tight font-semibold tracking-tight text-balance">{isEs ? "Todo en 1 — tu app de presupuesto" : "All-in-1 budgeting app"}</h3>
                   <div className="text-md text-muted-foreground flex flex-col gap-2 text-sm">
                     <p className="max-w-[460px]">
                       {isEs
@@ -182,7 +182,7 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
 
                     {/* Main Content Container with Staggered Animations */}
                     <div className="absolute inset-0 flex items-center justify-center px-2 sm:px-4">
-                      <div className="flex items-center gap-2 sm:gap-4 md:gap-8 w-full justify-center">
+                      <div className="flex items-center gap-1 sm:gap-4 md:gap-8 w-full justify-center scale-[0.72] sm:scale-100 origin-center">
                         {/* Left Column */}
                         <div className="flex flex-col gap-2 sm:gap-3 min-w-0">
                             {(isEs
@@ -199,7 +199,7 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
                         ).map((item, index) => (
                             <m.div
                               key={`left-${item.label}`}
-                              className="bg-white rounded px-2 py-1.5 sm:px-3 sm:py-2 flex items-center gap-1.5 sm:gap-2 text-black text-[11px] sm:text-sm font-medium shadow-sm whitespace-nowrap"
+                              className="bg-white rounded px-1.5 py-1 sm:px-3 sm:py-2 flex items-center gap-1 sm:gap-2 text-black text-[9px] sm:text-sm font-medium shadow-sm whitespace-nowrap"
                               initial={{ opacity: 1, x: 0 }}
                               animate={isCliActive ? { x: [-20, 0] } : { x: 0 }}
                               transition={{
@@ -225,9 +225,10 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
                           whileHover={{ scale: 1.1, rotate: 5 }}
                         >
                           <img
-                            src="/Trakzi/Trakziicon.png"
+                            src="/Trakzi/LogoShort.svg"
                             alt="Trakzi Logo"
                             className="w-full h-full object-contain"
+                           
                           />
                         </m.div>
 
@@ -247,7 +248,7 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
                         ).map((item, index) => (
                             <m.div
                               key={`right-${item.label}`}
-                              className="bg-white rounded px-2 py-1.5 sm:px-3 sm:py-2 flex items-center gap-1.5 sm:gap-2 text-black text-[11px] sm:text-sm font-medium shadow-sm whitespace-nowrap"
+                              className="bg-white rounded px-1.5 py-1 sm:px-3 sm:py-2 flex items-center gap-1 sm:gap-2 text-black text-[9px] sm:text-sm font-medium shadow-sm whitespace-nowrap"
                               initial={{ opacity: 1, x: 0 }}
                               animate={isCliActive ? { x: [20, 0] } : { x: 0 }}
                               transition={{

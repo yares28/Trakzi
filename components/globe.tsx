@@ -46,35 +46,36 @@ const Earth: React.FC<EarthProps> = ({
     window.addEventListener("resize", handleResize, { passive: true })
     onResize()
     let phi = 0
-    const globe = createGlobe(canvasRef.current!, {
-      devicePixelRatio: 2,
-      width: width * 2,
-      height: width * 2,
-      phi: 0,
-      theta: theta,
-      dark: dark,
-      scale: scale,
-      diffuse: diffuse,
-      mapSamples: mapSamples,
-      mapBrightness: mapBrightness,
-      baseColor: baseColor,
-      markerColor: markerColor,
-      glowColor: glowColor,
-      opacity: 1,
-      offset: [0, 0],
-      markers: [
-        // longitude latitude
-      ],
-      onRender: (state: Record<string, any>) => {
-        // Called on every animation frame.
-        // `state` will be an empty object, return updated params.\
-        state.phi = phi
-        phi += 0.003
-      },
-    })
+    let globe: ReturnType<typeof createGlobe> | null = null
+    try {
+      globe = createGlobe(canvasRef.current!, {
+        devicePixelRatio: 2,
+        width: width * 2,
+        height: width * 2,
+        phi: 0,
+        theta: theta,
+        dark: dark,
+        scale: scale,
+        diffuse: diffuse,
+        mapSamples: mapSamples,
+        mapBrightness: mapBrightness,
+        baseColor: baseColor,
+        markerColor: markerColor,
+        glowColor: glowColor,
+        opacity: 1,
+        offset: [0, 0],
+        markers: [],
+        onRender: (state: Record<string, any>) => {
+          state.phi = phi
+          phi += 0.003
+        },
+      })
+    } catch {
+      // WebGL unavailable (e.g. headless/SSR) — render nothing
+    }
 
     return () => {
-      globe.destroy()
+      globe?.destroy()
       window.removeEventListener("resize", handleResize)
       if (resizeTimeout) clearTimeout(resizeTimeout)
     }

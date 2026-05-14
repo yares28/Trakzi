@@ -177,12 +177,13 @@ export function StickyFooter({ locale = "en" }: StickyFooterProps = {}) {
               transition={{ duration: 0.8, delay: 0.3 }}
             >
               <Image
-                src="/Trakzi/TrakziiconB.png"
+                src="/Trakzi/LogoShort.svg"
                 alt=""
                 width={180}
                 height={180}
                 className="h-full w-auto object-contain"
                 aria-hidden="true"
+               
               />
             </m.div>
           </div>

@@ -51,7 +51,9 @@
       "Bash(xxd)",
       "Bash(python3 *)",
       "Bash(xargs ls *)",
-      "Bash(claude plugin *)"
+      "Bash(claude plugin *)",
+      "Bash(sips *)",
+      "Bash(lsof -ti:3000)"
     ]
   },
   "enabledPlugins": {

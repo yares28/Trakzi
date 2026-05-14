@@ -7,6 +7,7 @@ import { Check, ArrowRight, Sparkles, Globe } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { geist } from "@/lib/fonts"
 import { PageHeader, CtaButtons } from "@/components/page-layout"
+import { HeroBackgroundLogo } from "@/components/hero-background-logo"
 import { StickyFooter } from "@/components/sticky-footer"
 
 import { SectionSeparator } from "@/components/section-separator"
@@ -166,28 +167,7 @@ export default function FeaturesPage() {
         <div className="container mx-auto px-4 py-32 sm:py-48 relative z-10 flex-1 flex flex-col">
           <div className="mx-auto max-w-4xl text-center flex-1 flex flex-col justify-center relative">
 
-            {/* Background SVG — same as landing hero */}
-            <m.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1.5, ease: "easeOut" }}
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 pointer-events-none select-none flex items-center justify-center w-full h-full"
-            >
-              <m.div
-                animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.3, 0.1] }}
-                transition={{ duration: 80, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute w-[500px] h-[500px] sm:w-[800px] sm:h-[800px] bg-white/20 blur-[120px] rounded-full mix-blend-screen"
-              />
-              <m.div
-                animate={{ scale: [0.95, 1.05, 0.95] }}
-                transition={{ duration: 80, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute flex items-center justify-center w-[600px] h-[600px] sm:w-[1100px] sm:h-[1100px] opacity-[0.35] dark:mix-blend-plus-lighter"
-              >
-                <img src="/Trakzi/fulleticonB.svg" alt="" className="absolute w-full h-full object-contain brightness-0 dark:invert dark:drop-shadow-[0_0_40px_rgba(255,255,255,1)]" />
-                <img src="/Trakzi/fulleticonB.svg" alt="" className="absolute w-full h-full object-contain brightness-0 dark:invert blur-[30px] opacity-80" />
-                <img src="/Trakzi/fulleticonB.svg" alt="" className="absolute w-full h-full object-contain brightness-0 dark:invert opacity-60 dark:mix-blend-overlay" />
-              </m.div>
-            </m.div>
+            <HeroBackgroundLogo />
 
             <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-8">
               <Badge variant="secondary" className="inline-flex items-center gap-2 px-4 py-2 text-sm">

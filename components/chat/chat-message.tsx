@@ -141,11 +141,12 @@ export const ChatMessage = memo(function ChatMessage({
           )
         ) : (
           <Image
-            src="/Trakzi/Trakziicon.png"
+            src="/Trakzi/LogoShort.svg"
             alt="Trakzi AI"
             width={28}
             height={28}
             className="rounded-xl"
+           
           />
         )}
       </div>

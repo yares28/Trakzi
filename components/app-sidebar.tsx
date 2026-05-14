@@ -397,26 +397,24 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
                     <>
                       {mounted ? (
                         <Image
-                          src={
-                            theme === "dark"
-                              ? "/Trakzi/TrakzilogoB.png"
-                              : "/Trakzi/Trakzilogo.png"
-                          }
+                          src="/Trakzi/LogoShort.svg"
                           alt="Trakzi"
                           width={180}
                           height={60}
                           className="h-20 w-auto max-w-full object-contain transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] group-data-[state=collapsed]:hidden group-data-[state=collapsed]:scale-90 group-data-[state=collapsed]:opacity-0 md:h-16 md:object-left"
+                         
                         />
                       ) : (
                         <div className="h-20 w-full max-w-[200px] md:h-16 group-data-[state=collapsed]:hidden" />
                       )}
                       {mounted ? (
                         <Image
-                          src="/Trakzi/Trakziicon.png"
+                          src="/Trakzi/LogoShort.svg"
                           alt="Trakzi icon"
                           width={64}
                           height={64}
                           className="hidden size-10 object-contain opacity-0 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] group-data-[state=collapsed]:block group-data-[state=collapsed]:opacity-100 group-data-[state=collapsed]:scale-100"
+                         
                         />
                       ) : (
                         <div className="hidden size-10 group-data-[state=collapsed]:block" />

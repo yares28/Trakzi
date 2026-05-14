@@ -60,6 +60,7 @@ function getDocsNav(locale: "en" | "es"): DocNavGroup[] {
         { title: "Grocery Budget Tips", href: "/docs/grocery-budget-tips" },
         { title: "Best Free Budgeting Apps", href: "/docs/budgeting-app-best-free-picks" },
         { title: "Help Me With My Budget", href: "/docs/help-me-with-my-budget" },
+        { title: "Help With Budgeting", href: "/docs/help-with-budgeting" },
         { title: "Budgeting for Investors", href: "/docs/help-me-budget-for-investors" },
       ],
     },
@@ -129,7 +130,7 @@ export function DocsSidebar({ locale = "en", mode = "fixed" }: { locale?: "en" |
       {/* Logo */}
       <div className="border-b border-border/50 px-4 py-4 flex-shrink-0">
         <Link href="/" className="flex items-center gap-2">
-          <img src={isDark ? "/Trakzi/TrakzilogoB.png" : "/Trakzi/Trakzilogo.png"} alt="Trakzi" className="h-6 w-auto" draggable={false} />
+          <img src="/Trakzi/LogoShort.svg" alt="Trakzi" className="h-6 w-auto" draggable={false} />
         </Link>
       </div>
 

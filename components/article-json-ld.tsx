@@ -22,7 +22,7 @@ export function ArticleJsonLd({ post }: ArticleJsonLdProps) {
       name: "Trakzi",
       logo: {
         "@type": "ImageObject",
-        url: "https://trakzi.com/Trakzi/TrakzilogoB.png",
+        url: "https://trakzi.com/Trakzi/LogoShort.svg",
       },
     },
     mainEntityOfPage: {
