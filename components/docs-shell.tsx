@@ -3,12 +3,35 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { Sun, Moon } from "lucide-react"
+import { useTheme } from "next-themes"
 import { LanguagePicker } from "@/components/language-picker"
 import { StickyFooter } from "@/components/sticky-footer"
 
 export function DocsShell({ children, locale = "en" }: { children: React.ReactNode; locale?: "en" | "es" }) {
   const isEs = locale === "es"
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const { setTheme } = useTheme()
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof document !== "undefined") {
+      return document.documentElement.classList.contains("dark")
+    }
+    return true
+  })
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains("dark"))
+    })
+    observer.observe(document.documentElement, { attributeFilter: ["class"] })
+    return () => observer.disconnect()
+  }, [])
+
+  const toggleTheme = () => {
+    const next = isDark ? "light" : "dark"
+    setIsDark(!isDark)
+    setTheme(next)
+  }
 
   useEffect(() => {
     if (!isMobileMenuOpen) return
@@ -48,7 +71,7 @@ export function DocsShell({ children, locale = "en" }: { children: React.ReactNo
         {/* Desktop Header */}
         <header className="sticky top-4 z-[9999] mx-auto max-w-5xl hidden md:flex items-center justify-between rounded-full bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg px-4 py-2">
           <Link href={isEs ? "/es" : "/"} className="flex items-center gap-2">
-            <Image src="/Trakzi/TrakzilogoB.png" alt="Trakzi" width={120} height={32} className="h-8 w-auto" draggable={false} />
+            <Image src={isDark ? "/Trakzi/TrakzilogoB.png" : "/Trakzi/Trakzilogo.png"} alt="Trakzi" width={120} height={32} className="h-8 w-auto" draggable={false} />
           </Link>
 
           <div className="absolute inset-0 hidden flex-1 flex-row items-center justify-center space-x-2 text-sm font-medium text-muted-foreground md:flex pointer-events-none">
@@ -61,6 +84,14 @@ export function DocsShell({ children, locale = "en" }: { children: React.ReactNo
 
           <div className="flex items-center gap-2">
             <LanguagePicker />
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label="Toggle theme"
+              className="flex items-center justify-center w-9 h-9 rounded-full border border-border bg-background/50 hover:bg-background/80 text-foreground transition-colors"
+            >
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
             <Link
               href="/sign-in"
               className="rounded-md font-medium relative cursor-pointer hover:-translate-y-0.5 transition duration-200 inline-block text-center border border-border bg-background/50 hover:bg-background/80 text-foreground px-4 py-2 text-sm"
@@ -79,10 +110,18 @@ export function DocsShell({ children, locale = "en" }: { children: React.ReactNo
         {/* Mobile Header */}
         <header className="sticky top-4 z-[9999] mx-4 flex md:hidden items-center justify-between rounded-full bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg px-4 py-3">
           <Link href={isEs ? "/es" : "/"} className="flex items-center gap-2">
-            <Image src="/Trakzi/TrakzilogoB.png" alt="Trakzi" width={100} height={28} className="h-7 w-auto" draggable={false} />
+            <Image src={isDark ? "/Trakzi/TrakzilogoB.png" : "/Trakzi/Trakzilogo.png"} alt="Trakzi" width={100} height={28} className="h-7 w-auto" draggable={false} />
           </Link>
           <div className="flex items-center gap-1">
             <LanguagePicker />
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label="Toggle theme"
+              className="flex items-center justify-center w-9 h-9 rounded-full bg-background/50 border border-border/50 transition-colors hover:bg-background/80"
+            >
+              {isDark ? <Sun className="h-4 w-4 text-foreground" /> : <Moon className="h-4 w-4 text-foreground" />}
+            </button>
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}

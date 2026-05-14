@@ -1,6 +1,5 @@
 import type { Metadata } from "next"
 import "./landing.css"
-import { ForceDark } from "@/components/force-dark"
 
 export const metadata: Metadata = {
   title: "Trakzi — The All-in-One Budgeting Workspace",
@@ -43,14 +42,24 @@ const softwareAppJsonLd = {
       name: "Pro",
       price: "4.99",
       priceCurrency: "EUR",
-      "https://schema.org/unitText": "month",
+      priceSpecification: {
+        "@type": "UnitPriceSpecification",
+        price: "4.99",
+        priceCurrency: "EUR",
+        unitCode: "MON",
+      },
     },
     {
       "@type": "Offer",
       name: "Max",
       price: "19.99",
       priceCurrency: "EUR",
-      "https://schema.org/unitText": "month",
+      priceSpecification: {
+        "@type": "UnitPriceSpecification",
+        price: "19.99",
+        priceCurrency: "EUR",
+        unitCode: "MON",
+      },
     },
   ],
 }
@@ -62,7 +71,6 @@ export default function LandingLayout({
 }) {
   return (
     <div className="min-h-screen">
-      <ForceDark />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}

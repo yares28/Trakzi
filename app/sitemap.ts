@@ -6,7 +6,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     const staticPages = [
         {
             url: baseUrl,
-            lastModified: new Date("2026-03-01"),
+            lastModified: new Date(),
             changeFrequency: "weekly" as const,
             priority: 1,
         },
@@ -48,7 +48,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
         },
         {
             url: `${baseUrl}/features`,
-            lastModified: new Date("2026-03-01"),
+            lastModified: new Date(),
             changeFrequency: "monthly" as const,
             priority: 0.9,
         },
@@ -79,7 +79,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
         // Spanish pages
         {
             url: `${baseUrl}/es`,
-            lastModified: new Date("2026-03-01"),
+            lastModified: new Date(),
             changeFrequency: "weekly" as const,
             priority: 0.9,
         },
@@ -126,7 +126,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
     const docsIndex = {
         url: `${baseUrl}/docs`,
-        lastModified: new Date("2026-03-01"),
+        lastModified: docPages.length > 0 ? docPages[0].lastModified : new Date(),
         changeFrequency: "weekly" as const,
         priority: 0.8,
     }
@@ -142,7 +142,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
     const esDocsIndex = {
         url: `${baseUrl}/es/docs`,
-        lastModified: new Date("2026-03-01"),
+        lastModified: esDocPages.length > 0 ? esDocPages[0].lastModified : new Date(),
         changeFrequency: "weekly" as const,
         priority: 0.7,
     }
@@ -169,7 +169,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
         },
         {
             url: `${baseUrl}/pricing`,
-            lastModified: new Date("2026-03-01"),
+            lastModified: new Date(),
             changeFrequency: "monthly" as const,
             priority: 0.9,
         },

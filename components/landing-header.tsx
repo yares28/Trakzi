@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { Sun, Moon } from "lucide-react"
+import { useTheme } from "next-themes"
 import { LanguagePicker } from "@/components/language-picker"
 
 export interface LandingNavLink {
@@ -34,6 +36,26 @@ export function LandingHeader({
 }: LandingHeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const { resolvedTheme, setTheme } = useTheme()
+
+  // Read the actual class applied by the inline script so the icon is correct
+  // on first paint — no flash, no wrong-icon-on-first-click.
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof document !== "undefined") {
+      return document.documentElement.classList.contains("dark")
+    }
+    return true
+  })
+
+  useEffect(() => {
+    if (resolvedTheme) setIsDark(resolvedTheme === "dark")
+  }, [resolvedTheme])
+
+  const toggleTheme = () => {
+    const next = isDark ? "light" : "dark"
+    setIsDark(!isDark)
+    setTheme(next)
+  }
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 100)
@@ -82,7 +104,7 @@ export function LandingHeader({
           href={logoHref}
         >
           <Image
-            src="/Trakzi/TrakzilogoB.png"
+            src={isDark ? "/Trakzi/TrakzilogoB.png" : "/Trakzi/Trakzilogo.png"}
             alt="Trakzi"
             width={120}
             height={32}
@@ -114,6 +136,18 @@ export function LandingHeader({
 
         <div className="flex items-center gap-3 justify-self-end">
           <LanguagePicker />
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label="Toggle theme"
+            className="flex items-center justify-center w-9 h-9 rounded-full border border-border bg-background/50 hover:bg-background/80 text-foreground transition-colors"
+          >
+            {isDark ? (
+              <Sun className="h-4 w-4" />
+            ) : (
+              <Moon className="h-4 w-4" />
+            )}
+          </button>
           <Link
             href={loginHref}
             className="rounded-md font-medium relative cursor-pointer hover:-translate-y-0.5 transition duration-200 inline-block text-center border border-border bg-background/50 hover:bg-background/80 text-foreground px-4 py-2 text-sm whitespace-nowrap"
@@ -132,10 +166,22 @@ export function LandingHeader({
       {/* Mobile Header — visible on mobile, hidden on desktop via CSS */}
       <header className="sticky top-4 z-50 mx-4 flex w-auto flex-row items-center justify-between rounded-full bg-background border border-border/50 shadow-lg md:hidden px-4 py-3">
         <Link className="flex items-center justify-center gap-2" href={logoHref}>
-          <Image src="/Trakzi/TrakzilogoB.png" alt="Trakzi" width={120} height={28} className="h-7 w-auto" draggable={false} />
+          <Image src={isDark ? "/Trakzi/TrakzilogoB.png" : "/Trakzi/Trakzilogo.png"} alt="Trakzi" width={120} height={28} className="h-7 w-auto" draggable={false} />
         </Link>
         <div className="flex items-center gap-1">
           <LanguagePicker />
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label="Toggle theme"
+            className="flex items-center justify-center w-9 h-9 rounded-full bg-background/50 border border-border/50 transition-colors hover:bg-background/80"
+          >
+            {isDark ? (
+              <Sun className="h-4 w-4 text-foreground" />
+            ) : (
+              <Moon className="h-4 w-4 text-foreground" />
+            )}
+          </button>
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}

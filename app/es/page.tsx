@@ -1,7 +1,5 @@
 "use client"
 
-import { useEffect, useRef } from "react"
-import { useTheme } from "next-themes"
 import { LandingHeader } from "@/components/landing-header"
 import Hero from "@/landing/hero"
 import Features from "@/components/features"
@@ -39,21 +37,6 @@ const esFaqs: FaqItem[] = [
 ]
 
 export default function SpanishLandingPage() {
-  const { setTheme } = useTheme()
-  const previousThemeRef = useRef<string | null>(null)
-
-  // Force dark mode on landing page, restore user's theme on unmount.
-  // Stored in a ref (not localStorage) to avoid race conditions when navigating
-  // between EN/ES landing pages or doing a quick back-navigation.
-  useEffect(() => {
-    const saved = localStorage.getItem("trakzi-theme") || "light"
-    previousThemeRef.current = saved
-    setTheme("dark")
-    return () => {
-      setTheme(previousThemeRef.current || "light")
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
   return (
     <div className="min-h-screen w-full relative bg-background">
       <LandingHeader

@@ -1,5 +1,6 @@
 "use client"
 
+import * as Sentry from "@sentry/nextjs"
 import { useEffect } from "react"
 
 // Global error replaces the root layout — no providers, no imports from the app.
@@ -12,7 +13,7 @@ export default function GlobalError({
   reset: () => void
 }) {
   useEffect(() => {
-    console.error("[Trakzi Global Error]", error)
+    Sentry.captureException(error)
   }, [error])
 
   return (

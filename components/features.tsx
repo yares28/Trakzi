@@ -375,10 +375,10 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
                 </div>
                 <div className="flex grow items-center justify-center select-none relative min-h-[300px] p-4">
                   <div className="w-full max-w-lg">
-                    <div className="relative rounded-2xl border border-white/10 bg-black/20 dark:bg-white/5 backdrop-blur-sm">
+                    <div className="relative rounded-2xl border border-border bg-muted/40 dark:bg-white/5 backdrop-blur-sm">
                       <div className="p-4">
                         <textarea
-                          className="w-full min-h-[100px] bg-transparent border-none text-white placeholder:text-white/50 resize-none focus:outline-none text-base leading-relaxed"
+                          className="w-full min-h-[100px] bg-transparent border-none text-foreground placeholder:text-muted-foreground resize-none focus:outline-none text-base leading-relaxed"
                           placeholder={isEs ? "Pregunta sobre tus gastos..." : "Ask about your spending..."}
                           value={inputValue}
                           onChange={(e) => setInputValue(e.target.value)}
@@ -387,7 +387,7 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
                       </div>
                       <div className="flex items-center justify-between px-4 pb-4">
                         <div className="flex items-center gap-3">
-                          <button className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
+                          <button className="p-2 rounded-full bg-muted hover:bg-muted/80 dark:bg-white/10 dark:hover:bg-white/20 transition-colors">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               width="16"
@@ -398,7 +398,7 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
                               strokeWidth="2"
                               strokeLinecap="round"
                               strokeLinejoin="round"
-                              className="text-white/70"
+                              className="text-muted-foreground"
                             >
                               <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
                             </svg>
@@ -422,7 +422,7 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
                             {isEs ? "Preguntar" : "Ask"}
                           </button>
                         </div>
-                        <button className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
+                        <button className="p-2 rounded-full bg-muted hover:bg-muted/80 dark:bg-white/10 dark:hover:bg-white/20 transition-colors">
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
                             width="16"
@@ -433,7 +433,7 @@ export default function Features({ locale = "en" }: { locale?: "en" | "es" }) {
                             strokeWidth="2"
                             strokeLinecap="round"
                             strokeLinejoin="round"
-                            className="text-white/70"
+                            className="text-muted-foreground"
                           >
                             <path d="m22 2-7 20-4-9-9-4Z"></path>
                             <path d="M22 2 11 13"></path>

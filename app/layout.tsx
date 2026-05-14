@@ -122,6 +122,10 @@ export const metadata: Metadata = {
   },
 };
 
+// Inline theme-detection script — hardcoded string, no user input, safe from XSS.
+// Reads stored user preference and applies dark class before first paint to prevent flash.
+const themeScript = `(function(){try{var s=localStorage.getItem('trakzi-theme');if(s!=='light')document.documentElement.classList.add('dark');}catch(e){document.documentElement.classList.add('dark');}})();`
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -165,7 +169,8 @@ export default function RootLayout({
     >
       <html lang="en" suppressHydrationWarning className="overflow-x-hidden">
         <head>
-          <script dangerouslySetInnerHTML={{ __html: `(function(){try{var p=window.location.pathname;var isApp=/^\\/(home|analytics|savings|fridge|chat|pockets|friends|data-library|rooms|settings|dashboard|testCharts)/.test(p);if(isApp){var s=localStorage.getItem('trakzi-theme');if(s!=='light')document.documentElement.classList.add('dark');}else{document.documentElement.classList.add('dark');}}catch(e){document.documentElement.classList.add('dark');}})();` }} />
+          {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+          <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         </head>
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}

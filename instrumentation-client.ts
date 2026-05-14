@@ -1,4 +1,7 @@
+import * as Sentry from "@sentry/nextjs"
 import posthog from "posthog-js"
+
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart
 
 function initPostHog() {
   if (!process.env.NEXT_PUBLIC_POSTHOG_KEY) return

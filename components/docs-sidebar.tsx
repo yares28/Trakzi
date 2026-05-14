@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -57,6 +58,9 @@ function getDocsNav(locale: "en" | "es"): DocNavGroup[] {
         { title: "How to Track Expenses", href: "/docs/how-to-track-expenses" },
         { title: "Split Bills With Roommates", href: "/docs/split-bills-with-roommates" },
         { title: "Grocery Budget Tips", href: "/docs/grocery-budget-tips" },
+        { title: "Best Free Budgeting Apps", href: "/docs/budgeting-app-best-free-picks" },
+        { title: "Help Me With My Budget", href: "/docs/help-me-with-my-budget" },
+        { title: "Budgeting for Investors", href: "/docs/help-me-budget-for-investors" },
       ],
     },
     {
@@ -73,6 +77,17 @@ function getDocsNav(locale: "en" | "es"): DocNavGroup[] {
 export function DocsSidebar({ locale = "en", mode = "fixed" }: { locale?: "en" | "es"; mode?: "fixed" | "sticky" }) {
   const pathname = usePathname()
   const nav = getDocsNav(locale)
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof document !== "undefined") return document.documentElement.classList.contains("dark")
+    return true
+  })
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains("dark"))
+    })
+    observer.observe(document.documentElement, { attributeFilter: ["class"] })
+    return () => observer.disconnect()
+  }, [])
 
   if (mode === "sticky") {
     return (
@@ -114,7 +129,7 @@ export function DocsSidebar({ locale = "en", mode = "fixed" }: { locale?: "en" |
       {/* Logo */}
       <div className="border-b border-border/50 px-4 py-4 flex-shrink-0">
         <Link href="/" className="flex items-center gap-2">
-          <img src="/Trakzi/TrakzilogoB.png" alt="Trakzi" className="h-6 w-auto" draggable={false} />
+          <img src={isDark ? "/Trakzi/TrakzilogoB.png" : "/Trakzi/Trakzilogo.png"} alt="Trakzi" className="h-6 w-auto" draggable={false} />
         </Link>
       </div>
 
@@ -133,8 +148,8 @@ export function DocsSidebar({ locale = "en", mode = "fixed" }: { locale?: "en" |
                   className={cn(
                     "block px-3 py-2 rounded-lg text-sm transition-colors",
                     pathname === item.href
-                      ? "bg-white/10 text-primary font-medium"
-                      : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                      ? "bg-muted text-primary font-medium"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   )}
                 >
                   {item.title}

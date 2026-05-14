@@ -1,12 +1,35 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Play } from "lucide-react"
+import { Play, Sun, Moon } from "lucide-react"
+import { useTheme } from "next-themes"
 import { LanguagePicker } from "@/components/language-picker"
 import { useDemoMode } from "@/lib/demo/demo-context"
 
 export function PageHeader({ locale = "en" }: { locale?: "en" | "es" }) {
   const isEs = locale === "es"
+  const { setTheme } = useTheme()
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof document !== "undefined") {
+      return document.documentElement.classList.contains("dark")
+    }
+    return true
+  })
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains("dark"))
+    })
+    observer.observe(document.documentElement, { attributeFilter: ["class"] })
+    return () => observer.disconnect()
+  }, [])
+
+  const toggleTheme = () => {
+    const next = isDark ? "light" : "dark"
+    setIsDark(!isDark)
+    setTheme(next)
+  }
 
   const navLinks = isEs
     ? [
@@ -23,7 +46,7 @@ export function PageHeader({ locale = "en" }: { locale?: "en" | "es" }) {
   return (
     <header className="sticky top-4 z-[9999] mx-auto max-w-5xl hidden md:flex items-center justify-between rounded-full bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg px-4 py-2">
       <Link href={isEs ? "/es" : "/"} className="flex items-center gap-2">
-        <img src="/Trakzi/TrakzilogoB.png" alt="Trakzi" className="h-8 w-auto" draggable={false} />
+        <img src={isDark ? "/Trakzi/TrakzilogoB.png" : "/Trakzi/Trakzilogo.png"} alt="Trakzi" className="h-8 w-auto" draggable={false} />
       </Link>
 
       <div className="absolute inset-0 hidden flex-1 flex-row items-center justify-center space-x-2 text-sm font-medium text-muted-foreground pointer-events-none md:flex">
@@ -36,6 +59,14 @@ export function PageHeader({ locale = "en" }: { locale?: "en" | "es" }) {
 
       <div className="flex items-center gap-2">
         <LanguagePicker />
+        <button
+          type="button"
+          onClick={toggleTheme}
+          aria-label="Toggle theme"
+          className="flex items-center justify-center w-9 h-9 rounded-full border border-border bg-background/50 hover:bg-background/80 text-foreground transition-colors"
+        >
+          {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </button>
         <Link
           href="/sign-in"
           className="rounded-md font-medium relative cursor-pointer hover:-translate-y-0.5 transition duration-200 inline-block text-center border border-border bg-background/50 hover:bg-background/80 text-foreground px-4 py-2 text-sm"

@@ -284,9 +284,9 @@ export const ChartNeedsWantsPie = memo(function ChartNeedsWantsPie({
           </div>
         </CardHeader>
         {/* Pull content up on mobile to reclaim gap-6 space */}
-        <CardContent className="px-2 pt-0 sm:px-6 sm:pt-2 flex-1 min-h-0 flex flex-col pb-0 -mt-4 sm:mt-0">
+        <CardContent className="px-2 pt-0 sm:px-6 sm:pt-2 flex-1 min-h-0 flex flex-col pb-0 -mt-4 sm:mt-0 overflow-visible relative z-10">
           <div
-            className="relative flex-1 min-h-[240px] md:min-h-[200px]"
+            className="relative z-10 flex-1 min-h-[180px] md:min-h-[100px] overflow-visible [&>div]:overflow-visible [&>div>div]:overflow-visible [&_svg]:overflow-visible"
             key={colorScheme}
           >
             {renderChart(true)}

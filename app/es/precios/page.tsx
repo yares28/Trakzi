@@ -208,11 +208,11 @@ export default function EsPreciosPage() {
               <m.div
                 animate={{ scale: [0.95, 1.05, 0.95] }}
                 transition={{ duration: 80, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute flex items-center justify-center w-[600px] h-[600px] sm:w-[1100px] sm:h-[1100px] opacity-[0.35] mix-blend-plus-lighter"
+                className="absolute flex items-center justify-center w-[600px] h-[600px] sm:w-[1100px] sm:h-[1100px] opacity-[0.35] dark:mix-blend-plus-lighter"
               >
-                <img src="/Trakzi/fulleticonB.svg" alt="" className="absolute w-full h-full object-contain brightness-0 invert drop-shadow-[0_0_40px_rgba(255,255,255,1)]" />
-                <img src="/Trakzi/fulleticonB.svg" alt="" className="absolute w-full h-full object-contain brightness-0 invert blur-[30px] opacity-80" />
-                <img src="/Trakzi/fulleticonB.svg" alt="" className="absolute w-full h-full object-contain brightness-0 invert opacity-60 mix-blend-overlay" />
+                <img src="/Trakzi/fulleticonB.svg" alt="" className="absolute w-full h-full object-contain brightness-0 dark:invert dark:drop-shadow-[0_0_40px_rgba(255,255,255,1)]" />
+                <img src="/Trakzi/fulleticonB.svg" alt="" className="absolute w-full h-full object-contain brightness-0 dark:invert blur-[30px] opacity-80" />
+                <img src="/Trakzi/fulleticonB.svg" alt="" className="absolute w-full h-full object-contain brightness-0 dark:invert opacity-60 dark:mix-blend-overlay" />
               </m.div>
             </m.div>
 

@@ -50,7 +50,7 @@ export function DocPostContent({ post, relatedPosts, locale = "en" }: DocPostCon
         </h1>
 
         {/* Meta */}
-        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-10 pb-10 border-b border-white/10">
+        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-10 pb-10 border-b border-border">
           <span className="flex items-center gap-1.5">
             <Calendar className="h-4 w-4" />
             {new Date(post.date).toLocaleDateString(isEs ? "es-ES" : "en-US", { month: "long", day: "numeric", year: "numeric" })}
@@ -71,13 +71,13 @@ export function DocPostContent({ post, relatedPosts, locale = "en" }: DocPostCon
         <MarkdownRenderer content={post.content} />
 
         {/* Author Bio */}
-        <div className="mt-16 pt-10 border-t border-white/10">
+        <div className="mt-16 pt-10 border-t border-border">
           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4">{authorLabel}</p>
           <AuthorBio author={post.author} />
         </div>
 
         {/* CTA */}
-        <div className="mt-16 p-8 rounded-2xl border border-white/10 bg-card shadow-[0px_2px_0px_0px_rgba(255,255,255,0.1)_inset] text-center">
+        <div className="mt-16 p-8 rounded-2xl border border-border bg-card shadow-sm text-center">
           <h3 className={cn("text-3xl font-semibold tracking-tighter text-foreground mb-3", geist.className)}>{ctaTitle}</h3>
           <p className="text-sm text-muted-foreground mb-8">{ctaText}</p>
           <Link href="/sign-up">
@@ -102,7 +102,7 @@ export function DocPostContent({ post, relatedPosts, locale = "en" }: DocPostCon
 
       {/* Related Posts */}
       {relatedPosts.length > 0 && (
-        <div className="max-w-3xl mx-auto mt-16 pt-10 border-t border-white/10">
+        <div className="max-w-3xl mx-auto mt-16 pt-10 border-t border-border">
           <div className="border-primary/40 text-primary inline-flex items-center gap-2 rounded-full border px-3 py-1 uppercase mb-6">
             <span>✶</span>
             <span className="text-sm">{relatedLabel}</span>
@@ -112,7 +112,7 @@ export function DocPostContent({ post, relatedPosts, locale = "en" }: DocPostCon
               <Link
                 key={rp.slug}
                 href={`${docsHref}/${rp.slug}`}
-                className="group block p-5 rounded-2xl border border-white/10 bg-card shadow-[0px_2px_0px_0px_rgba(255,255,255,0.1)_inset] hover:border-white/20 transition-all"
+                className="group block p-5 rounded-2xl border border-border bg-card shadow-sm hover:border-white/20 transition-all"
               >
                 <h3 className="text-sm font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">
                   {rp.title}

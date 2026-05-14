@@ -69,12 +69,12 @@ export function CookieConsentBanner() {
           style={{ background: "linear-gradient(90deg, transparent, oklch(0.6368 0.2078 25.3313 / 0.6), transparent)" }}
         />
 
-        <div className="flex items-center gap-3 px-4 py-3.5">
-          {/* Icon + label */}
-          <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:gap-3">
+          {/* Top row: sparkline + badge + text */}
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <MiniSparkline />
             <span
-              className="inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-widest uppercase px-2 py-0.5 rounded-full border"
+              className="inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-widest uppercase px-2 py-0.5 rounded-full border shrink-0"
               style={{
                 color: "oklch(0.6368 0.2078 25.3313)",
                 borderColor: "oklch(0.6368 0.2078 25.3313 / 0.3)",
@@ -87,30 +87,27 @@ export function CookieConsentBanner() {
               />
               Analytics
             </span>
+            {/* Divider — only on wide layout */}
+            <div className="hidden sm:block w-px self-stretch bg-border/50 shrink-0" />
+            <p className="text-xs text-muted-foreground leading-snug min-w-0 truncate sm:whitespace-normal">
+              We use analytics to improve Trakzi.{" "}
+              <a href="/cookies" className="underline underline-offset-2 hover:text-foreground transition-colors whitespace-nowrap">
+                Cookie policy
+              </a>
+            </p>
           </div>
 
-          {/* Divider */}
-          <div className="w-px self-stretch bg-border/50 shrink-0" />
-
-          {/* Text */}
-          <p className="text-xs text-muted-foreground leading-snug flex-1 min-w-0">
-            We use analytics to improve Trakzi.{" "}
-            <a href="/cookies" className="underline underline-offset-2 hover:text-foreground transition-colors">
-              Cookie policy
-            </a>
-          </p>
-
-          {/* Actions */}
+          {/* Buttons — full width on mobile, auto on desktop */}
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={decline}
-              className="h-7 px-3 rounded-lg text-xs font-medium text-muted-foreground border border-border/60 hover:text-foreground hover:border-border transition-colors"
+              className="flex-1 sm:flex-none h-8 sm:h-7 px-3 rounded-lg text-xs font-medium text-muted-foreground border border-border/60 hover:text-foreground hover:border-border transition-colors"
             >
               Decline
             </button>
             <button
               onClick={accept}
-              className="h-7 px-3 rounded-lg text-xs font-semibold transition-opacity hover:opacity-85"
+              className="flex-1 sm:flex-none h-8 sm:h-7 px-3 rounded-lg text-xs font-semibold transition-opacity hover:opacity-85"
               style={{
                 background: "oklch(0.6368 0.2078 25.3313)",
                 color: "#fff",
