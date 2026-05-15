@@ -241,6 +241,36 @@ export interface FridgeBundleData {
     }>
 }
 
+// Budgets Bundle Types
+export interface BudgetsBundleData {
+    monthsElapsed: number
+    monthlyTotals: Array<{ month: string; cap: number; spent: number }>
+    categories: Array<{
+        categoryId: number
+        name: string
+        color: string
+        monthlyCap: number | null
+        monthlySpends: Array<{ month: string; amount: number }>
+        avgMonthly: number
+        totalSpent: number
+        overByMonthly: number
+        overBudgetMonths: number
+        status: 'under' | 'warning' | 'over' | 'unset'
+    }>
+    suggestions: Array<{
+        categoryId: number
+        name: string
+        color: string
+        monthlyCap: number | null
+        monthlySpends: Array<{ month: string; amount: number }>
+        avgMonthly: number
+        totalSpent: number
+        overByMonthly: number
+        overBudgetMonths: number
+        status: 'under' | 'warning' | 'over' | 'unset'
+    }>
+}
+
 // Test Charts Bundle Types
 export interface TestChartsBundleData {
     transactions: Array<{
@@ -370,6 +400,18 @@ async function fetchSavingsBundle(filter: string | null, accountIds: string[] = 
     const response = await demoFetch(url)
     if (!response.ok) {
         throw new Error(`Failed to fetch savings bundle: ${response.statusText}`)
+    }
+    return response.json()
+}
+
+async function fetchBudgetsBundle(filter: string | null): Promise<BudgetsBundleData> {
+    const url = filter
+        ? `/api/charts/budgets-bundle?filter=${encodeURIComponent(filter)}`
+        : `/api/charts/budgets-bundle`
+
+    const response = await demoFetch(url)
+    if (!response.ok) {
+        throw new Error(`Failed to fetch budgets bundle: ${response.statusText}`)
     }
     return response.json()
 }
@@ -556,6 +598,23 @@ export function useSavingsBundleData() {
         queryKey: ["savings-bundle", isDemoMode ? "demo" : (userId ?? ""), filter, accountQueryKey(accountIds)],
         queryFn: () => fetchSavingsBundle(filter, accountIds),
         enabled: (isDemoMode || !!userId) && isReady && accountsReady,
+        refetchOnMount: true,
+        placeholderData: keepPreviousData,
+    })
+}
+
+/**
+ * Budgets tab bundle — per-category monthly spend vs cap, with Redis caching.
+ */
+export function useBudgetsBundleData() {
+    const { userId } = useAuth()
+    const { filter, isReady } = useDateFilter()
+    const { isDemoMode } = useDemoMode()
+
+    return useQuery({
+        queryKey: ["budgets-bundle", isDemoMode ? "demo" : (userId ?? ""), filter],
+        queryFn: () => fetchBudgetsBundle(filter),
+        enabled: (isDemoMode || !!userId) && isReady,
         refetchOnMount: true,
         placeholderData: keepPreviousData,
     })
