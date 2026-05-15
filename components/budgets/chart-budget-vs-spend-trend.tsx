@@ -68,7 +68,13 @@ export const ChartBudgetVsSpendTrend = memo(function ChartBudgetVsSpendTrend({
               formatCurrency(value),
               name === "spent" ? "Spent" : "Cap",
             ]}
-            contentStyle={{ borderRadius: 8, fontSize: 12 }}
+            contentStyle={{
+              borderRadius: 8,
+              fontSize: 12,
+              backgroundColor: isDark ? "hsl(240 10% 10%)" : "hsl(0 0% 100%)",
+              color: isDark ? "hsl(0 0% 95%)" : "hsl(0 0% 10%)",
+              border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(0,0,0,0.1)",
+            }}
           />
           <Bar
             dataKey="spent"
