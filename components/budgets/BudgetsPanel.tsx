@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils"
 import type { BudgetCategoryRow } from "@/lib/types/budgets"
 
 export const BudgetsPanel = memo(function BudgetsPanel() {
-  const { data, isLoading, refetch } = useBudgetsBundleData()
+  const { data, isLoading, refetch, error } = useBudgetsBundleData()
   const { formatCurrency } = useCurrency()
 
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -53,7 +53,7 @@ export const BudgetsPanel = memo(function BudgetsPanel() {
           <Pill label="Total spent" value={formatCurrency(totalSpent)} />
           <Pill
             label="Over by"
-            value={overBy > 0 ? `+${formatCurrency(overBy)}` : formatCurrency(overBy)}
+            value={overBy > 0 ? `+${formatCurrency(overBy)}` : formatCurrency(Math.abs(overBy))}
             className={overBy > 0 ? "border-red-400/40 text-red-500" : "border-emerald-400/40 text-emerald-600"}
           />
         </div>
@@ -68,8 +68,15 @@ export const BudgetsPanel = memo(function BudgetsPanel() {
         </div>
       )}
 
+      {/* Error state */}
+      {!isLoading && error && (
+        <p className="text-sm text-muted-foreground text-center">
+          Failed to load budgets. Please try again.
+        </p>
+      )}
+
       {/* Insufficient data warning */}
-      {!isLoading && data && data.monthsElapsed < 0.1 && (
+      {!isLoading && data && data.monthsElapsed < 0.1 && !isEmpty && (
         <p className="text-sm text-muted-foreground text-center">
           Insufficient data — pick a longer date range.
         </p>
@@ -110,14 +117,14 @@ export const BudgetsPanel = memo(function BudgetsPanel() {
       {!isLoading && data && data.suggestions.length > 0 && (
         <div className="flex flex-col gap-2">
           <p className="text-xs uppercase tracking-widest text-muted-foreground/60">Suggested</p>
-          {data.suggestions.map((row) => (
+          {data.suggestions.slice(0, 5).map((row) => (
             <SuggestionTile key={row.categoryId} row={row} onAdd={openSheet} formatCurrency={formatCurrency} />
           ))}
         </div>
       )}
 
       {/* Add custom category */}
-      {!isLoading && (
+      {!isLoading && !isEmpty && (
         <button
           type="button"
           onClick={() => openSheet()}
