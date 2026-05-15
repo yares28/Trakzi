@@ -465,6 +465,9 @@ export const POST = async (request: Request) => {
         invalidateUserCachePrefix(userId, 'analytics').catch((err) => {
             console.error('[Transactions API] Analytics cache invalidation error:', err)
         })
+        invalidateUserCachePrefix(userId, 'budgets').catch((err) => {
+            console.error('[Transactions API] Budgets cache invalidation error:', err)
+        })
         invalidateUserCachePrefix(userId, 'data-library').catch((err) => {
             console.error('[Transactions API] Data library cache invalidation error:', err)
         })

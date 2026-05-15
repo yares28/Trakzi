@@ -32,6 +32,7 @@ export const DELETE = async (
         // Invalidate caches after successful deletion
         await Promise.all([
             invalidateUserCachePrefix(userId, 'analytics'),
+            invalidateUserCachePrefix(userId, 'budgets'),
             invalidateUserCachePrefix(userId, 'data-library'),
             invalidateUserCachePrefix(userId, 'home'),
             invalidateUserCachePrefix(userId, 'trends'),
@@ -233,6 +234,7 @@ export const PATCH = async (
 
         await Promise.all([
             invalidateUserCachePrefix(userId, 'analytics'),
+            invalidateUserCachePrefix(userId, 'budgets'),
             invalidateUserCachePrefix(userId, 'data-library'),
             invalidateUserCachePrefix(userId, 'home'),
             invalidateUserCachePrefix(userId, 'trends'),
