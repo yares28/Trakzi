@@ -720,30 +720,6 @@ html body[data-scroll-locked] {
    SIDEBAR SMOOTH TRANSITIONS
    ============================================ */
 
-/* Sidebar wrapper and content smooth transitions */
-[data-slot="sidebar-wrapper"] {
-  transition: opacity 300ms cubic-bezier(0.4, 0, 0.2, 1), transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Sidebar gap smooth transition */
-[data-slot="sidebar-gap"] {
-  transition: width 300ms cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: width;
-}
-
-/* Sidebar container smooth transition */
-[data-slot="sidebar-container"] {
-  transition: width 300ms cubic-bezier(0.4, 0, 0.2, 1),
-    left 300ms cubic-bezier(0.4, 0, 0.2, 1),
-    right 300ms cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: width, left, right;
-}
-
-/* Sidebar inner smooth transition */
-[data-slot="sidebar-inner"] {
-  transition: opacity 300ms cubic-bezier(0.4, 0, 0.2, 1), transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
 /* Sidebar root size to match container (desktop inset layout) */
 [data-slot="sidebar"][data-variant="inset"] {
   height: 100svh;
@@ -755,20 +731,10 @@ html body[data-scroll-locked] {
   width: calc(var(--sidebar-width-icon) + 1rem + 2px);
 }
 
-/* Sidebar menu buttons smooth transition */
+/* Sidebar menu buttons hover transition (kept — button hover is not the performance issue) */
 [data-slot="sidebar-menu-button"] {
-  transition: background-color 200ms ease,
-    color 200ms ease;
-}
-
-/* Sidebar group labels smooth fade */
-[data-slot="sidebar-group-label"] {
-  transition: opacity 250ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Sidebar main content area smooth margin transition */
-[data-slot="sidebar-inset"] {
-  transition: margin 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 150ms ease,
+    color 150ms ease;
 }
 
 /* Icons fill with primary color when their pages are active */

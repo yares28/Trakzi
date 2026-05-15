@@ -32,7 +32,7 @@ const SIDEBAR_WIDTH = "21.875rem"  // 350px - increased to close gap with header
 const SIDEBAR_WIDTH_MOBILE = "16rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
-const SIDEBAR_TRANSITION_DURATION = 300 // ms - match CSS animation duration exactly (no dead zone)
+const SIDEBAR_TRANSITION_DURATION = 0
 
 type SidebarContextProps = {
   state: "expanded" | "collapsed"
@@ -219,8 +219,8 @@ function Sidebar({
   // For offcanvas: scaleX and translateX are pure transforms (GPU-composited)
   // For icon mode: width change happens but we don't animate it (instant snap)
   const desktopTransition = {
-    gap: "transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform",
-    container: "transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform",
+    gap: "will-change-transform",
+    container: "will-change-transform",
   }
 
   if (collapsible === "none") {
@@ -247,7 +247,7 @@ function Sidebar({
           data-slot="sidebar"
           data-mobile="true"
           className={cn(
-            "fixed inset-y-0 left-0 z-50 bg-sidebar text-sidebar-foreground flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform",
+            "fixed inset-y-0 left-0 z-50 bg-sidebar text-sidebar-foreground flex flex-col will-change-transform",
             openMobile ? "translate-x-0" : "-translate-x-full",
             className
           )}
