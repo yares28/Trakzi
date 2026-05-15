@@ -386,17 +386,17 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
             Collapsed (icon mode): icon logo top, trigger below — centered. */}
         <div className="flex w-full flex-row items-center justify-between gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1">
 
-          {/* Logo */}
-          <SidebarMenu className="w-auto flex-shrink-0">
+          {/* Logo — flex-1 min-w-0 so it yields space to the fixed-size buttons */}
+          <SidebarMenu className="min-w-0 flex-1">
             <SidebarMenuItem className="w-auto">
               <SidebarMenuButton
                 asChild
-                className="!h-auto !min-h-0 !p-1 w-auto group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:!justify-center"
+                className="!h-auto !min-h-0 !p-1 w-auto group-data-[collapsible=icon]:!size-9 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:!justify-center"
                 aria-label="Home"
               >
                 <Link
                   href="/"
-                  className="flex items-center outline-none group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!justify-center"
+                  className="flex min-w-0 items-center overflow-hidden outline-none group-data-[collapsible=icon]:!size-9 group-data-[collapsible=icon]:!justify-center"
                 >
                   {mounted ? (
                     <>
@@ -404,23 +404,23 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
                       <Image
                         src="/Trakzi/LogoShort.svg"
                         alt="Trakzi"
-                        width={180}
-                        height={60}
-                        className="h-16 w-auto max-w-[180px] object-contain object-left group-data-[state=collapsed]:hidden md:h-14"
+                        width={140}
+                        height={46}
+                        className="h-10 w-auto max-w-full object-contain object-left group-data-[state=collapsed]:hidden"
                       />
                       {/* Icon logo — visible when collapsed */}
                       <Image
                         src="/Trakzi/LogoShort.svg"
                         alt="Trakzi icon"
-                        width={40}
-                        height={40}
-                        className="hidden size-8 object-contain group-data-[state=collapsed]:block"
+                        width={36}
+                        height={36}
+                        className="hidden size-7 object-contain group-data-[state=collapsed]:block"
                       />
                     </>
                   ) : (
                     <>
-                      <div className="h-14 w-full max-w-[160px] group-data-[state=collapsed]:hidden" />
-                      <div className="hidden size-8 group-data-[state=collapsed]:block" />
+                      <div className="h-10 w-full group-data-[state=collapsed]:hidden" />
+                      <div className="hidden size-7 group-data-[state=collapsed]:block" />
                     </>
                   )}
                 </Link>
@@ -430,19 +430,19 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
 
           {/* Right-side controls: filters + settings + trigger.
               In collapsed mode only the trigger is shown (filters hidden — no room). */}
-          <div className="flex flex-shrink-0 items-center gap-1">
+          <div className="flex flex-shrink-0 items-center gap-0.5">
             {/* Filters & settings: hidden when collapsed */}
-            <div className="flex items-center gap-1 group-data-[state=collapsed]:hidden">
+            <div className="flex items-center gap-0.5 group-data-[state=collapsed]:hidden">
               <DateFilter
                 availableYears={availableYears}
                 triggerVariant="ghost"
                 triggerSize="icon"
-                triggerClassName="h-8 w-8 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                triggerClassName="h-7 w-7 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               />
               <AccountFilter
                 triggerVariant="ghost"
                 triggerSize="icon"
-                triggerClassName="h-8 w-8 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                triggerClassName="h-7 w-7 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               />
               <SettingsPanel>
                 <SidebarMenuButton
@@ -450,16 +450,16 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
                   size="sm"
                   type="button"
                   aria-label="Settings"
-                  className="h-8 w-8 justify-center"
+                  className="h-7 w-7 justify-center"
                 >
-                  <IconSettings className="size-4" />
+                  <IconSettings className="size-3.5" />
                   <span className="sr-only">Settings</span>
                 </SidebarMenuButton>
               </SettingsPanel>
             </div>
 
             {/* Sidebar toggle trigger — always visible */}
-            <SidebarTrigger className="size-8 rounded-full border border-sidebar-border/70 bg-sidebar/95 text-sidebar-foreground shadow-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
+            <SidebarTrigger className="size-7 rounded-full border border-sidebar-border/70 bg-sidebar/95 text-sidebar-foreground shadow-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
           </div>
         </div>
       </SidebarHeader>
