@@ -26,8 +26,8 @@ export const GET = async (request: Request) => {
 
     return NextResponse.json(data)
   } catch (error: unknown) {
-    const status = (error as { status?: number })?.status
-    if (status === 401) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (message.includes('Unauthorized')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     console.error('[budgets-bundle] GET error:', error)
