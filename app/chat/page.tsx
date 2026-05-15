@@ -48,7 +48,8 @@ export default async function ChatPage() {
   const subscription = await getUserSubscription(userId)
   const plan = subscription?.plan ?? 'free'
 
-  const isFree = plan === 'free'
+  // Bypass paywall in local dev so the chat can be tested without a paid plan
+  const isFree = process.env.NODE_ENV !== 'development' && plan === 'free'
 
   return (
     <SidebarProvider

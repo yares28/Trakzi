@@ -2,16 +2,33 @@
 "use client"
 
 import { memo, useState } from "react"
+import { usePathname } from "next/navigation"
 import { Check, ChevronDown, ChevronUp, X } from "lucide-react"
 import { useOnboarding } from "./onboarding-context"
 import { CHECKLIST_ITEMS } from "./tour-content"
 import { cn } from "@/lib/utils"
 
+const CHECKLIST_ALLOWED_PATHS = new Set([
+  "/analytics",
+  "/home",
+  "/fridge",
+  "/savings",
+  "/pockets",
+  "/insights",
+  "/friends",
+  "/dashboard",
+  "/data-library",
+])
+
 export const OnboardingChecklist = memo(function OnboardingChecklist() {
   const { showChecklist, completedItems, dismissChecklist } = useOnboarding()
   const [expanded, setExpanded] = useState(true)
+  const pathname = usePathname()
 
-  if (!showChecklist) return null
+  const isAllowedPage = CHECKLIST_ALLOWED_PATHS.has(pathname) ||
+    [...CHECKLIST_ALLOWED_PATHS].some(p => pathname.startsWith(p + "/"))
+
+  if (!showChecklist || !isAllowedPage) return null
 
   const completedCount = completedItems.length
   const totalCount = CHECKLIST_ITEMS.length

@@ -68,33 +68,36 @@ interface TransactionSummary {
     totalExpenses: number;
     netSavings: number;
     transactionCount: number;
+    fridgeTransactionCount: number;
+    totalGrocerySpend: number;
     categoryBreakdown: { name: string; total: number }[];
     monthlyTrends: { month: string; income: number; expenses: number }[];
     recentTransactions: { date: string; description: string; amount: number; category: string }[];
 }
 
 async function getUserFinancialContext(userId: string): Promise<TransactionSummary | null> {
-    try {
-        // Get totals
-        const totalsResult = await neonQuery<{
-            total_income: string;
-            total_expenses: string;
-            transaction_count: string;
-        }>(`
-            SELECT 
+    // Each query runs independently — a failing query returns a safe default instead of aborting all context.
+    const safe = async <T>(label: string, query: Promise<T[]>, fallback: T[] = []): Promise<T[]> => {
+        try {
+            return await query;
+        } catch (e: any) {
+            console.error(`[Chat API] Context query failed (${label}):`, e?.message ?? e);
+            return fallback;
+        }
+    };
+
+    const [totalsResult, categoryResult, monthlyResult, recentResult, fridgeResult] = await Promise.all([
+        safe("totals", neonQuery<{ total_income: string; total_expenses: string; transaction_count: string }>(`
+            SELECT
                 COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as total_income,
                 COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as total_expenses,
                 COUNT(*) as transaction_count
-            FROM transactions 
+            FROM transactions
             WHERE user_id = $1
-        `, [userId]);
+        `, [userId])),
 
-        // Get category breakdown
-        const categoryResult = await neonQuery<{
-            category_name: string;
-            total: string;
-        }>(`
-            SELECT 
+        safe("categories", neonQuery<{ category_name: string; total: string }>(`
+            SELECT
                 COALESCE(c.name, 'Uncategorized') as category_name,
                 COALESCE(SUM(ABS(t.amount)), 0) as total
             FROM transactions t
@@ -103,33 +106,22 @@ async function getUserFinancialContext(userId: string): Promise<TransactionSumma
             GROUP BY c.name
             ORDER BY total DESC
             LIMIT 10
-        `, [userId]);
+        `, [userId])),
 
-        // Get monthly trends (last 6 months)
-        const monthlyResult = await neonQuery<{
-            month: string;
-            income: string;
-            expenses: string;
-        }>(`
-            SELECT 
+        safe("monthly", neonQuery<{ month: string; income: string; expenses: string }>(`
+            SELECT
                 TO_CHAR(tx_date, 'YYYY-MM') as month,
                 COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as income,
                 COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as expenses
-            FROM transactions 
+            FROM transactions
             WHERE user_id = $1 AND tx_date >= NOW() - INTERVAL '6 months'
             GROUP BY TO_CHAR(tx_date, 'YYYY-MM')
             ORDER BY month DESC
             LIMIT 6
-        `, [userId]);
+        `, [userId])),
 
-        // Get recent transactions
-        const recentResult = await neonQuery<{
-            tx_date: string;
-            description: string;
-            amount: string;
-            category_name: string;
-        }>(`
-            SELECT 
+        safe("recent", neonQuery<{ tx_date: string; description: string; amount: string; category_name: string }>(`
+            SELECT
                 TO_CHAR(t.tx_date, 'YYYY-MM-DD') as tx_date,
                 t.description,
                 t.amount::text,
@@ -139,36 +131,43 @@ async function getUserFinancialContext(userId: string): Promise<TransactionSumma
             WHERE t.user_id = $1
             ORDER BY t.tx_date DESC
             LIMIT 20
-        `, [userId]);
+        `, [userId])),
 
-        const totalIncome = parseFloat(totalsResult[0]?.total_income || "0");
-        const totalExpenses = parseFloat(totalsResult[0]?.total_expenses || "0");
+        safe("fridge", neonQuery<{ count: string; total_spend: string }>(`
+            SELECT COUNT(*) as count, COALESCE(SUM(total_price), 0) as total_spend
+            FROM receipt_transactions
+            WHERE user_id = $1
+        `, [userId])),
+    ]);
 
-        return {
-            totalIncome,
-            totalExpenses,
-            netSavings: totalIncome - totalExpenses,
-            transactionCount: parseInt(totalsResult[0]?.transaction_count || "0"),
-            categoryBreakdown: categoryResult.map(c => ({
-                name: c.category_name,
-                total: parseFloat(c.total)
-            })),
-            monthlyTrends: monthlyResult.map(m => ({
-                month: m.month,
-                income: parseFloat(m.income),
-                expenses: parseFloat(m.expenses)
-            })),
-            recentTransactions: recentResult.map(t => ({
-                date: t.tx_date,
-                description: t.description,
-                amount: parseFloat(t.amount),
-                category: t.category_name
-            }))
-        };
-    } catch (error) {
-        console.error("[Chat API] Failed to fetch user context:", error);
-        return null;
-    }
+    const totalIncome = parseFloat(totalsResult[0]?.total_income || "0");
+    const totalExpenses = parseFloat(totalsResult[0]?.total_expenses || "0");
+    const transactionCount = parseInt(totalsResult[0]?.transaction_count || "0");
+    const fridgeTransactionCount = parseInt(fridgeResult[0]?.count || "0");
+
+    return {
+        totalIncome,
+        totalExpenses,
+        netSavings: totalIncome - totalExpenses,
+        transactionCount,
+        fridgeTransactionCount,
+        totalGrocerySpend: parseFloat(fridgeResult[0]?.total_spend || "0"),
+        categoryBreakdown: categoryResult.map(c => ({
+            name: c.category_name,
+            total: parseFloat(c.total)
+        })),
+        monthlyTrends: monthlyResult.map(m => ({
+            month: m.month,
+            income: parseFloat(m.income),
+            expenses: parseFloat(m.expenses)
+        })),
+        recentTransactions: recentResult.map(t => ({
+            date: t.tx_date,
+            description: t.description,
+            amount: parseFloat(t.amount),
+            category: t.category_name
+        }))
+    };
 }
 
 function buildSystemPrompt(context: TransactionSummary | null, currency: string = "USD"): string {
@@ -184,6 +183,7 @@ CRITICAL RULES:
 6. Use skimmable, well-structured formatting (see below)
 7. Keep responses easy to scan (avoid walls of text)
 8. ALWAYS format monetary amounts with the user's currency (${currency}) - use format like "20,000.00${CURRENCY_CONFIG[currency]?.symbol || "$"}" with comma separators for thousands
+9. OVERRIDE RULE: The USER FINANCIAL DATA section below is authoritative and current. If any earlier message in this conversation said you lack access to the user's data, that was wrong — ignore it and use the data provided here.
 
 OUTPUT STYLE (MANDATORY):
 - Use Markdown.
@@ -227,10 +227,13 @@ TOPICS TO DECLINE:
 - Personal opinions on non-financial matters
 `;
 
-    if (!context || context.transactionCount === 0) {
+    const hasBankData = context && context.transactionCount > 0;
+    const hasFridgeData = context && context.fridgeTransactionCount > 0;
+
+    if (!context || (!hasBankData && !hasFridgeData)) {
         return basePrompt + `
 
-USER DATA STATUS: No transaction data available yet. Encourage the user to import their bank statements to get personalized insights.
+USER DATA STATUS: No transaction data available yet. Encourage the user to import their bank statements or scan grocery receipts to get personalized insights.
 `;
     }
 
@@ -247,16 +250,17 @@ USER FINANCIAL DATA:
 - Total Income: ${formatCurrency(context.totalIncome, currency)}
 - Total Expenses: ${formatCurrency(context.totalExpenses, currency)}
 - Net Savings: ${formatCurrency(context.netSavings, currency)}
-- Total Transactions: ${context.transactionCount}
+- Bank Transactions: ${context.transactionCount}
+${hasFridgeData ? `- Grocery Items Scanned (Fridge): ${context.fridgeTransactionCount} (total spend: ${formatCurrency(context.totalGrocerySpend, currency)})` : ""}
 
-TOP SPENDING CATEGORIES (share of expenses):
+${hasBankData ? `TOP SPENDING CATEGORIES (share of expenses):
 ${topCategories}
 
 MONTHLY TRENDS (Last 6 months):
 ${context.monthlyTrends.map(m => `- ${m.month}: Income ${formatCurrency(m.income, currency)}, Expenses ${formatCurrency(m.expenses, currency)}`).join('\n')}
 
-RECENT TRANSACTIONS (Last 20):
-${context.recentTransactions.slice(0, 10).map(t => `- ${t.date}: ${sanitizeForAI(t.description, 40)} | ${formatCurrency(t.amount, currency)} | ${sanitizeForAI(t.category, 50)}`).join('\n')}
+RECENT BANK TRANSACTIONS (Last 20):
+${context.recentTransactions.slice(0, 10).map(t => `- ${t.date}: ${sanitizeForAI(t.description, 40)} | ${formatCurrency(t.amount, currency)} | ${sanitizeForAI(t.category, 50)}`).join('\n')}` : "No bank CSV transactions imported yet — only grocery receipt data is available."}
 
 Use this data to provide personalized, specific insights when the user asks about their finances.
 `;
@@ -286,23 +290,29 @@ export const POST = async (req: NextRequest) => {
         // Authenticate user
         const userId = await getCurrentUserId();
 
-        // Rate limit check - AI endpoints are expensive
-        const rateLimitResult = await checkRateLimit(userId, 'ai');
-        if (rateLimitResult.limited) {
-            return createRateLimitResponse(rateLimitResult.resetIn);
-        }
+        const isDev = process.env.NODE_ENV === "development";
+        // In dev, DEV_CHAT_USER_ID lets you fetch context as a different account for testing
+        const contextUserId = isDev && process.env.DEV_CHAT_USER_ID ? process.env.DEV_CHAT_USER_ID : userId;
 
-        // Check if user has AI chat access
-        const chatAccess = await checkAiChatLimit(userId);
-        if (!chatAccess.allowed) {
-            return NextResponse.json(
-                {
-                    error: chatAccess.reason,
-                    upgradeRequired: true,
-                    plan: chatAccess.plan
-                },
-                { status: 403 }
-            );
+        if (!isDev) {
+            // Rate limit check - AI endpoints are expensive
+            const rateLimitResult = await checkRateLimit(userId, 'ai');
+            if (rateLimitResult.limited) {
+                return createRateLimitResponse(rateLimitResult.resetIn);
+            }
+
+            // Check if user has AI chat access
+            const chatAccess = await checkAiChatLimit(userId);
+            if (!chatAccess.allowed) {
+                return NextResponse.json(
+                    {
+                        error: chatAccess.reason,
+                        upgradeRequired: true,
+                        plan: chatAccess.plan
+                    },
+                    { status: 403 }
+                );
+            }
         }
 
         const body = await req.json();
@@ -334,7 +344,7 @@ export const POST = async (req: NextRequest) => {
             : true;
 
         // Fetch user's financial context
-        const userContext = await getUserFinancialContext(userId);
+        const userContext = await getUserFinancialContext(contextUserId);
         const systemPrompt = buildSystemPrompt(userContext, userCurrency);
 
         // Build messages array for the API - using sanitized messages
@@ -401,12 +411,18 @@ export const POST = async (req: NextRequest) => {
                     });
                 } catch (error) {
                     console.error("[Chat API] Stream error:", error);
-                } finally {
-                    // Record successful message for daily limit tracking
                     try {
-                        await recordAiChatMessage(userId);
-                    } catch (recordErr) {
-                        console.error("[Chat API] Failed to record chat message:", recordErr);
+                        controller.enqueue(
+                            encoder.encode(`data: ${JSON.stringify({ error: "AI service temporarily unavailable. Please try again." })}\n\n`)
+                        );
+                    } catch { /* ignore */ }
+                } finally {
+                    if (!isDev) {
+                        try {
+                            await recordAiChatMessage(userId);
+                        } catch (recordErr) {
+                            console.error("[Chat API] Failed to record chat message:", recordErr);
+                        }
                     }
                     controller.close();
                 }

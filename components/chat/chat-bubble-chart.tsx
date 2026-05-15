@@ -15,11 +15,7 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import type { InlineChartSpec } from "@/lib/chat/parse-chart-spec"
-
-const DEFAULT_COLORS = [
-  "#6366f1", "#22d3ee", "#f59e0b", "#10b981",
-  "#f43f5e", "#a78bfa", "#34d399", "#fb923c",
-]
+import { useColorScheme } from "@/components/color-scheme-provider"
 
 interface Props {
   spec: InlineChartSpec
@@ -45,10 +41,13 @@ function CustomTooltip({
 
 export const ChatBubbleChart = memo(function ChatBubbleChart({ spec }: Props) {
   const { type, title, data, unit } = spec
+  const { getShuffledPalette } = useColorScheme()
+
+  const palette = useMemo(() => getShuffledPalette("chat-bubble"), [getShuffledPalette])
 
   const rechartData = useMemo(
-    () => data.map((d, i) => ({ name: d.label, value: d.value, color: d.color ?? DEFAULT_COLORS[i % DEFAULT_COLORS.length] })),
-    [data]
+    () => data.map((d, i) => ({ name: d.label, value: d.value, color: d.color ?? palette[i % palette.length] })),
+    [data, palette]
   )
 
   return (
@@ -88,9 +87,9 @@ export const ChatBubbleChart = memo(function ChatBubbleChart({ spec }: Props) {
             <Line
               type="monotone"
               dataKey="value"
-              stroke={DEFAULT_COLORS[0]}
+              stroke={palette[0]}
               strokeWidth={2}
-              dot={{ r: 3, fill: DEFAULT_COLORS[0] }}
+              dot={{ r: 3, fill: palette[0] }}
               activeDot={{ r: 4 }}
             />
           </LineChart>

@@ -7,7 +7,6 @@ import { typedCapture } from "@/types/posthog-events"
 import { useSearchParams } from "next/navigation"
 import { useUser } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { AnimatePresence, m, type Variants } from "framer-motion"
 import { IconLoader2, IconTrash } from "@tabler/icons-react"
@@ -117,18 +116,9 @@ function UsageInfo({ used, limit, resetsAt }: { used: number; limit: number; res
     : null
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="text-[11px] tabular-nums cursor-default select-none text-muted-foreground/40">
-          {remaining}/{limit}
-        </span>
-      </TooltipTrigger>
-      {resetLabel && (
-        <TooltipContent side="top">
-          {resetLabel}
-        </TooltipContent>
-      )}
-    </Tooltip>
+    <span className="text-[11px] tabular-nums cursor-default select-none text-muted-foreground/40">
+      {remaining}/{limit} messages{resetLabel ? ` · ${resetLabel}` : ""}
+    </span>
   )
 }
 
@@ -242,6 +232,20 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
     }
   }, [messages.length])
 
+  // Scroll to bottom when streaming ends — content snaps in (taller than dots)
+  const wasStreaming = useRef(false)
+  useEffect(() => {
+    if (wasStreaming.current && !isStreaming) {
+      const el = scrollContainerRef.current
+      if (el) {
+        requestAnimationFrame(() => {
+          el.scrollTo({ top: el.scrollHeight, behavior: "smooth" })
+        })
+      }
+    }
+    wasStreaming.current = isStreaming
+  }, [isStreaming])
+
   const refreshChatUsage = useCallback(async () => {
     await mutateChatUsage()
   }, [mutateChatUsage])
@@ -301,13 +305,18 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
           if (!data || data === "[DONE]") continue
           try {
             const parsed = JSON.parse(data)
+            if (parsed?.error) {
+              throw new Error(parsed.error)
+            }
             if (parsed?.content) {
               full += parsed.content
               setMessages((prev) =>
                 prev.map((msg) => (msg.id === assistantId ? { ...msg, content: full } : msg))
               )
             }
-          } catch { /* ignore malformed chunk */ }
+          } catch (parseErr) {
+            if ((parseErr as Error)?.message && !(parseErr instanceof SyntaxError)) throw parseErr
+          }
         }
       }
     },
@@ -660,9 +669,6 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
                       · {totalTransactions.toLocaleString()} transactions
                     </span>
                   )}
-                  {chatUsage && chatUsage.limit !== null && (
-                    <UsageInfo used={chatUsage.used} limit={chatUsage.limit} resetsAt={chatUsage.resetsAt} />
-                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   {/* Feature 5: Save chat */}
@@ -743,12 +749,19 @@ function ChatInterfaceInner({ isFree = false }: { isFree?: boolean }) {
                       </Button>
                     </div>
                   ) : (
-                    <ClaudeChatInput
-                      ref={textareaRef}
-                      onSendMessage={sendMessage}
-                      onStop={stopStreaming}
-                      isLoading={isLoading}
-                    />
+                    <>
+                      <ClaudeChatInput
+                        ref={textareaRef}
+                        onSendMessage={sendMessage}
+                        onStop={stopStreaming}
+                        isLoading={isLoading}
+                      />
+                      {chatUsage && chatUsage.limit !== null && (
+                        <div className="mt-1.5 px-1">
+                          <UsageInfo used={chatUsage.used} limit={chatUsage.limit} resetsAt={chatUsage.resetsAt} />
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

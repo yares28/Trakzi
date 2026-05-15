@@ -1,6 +1,9 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { CSSProperties } from "react";
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import { isAdminUser } from "@/lib/admin";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
@@ -17,6 +20,12 @@ async function loadPrompt(promptSegments: string[]) {
 }
 
 export default async function TestChartsPage() {
+  const { userId } = await auth()
+
+  if (!userId || !isAdminUser(userId)) {
+    redirect('/')
+  }
+
   const [
     chartPrompt,
     chartResolutionPrompt,

@@ -15,25 +15,6 @@ const ChatBubbleChart = dynamic(
   { ssr: false, loading: () => <div className="h-[200px] w-full animate-pulse rounded-lg bg-muted" /> }
 )
 
-/** Renders streaming text token-by-token with a smooth blur-to-clear fade-in. */
-function StreamingText({ content }: { content: string }) {
-  const tokens = useMemo(() => content.split(/(\s+)/), [content])
-  return (
-    // overflow-x:hidden clips the blur bleed that causes horizontal scrollbars
-    <span className="whitespace-pre-wrap break-words block overflow-x-hidden">
-      {tokens.map((token, i) => (
-        <m.span
-          key={i}
-          initial={{ opacity: 0, filter: "blur(6px)" }}
-          animate={{ opacity: 1, filter: "blur(0px)" }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
-        >
-          {token}
-        </m.span>
-      ))}
-    </span>
-  )
-}
 
 interface ChatMessageProps {
   role: "user" | "assistant"
@@ -172,28 +153,16 @@ export const ChatMessage = memo(function ChatMessage({
         >
           {isUser ? (
             <span className="whitespace-pre-wrap break-words">{content}</span>
-          ) : isThinking ? (
+          ) : isThinking || isStreaming ? (
             <TypingDots />
           ) : (
-            <AnimatePresence mode="wait" initial={false}>
-              {isStreaming && content ? (
-                <m.div
-                  key="streaming"
-                  exit={{ opacity: 0, transition: { duration: 0.12 } }}
-                >
-                  <StreamingText content={content} />
-                </m.div>
-              ) : (
-                <m.div
-                  key="settled"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.2, ease: "easeOut" }}
-                >
-                  <RenderedContent content={content} />
-                </m.div>
-              )}
-            </AnimatePresence>
+            <m.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+            >
+              <RenderedContent content={content} />
+            </m.div>
           )}
         </div>
 
