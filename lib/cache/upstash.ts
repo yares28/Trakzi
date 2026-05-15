@@ -28,6 +28,7 @@ const CACHE_PREFIX = {
     'room': 'room',
     'financial-health': 'financial-health',
     'accounts': 'accounts',
+    'budgets': 'budgets',
 } as const
 
 // TTL in seconds
@@ -41,6 +42,7 @@ const CACHE_TTL = {
     room: 2 * 60,
     'financial-health': 5 * 60,
     'accounts': 5 * 60,
+    'budgets': 5 * 60,
 } as const
 
 // How long the distributed compute lock is held before expiring (safety net for crashed instances)
