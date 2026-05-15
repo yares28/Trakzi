@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useRef, useState } from "react"
+import { memo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -22,19 +22,23 @@ export const BudgetCard = memo(function BudgetCard({ row, monthsElapsed, onBudge
   const [editing, setEditing] = useState(false)
   const [capInput, setCapInput] = useState(String(row.monthlyCap ?? ""))
   const [saving, setSaving] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [optimisticCap, setOptimisticCap] = useState<number | null>(null)
 
-  const progressPct = row.monthlyCap
-    ? Math.min(150, (row.avgMonthly / row.monthlyCap) * 100)
+  const displayCap = optimisticCap ?? row.monthlyCap
+
+  const progressPct = displayCap
+    ? Math.min(150, (row.avgMonthly / displayCap) * 100)
     : 0
 
   const progressColor =
     row.status === 'over' ? 'bg-red-500' :
-    row.status === 'warning' ? 'bg-yellow-500' : 'bg-emerald-500'
+    row.status === 'warning' ? 'bg-yellow-500' :
+    row.status === 'unset' ? 'bg-muted' :
+    'bg-emerald-500'
 
   const overPct =
-    row.monthlyCap && row.monthlyCap > 0
-      ? Math.abs(row.overByMonthly / row.monthlyCap) * 100
+    displayCap && displayCap > 0
+      ? Math.abs(row.overByMonthly / displayCap) * 100
       : 0
 
   const dots = row.monthlySpends.slice(-MAX_DOTS)
@@ -46,7 +50,12 @@ export const BudgetCard = memo(function BudgetCard({ row, monthsElapsed, onBudge
       toast.error("Enter a valid amount")
       return
     }
+
+    // Optimistic update: close editor immediately and show new value
+    setOptimisticCap(amount)
+    setEditing(false)
     setSaving(true)
+
     try {
       const res = await fetch("/api/budgets", {
         method: "POST",
@@ -54,13 +63,22 @@ export const BudgetCard = memo(function BudgetCard({ row, monthsElapsed, onBudge
         body: JSON.stringify({ categoryName: row.name, budget: amount }),
       })
       if (!res.ok) {
-        toast.error("Failed to update budget")
+        const data = await res.json().catch(() => ({})) as { error?: string }
+        toast.error(data.error ?? "Failed to update budget")
+        // Rollback: reset optimistic value and reopen editor
+        setOptimisticCap(null)
+        setCapInput(String(amount))
+        setEditing(true)
         return
       }
       onBudgetSaved()
-      setEditing(false)
+      setOptimisticCap(null) // will be overwritten by parent refetch
     } catch {
       toast.error("Network error")
+      // Rollback on network error
+      setOptimisticCap(null)
+      setCapInput(String(amount))
+      setEditing(true)
     } finally {
       setSaving(false)
     }
@@ -74,7 +92,7 @@ export const BudgetCard = memo(function BudgetCard({ row, monthsElapsed, onBudge
     }
   }
 
-  const periodCap = row.monthlyCap !== null ? row.monthlyCap * monthsElapsed : null
+  const periodCap = displayCap !== null ? displayCap * monthsElapsed : null
 
   return (
     <div className="rounded-2xl border border-border/60 bg-card/80 px-5 py-4 shadow-sm flex flex-col gap-3">
@@ -85,7 +103,6 @@ export const BudgetCard = memo(function BudgetCard({ row, monthsElapsed, onBudge
         {editing ? (
           <div className="flex items-center gap-1 shrink-0">
             <Input
-              ref={inputRef}
               type="number"
               min={0}
               step={1}
@@ -104,15 +121,15 @@ export const BudgetCard = memo(function BudgetCard({ row, monthsElapsed, onBudge
           <button
             type="button"
             className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
-            onClick={() => { setCapInput(String(row.monthlyCap ?? "")); setEditing(true) }}
+            onClick={() => { setCapInput(String(displayCap ?? "")); setEditing(true) }}
           >
-            {row.monthlyCap !== null ? `${formatCurrency(row.monthlyCap)}/mo` : "Set budget"}
+            {displayCap !== null ? `${formatCurrency(displayCap)}/mo` : "Set budget"}
             <Pencil className="size-3" />
           </button>
         )}
       </div>
 
-      {row.monthlyCap !== null && (
+      {displayCap !== null && (
         <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
           <div
             className={cn("h-full rounded-full transition-all", progressColor)}
@@ -123,32 +140,32 @@ export const BudgetCard = memo(function BudgetCard({ row, monthsElapsed, onBudge
 
       <p className="text-sm">
         <span className="font-semibold">{formatCurrency(row.avgMonthly)}/mo avg</span>
-        {row.monthlyCap !== null && (
+        {displayCap !== null && (
           <span className={cn("ml-2 text-xs",
             row.status === 'over' ? 'text-red-500' :
             row.status === 'warning' ? 'text-yellow-600' : 'text-emerald-600'
           )}>
-            {row.overByMonthly > 0 ? `+${overPct.toFixed(0)}% over` : `${(100 - progressPct).toFixed(0)}% under`}
+            {row.overByMonthly > 0 ? `+${overPct.toFixed(0)}% over` : `-${overPct.toFixed(0)}% under`}
           </span>
         )}
       </p>
 
-      {row.monthlyCap !== null && (
+      {displayCap !== null && (
         <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
           <span>
             {formatCurrency(row.totalSpent)} spent
             {periodCap !== null && ` / ${formatCurrency(periodCap)} cap`}
-            {" "}• {monthsElapsed.toFixed(0)} mo
+            {" "}• {Math.round(monthsElapsed)} mo
           </span>
           {row.monthlySpends.length > 0 && (
             <div className="flex items-center gap-1">
               <span>Over in {row.overBudgetMonths} of {row.monthlySpends.length} months</span>
               {showEllipsis && <span className="opacity-50">…</span>}
-              {dots.map((s, i) => {
-                const isOver = row.monthlyCap !== null && s.amount > row.monthlyCap
+              {dots.map((s) => {
+                const isOver = displayCap !== null && s.amount > displayCap
                 return (
                   <span
-                    key={i}
+                    key={s.month}
                     className={cn(
                       "inline-block size-2 rounded-full",
                       s.amount === 0 ? "bg-muted" : isOver ? "bg-red-500" : "bg-emerald-500"
