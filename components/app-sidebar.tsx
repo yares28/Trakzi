@@ -26,7 +26,11 @@ import {
   IconCamera,
   IconFileAi,
   IconFileDescription,
+  IconSettings,
 } from "@tabler/icons-react";
+import { SettingsPanel } from "@/components/settings-panel";
+import { DateFilter } from "@/components/date-filter";
+import { AccountFilter } from "@/components/account-filter";
 
 // Custom Home icon component
 const IconHome = React.forwardRef<SVGSVGElement, React.ComponentProps<"svg">>(
@@ -378,60 +382,84 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
       {...props}
     >
       <SidebarHeader className="px-2 pt-3 pb-2">
-        <div className="flex w-full flex-col gap-2">
-          {/* Mobile: single column so the logo fills the available width.
-              Desktop: 3-col grid with side spacer + sidebar trigger. */}
-          <div className="grid w-full grid-cols-1 md:grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-1 group-data-[collapsible=icon]:grid-cols-1 group-data-[collapsible=icon]:justify-items-center">
-            <div className="hidden h-8 w-8 md:block group-data-[collapsible=icon]:hidden" />
-            <SidebarMenu className="flex w-full items-center justify-center">
-              <SidebarMenuItem className="w-auto h-auto group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center">
-                <SidebarMenuButton
-                  asChild
-                  className="data-[slot=sidebar-menu-button]:!px-1 data-[slot=sidebar-menu-button]:!py-2 !h-auto !min-h-0 group-data-[collapsible=icon]:!size-12 group-data-[collapsible=icon]:!min-h-12 group-data-[collapsible=icon]:!min-w-12 group-data-[collapsible=icon]:!max-h-12 group-data-[collapsible=icon]:!max-w-12 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:!justify-center"
-                  aria-label="Home"
+        {/* Expanded: logo left, [filters + settings + trigger] right.
+            Collapsed (icon mode): icon logo top, trigger below — centered. */}
+        <div className="flex w-full flex-row items-center justify-between gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1">
+
+          {/* Logo */}
+          <SidebarMenu className="w-auto flex-shrink-0">
+            <SidebarMenuItem className="w-auto">
+              <SidebarMenuButton
+                asChild
+                className="!h-auto !min-h-0 !p-1 w-auto group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:!justify-center"
+                aria-label="Home"
+              >
+                <Link
+                  href="/"
+                  className="flex items-center outline-none group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!justify-center"
                 >
-                  <Link
-                    href="/"
-                    className="flex w-full min-w-0 items-center justify-center outline-none group-data-[collapsible=icon]:!size-12"
-                  >
+                  {mounted ? (
                     <>
-                      {mounted ? (
-                        <Image
-                          src="/Trakzi/LogoShort.svg"
-                          alt="Trakzi"
-                          width={180}
-                          height={60}
-                          className="h-20 w-auto max-w-full object-contain transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] group-data-[state=collapsed]:hidden group-data-[state=collapsed]:scale-90 group-data-[state=collapsed]:opacity-0 md:h-16 md:object-left"
-                         
-                        />
-                      ) : (
-                        <div className="h-20 w-full max-w-[200px] md:h-16 group-data-[state=collapsed]:hidden" />
-                      )}
-                      {mounted ? (
-                        <Image
-                          src="/Trakzi/LogoShort.svg"
-                          alt="Trakzi icon"
-                          width={64}
-                          height={64}
-                          className="hidden size-10 object-contain opacity-0 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] group-data-[state=collapsed]:block group-data-[state=collapsed]:opacity-100 group-data-[state=collapsed]:scale-100"
-                         
-                        />
-                      ) : (
-                        <div className="hidden size-10 group-data-[state=collapsed]:block" />
-                      )}
+                      {/* Full logo — visible when expanded */}
+                      <Image
+                        src="/Trakzi/LogoShort.svg"
+                        alt="Trakzi"
+                        width={180}
+                        height={60}
+                        className="h-16 w-auto max-w-[180px] object-contain object-left group-data-[state=collapsed]:hidden md:h-14"
+                      />
+                      {/* Icon logo — visible when collapsed */}
+                      <Image
+                        src="/Trakzi/LogoShort.svg"
+                        alt="Trakzi icon"
+                        width={40}
+                        height={40}
+                        className="hidden size-8 object-contain group-data-[state=collapsed]:block"
+                      />
                     </>
-                  </Link>
+                  ) : (
+                    <>
+                      <div className="h-14 w-full max-w-[160px] group-data-[state=collapsed]:hidden" />
+                      <div className="hidden size-8 group-data-[state=collapsed]:block" />
+                    </>
+                  )}
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+
+          {/* Right-side controls: filters + settings + trigger.
+              In collapsed mode only the trigger is shown (filters hidden — no room). */}
+          <div className="flex flex-shrink-0 items-center gap-1">
+            {/* Filters & settings: hidden when collapsed */}
+            <div className="flex items-center gap-1 group-data-[state=collapsed]:hidden">
+              <DateFilter
+                availableYears={availableYears}
+                triggerVariant="ghost"
+                triggerSize="icon"
+                triggerClassName="h-8 w-8 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              />
+              <AccountFilter
+                triggerVariant="ghost"
+                triggerSize="icon"
+                triggerClassName="h-8 w-8 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              />
+              <SettingsPanel>
+                <SidebarMenuButton
+                  tooltip="Settings"
+                  size="sm"
+                  type="button"
+                  aria-label="Settings"
+                  className="h-8 w-8 justify-center"
+                >
+                  <IconSettings className="size-4" />
+                  <span className="sr-only">Settings</span>
                 </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-            <div className="hidden md:flex flex-col items-end gap-2 group-data-[collapsible=icon]:items-center">
-              <SidebarTrigger
-                className="size-8 rounded-full border border-sidebar-border/70 bg-sidebar/95 text-sidebar-foreground shadow-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:hidden"
-              />
-              <SidebarTrigger
-                className="hidden size-8 rounded-full border border-sidebar-border/70 bg-sidebar/95 text-sidebar-foreground shadow-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:inline-flex"
-              />
+              </SettingsPanel>
             </div>
+
+            {/* Sidebar toggle trigger — always visible */}
+            <SidebarTrigger className="size-8 rounded-full border border-sidebar-border/70 bg-sidebar/95 text-sidebar-foreground shadow-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
           </div>
         </div>
       </SidebarHeader>
@@ -448,7 +476,7 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
         <NavDocuments items={data.documents} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser availableYears={availableYears} />
+        <NavUser />
       </SidebarFooter>
     </Sidebar>
   );
