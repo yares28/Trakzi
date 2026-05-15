@@ -34,13 +34,14 @@ import { CollapsedChartCard } from "@/components/collapsed-chart-card"
 import { computeSavingsScore } from "@/lib/savings-score"
 import { GoalWizardCard } from "@/components/chat/goal-wizard-card"
 import { SavingsGoalsPanel } from "@/components/savings-goals-panel"
+import { BudgetsPanel } from "@/components/budgets/BudgetsPanel"
 import { AnimatePresence, m } from "framer-motion"
 import { summarizeGoals, type GoalContext } from "@/lib/goals"
 import { computeDefaultNetWorth } from "@/lib/net-worth"
 import type { GoalRecord } from "@/lib/types/goals"
 import type { GoalComposerDefaults, GoalFinancialProfile } from "@/components/chat/goal-wizard-card"
 
-type SavingsViewMode = "savings" | "netWorth" | "debt" | "calculator" | "goals"
+type SavingsViewMode = "savings" | "netWorth" | "debt" | "calculator" | "goals" | "budgets"
 
 // Persistence keys
 const SAVINGS_ORDER_STORAGE_KEY = "savings-chart-order"
@@ -80,7 +81,7 @@ export default function Page() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem(SAVINGS_VIEW_MODE_STORAGE_KEY)
-      if (saved === "savings" || saved === "netWorth" || saved === "debt" || saved === "calculator" || saved === "goals") {
+      if (saved === "savings" || saved === "netWorth" || saved === "debt" || saved === "calculator" || saved === "goals" || saved === "budgets") {
         setViewMode(saved)
       }
     } catch (e) {
@@ -713,6 +714,18 @@ export default function Page() {
                       >
                         Goals
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => handleViewModeChange("budgets")}
+                        className={cn(
+                          "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0",
+                          viewMode === "budgets"
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        Budgets
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -890,6 +903,12 @@ export default function Page() {
 
               {viewMode === "calculator" && (
                 <MortgageCalculator />
+              )}
+
+              {viewMode === "budgets" && (
+                <section className="px-4 lg:px-6">
+                  <BudgetsPanel />
+                </section>
               )}
 
               {viewMode === "goals" && (
