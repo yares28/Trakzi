@@ -412,15 +412,15 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
                       <Image
                         src="/Trakzi/LogoShort.svg"
                         alt="Trakzi icon"
-                        width={36}
-                        height={36}
-                        className="hidden size-7 object-contain group-data-[state=collapsed]:block"
+                        width={40}
+                        height={40}
+                        className="hidden size-10 object-contain group-data-[state=collapsed]:block"
                       />
                     </>
                   ) : (
                     <>
                       <div className="h-14 w-full group-data-[state=collapsed]:hidden" />
-                      <div className="hidden size-7 group-data-[state=collapsed]:block" />
+                      <div className="hidden size-10 group-data-[state=collapsed]:block" />
                     </>
                   )}
                 </Link>
