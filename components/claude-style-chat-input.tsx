@@ -58,22 +58,22 @@ export const ClaudeChatInput = React.forwardRef<HTMLTextAreaElement, ClaudeChatI
     return (
       /* Liquid glass container */
       <div className={cn("relative isolate w-full", className)}>
-        {/* Glossy shimmer */}
-        <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-b from-white/30 via-white/10 to-transparent dark:from-white/8 dark:to-transparent z-10" />
+        {/* Glossy shimmer — light mode only */}
+        <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-b from-white/30 via-white/10 to-transparent dark:hidden z-10" />
 
         {/* Glass box */}
         <div
           className={cn(
             "relative flex flex-col gap-1.5 px-4 pt-3.5 pb-3",
             "rounded-2xl",
-            "backdrop-blur-2xl",
-            "bg-white/85 dark:bg-[#1e1e1e]/80",
-            "border border-black/[0.07] dark:border-white/[0.08]",
+            "backdrop-blur-2xl dark:backdrop-blur-none",
+            "bg-white/85 dark:bg-background",
+            "border border-black/[0.07] dark:border-border",
             "shadow-[0_4px_30px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.05)]",
-            "dark:shadow-[0_4px_30px_rgba(0,0,0,0.4),0_1px_3px_rgba(0,0,0,0.2)]",
+            "dark:shadow-none",
             "transition-shadow duration-200",
             "focus-within:shadow-[0_6px_36px_rgba(0,0,0,0.13),0_2px_6px_rgba(0,0,0,0.06)]",
-            "dark:focus-within:shadow-[0_6px_36px_rgba(0,0,0,0.5),0_2px_6px_rgba(0,0,0,0.3)]"
+            "dark:focus-within:shadow-none"
           )}
         >
           {/* Textarea */}
