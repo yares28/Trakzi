@@ -12,6 +12,10 @@ interface AccountFilterContextType {
     toggle: (id: string) => void
     /** Reset to "all accounts". */
     clear: () => void
+    /** When true and a specific account filter is active, also include unassigned transactions. */
+    includeUnassigned: boolean
+    /** Set the include-unassigned toggle. */
+    setIncludeUnassigned: (v: boolean) => void
     /** True once the initial selection has been resolved (localStorage + server). */
     isReady: boolean
 }
@@ -19,6 +23,7 @@ interface AccountFilterContextType {
 const AccountFilterContext = createContext<AccountFilterContextType | undefined>(undefined)
 
 const STORAGE_KEY = "global-account-filter"
+const STORAGE_KEY_UNASSIGNED = "global-account-filter-include-unassigned"
 
 const canonicalize = (ids: string[]): string[] => {
     const unique = Array.from(new Set(ids.filter((id) => typeof id === "string" && id.length > 0)))
@@ -49,6 +54,7 @@ export function useAccountFilter() {
 export function AccountFilterProvider({ children }: { children: ReactNode }) {
     const [selected, setSelectedState] = useState<string[]>([])
     const [isReady, setIsReady] = useState(true)
+    const [includeUnassigned, setIncludeUnassignedState] = useState(false)
     const { preferences, isServerSynced, updatePagePreferences } = useUserPreferences()
     const hasSyncedFromDb = useRef(false)
 
@@ -56,6 +62,10 @@ export function AccountFilterProvider({ children }: { children: ReactNode }) {
         if (typeof window === "undefined") return
         const stored = readStored()
         setSelectedState(stored)
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY_UNASSIGNED)
+            if (raw === "true") setIncludeUnassignedState(true)
+        } catch { /* ignore */ }
         setIsReady(true)
     }, [])
 
@@ -102,8 +112,19 @@ export function AccountFilterProvider({ children }: { children: ReactNode }) {
         persist([])
     }
 
+    const setIncludeUnassigned = (v: boolean) => {
+        setIncludeUnassignedState(v)
+        try {
+            if (v) {
+                localStorage.setItem(STORAGE_KEY_UNASSIGNED, "true")
+            } else {
+                localStorage.removeItem(STORAGE_KEY_UNASSIGNED)
+            }
+        } catch { /* ignore */ }
+    }
+
     return (
-        <AccountFilterContext.Provider value={{ selected, setSelected, toggle, clear, isReady }}>
+        <AccountFilterContext.Provider value={{ selected, setSelected, toggle, clear, includeUnassigned, setIncludeUnassigned, isReady }}>
             {children}
         </AccountFilterContext.Provider>
     )

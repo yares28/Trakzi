@@ -1,6 +1,6 @@
 "use client"
 
-import { IconMessageCircle } from "@tabler/icons-react"
+import { IconBulb } from "@tabler/icons-react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
 import {
@@ -17,15 +17,14 @@ export function NavFeedback() {
     <SidebarMenu>
       <SidebarMenuItem>
         <SidebarMenuButton
-          size="sm"
           tooltip="Feedback"
           aria-label="Feedback"
           isActive={isActive}
           asChild
         >
           <Link href="/feedback">
-            <IconMessageCircle className="size-5" />
-            <span className="group-data-[collapsible=icon]:hidden">Feedback</span>
+            <IconBulb />
+            <span>Feedback</span>
           </Link>
         </SidebarMenuButton>
       </SidebarMenuItem>

@@ -28,6 +28,7 @@ import {
   IconFileAi,
   IconFileDescription,
   IconSettings,
+  IconChartBar,
 } from "@tabler/icons-react";
 import { SettingsPanel } from "@/components/settings-panel";
 import { DateFilter } from "@/components/date-filter";
@@ -249,7 +250,7 @@ const data = {
     {
       title: "Analytics",
       url: "/analytics",
-      icon: IconAnalytics,
+      icon: IconChartBar,
     },
     {
       title: "Fridge",

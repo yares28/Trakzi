@@ -1,7 +1,9 @@
+import { useMemo } from "react"
 import { useAuth } from "@clerk/nextjs"
 import { useQuery, keepPreviousData } from "@tanstack/react-query"
 import { useDateFilter } from "@/components/date-filter-provider"
 import { useAccountFilter } from "@/components/account-filter-provider"
+import { UNASSIGNED_SENTINEL } from "@/lib/charts/account-filter"
 import { demoFetch } from "@/lib/demo/demo-fetch"
 import { useDemoMode } from "@/lib/demo/demo-context"
 import type { PocketsBundleResponse } from "@/lib/types/pockets"
@@ -23,6 +25,20 @@ function appendAccountsToUrl(baseUrl: string, accountIds: string[]): string {
 /** Stable React Query key segment for the account filter. */
 function accountQueryKey(accountIds: string[]): string {
     return accountIds.length === 0 ? "all" : accountIds.join(",")
+}
+
+/**
+ * Returns the account IDs to use in bundle queries, appending UNASSIGNED_SENTINEL
+ * when the user has opted in to seeing transactions with no linked account.
+ * Only appends sentinel when a specific account filter is active (selected.length > 0),
+ * since "all accounts" mode already includes unassigned rows.
+ */
+export function useEffectiveAccountIds(): string[] {
+    const { selected, includeUnassigned } = useAccountFilter()
+    return useMemo(() => {
+        if (selected.length === 0) return []
+        return includeUnassigned ? [...selected, UNASSIGNED_SENTINEL] : selected
+    }, [selected, includeUnassigned])
 }
 
 // ============================================
@@ -544,7 +560,8 @@ export function useTotalTransactionCount() {
 export function useAnalyticsBundleData(showEffectiveCosts = true) {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
-    const { selected: accountIds, isReady: accountsReady } = useAccountFilter()
+    const { isReady: accountsReady } = useAccountFilter()
+    const accountIds = useEffectiveAccountIds()
     const { isDemoMode } = useDemoMode()
 
     return useQuery({
@@ -562,7 +579,8 @@ export function useAnalyticsBundleData(showEffectiveCosts = true) {
 export function useHomeBundleData() {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
-    const { selected: accountIds, isReady: accountsReady } = useAccountFilter()
+    const { isReady: accountsReady } = useAccountFilter()
+    const accountIds = useEffectiveAccountIds()
     const { isDemoMode } = useDemoMode()
 
     return useQuery({
@@ -580,7 +598,8 @@ export function useHomeBundleData() {
 export function useTrendsBundleData() {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
-    const { selected: accountIds, isReady: accountsReady } = useAccountFilter()
+    const { isReady: accountsReady } = useAccountFilter()
+    const accountIds = useEffectiveAccountIds()
     const { isDemoMode } = useDemoMode()
 
     return useQuery({
@@ -598,7 +617,8 @@ export function useTrendsBundleData() {
 export function useSavingsBundleData() {
     const { userId } = useAuth()
     const { filter, isReady } = useDateFilter()
-    const { selected: accountIds, isReady: accountsReady } = useAccountFilter()
+    const { isReady: accountsReady } = useAccountFilter()
+    const accountIds = useEffectiveAccountIds()
     const { isDemoMode } = useDemoMode()
 
     return useQuery({
@@ -632,7 +652,8 @@ export function useBudgetsBundleData() {
  */
 export function usePocketsBundleData() {
     const { userId } = useAuth()
-    const { selected: accountIds, isReady: accountsReady } = useAccountFilter()
+    const { isReady: accountsReady } = useAccountFilter()
+    const accountIds = useEffectiveAccountIds()
     const { isDemoMode } = useDemoMode()
 
     return useQuery({
