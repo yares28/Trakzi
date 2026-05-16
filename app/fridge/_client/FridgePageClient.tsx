@@ -48,7 +48,7 @@ export function FridgePageClient() {
     refreshNonce: receiptsRefreshNonce,
   })
 
-  const { metrics, metricsTrends } = useFridgeMetrics({
+  const { metrics, metricsTrends, metricsChanges } = useFridgeMetrics({
     bundleData,
     receiptTransactions,
   })
@@ -194,7 +194,7 @@ export function FridgePageClient() {
     >
       <div className="@container/main flex flex-1 flex-col gap-2 min-w-0">
         <div className="flex flex-col gap-4 pb-4 md:gap-6 md:pb-6 min-w-0 w-full">
-          <MetricsCards metrics={metrics} metricsTrends={metricsTrends} receiptTransactions={receiptTransactions} isLoading={isChartsLoading} />
+          <MetricsCards metrics={metrics} metricsTrends={metricsTrends} metricsChanges={metricsChanges} receiptTransactions={receiptTransactions} isLoading={isChartsLoading} />
 
           {/* Fridge / Advanced / Trends switch - Horizontal scroll on mobile */}
           <section>

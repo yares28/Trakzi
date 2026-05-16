@@ -2,13 +2,14 @@ import { useMemo } from "react"
 import { SectionCardsFridge } from "@/components/fridge/section-cards-fridge"
 import { computeFridgeScore } from "@/lib/fridge-score"
 
-import type { FridgeMetricTrends, FridgeMetrics } from "../hooks/useFridgeMetrics"
+import type { FridgeMetricChanges, FridgeMetricTrends, FridgeMetrics } from "../hooks/useFridgeMetrics"
 import type { ReceiptTransactionRow } from "../types"
 import { parseIsoDateUtc } from "../utils/dates"
 
 type MetricsCardsProps = {
   metrics: FridgeMetrics
   metricsTrends: FridgeMetricTrends
+  metricsChanges: FridgeMetricChanges
   receiptTransactions: ReceiptTransactionRow[]
   isLoading?: boolean
 }
@@ -29,7 +30,7 @@ type Receipt = {
   items: ReceiptItem[]
 }
 
-export function MetricsCards({ metrics, metricsTrends, receiptTransactions, isLoading = false }: MetricsCardsProps) {
+export function MetricsCards({ metrics, metricsTrends, metricsChanges, receiptTransactions, isLoading = false }: MetricsCardsProps) {
   const { score: fridgeScore, grade: fridgeGrade, trendDirection: fridgeScoreTrend, scoreTrendData: fridgeScoreTrendData } = useMemo(() => {
     // Build receipts exactly like useFridgeData does
     const receiptMap = new Map<string, Receipt>()
@@ -77,6 +78,11 @@ export function MetricsCards({ metrics, metricsTrends, receiptTransactions, isLo
       storesVisited={metrics.storesVisited}
       averageReceipt={metrics.averageReceipt}
       tripsFrequency={metrics.tripsFrequency}
+      totalSpentChange={metricsChanges.totalSpentChange}
+      shoppingTripsChange={metricsChanges.shoppingTripsChange}
+      storesVisitedChange={metricsChanges.storesVisitedChange}
+      averageReceiptChange={metricsChanges.averageReceiptChange}
+      tripsFrequencyChange={metricsChanges.tripsFrequencyChange}
       totalSpentTrend={metricsTrends.totalSpentTrend}
       shoppingTripsTrend={metricsTrends.shoppingTripsTrend}
       storesVisitedTrend={metricsTrends.storesVisitedTrend}

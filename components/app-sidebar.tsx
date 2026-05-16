@@ -8,6 +8,7 @@ import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { demoFetch } from "@/lib/demo/demo-fetch";
 import { NavDocuments } from "@/components/nav-documents";
+import { NavFeedback } from "@/components/nav-feedback";
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
 import { OverLimitBanner } from "@/components/accounts/OverLimitBanner";
@@ -476,6 +477,7 @@ export function AppSidebar({ onQuickCreate, ...props }: AppSidebarProps) {
         <NavDocuments items={data.documents} />
       </SidebarContent>
       <SidebarFooter>
+        <NavFeedback />
         <NavUser />
       </SidebarFooter>
     </Sidebar>

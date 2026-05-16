@@ -450,81 +450,46 @@ export default function Page() {
       }
     }
 
-    // Calculate current period stats (all transactions when no filter, or filtered)
-    const currentIncome = transactions
-      .filter(tx => tx.amount > 0)
-      .reduce((sum, tx) => sum + tx.amount, 0)
+    const sumPositive = (txs: typeof transactions) =>
+      txs.filter(tx => tx.amount > 0).reduce((s, tx) => s + tx.amount, 0)
+    const sumNegative = (txs: typeof transactions) =>
+      Math.abs(txs.filter(tx => tx.amount < 0).reduce((s, tx) => s + tx.amount, 0))
 
-    const currentExpenses = Math.abs(transactions
-      .filter(tx => tx.amount < 0)
-      .reduce((sum, tx) => sum + tx.amount, 0))
+    // Full-period values shown on card faces
+    const totalIncome = sumPositive(transactions)
+    const totalExpenses = sumNegative(transactions)
+    const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0
+    const netWorth = totalIncome - totalExpenses
 
-    const currentSavingsRate = currentIncome > 0
-      ? ((currentIncome - currentExpenses) / currentIncome) * 100
-      : 0
+    // Split transactions chronologically: first half = "previous", second half = "current"
+    // This gives a within-period trend regardless of which date filter is selected.
+    const sorted = [...transactions].sort((a, b) => a.date.localeCompare(b.date))
+    const mid = Math.floor(sorted.length / 2)
+    const prevHalf = sorted.slice(0, mid)
+    const currHalf = sorted.slice(mid)
 
-    // Net worth is calculated as income minus expenses
-    const netWorth = currentIncome - currentExpenses
+    const prevIncome = sumPositive(prevHalf)
+    const prevExpenses = sumNegative(prevHalf)
+    const prevSavingsRate = prevIncome > 0 ? ((prevIncome - prevExpenses) / prevIncome) * 100 : 0
+    const prevNetWorth = prevIncome - prevExpenses
 
-    // Calculate previous period for comparison (last 3 months vs previous 3 months)
-    const now = new Date()
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const threeMonthsAgo = new Date(today)
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
-    const sixMonthsAgo = new Date(threeMonthsAgo)
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 3)
+    const currIncome = sumPositive(currHalf)
+    const currExpenses = sumNegative(currHalf)
+    const currSavingsRate = currIncome > 0 ? ((currIncome - currExpenses) / currIncome) * 100 : 0
+    const currNetWorth = currIncome - currExpenses
 
-    const formatDate = (date: Date) => date.toISOString().split('T')[0]
-    const threeMonthsAgoStr = formatDate(threeMonthsAgo)
-    const sixMonthsAgoStr = formatDate(sixMonthsAgo)
-
-    // Previous period transactions (3-6 months ago)
-    const previousTransactions = transactions.filter(tx => {
-      const txDate = tx.date.split('T')[0]
-      return txDate >= sixMonthsAgoStr && txDate < threeMonthsAgoStr
-    })
-
-    const previousIncome = previousTransactions
-      .filter(tx => tx.amount > 0)
-      .reduce((sum, tx) => sum + tx.amount, 0)
-
-    const previousExpenses = Math.abs(previousTransactions
-      .filter(tx => tx.amount < 0)
-      .reduce((sum, tx) => sum + tx.amount, 0))
-
-    const previousSavingsRate = previousIncome > 0
-      ? ((previousIncome - previousExpenses) / previousIncome) * 100
-      : 0
-
-    // Previous net worth is also calculated as income minus expenses
-    const previousNetWorth = previousIncome - previousExpenses
-
-    // Calculate percentage changes
-    const incomeChange = previousIncome > 0
-      ? ((currentIncome - previousIncome) / previousIncome) * 100
-      : (currentIncome > 0 ? 100 : 0)
-
-    const expensesChange = previousExpenses > 0
-      ? ((currentExpenses - previousExpenses) / previousExpenses) * 100
-      : (currentExpenses > 0 ? 100 : 0)
-
-    const savingsRateChange = previousSavingsRate !== 0
-      ? currentSavingsRate - previousSavingsRate
-      : (currentSavingsRate > 0 ? 100 : 0)
-
-    const netWorthChange = previousNetWorth > 0
-      ? ((netWorth - previousNetWorth) / previousNetWorth) * 100
-      : (netWorth > 0 ? 100 : 0)
+    const pct = (current: number, previous: number) =>
+      previous !== 0 ? ((current - previous) / Math.abs(previous)) * 100 : (current > 0 ? 100 : 0)
 
     return {
-      totalIncome: currentIncome,
-      totalExpenses: currentExpenses,
-      savingsRate: currentSavingsRate,
-      netWorth: netWorth,
-      incomeChange: incomeChange,
-      expensesChange: expensesChange,
-      savingsRateChange: savingsRateChange,
-      netWorthChange: netWorthChange
+      totalIncome,
+      totalExpenses,
+      savingsRate,
+      netWorth,
+      incomeChange: pct(currIncome, prevIncome),
+      expensesChange: pct(currExpenses, prevExpenses),
+      savingsRateChange: pct(currSavingsRate, prevSavingsRate),
+      netWorthChange: pct(currNetWorth, prevNetWorth),
     }
   }, [transactions])
 

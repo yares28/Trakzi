@@ -1,7 +1,8 @@
 "use client"
 
 import { use, useMemo, type ReactNode } from "react"
-import { ArrowLeft, PiggyBank, Heart, TrendingUp, ShoppingBag, Trophy } from "lucide-react"
+import { PiggyBank, Heart, TrendingUp, ShoppingBag, Trophy } from "lucide-react"
+import { IconArrowLeft } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 
 import { cn } from "@/lib/utils"
@@ -43,14 +44,13 @@ export default function FriendProfilePage({ params }: { params: Promise<{ friend
     return (
         <FriendsLayout>
             <div className="max-w-3xl mx-auto font-mono font-medium space-y-6 px-3 sm:px-0">
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1.5"
+                <button
                     onClick={() => router.push('/friends')}
+                    className="group inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-3 text-[13px] tracking-tight text-muted-foreground transition-all duration-200 hover:border-primary/30 hover:bg-muted/60 hover:text-foreground"
                 >
-                    <ArrowLeft className="w-4 h-4" /> <span className="hidden sm:inline">Back to Friends</span>
-                </Button>
+                    <IconArrowLeft className="size-3.5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" />
+                    <span className="hidden sm:inline">Back to Friends</span>
+                </button>
 
                 {isLoading && (
                     <div className="flex items-center justify-center py-20">
@@ -61,18 +61,26 @@ export default function FriendProfilePage({ params }: { params: Promise<{ friend
                 {!isLoading && isError && (
                     <div className="text-center py-20 text-muted-foreground">
                         <p>Couldn&apos;t load this profile right now.</p>
-                        <Button variant="outline" className="mt-4" onClick={() => router.push('/friends')}>
+                        <button
+                            onClick={() => router.push('/friends')}
+                            className="group mt-4 inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-3 text-[13px] tracking-tight text-muted-foreground transition-all duration-200 hover:border-primary/30 hover:bg-muted/60 hover:text-foreground"
+                        >
+                            <IconArrowLeft className="size-3.5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" />
                             Go Back
-                        </Button>
+                        </button>
                     </div>
                 )}
 
                 {!isLoading && !isError && !friendData?.score && (
                     <div className="text-center py-20 text-muted-foreground">
                         <p>Friend not found.</p>
-                        <Button variant="outline" className="mt-4" onClick={() => router.push('/friends')}>
+                        <button
+                            onClick={() => router.push('/friends')}
+                            className="group mt-4 inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-3 text-[13px] tracking-tight text-muted-foreground transition-all duration-200 hover:border-primary/30 hover:bg-muted/60 hover:text-foreground"
+                        >
+                            <IconArrowLeft className="size-3.5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" />
                             Go Back
-                        </Button>
+                        </button>
                     </div>
                 )}
 

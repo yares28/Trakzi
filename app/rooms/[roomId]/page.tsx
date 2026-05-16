@@ -1,7 +1,8 @@
 "use client"
 
 import { use, useState } from "react"
-import { ArrowLeft, Wallet, ArrowRightLeft, Check, Home, UserCheck, Receipt } from "lucide-react"
+import { Wallet, ArrowRightLeft, Check, Home, UserCheck, Receipt } from "lucide-react"
+import { IconArrowLeft } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@clerk/nextjs"
 import { useQueryClient } from "@tanstack/react-query"
@@ -62,14 +63,13 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
         <FriendsLayout>
             <div className="max-w-5xl mx-auto font-mono font-medium space-y-6 px-4 sm:px-6">
                 <div className="flex items-center">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1.5 -ml-3 text-muted-foreground hover:text-foreground"
+                    <button
                         onClick={() => router.push('/friends?tab=groups')}
+                        className="group inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-3 text-[13px] tracking-tight text-muted-foreground transition-all duration-200 hover:border-primary/30 hover:bg-muted/60 hover:text-foreground"
                     >
-                        <ArrowLeft className="w-4 h-4" /> Back to Rooms
-                    </Button>
+                        <IconArrowLeft className="size-3.5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" />
+                        Back to Rooms
+                    </button>
                 </div>
 
                 {isLoading && (
@@ -81,9 +81,13 @@ export default function RoomDetailPage({ params }: { params: Promise<{ roomId: s
                 {error && (
                     <div className="text-center py-20 text-muted-foreground">
                         <p>Failed to load room. You may not have access.</p>
-                        <Button variant="outline" className="mt-4" onClick={() => router.push('/friends?tab=groups')}>
+                        <button
+                            onClick={() => router.push('/friends?tab=groups')}
+                            className="group mt-4 inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-3 text-[13px] tracking-tight text-muted-foreground transition-all duration-200 hover:border-primary/30 hover:bg-muted/60 hover:text-foreground"
+                        >
+                            <IconArrowLeft className="size-3.5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" />
                             Back to Rooms
-                        </Button>
+                        </button>
                     </div>
                 )}
 

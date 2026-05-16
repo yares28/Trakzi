@@ -179,6 +179,13 @@ export interface FridgeBundleData {
         averageReceipt: number
         itemCount: number
     }
+    previousKpis: {
+        totalSpent: number
+        shoppingTrips: number
+        storesVisited: number
+        averageReceipt: number
+        itemCount: number
+    }
     categorySpending: Array<{
         category: string
         total: number

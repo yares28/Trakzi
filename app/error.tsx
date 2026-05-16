@@ -3,7 +3,8 @@
 import { useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Home, RotateCcw } from "lucide-react"
+import { RotateCcw } from "lucide-react"
+import { IconArrowLeft } from "@tabler/icons-react"
 
 // SVG crash chart path — animated draw-in
 function CrashChart() {
@@ -139,12 +140,13 @@ export default function ErrorPage({
             <RotateCcw className="size-4" />
             Try again
           </Button>
-          <Button asChild variant="outline" className="flex-1 gap-2">
-            <Link href="/">
-              <Home className="size-4" />
-              Back to home
-            </Link>
-          </Button>
+          <Link
+            href="/"
+            className="group inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-3 text-[13px] tracking-tight text-muted-foreground transition-all duration-200 hover:border-primary/30 hover:bg-muted/60 hover:text-foreground"
+          >
+            <IconArrowLeft className="size-3.5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" />
+            Back to home
+          </Link>
         </div>
 
         <p className="text-center text-[11px] text-muted-foreground/40 tracking-wide">

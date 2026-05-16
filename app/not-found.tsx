@@ -3,7 +3,8 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Home } from "lucide-react"
+import { Home } from "lucide-react"
+import { IconArrowLeft } from "@tabler/icons-react"
 
 const ROWS = [
   ["ROUTE", "NOT FOUND"],
@@ -122,14 +123,13 @@ export default function NotFound() {
                 Go Home
               </Link>
             </Button>
-            <Button
-              variant="outline"
-              className="flex-1 h-9 gap-1.5 text-xs"
+            <button
               onClick={() => router.back()}
+              className="group inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-3 text-[13px] tracking-tight text-muted-foreground transition-all duration-200 hover:border-primary/30 hover:bg-muted/60 hover:text-foreground"
             >
-              <ArrowLeft className="size-3.5" />
+              <IconArrowLeft className="size-3.5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" />
               Go Back
-            </Button>
+            </button>
           </div>
 
           {/* Receipt footer */}

@@ -83,6 +83,7 @@ export interface FridgeKPIs {
 
 export interface FridgeSummary {
     kpis: FridgeKPIs
+    previousKpis: FridgeKPIs
     categorySpending: FridgeCategorySpending[]
     dailySpending: FridgeDailySpending[]
     storeSpending: FridgeStoreSpending[]
@@ -625,6 +626,20 @@ export async function getFridgeCategoryRankings(
     }))
 }
 
+/** Returns the equivalent-length period immediately before the given date range. */
+function getPreviousPeriodDates(
+    startDate: string | null,
+    endDate: string | null
+): { prevStart: string | null; prevEnd: string | null } {
+    if (!startDate || !endDate) return { prevStart: null, prevEnd: null }
+    const start = new Date(`${startDate}T00:00:00Z`)
+    const end = new Date(`${endDate}T00:00:00Z`)
+    const periodMs = end.getTime() - start.getTime()
+    const prevEndMs = start.getTime() - 86_400_000 // one day before current start
+    const fmt = (ts: number) => new Date(ts).toISOString().split('T')[0]
+    return { prevStart: fmt(prevEndMs - periodMs), prevEnd: fmt(prevEndMs) }
+}
+
 /**
  * Get complete fridge bundle - single endpoint for all fridge chart data
  */
@@ -633,12 +648,14 @@ export async function getFridgeBundle(
     filter: string | null
 ): Promise<FridgeSummary> {
     const { startDate, endDate } = getDateRange(filter)
+    const { prevStart, prevEnd } = getPreviousPeriodDates(startDate, endDate)
 
     // Run aggregations in two sequential batches to limit peak Neon concurrency.
     // Group 1: primary metrics (KPIs, spending breakdowns)
-    const [kpis, categorySpending, dailySpending, storeSpending, macronutrientBreakdown, dayOfWeekSpending] =
+    const [kpis, previousKpis, categorySpending, dailySpending, storeSpending, macronutrientBreakdown, dayOfWeekSpending] =
         await Promise.all([
             getFridgeKPIs(userId, startDate ?? undefined, endDate ?? undefined),
+            getFridgeKPIs(userId, prevStart ?? undefined, prevEnd ?? undefined),
             getFridgeCategorySpending(userId, startDate ?? undefined, endDate ?? undefined),
             getFridgeDailySpending(userId, startDate ?? undefined, endDate ?? undefined),
             getFridgeStoreSpending(userId, startDate ?? undefined, endDate ?? undefined),
@@ -659,6 +676,7 @@ export async function getFridgeBundle(
 
     return {
         kpis,
+        previousKpis,
         categorySpending,
         dailySpending,
         storeSpending,

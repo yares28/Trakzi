@@ -1,7 +1,8 @@
 "use client"
 
 import { use, useState } from "react"
-import { ArrowLeft, LogOut, Pencil, Check, X } from "lucide-react"
+import { LogOut, Pencil, Check, X } from "lucide-react"
+import { IconArrowLeft } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -72,14 +73,13 @@ export default function ChallengeDetailPage({ params }: { params: Promise<{ grou
         <FriendsLayout>
             <div className="max-w-5xl mx-auto font-mono font-medium space-y-6 px-4 sm:px-6">
                 <div className="flex items-center">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1.5 -ml-3 text-muted-foreground hover:text-foreground"
+                    <button
                         onClick={() => router.push('/friends?tab=challenges')}
+                        className="group inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-3 text-[13px] tracking-tight text-muted-foreground transition-all duration-200 hover:border-primary/30 hover:bg-muted/60 hover:text-foreground"
                     >
-                        <ArrowLeft className="w-4 h-4" /> Back to Challenges
-                    </Button>
+                        <IconArrowLeft className="size-3.5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" />
+                        Back to Challenges
+                    </button>
                 </div>
 
                 {isLoading && (
@@ -91,9 +91,13 @@ export default function ChallengeDetailPage({ params }: { params: Promise<{ grou
                 {error && (
                     <div className="text-center py-20 text-muted-foreground">
                         <p>Failed to load challenge group. You may not have access.</p>
-                        <Button variant="outline" className="mt-4" onClick={() => router.push('/friends?tab=challenges')}>
+                        <button
+                            onClick={() => router.push('/friends?tab=challenges')}
+                            className="group mt-4 inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-3 text-[13px] tracking-tight text-muted-foreground transition-all duration-200 hover:border-primary/30 hover:bg-muted/60 hover:text-foreground"
+                        >
+                            <IconArrowLeft className="size-3.5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" />
                             Go Back
-                        </Button>
+                        </button>
                     </div>
                 )}
 

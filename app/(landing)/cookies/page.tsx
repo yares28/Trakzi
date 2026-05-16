@@ -12,9 +12,9 @@ export default function CookiePolicyPage() {
                 <div className="container mx-auto px-4 py-4 flex items-center gap-4">
                     <Link
                         href="/"
-                        className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"
+                        className="group inline-flex h-7 items-center gap-1.5 rounded-full border border-zinc-700/60 px-3 text-[13px] tracking-tight text-zinc-400 transition-all duration-200 hover:border-[#e78a53]/30 hover:bg-zinc-800/60 hover:text-white"
                     >
-                        <ArrowLeft className="h-4 w-4" />
+                        <ArrowLeft className="h-3.5 w-3.5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" />
                         Back to Home
                     </Link>
                 </div>
