@@ -3,7 +3,8 @@
 export interface BudgetCategoryRow {
   categoryId: number
   name: string
-  color: string
+  /** Either a category-N token, a legacy hex string, or null. Resolve via lib/colors/category-color.ts */
+  color: string | null
   monthlyCap: number | null
   /** One entry per calendar month that had spend in the filter window */
   monthlySpends: { month: string; amount: number }[]

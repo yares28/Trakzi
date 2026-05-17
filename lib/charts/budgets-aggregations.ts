@@ -56,7 +56,7 @@ export function buildBudgetRows(
     const row: BudgetCategoryRow = {
       categoryId: Number(first.category_id),
       name: first.name,
-      color: first.color ?? '#6366f1',
+      color: first.color ?? null,
       monthlyCap,
       monthlySpends,
       avgMonthly,
@@ -91,7 +91,7 @@ export async function getBudgetsBundle(
     SELECT
       c.id::text AS category_id,
       c.name,
-      COALESCE(c.color, '#6366f1') AS color,
+      c.color AS color,
       cb.budget::text AS monthly_cap,
       TO_CHAR(DATE_TRUNC('month', t.tx_date), 'YYYY-MM-DD') AS month,
       SUM(ABS(t.amount))::text AS month_spend

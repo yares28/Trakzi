@@ -588,6 +588,17 @@
   --chart-3: oklch(0.8721 0.0864 68.5474);
   --chart-4: oklch(0.6268 0 0);
   --chart-5: oklch(0.683 0 0);
+  /* Category palette — perceptually-uniform hues for category identity.
+     Stored as token names (category-1…8) in DB; resolved via lib/colors/category-color.ts.
+     Light mode: L ~0.65, C ~0.16 (lowered for teal/blue/olive to keep them readable). */
+  --category-1: oklch(0.65 0.16 30);
+  --category-2: oklch(0.65 0.16 75);
+  --category-3: oklch(0.65 0.16 140);
+  --category-4: oklch(0.65 0.13 195);
+  --category-5: oklch(0.62 0.15 240);
+  --category-6: oklch(0.65 0.16 285);
+  --category-7: oklch(0.65 0.16 330);
+  --category-8: oklch(0.68 0.14 110);
   --sidebar: oklch(0.967 0.0029 264.5419);
   --sidebar-foreground: #121113;
   --sidebar-primary: oklch(0.6716 0.1368 48.513);
@@ -645,7 +656,7 @@
   --muted-foreground: oklch(0.6268 0 0);
   --accent: oklch(0.3211 0 0);
   --accent-foreground: oklch(0.8109 0 0);
-  --destructive: oklch(0.594 0.0443 196.0233);
+  --destructive: oklch(0.68 0.19 25);
   --destructive-foreground: oklch(0.1797 0.0043 308.1928);
   --border: oklch(0.252 0 0);
   --input: oklch(0.252 0 0);
@@ -655,6 +666,16 @@
   --chart-3: oklch(0.8721 0.0864 68.5474);
   --chart-4: oklch(0.6268 0 0);
   --chart-5: oklch(0.683 0 0);
+  /* Category palette — same hues as light, L bumped to ~0.74 and C lowered to ~0.14
+     so colors don't vibrate against dark bg. Blue (240) gets L=0.78 for legibility. */
+  --category-1: oklch(0.74 0.14 30);
+  --category-2: oklch(0.74 0.14 75);
+  --category-3: oklch(0.74 0.14 140);
+  --category-4: oklch(0.74 0.12 195);
+  --category-5: oklch(0.78 0.14 240);
+  --category-6: oklch(0.74 0.14 285);
+  --category-7: oklch(0.74 0.14 330);
+  --category-8: oklch(0.76 0.13 110);
   --sidebar: oklch(0.1822 0 0);
   --sidebar-foreground: oklch(0.8109 0 0);
   --sidebar-primary: oklch(0.7214 0.1337 49.9802);

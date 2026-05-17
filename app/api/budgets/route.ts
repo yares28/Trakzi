@@ -14,6 +14,8 @@ type BudgetRow = {
   budget: string | number
 }
 
+// Legacy hex palette — kept as-is so the DB column format never changes.
+// Theme adaptation is handled entirely in the UI via lib/colors/category-color.ts.
 const CATEGORY_COLORS = [
   "#f97316",
   "#6366f1",
