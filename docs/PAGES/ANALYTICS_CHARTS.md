@@ -115,11 +115,23 @@ transactionHistory: {
 
 ---
 
-## Advanced Tab Charts (1 total)
+## Advanced Tab Charts (11 total)
+
+Gated behind `planFeatures.advancedChartsEnabled` (Pro/Max tiers) — see `app/analytics/_page/components/AdvancedChartsGrid.tsx`. Charts also appearing on the main Analytics tab share the same component, so updates flow to both surfaces.
 
 | # | Chart ID | Component File | Component Name | Description |
 |---|----------|----------------|----------------|-------------|
 | 1 | `spendingPyramid` | `chart-spending-pyramid.tsx` | `ChartSpendingPyramid` | Spending Pyramid - Horizontal mirrored bar chart comparing user spending distribution vs platform average by category |
+| 2 | `dailyAverageByMonth` | `test-charts/chart-daily-average-by-month.tsx` | `ChartDailyAverageByMonth` | Daily Average by Month - Per-month average daily spend |
+| 3 | `momGrowth` | `test-charts/chart-mom-growth.tsx` | `ChartMoMGrowth` | Month-over-Month Growth - Percent change in spending vs prior month |
+| 4 | `paydayImpact` | `test-charts/chart-payday-impact.tsx` | `ChartPaydayImpact` | Payday Impact - Spending pattern relative to payday |
+| 5 | `recurringVsOneTime` | `chart-recurring-vs-onetime.tsx` | `ChartRecurringVsOneTime` | Recurring vs One-Time - Pie of recurring bills vs one-time purchases |
+| 6 | `dayOfWeekCategory` | `chart-day-of-week-category.tsx` | `ChartDayOfWeekCategory` | Day of Week Category - Spending breakdown by day and category |
+| 7 | `dailyTransactionActivity` | `chart-transaction-calendar.tsx` | `ChartTransactionCalendar` | Daily Transaction Activity - Calendar heatmap of daily spending |
+| 8 | `seasonalSpending` | `test-charts/chart-seasonal-spending.tsx` | `ChartSeasonalSpending` | Seasonal Spending - Spending pattern across seasons |
+| 9 | `weekendVsWeekday` | `chart-weekend-vs-weekday.tsx` | `ChartWeekendVsWeekday` | Weekend vs Weekday - Compare spending between weekdays and weekends |
+| 10 | `dailySpendAllowance` | `chart-daily-spend-allowance.tsx` | `ChartDailySpendAllowance` | Daily Spend Allowance - Rolling discretionary allowance line chart |
+| 11 | `hourlySpending` | `test-charts/chart-hourly-spending.tsx` | `ChartHourlySpending` | Hourly Spending Pattern - Spending grouped by hour of day |
 
 ---
 

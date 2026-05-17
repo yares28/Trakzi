@@ -667,6 +667,11 @@ function LayoutSection() {
         toast.success("Cards randomized!", { description: "The grid layout has been shuffled." })
     }
 
+    const handleReset = () => {
+        window.dispatchEvent(new CustomEvent("gridstack:reset"))
+        toast.success("Layout reset!", { description: "Card order and sizes restored to defaults." })
+    }
+
     const layoutOptions = [
         {
             id: "randomize",
@@ -690,9 +695,8 @@ function LayoutSection() {
             title: "Reset Default",
             description: "Restore original layout",
             icon: "↩️",
-            action: () => toast.info("Coming soon!", { description: "Reset feature will be available soon." }),
-            active: false,
-            soon: true,
+            action: handleReset,
+            active: true,
         },
     ]
 

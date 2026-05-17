@@ -6,11 +6,12 @@ import { useCurrency } from "@/components/currency-provider"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Progress } from "@/components/ui/progress"
+import { LazyChart } from "@/components/lazy-chart"
+import { ChartGoalsProgress } from "@/components/savings/chart-goals-progress"
 import { summarizeGoals, type DerivedGoal, type GoalContext } from "@/lib/goals"
 import type { GoalRecord, GoalEntryType } from "@/lib/types/goals"
 import { cn } from "@/lib/utils"
-import { CalendarDays, CheckCircle2, Plus, RotateCcw, Search, Sparkles, Trash2 } from "lucide-react"
+import { CheckCircle2, Plus, RotateCcw, Search, Sparkles, Target, Trash2 } from "lucide-react"
 import type { GoalComposerDefaults } from "@/components/chat/goal-wizard-card"
 
 type GoalEntryDraft = {
@@ -54,6 +55,13 @@ const GOAL_TEMPLATES: GoalComposerDefaults[] = [
   { goalKind: "net_worth_target", category: "Net Worth", label: "Net Worth Goal" },
 ]
 
+const KIND_DOT_COLOR: Record<DerivedGoal["goalKind"], string> = {
+  savings_target: "var(--chart-1)",
+  pocket_funding: "var(--chart-2)",
+  debt_payoff: "var(--destructive)",
+  net_worth_target: "var(--chart-3)",
+}
+
 function createEntryDraft(): GoalEntryDraft {
   return {
     sourceMode: "quick",
@@ -67,38 +75,29 @@ function createEntryDraft(): GoalEntryDraft {
   }
 }
 
-function SummaryMetric({
+function Pill({
   label,
   value,
-  helper,
+  className,
+  style,
 }: {
   label: string
   value: string
-  helper: string
+  className?: string
+  style?: React.CSSProperties
 }) {
   return (
-    <div className="space-y-1">
-      <p className="text-[11px] font-medium text-muted-foreground/72">{label}</p>
-      <p className="text-base font-semibold tracking-tight text-foreground">{value}</p>
-      <p className="text-[11px] text-muted-foreground">{helper}</p>
-    </div>
-  )
-}
-
-function MetricCell({
-  label,
-  value,
-  helper,
-}: {
-  label: string
-  value: string
-  helper: string
-}) {
-  return (
-    <div>
-      <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground/65">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-foreground">{value}</p>
-      <p className="mt-1 text-[11px] text-muted-foreground">{helper}</p>
+    <div
+      className={cn(
+        "rounded-full border border-border/40 px-3 py-1 text-[11px] tracking-tight",
+        className
+      )}
+      style={style}
+    >
+      <span className="text-muted-foreground/80 uppercase tracking-wider text-[10px]">
+        {label}
+      </span>
+      <span className="ml-1.5 font-medium tabular-nums">{value}</span>
     </div>
   )
 }
@@ -142,9 +141,9 @@ function GoalEntryForm({
   )
 
   return (
-    <div className="mt-4 space-y-3 border-t border-border/35 pt-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex rounded-full border border-border/40 bg-muted/15 p-1">
+    <div className="mt-3 space-y-3 border-t border-border/35 pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="inline-flex rounded-full border border-border/40 bg-muted/15 p-0.5">
           {([
             { id: "quick", label: "Quick add" },
             { id: "transaction", label: "From transactions" },
@@ -154,7 +153,7 @@ function GoalEntryForm({
               type="button"
               onClick={() => onChange(goalId, { sourceMode: option.id })}
               className={cn(
-                "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                "rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors",
                 draft.sourceMode === option.id
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -169,7 +168,7 @@ function GoalEntryForm({
           <select
             value={draft.entryType}
             onChange={(event) => onChange(goalId, { entryType: event.target.value as GoalEntryType })}
-            className="h-9 rounded-full border border-border/40 bg-background px-3 text-xs text-foreground"
+            className="h-7 rounded-full border border-border/40 bg-background px-2.5 text-[11px] text-foreground"
           >
             <option value="contribution">Contribution</option>
             <option value="withdrawal">Withdrawal</option>
@@ -178,7 +177,7 @@ function GoalEntryForm({
           <Button
             type="button"
             size="sm"
-            className="rounded-full"
+            className="h-7 rounded-full px-3 text-[11px]"
             onClick={() => onSubmit(goalId)}
             disabled={!draft.amount || (draft.sourceMode === "transaction" && !draft.transactionId)}
           >
@@ -188,12 +187,12 @@ function GoalEntryForm({
       </div>
 
       {draft.sourceMode === "transaction" ? (
-        <div className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
+        <div className="space-y-2">
+          <div className="grid gap-2 sm:grid-cols-[160px_minmax(0,1fr)]">
             <select
               value={draft.categoryFilter}
               onChange={(event) => onChange(goalId, { categoryFilter: event.target.value })}
-              className="h-10 rounded-xl border border-border/40 bg-background px-3 text-sm text-foreground"
+              className="h-8 rounded-lg border border-border/40 bg-background px-2.5 text-[12px] text-foreground"
             >
               {categoryOptions.map((category) => (
                 <option key={category} value={category}>
@@ -202,9 +201,9 @@ function GoalEntryForm({
               ))}
             </select>
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
-                className="h-10 rounded-xl border-border/40 bg-background pl-9"
+                className="h-8 rounded-lg border-border/40 bg-background pl-8 text-[12px]"
                 value={draft.query}
                 onChange={(event) => onChange(goalId, { query: event.target.value })}
                 placeholder="Filter transactions"
@@ -212,17 +211,17 @@ function GoalEntryForm({
             </div>
           </div>
 
-          <div className="max-h-52 space-y-1 overflow-y-auto">
+          <div className="max-h-44 space-y-1 overflow-y-auto">
             {isLoadingTransactions ? (
-              <div className="rounded-xl border border-border/35 px-3 py-6 text-center text-sm text-muted-foreground">
+              <div className="rounded-lg border border-border/35 px-3 py-4 text-center text-[12px] text-muted-foreground">
                 Loading transactions…
               </div>
             ) : transactionsError ? (
-              <div className="rounded-xl border border-border/35 px-3 py-6 text-center text-sm text-muted-foreground">
+              <div className="rounded-lg border border-border/35 px-3 py-4 text-center text-[12px] text-muted-foreground">
                 {transactionsError}
               </div>
             ) : filteredTransactions.length === 0 ? (
-              <div className="rounded-xl border border-border/35 px-3 py-6 text-center text-sm text-muted-foreground">
+              <div className="rounded-lg border border-border/35 px-3 py-4 text-center text-[12px] text-muted-foreground">
                 No transactions match this filter.
               </div>
             ) : (
@@ -242,22 +241,22 @@ function GoalEntryForm({
                       })
                     }
                     className={cn(
-                      "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition-colors",
+                      "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left transition-colors",
                       isSelected
                         ? "bg-muted/25 text-foreground"
                         : "hover:bg-muted/15 text-foreground"
                     )}
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{tx.description}</p>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      <p className="truncate text-[12px] font-medium">{tx.description}</p>
+                      <p className="mt-0.5 text-[10px] text-muted-foreground">
                         {tx.category} • {new Date(`${tx.date}T00:00:00`).toLocaleDateString(undefined, {
                           month: "short",
                           day: "numeric",
                         })}
                       </p>
                     </div>
-                    <p className="ml-3 text-sm font-medium">{formatCurrency(Math.abs(tx.amount))}</p>
+                    <p className="ml-3 text-[12px] font-medium tabular-nums">{formatCurrency(Math.abs(tx.amount))}</p>
                   </button>
                 )
               })
@@ -265,14 +264,14 @@ function GoalEntryForm({
           </div>
 
           {selectedTransaction ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[11px] text-muted-foreground">
               Selected <span className="font-medium text-foreground">{selectedTransaction.description}</span> from{" "}
               {selectedTransaction.category}.
             </p>
           ) : null}
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-[140px_160px_minmax(0,1fr)]">
+        <div className="grid gap-2 sm:grid-cols-[120px_140px_minmax(0,1fr)]">
           <Input
             type="number"
             min="0"
@@ -280,19 +279,19 @@ function GoalEntryForm({
             value={draft.amount}
             onChange={(event) => onChange(goalId, { amount: event.target.value, transactionId: null })}
             placeholder="Amount"
-            className="h-10 rounded-xl border-border/40 bg-background"
+            className="h-8 rounded-lg border-border/40 bg-background text-[12px]"
           />
           <Input
             type="date"
             value={draft.entryDate}
             onChange={(event) => onChange(goalId, { entryDate: event.target.value })}
-            className="h-10 rounded-xl border-border/40 bg-background"
+            className="h-8 rounded-lg border-border/40 bg-background text-[12px]"
           />
           <Input
             value={draft.note}
             onChange={(event) => onChange(goalId, { note: event.target.value, transactionId: null })}
             placeholder="Optional note"
-            className="h-10 rounded-xl border-border/40 bg-background"
+            className="h-8 rounded-lg border-border/40 bg-background text-[12px]"
           />
         </div>
       )}
@@ -332,15 +331,15 @@ function GoalSection({
   if (goals.length === 0) return null
 
   return (
-    <section className="space-y-3">
+    <section className="flex flex-col gap-2">
       <div className="flex items-end justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-          <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">{description}</p>
         </div>
-        <span className="text-xs text-muted-foreground">{goals.length}</span>
+        <span className="text-[11px] text-muted-foreground/70 tabular-nums">{goals.length}</span>
       </div>
-      <div className="space-y-3">
+      <div className="flex flex-col gap-1.5">
         {goals.map((goal) => (
           <GoalCard
             key={goal.id}
@@ -360,6 +359,21 @@ function GoalSection({
       </div>
     </section>
   )
+}
+
+function healthColors(health: DerivedGoal["health"]): { bar: string; text: string } {
+  switch (health) {
+    case "on_track":
+      return { bar: "var(--chart-1)", text: "var(--chart-1)" }
+    case "tight":
+      return { bar: "var(--primary)", text: "var(--primary)" }
+    case "due_soon":
+      return { bar: "var(--primary)", text: "var(--primary)" }
+    case "behind":
+      return { bar: "var(--destructive)", text: "var(--destructive)" }
+    case "completed":
+      return { bar: "var(--muted-foreground)", text: "var(--muted-foreground)" }
+  }
 }
 
 function GoalCard({
@@ -388,127 +402,122 @@ function GoalCard({
   transactionsError: string | null
 }) {
   const { formatCurrency } = useCurrency()
-
-  const statusClasses: Record<DerivedGoal["health"], string> = {
-    on_track: "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
-    tight: "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-300",
-    behind: "border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300",
-    due_soon: "border-orange-500/20 bg-orange-500/10 text-orange-600 dark:text-orange-300",
-    completed: "border-border/60 bg-muted/40 text-muted-foreground",
-  }
+  const colors = healthColors(goal.health)
+  const monthly = Number.parseFloat(goal.monthly_allocation) || 0
+  const deadlineText = new Date(`${goal.deadline}T00:00:00`).toLocaleDateString(undefined, {
+    month: "short",
+    year: "numeric",
+  })
+  const targetValue =
+    goal.goalKind === "debt_payoff" ? goal.targetBalance : goal.targetAmount
 
   return (
-    <div className="rounded-[28px] border border-border/60 bg-card/80 px-4 py-4 shadow-sm transition-colors hover:border-border/90 sm:px-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h4 className="truncate text-sm font-semibold text-foreground">{goal.displayLabel}</h4>
-            <Badge variant="outline" className="border-border/60 bg-muted/25 text-[10px] font-medium text-muted-foreground">
-              {goal.kindLabel}
-            </Badge>
-            {goal.linkedSummary ? (
-              <Badge variant="outline" className="border-border/60 bg-muted/25 text-[10px] font-medium text-muted-foreground">
-                {goal.linkedSummary}
-              </Badge>
-            ) : null}
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">{goal.nextBestAction}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-lg font-semibold tracking-tight text-foreground">
+    <div className="rounded-xl border border-border/40 bg-card/60 px-4 py-2.5 flex flex-col gap-2 hover:border-border/70 transition-colors">
+      {/* Header: dot + label + kind on left, % + health on right */}
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex items-center gap-2 min-w-0">
+          <span
+            aria-hidden="true"
+            className="inline-block size-1.5 rounded-full shrink-0"
+            style={{ backgroundColor: KIND_DOT_COLOR[goal.goalKind] }}
+          />
+          <span className="text-[13px] font-medium tracking-tight truncate text-foreground">
+            {goal.displayLabel}
+          </span>
+          <span className="text-[10px] text-muted-foreground/70 truncate hidden sm:inline">
+            {goal.kindLabel}
+            {goal.linkedSummary ? ` · ${goal.linkedSummary}` : ""}
+          </span>
+        </span>
+
+        <span className="flex items-center gap-2 shrink-0">
+          <span className="text-[12px] tabular-nums text-foreground/80">
             {Math.round(goal.progressPercent)}%
-          </p>
-          <Badge variant="outline" className={cn("mt-1 border text-[10px] font-medium", statusClasses[goal.health])}>
+          </span>
+          <Badge
+            variant="outline"
+            className="border-border/40 bg-transparent text-[10px] font-medium"
+            style={{ color: colors.text, borderColor: "color-mix(in oklch, currentColor 40%, transparent)" }}
+          >
             {goal.healthLabel}
           </Badge>
-        </div>
+        </span>
       </div>
 
-      <div className="mt-4">
-        <Progress value={goal.progressPercent} className="h-1.5 bg-primary/12" />
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
-        <MetricCell
-          label={goal.currentValueLabel}
-          value={formatCurrency(goal.currentValue)}
-          helper={goal.goalKind === "debt_payoff" ? "Current linked debt balance" : "Live current value"}
-        />
-        <MetricCell
-          label={goal.targetValueLabel}
-          value={goal.goalKind === "debt_payoff" ? formatCurrency(goal.targetBalance) : formatCurrency(goal.targetAmount)}
-          helper={goal.goalKind === "debt_payoff" ? "Balance to reach" : "Goal target"}
-        />
-        <MetricCell
-          label="Monthly plan"
-          value={formatCurrency(Number.parseFloat(goal.monthly_allocation) || 0)}
-          helper={goal.goalKind === "debt_payoff" ? "Planned payoff pace" : "Planned funding pace"}
-        />
-        <MetricCell
-          label="Deadline"
-          value={new Date(`${goal.deadline}T00:00:00`).toLocaleDateString(undefined, {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
-          helper={goal.section === "completed" ? "Completed goal" : `${goal.monthsLeft} month${goal.monthsLeft === 1 ? "" : "s"} left`}
+      {/* Hairline progress bar */}
+      <div className="relative h-[3px] w-full overflow-hidden rounded-full bg-muted/50">
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{
+            width: `${Math.min(100, goal.progressPercent)}%`,
+            backgroundColor: colors.bar,
+          }}
         />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border/50 pt-4">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <CalendarDays className="h-3.5 w-3.5" />
-          {goal.projectedCompletionDate
-            ? `Projected finish ${new Date(`${goal.projectedCompletionDate}T00:00:00`).toLocaleDateString(undefined, {
-              month: "short",
-              year: "numeric",
-            })}`
-            : "Projection updates once a monthly plan exists"}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Compact meta line */}
+      <div className="flex items-center justify-between gap-3 text-[11px] tabular-nums text-muted-foreground/80">
+        <span className="truncate">
+          {formatCurrency(goal.currentValue)}
+          <span className="text-muted-foreground/50"> / </span>
+          {formatCurrency(targetValue)}
+          <span className="text-muted-foreground/40 mx-1.5">·</span>
+          <span className="text-muted-foreground/70">Due {deadlineText}</span>
+          {monthly > 0 ? (
+            <>
+              <span className="text-muted-foreground/40 mx-1.5">·</span>
+              <span className="text-muted-foreground/70">{formatCurrency(monthly)}/mo</span>
+            </>
+          ) : null}
+        </span>
+
+        <span className="flex items-center gap-1 shrink-0">
           {goal.canAddEntries && (
-            <Button
-              size="sm"
-              variant={isEntryOpen ? "secondary" : "outline"}
-              className="h-8 rounded-full px-3 text-xs"
+            <button
+              type="button"
               onClick={() => onToggleEntry(isEntryOpen ? null : goal.id)}
+              className={cn(
+                "flex h-6 items-center gap-1 rounded-full border px-2 text-[10px] transition-colors",
+                isEntryOpen
+                  ? "border-border/60 bg-muted/40 text-foreground"
+                  : "border-border/30 text-muted-foreground hover:text-foreground hover:border-border/60"
+              )}
             >
-              {isEntryOpen ? "Close entry" : "Add entry"}
-            </Button>
+              <Plus className="size-2.5" />
+              {isEntryOpen ? "Close" : "Entry"}
+            </button>
           )}
           {goal.section === "completed" ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 rounded-full px-3 text-xs"
+            <button
+              type="button"
               onClick={() => onUpdateStatus(goal.id, "active")}
+              title="Reopen goal"
+              className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
             >
-              <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-              Reopen
-            </Button>
+              <RotateCcw className="size-3" />
+            </button>
           ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 rounded-full px-3 text-xs"
+            <button
+              type="button"
               onClick={() => onUpdateStatus(goal.id, "completed")}
+              title="Mark complete"
+              className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
             >
-              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-              Mark complete
-            </Button>
+              <CheckCircle2 className="size-3" />
+            </button>
           )}
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive"
+          <button
+            type="button"
             onClick={() => onDeleteGoal(goal.id)}
             title="Delete goal"
+            className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-muted/40 transition-colors"
           >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
+            <Trash2 className="size-3" />
+          </button>
+        </span>
       </div>
 
+      {/* Inline entry form */}
       {goal.canAddEntries && isEntryOpen ? (
         <GoalEntryForm
           goalId={goal.id}
@@ -591,17 +600,29 @@ export function SavingsGoalsPanel({
     setOpenEntryGoalId(null)
   }
 
+  const onPaceCount = onTrackGoals.length
+  const onPaceTotal = activeGoals.length
+  const onPaceColor =
+    onPaceTotal === 0
+      ? "var(--muted-foreground)"
+      : onPaceCount === onPaceTotal
+        ? "var(--chart-1)"
+        : onPaceCount >= onPaceTotal / 2
+          ? "var(--primary)"
+          : "var(--destructive)"
+
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
-          <p className="text-[11px] font-medium text-muted-foreground/72">Goals</p>
+          <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground/72">Goals</p>
           <h2 className="text-xl font-semibold tracking-tight text-foreground">Plan what matters next</h2>
           <p className="max-w-2xl text-sm text-muted-foreground">
             Savings, payoff, net worth, and pocket reserves all live in one place and stay tied to the rest of the app.
           </p>
         </div>
-        <Button size="sm" onClick={() => onAddGoal()} className="h-10 rounded-full px-4">
+        <Button size="sm" onClick={() => onAddGoal()} className="h-9 rounded-full px-4">
           <Plus className="mr-1.5 h-4 w-4" />
           Add Goal
         </Button>
@@ -610,12 +631,12 @@ export function SavingsGoalsPanel({
       {isComposerOpen && composer ? composer : null}
 
       {isLoading ? (
-        <div className="flex items-center justify-center rounded-[28px] border border-border/50 bg-card/60 px-6 py-16 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center rounded-xl border border-border/40 bg-card/60 px-6 py-12 text-sm text-muted-foreground">
           <div className="mr-3 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           Loading goals…
         </div>
       ) : goals.length === 0 ? (
-        <div className="rounded-[32px] border border-dashed border-border/60 bg-muted/15 px-6 py-12 text-center">
+        <div className="rounded-2xl border border-dashed border-border/60 bg-muted/15 px-6 py-12 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Sparkles className="h-5 w-5" />
           </div>
@@ -642,57 +663,69 @@ export function SavingsGoalsPanel({
         </div>
       ) : (
         <>
-          <div className="grid gap-4 rounded-[28px] border border-border/40 bg-background/60 px-4 py-4 sm:grid-cols-2 xl:grid-cols-4">
-            <SummaryMetric
-              label="Active goals"
-              value={`${activeGoals.length}`}
-              helper={`${prioritizedDueSoon.length} due soon`}
+          {/* Summary pills */}
+          <div className="flex flex-wrap gap-3">
+            <Pill
+              label="Active"
+              value={`${activeGoals.length}${prioritizedDueSoon.length > 0 ? ` · ${prioritizedDueSoon.length} due soon` : ""}`}
             />
-            <SummaryMetric
-              label="Total target"
-              value={formatCurrency(totalTarget)}
-              helper="Across active goals"
-            />
-            <SummaryMetric
-              label="Current progress"
-              value={formatCurrency(totalCurrentValue)}
-              helper="Current value across active goals"
-            />
-            <SummaryMetric
+            <Pill label="Total target" value={formatCurrency(totalTarget)} />
+            <Pill label="Saved so far" value={formatCurrency(totalCurrentValue)} />
+            <Pill
               label="On pace"
-              value={activeGoals.length > 0 ? `${onTrackGoals.length}/${activeGoals.length}` : "0"}
-              helper={`${formatCurrency(totalMonthlyPlan)} monthly plan`}
+              value={onPaceTotal > 0 ? `${onPaceCount}/${onPaceTotal}` : "—"}
+              style={{
+                color: onPaceColor,
+                borderColor: `color-mix(in oklch, ${onPaceColor} 40%, transparent)`,
+              }}
             />
+            {totalMonthlyPlan > 0 && (
+              <Pill label="Monthly plan" value={formatCurrency(totalMonthlyPlan)} />
+            )}
           </div>
 
+          {/* Progress chart */}
+          {activeGoals.length > 0 && (
+            <LazyChart title="Goal progress" height={220}>
+              <ChartGoalsProgress goals={activeGoals} />
+            </LazyChart>
+          )}
+
+          {/* Compact Focus next callout */}
           {nextGoalToFund ? (
-            <div className="rounded-[28px] border border-border/40 bg-background/60 px-5 py-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                <div className="space-y-1.5">
-                  <p className="text-[11px] font-medium text-muted-foreground/72">Focus next</p>
-                  <div>
-                    <h3 className="text-base font-semibold tracking-tight text-foreground">{nextGoalToFund.displayLabel}</h3>
-                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                      {nextGoalToFund.nextBestAction}
-                    </p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4 text-sm sm:min-w-[320px]">
-                  <MetricCell
-                    label="Remaining"
-                    value={formatCurrency(nextGoalToFund.remainingAmount)}
-                    helper="Still left to close"
-                  />
-                  <MetricCell
-                    label="Needed"
-                    value={formatCurrency(nextGoalToFund.neededPerMonth)}
-                    helper="To stay on schedule"
-                  />
-                </div>
+            <div
+              className="flex flex-col gap-2 rounded-xl border border-border/40 bg-card/60 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <Target className="size-3.5 text-primary shrink-0" />
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 shrink-0">
+                  Focus next
+                </span>
+                <span className="text-[13px] font-medium tracking-tight truncate text-foreground">
+                  {nextGoalToFund.displayLabel}
+                </span>
+                <span className="text-[11px] text-muted-foreground/70 truncate hidden sm:inline">
+                  · {nextGoalToFund.nextBestAction}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 text-[11px] tabular-nums shrink-0">
+                <span className="text-muted-foreground/80">
+                  <span className="text-muted-foreground/60 mr-1">Remaining</span>
+                  <span className="font-medium text-foreground">
+                    {formatCurrency(nextGoalToFund.remainingAmount)}
+                  </span>
+                </span>
+                <span className="text-muted-foreground/80">
+                  <span className="text-muted-foreground/60 mr-1">Needed</span>
+                  <span className="font-medium text-foreground">
+                    {formatCurrency(nextGoalToFund.neededPerMonth)}/mo
+                  </span>
+                </span>
               </div>
             </div>
           ) : null}
 
+          {/* Sections */}
           <GoalSection
             title="In Progress"
             description="Goals that still have breathing room."

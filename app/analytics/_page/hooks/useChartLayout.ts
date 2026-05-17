@@ -202,6 +202,34 @@ export function useChartLayout({ isDemoMode = false }: UseChartLayoutOptions = {
     [isDemoMode, updatePagePreferences]
   )
 
+  // -----------------------------------------------------------------
+  // Reset to defaults — restores order, sizes, and clears user resizes.
+  // -----------------------------------------------------------------
+  const resetLayout = useCallback(() => {
+    const defaultOrder = [...DEFAULT_CHART_ORDER]
+    const defaultSizes = cloneChartSizes(DEFAULT_CHART_SIZES)
+
+    setAnalyticsChartOrder(defaultOrder)
+    setSavedSizes({})
+    savedSizesRef.current = {}
+    setSavedChartSizes(defaultSizes)
+    savedChartSizesRef.current = defaultSizes
+
+    if (isDemoMode) return
+    updatePagePreferences("analytics", {
+      order: defaultOrder,
+      sizes: defaultSizes,
+      sizes_version: DEFAULT_SIZES_VERSION,
+      user_sizes: {},
+    })
+  }, [isDemoMode, updatePagePreferences])
+
+  useEffect(() => {
+    const handler = () => resetLayout()
+    window.addEventListener("gridstack:reset", handler)
+    return () => window.removeEventListener("gridstack:reset", handler)
+  }, [resetLayout])
+
   return {
     analyticsChartOrder,
     handleChartOrderChange,

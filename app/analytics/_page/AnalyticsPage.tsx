@@ -15,6 +15,7 @@ import { useDemoMode } from "@/lib/demo/demo-context"
 import { FeatureGateBlur } from "@/components/feature-gate-blur"
 import { AnalyticsLayout } from "./components/AnalyticsLayout"
 import { AnalyticsTrendsTab } from "./components/AnalyticsTrendsTab"
+import { AdvancedChartsGrid } from "./components/AdvancedChartsGrid"
 import { AiReparseDialog } from "./components/AiReparseDialog"
 import { ChartsGrid } from "./components/ChartsGrid"
 import { StatementUploadDialog } from "./components/StatementUploadDialog"
@@ -26,17 +27,9 @@ import { useAnalyticsStats } from "./hooks/useAnalyticsStats"
 import { useChartLayout } from "./hooks/useChartLayout"
 import { useStatementImport } from "./hooks/useStatementImport"
 import { cn } from "@/lib/utils"
-import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
-import { SortableGridItem, SortableGridProvider } from "@/components/sortable-grid"
-import dynamic from "next/dynamic"
-import { DEFAULT_ADVANCED_CHART_ORDER, DEFAULT_ADVANCED_CHART_SIZES } from "./constants"
+import { DEFAULT_ADVANCED_CHART_ORDER } from "./constants"
 import { OnboardingTour } from "@/components/onboarding/onboarding-tour"
 import { useOnboarding } from "@/components/onboarding/onboarding-context"
-
-const ChartSpendingPyramid = dynamic(
-  () => import("@/components/chart-spending-pyramid").then((m) => ({ default: m.ChartSpendingPyramid })),
-  { ssr: false, loading: () => <div className="h-[300px] w-full animate-pulse rounded-lg bg-muted" /> }
-)
 
 type AnalyticsViewMode = "analytics" | "advanced" | "trends"
 
@@ -255,46 +248,17 @@ export default function AnalyticsPage() {
               className="w-full mb-4"
             >
               <div className="w-full mb-4 px-4 lg:px-6">
-                <SortableGridProvider
+                <AdvancedChartsGrid
                   chartOrder={advancedChartOrder}
-                  onOrderChange={setAdvancedChartOrder}
-                >
-                  {advancedChartOrder.map((chartId) => {
-                    const defaultSize = DEFAULT_ADVANCED_CHART_SIZES[chartId] || { w: 6, h: 8 }
-                    const sizeConfig = getChartCardSize(chartId as ChartId)
-                    const w = (chartLayout.savedSizes[chartId]?.w ?? defaultSize.w) as 6 | 12
-                    const h = chartLayout.savedSizes[chartId]?.h ?? defaultSize.h
-
-                    if (chartId === "spendingPyramid") {
-                      return (
-                        <SortableGridItem
-                          key={chartId}
-                          id={chartId}
-                          w={w}
-                          h={h}
-                          mobileH={sizeConfig.mobileH}
-                          resizable
-                          minW={sizeConfig.minW}
-                          maxW={sizeConfig.maxW}
-                          minH={sizeConfig.minH}
-                          maxH={sizeConfig.maxH}
-                          onResize={chartLayout.handleChartResize}
-                        >
-                          <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
-                            <ChartSpendingPyramid
-                              data={bundleData?.spendingPyramid}
-                              isLoading={bundleLoading}
-                              emptyTitle="No data yet"
-                              emptyDescription="Import your bank statements to compare your spending with the average user"
-                            />
-                          </div>
-                        </SortableGridItem>
-                      )
-                    }
-
-                    return null
-                  })}
-                </SortableGridProvider>
+                  onChartOrderChange={setAdvancedChartOrder}
+                  savedSizes={chartLayout.savedSizes}
+                  onChartResize={chartLayout.handleChartResize}
+                  bundleData={bundleData}
+                  bundleLoading={bundleLoading}
+                  rawTransactions={rawTransactions}
+                  isLoadingTransactions={isLoadingTransactions}
+                  dateFilter={dateFilter}
+                />
               </div>
             </FeatureGateBlur>
           )}

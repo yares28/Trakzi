@@ -1,6 +1,9 @@
 import { neonQuery } from '@/lib/neonClient'
-import { getPeriodDaysFromFilter } from '@/lib/date-filter'
+import { computeMonthsElapsed } from '@/lib/date-filter'
 import type { BudgetCategoryRow, BudgetsSummary } from '@/lib/types/budgets'
+
+// Re-exported for backwards compat with existing imports (tests, bundle route).
+export { computeMonthsElapsed }
 
 type RawBudgetRow = {
   category_id: string
@@ -9,12 +12,6 @@ type RawBudgetRow = {
   monthly_cap: string | null
   month: string | null
   month_spend: string | null
-}
-
-export function computeMonthsElapsed(filter: string | null | undefined): number {
-  const days = getPeriodDaysFromFilter(filter)
-  if (!days) return 0
-  return days / 30.4375
 }
 
 function computeStatus(avgMonthly: number, monthlyCap: number | null): BudgetCategoryRow['status'] {

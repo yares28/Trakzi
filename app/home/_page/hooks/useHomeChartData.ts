@@ -5,6 +5,7 @@ import { useTheme } from "next-themes"
 import { useColorScheme } from "@/components/color-scheme-provider"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
 import { buildCashFlowGraphFromTransactions } from "@/lib/charts/cash-flow-graph"
+import { computeMonthsElapsed } from "@/lib/date-filter"
 import { useDemoMode } from "@/lib/demo/demo-context"
 
 import type {
@@ -189,19 +190,29 @@ export function useHomeChartData({
       })
       .filter(([category, amount]) => amount > 0 || budgetedSet.has(category))
 
+    // Budgets in /api/budgets are MONTHLY caps. Spend numerators are
+    // summed over the active filter window. Scale the cap by months elapsed
+    // so a 6-month filter compares amount against 6× monthly cap (and YTD
+    // against fractional months). Matches the Budgets tab math.
+    const monthsElapsed = computeMonthsElapsed(dateFilter)
+    const safeMonths = monthsElapsed > 0 ? monthsElapsed : 1
+
     return selectedCategories.map(([category, amount], index) => {
       const storedLimit = ringLimits[category]
-      const effectiveLimit =
+      const rawMonthlyLimit =
         typeof storedLimit === "number" && storedLimit > 0
           ? storedLimit
           : (isDemoMode
               ? (getSuggestedDemoRingLimit(amount) ?? getDefaultRingLimit(dateFilter, true))
               : getDefaultRingLimit(dateFilter))
 
+      const monthlyLimit: number | null =
+        typeof rawMonthlyLimit === "number" && rawMonthlyLimit > 0 ? rawMonthlyLimit : null
+      const periodLimit: number | null =
+        monthlyLimit !== null ? monthlyLimit * safeMonths : null
+
       const ratioToLimit =
-        effectiveLimit && effectiveLimit > 0
-          ? Math.min(amount / effectiveLimit, 1)
-          : null
+        periodLimit !== null ? Math.min(amount / periodLimit, 1) : null
 
       const value = ratioToLimit !== null ? ratioToLimit : 0
 
@@ -210,23 +221,22 @@ export function useHomeChartData({
           ? palette[index % palette.length]
           : undefined) || "#a1a1aa"
 
-      const exceeded =
-        ratioToLimit !== null && effectiveLimit !== null && amount > effectiveLimit
+      const exceeded = periodLimit !== null && amount > periodLimit
       const pct = ratioToLimit !== null ? (ratioToLimit * 100).toFixed(1) : "0"
 
       return {
         label:
-          ratioToLimit !== null && effectiveLimit !== null
+          periodLimit !== null && monthlyLimit !== null
             ? `Category: ${category}\nUsed: ${pct}%\nSpent: $${amount.toFixed(
               2
-            )}\nBudget: $${effectiveLimit.toFixed(2)}${exceeded ? "\nExceeded" : ""
+            )}\nBudget: $${periodLimit.toFixed(2)} ($${monthlyLimit.toFixed(0)}/mo)${exceeded ? "\nExceeded" : ""
             }`
             : `Category: ${category}\nSpent: $${amount.toFixed(
               2
             )}\nNo budget set`,
         category,
         spent: amount,
-        budget: effectiveLimit,
+        budget: periodLimit,
         value,
         color,
       }

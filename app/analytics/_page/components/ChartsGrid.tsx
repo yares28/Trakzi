@@ -38,6 +38,7 @@ import { ChartBudgetBurndown } from "@/components/chart-budget-burndown"
 import { ChartPurchaseSizeBreakdown } from "@/components/chart-purchase-size-breakdown"
 import { ChartRecurringVsOneTime } from "@/components/chart-recurring-vs-onetime"
 import { ChartSeasonalSpending } from "@/components/test-charts/chart-seasonal-spending"
+import { ChartHourlySpending } from "@/components/test-charts/chart-hourly-spending"
 import { ChartTransactionCountTrend } from "@/components/test-charts/chart-transaction-count-trend"
 import { ChartMoMGrowth } from "@/components/test-charts/chart-mom-growth"
 import { ChartTopMerchantsRace } from "@/components/test-charts/chart-top-merchants-race"
@@ -846,7 +847,12 @@ export function ChartsGrid({
                                   typeof (item as { spent?: number }).spent === "number"
                                     ? (item as { spent?: number }).spent!
                                     : 0
-                                const limit = ringLimits[category] ?? getDefaultRingLimit(dateFilter, isDemoMode)
+                                // Use the period-scaled budget from the hook
+                                // so spent/limit ratios match the visible ring.
+                                const limit =
+                                  typeof (item as { budget?: number | null }).budget === "number"
+                                    ? (item as { budget?: number }).budget!
+                                    : null
                                 return {
                                   category,
                                   spent,
@@ -1091,6 +1097,18 @@ export function ChartsGrid({
                 <LazyChart title="Seasonal Spending" height={250}>
                   <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
                     <ChartSeasonalSpending data={rawTransactions} isLoading={isLoadingTransactions} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
+                  </div>
+                </LazyChart>
+              </SortableGridItem>
+            )
+          }
+
+          if (chartId === "hourlySpending") {
+            return (
+              <SortableGridItem key={chartId} id={chartId} w={(savedSizes[chartId]?.w ?? initialW) as 6 | 12} h={savedSizes[chartId]?.h ?? initialH} mobileH={sizeConfig.mobileH} resizable minW={sizeConfig.minW} maxW={sizeConfig.maxW} minH={sizeConfig.minH} maxH={sizeConfig.maxH} onResize={handleChartResize}>
+                <LazyChart title="Hourly Spending Pattern" height={250}>
+                  <div className="grid-stack-item-content h-full w-full overflow-visible flex flex-col">
+                    <ChartHourlySpending data={rawTransactions} isLoading={isLoadingTransactions} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
                   </div>
                 </LazyChart>
               </SortableGridItem>

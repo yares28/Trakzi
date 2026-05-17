@@ -44,6 +44,20 @@ export function normalizeDateFilterValue(
   return value.trim()
 }
 
+/**
+ * Fractional months in the active filter window. Uses the Gregorian average
+ * (365.25 / 12) so YTD, last6months, and custom ranges all scale consistently
+ * when multiplying a monthly budget cap to compare against period totals.
+ *
+ * Returns 0 if the filter is unrecognized — callers should clamp to >= 1
+ * before dividing.
+ */
+export function computeMonthsElapsed(filter: string | null | undefined): number {
+  const days = getPeriodDaysFromFilter(filter)
+  if (!days) return 0
+  return days / 30.4375
+}
+
 /** Approximate number of days in the period for the given filter (for per-day calculations). */
 export function getPeriodDaysFromFilter(filter: string | null | undefined): number {
   if (!filter || typeof filter !== "string") return 0

@@ -757,13 +757,15 @@ export async function getMonthlyByCategory(
 
 /**
  * Get platform-wide average spending by category (globally cached, shared across all users).
- * Uses HAVING COUNT(*) >= 2 so at least 2 users must share a category for a meaningful average.
+ * Includes any category with at least 1 user — categories aren't sensitive enough to
+ * warrant k>=2 anonymity, and the >=2 threshold was hiding real comparison data on a
+ * small platform.
  */
 async function getPlatformCategoryAverages(
     startDate?: string,
     endDate?: string
 ): Promise<Map<string, number>> {
-    const cacheKey = `platform:v2:category-avg:${startDate ?? 'all'}:${endDate ?? 'all'}`
+    const cacheKey = `platform:v3:category-avg:${startDate ?? 'all'}:${endDate ?? 'all'}`
 
     const result = await getCachedOrCompute<Array<{ category: string; avg_total: string }>>(
         cacheKey,
@@ -797,7 +799,7 @@ async function getPlatformCategoryAverages(
                     GROUP BY t.user_id, c.name
                 ) user_totals
                 GROUP BY category_name
-                HAVING COUNT(*) >= 2
+                HAVING COUNT(*) >= 1
                 ORDER BY avg_total DESC
             `
 

@@ -4,6 +4,7 @@ import { getChartCardSize, type ChartId } from "@/lib/chart-card-sizes.config"
 import { buildCashFlowGraphFromTransactions } from "@/lib/charts/cash-flow-graph"
 import { computeWeeklyNet, type WeeklyNetPoint } from "@/lib/charts/weekly-net"
 import { useChartCategoryVisibility } from "@/hooks/use-chart-category-visibility"
+import { computeMonthsElapsed } from "@/lib/date-filter"
 import type { ChartDataStatusMap } from "@/lib/types/chart-data-status"
 
 import type { ActivityRingsConfig, ActivityRingsData, AnalyticsTransaction } from "../types"
@@ -279,20 +280,29 @@ export function useAnalyticsChartData({
       })
       .filter(([category, amount]) => amount > 0 || budgetedSet.has(category))
 
+    // Period scaling: budget in /api/budgets is the MONTHLY cap. The spend
+    // numbers above are summed across the active filter window. So we
+    // multiply the monthly cap by the fractional months in this period to
+    // compare apples-to-apples (matches the Budgets tab math exactly).
+    const monthsElapsed = computeMonthsElapsed(dateFilter)
+    const safeMonths = monthsElapsed > 0 ? monthsElapsed : 1
+
     return selectedCategories.map(([category, amount], index) => {
       const storedLimit = ringLimits[category]
-      const rawLimit =
+      const rawMonthlyLimit =
         typeof storedLimit === "number" && storedLimit > 0
           ? storedLimit
           : (isDemoMode
               ? (getSuggestedDemoRingLimit(amount) ?? getDefaultRingLimit(dateFilter, true))
               : getDefaultRingLimit(dateFilter))
 
-      const effectiveLimit: number | null =
-        typeof rawLimit === "number" && rawLimit > 0 ? rawLimit : null
+      const monthlyLimit: number | null =
+        typeof rawMonthlyLimit === "number" && rawMonthlyLimit > 0 ? rawMonthlyLimit : null
+      const periodLimit: number | null =
+        monthlyLimit !== null ? monthlyLimit * safeMonths : null
 
       const ratioToLimit =
-        effectiveLimit !== null ? Math.min(amount / effectiveLimit, 1) : null
+        periodLimit !== null ? Math.min(amount / periodLimit, 1) : null
 
       const value = ratioToLimit !== null ? ratioToLimit : 0
 
@@ -301,20 +311,21 @@ export function useAnalyticsChartData({
           ? palette[index % palette.length]
           : undefined) || "#a1a1aa"
 
-      const exceeded = effectiveLimit !== null && amount > effectiveLimit
+      const exceeded = periodLimit !== null && amount > periodLimit
       const pct = ratioToLimit !== null ? (ratioToLimit * 100).toFixed(1) : '0'
 
       return {
-        // Label is used by the ActivityRings tooltip on hover
+        // Label is used by the ActivityRings tooltip on hover. Shows the
+        // period-scaled cap so the math the user sees matches the ring fill.
         label:
-          effectiveLimit !== null
-            ? `Category: ${category}\nUsed: ${pct}%\nSpent: $${amount.toFixed(2)}\nBudget: $${effectiveLimit.toFixed(2)}${exceeded ? '\n⚠ Exceeded' : ''}`
+          periodLimit !== null && monthlyLimit !== null
+            ? `Category: ${category}\nUsed: ${pct}%\nSpent: $${amount.toFixed(2)}\nBudget: $${periodLimit.toFixed(2)} ($${monthlyLimit.toFixed(0)}/mo)${exceeded ? '\n⚠ Exceeded' : ''}`
             : `Category: ${category}\nSpent: $${amount.toFixed(2)}\nNo budget set`,
         // Store the raw category name separately for our own legend
         // (extra fields are ignored by the library)
         category,
         spent: amount,
-        budget: effectiveLimit,
+        budget: periodLimit,
         value,
         color,
       }

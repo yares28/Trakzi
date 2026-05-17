@@ -74,22 +74,20 @@ export const ChartYearOverYear = memo(function ChartYearOverYear({
             monthlyTotals.set(month, (monthlyTotals.get(month) || 0) + Math.abs(tx.amount))
         })
         const paletteLength = palette?.length || 0
-        const accent = paletteLength > 0 ? palette[0] : "#fe8339"
         return Array.from(monthlyTotals.entries())
             .sort((a, b) => a[0].localeCompare(b[0]))
             .slice(-12)
             .map(([period, total], i, arr) => {
                 const prevTotal = i > 0 ? arr[i - 1][1] : total
                 const change = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : 0
-                const isLatest = i === arr.length - 1
                 return {
                     period,
                     total,
                     change,
-                    color: isLatest ? accent : (isDark ? "#4b5563" : "#9ca3af"),
+                    color: paletteLength > 0 ? palette[i % paletteLength] : "#fe8339",
                 }
             })
-    }, [data, palette, isDark])
+    }, [data, palette])
 
     const quarterlyChartData = useMemo(() => {
         if (!data || data.length === 0) return []
@@ -106,22 +104,20 @@ export const ChartYearOverYear = memo(function ChartYearOverYear({
             quarterlyTotals.set(key, (quarterlyTotals.get(key) || 0) + Math.abs(tx.amount))
         })
         const paletteLength = palette?.length || 0
-        const accent = paletteLength > 0 ? palette[0] : "#fe8339"
         return Array.from(quarterlyTotals.entries())
             .sort((a, b) => a[0].localeCompare(b[0]))
             .slice(-8)
             .map(([period, total], i, arr) => {
                 const prevTotal = i > 0 ? arr[i - 1][1] : total
                 const change = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : 0
-                const isLatest = i === arr.length - 1
                 return {
                     period,
                     total,
                     change,
-                    color: isLatest ? accent : (isDark ? "#4b5563" : "#9ca3af"),
+                    color: paletteLength > 0 ? palette[i % paletteLength] : "#fe8339",
                 }
             })
-    }, [data, palette, isDark])
+    }, [data, palette])
 
     const yearlyChartData = useMemo(() => {
         if (!data || data.length === 0) return []
@@ -132,22 +128,20 @@ export const ChartYearOverYear = memo(function ChartYearOverYear({
             yearlyTotals.set(year, (yearlyTotals.get(year) || 0) + Math.abs(tx.amount))
         })
         const paletteLength = palette?.length || 0
-        const accent = paletteLength > 0 ? palette[0] : "#fe8339"
         return Array.from(yearlyTotals.entries())
             .sort((a, b) => a[0].localeCompare(b[0]))
             .slice(-5)
             .map(([period, total], i, arr) => {
                 const prevTotal = i > 0 ? arr[i - 1][1] : total
                 const change = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : 0
-                const isLatest = i === arr.length - 1
                 return {
                     period,
                     total,
                     change,
-                    color: isLatest ? accent : (isDark ? "#6b7280" : "#9ca3af"),
+                    color: paletteLength > 0 ? palette[i % paletteLength] : "#fe8339",
                 }
             })
-    }, [data, palette, isDark])
+    }, [data, palette])
 
     const chartData =
         viewMode === "month"
@@ -212,8 +206,8 @@ export const ChartYearOverYear = memo(function ChartYearOverYear({
                 description={CHART_DESCRIPTION}
                 details={[
                     "Month: last 12 calendar months",
-                    "Quarter: last 8 quarters, latest highlighted",
-                    "Year: last 5 years, latest highlighted",
+                    "Quarter: last 8 quarters",
+                    "Year: last 5 years",
                     "Percent change vs previous period in the series",
                 ]}
             />
@@ -235,8 +229,8 @@ export const ChartYearOverYear = memo(function ChartYearOverYear({
                 description={CHART_DESCRIPTION}
                 details={[
                     "Month: last 12 calendar months",
-                    "Quarter: last 8 quarters, latest highlighted",
-                    "Year: last 5 years, latest highlighted",
+                    "Quarter: last 8 quarters",
+                    "Year: last 5 years",
                     "Percent change vs previous period in the series",
                 ]}
             />
